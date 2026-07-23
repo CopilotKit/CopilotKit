@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { AssistantMessage } from "@ag-ui/core";
+import type { AssistantMessage } from "@ag-ui/core";
 
 // Wrapper to provide required context
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -192,11 +192,16 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
     describe("markdownRenderer slot", () => {
       it("should pass custom props to markdownRenderer", () => {
         const message = createAssistantMessage("Hello world");
+        const markdownRendererProps: Partial<
+          React.ComponentProps<
+            typeof CopilotChatAssistantMessage.MarkdownRenderer
+          >
+        > & { "data-testid": string } = { "data-testid": "custom-markdown" };
         const { container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}
-              markdownRenderer={{ "data-testid": "custom-markdown" }}
+              markdownRenderer={markdownRendererProps}
             />
           </TestWrapper>,
         );
@@ -210,11 +215,12 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
       it("should pass custom onClick to toolbar", () => {
         const onClick = vi.fn();
         const message = createAssistantMessage("Hello world");
+        const toolbarProps = { onClick, "data-testid": "custom-toolbar" };
         const { container } = render(
           <TestWrapper>
             <CopilotChatAssistantMessage
               message={message}
-              toolbar={{ onClick, "data-testid": "custom-toolbar" }}
+              toolbar={toolbarProps}
             />
           </TestWrapper>,
         );
@@ -492,7 +498,13 @@ describe("CopilotChatAssistantMessage Slot System E2E Tests", () => {
 
     it("should pass message and other props through children render function", () => {
       const message = createAssistantMessage("Test message");
-      const childrenFn = vi.fn(() => <div />);
+      const childrenFn = vi.fn(
+        (_props: {
+          message?: AssistantMessage;
+          isRunning?: boolean;
+          toolbarVisible?: boolean;
+        }) => <div />,
+      );
 
       render(
         <TestWrapper>

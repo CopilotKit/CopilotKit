@@ -1,3 +1,4 @@
+import type { OnDestroy, OnInit } from "@angular/core";
 import {
   Component,
   ChangeDetectionStrategy,
@@ -5,30 +6,29 @@ import {
   inject,
   input,
   signal,
-  OnDestroy,
-  OnInit,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
+import { TitleCasePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
+import type {
+  HumanInTheLoopToolCall,
+  HumanInTheLoopToolRenderer,
+} from "@copilotkit/angular";
 import {
   connectAgentContext,
   CopilotKit,
-  HumanInTheLoopToolCall,
-  HumanInTheLoopToolRenderer,
   injectAgentStore,
   registerHumanInTheLoop,
 } from "@copilotkit/angular";
 import { RenderToolCalls } from "@copilotkit/angular";
-import {
-  WEB_INSPECTOR_TAG,
-  type WebInspectorElement,
-} from "@copilotkit/web-inspector";
+import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
+import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import { z } from "zod";
 
 @Component({
   selector: "require-approval",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
   template: `
     <div>Require approval</div>
     <button (click)="respond({ approved: true })">Approve</button>
@@ -49,7 +49,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
 @Component({
   selector: "headless-chat",
   standalone: true,
-  imports: [CommonModule, FormsModule, RenderToolCalls],
+  imports: [FormsModule, RenderToolCalls, TitleCasePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -66,22 +66,24 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
           color: #111827;
         "
       >
-        <div *ngFor="let m of messages()" style="margin-bottom: 16px">
-          <div style="font-weight: 600; color: #374151">
-            {{ m.role | titlecase }}
+        @for (m of messages(); track m) {
+          <div style="margin-bottom: 16px">
+            <div style="font-weight: 600; color: #374151">
+              {{ m.role | titlecase }}
+            </div>
+            <div style="white-space: pre-wrap">{{ m.content }}</div>
+            @if (m.role === "assistant") {
+              <copilot-render-tool-calls
+                [message]="m"
+                [messages]="messages()"
+                [isLoading]="isRunning()"
+              />
+            }
           </div>
-          <div style="white-space: pre-wrap">{{ m.content }}</div>
-          <ng-container *ngIf="m.role === 'assistant'">
-            <copilot-render-tool-calls
-              [message]="m"
-              [messages]="messages() ?? []"
-              [isLoading]="isRunning()"
-            ></copilot-render-tool-calls>
-          </ng-container>
-        </div>
-        <div *ngIf="isRunning()" style="opacity: 0.9; color: #6b7280">
-          Thinking…
-        </div>
+        }
+        @if (isRunning()) {
+          <div style="opacity: 0.9; color: #6b7280">Thinking…</div>
+        }
       </div>
 
       <form
@@ -122,6 +124,20 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
           "
         >
           Send
+        </button>
+        <button
+          type="button"
+          (click)="clearThreads()"
+          style="
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+          "
+        >
+          Clear threads
         </button>
       </form>
     </div>
@@ -179,6 +195,25 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
       this.inspectorElement.remove();
     }
     this.inspectorElement = null;
+  }
+
+  async clearThreads() {
+    const runtimeUrl = this.copilotkit.core?.runtimeUrl;
+    if (!runtimeUrl) return;
+    const url = runtimeUrl.replace(/\/$/, "");
+    try {
+      const res = await fetch(`${url}/threads/clear`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        console.error(
+          `Failed to clear threads: HTTP ${res.status} ${res.statusText}`,
+        );
+      }
+    } catch (err) {
+      console.error("Failed to clear threads", err);
+    }
   }
 
   async send() {

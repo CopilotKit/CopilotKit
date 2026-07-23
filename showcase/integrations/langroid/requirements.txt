@@ -1,0 +1,15 @@
+fastapi>=0.115.0
+uvicorn>=0.34.0
+langroid>=0.53.0
+ag-ui-protocol>=0.1.14
+python-dotenv>=1.0.0
+# Direct-dependency pins: agui_adapter.py imports httpx / openai / pydantic
+# explicitly. langroid already transitively pulls all three, but pinning
+# floors here keeps behavior reproducible if langroid ever narrows its
+# transitive requirements.
+httpx>=0.27.0
+openai>=1.40.0
+pydantic>=2.0.0
+# pypdf — flatten PDF attachments to text for the multimodal demo
+# (gpt-4o accepts images natively but cannot read PDFs).
+pypdf>=4.0.0,<7.0.0

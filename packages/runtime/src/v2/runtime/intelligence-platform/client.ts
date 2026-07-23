@@ -1,4 +1,17 @@
 import { logger } from "@copilotkit/shared";
+import { randomUUID } from "crypto";
+
+/**
+ * Header name carrying the per-call end-user identity that the CopilotKit
+ * Intelligence `/mcp` endpoint requires. Internal CopilotKit machinery —
+ * `attachIntelligenceEnterpriseLearning` resolves the user via `identifyUser`
+ * and bakes this header onto the `MCPMiddleware`'s transport config, so every
+ * outbound MCP request stamps `X-Cpki-User-Id: <userId>`. Not part of the
+ * public user API.
+ *
+ * @internal
+ */
+export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -9,7 +22,7 @@ import { logger } from "@copilotkit/shared";
  * @example
  * ```ts
  * try {
- *   await intelligence.getThread({ threadId });
+ *   await intelligence.getThread({ threadId, userId });
  * } catch (error) {
  *   if (error instanceof PlatformRequestError && error.status === 404) {
  *     // thread does not exist yet
@@ -64,6 +77,18 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
+  /**
+   * Enable Enterprise Learning — expose the Intelligence platform's
+   * built-in tools (bash + thread/memory tools) to agent runs on an
+   * intelligence runtime that resolve a user. Attached uniformly across
+   * agent frameworks by `attachIntelligenceEnterpriseLearning` via
+   * `@ag-ui/mcp-middleware`, with the resolved user-id and project apiKey
+   * baked into the transport headers for that request's clone.
+   *
+   * Defaults to `false` — opt-in. Existing intelligence setups continue
+   * to work without these tools unless they flip this flag.
+   */
+  enableEnterpriseLearning?: boolean;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -124,6 +149,42 @@ export interface ListThreadsResponse {
 }
 
 /**
+ * A single memory as returned by the platform's list endpoint. Mirrors the
+ * public projection the client memory store consumes (tenant ids stripped).
+ */
+export interface MemorySummary {
+  /** Platform-assigned unique identifier. */
+  id: string;
+  /** Memory kind, e.g. `"topical"`, `"episodic"`, `"operational"`. */
+  kind: string;
+  /** Memory scope: `"user"` (private) or `"project"` (shared). */
+  scope: string;
+  /** The remembered fact, preference, or procedure. */
+  content: string;
+  /** Ids of the threads this memory was learned from. */
+  sourceThreadIds: string[];
+  /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
+  invalidatedAt: string | null;
+}
+
+/** Response from {@link CopilotKitIntelligence.listMemories}. */
+export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/**
+ * Response from a create ({@link CopilotKitIntelligence.createMemory}) or
+ * supersede ({@link CopilotKitIntelligence.updateMemory}) call: the stored
+ * memory, plus the operation-specific marker the client store consumes.
+ */
+export interface SaveMemoryResponse extends MemorySummary {
+  /** Create only: content was merged into a near-duplicate, not inserted new. */
+  absorbed?: boolean;
+  /** Supersede only: the id of the memory retired by this call. */
+  retiredId?: string;
+}
+
+/**
  * Fields that can be updated on a thread via {@link CopilotKitIntelligence.updateThread}.
  *
  * Additional platform-specific fields can be passed as extra keys and will be
@@ -167,11 +228,74 @@ export interface SubscribeToThreadsResponse {
   joinToken: string;
 }
 
+export interface SubscribeToMemoriesRequest {
+  userId: string;
+}
+
+/**
+ * Memory subscribe returns both the token and the join code, unlike threads
+ * (whose join code reaches the client via the thread-list response). Memory has
+ * no list-borne code, so the code is delivered here and used to build the
+ * `user_meta:memories:<joinCode>` channel topic.
+ */
+export interface SubscribeToMemoriesResponse {
+  joinToken: string;
+  joinCode: string;
+}
+
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
   /** Canonical platform run identifier for the acquired lock. */
   runId: string;
+}
+
+/**
+ * Parameters for annotating a thread event via
+ * {@link CopilotKitIntelligence.annotate}. The runtime resolves `userId`
+ * from the customer's BFF auth before calling this; the platform prefixes
+ * it with the project id at write time.
+ *
+ * `payload` is the type-specific JSON blob for the annotation (e.g. a
+ * `"user_action"` event carries the recorded fields, a
+ * `"set_learning_containers"` event carries the container list). The exact
+ * shape per type is validated by the Intelligence backend; canonical shapes
+ * are documented on the Intelligence react-core side.
+ */
+export interface AnnotateParams {
+  /** The user the annotation belongs to. */
+  userId: string;
+  /** The thread the annotation is associated with. May be unknown to the platform. */
+  threadId: string;
+  /**
+   * Discriminator identifying the annotation type.
+   * Must match a type known to the Intelligence platform
+   * (e.g. `"user_action"`, `"set_learning_containers"`).
+   */
+  type: string;
+  /** Type-specific payload. Shape varies by `type`. */
+  payload?: unknown;
+  /**
+   * Caller-supplied idempotency key (any RFC-compliant UUID). When omitted,
+   * a UUID is auto-generated. Every call hits the platform's idempotent
+   * `PUT /connector/annotate/:clientEventId` endpoint; a retry with the
+   * same id collapses to the original row.
+   */
+  clientEventId?: string;
+  /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
+  occurredAt?: string;
+}
+
+/** Response from {@link CopilotKitIntelligence.annotate}. */
+export interface AnnotateResponse {
+  /** Database id of the annotation row (BIGINT, returned as a string). */
+  id: string;
+  /**
+   * True when the platform recognized the `clientEventId` as a retry of
+   * a previous call and returned the original row id instead of inserting
+   * a new one.
+   */
+  duplicate: boolean;
 }
 
 /** A single message within a thread's persisted history. */
@@ -197,6 +321,40 @@ export interface ThreadMessage {
 export interface ThreadMessagesResponse {
   messages: ThreadMessage[];
 }
+
+/**
+ * Persisted AG-UI event for the inspector's debugging views. The platform
+ * stores raw events keyed by run; the `_inspect` route returns them in
+ * replay order (oldest first) across every run that targeted the thread.
+ */
+export interface ThreadInspectEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Response from {@link CopilotKitIntelligence.getThreadEvents}. Mirrors the
+ * `ThreadEventsResult` shape returned by the platform's
+ * `GET /api/_inspect/threads/:id/events` endpoint.
+ */
+export interface ThreadEventsResponse {
+  events: ThreadInspectEvent[];
+  /** Row IDs the platform failed to decode (raw column corrupted). */
+  decodeErrorRowIds: string[];
+  /** True when the platform hit its per-thread event cap. */
+  truncated: boolean;
+}
+
+/**
+ * Response from {@link CopilotKitIntelligence.getThreadState}. Mirrors the
+ * discriminated `ThreadStateResult` returned by the platform's
+ * `GET /api/_inspect/threads/:id/state` endpoint, which folds RFC 6902
+ * STATE_DELTA events on top of the latest STATE_SNAPSHOT.
+ */
+export type ThreadStateResponse =
+  | { kind: "no-snapshot" }
+  | { kind: "snapshot-decode-error" }
+  | { kind: "snapshot"; state: unknown; skippedDeltas: number };
 
 export interface AcquireThreadLockRequest {
   threadId: string;
@@ -241,6 +399,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
+  #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -252,6 +411,7 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
+    this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -340,12 +500,28 @@ export class CopilotKitIntelligence {
     return this.#apiKey;
   }
 
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
+  ɵgetApiKey(): string {
+    return this.#apiKey;
+  }
+
+  /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
+  ɵisEnterpriseLearningEnabled(): boolean {
+    return this.#enterpriseLearningEnabled;
+  }
+
+  async #request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
+      ...extraHeaders,
     };
 
     const response = await fetch(url, {
@@ -423,6 +599,99 @@ export class CopilotKitIntelligence {
     return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
   }
 
+  /**
+   * List the given user's long-term memories, newest first.
+   *
+   * The platform scopes by the opaque app user supplied in the
+   * `x-cpki-user-id` header (resolved by the runtime via `identifyUser`),
+   * not a query param. Pass `includeInvalidated` to also return retired rows.
+   *
+   * @returns The `{ memories }` envelope the client memory store consumes.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async listMemories(params: {
+    userId: string;
+    includeInvalidated?: boolean;
+  }): Promise<ListMemoriesResponse> {
+    const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
+    return this.#request<ListMemoriesResponse>(
+      "GET",
+      `/api/memories${qs}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Create a memory for the given user (platform `POST /api/memories`).
+   * @returns The stored memory; `absorbed` is true if the content was merged
+   *   into a near-duplicate rather than inserted as a new row.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async createMemory(params: {
+    userId: string;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "POST",
+      `/api/memories`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Supersede an existing memory (platform `PATCH /api/memories/:id`). The
+   * `:id` row is retired and a new memory with the supplied content is
+   * inserted atomically.
+   * @returns The new memory plus `retiredId` (the id of the retired row).
+   * @throws {@link PlatformRequestError} on non-2xx responses (e.g. 404 when
+   *   `:id` is not a live, same-scope memory for this user).
+   */
+  async updateMemory(params: {
+    userId: string;
+    id: string;
+    content: string;
+    kind: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "PATCH",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      {
+        content: params.content,
+        kind: params.kind,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+    await this.#request<void>(
+      "DELETE",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
   async ɵsubscribeToThreads(
     params: SubscribeToThreadsRequest,
   ): Promise<SubscribeToThreadsResponse> {
@@ -432,6 +701,31 @@ export class CopilotKitIntelligence {
       {
         userId: params.userId,
       },
+    );
+  }
+
+  /**
+   * Mint memory-realtime join credentials (platform `POST
+   * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
+   * per-user `joinCode` the client needs to build the
+   * `user_meta:memories:<joinCode>` channel topic.
+   *
+   * The user is supplied via the `x-cpki-user-id` header — the same way every
+   * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
+   * user — because the platform's memory routes resolve identity from that
+   * header, not the body. (This differs from `ɵsubscribeToThreads`, whose
+   * platform endpoint reads `userId` from the body.)
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵsubscribeToMemories(
+    params: SubscribeToMemoriesRequest,
+  ): Promise<SubscribeToMemoriesResponse> {
+    return this.#request<SubscribeToMemoriesResponse>(
+      "POST",
+      "/api/memories/subscribe",
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
     );
   }
 
@@ -493,10 +787,14 @@ export class CopilotKitIntelligence {
    * @throws {@link PlatformRequestError} with status 404 if the thread does
    *   not exist.
    */
-  async getThread(params: { threadId: string }): Promise<ThreadSummary> {
+  async getThread(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadSummary> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     const response = await this.#request<ThreadEnvelope>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}`,
+      `/api/threads/${encodeURIComponent(params.threadId)}?${qs}`,
     );
     return response.thread;
   }
@@ -520,7 +818,10 @@ export class CopilotKitIntelligence {
     params: CreateThreadRequest,
   ): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
-      const thread = await this.getThread({ threadId: params.threadId });
+      const thread = await this.getThread({
+        threadId: params.threadId,
+        userId: params.userId,
+      });
       return { thread, created: false };
     } catch (error) {
       if (!(error instanceof PlatformRequestError && error.status === 404)) {
@@ -534,7 +835,10 @@ export class CopilotKitIntelligence {
     } catch (error) {
       // Another request created the thread between our get and create — retry get.
       if (error instanceof PlatformRequestError && error.status === 409) {
-        const thread = await this.getThread({ threadId: params.threadId });
+        const thread = await this.getThread({
+          threadId: params.threadId,
+          userId: params.userId,
+        });
         return { thread, created: false };
       }
       throw error;
@@ -549,10 +853,54 @@ export class CopilotKitIntelligence {
    */
   async getThreadMessages(params: {
     threadId: string;
+    userId: string;
   }): Promise<ThreadMessagesResponse> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
+    );
+  }
+
+  /**
+   * Fetch the persisted AG-UI event stream for a thread.
+   *
+   * Backed by the platform's `GET /api/_inspect/threads/:id/events`
+   * introspection endpoint (see Intelligence PR #144). Events are returned
+   * in replay order across every run that targeted the thread. The
+   * `_inspect/` prefix flags this as debug-only — production code paths
+   * must not depend on it.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async getThreadEvents(params: {
+    threadId: string;
+  }): Promise<ThreadEventsResponse> {
+    return this.#request<ThreadEventsResponse>(
+      "GET",
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/events`,
+    );
+  }
+
+  /**
+   * Fetch the current agent state for a thread.
+   *
+   * Backed by the platform's `GET /api/_inspect/threads/:id/state`
+   * introspection endpoint (see Intelligence PR #144). The platform folds
+   * RFC 6902 STATE_DELTA events on top of the latest STATE_SNAPSHOT, so
+   * the returned state reflects the thread's current state — not just the
+   * last snapshot. The discriminated response distinguishes "no snapshot
+   * persisted yet" from "snapshot present" so consumers can render the
+   * correct empty state.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async getThreadState(params: {
+    threadId: string;
+  }): Promise<ThreadStateResponse> {
+    return this.#request<ThreadStateResponse>(
+      "GET",
+      `/api/_inspect/threads/${encodeURIComponent(params.threadId)}/state`,
     );
   }
 
@@ -594,10 +942,69 @@ export class CopilotKitIntelligence {
       "DELETE",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
+        userId: params.userId,
+        agentId: params.agentId,
         reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
       },
     );
     this.#invokeLifecycleCallback("onThreadDeleted", params);
+  }
+
+  /**
+   * Annotate a thread event on the Intelligence platform's general annotation
+   * endpoint (`PUT /connector/annotate/:clientEventId`).
+   *
+   * This is the generalized replacement for the old
+   * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
+   * multiple annotation types via the `type` discriminator:
+   * - `"user_action"` — records a user UI interaction for the self-learning loop.
+   * - `"set_learning_containers"` — sets the learning containers for a thread.
+   *
+   * `userId` must be resolved on the runtime side before calling this — the
+   * platform prefixes it with the project id from the API key.
+   *
+   * Always hits the idempotent `PUT /connector/annotate/:clientEventId`
+   * endpoint. A retry with the same `clientEventId` returns
+   * `{ id: <original>, duplicate: true }` instead of creating a new row.
+   * When `clientEventId` is omitted, a UUID is auto-generated for this call.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses, OR when the
+   *   platform returns an empty 2xx body (which would otherwise corrupt the
+   *   caller's typed result).
+   */
+  async annotate(params: AnnotateParams): Promise<AnnotateResponse> {
+    const clientEventId = params.clientEventId ?? randomUUID();
+    const path = `/connector/annotate/${encodeURIComponent(clientEventId)}`;
+    const body: Record<string, unknown> = {
+      type: params.type,
+      userId: params.userId,
+      threadId: params.threadId,
+    };
+    if (params.payload !== undefined) {
+      body.payload = params.payload;
+    }
+    if (params.occurredAt !== undefined) {
+      body.occurredAt = params.occurredAt;
+    }
+    const response = await this.#request<AnnotateResponse | null | undefined>(
+      "PUT",
+      path,
+      body,
+    );
+    // `== null` catches both `undefined` (empty body from `#request`)
+    // and JSON `null` (which would otherwise corrupt the typed result
+    // and surface as a `TypeError` deep in caller code).
+    if (response == null) {
+      logger.error(
+        { path },
+        "annotate: Intelligence platform returned 200 with empty or null body",
+      );
+      throw new PlatformRequestError(
+        "annotate: empty or null response body from Intelligence platform",
+        502,
+      );
+    }
+    return response;
   }
 
   async ɵacquireThreadLock(

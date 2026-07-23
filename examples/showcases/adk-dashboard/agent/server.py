@@ -4,6 +4,7 @@ from ag_ui_adk import add_adk_fastapi_endpoint
 from agent import dashboard_agent
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 

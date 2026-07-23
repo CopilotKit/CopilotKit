@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
@@ -42,5 +42,5 @@ export function useFrontendTool<
     // Depend on stable keys by default and allow callers to opt into
     // additional dependencies for dynamic tool configuration.
     // tool.available is included so toggling availability re-registers the tool.
-  }, [tool.name, tool.available, copilotkit, extraDeps.length, ...extraDeps]);
+  }, [tool.name, tool.available, copilotkit, JSON.stringify(extraDeps)]);
 }

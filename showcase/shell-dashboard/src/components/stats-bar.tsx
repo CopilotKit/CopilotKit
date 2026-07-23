@@ -1,15 +1,17 @@
 "use client";
 /**
  * StatsBar — large numbers: wired/stub/unshipped counts + max achieved
- * depth + regression count.
+ * depth + regression count + failure count.
  */
 
 export interface StatsBarProps {
   wired: number;
   stub: number;
   unshipped: number;
+  unsupported?: number;
   maxDepth: number;
   regressions: number;
+  failures: number;
 }
 
 function Stat({
@@ -24,7 +26,10 @@ function Stat({
   return (
     <div
       className="flex flex-col items-center"
-      data-testid={`stat-${label.toLowerCase()}`}
+      data-testid={`stat-${label
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")}`}
     >
       <span
         className={`text-2xl font-bold tabular-nums ${colorClass ?? "text-[var(--text)]"}`}
@@ -42,16 +47,23 @@ export function StatsBar({
   wired,
   stub,
   unshipped,
+  unsupported = 0,
   maxDepth,
   regressions,
+  failures,
 }: StatsBarProps) {
   return (
     <div data-testid="stats-bar" className="flex items-center gap-8 px-4 py-3">
-      <Stat value={wired} label="Wired" colorClass="text-[var(--ok)]" />
+      <Stat value={wired} label="API (HTTP)" colorClass="text-[var(--ok)]" />
       <Stat value={stub} label="Stub" colorClass="text-[var(--amber)]" />
       <Stat
         value={unshipped}
         label="Unshipped"
+        colorClass="text-[var(--text-muted)]"
+      />
+      <Stat
+        value={unsupported}
+        label="Unsupported"
         colorClass="text-[var(--text-muted)]"
       />
       <Stat
@@ -64,6 +76,13 @@ export function StatsBar({
         label="Regressions"
         colorClass={
           regressions > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
+        }
+      />
+      <Stat
+        value={failures}
+        label="Failures"
+        colorClass={
+          failures > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
         }
       />
     </div>

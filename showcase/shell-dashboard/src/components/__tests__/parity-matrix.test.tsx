@@ -30,6 +30,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Fresh timestamp so green rows are not tripped by the D1/D2/D4 staleness
+// downgrade (deriveDepth defaults `now` to Date.now()). These tests assert
+// achieved depth, not staleness, so the rows must read as recently observed.
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function row(
   key: string,
   dimension: string,
@@ -41,8 +46,8 @@ function row(
     dimension,
     state,
     signal: {},
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -68,21 +73,27 @@ const features = [
 const cells: CatalogCell[] = [
   {
     id: "lgp/agentic-chat",
+    manifestation: "integrated",
     integration: "lgp",
     integration_name: "LangGraph Python",
     feature: "agentic-chat",
     feature_name: "Agentic Chat",
     status: "wired",
+    parity_tier: "reference",
+    max_depth: 0,
     category: "chat-ui",
     category_name: "Chat & UI",
   },
   {
     id: "crewai/agentic-chat",
+    manifestation: "integrated",
     integration: "crewai",
     integration_name: "CrewAI",
     feature: "agentic-chat",
     feature_name: "Agentic Chat",
     status: "wired",
+    parity_tier: "partial",
+    max_depth: 0,
     category: "chat-ui",
     category_name: "Chat & UI",
   },
@@ -182,11 +193,14 @@ describe("ParityMatrix", () => {
     ];
     const tierCells: CatalogCell[] = tierIntegrations.map((i) => ({
       id: `${i.slug}/agentic-chat`,
+      manifestation: "integrated",
       integration: i.slug,
       integration_name: i.name,
       feature: "agentic-chat",
       feature_name: "Agentic Chat",
       status: "wired",
+      parity_tier: i.tier,
+      max_depth: 0,
       category: "chat-ui",
       category_name: "Chat & UI",
     }));
@@ -218,11 +232,14 @@ describe("ParityMatrix", () => {
       ...cells,
       {
         id: "lgp/__starter",
+        manifestation: "starter",
         integration: "lgp",
         integration_name: "LangGraph Python",
         feature: null,
         feature_name: null,
         status: "wired",
+        parity_tier: "not_wired",
+        max_depth: 0,
         category: null,
         category_name: null,
       },

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill). Mirrors the claude-sdk-python pattern landed in PR #5407: a `display_flight` tool call routed on the initial turn, then a confirmation reply once the tool result returns. The BIA tanstack factory (src/lib/factory/a2ui-fixed-schema-factory.ts) serves the `display_flight` tool whose server callback emits an `a2ui_operations` container (v0.9 envelope). The runtime A2UI middleware detects that container in the TOOL_CALL_RESULT content and forwards the operations to the frontend `a2ui-fixed-card` renderer.",
+    "created": "2026-06-12"
+  },
+  "fixtures": [
+    {
+      "_comment": "a2ui-fixed-schema pill leg 1 — 'Find me a flight from SFO to JFK on United for $289.' Anchored on hasToolResult:false so it fires only on the initial routing turn before any tool result is in the thread. Without this fixture the existing tool-rendering.json `SFO to JFK` entry could intercept the pill but uses a d5-only toolCallId, leaving the BIA renderer with no Card mount (the bug that PR #5425 verify caught for the BIA cherry-picks).",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_flight_sfo_jfk_001",
+            "name": "display_flight",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill leg 2 — follow-up content after display_flight has returned its a2ui_operations container (flight card already rendered). Anchored on hasToolResult:true so it fires AFTER the tool result instead of re-routing, preventing a tool-invocation loop.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      }
+    }
+  ]
+}

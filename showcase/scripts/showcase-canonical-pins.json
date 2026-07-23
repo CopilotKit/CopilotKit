@@ -1,0 +1,13 @@
+{
+  "_comment": "Canonical pin set for showcase-internal pin validation. `canonicalCopilotKitVersion` is the SINGLE source of truth for every `@copilotkit/*` dep across all `showcase/integrations/<slug>/package.json` files; validate-pins.ts FAILs any showcase integration whose `@copilotkit/*` pins do not match. Use `overrides[slug]` to legitimately deviate from the canonical version for a specific integration (e.g. a `pkg.pr.new` URL during a runtime upgrade, or an older stable for a special-purpose harness). `overrides[slug]['@copilotkit/<pkg>']` maps a single dep name to its allowed verbatim spec; entries match by exact dep name. Exact-pin discipline (no ^/~/>=/latest/next/dist-tags/workspace:*) still applies to ALL framework deps in EVERY integration; the override list only relaxes the canonical-version check for the named @copilotkit deps. To bump the canonical version: edit `canonicalCopilotKitVersion`, regen each `showcase/integrations/<slug>/package.json` + `package-lock.json`, then re-baseline `fail-baseline.json` (validate-pins.ts prints the new count/hash on a clean run).",
+  "canonicalCopilotKitVersion": "1.61.2",
+  "overrides": {
+    "mastra": {
+      "@copilotkit/react-core": "1.62.1",
+      "@copilotkit/runtime": "1.62.1",
+      "@copilotkit/shared": "1.62.1",
+      "@copilotkit/voice": "1.62.1",
+      "@copilotkit/a2ui-renderer": "1.62.1"
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "_comment": "D5 fixture for /demos/tool-rendering-reasoning-chain (LangGraph Python). The demo composes a reasoningMessage slot (<ReasoningBlock data-testid=\"reasoning-block\">) with per-tool renderers (WeatherCard / FlightListCard / catchall for stocks & dice). Three pills, all CHAINED — each user prompt drives two tool calls in succession before a final narration. Each first-leg fixture is gated on a `userMessage` substring that ONLY appears in this demo's pill prompts ('Compare AAPL and MSFT stocks for me', 'compare it to a smaller one', 'show me the weather there'). That keeps these fixtures from cross-contaminating the other 14+ integrations whose reasoning-chain demos share `showcase-aimock` on Railway and use overlapping prompts like 'Roll a 20-sided die for me.' or 'Find flights from SFO to JFK.' — those substrings would have been hijacked if we relied on `toolName: roll_dice` alone, because most reasoning-chain agents across the fleet also register `roll_dice`. For multi-pill safety in a single thread each follow-up leg is keyed on the prior step's `toolCallId`; the matcher checks `messages[last].tool_call_id`, which is stable regardless of how many prior pills left tool history in the thread. Ordering within each pill is final-content → second-leg → first-leg (first-match-wins) so the toolCallId-specific fixtures win before the bare first-leg can re-emit. Non-empty `content` is load-bearing on tool-emitting fixtures: aimock's Responses-API dispatch routes tool-call-only responses (no `content`) through `buildToolCallResponse`, which silently drops the `reasoning` payload, and the v2 <ReasoningBlock> never mounts. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
+  "fixtures": [
+    {
+      "_comment": "Pill 1 (stocks) — final narration after the MSFT tool result lands. Specific toolCallId so this matches BEFORE the first-leg fixture below despite the same userMessage substring.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_msft_001"
+      },
+      "response": {
+        "content": "AAPL is at $338.37 (-2.96% on the day) while MSFT is at $412.18 (+1.08%). MSFT is outpacing AAPL by roughly 4 points today — strong day for MSFT, rough one for AAPL."
+      }
+    },
+    {
+      "_comment": "Pill 1 (stocks) — second leg: after get_stock_price(AAPL) returns, chain to MSFT for the comparison.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks",
+        "toolCallId": "call_rc_stock_aapl_001"
+      },
+      "response": {
+        "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "content": "Now pulling MSFT to complete the comparison.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_msft_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"MSFT\",\"price_usd\":412.18,\"change_pct\":1.08}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 1 (stocks) — first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill — other integrations' reasoning-chain demos still ship the older `How is AAPL doing?` prompt — so we don't need an additional tool-name gate.",
+      "match": {
+        "userMessage": "Compare AAPL and MSFT stocks"
+      },
+      "response": {
+        "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "content": "Pulling the AAPL quote first.",
+        "toolCalls": [
+          {
+            "id": "call_rc_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — final narration after the d6 contrast roll lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail of the pill prompt ('compare it to a smaller one'); other integrations' dice pills (e.g. agno, ms-agent-python) still send the older 'Roll a 20-sided die for me.' which does NOT contain this substring, so this fixture stays scoped to this demo without needing a fragile tool-name gate.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d6_001"
+      },
+      "response": {
+        "content": "The d20 came up 14, and a d6 for contrast landed on 4 — the d20's range is much wider, which is the whole point of the comparison."
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — second leg: after roll_dice(sides=20) returns, chain a smaller die for contrast.",
+      "match": {
+        "userMessage": "compare it to a smaller one",
+        "toolCallId": "call_rc_dice_d20_001"
+      },
+      "response": {
+        "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "content": "Now rolling a d6 for contrast.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d6_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":6}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring keeps us scoped to this demo (other integrations send the bare 'Roll a 20-sided die for me.' which falls through to the older 5x roll_d20 fixtures further down in d5-all.json).",
+      "match": {
+        "userMessage": "compare it to a smaller one"
+      },
+      "response": {
+        "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "content": "Rolling the d20 now.",
+        "toolCalls": [
+          {
+            "id": "call_rc_dice_d20_001",
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — final narration after get_weather(JFK) lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail of the pill prompt ('show me the weather there'); the basic tool-rendering demos AND the other integrations' reasoning-chain demos still send 'Find flights from SFO to JFK.' which lacks this substring, so this fixture stays scoped to this demo.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_weather_jfk_001"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289). JFK is currently 68°F and sunny — easy travel weather on the receiving end."
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — second leg: after search_flights(SFO,JFK) returns, chain to destination weather.",
+      "match": {
+        "userMessage": "show me the weather there",
+        "toolCallId": "call_rc_flights_jfk_001"
+      },
+      "response": {
+        "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "content": "Pulling JFK weather to round out the trip plan.",
+        "toolCalls": [
+          {
+            "id": "call_rc_weather_jfk_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pill 3 (flights + destination weather) — first leg: emit search_flights(SFO,JFK). The unique 'show me the weather there' substring keeps this fixture from absorbing the basic tool-rendering demo's bare 'Find flights from SFO to JFK.' prompt (and the equivalent prompt in other integrations' reasoning-chain demos that have not yet been ported to the chained phrasing).",
+      "match": {
+        "userMessage": "show me the weather there"
+      },
+      "response": {
+        "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "content": "Searching SFO→JFK flights.",
+        "toolCalls": [
+          {
+            "id": "call_rc_flights_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

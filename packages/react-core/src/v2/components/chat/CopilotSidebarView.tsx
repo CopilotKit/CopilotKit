@@ -21,6 +21,7 @@ export type CopilotSidebarViewProps = CopilotChatViewProps & {
   toggleButton?: SlotValue<typeof CopilotChatToggleButton>;
   width?: number | string;
   defaultOpen?: boolean;
+  position?: "left" | "right";
 };
 
 export function CopilotSidebarView({
@@ -28,6 +29,7 @@ export function CopilotSidebarView({
   toggleButton,
   width,
   defaultOpen = true,
+  position = "right",
   ...props
 }: CopilotSidebarViewProps) {
   return (
@@ -36,6 +38,7 @@ export function CopilotSidebarView({
         header={header}
         toggleButton={toggleButton}
         width={width}
+        position={position}
         {...props}
       />
     </CopilotChatConfigurationProvider>
@@ -46,6 +49,7 @@ function CopilotSidebarViewInternal({
   header,
   toggleButton,
   width,
+  position = "right",
   ...props
 }: Omit<CopilotSidebarViewProps, "defaultOpen">) {
   const configuration = useCopilotChatConfiguration();
@@ -118,29 +122,34 @@ function CopilotSidebarViewInternal({
       return;
     if (!window.matchMedia("(min-width: 768px)").matches) return;
 
+    const marginStyleProp =
+      position === "left" ? "marginInlineStart" : "marginInlineEnd";
+    const transitionCssProp =
+      position === "left" ? "margin-inline-start" : "margin-inline-end";
+
     if (isSidebarOpen) {
       if (hasMounted.current) {
-        document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
+        document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
       }
-      document.body.style.marginInlineEnd = widthToMargin(sidebarWidth);
+      document.body.style[marginStyleProp] = widthToMargin(sidebarWidth);
     } else if (hasMounted.current) {
-      document.body.style.transition = `margin-inline-end ${SIDEBAR_TRANSITION_MS}ms ease`;
-      document.body.style.marginInlineEnd = "";
+      document.body.style.transition = `${transitionCssProp} ${SIDEBAR_TRANSITION_MS}ms ease`;
+      document.body.style[marginStyleProp] = "";
     }
 
     hasMounted.current = true;
 
     return () => {
-      document.body.style.marginInlineEnd = "";
+      document.body.style[marginStyleProp] = "";
       document.body.style.transition = "";
     };
-  }, [isSidebarOpen, sidebarWidth]);
+  }, [isSidebarOpen, sidebarWidth, position]);
 
   const headerElement = renderSlot(header, CopilotModalHeader, {});
   const toggleButtonElement = renderSlot(
     toggleButton,
     CopilotChatToggleButton,
-    {},
+    position === "left" ? { className: "cpk:left-6 cpk:right-auto" } : {},
   );
 
   return (
@@ -151,18 +160,23 @@ function CopilotSidebarViewInternal({
         data-copilotkit
         data-testid="copilot-sidebar"
         data-copilot-sidebar
+        data-position={position}
         className={cn(
           "copilotKitSidebar copilotKitWindow",
-          "cpk:fixed cpk:right-0 cpk:top-0 cpk:z-[1200] cpk:flex",
+          "cpk:fixed cpk:top-0 cpk:z-[1200] cpk:flex",
+          position === "left" ? "cpk:left-0" : "cpk:right-0",
           // Height with dvh fallback and safe area support
           "cpk:h-[100vh] cpk:h-[100dvh] cpk:max-h-screen",
           // Responsive width: full on mobile, custom on desktop
           "cpk:w-full",
-          "cpk:border-l cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
+          position === "left" ? "cpk:border-r" : "cpk:border-l",
+          "cpk:border-border cpk:bg-background cpk:text-foreground cpk:shadow-xl",
           "cpk:transition-transform cpk:duration-300 cpk:ease-out",
           isSidebarOpen
             ? "cpk:translate-x-0"
-            : "cpk:translate-x-full cpk:pointer-events-none",
+            : position === "left"
+              ? "cpk:-translate-x-full cpk:pointer-events-none"
+              : "cpk:translate-x-full cpk:pointer-events-none",
         )}
         style={
           {

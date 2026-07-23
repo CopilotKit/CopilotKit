@@ -9,7 +9,6 @@
 // informational and runnable demos.
 
 import type { CellContext } from "@/components/feature-grid";
-import { CellStatus } from "@/components/cell-pieces";
 
 export function CommandCell({ ctx }: { ctx: CellContext }) {
   const command = ctx.demo.command ?? "";
@@ -24,7 +23,6 @@ export function CommandCell({ ctx }: { ctx: CellContext }) {
         </code>
         <CopyButton text={command} />
       </div>
-      <CellStatus ctx={ctx} />
     </div>
   );
 }

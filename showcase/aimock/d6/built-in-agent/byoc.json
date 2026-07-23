@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / byoc",
+    "sourceFile": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — Sales dashboard. The D5 script sends the full HASHBROWN_PILL prompt and asserts metric-card + chart selectors mount. The response must include structured JSON that the BYOC renderer can parse into metric cards and charts.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_hashbrown_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Avg Order Value\",\"value\":\"$127\",\"change\":\"+3%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"SMB\",\"value\":800000},{\"label\":\"Consumer\",\"value\":400000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":750000},{\"label\":\"Nov\",\"value\":800000},{\"label\":\"Dec\",\"value\":850000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after render_dashboard tool result returns.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Dashboard rendered above — total revenue hit $2.4M in Q4, up 12% quarter-over-quarter. The pie chart breaks revenue by segment and the bar chart shows the monthly trend."
+      }
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+# docker-compose.dev.yml — FAST DEV overlay for `showcase up --dev` / `showcase test --dev`.
+#
+# Layered ON TOP of docker-compose.local.yml. The base file already
+# BIND-MOUNTS each integration's `./integrations/<slug>/src` into `/app/src`;
+# this overlay adds the two things needed to turn that into a hot-reload dev
+# loop WITHOUT an image rebuild:
+#
+#   1. Mounts the shared dev entrypoint (shared/dev/dev-entrypoint.sh) into
+#      the container at /app/dev-entrypoint.sh.
+#   2. Overrides each integration's `command` to run that dev entrypoint, which
+#      launches the stack's NATIVE reloader against the bind-mounted source
+#      (uvicorn --reload for the Python agent, `next dev` for the frontend,
+#      `langgraph dev` for langgraph graphs — all file-watch hot reload).
+#
+# Everything else (image, env, network, aimock wiring, the control-plane /
+# worker fleet) is inherited UNCHANGED from docker-compose.local.yml — only
+# the integration runtime differs (source-mounted + auto-reload). The built-
+# image mode (no overlay) remains the faithful/staging-equivalent default.
+#
+# Usage:
+#   showcase up <slug> --dev      # bring the integration up in hot-reload mode
+#   showcase test <slug> --d5 --dev
+#
+# After it is up, edit any file under integrations/<slug>/src and the
+# component reloads in place — watch `showcase logs <slug>` for the reload.
+
+x-dev-overrides:
+  &dev-overrides # Run the bind-mounted source under hot reload instead of the baked image.
+  command: ["/bin/bash", "/app/dev-entrypoint.sh"]
+  # Dev-only: run as root so the file-watch reloaders can write the scratch
+  # files they need (`next dev` writes next-env.d.ts / .next under the
+  # root-owned /app; uvicorn --reload needs no writes). The production image
+  # runs as the unprivileged `app` user — this override is DEV-ONLY and never
+  # applies to the faithful built-image path.
+  user: root
+
+services:
+  langgraph-python:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/langgraph-python/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  langgraph-typescript:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/langgraph-typescript/src:/app/src
+      - /app/src/agent/node_modules
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  strands-typescript:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/strands-typescript/src:/app/src
+      - /app/src/agent/node_modules
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  langgraph-fastapi:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/langgraph-fastapi/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  google-adk:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/google-adk/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  mastra:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/mastra/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  crewai-crews:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/crewai-crews/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
+  pydantic-ai:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/pydantic-ai/src:/app/src
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+      # next dev (unlike the baked `next start`) needs the source-side config
+      # files the production image does not ship — mount them read-only from the
+      # integration root so the frontend dev server boots.
+      - ./integrations/pydantic-ai/next.config.ts:/app/next.config.ts:ro
+      - ./integrations/pydantic-ai/tsconfig.json:/app/tsconfig.json:ro
+      - ./integrations/pydantic-ai/postcss.config.mjs:/app/postcss.config.mjs:ro

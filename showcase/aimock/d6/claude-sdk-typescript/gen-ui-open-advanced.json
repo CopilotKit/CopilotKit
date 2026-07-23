@@ -1,0 +1,35 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-open-advanced",
+    "sourceFile": "d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced Inline expression evaluator pill — emits generateSandboxedUi with a sandboxed iframe that has allow-scripts. The iframe must mount for the assertion to pass.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_gen_ui_advanced_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Building expression evaluator...\"],\"css\":\"body{margin:0;padding:16px;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{max-width:400px;margin:0 auto}.input-row{display:flex;gap:8px;margin-bottom:12px}input{flex:1;padding:8px 12px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-family:monospace}button{padding:8px 16px;background:#3b82f6;border:0;border-radius:6px;color:white;cursor:pointer;font-size:14px}button:hover{background:#2563eb}.result{background:#1e293b;padding:12px;border-radius:8px;font-family:monospace;min-height:24px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-expression-evaluator\\\"><h3 style=\\\"margin:0 0 12px\\\">Expression Evaluator</h3><div class=\\\"input-row\\\"><input id=\\\"expr\\\" placeholder=\\\"Enter expression (e.g. 2+2)\\\" /><button id=\\\"eval\\\">Eval</button></div><div class=\\\"result\\\" id=\\\"res\\\">Ready</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var btn=document.getElementById('eval');var res=document.getElementById('res');btn.addEventListener('click',async function(){var expression=input.value.trim();if(!expression){res.textContent='Enter an expression';return;}try{var result=await Websandbox.connection.remote.evaluateExpression({expression:expression});if(result&&result.ok){res.textContent='= '+String(result.value);}else{res.textContent='Error';}}catch(e){res.textContent='Error: '+e.message;}});input.addEventListener('keydown',function(e){if(e.key==='Enter')btn.click();});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_gen_ui_advanced_eval_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type a math expression and click Eval. The sandbox uses a host bridge to evaluate expressions safely."
+      }
+    }
+  ]
+}

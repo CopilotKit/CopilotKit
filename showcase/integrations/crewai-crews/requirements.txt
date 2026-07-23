@@ -1,0 +1,14 @@
+crewai>=0.130.0
+ag-ui-crewai==0.2.0
+ag-ui-protocol==0.1.18
+python-dotenv>=1.0.1
+uvicorn>=0.34.3
+crewai-tools>=0.38.1
+fastapi>=0.115.0
+# typing.NotRequired is stdlib on 3.11+. typing_extensions backports it for
+# 3.10 (and older) so local dev on older macOS / Linux Pythons doesn't hit
+# an opaque ImportError at module load. NotRequired landed in
+# typing_extensions 4.0.0; the >=4.6 floor is a conservative parity choice
+# matching the rest of the fleet. Python-version marker keeps the dep out
+# of 3.11+ installs (where it's pure bloat).
+typing_extensions>=4.6; python_version < "3.11"

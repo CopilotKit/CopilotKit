@@ -1,114 +1,130 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+import {
+  useAgent,
+  useFrontendTool,
+  useRenderTool,
+  CopilotSidebar,
+  CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
+} from "@copilotkit/react-core/v2";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+
+import styles from "./page.module.css";
+
+// The agent key registered in the runtime route (`agents: { default: ... }`).
+const AGENT_ID = "default";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-actions
+  useFrontendTool({
     name: "setThemeColor",
-    parameters: [
-      {
-        name: "themeColor",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
-    handler({ themeColor }) {
+    parameters: z.object({
+      themeColor: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
+    handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
+      return `Changing background to ${themeColor}`;
     },
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
-      <CopilotSidebar
-        disableSystemMessage={true}
-        clickOutsideToClose={false}
-        labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
-        }}
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "Get the weather in San Francisco.",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Write Agent State",
-            message: "Add a proverb about AI.",
-          },
-          {
-            title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
-          },
-          {
-            title: "Read Agent State",
-            message: "What are the proverbs?",
-          },
-        ]}
-      >
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
-    </main>
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — selecting a row sets the active thread, "+ New" resets to a
+      fresh thread — with no host thread-state. The content and the
+      CopilotSidebar read the same active thread from the provider (the content's
+      `useAgent()` falls back to it). A *controlled* provider would block
+      "+ New" from resetting, so uncontrolled-inside-provider is required.
+      `.threadsLayout` (globals.css) pins the light theme vars the drawer +
+      sidebar inherit; the SDK drawer follows them by token inheritance.
+    */
+    <CopilotChatConfigurationProvider agentId={AGENT_ID}>
+      <div className={`${styles.layout} threadsLayout`}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId={AGENT_ID} />
+        <div className={styles.mainPanel}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </div>
+      </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 
-// State of the agent, make sure this aligns with your agent's state.
-type AgentState = {
-  proverbs: string[];
-};
-
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({
+    agentId: "default",
   });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useCopilotAction({
-    name: "updateProverb",
-    parameters: [
-      {
-        name: "proverbs",
-        type: "string[]",
-        description:
-          "The proverbs to be committed into state. Make them witty, short and concise.",
-        required: true,
-      },
-    ],
-    handler: ({ proverbs }) => {
-      setState({
-        ...state,
-        proverbs: [...proverbs],
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
       });
+    }
+  }, [agent]);
+
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-actions
+  useFrontendTool(
+    {
+      name: "updateProverb",
+      parameters: z.object({
+        proverbs: z
+          .array(z.string())
+          .describe(
+            "The proverbs to be committed into state. Make them witty, short and concise.",
+          ),
+      }),
+      handler: async ({ proverbs }) => {
+        agent.setState({
+          ...state,
+          proverbs: [...proverbs],
+        });
+        return `Updated proverbs`;
+      },
     },
-  });
+    [agent, state],
+  );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useCopilotAction({
+  useRenderTool({
     name: "get_weather",
-    description: "Get the weather for a given location.",
-    available: "disabled",
-    parameters: [{ name: "location", type: "string", required: true }],
-    render: ({ args }) => {
-      return <WeatherCard location={args.location} themeColor={themeColor} />;
+    parameters: z.object({
+      location: z.string(),
+    }),
+    render: ({ parameters }) => {
+      return (
+        <WeatherCard location={parameters.location} themeColor={themeColor} />
+      );
     },
   });
 
@@ -134,9 +150,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
               <p className="pr-8">{proverb}</p>
               <button
                 onClick={() =>
-                  setState({
+                  agent.setState({
                     ...state,
-                    proverbs: state.proverbs?.filter((_, i) => i !== index),
+                    proverbs: state.proverbs?.filter(
+                      (_: string, i: number) => i !== index,
+                    ),
                   })
                 }
                 className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity

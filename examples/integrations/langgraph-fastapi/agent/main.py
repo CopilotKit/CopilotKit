@@ -1,13 +1,25 @@
 import os
 import warnings
+from pathlib import Path
 from dotenv import load_dotenv
+
+# Load .env from the demo project root (one level up from agent/) BEFORE
+# importing src.agent — that import constructs ChatOpenAI at module load,
+# which needs OPENAI_API_KEY in the environment already.
+_demo_root = Path(__file__).parent.parent
+for env_path in (_demo_root / ".env", Path(".env")):
+    if env_path.is_file():
+        load_dotenv(env_path)
+        break
+else:
+    load_dotenv()
+
 from fastapi import FastAPI
 import uvicorn
 from src.agent import graph
 from copilotkit import LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
-_ = load_dotenv()
 app = FastAPI()
 
 

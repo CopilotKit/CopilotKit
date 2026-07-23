@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- The production project is Microsoft.NET.Sdk.Web and has <Program> as a partial class for WebApplicationFactory-style tests. We only care about SharedStateAgent shape checks, so disable default Web build items leaking in. -->
+    <RootNamespace>MsAgentDotnet.AgentTests</RootNamespace>
+    <AssemblyName>SharedStateAgent.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <!-- Needed so the header-propagation tests can use DefaultHttpContext /
+       HttpContextAccessor (Microsoft.AspNetCore.Http types). The production
+       project is a Web SDK app, but a project reference does not flow the
+       ASP.NET shared framework, so reference it explicitly here. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProverbsAgent.csproj" />
+  </ItemGroup>
+
+</Project>

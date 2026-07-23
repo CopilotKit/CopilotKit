@@ -148,7 +148,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     AG-UI handles communicating with your a2a agent, and passes the a2ui messages back and forth as `ActivityMessage` objects.
     In order to render them in your frontend, you need to configure activity message rendering.
 
-    Copilotkit provides a renderer for A2UI messages, all you need to do is instantiate it with a theme and pass it to your CopilotKitProvider.
+    Copilotkit provides a renderer for A2UI messages, all you need to do is instantiate it with a theme and pass it to your CopilotKit.
 
     ```tsx title="app/page.tsx"
     "use client";
@@ -161,7 +161,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
 
     export default function Home() {
       return (
-        <CopilotKitProvider
+        <CopilotKit
           runtimeUrl="/api/copilotkit"
           showDevConsole="auto"
           renderActivityMessages={[A2UIMessageRenderer]}
@@ -172,7 +172,7 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
           >
             <Chat />
           </main>
-        </CopilotKitProvider>
+        </CopilotKit>
       );
     }
 

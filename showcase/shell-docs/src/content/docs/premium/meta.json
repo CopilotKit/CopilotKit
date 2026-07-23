@@ -1,4 +1,10 @@
 {
-  "title": "Premium Features",
-  "pages": ["overview", "observability", "self-hosting"]
+  "title": "Intelligence Platform",
+  "pages": [
+    "overview",
+    "managed-intelligence-platform",
+    "self-hosting",
+    "intelligence-platform",
+    "threads-explained"
+  ]
 }

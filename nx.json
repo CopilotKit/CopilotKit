@@ -87,8 +87,14 @@
       "dependsOn": ["build"],
       "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
       "cache": true
+    },
+    "compat-check": {
+      "dependsOn": ["build"],
+      "inputs": ["{projectRoot}/package.json", "{projectRoot}/dist/**"],
+      "cache": true
     }
   },
   "parallel": 14,
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "analytics": false
 }

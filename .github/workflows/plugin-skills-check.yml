@@ -1,0 +1,59 @@
+name: plugin-skills-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/*/skills/**"
+      - "skills/runtime/**"
+      - "skills/react-core/**"
+      - "skills/a2ui-renderer/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+      # The plugin version pins to packages/runtime/package.json, so a release
+      # bump there must re-trigger the drift check or the pin silently rots.
+      - "packages/runtime/package.json"
+  pull_request:
+    paths:
+      - "packages/*/skills/**"
+      - "skills/runtime/**"
+      - "skills/react-core/**"
+      - "skills/a2ui-renderer/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+      - "packages/runtime/package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run sync script unit tests
+        run: pnpm exec vitest run scripts/__tests__/sync-plugin-skills.test.ts
+
+      - name: Check plugin skill mirror is in sync
+        run: pnpm check:plugin-skills

@@ -1,0 +1,4 @@
+# Placeholder so the directory exists in git and the Dockerfile's
+# `COPY --from=builder /app/public ./public` step does not fail. Sibling
+# showcase packages typically ship demo assets here (audio clips, sample
+# files, etc.); built-in-agent has none yet.

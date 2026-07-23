@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / prebuilt-popup",
+    "sourceScript": "d5-prebuilt-popup.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup turn — the D5 script sends this prompt and asserts the assistant response lands inside the .copilotKitPopup root.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "turnIndex": 0,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

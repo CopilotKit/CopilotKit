@@ -31,6 +31,13 @@ export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }
 
+export interface ThreadEndpointRuntimeInfo {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+}
+
 export type RuntimeLicenseStatus =
   | "valid"
   | "none"
@@ -39,13 +46,35 @@ export type RuntimeLicenseStatus =
   | "invalid"
   | "unknown";
 
+export interface A2UIRuntimeInfo {
+  enabled: boolean;
+  /**
+   * Agent ids the runtime applies A2UI to. When omitted, A2UI applies to
+   * every agent served by the runtime.
+   */
+  agents?: string[];
+}
+
 export interface RuntimeInfo {
   version: string;
   agents: Record<string, AgentDescription>;
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  threadEndpoints?: ThreadEndpointRuntimeInfo;
+  /**
+   * When true, the runtime exposes POST /agent/:agentId/suggest for stateless
+   * suggestion generation. Absent on older runtimes; clients fall back to a
+   * client-side agent run.
+   */
+  suggestions?: boolean;
+  /**
+   * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
+   * Kept for backward compatibility with older clients.
+   */
   a2uiEnabled?: boolean;
+  a2ui?: A2UIRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  telemetryDisabled?: boolean;
 }

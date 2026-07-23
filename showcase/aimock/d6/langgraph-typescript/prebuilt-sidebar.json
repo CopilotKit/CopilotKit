@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-typescript / prebuilt-sidebar",
+    "sourceFile": "harness/fixtures/d5/prebuilt-sidebar.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar single turn — the sidebar auto-opens via defaultOpen={true}, probe sends this message inside the sidebar surface.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

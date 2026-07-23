@@ -1,7 +1,6 @@
 @import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx}";
-@source "../../../../node_modules/streamdown/dist/index.js";
 
 @import "tw-animate-css";
 
@@ -180,6 +179,180 @@
   @apply cpk:mt-0 cpk:mb-0;
 }
 
+@layer components {
+  [data-copilotkit] [data-streamdown="ordered-list"] {
+    @apply cpk:list-inside cpk:list-decimal cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="unordered-list"] {
+    @apply cpk:list-inside cpk:list-disc cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] {
+    @apply cpk:py-1;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] > p {
+    @apply cpk:inline;
+  }
+
+  [data-copilotkit] [data-streamdown="horizontal-rule"] {
+    @apply cpk:my-6 cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="strong"] {
+    @apply cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="link"] {
+    @apply cpk:font-medium cpk:text-primary cpk:underline;
+    overflow-wrap: anywhere;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-1"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-3xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-2"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-2xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-3"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-4"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-lg cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-5"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-base cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-6"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] {
+    @apply cpk:my-4 cpk:flex cpk:flex-col cpk:space-y-2;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] > div:last-child {
+    @apply cpk:overflow-x-auto;
+  }
+
+  /* Table action controls (copy / download). streamdown renders the controls
+     row, per-button wrappers, trigger buttons, dropdown popovers and menu items
+     with raw Tailwind utilities and no stable `data-streamdown` attribute, so
+     scope them structurally under the table wrapper. The controls row is the
+     first child ONLY when controls are enabled; `:not(:last-child)` leaves a
+     control-less table (single child = the scroll container handled above)
+     untouched. #5775 */
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child) {
+    @apply cpk:flex cpk:items-center cpk:justify-end cpk:gap-1;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div {
+    @apply cpk:relative;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > button {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > div {
+    @apply cpk:absolute cpk:top-full cpk:right-0 cpk:z-10 cpk:mt-1 cpk:min-w-[120px] cpk:overflow-hidden cpk:rounded-md cpk:border cpk:border-border cpk:bg-background cpk:shadow-lg;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > div
+    > button {
+    @apply cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted;
+  }
+
+  [data-copilotkit] [data-streamdown="table"] {
+    @apply cpk:w-full cpk:border-collapse cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header"] {
+    @apply cpk:bg-muted/80;
+  }
+
+  [data-copilotkit] [data-streamdown="table-body"] {
+    @apply cpk:divide-y cpk:divide-border cpk:bg-muted/40;
+  }
+
+  [data-copilotkit] [data-streamdown="table-row"] {
+    @apply cpk:border-b cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header-cell"] {
+    @apply cpk:whitespace-nowrap cpk:px-4 cpk:py-2 cpk:text-left cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-cell"] {
+    @apply cpk:px-4 cpk:py-2 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="blockquote"] {
+    @apply cpk:my-4 cpk:border-l-4 cpk:border-muted-foreground/30 cpk:pl-4 cpk:text-muted-foreground cpk:italic;
+  }
+
+  [data-copilotkit] [data-streamdown="inline-code"] {
+    @apply cpk:rounded cpk:bg-muted cpk:px-1.5 cpk:py-0.5 cpk:font-mono cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="image-wrapper"] {
+    @apply cpk:relative cpk:my-4 cpk:inline-block;
+  }
+
+  [data-copilotkit] [data-streamdown="image"] {
+    @apply cpk:max-w-full cpk:rounded-lg;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block"] {
+    @apply cpk:my-4 cpk:w-full cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-header"] {
+    @apply cpk:flex cpk:items-center cpk:justify-between cpk:bg-muted/80 cpk:p-3 cpk:text-xs cpk:text-muted-foreground;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-body"] {
+    @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-copy-button"],
+  [data-copilotkit] [data-streamdown="code-block-download-button"] {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
+  [data-copilotkit] [data-streamdown="mermaid-block"] {
+    @apply cpk:relative cpk:my-4 cpk:h-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-4;
+  }
+
+  [data-copilotkit] [data-streamdown="subscript"],
+  [data-copilotkit] [data-streamdown="superscript"] {
+    @apply cpk:text-sm;
+  }
+}
+
 /* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */
 [data-copilotkit] ::-webkit-scrollbar {
   width: 6px;
@@ -228,4 +401,240 @@
   background-position: center;
   background-repeat: no-repeat;
   background-size: 100% 100%;
+}
+/*
+ * IntelligenceIndicator — the default "CopilotKit Intelligence" face.
+ *
+ * Layers (all always in the DOM; individual properties animate as the
+ * `data-status` attribute flips in-progress → finished):
+ *
+ *   • `__chrome`     — the glassmorphism pill (bg, border, shadow,
+ *                      backdrop-blur), absolute-positioned behind the
+ *                      content. Visible while in-progress; fades to 0
+ *                      on settle.
+ *   • `__content`    — icon + label flex row. Stays in place across the
+ *                      whole transition; on settle its `color` shifts
+ *                      from saturated purple to neutral gray and the
+ *                      label slants (faux-italic via `transform: skewX`).
+ *   • `__icon-arc`   — a full-circle SVG path shown as a partial ring by
+ *                      its dash pattern; spins (CSS rotation) while
+ *                      in-progress and fades out mid-spin on finish.
+ *   • `__icon-check` — a checkmark path that draws itself in upright
+ *                      (animated `stroke-dashoffset`) on finish.
+ *
+ * Icon geometry lives in each path's `d` ATTRIBUTE, not the CSS `d:`
+ * property (which is Chrome-only), so it renders in every browser; the
+ * arc spins via `transform-box: fill-box` so it stays centered in Safari
+ * too. See the per-rule comments below for the cross-browser details.
+ *
+ * Timing on finish: the arc fades and the checkmark draws in over
+ * ~360 ms, then the chrome + color/slant settle (400 ms, after a 250 ms
+ * delay so it waits for the icon). No moment exists where the icon or
+ * label is invisible, so the eye never sees a "bump."
+ *
+ * Reduced motion: all of the above is gated behind
+ * `prefers-reduced-motion` — the arc does not spin and the states swap
+ * instantly (see the media query at the end of this section).
+ *
+ * Mount-already-finished is handled implicitly: CSS transitions don't
+ * fire when the target value is the computed value at first paint, so a
+ * historical-replay turn renders directly in its settled state with no
+ * animation — which is the desired behavior.
+ */
+.cpk-intelligence-indicator {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.85rem;
+  /* Opt out of the parent flex-column's default `align-items: stretch`
+     (the auto-mount lives inside `CopilotChatMessageView`'s
+     `cpk:flex cpk:flex-col` container). Without this the indicator
+     would stretch to the full chat width. */
+  align-self: flex-start;
+  margin: 0.4rem 0;
+  white-space: nowrap;
+}
+
+/* ─── Chrome layer (bg, border, shadow, backdrop-blur) ──────────────── */
+
+.cpk-intelligence-indicator__chrome {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid rgb(149 153 224 / 0.32);
+  background: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 0.55) 0%,
+    rgb(238 230 254 / 0.55) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    0 1px 2px rgb(94 100 173 / 0.06),
+    0 8px 24px rgb(149 153 224 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.6);
+  opacity: 1;
+  pointer-events: none;
+  /* Stage 2 — wait 250 ms for the icon morph to complete, then fade. */
+  transition: opacity 400ms ease-out 250ms;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__chrome {
+  opacity: 0;
+}
+
+/* ─── Content layer (icon + label) ──────────────────────────────────── */
+
+.cpk-intelligence-indicator__content {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  /* `color` drives both the label text and the icon stroke (which uses
+     `currentColor`). In-progress is a saturated purple at high alpha
+     (the active "this is happening now" state); finished transitions
+     all the way to a neutral slate gray (settled metadata — "a tool
+     call happened here"). The hue shift, not just an alpha drop, is
+     what makes the finished state read as a different semantic class
+     of content rather than just a dimmed version of the active one. */
+  color: rgb(91 33 182 / 0.92);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  /* Stage 2 — same 250 ms delay as the chrome fade so they settle in
+     lock-step. */
+  transition: color 400ms ease-out 250ms;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__content {
+  /* True-neutral gray (`#737373`, R=G=B) at 0.8 alpha. No hue cast in
+     either direction (slate would lean blue, stone would lean warm).
+     The combination of pure-neutral hue + slight transparency reads
+     as "settled history metadata" without competing with the active
+     state for attention. */
+  color: rgb(115 115 115 / 0.8);
+}
+
+/* Label — slants on settle to read as italic-like history metadata.
+   `transform: skewX()` is used instead of `font-style: italic` because:
+   (a) font-style is a discrete property, so it would snap rather than
+   transition smoothly with the color shift; (b) real italic glyphs
+   are slightly wider than upright, causing a layout pop at the snap
+   moment. A CSS transform applies after layout — no reflow — and
+   interpolates over the same 400 ms / 250 ms-delay window as the
+   color, so the slant and the color settle as one motion. For the
+   sans-serif system fonts used by default, the browser-synthesized
+   italic is itself a slant on the upright forms, so this approach
+   matches what `font-style: italic` would have rendered anyway. */
+.cpk-intelligence-indicator__label {
+  display: inline-block;
+  transform: skewX(0deg);
+  transition: transform 400ms ease-out 250ms;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__label {
+  transform: skewX(-10deg);
+}
+
+.cpk-intelligence-indicator__icon {
+  display: block;
+  flex-shrink: 0;
+  /* The icon holds two overlaid paths: a spinning arc (in-progress)
+     and a checkmark (done). The spin lives on the ARC PATH itself
+     (below), NOT on this SVG — so the checkmark sibling always renders
+     upright instead of inheriting whatever angle the arc was spinning
+     through, and the arc can keep spinning as it fades out (no abrupt
+     stop, no snap back to a fixed angle). */
+}
+
+/* ─── Icon paths — arc (spinner) → checkmark (done) ─────────────────── */
+/* Geometry lives in each path's `d` ATTRIBUTE (set in the view), not the
+   CSS `d:` property, so the icon renders in every browser. The arc eases
+   out while the checkmark draws itself in (stroke-dashoffset) — a smooth,
+   cross-browser stand-in for the old Blink-only `d:` morph. */
+
+.cpk-intelligence-indicator__icon-arc,
+.cpk-intelligence-indicator__icon-check {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* In-progress: the arc is a full circle (in the view) shown as a partial ring
+   by this dash pattern — `0.53` visible + `0.47` gap of the `pathLength="1"`
+   normalized circle reads as a C-shape — and the whole ring spins. Expressing
+   the dash as fractions (rather than raw path-length units) matches how the
+   checkmark below is normalized, so both shapes use one consistent idiom.
+   The spin lives here on the arc (not the parent SVG) so the checkmark stays
+   upright. `transform-box: fill-box` + `transform-origin: center` rotates around
+   the arc's geometry-box center — exactly the icon center (12,12) — and is the
+   Safari-safe combo (`transform-box: view-box` is mis-resolved by WebKit and
+   spins off-center; a SMIL `<animateTransform>` stalls for a beat on first paint
+   in Chrome). The animation is `infinite` and is left running in the finished
+   state, so the arc keeps rotating while its opacity fades to 0 (fades out
+   mid-spin rather than stopping dead). */
+.cpk-intelligence-indicator__icon-arc {
+  stroke-dasharray: 0.53 0.47;
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cpk-intelligence-spin 0.9s linear infinite;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* `pathLength="1"` (set in the view) normalizes the path's length to 1, so the
+   checkmark starts fully offset (undrawn) and, on finish, draws itself in by
+   animating stroke-dashoffset 1 → 0 — slightly delayed and overlapping the
+   arc's fade so the spinner resolves into the tick rather than hard-cutting. */
+.cpk-intelligence-indicator__icon-check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  transition:
+    stroke-dashoffset 360ms cubic-bezier(0.22, 0.61, 0.36, 1) 90ms,
+    opacity 140ms linear 90ms;
+}
+
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__icon-arc {
+  /* Spin is intentionally left running here (now invisible): stopping it
+     would snap the arc back to 0° mid-fade. The cost is negligible. */
+  opacity: 0;
+}
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__icon-check {
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+/* ─── Keyframes ─────────────────────────────────────────────────────── */
+
+@keyframes cpk-intelligence-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────── */
+/* Honor the OS "reduce motion" preference: the arc does not spin and the
+   in-progress → finished states swap instantly instead of animating. The
+   pill + label still convey "working", and the static check still conveys
+   "done" — the information is intact, just without movement. */
+@media (prefers-reduced-motion: reduce) {
+  .cpk-intelligence-indicator__icon-arc {
+    animation: none;
+  }
+  .cpk-intelligence-indicator__chrome,
+  .cpk-intelligence-indicator__content,
+  .cpk-intelligence-indicator__label,
+  .cpk-intelligence-indicator__icon-arc,
+  .cpk-intelligence-indicator__icon-check {
+    transition: none;
+  }
 }

@@ -6,16 +6,15 @@ import {
   ViewEncapsulation,
   computed,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { LucideAngularModule, ChevronLeft, ChevronRight } from "lucide-angular";
+
+import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
 import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
 import { UserMessage } from "@ag-ui/core";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message-branch-navigation",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -23,22 +22,26 @@ import { UserMessage } from "@ag-ui/core";
       <div [class]="computedClass()">
         <button
           type="button"
+          aria-label="Previous message branch"
           [class]="buttonClass"
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
         >
-          <lucide-angular [img]="ChevronLeftIcon" [size]="20"></lucide-angular>
+          <copilot-icon [img]="ChevronLeftIcon" [size]="20"></copilot-icon>
         </button>
-        <span class="text-sm text-muted-foreground px-0 font-medium">
+        <span
+          class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
+        >
           {{ currentBranch() + 1 }}/{{ numberOfBranches() }}
         </span>
         <button
           type="button"
+          aria-label="Next message branch"
           [class]="buttonClass"
           [disabled]="!canGoNext()"
           (click)="handleNext()"
         >
-          <lucide-angular [img]="ChevronRightIcon" [size]="20"></lucide-angular>
+          <copilot-icon [img]="ChevronRightIcon" [size]="20"></copilot-icon>
         </button>
       </div>
     }
@@ -56,19 +59,19 @@ export class CopilotChatUserMessageBranchNavigation {
 
   readonly buttonClass = cn(
     // Flex centering
-    "inline-flex items-center justify-center",
+    "cpk:inline-flex cpk:items-center cpk:justify-center",
     // Cursor
-    "cursor-pointer",
+    "cpk:cursor-pointer",
     // Background and text
-    "p-0 text-[rgb(93,93,93)] hover:bg-[#E8E8E8]",
+    "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
     // Dark mode
-    "dark:text-[rgb(243,243,243)] dark:hover:bg-[#303030]",
+    "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
     // Shape and sizing
-    "h-6 w-6 rounded-md",
+    "cpk:h-6 cpk:w-6 cpk:rounded-md",
     // Interactions
-    "transition-colors",
+    "cpk:transition-colors",
     // Disabled state
-    "disabled:opacity-50 disabled:cursor-not-allowed",
+    "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
   );
 
   showNavigation = computed(() => this.numberOfBranches() > 1);
@@ -80,7 +83,7 @@ export class CopilotChatUserMessageBranchNavigation {
   );
 
   computedClass = computed(() => {
-    return cn("flex items-center gap-1", this.inputClass());
+    return cn("cpk:flex cpk:items-center cpk:gap-1", this.inputClass());
   });
 
   handlePrevious(): void {

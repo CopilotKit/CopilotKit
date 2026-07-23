@@ -1,15 +1,19 @@
 import type { AgentCapabilities } from "@ag-ui/core";
+import type { CopilotRuntimeLike } from "../core/runtime";
 import {
-  CopilotRuntimeLike,
+  isA2UIEnabled,
   isIntelligenceRuntime,
   resolveAgents,
 } from "../core/runtime";
-import {
+import type {
   AgentDescription,
   RuntimeInfo,
-  type RuntimeLicenseStatus,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { VERSION } from "../core/runtime";
+import { isTelemetryDisabled } from "../telemetry/telemetry-client";
+import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
 function resolveLicenseStatus(
   runtime: CopilotRuntimeLike,
@@ -27,11 +31,13 @@ function resolveLicenseStatus(
 interface HandleGetRuntimeInfoParameters {
   runtime: CopilotRuntimeLike;
   request: Request;
+  threadEndpointsEnabled?: boolean;
 }
 
 export async function handleGetRuntimeInfo({
   runtime,
   request,
+  threadEndpointsEnabled = true,
 }: HandleGetRuntimeInfoParameters) {
   try {
     const agents = await resolveAgents(runtime.agents, request);
@@ -72,6 +78,15 @@ export async function handleGetRuntimeInfo({
       agents: agentsDict,
       audioFileTranscriptionEnabled: !!runtime.transcriptionService,
       mode: runtime.mode,
+      threadEndpoints: resolveThreadEndpointInfo(
+        runtime,
+        threadEndpointsEnabled,
+      ),
+      // Advertised unconditionally. Multi-route runtimes expose the dedicated
+      // POST /agent/:agentId/suggest path; single-route clients fall back to a
+      // client-side run (they don't construct the single-route envelope for
+      // suggest). The flag lets multi-route clients detect the stateless path.
+      suggestions: true,
       ...(isIntelligenceRuntime(runtime)
         ? {
             intelligence: {
@@ -79,11 +94,25 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
-      a2uiEnabled: !!runtime.a2ui,
+      // Legacy flat flag, kept for older clients. The `a2ui` object below is
+      // the source of truth: it preserves the per-agent scoping that this
+      // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
+      // shared isA2UIEnabled() predicate so an explicit `enabled: false`
+      // disables a2ui here exactly as it does on the run path.
+      a2uiEnabled: isA2UIEnabled(runtime.a2ui),
+      ...(isA2UIEnabled(runtime.a2ui)
+        ? {
+            a2ui: {
+              enabled: true,
+              ...(runtime.a2ui.agents ? { agents: runtime.a2ui.agents } : {}),
+            },
+          }
+        : {}),
       openGenerativeUIEnabled: !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),
+      telemetryDisabled: isTelemetryDisabled(),
     };
 
     return new Response(JSON.stringify(runtimeInfo), {
@@ -102,4 +131,23 @@ export async function handleGetRuntimeInfo({
       },
     );
   }
+}
+
+function resolveThreadEndpointInfo(
+  runtime: CopilotRuntimeLike,
+  threadEndpointsEnabled: boolean,
+): ThreadEndpointRuntimeInfo {
+  const hasRestThreadBackend =
+    isIntelligenceRuntime(runtime) ||
+    supportsLocalThreadEndpoints(runtime.runner);
+  const restEndpointsAvailable = threadEndpointsEnabled && hasRestThreadBackend;
+  const managedThreadMetadata =
+    threadEndpointsEnabled && isIntelligenceRuntime(runtime);
+
+  return {
+    list: restEndpointsAvailable,
+    inspect: restEndpointsAvailable,
+    mutations: managedThreadMetadata,
+    realtimeMetadata: managedThreadMetadata,
+  };
 }

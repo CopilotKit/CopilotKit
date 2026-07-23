@@ -4,14 +4,18 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import {
-  useCoAgent,
+  useAgent,
   useFrontendTool,
   useHumanInTheLoop,
-  useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
-import { AgentState } from "@/lib/types";
+  CopilotSidebar,
+  CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
+} from "@copilotkit/react-core/v2";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import type { AgentState } from "@/lib/types";
+
+import styles from "./page.module.css";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -20,83 +24,84 @@ export default function CopilotKitPage() {
   useFrontendTool({
     name: "setThemeColor",
     description: "Set the theme color of the application",
-    parameters: [
-      {
-        name: "themeColor",
-        type: "string",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      themeColor: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
     handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
+      return `Changing background to ${themeColor}`;
     },
   });
 
   return (
-    <main
-      style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
-      }
-    >
-      <CopilotSidebar
-        disableSystemMessage={true}
-        clickOutsideToClose={false}
-        labels={{
-          title: "Popup Assistant",
-          initial: "👋 Hi, there! You're chatting with an agent.",
-        }}
-        suggestions={[
-          {
-            title: "Generative UI",
-            message: "Get the weather in San Francisco.",
-          },
-          {
-            title: "Frontend Tools",
-            message: "Set the theme to green.",
-          },
-          {
-            title: "Human In the Loop",
-            message: "Please go to the moon.",
-          },
-          {
-            title: "Write Agent State",
-            message: "Add a proverb about AI.",
-          },
-          {
-            title: "Update Agent State",
-            message:
-              "Please remove 1 random proverb from the list if there are any.",
-          },
-          {
-            title: "Read Agent State",
-            message: "What are the proverbs?",
-          },
-        ]}
-      >
-        <YourMainContent themeColor={themeColor} />
-      </CopilotSidebar>
-    </main>
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — selecting a row sets the active thread, "+ New" resets to a
+      fresh thread — with no host thread-state. The proverbs/weather/moon content
+      and the CopilotSidebar read the same active thread from the provider (the
+      content's `useAgent()` falls back to it). A *controlled* provider would
+      block "+ New" from resetting, so uncontrolled-inside-provider is required.
+      `.threadsLayout` (globals.css) pins the light theme vars the drawer +
+      sidebar inherit; the SDK drawer follows them by token inheritance.
+    */
+    <CopilotChatConfigurationProvider agentId="default">
+      <div className={`${styles.layout} threadsLayout`}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId="default" />
+        <div className={styles.mainPanel}>
+          <main
+            style={
+              {
+                "--copilot-kit-primary-color": themeColor,
+              } as React.CSSProperties
+            }
+          >
+            <YourMainContent themeColor={themeColor} />
+            <CopilotSidebar
+              defaultOpen={true}
+              labels={{
+                modalHeaderTitle: "Popup Assistant",
+                welcomeMessageText:
+                  "👋 Hi, there! You're chatting with an agent.",
+              }}
+            />
+          </main>
+        </div>
+      </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
-  // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "my_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
-  });
+  // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
+  // V2: useAgent returns the agent; read agent.state and write via agent.setState.
+  const { agent } = useAgent({ agentId: "default" });
+  const state = (agent.state as AgentState | undefined) ?? { proverbs: [] };
+  const setState = (next: AgentState) => agent.setState(next);
 
-  //🪁 Generative UI: https://docs.copilotkit.ai/pydantic-ai/generative-ui
-  useRenderToolCall(
+  // Seed an initial proverb once (the V2 agent starts with empty state).
+  useEffect(() => {
+    if ((agent.state as AgentState | undefined)?.proverbs === undefined) {
+      agent.setState({
+        proverbs: [
+          "CopilotKit may be new, but it's the best thing since sliced bread.",
+        ],
+      });
+    }
+  }, [agent]);
+
+  //🪁 Generative UI: https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui
+  useFrontendTool(
     {
       name: "get_weather",
       description: "Get the weather for a given location.",
-      parameters: [{ name: "location", type: "string", required: true }],
+      available: false,
+      parameters: z.object({
+        location: z.string(),
+      }),
       render: ({ args }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
       },

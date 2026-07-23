@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { ToolCallStatus } from "@copilotkit/core";
+import { useCopilotKit } from "../context";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
@@ -172,13 +173,22 @@ export function useRenderTool<S extends StandardSchemaV1>(
         : defineToolCallRenderer({
             name: config.name,
             args: config.parameters!,
-            render: (props) =>
-              config.render({ ...props, parameters: props.args }),
+            // Branch per status so the discriminated union stays correlated
+            // when `args` is re-exposed as `parameters`.
+            render: (props) => {
+              if (props.status === ToolCallStatus.InProgress) {
+                return config.render({ ...props, parameters: props.args });
+              }
+              if (props.status === ToolCallStatus.Executing) {
+                return config.render({ ...props, parameters: props.args });
+              }
+              return config.render({ ...props, parameters: props.args });
+            },
             ...(config.agentId ? { agentId: config.agentId } : {}),
           });
 
     copilotkit.addHookRenderToolCall(renderer);
 
     // No cleanup removal — keeps renderer for chat history, same as useFrontendTool
-  }, [config.name, copilotkit, extraDeps.length, ...extraDeps]);
+  }, [config.name, copilotkit, JSON.stringify(extraDeps)]);
 }

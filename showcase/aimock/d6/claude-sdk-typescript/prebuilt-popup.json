@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / prebuilt-popup",
+    "sourceFile": "d5-prebuilt-popup.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup probe turn — sends 'hi from the popup test' and asserts the response lands inside the .copilotKitPopup root.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

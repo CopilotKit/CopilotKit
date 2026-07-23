@@ -5,14 +5,12 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<OpsPlatformCTA
+  variant="card"
+  title="Ship A2A to production"
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_a2a_quickstart"
 />
 
 ## Prerequisites
@@ -27,6 +25,12 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_a2a_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+    </Step>
+
     <Step>
         ### Clone the A2A starter template
 
@@ -115,3 +119,13 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
 </Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

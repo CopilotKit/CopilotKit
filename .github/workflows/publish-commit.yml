@@ -7,6 +7,9 @@ on:
     paths:
       - "packages/**"
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -20,18 +23,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # NOTE: deliberately NOT in the `npm` environment. pkg-pr-new publishes to
+    # pkg.pr.new (not the npm registry) and uses no environment-scoped secrets,
+    # and this job runs on every push/PR touching packages/** — the npm
+    # environment's deployment-branch policy (main, canary/*,
+    # release/publish/*) would block it.
+    permissions:
+      contents: read
+      # pkg-pr-new posts snapshot comments on the PR using the workflow token
+      pull-requests: write
 
     steps:
+      # persist-credentials required: pkg-pr-new uses repo token to post snapshot comments on the PR
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: "package.json"
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
 

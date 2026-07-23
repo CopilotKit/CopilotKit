@@ -34,9 +34,14 @@ export default async function IntegrationProfilePage({
   const allIntegrations = getIntegrations().filter(
     (i) => i.deployed && i.slug !== slug,
   );
+  // No backendUrl here: this page is statically prerendered
+  // (generateStaticParams), so any URL computed server-side would be
+  // frozen at build time — the exact baked-prod-URL defect this fixes.
+  // ProfileClient derives backend URLs client-side from the runtime
+  // config pattern.
   const demoAlternatives: Record<
     string,
-    Array<{ slug: string; name: string; backendUrl: string }>
+    Array<{ slug: string; name: string }>
   > = {};
   for (const demo of integration.demos) {
     const alts = allIntegrations
@@ -44,7 +49,6 @@ export default async function IntegrationProfilePage({
       .map((i) => ({
         slug: i.slug,
         name: i.name,
-        backendUrl: i.backend_url,
       }));
     if (alts.length > 0) {
       demoAlternatives[demo.id] = alts;

@@ -1,0 +1,43 @@
+{
+  "framework": "spring-ai",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": "/multi-agent/subagents"
+    }
+  },
+  "missing": [
+    {
+      "feature": "subagents",
+      "reason": "No spring-ai-scoped multi-agent/subagent docs exist; the spring-ai framework root is also a SPA fallback. OG left null rather than pointing at a soft-404; shell points at the unified /multi-agent/subagents content."
+    }
+  ]
+}

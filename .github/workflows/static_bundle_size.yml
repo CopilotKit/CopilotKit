@@ -1,0 +1,104 @@
+name: static / bundle-size
+
+on:
+  pull_request:
+    paths-ignore:
+      - "README.md"
+      - "examples/**"
+      - "showcase/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  NX_VERBOSE_LOGGING: true
+
+jobs:
+  # Posts a per-PR comment with per-file gzip diffs for the 9 in-scope packages.
+  # Runs preactjs/compressed-size-action, which builds the PR head and the base
+  # branch, scans the `pattern` glob in each, and diffs the gzip sizes; the
+  # comment updates in place on subsequent pushes. No hard-fail (Phase 1) — see
+  # dev-docs/bundle-size.md for the rollout plan.
+  #
+  # Fork limitation: pull_request runs from a fork get a read-only GITHUB_TOKEN,
+  # so the action cannot post the comment and prints the report to the logs
+  # instead. The measurement still runs. Accepted for Phase 1 (informational, no
+  # hard-fail); see dev-docs/bundle-size.md for the relay pattern if the comment
+  # ever becomes required.
+  bundle-size:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # pull-requests: write is scoped to this job only — it's the one that posts
+    # the size-diff comment. The import-size job below stays read-only.
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Measure compressed bundle sizes
+        uses: preactjs/compressed-size-action@f322c295dde06a1cb7ccaef105732dd8a726d1d9 # 2.10.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Use the root `build` script (present on both this branch and the base
+          # branch) so compressed-size-action can build both sides for comparison.
+          # The `pattern` below restricts measurement to the 9 in-scope packages.
+          build-script: build
+          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer}/dist/**/*.{mjs,js,cjs}"
+
+  # Measures what an app importing { CopilotChat } from
+  # @copilotkit/react-core/v2 bundles, by driving esbuild over a synthetic entry
+  # and summing the gzipped output. Writes the total to the GitHub job summary
+  # for per-PR visibility. It is a relative regression signal across PRs, not a
+  # production Vite/Next figure — see dev-docs/bundle-size.md.
+  copilotchat-import-size:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build react-core
+        run: npx nx run @copilotkit/react-core:build
+
+      - name: Measure CopilotChat bundle regression signal
+        run: pnpm --filter @copilotkit/react-core size:headline

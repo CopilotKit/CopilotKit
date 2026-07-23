@@ -4,6 +4,7 @@ Custom routes to extend the LangGraph API server.
 This mounts a /generated route for serving generated images.
 Configure in langgraph.json via http.app setting.
 """
+
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles

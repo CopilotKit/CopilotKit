@@ -7,6 +7,7 @@ import {
   computeNextStableVersion,
   computePrereleaseVersion,
   bumpPackages,
+  getPackagesForScope,
 } from "./versions.js";
 
 let tmpDir: string;
@@ -21,18 +22,13 @@ vi.mock("./config.js", async () => {
       prereleaseTag: "canary",
       scopes: {
         monorepo: {
-          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          packages: ["@copilotkit/react-core", "@copilotkit/shared"],
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
         },
-        cli: {
-          packages: ["copilotkit"],
-          versionSource: "copilotkit",
-          sharedVersion: false,
-        },
         angular: {
-          packages: ["@copilotkitnext/angular"],
-          versionSource: "@copilotkitnext/angular",
+          packages: ["@copilotkit/angular"],
+          versionSource: "@copilotkit/angular",
           sharedVersion: false,
         },
       },
@@ -40,18 +36,13 @@ vi.mock("./config.js", async () => {
     getScopeConfig: (scope: string) => {
       const scopes: Record<string, any> = {
         monorepo: {
-          packages: ["@copilotkit/shared", "@copilotkit/react-core"],
+          packages: ["@copilotkit/react-core", "@copilotkit/shared"],
           versionSource: "@copilotkit/react-core",
           sharedVersion: true,
         },
-        cli: {
-          packages: ["copilotkit"],
-          versionSource: "copilotkit",
-          sharedVersion: false,
-        },
         angular: {
-          packages: ["@copilotkitnext/angular"],
-          versionSource: "@copilotkitnext/angular",
+          packages: ["@copilotkit/angular"],
+          versionSource: "@copilotkit/angular",
           sharedVersion: false,
         },
       };
@@ -236,5 +227,12 @@ describe("bumpPackages", () => {
       ),
     );
     expect(pkg.dependencies["@copilotkit/shared"]).toBe("1.55.3");
+  });
+
+  it("preserves the configured publish order", () => {
+    expect(getPackagesForScope("monorepo").map((pkg) => pkg.name)).toEqual([
+      "@copilotkit/react-core",
+      "@copilotkit/shared",
+    ]);
   });
 });

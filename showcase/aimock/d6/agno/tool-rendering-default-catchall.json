@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall follow-up: after get_weather tool result. Keyed by toolCallId. MUST come before the tool-emitting fixture below (first-match-wins).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_agno_dc_weather_001",
+        "context": "agno"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall turn: 'weather in Tokyo' \u2014 emit get_weather tool call. The built-in CopilotKit default renderer fires because no custom renderer is registered. Probe asserts [data-testid='copilot-tool-render'][data-tool-name='get_weather'] and status pill mount.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "agno"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_agno_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -21,7 +21,7 @@
     "@langchain/openai": "^0.3.14",
     "@syncfusion/ej2-react-spreadsheet": "^29.1.39",
     "langchain": "^0.3.6",
-    "next": "15.0.3",
+    "next": "15.5.15",
     "openai": "^4.96.2",
     "react": "^18",
     "react-dom": "^18",

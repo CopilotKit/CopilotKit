@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-ui",
-  "version": "1.56.3",
+  "version": "1.63.2",
   "private": false,
   "keywords": [
     "ai",
@@ -44,6 +44,8 @@
   "scripts": {
     "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/v2',{recursive:true});fs.cpSync('./src/v2/styles.css','./dist/v2/index.css')\"",
     "build": "tsdown && pnpm run build:css",
+    "size": "size-limit",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -59,8 +61,9 @@
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "react-markdown": "^10.1.0",
-    "react-syntax-highlighter": "^15.6.1",
+    "react-syntax-highlighter": "^16.1.1",
     "rehype-raw": "^7.0.0",
+    "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0"
   },
@@ -70,6 +73,7 @@
     "eslint": "^8.56.0",
     "postcss": "^8.4.20",
     "react": "^18.2.0",
+    "react-dom": "^19.2.0",
     "tailwind-config": "workspace:*",
     "tailwindcss": "^3.3.0",
     "tsconfig": "workspace:*",

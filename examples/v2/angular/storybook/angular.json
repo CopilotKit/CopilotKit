@@ -52,25 +52,19 @@
         "storybook": {
           "builder": "@storybook/angular:start-storybook",
           "options": {
+            "browserTarget": "storybook-angular:build:development",
             "configDir": ".storybook",
             "port": 6007,
-            "compodoc": false,
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ]
+            "compodoc": false
           }
         },
         "build-storybook": {
           "builder": "@storybook/angular:build-storybook",
           "options": {
+            "browserTarget": "storybook-angular:build:production",
             "configDir": ".storybook",
             "outputDir": "storybook-static",
-            "compodoc": false,
-            "styles": [
-              "../../../../packages/angular/dist/styles.css",
-              ".storybook/preview.css"
-            ]
+            "compodoc": false
           }
         }
       }

@@ -23,7 +23,7 @@ type Props = {
 export function CashPositionCard({ args, status }: Props) {
   if (status === "inProgress" || !args.accounts) {
     return (
-      <div className="my-2 rounded-2xl border border-border bg-card p-5">
+      <div className="my-2 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border bg-card p-5 duration-300 ease-out">
         <div className="flex items-center gap-2 text-muted-foreground">
           <DollarSign className="h-4 w-4 animate-pulse" />
           <span className="text-sm">Calculating cash position...</span>
@@ -43,7 +43,7 @@ export function CashPositionCard({ args, status }: Props) {
   const isPositive = netPosition >= 0;
 
   return (
-    <div className="my-2 rounded-2xl border border-border bg-card p-5">
+    <div className="my-2 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border border-border bg-card p-5 duration-300 ease-out">
       {/* Header */}
       <div className="mb-4 flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">

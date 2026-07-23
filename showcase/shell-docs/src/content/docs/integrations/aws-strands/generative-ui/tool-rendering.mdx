@@ -36,53 +36,106 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
 Define a tool in your Strands agent:
 
-```python title="main.py"
-from strands import Agent, tool
-from strands.models.openai import OpenAIModel
-from ag_ui_strands import StrandsAgent, create_strands_app
+<Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+    <Tab value="Python">
+        ```python title="main.py"
+        from strands import Agent, tool
+        from strands.models.openai import OpenAIModel
+        from ag_ui_strands import StrandsAgent, create_strands_app
 
-@tool
-def get_weather(location: str) -> dict:
-    """
-    Get weather information for a location.
+        @tool
+        def get_weather(location: str) -> dict:
+            """
+            Get weather information for a location.
 
-    Args:
-        location: The location to get weather for
+            Args:
+                location: The location to get weather for
 
-    Returns:
-        Weather data with temperature and conditions
-    """
-    # Simulate weather data (in production, call a real weather API)
-    return {
-        "temperature": 72,
-        "conditions": "sunny",
-        "humidity": 45,
-        "wind_speed": 8
-    }
+            Returns:
+                Weather data with temperature and conditions
+            """
+            # Simulate weather data (in production, call a real weather API)
+            return {
+                "temperature": 72,
+                "conditions": "sunny",
+                "humidity": 45,
+                "wind_speed": 8
+            }
 
-# Setup your Strands agent
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-5.2",
-)
+        # Setup your Strands agent
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        model = OpenAIModel(
+            client_args={"api_key": api_key},
+            model_id="gpt-5.4",
+        )
 
-agent = Agent(
-    model=model,
-    system_prompt="You are a helpful assistant that can get weather information.",
-    tools=[get_weather],  # [!code highlight]
-)
+        agent = Agent(
+            model=model,
+            system_prompt="You are a helpful assistant that can get weather information.",
+            tools=[get_weather],  # [!code highlight]
+        )
 
-# Wrap with AG-UI integration
-agui_agent = StrandsAgent(
-    agent=agent,
-    name="weather_agent",
-    description="A helpful weather assistant",
-)
+        # Wrap with AG-UI integration
+        agui_agent = StrandsAgent(
+            agent=agent,
+            name="weather_agent",
+            description="A helpful weather assistant",
+        )
 
-# Create the FastAPI app
-app = create_strands_app(agui_agent, "/")
-```
+        # Create the FastAPI app
+        app = create_strands_app(agui_agent, "/")
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="main.ts"
+        import { Agent, tool } from "@strands-agents/sdk";
+        import { OpenAIModel } from "@strands-agents/sdk/models/openai";
+        import { StrandsAgent } from "@ag-ui/aws-strands";
+        import { createStrandsApp } from "@ag-ui/aws-strands/server";
+        import { z } from "zod";
+
+        const getWeather = tool({
+          name: "get_weather",
+          description: "Get weather information for a location.",
+          inputSchema: z.object({
+            location: z.string().describe("The location to get weather for"),
+          }),
+          // Simulate weather data (in production, call a real weather API)
+          callback: () => ({
+            temperature: 72,
+            conditions: "sunny",
+            humidity: 45,
+            wind_speed: 8,
+          }),
+        });
+
+        // Setup your Strands agent
+        const model = new OpenAIModel({
+          apiKey: process.env.OPENAI_API_KEY ?? "",
+          modelId: "gpt-5.4",
+        });
+
+        const agent = new Agent({
+          model,
+          systemPrompt: "You are a helpful assistant that can get weather information.",
+          tools: [getWeather], // [!code highlight]
+        });
+
+        await agent.initialize();
+
+        // Wrap with AG-UI integration
+        const aguiAgent = new StrandsAgent({
+          agent,
+          name: "weather_agent",
+          description: "A helpful weather assistant",
+        });
+
+        // Create the Express app
+        const app = await createStrandsApp(aguiAgent, { path: "/" });
+        app.listen(8000);
+        ```
+    </Tab>
+</Tabs>
 
 </Step>
 

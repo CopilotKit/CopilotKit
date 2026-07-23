@@ -9,6 +9,9 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { DemoDrawer } from "@/components/demo-drawer";
 import type { Demo, Integration } from "@/lib/registry";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import { resolveBackendUrl } from "@/lib/backend-url";
+import { canonicalDemoPath } from "@/lib/frontend-route";
 
 interface StarterFile {
   filename: string;
@@ -33,10 +36,7 @@ export function ProfileClient({
   featureInfos: FeatureInfo[];
   categoryLabel: string;
   languageLabel: string;
-  demoAlternatives?: Record<
-    string,
-    Array<{ slug: string; name: string; backendUrl: string }>
-  >;
+  demoAlternatives?: Record<string, Array<{ slug: string; name: string }>>;
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeDemo, setActiveDemo] = useState<Demo | null>(null);
@@ -268,7 +268,7 @@ export function ProfileClient({
                           fontSize: "13px",
                           lineHeight: "1.6",
                           padding: "16px 20px",
-                          maxHeight: showAllFiles ? "none" : "none",
+                          maxHeight: showAllFiles ? "none" : "600px",
                         }}
                         showLineNumbers
                         lineNumberStyle={{
@@ -499,7 +499,7 @@ export function ProfileClient({
         {activeDemo && (
           <p className="mt-4 text-xs text-[var(--text-muted)]">
             <Link
-              href={`/integrations/${integration.slug}/${activeDemo.id}`}
+              href={canonicalDemoPath("react", integration.slug, activeDemo.id)}
               className="text-[var(--accent)] hover:underline"
             >
               Open in full page →
@@ -509,6 +509,11 @@ export function ProfileClient({
       </div>
 
       {/* Drawer */}
+      {/* Backend URLs are derived at runtime from the injected config
+          pattern (never the build-baked registry backend_url). Safe:
+          activeDemo is only set by a click, i.e. post-hydration, so
+          window.__SHOWCASE_CONFIG__ is populated by the time these
+          evaluate. */}
       {activeDemo && (
         <DemoDrawer
           isOpen={drawerOpen}
@@ -517,14 +522,23 @@ export function ProfileClient({
           integrationName={integration.name}
           demoId={activeDemo.id}
           demoName={activeDemo.name}
-          backendUrl={integration.backend_url}
+          backendUrl={resolveBackendUrl(
+            integration.slug,
+            getRuntimeConfig().backendHostPattern,
+          )}
           demoRoute={activeDemo.route ?? ""}
           wide={
             activeDemo.id.includes("gen-ui") ||
             activeDemo.id.includes("shared-state") ||
             activeDemo.id.includes("subagent")
           }
-          alternatives={demoAlternatives[activeDemo.id]}
+          alternatives={demoAlternatives[activeDemo.id]?.map((alt) => ({
+            ...alt,
+            backendUrl: resolveBackendUrl(
+              alt.slug,
+              getRuntimeConfig().backendHostPattern,
+            ),
+          }))}
         />
       )}
     </>

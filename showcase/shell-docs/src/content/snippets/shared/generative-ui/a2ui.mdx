@@ -5,14 +5,14 @@ import Image from "next/image";
 **A2UI** is Google's declarative, LLM-friendly Generative UI specification that enables agents to generate dynamic user interfaces.
 
 <Image
-  src="/images/gen-ui-specs-light.png"
+  src="/images/gen-ui-specs-light.webp"
   alt="Generative UI Specs"
   width={4096}
   height={2304}
   className="block dark:hidden mb-8"
 />
 <Image
-  src="/images/gen-ui-specs-dark.png"
+  src="/images/gen-ui-specs-dark.webp"
   alt="Generative UI Specs"
   width={4096}
   height={2304}
@@ -70,7 +70,7 @@ Once configured, any A2UI output returned from your agent will automatically be 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 
 <CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
@@ -88,9 +88,9 @@ Check out the [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) to create a
 
 ## Learn More
 
-- [Generative UI Specs Overview](/generative-ui/specs) - Compare all supported specifications
-- [Generative UI Guide](/generative-ui) - Build with Generative UI in CopilotKit
+- [Generative UI Specs Overview](/concepts/generative-ui-overview) - Compare all supported specifications
+- [Generative UI Guide](/generative-ui/tool-based) - Build with Generative UI in CopilotKit
 - [A2UI Site](https://a2ui.org/) - Visit the A2UI site
-- [AG-UI Protocol](/ag-ui-protocol) - Learn about the protocol that supports A2UI
-- [Open-JSON-UI](/generative-ui/specs/open-json-ui) - OpenAI's alternative approach
-- [MCP Apps](/generative-ui/specs/mcp-apps) - Iframe-based Generative UI extending MCP
+- [AG-UI Protocol](/agentic-protocols/ag-ui) - Learn about the protocol that supports A2UI
+- [Open-JSON-UI](/generative-ui/open-json-ui) - OpenAI's alternative approach
+- [MCP Apps](/generative-ui/mcp-apps) - Iframe-based Generative UI extending MCP

@@ -7,30 +7,34 @@ from .types import Message
 from .action import ActionDict
 from .types import MetaEvent
 
+
 class AgentDict(TypedDict):
     """Agent dictionary"""
+
     name: str
     description: Optional[str]
 
+
 class Agent(ABC):
     """Agent class for CopilotKit"""
+
     def __init__(
-            self,
-            *,
-            name: str,
-            description: Optional[str] = None,
-        ):
+        self,
+        *,
+        name: str,
+        description: Optional[str] = None,
+    ):
         self.name = name
         self.description = description
 
         if not re.match(r"^[a-zA-Z0-9_-]+$", name):
             raise ValueError(
-                f"Invalid agent name '{name}': " +
-                "must consist of alphanumeric characters, underscores, and hyphens only"
+                f"Invalid agent name '{name}': "
+                + "must consist of alphanumeric characters, underscores, and hyphens only"
             )
 
     @abstractmethod
-    def execute( # pylint: disable=too-many-arguments
+    def execute(  # pylint: disable=too-many-arguments
         self,
         *,
         state: dict,
@@ -54,13 +58,9 @@ class Agent(ABC):
             "threadId": thread_id or "",
             "threadExists": False,
             "state": {},
-            "messages": []
+            "messages": [],
         }
-
 
     def dict_repr(self) -> AgentDict:
         """Dict representation of the action"""
-        return {
-            'name': self.name,
-            'description': self.description or ''
-        }
+        return {"name": self.name, "description": self.description or ""}

@@ -1,0 +1,1553 @@
+{
+  "projectId": "6f8c6bff-a80d-4f8f-b78d-50b32bcf4479",
+  "envIds": {
+    "staging": "8edfef02-ea09-4a20-8689-261f21cc2849",
+    "prod": "b14919f4-6417-429f-848d-c6ae2201e04f"
+  },
+  "services": [
+    {
+      "name": "aimock",
+      "serviceId": "0fa0435d-8a66-46f0-84fd-e4250b580013",
+      "prodInstanceId": "5801d8be-5ad9-4eff-9c9c-7be61d9a023e",
+      "stagingInstanceId": "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "showcase-aimock",
+      "repoNameOverride": {
+        "prod": "showcase-aimock",
+        "staging": "showcase-aimock"
+      },
+      "domains": {
+        "staging": "aimock-staging.up.railway.app",
+        "prod": "showcase-aimock-production.up.railway.app"
+      },
+      "internalDomains": {
+        "staging": "showcase-aimock.railway.internal",
+        "prod": "showcase-aimock.railway.internal"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "aimock"
+      },
+      "promoteTier": 0,
+      "healthcheckPath": {
+        "prod": "/health",
+        "staging": "/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "dashboard",
+      "serviceId": "4d5dfd74-be61-40b2-8564-b53b7dd4c15b",
+      "prodInstanceId": "e68f98fa-b2ef-41cc-82f6-2ed6f9533bf3",
+      "stagingInstanceId": "aea7332e-17a0-4fab-921c-ed5baad2a6f2",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "shell-dashboard",
+      "repoNameOverride": {
+        "prod": "showcase-shell-dashboard",
+        "staging": "showcase-shell-dashboard"
+      },
+      "domains": {
+        "staging": "dashboard.showcase.staging.copilotkit.ai",
+        "prod": "dashboard.showcase.copilotkit.ai"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "dashboard"
+      },
+      "promoteTier": 1,
+      "runtimeDeps": ["pocketbase", "harness"],
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "docs",
+      "serviceId": "7badfb8d-4228-414c-9145-b4026803714f",
+      "prodInstanceId": "b15564fc-f832-49b3-82df-fd36f298fe96",
+      "stagingInstanceId": "d5caa51d-73ee-4669-bfea-d87bf1488b02",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "shell-docs",
+      "repoNameOverride": {
+        "prod": "showcase-shell-docs",
+        "staging": "showcase-shell-docs"
+      },
+      "domains": {
+        "staging": "docs.staging.copilotkit.ai",
+        "prod": "docs.copilotkit.ai"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "docs"
+      },
+      "promoteTier": 2,
+      "standalone": true,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "dojo",
+      "serviceId": "7ad1ece7-2228-49cd-8a78-bddf30322907",
+      "prodInstanceId": "2ee4f2aa-11ec-4426-9a4a-41a1ad04f16d",
+      "stagingInstanceId": "1284d717-0ff5-432c-9326-fab12661df61",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "shell-dojo",
+      "repoNameOverride": {
+        "prod": "showcase-shell-dojo",
+        "staging": "showcase-shell-dojo"
+      },
+      "domains": {
+        "staging": "dojo.showcase.staging.copilotkit.ai",
+        "prod": "dojo.showcase.copilotkit.ai"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "dojo"
+      },
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "harness",
+      "serviceId": "3a14bfed-0537-4d71-897b-7c593dca161d",
+      "prodInstanceId": "05fbcdf2-8a50-4b71-b4f6-c92c4b17e626",
+      "stagingInstanceId": "0811f68f-fac4-440e-a350-3a7ca5855b80",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "showcase-harness",
+      "repoNameOverride": {
+        "prod": "showcase-harness",
+        "staging": "showcase-harness"
+      },
+      "domains": {
+        "staging": "harness-staging-2ee4.up.railway.app",
+        "prod": "showcase-harness-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "harness"
+      },
+      "promoteTier": 1,
+      "healthcheckPath": {
+        "prod": "/health",
+        "staging": "/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "harness-workers",
+      "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "prodInstanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+      "stagingInstanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+      "ciBuilt": false,
+      "gateValidated": true,
+      "repoNameOverride": {
+        "prod": "showcase-harness",
+        "staging": "showcase-harness"
+      },
+      "domains": {
+        "staging": "harness-staging-2ee4.up.railway.app",
+        "prod": "showcase-harness-production.up.railway.app"
+      },
+      "probe": {
+        "staging": false,
+        "prod": false,
+        "driver": "harness"
+      },
+      "promoteTier": 1,
+      "healthcheckPath": {
+        "prod": "/health",
+        "staging": "/health"
+      },
+      "workerProvisioning": {
+        "prod": {
+          "effectiveReplicas": 6,
+          "numReplicas": 6,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 3,
+          "overlapSeconds": 45,
+          "drainingSeconds": 180
+        },
+        "staging": {
+          "effectiveReplicas": 6,
+          "numReplicas": 6,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 2,
+          "overlapSeconds": 45,
+          "drainingSeconds": 180
+        }
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "pocketbase",
+      "serviceId": "ba11e854-d695-4738-9a45-2b0776788824",
+      "prodInstanceId": "1ee376e2-13f2-4464-801e-d0aa0bf76532",
+      "stagingInstanceId": "0bc7db7b-5a43-4b33-af46-d07fb53c8610",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "showcase-pocketbase",
+      "repoNameOverride": {
+        "prod": "showcase-pocketbase",
+        "staging": "showcase-pocketbase"
+      },
+      "domains": {
+        "staging": "pocketbase-staging-eec0.up.railway.app",
+        "prod": "showcase-pocketbase-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "pocketbase"
+      },
+      "promoteTier": 0,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "shell",
+      "serviceId": "40eea0da-6071-4ea8-bdb9-39afb19225ec",
+      "prodInstanceId": "01614ccf-e109-4b30-b41b-7c5551c0a34c",
+      "stagingInstanceId": "25b7de41-188c-4f2e-ac07-538212eaeb91",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "shell",
+      "repoNameOverride": {
+        "prod": "showcase-shell",
+        "staging": "showcase-shell"
+      },
+      "domains": {
+        "staging": "showcase.staging.copilotkit.ai",
+        "prod": "showcase.copilotkit.ai"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "shell"
+      },
+      "promoteTier": 2,
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-ag2",
+      "serviceId": "4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c",
+      "prodInstanceId": "de571c97-03fd-486b-8a54-9767a4a53f95",
+      "stagingInstanceId": "ecaf81b3-93a8-4862-92b6-04a016b634ed",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "ag2",
+      "domains": {
+        "staging": "showcase-ag2-staging.up.railway.app",
+        "prod": "showcase-ag2-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-agno",
+      "serviceId": "32cab80b-e329-45bd-9c73-c4e1ddc94305",
+      "prodInstanceId": "026d12fb-2844-42af-8f92-b47bc8a06bc8",
+      "stagingInstanceId": "68964ab6-75ca-4095-a64a-52cacfb684f5",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "agno",
+      "domains": {
+        "staging": "showcase-agno-staging.up.railway.app",
+        "prod": "showcase-agno-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-built-in-agent",
+      "serviceId": "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf",
+      "prodInstanceId": "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
+      "stagingInstanceId": "b89ae7b3-01cc-4ed4-aca6-23aaa63cd59e",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "built-in-agent",
+      "domains": {
+        "staging": "showcase-built-in-agent-staging.up.railway.app",
+        "prod": "showcase-built-in-agent-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-claude-sdk-python",
+      "serviceId": "b122ab65-9854-4cb2-a68e-b50ff13f7481",
+      "prodInstanceId": "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
+      "stagingInstanceId": "1ef25aec-5fbd-40b9-8685-57c2681bd45d",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "claude-sdk-python",
+      "domains": {
+        "staging": "showcase-claude-sdk-python-staging.up.railway.app",
+        "prod": "showcase-claude-sdk-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        },
+        {
+          "key": "ANTHROPIC_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-claude-sdk-typescript",
+      "serviceId": "18a98727-5700-44aa-b497-b60795dbbd6a",
+      "prodInstanceId": "bee425e4-9661-4a88-8888-922b8cd4b61d",
+      "stagingInstanceId": "92305747-2f55-4122-aad4-882e989558ab",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "claude-sdk-typescript",
+      "domains": {
+        "staging": "showcase-claude-sdk-typescript-staging.up.railway.app",
+        "prod": "showcase-claude-sdk-typescript-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-crewai-crews",
+      "serviceId": "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
+      "prodInstanceId": "3dab0cc3-cab1-4579-b772-947268088514",
+      "stagingInstanceId": "88c2a14f-435b-499e-a811-ee4f4be18fd8",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "crewai-crews",
+      "domains": {
+        "staging": "showcase-crewai-crews-staging.up.railway.app",
+        "prod": "showcase-crewai-crews-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-google-adk",
+      "serviceId": "87f60507-5a3d-4b8a-9e23-2b1de85d939c",
+      "prodInstanceId": "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
+      "stagingInstanceId": "7efe2fa0-fa78-4585-bc4c-6d39c326e6d1",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "google-adk",
+      "domains": {
+        "staging": "showcase-google-adk-staging.up.railway.app",
+        "prod": "showcase-google-adk-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-langgraph-fastapi",
+      "serviceId": "06cccb5c-59f4-46b5-8adc-7113e77011a4",
+      "prodInstanceId": "105b7e01-acd0-48e2-9a09-541e2103e8d2",
+      "stagingInstanceId": "7899afe0-141b-4217-8dbb-5907813231dc",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "langgraph-fastapi",
+      "domains": {
+        "staging": "showcase-langgraph-fastapi-staging.up.railway.app",
+        "prod": "showcase-langgraph-fastapi-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-langgraph-python",
+      "serviceId": "90d03214-4569-41b0-b4c1-6438a8a7b203",
+      "prodInstanceId": "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
+      "stagingInstanceId": "04d29664-a776-4670-9db3-b1d18bce1669",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "langgraph-python",
+      "domains": {
+        "staging": "showcase-langgraph-python-staging.up.railway.app",
+        "prod": "showcase-langgraph-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-langgraph-typescript",
+      "serviceId": "66246d3b-a18e-46f0-be51-5f3ff7a36e5a",
+      "prodInstanceId": "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
+      "stagingInstanceId": "481ab37f-da8a-4015-bd88-2b28d9eb261a",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "langgraph-typescript",
+      "domains": {
+        "staging": "showcase-langgraph-typescript-staging.up.railway.app",
+        "prod": "showcase-langgraph-typescript-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-langroid",
+      "serviceId": "6dd9cb0a-66cc-46f1-972e-7cd74756157d",
+      "prodInstanceId": "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
+      "stagingInstanceId": "a213f7d9-2117-4944-988b-05e68d819dd5",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "langroid",
+      "domains": {
+        "staging": "showcase-langroid-staging.up.railway.app",
+        "prod": "showcase-langroid-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-llamaindex",
+      "serviceId": "285386e8-492d-4cb8-b632-0a7d4607378f",
+      "prodInstanceId": "b778856e-9f90-4136-9415-fb2b41173f8d",
+      "stagingInstanceId": "17899ea7-355c-43f2-a152-28cb0b7fa864",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "llamaindex",
+      "domains": {
+        "staging": "showcase-llamaindex-staging.up.railway.app",
+        "prod": "showcase-llamaindex-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-mastra",
+      "serviceId": "d7979eb7-2405-4aab-ad21-438f4a1b08af",
+      "prodInstanceId": "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
+      "stagingInstanceId": "eec22411-aab5-47a1-8f5b-d097e233d7f8",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "mastra",
+      "domains": {
+        "staging": "showcase-mastra-staging.up.railway.app",
+        "prod": "showcase-mastra-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-ms-agent-dotnet",
+      "serviceId": "beeb2dd6-87a4-4599-aa07-0578f7bd6519",
+      "prodInstanceId": "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
+      "stagingInstanceId": "9826bc58-c472-41e6-b050-29249d4b2a52",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "ms-agent-dotnet",
+      "domains": {
+        "staging": "showcase-ms-agent-dotnet-staging.up.railway.app",
+        "prod": "showcase-ms-agent-dotnet-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-ms-agent-harness-dotnet",
+      "serviceId": "6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37",
+      "prodInstanceId": "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
+      "stagingInstanceId": "6b0fe181-9156-4a40-9e44-90befe09833a",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "ms-agent-harness-dotnet",
+      "domains": {
+        "staging": "showcase-ms-agent-harness-dotnet-staging.up.railway.app",
+        "prod": "showcase-ms-agent-harness-dotnet-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-ms-agent-python",
+      "serviceId": "655db75a-af8d-427d-a4f9-441570ae5003",
+      "prodInstanceId": "323ed911-4d28-45ab-8fc0-7d151828b938",
+      "stagingInstanceId": "741725ce-5fa1-4327-aff5-53dcc000c29c",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "ms-agent-python",
+      "domains": {
+        "staging": "showcase-ms-agent-python-staging.up.railway.app",
+        "prod": "showcase-ms-agent-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-pydantic-ai",
+      "serviceId": "0a106173-2282-4887-a994-0ca276a99d69",
+      "prodInstanceId": "192cd647-6824-4f01-937a-1da675d83805",
+      "stagingInstanceId": "6edf5ca5-6a56-4d28-92c3-2a3360c735db",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "pydantic-ai",
+      "domains": {
+        "staging": "showcase-pydantic-ai-staging.up.railway.app",
+        "prod": "showcase-pydantic-ai-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-spring-ai",
+      "serviceId": "eed5d041-91be-4282-b414-beea00843401",
+      "prodInstanceId": "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
+      "stagingInstanceId": "189ac76f-bd77-45c0-9c45-3853dae763cc",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "spring-ai",
+      "domains": {
+        "staging": "showcase-spring-ai-staging.up.railway.app",
+        "prod": "showcase-spring-ai-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-strands",
+      "serviceId": "92e1cfad-ad53-403f-ab2b-5ab380832232",
+      "prodInstanceId": "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
+      "stagingInstanceId": "f8a9d2ed-50ec-4f06-85d6-230baced8471",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "strands",
+      "domains": {
+        "staging": "showcase-strands-staging.up.railway.app",
+        "prod": "showcase-strands-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "showcase-strands-typescript",
+      "serviceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
+      "prodInstanceId": "8a50728e-6119-43c4-b59c-d9535b6717a4",
+      "stagingInstanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "strands-typescript",
+      "domains": {
+        "staging": "showcase-strands-typescript-staging.up.railway.app",
+        "prod": "showcase-strands-typescript-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-adk",
+      "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
+      "prodInstanceId": "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
+      "stagingInstanceId": "208a160a-0d7d-44b2-a94d-39e13b24e21a",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-adk",
+      "domains": {
+        "staging": "starter-adk-staging.up.railway.app",
+        "prod": "starter-adk-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-agno",
+      "serviceId": "5ab3c37e-18a5-44e5-8329-26243dd98da8",
+      "prodInstanceId": "2f58513b-5fe4-4b09-a28f-93d4caa277b5",
+      "stagingInstanceId": "9944eb97-7f58-47f8-a49d-65603e209609",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-agno",
+      "domains": {
+        "staging": "starter-agno-staging.up.railway.app",
+        "prod": "starter-agno-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-crewai-crews",
+      "serviceId": "2a9a4230-e6cd-4c1d-92a5-36e5c624371a",
+      "prodInstanceId": "1a3e24cb-0752-45c8-b4a2-0c6096899875",
+      "stagingInstanceId": "820895fb-f65c-4834-a07d-d454035d39c4",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-crewai-crews",
+      "domains": {
+        "staging": "starter-crewai-crews-staging.up.railway.app",
+        "prod": "starter-crewai-crews-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-langgraph-fastapi",
+      "serviceId": "6ae57213-52ea-4fea-b4a0-7bc304cbc80e",
+      "prodInstanceId": "0679bc18-e9af-40c6-bc17-0b5eb2cd7bec",
+      "stagingInstanceId": "5f10e976-e121-48a5-bc18-2619798f2f10",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-fastapi",
+      "domains": {
+        "staging": "starter-langgraph-fastapi-staging.up.railway.app",
+        "prod": "starter-langgraph-fastapi-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-langgraph-js",
+      "serviceId": "d044c3e5-bb27-4d5e-a2bf-e3b382981372",
+      "prodInstanceId": "50a2205b-8768-4765-b7a1-21941c105051",
+      "stagingInstanceId": "43db83fe-fafb-445b-a19a-51bb086c71b9",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-js",
+      "domains": {
+        "staging": "starter-langgraph-js-staging.up.railway.app",
+        "prod": "starter-langgraph-js-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-langgraph-python",
+      "serviceId": "10dca514-7c8f-4a32-9708-9f29a944da36",
+      "prodInstanceId": "24dad599-576a-4154-a621-c3af40629a8f",
+      "stagingInstanceId": "58105e79-4020-4692-8749-c1a63ab63f2c",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-python",
+      "domains": {
+        "staging": "starter-langgraph-python-staging.up.railway.app",
+        "prod": "starter-langgraph-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-llamaindex",
+      "serviceId": "3255b27f-ea84-44b7-b587-b1687b409363",
+      "prodInstanceId": "c119f40b-dc71-4734-9716-c1085754b085",
+      "stagingInstanceId": "44446803-0505-456a-b0c4-01fe82fb3832",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-llamaindex",
+      "domains": {
+        "staging": "starter-llamaindex-staging.up.railway.app",
+        "prod": "starter-llamaindex-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-mastra",
+      "serviceId": "6548403e-3fee-4443-9d59-d8b041a3d43a",
+      "prodInstanceId": "c6fba6d8-8dde-442b-948f-560bf25fa2f1",
+      "stagingInstanceId": "b246e52d-52d8-4015-bb06-89bd09d54f8f",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-mastra",
+      "domains": {
+        "staging": "starter-mastra-staging.up.railway.app",
+        "prod": "starter-mastra-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-ms-agent-framework-dotnet",
+      "serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957",
+      "prodInstanceId": "993237a4-9ee7-47b2-a5be-267e247c1409",
+      "stagingInstanceId": "6684c246-e8fd-45a7-86e4-c529a439976f",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-ms-agent-framework-dotnet",
+      "domains": {
+        "staging": "starter-ms-agent-framework-dotnet-staging.up.railway.app",
+        "prod": "starter-ms-agent-framework-dotnet-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-ms-agent-framework-python",
+      "serviceId": "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86",
+      "prodInstanceId": "aa934881-340a-4fb7-8b39-9cb0a6f372b2",
+      "stagingInstanceId": "a162348a-f768-4c3f-815c-f617819f64e6",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-ms-agent-framework-python",
+      "domains": {
+        "staging": "starter-ms-agent-framework-python-staging.up.railway.app",
+        "prod": "starter-ms-agent-framework-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-pydantic-ai",
+      "serviceId": "c01d0d24-af88-4631-8a9a-23cffef2b36a",
+      "prodInstanceId": "74ce36fe-0b8f-446e-8e06-0b6496b6e829",
+      "stagingInstanceId": "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-pydantic-ai",
+      "domains": {
+        "staging": "starter-pydantic-ai-staging.up.railway.app",
+        "prod": "starter-pydantic-ai-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "starter-strands-python",
+      "serviceId": "321735ab-c14d-4e45-a1c2-e47f2b29d774",
+      "prodInstanceId": "4af440e0-ba05-48a5-b922-5b96a033891a",
+      "stagingInstanceId": "adc24096-584a-4ef3-93de-0bc92d49235c",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-strands-python",
+      "domains": {
+        "staging": "starter-strands-python-staging.up.railway.app",
+        "prod": "starter-strands-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
+      "name": "webhooks",
+      "serviceId": "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
+      "prodInstanceId": "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
+      "stagingInstanceId": "450e87e0-aba5-4aba-afaf-15f4deab03f0",
+      "ciBuilt": false,
+      "gateValidated": true,
+      "dispatchName": "webhooks",
+      "repoNameOverride": {
+        "prod": "showcase-eval-webhook",
+        "staging": "showcase-eval-webhook"
+      },
+      "domains": {
+        "staging": "hooks.showcase.staging.copilotkit.ai",
+        "prod": "hooks.showcase.copilotkit.ai"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "webhooks"
+      },
+      "promoteTier": 0,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    }
+  ],
+  "closure": {
+    "services": [
+      {
+        "name": "aimock",
+        "tier": 0
+      },
+      {
+        "name": "pocketbase",
+        "tier": 0
+      },
+      {
+        "name": "webhooks",
+        "tier": 0
+      },
+      {
+        "name": "dashboard",
+        "tier": 1
+      },
+      {
+        "name": "harness",
+        "tier": 1
+      },
+      {
+        "name": "harness-workers",
+        "tier": 1
+      },
+      {
+        "name": "docs",
+        "tier": 2,
+        "standalone": true
+      },
+      {
+        "name": "dojo",
+        "tier": 2
+      },
+      {
+        "name": "shell",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ag2",
+        "tier": 2
+      },
+      {
+        "name": "showcase-agno",
+        "tier": 2
+      },
+      {
+        "name": "showcase-built-in-agent",
+        "tier": 2
+      },
+      {
+        "name": "showcase-claude-sdk-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-claude-sdk-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-crewai-crews",
+        "tier": 2
+      },
+      {
+        "name": "showcase-google-adk",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-fastapi",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langroid",
+        "tier": 2
+      },
+      {
+        "name": "showcase-llamaindex",
+        "tier": 2
+      },
+      {
+        "name": "showcase-mastra",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-harness-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-pydantic-ai",
+        "tier": 2
+      },
+      {
+        "name": "showcase-spring-ai",
+        "tier": 2
+      },
+      {
+        "name": "showcase-strands",
+        "tier": 2
+      },
+      {
+        "name": "showcase-strands-typescript",
+        "tier": 2
+      },
+      {
+        "name": "starter-adk",
+        "tier": 2
+      },
+      {
+        "name": "starter-agno",
+        "tier": 2
+      },
+      {
+        "name": "starter-crewai-crews",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-fastapi",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-js",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-python",
+        "tier": 2
+      },
+      {
+        "name": "starter-llamaindex",
+        "tier": 2
+      },
+      {
+        "name": "starter-mastra",
+        "tier": 2
+      },
+      {
+        "name": "starter-ms-agent-framework-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "starter-ms-agent-framework-python",
+        "tier": 2
+      },
+      {
+        "name": "starter-pydantic-ai",
+        "tier": 2
+      },
+      {
+        "name": "starter-strands-python",
+        "tier": 2
+      }
+    ],
+    "skipped": []
+  }
+}

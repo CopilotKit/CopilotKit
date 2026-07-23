@@ -52,10 +52,7 @@ def format_extracted_files_as_xml(files: list[dict]) -> str:
     for f in files:
         # Escape XML special chars in content
         content = (
-            f["content"]
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
+            f["content"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         )
         # Escape quotes in filename for XML attribute
         safe_name = f["name"].replace('"', "&quot;")

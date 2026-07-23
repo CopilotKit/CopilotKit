@@ -4,12 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactToolCallRenderer } from "../../types";
-import {
-  CopilotKitProvider,
-  useCopilotKit,
-  type CopilotKitContextValue,
-} from "../CopilotKitProvider";
-import { CopilotKitCoreReact } from "../../lib/react-core";
+import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import type { CopilotKitContextValue } from "../CopilotKitProvider";
+import type { CopilotKitCoreReact } from "../../lib/react-core";
 import { useFrontendTool } from "../../hooks/use-frontend-tool";
 
 // Mock console methods to suppress expected warnings
@@ -149,6 +146,53 @@ describe("CopilotKitProvider stability", () => {
   });
 
   describe("setter calls on prop changes", () => {
+    it("preserves dynamically registered agents on unchanged rerenders", () => {
+      const setAgentsSpy = vi.fn();
+      let spyAttached = false;
+      let registeredAgent: unknown;
+      const capturedInstances: CopilotKitCoreReact[] = [];
+
+      function SpyAttacher() {
+        const { copilotkit } = useCopilotKit();
+        capturedInstances.push(copilotkit);
+        if (!spyAttached) {
+          const original =
+            copilotkit.setAgents__unsafe_dev_only.bind(copilotkit);
+          copilotkit.setAgents__unsafe_dev_only = (agents) => {
+            setAgentsSpy(agents);
+            return original(agents);
+          };
+          registeredAgent = copilotkit.registerProxiedAgent({
+            agentId: "registered-after-mount",
+            runtimeAgentId: "remote-agent",
+          }).agent;
+          spyAttached = true;
+        }
+        return null;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      setAgentsSpy.mockClear();
+
+      rerender(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      expect(setAgentsSpy).not.toHaveBeenCalled();
+      expect(
+        capturedInstances[capturedInstances.length - 1]?.getAgent(
+          "registered-after-mount",
+        ),
+      ).toBe(registeredAgent);
+    });
+
     it("calls setTools when frontendTools change instead of recreating instance", () => {
       const setToolsSpy = vi.fn();
       let spyAttached = false;

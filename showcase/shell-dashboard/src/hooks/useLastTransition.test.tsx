@@ -14,10 +14,8 @@ const mockState = {
   shouldThrow: false,
 };
 
-vi.mock("../lib/pb", () => ({
-  pbIsMisconfigured: false,
-  PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
-  pb: {
+vi.mock("../lib/pb", () => {
+  const pb = {
     // pb.filter helper returns the rendered template for our tests.
     filter: (raw: string, params?: Record<string, unknown>) => {
       let out = raw;
@@ -47,8 +45,13 @@ vi.mock("../lib/pb", () => ({
         },
       ),
     }),
-  },
-}));
+  };
+  return {
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
+    getPb: () => pb,
+  };
+});
 
 import {
   useLastTransition,

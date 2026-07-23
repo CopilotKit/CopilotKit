@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "run_id": "c1d7e5",
+  "trigger": "cli",
+  "operator_email": "jordan@copilotkit.ai",
+  "operator_git_name": "Jordan Ritter",
+  "started_at": "2026-06-17T10:00:00Z",
+  "elapsed_seconds": 73,
+  "pre_staging": "red",
+  "abort_reason": "fleet-preflight",
+  "succeeded": [],
+  "failed": [
+    { "service": "aimock", "exit": 1, "category": "staging-probe-red" },
+    { "service": "dashboard", "exit": 1, "category": "staging-probe-red" },
+    { "service": "docs", "exit": 1, "category": "staging-probe-red" },
+    { "service": "dojo", "exit": 1, "category": "staging-probe-red" },
+    { "service": "harness", "exit": 1, "category": "staging-probe-red" },
+    {
+      "service": "harness-workers",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    { "service": "pocketbase", "exit": 1, "category": "staging-probe-red" },
+    { "service": "shell", "exit": 1, "category": "staging-probe-red" },
+    { "service": "showcase-ag2", "exit": 1, "category": "staging-probe-red" },
+    { "service": "showcase-agno", "exit": 1, "category": "staging-probe-red" },
+    {
+      "service": "showcase-built-in-agent",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-claude-sdk-python",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-claude-sdk-typescript",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-crewai-crews",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-google-adk",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-langgraph-fastapi",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-langgraph-python",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-langgraph-typescript",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-langroid",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-llamaindex",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-mastra",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-ms-agent-dotnet",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-ms-agent-harness-dotnet",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-ms-agent-python",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-pydantic-ai",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-spring-ai",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    {
+      "service": "showcase-strands",
+      "exit": 1,
+      "category": "staging-probe-red"
+    },
+    { "service": "webhooks", "exit": 1, "category": "staging-probe-red" }
+  ]
+}

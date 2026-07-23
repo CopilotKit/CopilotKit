@@ -1,12 +1,13 @@
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
 import { createCopilotEndpointExpress } from "../express";
 import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi
@@ -27,7 +28,7 @@ vi.mock("../handlers/handle-stop", () => ({
 }));
 
 describe("Express adapter with hooks", () => {
-  const createMockRuntime = (opts?: Partial<CopilotRuntime>) => {
+  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) => {
     const createMockAgent = () => {
       const agent: unknown = {
         execute: async () => ({ events: [] }),
@@ -38,12 +39,13 @@ describe("Express adapter with hooks", () => {
 
     const runner = {
       run: () =>
-        new Observable((observer) => {
-          observer.next({});
+        new Observable<BaseEvent>((observer) => {
+          observer.next({} as BaseEvent);
           observer.complete();
           return () => undefined;
         }),
-      connect: () => of({}),
+      connect: () => of({} as BaseEvent),
+      isRunning: async () => false,
       stop: async () => true,
     };
 
@@ -60,7 +62,7 @@ describe("Express adapter with hooks", () => {
 
   describe("createCopilotEndpointExpress", () => {
     const createApp = (
-      runtimeOpts?: Partial<CopilotRuntime>,
+      runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
       endpointOpts?: Partial<
         Omit<
           Parameters<typeof createCopilotEndpointExpress>[0],

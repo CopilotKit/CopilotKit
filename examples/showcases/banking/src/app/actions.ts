@@ -1,15 +1,30 @@
 "use client";
-import {
+import type {
   NewCardRequest,
   Card as ICard,
   ExpensePolicy,
-  MemberRole,
   Transaction,
+  PolicyException,
 } from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
-import { useCopilotReadable } from "@copilotkit/react-core";
+
+// Cross-instance revalidation bus.
+//
+// `useCreditCards()` keeps its OWN local state and is called independently by
+// several components (the dashboard page, copilot-context where the chat's
+// approveTransaction/finalize tools live, page.tsx, …). A mutation made through
+// one instance therefore would NOT refresh another — e.g. the agent approving a
+// charge in chat (copilot-context's instance) left the dashboard's pending
+// table showing the charge as still pending. Each instance registers a
+// refetch callback here; every mutation calls `notifyDataChanged()` so ALL live
+// instances re-pull from the server and every view reflects the change at once.
+const dataChangeListeners = new Set<() => void>();
+function notifyDataChanged() {
+  for (const listener of dataChangeListeners) listener();
+}
 
 export default function useCreditCards() {
   const [cards, setCards] = useState<ICard[]>([]);
@@ -81,9 +96,16 @@ export default function useCreditCards() {
   };
 
   useEffect(() => {
-    void fetchCards();
-    void fetchPolicies();
-    void fetchTransactions();
+    const refetchAll = () => {
+      void Promise.all([fetchCards(), fetchPolicies(), fetchTransactions()]);
+    };
+    refetchAll();
+    // Refresh this instance whenever ANY instance reports a mutation, so the
+    // dashboard reflects chat-driven approvals (and vice-versa) immediately.
+    dataChangeListeners.add(refetchAll);
+    return () => {
+      dataChangeListeners.delete(refetchAll);
+    };
   }, []);
 
   const addNewCard = async ({ type, color, pin }: NewCardRequest) => {
@@ -96,7 +118,7 @@ export default function useCreditCards() {
           .toISOString()
           .split("-")[1] +
         "/" +
-        new Date().toISOString().split("-")[0].substring(2),
+        new Date().toISOString().split("-")[0].slice(2),
       type: type,
       color: color,
       pin: pin,
@@ -112,7 +134,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to add new card");
       }
-      void fetchCards();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error adding new card:", error);
@@ -137,7 +159,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to assign policy");
       }
-      void fetchCards();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error assigning policy:", error);
@@ -166,7 +188,7 @@ export default function useCreditCards() {
       if (!response.ok) {
         throw new Error("Failed to add new card");
       }
-      void fetchTransactions();
+      notifyDataChanged();
       return response.json();
     } catch (error) {
       console.error("Error adding new card:", error);
@@ -179,7 +201,7 @@ export default function useCreditCards() {
   }: {
     id: string;
     status: "pending" | "approved" | "denied";
-  }) => {
+  }): Promise<{ ok: boolean; error?: string }> => {
     try {
       const response = await fetch(`/api/v1/transactions/${id}`, {
         method: "PUT",
@@ -188,24 +210,85 @@ export default function useCreditCards() {
         },
         body: JSON.stringify({ status }),
       });
+      // Always refresh from the server so the UI reflects the real state
+      // whether the write succeeded or was rejected (e.g. the over-limit gate).
+      notifyDataChanged();
       if (!response.ok) {
-        throw new Error("Failed to change transaction status");
+        // Surface the server's symptom-only message (e.g. "<team> policy limit
+        // exceeded") so the agent + UI can learn the failure instead of
+        // silently reporting a false success.
+        const body = await response.json().catch(() => null);
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to change transaction status",
+        };
       }
-      void fetchTransactions();
-      return response.json();
+      return { ok: true };
     } catch (error) {
       console.error("Error changing transaction status:", error);
+      return { ok: false, error: "Network error" };
     }
   };
 
-  // Provide the cards data to our copilot
-  // This readable is set up here because the `useCards` hook is also used in the dashboard
-  // So the cards information is available in both cards and dashboard pages.
-  useCopilotReadable({
-    description:
-      "The available credit cards, possible expense policies and transactions",
-    value: { cards, policies, transactions },
-  });
+  const openPolicyException = async ({
+    transactionId,
+    code,
+  }: {
+    transactionId: string;
+    code: string;
+  }): Promise<{ ok: boolean; data?: PolicyException; error?: string }> => {
+    try {
+      const response = await fetch("/api/v1/exceptions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ transactionId, code }),
+      });
+      const body = await response.json().catch(() => null);
+      notifyDataChanged();
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to open policy exception",
+        };
+      }
+      return { ok: true, data: body as PolicyException };
+    } catch (error) {
+      console.error("Error opening policy exception:", error);
+      return { ok: false, error: "Network error" };
+    }
+  };
+
+  const finalizePolicyException = async ({
+    exceptionId,
+  }: {
+    exceptionId: string;
+  }): Promise<{ ok: boolean; data?: PolicyException; error?: string }> => {
+    try {
+      const response = await fetch(
+        `/api/v1/exceptions/${exceptionId}/finalize`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      const body = await response.json().catch(() => null);
+      notifyDataChanged();
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: body?.message ?? "Failed to finalize policy exception",
+        };
+      }
+      return { ok: true, data: body as PolicyException };
+    } catch (error) {
+      console.error("Error finalizing policy exception:", error);
+      return { ok: false, error: "Network error" };
+    }
+  };
 
   return {
     cards:
@@ -224,5 +307,7 @@ export default function useCreditCards() {
     addNoteToTransaction,
     assignPolicyToCard,
     changeTransactionStatus,
+    openPolicyException,
+    finalizePolicyException,
   };
 }

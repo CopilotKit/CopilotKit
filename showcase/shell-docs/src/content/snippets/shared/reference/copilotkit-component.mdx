@@ -14,7 +14,7 @@ This component will typically wrap your entire application (or a sub-tree of you
 You can find more information about self-hosting CopilotKit [here](/direct-to-llm/guides/self-hosting).
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>;
 ```
@@ -24,14 +24,14 @@ import { CopilotKit } from "@copilotkit/react-core";
 <PropertyReference name="publicApiKey" type="string"  >
 Your Copilot Cloud API key.
 
-Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 
 </PropertyReference>
 
 <PropertyReference name="publicLicenseKey" type="string"  >
-Your public license key for accessing premium CopilotKit features.
+Your public license key for accessing Enterprise Intelligence Platform features.
 
-Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
+Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one for free.
 
 </PropertyReference>
 
@@ -39,7 +39,7 @@ Don't have it yet? Go to https://cloud.copilotkit.ai and get one for free.
 Restrict input to specific topics using guardrails.
   @remarks
 
-This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 
 </PropertyReference>
 
@@ -156,7 +156,7 @@ needed if you want to override the default theme.
 The auth config to use for the CopilotKit.
   @remarks
 
-This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://cloud.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
+This feature is only available when using CopilotKit's hosted cloud service. To use this feature, sign up at https://dashboard.operations.copilotkit.ai to get your publicApiKey. The feature allows restricting chat conversations to specific topics.
 
 </PropertyReference>
 
@@ -168,7 +168,7 @@ This feature is only available when using CopilotKit's hosted cloud service. To 
 Optional error handler for comprehensive debugging and observability.
 
 Requires publicApiKey: Error handling only works when publicApiKey is provided.
-This is a premium Copilot Cloud feature.
+This is an Enterprise Intelligence Platform feature.
 
 @param errorEvent - Structured error event with rich debugging context
 

@@ -3,6 +3,7 @@ import type { Message } from "@ag-ui/client";
 
 import {
   ɵnormalizeGeneratedTitle as normalizeGeneratedTitle,
+  ɵselectGeneratedTitleFromMessages as selectGeneratedTitleFromMessages,
   ɵbuildThreadTitlePrompt as buildThreadTitlePrompt,
   ɵhasThreadName as hasThreadName,
 } from "../handlers/intelligence/thread-names";
@@ -80,12 +81,56 @@ describe("normalizeGeneratedTitle", () => {
   });
 
   it("handles JSON with non-string title gracefully", () => {
-    // Falls back to raw text path
-    expect(normalizeGeneratedTitle('{"title":42}')).toBe('{"title":42}');
+    expect(normalizeGeneratedTitle('{"title":42}')).toBeNull();
+  });
+
+  it("rejects JSON without a string title", () => {
+    expect(
+      normalizeGeneratedTitle(
+        '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
+      ),
+    ).toBeNull();
   });
 
   it("handles malformed JSON gracefully", () => {
-    expect(normalizeGeneratedTitle("{not json}")).toBe("{not json}");
+    expect(normalizeGeneratedTitle("{not json}")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectGeneratedTitleFromMessages
+// ---------------------------------------------------------------------------
+
+describe("selectGeneratedTitleFromMessages", () => {
+  const msg = (role: string, content: unknown): Message =>
+    ({ id: `msg-${role}`, role, content }) as Message;
+
+  it("uses the latest valid assistant title before a tool result", () => {
+    const result = selectGeneratedTitleFromMessages([
+      msg("assistant", '{"title":"Weather request"}'),
+      msg("tool", '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}'),
+    ]);
+
+    expect(result).toBe("Weather request");
+  });
+
+  it("ignores malformed assistant JSON and falls back to an earlier valid title", () => {
+    const result = selectGeneratedTitleFromMessages([
+      msg("assistant", '{"title":"Order refund"}'),
+      msg("assistant", '{"timezone":"UTC"}'),
+    ]);
+
+    expect(result).toBe("Order refund");
+  });
+
+  it("returns null when no assistant text response has a valid title", () => {
+    const result = selectGeneratedTitleFromMessages([
+      msg("tool", '{"title":"Tool payload"}'),
+      msg("assistant", { title: "Object payload" }),
+      msg("assistant", '{"title":42}'),
+    ]);
+
+    expect(result).toBeNull();
   });
 });
 

@@ -14,6 +14,7 @@ from bedrock_agentcore.runtime import RequestContext
 
 logger = logging.getLogger(__name__)
 
+
 def extract_user_id_from_context(context: RequestContext) -> str:
     """
     Securely extract the user ID from the JWT token in the request context.
@@ -69,8 +70,7 @@ def extract_user_id_from_context(context: RequestContext) -> str:
     user_id = claims.get("sub")
     if not user_id:
         raise ValueError(
-            "JWT token does not contain a 'sub' claim. "
-            "Cannot determine user identity."
+            "JWT token does not contain a 'sub' claim. Cannot determine user identity."
         )
 
     logger.info("Extracted user_id from JWT: %s", user_id)
@@ -80,7 +80,7 @@ def extract_user_id_from_context(context: RequestContext) -> str:
 @requires_access_token(
     provider_name=os.environ.get("GATEWAY_CREDENTIAL_PROVIDER_NAME", ""),
     auth_flow="M2M",
-    scopes=[]
+    scopes=[],
 )
 def get_gateway_access_token(access_token: str) -> str:
     """

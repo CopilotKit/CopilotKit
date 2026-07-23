@@ -1,0 +1,140 @@
+---
+title: "A2UI"
+icon: "lucide/FileJson"
+description: "Render rich, declarative UI surfaces from your agent using the A2UI protocol."
+---
+
+## What is this?
+
+[A2UI](https://a2ui.org) (Agent-to-UI) is a declarative Generative UI
+specification, led by Google with CopilotKit as a launch and design
+partner. It lets your agent render structured UI components through a
+JSON-based schema instead of plain text: cards, rows, columns, badges,
+and price tags, all composed from a catalog of components you (or the
+platform) define.
+
+You can design and preview A2UI schemas visually using the
+[A2UI Composer](https://a2ui-composer.ag-ui.com/).
+
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/), a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
+
+## The two approaches
+
+CopilotKit ships two complementary A2UI approaches:
+
+- **[Dynamic Schema](./a2ui/dynamic-schema)**: a secondary LLM
+  generates both the schema *and* the data. Maximum flexibility, so
+  the agent can produce any UI for any prompt.
+
+- **[Fixed Schema](./a2ui/fixed-schema)**: the component tree is
+  authored ahead of time as JSON. The agent only streams *data* into
+  the data model at runtime. Fastest, with no LLM schema generation.
+
+Both approaches share the same A2UI wire protocol and the same
+frontend renderer. The difference is *where the schema comes from* and
+*how data reaches the client*.
+
+## How it works
+
+Every A2UI surface is assembled from three kinds of operations emitted
+by the agent and consumed by the frontend renderer:
+
+1. **`createSurface` / `surfaceUpdate`** declares (or pins) the
+   component tree (the schema) for a surface.
+2. **`updateComponents` / `dataModelUpdate`** supplies the data that
+   populates the components via JSON Pointer paths.
+3. **`beginRendering`** tells the client the first frame is ready.
+
+The CopilotKit Python SDK provides helpers for each:
+
+```python
+from copilotkit import a2ui
+
+a2ui.create_surface(surface_id, catalog_id=...)
+a2ui.update_components(surface_id, components)
+a2ui.update_data_model(surface_id, {"items": data})
+a2ui.begin_rendering(surface_id, root_id)
+a2ui.render(operations=[...])  # wraps and serializes for a tool result
+```
+
+## Setup
+
+A2UI turns on in one of two ways. Most apps use the first.
+
+### Pass a catalog on the provider (recommended)
+
+Pass an A2UI catalog to the `<CopilotKit>` provider. The catalog tells
+the renderer which components your agent can draw, and it does two
+things for you automatically: it enables A2UI and it injects the A2UI
+tool into your agent. No `a2ui` block on the runtime is required.
+
+```tsx title="app/page.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+  {children}
+</CopilotKit>;
+```
+
+### Enable on the runtime without a catalog
+
+If you do not pass a catalog, enable A2UI on the runtime instead.
+`a2ui: true` applies the middleware so the surfaces your agent emits
+are rendered; add `injectA2UITool: true` to also inject the render
+tool so the agent can generate surfaces dynamically:
+
+```typescript title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: { injectA2UITool: true },
+});
+```
+
+The middleware handles the wire protocol automatically, intercepting
+tool results that contain A2UI operations and rendering them as rich
+surfaces in the chat.
+
+<Callout type="warn">
+With neither a catalog on the provider nor `a2ui` on the runtime, A2UI
+surfaces will not render. The operations fall through as plain tool
+results.
+</Callout>
+
+### What gets injected
+
+When injection is on, the runtime adds a tool named `generate_a2ui` to
+your agent. Calling it runs a secondary LLM, a subagent, that designs
+the full A2UI surface (components, layout, and data) from your catalog,
+then streams it into the chat. You do not write this tool yourself. See
+[Dynamic Schema](./a2ui/dynamic-schema) for the full flow.
+
+### Customize or opt out
+
+To take control instead of relying on auto-inject, set
+`injectA2UITool: false` and provide the tool yourself with the AG-UI
+factory (`get_a2ui_tools()` in Python, `getA2UITools()` in TypeScript),
+where you set the model, default catalog id, and more. An explicit
+`injectA2UITool: false` always wins, even when a catalog is present.
+This is also how the [Fixed Schema](./a2ui/fixed-schema) approach
+works: your agent owns a data-only tool and no subagent is injected.
+
+## Choose your approach
+
+<Cards>
+  <Card
+    title="Dynamic Schema"
+    href="./a2ui/dynamic-schema"
+    description="A secondary LLM generates both the schema and data. Any UI from any prompt."
+  />
+  <Card
+    title="Fixed Schema"
+    href="./a2ui/fixed-schema"
+    description="Pre-authored JSON schema, agent streams data. Fastest path to production-quality UI."
+  />
+</Cards>
+
+<IntegrationGrid path="generative-ui/a2ui" />

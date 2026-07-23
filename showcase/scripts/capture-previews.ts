@@ -44,7 +44,7 @@ const GITHUB_REPO = "CopilotKit/CopilotKit";
 const RELEASE_TAG = "showcase-previews";
 const RELEASE_BASE_URL = `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}`;
 
-const PACKAGES_DIR = path.resolve(__dirname, "..", "packages");
+const PACKAGES_DIR = path.resolve(__dirname, "..", "integrations");
 const PREVIEWS_DIR = path.resolve(
   __dirname,
   "..",

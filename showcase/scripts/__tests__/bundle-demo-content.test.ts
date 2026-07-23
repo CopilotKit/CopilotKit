@@ -124,7 +124,6 @@ describe("Content Bundler", () => {
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",
-      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];

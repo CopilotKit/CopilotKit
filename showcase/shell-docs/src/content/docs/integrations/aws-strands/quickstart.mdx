@@ -5,14 +5,12 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<OpsPlatformCTA
+  variant="card"
+  title="Ship AWS Strands to production"
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_aws_strands_quickstart"
 />
 
 ## Prerequisites
@@ -27,18 +25,21 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your starting point</p>
-                <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Strands agent.
-                </p>
-            </div>
-        }
-    >
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_aws_strands_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing Strands agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
         <TailoredContentOption
             id="starter"
             title="Start from scratch"
@@ -48,8 +49,14 @@ Before you begin, you'll need the following:
                 ### Run our CLI
 
                 ```bash
-                npx copilotkit@latest create -f aws-strands-py
+                npx copilotkit@latest create
                 ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard AWS Strands setup.
+                - **Framework** — pick **AWS Strands (Python)** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -108,21 +115,50 @@ Before you begin, you'll need the following:
             <Step>
                 ### Initialize your agent project
 
-                If you don't already have a Python project set up, create one using `uv`:
+                <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                    <Tab value="Python">
+                        If you don't already have a Python project set up, create one using `uv`:
 
-                ```bash
-                uv init my-agent
-                cd my-agent
-                ```
+                        ```bash
+                        uv init my-agent
+                        cd my-agent
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        If you don't already have a Node project set up, create one:
+
+                        ```bash
+                        mkdir my-agent && cd my-agent
+                        npm init -y
+                        npm install -D typescript @types/node tsx
+                        npx tsc --init
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Install Strands with AG-UI
 
-                Add Strands and the required packages to your project:
+                <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                    <Tab value="Python">
+                        Add Strands and the required packages to your project:
 
-                ```bash
-                uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
-                ```
+                        ```bash
+                        uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        Add the Strands SDK, the AG-UI integration, and the Express helpers:
+
+                        ```bash
+                        npm install @ag-ui/aws-strands @strands-agents/sdk express cors
+                        npm install -D @types/express @types/cors
+                        # `@modelcontextprotocol/sdk` is loaded unconditionally by `@strands-agents/sdk`
+                        # and is required at runtime even when your agent doesn't use MCP.
+                        npm install @modelcontextprotocol/sdk
+                        ```
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Configure your environment
@@ -140,44 +176,90 @@ Before you begin, you'll need the following:
             <Step>
                 ### Expose your agent via AG-UI
 
-                Update your agent file to expose it as an AG-UI ASGI application:
+                <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                    <Tab value="Python">
+                        Update your agent file to expose it as an AG-UI ASGI application:
 
-                ```python title="main.py"
+                        ```python title="main.py"
+                        import os
 
-                from ag_ui_strands import StrandsAgent, create_strands_app
-                from strands import Agent
-                from strands.models.openai import OpenAIModel
+                        from ag_ui_strands import StrandsAgent, create_strands_app
+                        from strands import Agent
+                        from strands.models.openai import OpenAIModel
 
-                # Setup your Strands agent
-                api_key = os.getenv("OPENAI_API_KEY", "")
-                model = OpenAIModel(
-                    client_args={"api_key": api_key},
-                    model_id="gpt-5.2",
-                )
+                        # Setup your Strands agent
+                        api_key = os.getenv("OPENAI_API_KEY", "")
+                        model = OpenAIModel(
+                            client_args={"api_key": api_key},
+                            model_id="gpt-5.4",
+                        )
 
-                agent = Agent(
-                    model=model,
-                    system_prompt="You are a helpful AI assistant.",
-                )
+                        agent = Agent(
+                            model=model,
+                            system_prompt="You are a helpful AI assistant.",
+                        )
 
-                # Wrap with AG-UI integration
-                agui_agent = StrandsAgent(
-                    agent=agent,
-                    name="strands_agent",
-                )
+                        # Wrap with AG-UI integration
+                        agui_agent = StrandsAgent(
+                            agent=agent,
+                            name="strands_agent",
+                        )
 
-                # Create the FastAPI app
-                app = create_strands_app(agui_agent, "/")
+                        # Create the FastAPI app
+                        app = create_strands_app(agui_agent, "/")
 
-                if __name__ == "__main__":
+                        if __name__ == "__main__":
+                            import uvicorn
 
-                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
-                ```
+                        ```
 
-                <Callout type="info" title="What is AG-UI?">
-                  AG-UI is an open protocol for frontend-agent communication. The `create_strands_app` function creates an ASGI app that CopilotKit can connect to.
-                </Callout>
+                        <Callout type="info" title="What is AG-UI?">
+                          AG-UI is an open protocol for frontend-agent communication. The `create_strands_app` function creates an ASGI app that CopilotKit can connect to.
+                        </Callout>
+                    </Tab>
+                    <Tab value="TypeScript">
+                        Update your agent file to expose it as an AG-UI Express application:
+
+                        ```typescript title="main.ts"
+                        import { Agent } from "@strands-agents/sdk";
+                        import { OpenAIModel } from "@strands-agents/sdk/models/openai";
+                        import { StrandsAgent } from "@ag-ui/aws-strands";
+                        import { createStrandsApp } from "@ag-ui/aws-strands/server";
+
+                        // Setup your Strands agent
+                        const model = new OpenAIModel({
+                          apiKey: process.env.OPENAI_API_KEY ?? "",
+                          modelId: "gpt-5.4",
+                        });
+
+                        const agent = new Agent({
+                          model,
+                          systemPrompt: "You are a helpful AI assistant.",
+                        });
+
+                        await agent.initialize();
+
+                        // Wrap with AG-UI integration
+                        const aguiAgent = new StrandsAgent({
+                          agent,
+                          name: "strands_agent",
+                        });
+
+                        // Create the Express app
+                        const app = await createStrandsApp(aguiAgent, { path: "/" });
+
+                        app.listen(8000, () => {
+                          console.log("Agent listening on http://localhost:8000");
+                        });
+                        ```
+
+                        <Callout type="info" title="What is AG-UI?">
+                          AG-UI is an open protocol for frontend-agent communication. The `createStrandsApp` function returns an Express app that CopilotKit can connect to.
+                        </Callout>
+                    </Tab>
+                </Tabs>
             </Step>
             <Step>
                 ### Create your frontend
@@ -202,10 +284,13 @@ Before you begin, you'll need the following:
                 Create an API route to connect CopilotKit to your Strands agent:
 
                 ```tsx title="app/api/copilotkit/route.ts"
+                import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -232,6 +317,9 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css";
+                import './globals.css';
 
                 // ...
 
@@ -255,6 +343,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -272,10 +361,20 @@ Before you begin, you'll need the following:
 
                 From your agent directory, start the agent server:
 
-                ```bash
-                cd ..
-                uv run main.py
-                ```
+                <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+                    <Tab value="Python">
+                        ```bash
+                        cd ..
+                        uv run main.py
+                        ```
+                    </Tab>
+                    <Tab value="TypeScript">
+                        ```bash
+                        cd ..
+                        npx tsx main.ts
+                        ```
+                    </Tab>
+                </Tabs>
 
                 Your agent will be available at `http://localhost:8000`.
             </Step>
@@ -313,6 +412,7 @@ Before you begin, you'll need the following:
             </Step>
         </TailoredContentOption>
     </TailoredContent>
+    </Step>
     <Step>
         ### 🎉 Start chatting!
 
@@ -340,8 +440,11 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
-
 </Steps>
+
+## Deploying to AWS?
+
+If you're planning to deploy your Strands agent to AWS Bedrock AgentCore, see the [AgentCore deploy guide](/deploy-agentcore).
 
 ## What's next?
 
@@ -361,3 +464,13 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

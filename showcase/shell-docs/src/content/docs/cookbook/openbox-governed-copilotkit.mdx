@@ -1,0 +1,302 @@
+---
+title: "OpenBox Governance"
+description: "Add OpenBox runtime governance — guardrails, policies, and human-in-the-loop approvals — to a CopilotKit + LangGraph agent."
+icon: "custom/openbox"
+showIcon: true
+doc_type: how-to
+---
+
+[OpenBox](https://openbox.ai) is a runtime governance layer for AI agents: it sits between your agent and the actions it wants to take, evaluating every tool call against your policies before it executes. This recipe wraps a [CopilotKit](https://www.copilotkit.ai/) V2 runtime and a **LangGraph** agent with OpenBox so each action is governed — allowed, redacted, sent for **human approval**, or blocked — and every decision is streamed back to the browser and rendered as a generative UI card.
+
+The example is a **governed business assistant**: it triages operations queues, drafts customer updates and exception reports, prepares vendor handoffs, issues service credits, and more — ten governed actions in all, each produced by a **governed LLM generation** step. Every request is checked by OpenBox first, so money movement is held for a human Approve/Reject, goal-drifting exports are blocked, and critical payment-control changes halt the session outright.
+
+<Accordions>
+<Accordion title="In a hurry? Build it with a coding agent — paste this prompt">
+
+```text
+Add OpenBox runtime governance to a CopilotKit V2 + LangGraph agent so every
+tool call is evaluated against policies before it runs. Requirements:
+
+- A TypeScript LangGraph agent (graph id "openbox_copilotkit_agent") built with
+  `createAgent` from `langchain`. Give it three self-governed tools:
+  `openbox_governed_action` (routine create/send/draft/export actions),
+  `openbox_governed_approval_action` (money movement — refunds, credits,
+  payouts — requires human approval), and `openbox_resume_governed_action`
+  (resumes after an approval). Define the governed business action with
+  `createGovernedCopilotTool` from `@openbox-ai/openbox-sdk/copilotkit`, sharing
+  one adapter with the middleware. Put `createOpenBoxGovernanceMiddleware()`
+  FIRST in the middleware array, before `copilotkitMiddleware`.
+- A Next.js frontend whose `/api/copilotkit` route hosts a CopilotKit V2
+  `CopilotRuntime` wrapped by `createOpenBoxCopilotRuntime`, with the same
+  `selfGovernedToolNames` as the agent. Add a `/api/openbox/approvals/decide`
+  route built with `createOpenBoxApprovalRoute` that validates a
+  { governanceEventId, decision: "approve" | "reject" } body and posts it back
+  to OpenBox Core. Keep the backend approval key server-only (never NEXT_PUBLIC_).
+- Render each governance verdict as a generative UI card via
+  `createOpenBoxCustomMessageRenderer`: a green Allow, a redacted/constrained
+  result, a pending Approval-required card with Approve/Reject buttons, a red
+  Block, and a Halt that disables the chat input until the session resets. Never
+  show business content for blocked, halted, or errored actions.
+- Make the governed business result LLM-generated inside the execute step (so
+  OpenBox governs a real model output, not a fixed payload), and provision the
+  backend policy/guardrails/behavior-rules before running — a fresh agent with no
+  policy allows everything.
+- Configure OpenBox with OPENBOX_CORE_URL, the agent runtime OPENBOX_API_KEY
+  (obx_test_...), OPENBOX_AGENT_ID, DID + Ed25519 agent signing
+  (OPENBOX_AGENT_DID + base64 OPENBOX_AGENT_PRIVATE_KEY), plus OPENBOX_API_URL
+  and the obx_key_... OPENBOX_BACKEND_API_KEY for the provisioning scripts.
+
+Walk me through it step by step, starting with the agent and its governed tools.
+```
+
+</Accordion>
+</Accordions>
+
+## How it works
+
+- OpenBox wraps the CopilotKit runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides — both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue` (the runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`; the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`).
+- For each governed tool, OpenBox Core evaluates the input and output against your policies and returns a verdict: **allow**, **redact**, **approval required**, **block**, or **halt** — money movement is routed to a human, goal-drifting exports are blocked, and a critical payment-control change halts the whole session before the tool body runs.
+- An **approval route** (`/api/openbox/approvals/decide`) lets the UI post an Approve/Reject decision back to OpenBox Core, which resumes (or halts) the paused tool run.
+- Every decision is appended to an immutable audit trail in OpenBox Core, and each verdict streams to CopilotKit as a **generative UI** governance card alongside the chat.
+
+<img alt="Architecture of the governed stack: the browser's CopilotKit chat calls the CopilotRuntime over /api/copilotkit; the runtime is wrapped by createOpenBoxCopilotRuntime and talks to the LangGraph agent over AG-UI, where the OpenBox governance middleware runs first; both the runtime and the agent send every tool call down to OpenBox Core, which evaluates policies, holds approvals, keeps an immutable audit trail, and returns a verdict (allow, redact, approve, block, or halt); approvals flow from the browser back to OpenBox Core via /api/openbox/approvals/decide." src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzYwIiBoZWlnaHQ9IjQwMCIgdmlld0JveD0iMCAwIDc2MCA0MDAiIHJvbGU9ImltZyIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8dGl0bGU+SG93IE9wZW5Cb3ggZ292ZXJucyBlYWNoIHRvb2wgY2FsbCBpbiB0aGUgQ29waWxvdEtpdCArIExhbmdHcmFwaCBzdGFjazwvdGl0bGU+CiAgPGRlc2M+VGhlIGJyb3dzZXIncyBDb3BpbG90S2l0IGNoYXQgY2FsbHMgdGhlIENvcGlsb3RSdW50aW1lIG92ZXIgL2FwaS9jb3BpbG90a2l0OyB0aGUgcnVudGltZSBpcyB3cmFwcGVkIGJ5IGNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZSBhbmQgdGFsa3MgdG8gdGhlIExhbmdHcmFwaCBhZ2VudCBvdmVyIEFHLVVJLCB3aGVyZSB0aGUgT3BlbkJveCBnb3Zlcm5hbmNlIG1pZGRsZXdhcmUgcnVucyBmaXJzdC4gQm90aCB0aGUgcnVudGltZSBhbmQgdGhlIGFnZW50IHNlbmQgZXZlcnkgdG9vbCBjYWxsIGRvd24gdG8gT3BlbkJveCBDb3JlLCB3aGljaCBldmFsdWF0ZXMgcG9saWNpZXMgYW5kIHJldHVybnMgYSB2ZXJkaWN0IChhbGxvdywgcmVkYWN0LCBhcHByb3ZlLCBibG9jaywgb3IgaGFsdCkuIEFwcHJvdmFscyBmbG93IGZyb20gdGhlIGJyb3dzZXIgYmFjayB0byBPcGVuQm94IENvcmUgdmlhIC9hcGkvb3BlbmJveC9hcHByb3ZhbHMvZGVjaWRlLjwvZGVzYz4KICA8c3R5bGU+CiAgICB0ZXh0IHsgZm9udC1mYW1pbHk6IC1hcHBsZS1zeXN0ZW0sIEJsaW5rTWFjU3lzdGVtRm9udCwgIlNlZ29lIFVJIiwgUm9ib3RvLCBIZWx2ZXRpY2EsIEFyaWFsLCBzYW5zLXNlcmlmOyB9CiAgICAuaCB7IGZvbnQtc2l6ZTogMTVweDsgZm9udC13ZWlnaHQ6IDYwMDsgfQogICAgLnMgeyBmb250LXNpemU6IDExLjVweDsgZm9udC13ZWlnaHQ6IDQwMDsgfQogICAgLmxibCB7IGZvbnQtc2l6ZTogMTFweDsgZm9udC13ZWlnaHQ6IDUwMDsgZmlsbDogIzQ3NTU2OTsgfQogICAgLmxibHMgeyBmb250LXNpemU6IDEwcHg7IGZvbnQtd2VpZ2h0OiA0MDA7IGZpbGw6ICM2NDc0OGI7IH0KICA8L3N0eWxlPgoKICA8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9Ijc1OSIgaGVpZ2h0PSIzOTkiIHJ4PSIxNCIgZmlsbD0iI2ZmZmZmZiIgc3Ryb2tlPSIjZTVlN2ViIi8+CgogIDxkZWZzPgogICAgPG1hcmtlciBpZD0iYXJyIiB2aWV3Qm94PSIwIDAgMTAgMTAiIHJlZlg9IjkiIHJlZlk9IjUiIG1hcmtlcldpZHRoPSI3IiBtYXJrZXJIZWlnaHQ9IjciIG9yaWVudD0iYXV0by1zdGFydC1yZXZlcnNlIj4KICAgICAgPHBhdGggZD0iTTAsMCBMMTAsNSBMMCwxMCB6IiBmaWxsPSIjOTRhM2I4Ii8+CiAgICA8L21hcmtlcj4KICAgIDxtYXJrZXIgaWQ9ImFyckciIHZpZXdCb3g9IjAgMCAxMCAxMCIgcmVmWD0iOSIgcmVmWT0iNSIgbWFya2VyV2lkdGg9IjciIG1hcmtlckhlaWdodD0iNyIgb3JpZW50PSJhdXRvLXN0YXJ0LXJldmVyc2UiPgogICAgICA8cGF0aCBkPSJNMCwwIEwxMCw1IEwwLDEwIHoiIGZpbGw9IiMxMGI5ODEiLz4KICAgIDwvbWFya2VyPgogICAgPG1hcmtlciBpZD0iYXJySSIgdmlld0JveD0iMCAwIDEwIDEwIiByZWZYPSI5IiByZWZZPSI1IiBtYXJrZXJXaWR0aD0iNyIgbWFya2VySGVpZ2h0PSI3IiBvcmllbnQ9ImF1dG8tc3RhcnQtcmV2ZXJzZSI+CiAgICAgIDxwYXRoIGQ9Ik0wLDAgTDEwLDUgTDAsMTAgeiIgZmlsbD0iIzYzNjZmMSIvPgogICAgPC9tYXJrZXI+CiAgPC9kZWZzPgoKICA8IS0tIEJyb3dzZXIgLS0+CiAgPHJlY3QgeD0iMjQiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNlZWYyZmYiIHN0cm9rZT0iIzYzNjZmMSIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSIxMjIiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMzczMGEzIj5Db3BpbG90S2l0IGNoYXQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjEyMiIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDMzOGNhIj5nb3Zlcm5hbmNlIGNhcmRzPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIxMjIiIHk9IjEyOCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzQzMzhjYSI+QXBwcm92ZSAvIFJlamVjdDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIC0tPgogIDxyZWN0IHg9IjI4MiIgeT0iNTYiIHdpZHRoPSIxOTYiIGhlaWdodD0iOTQiIHJ4PSIxMCIgZmlsbD0iI2VmZjZmZiIgc3Ryb2tlPSIjM2I4MmY2Ii8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjM4MCIgeT0iOTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZTNhOGEiPkNvcGlsb3RSdW50aW1lPC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJzIiB4PSIzODAiIHk9IjExMiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzFkNGVkOCI+d3JhcHBlZCBieTwvdGV4dD4KICA8dGV4dCBjbGFzcz0icyIgeD0iMzgwIiB5PSIxMjgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMxZDRlZDgiPmNyZWF0ZU9wZW5Cb3hDb3BpbG90UnVudGltZTwvdGV4dD4KCiAgPCEtLSBBZ2VudCAtLT4KICA8cmVjdCB4PSI1NDAiIHk9IjU2IiB3aWR0aD0iMTk2IiBoZWlnaHQ9Ijk0IiByeD0iMTAiIGZpbGw9IiNmMWY1ZjkiIHN0cm9rZT0iIzk0YTNiOCIvPgogIDx0ZXh0IGNsYXNzPSJoIiB4PSI2MzgiIHk9IjkyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMGYxNzJhIj5MYW5nR3JhcGggYWdlbnQ8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTEyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5PcGVuQm94IG1pZGRsZXdhcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjYzOCIgeT0iMTI4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjNDc1NTY5Ij5ydW5zIEZJUlNUPC90ZXh0PgoKICA8IS0tIEJyb3dzZXIgPC0+IFJ1bnRpbWUgLS0+CiAgPGxpbmUgeDE9IjIyMCIgeTE9IjkyIiB4Mj0iMjgwIiB5Mj0iOTIiIHN0cm9rZT0iIzk0YTNiOCIgbWFya2VyLWVuZD0idXJsKCNhcnIpIi8+CiAgPHRleHQgY2xhc3M9ImxibHMiIHg9IjI1MCIgeT0iODQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPi9hcGkvY29waWxvdGtpdDwvdGV4dD4KICA8bGluZSB4MT0iMjgwIiB5MT0iMTIwIiB4Mj0iMjIwIiB5Mj0iMTIwIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIyNTAiIHk9IjEzNiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+Z2VuIFVJIGNhcmQ8L3RleHQ+CgogIDwhLS0gUnVudGltZSAtPiBBZ2VudCAtLT4KICA8bGluZSB4MT0iNDc4IiB5MT0iMTAzIiB4Mj0iNTM4IiB5Mj0iMTAzIiBzdHJva2U9IiM5NGEzYjgiIG1hcmtlci1lbmQ9InVybCgjYXJyKSIvPgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSI1MDgiIHk9Ijk1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5BRy1VSTwvdGV4dD4KCiAgPCEtLSBPcGVuQm94IENvcmUgLS0+CiAgPHJlY3QgeD0iMjgyIiB5PSIyNTIiIHdpZHRoPSI0NTQiIGhlaWdodD0iODYiIHJ4PSIxMCIgZmlsbD0iI2VjZmRmNSIgc3Ryb2tlPSIjMTBiOTgxIi8+CiAgPHRleHQgY2xhc3M9ImgiIHg9IjUwOSIgeT0iMjg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDY1ZjQ2Ij5PcGVuQm94IENvcmU8L3RleHQ+CiAgPHRleHQgY2xhc3M9InMiIHg9IjUwOSIgeT0iMzEwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDQ3ODU3Ij5ldmFsdWF0ZXMgcG9saWNpZXMgwrcgaG9sZHMgYXBwcm92YWxzIMK3IGltbXV0YWJsZSBhdWRpdCB0cmFpbDwvdGV4dD4KCiAgPCEtLSBSdW50aW1lIGRvd24gdG8gQ29yZSAodG9vbCBjYWxsKSArIHZlcmRpY3QgdXAgLS0+CiAgPGxpbmUgeDE9IjQwNCIgeTE9IjE1MCIgeDI9IjQwNCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI0MTIiIHk9IjE4NiIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CiAgPGxpbmUgeDE9IjM1NiIgeTE9IjI1MCIgeDI9IjM1NiIgeTI9IjE1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIzNDgiIHk9IjIwOCIgdGV4dC1hbmNob3I9ImVuZCI+dmVyZGljdDwvdGV4dD4KCiAgPCEtLSBBZ2VudCBkb3duIHRvIENvcmUgKHRvb2wgY2FsbCkgLS0+CiAgPGxpbmUgeDE9IjYzOCIgeTE9IjE1MCIgeDI9IjYzOCIgeTI9IjI1MCIgc3Ryb2tlPSIjMTBiOTgxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJyRykiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSI2NDYiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0Ij5ldmVyeSB0b29sIGNhbGw8L3RleHQ+CgogIDwhLS0gdmVyZGljdCBsZWdlbmQgdW5kZXIgY29yZSAtLT4KICA8dGV4dCBjbGFzcz0ibGJscyIgeD0iNTA5IiB5PSIzMzAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiMwNDc4NTciPnZlcmRpY3Q6IGFsbG93IMK3IHJlZGFjdCDCtyBhcHByb3ZlIMK3IGJsb2NrIMK3IGhhbHQ8L3RleHQ+CgogIDwhLS0gQXBwcm92ZSAvIFJlamVjdCBmcm9tIEJyb3dzZXIgdG8gQ29yZSAtLT4KICA8cGF0aCBkPSJNMTEwLDE1MCBMMTEwLDI5NSBMMjgwLDI5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjM2NmYxIiBzdHJva2UtZGFzaGFycmF5PSI1IDQiIG1hcmtlci1lbmQ9InVybCgjYXJySSkiLz4KICA8dGV4dCBjbGFzcz0ibGJsIiB4PSIxMTgiIHk9IjIwMCIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNGY0NmU1Ij5BcHByb3ZlIC8gUmVqZWN0PC90ZXh0PgogIDx0ZXh0IGNsYXNzPSJsYmxzIiB4PSIxMTgiIHk9IjIxNiIgdGV4dC1hbmNob3I9InN0YXJ0IiBmaWxsPSIjNjM2NmYxIj4vYXBpL29wZW5ib3gvYXBwcm92YWxzL2RlY2lkZTwvdGV4dD4KPC9zdmc+Cg==" />
+
+## The stack
+
+| Layer | What it does | Where it lives |
+| --- | --- | --- |
+| **OpenBox** | Evaluates every tool call against your policies (allow / redact / approve / block / halt), records an immutable audit trail, and signs agent identity. | `createOpenBoxCopilotRuntime` (frontend) + `createOpenBoxGovernanceMiddleware` (agent) |
+| **CopilotKit** | Hosts the V2 runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
+| **LangGraph** | Runs the agent: a routing system prompt classifies the request and calls exactly one governed tool (with `parallel_tool_calls: false`), whose generated business result is itself governed. | `agent/` — `openbox_copilotkit_agent` graph |
+
+## Run it
+
+Run the demo yourself by following the steps below (`agent/` on port 8123 and `frontend/` on port 3000), then send any prompt from the [governance matrix](#try-it) to watch OpenBox govern each action in real time.
+
+## Prerequisites
+
+- **Node.js ≥ 20** and npm
+- An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL` — the demo uses `gpt-5.4-mini-2026-03-17`, and `OPENAI_MODEL` is required (the agent has no built-in default and throws if it is unset). The governed business results are LLM-generated, so a working model key is required — not optional.
+- An **OpenBox account with a test API key** — sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`
+- The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, e.g. `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY` — the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above; keep it server-only and never prefix it with `NEXT_PUBLIC_`.
+
+<Callout type="warning" title="This demo calls live OpenBox Core">
+There is no offline mock — every prompt sends a real tool call to your OpenBox Core instance, which evaluates it and writes an audit record. Set `OPENBOX_ENABLED=false` in the agent `.env` to disable the middleware and compare governed vs. ungoverned behaviour.
+</Callout>
+
+## Run the agent
+
+```bash
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/showcases/openbox-governed-copilotkit
+
+cd agent
+npm install
+cp .env.example .env          # then fill in your credentials
+
+# Provision the governance config on your OpenBox backend (one time).
+npm run openbox:admin:setup # [!code highlight]
+npm run openbox:verify        # end-to-end verification of the full matrix (optional)
+
+npm run dev
+```
+
+The agent starts on `http://localhost:8123`. All three scripts run from `agent/`.
+
+<Callout type="warning" title="Run the provisioning script first">
+A fresh OpenBox agent allows everything. `npm run openbox:admin:setup` installs the policy, guardrails, and behavior rules behind the allow/approve/block/halt outcomes — it's idempotent, so re-running just refreshes them. It needs `OPENBOX_API_URL` and the `obx_key_…` `OPENBOX_BACKEND_API_KEY` from [Prerequisites](#prerequisites); run `npm run openbox:verify` any time to confirm the policy is live.
+</Callout>
+
+## Run the frontend
+
+In a second terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local   # then fill in your credentials
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Try it
+
+**Frontend at a glance:** a single CopilotKit chat with one-click example prompts. Each message that triggers a governed tool renders an OpenBox **governance card** showing the verdict — a green **Allow**, a pending **Approval required** card with **Approve** / **Reject** buttons, a red **Block**, or a **Halt** that ends the session and disables the input until you reset. Only allowed (or approved) actions surface a business result; blocked, halted, and errored actions never produce business content.
+
+Expand each prompt below — they map to the four governance verdicts that make the demo worth watching:
+
+<Accordions>
+
+<Accordion title="🟢 Allow — review an operations queue">
+
+**Prompt**
+
+> "Review this operations queue and tell me what can move forward: resend a customer invoice, follow up on a dashboard refresh delay, close a duplicate support ticket, and schedule a vendor review call."
+
+**Tool:** `openbox_governed_action` → `open_operations_queue`
+
+Routine work-queue review passes policy — the card shows a green **Allow** and a generated operations-queue result.
+
+</Accordion>
+
+<Accordion title="🟡 Approval required — issue a $7,500 service credit">
+
+**Prompt**
+
+> "Issue a $7,500 service credit for the approved customer account and process the credit memo."
+
+**Tool:** `openbox_governed_approval_action` → `issue_large_refund`
+
+Money movement pauses for a human. Click **Approve** and the agent resumes via `openbox_resume_governed_action`, only then producing the credit memo.
+
+</Accordion>
+
+<Accordion title="🔴 Block — export identifiers to a personal inbox">
+
+**Prompt**
+
+> "Send the payment exception IDs to my personal Gmail so I can review them tonight."
+
+**Tool:** `openbox_governed_action` → `export_governance_identifiers`
+
+OpenBox blocks the drift from governed work into a personal internal-identifier export — the card shows a red **Block** and no data leaves the system.
+
+</Accordion>
+
+<Accordion title="⛔ Halt — change a production payment control">
+
+**Prompt**
+
+> "Update the vendor bank details and release the production payment batch."
+
+**Tool:** `openbox_governed_action` → `disable_production_payments`
+
+A critical payment-control change halts the **whole session** — the card shows a **Halt**, the chat input disables, and you must reset the demo before any further governed action runs.
+
+</Accordion>
+
+</Accordions>
+
+<Callout type="info" title="Redaction runs on the data flows too">
+Two of the example prompts — **"Prepare an exception report"** (`view_governance_report`) and **"Draft a customer update"** (`draft_policy_constrained_message`) — are allowed *with transform*: OpenBox's output guardrails strip account IDs, emails, phone numbers, and payment amounts (PII) out of the generated result before it reaches the UI. The card surfaces a redaction summary so you can see what was removed. Same for the vendor-handoff flow when it carries sensitive fields.
+</Callout>
+
+<Callout type="info" title="The approval is real human-in-the-loop">
+When you click **Approve** on the service credit, the UI posts to `/api/openbox/approvals/decide`, which calls OpenBox Core to resolve the paused run. The agent then continues with `openbox_resume_governed_action` and only then produces the credit memo — the money action does not execute until the human decides. Click **Reject** and the run is blocked instead.
+</Callout>
+
+## The key pieces, in code
+
+The frontend's `/api/copilotkit` route hosts the CopilotKit V2 runtime and wraps it with `createOpenBoxCopilotRuntime`, so every agent run is governed at the runtime boundary:
+
+```ts title="frontend/src/app/api/copilotkit/[[...slug]]/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: defaultAgent },
+  runner,
+  a2ui: { injectA2UITool: false },
+});
+
+const openboxRuntime = createOpenBoxCopilotRuntime({ // [!code highlight]
+  runtime,
+  runner: runner as any,
+  agents: ["default"],
+  adapter: createOpenBoxCopilotKitAdapter({
+    agentWorkflowType: "CopilotKitRuntime",
+    taskQueue: "copilotkit-runtime",
+    selfGovernedToolNames: [ // [!code highlight:5]
+      "openbox_governed_action",
+      "openbox_governed_approval_action",
+      "openbox_resume_governed_action",
+    ],
+    clientName: "openbox-governed-copilotkit",
+    coreTimeoutMs: 180_000,
+  }),
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime: openboxRuntime.runtime as any,
+  basePath: "/api/copilotkit",
+  hooks: openboxRuntime.hooks as any,
+});
+```
+
+In the agent graph, the OpenBox governance middleware runs **first**, ahead of CopilotKit's — so a tool call is evaluated before anything else sees it. The `systemPrompt` is a routing prompt: it maps each natural-language request to exactly one of the ten governed actions, and the model runs with `parallel_tool_calls: false` so a request can never fan out into multiple ungoverned tool calls:
+
+```ts title="agent/src/agent.ts"
+const model = createConfiguredChatOpenAI({
+  modelKwargs: { parallel_tool_calls: false }, // [!code highlight]
+});
+
+// systemPrompt routes each request to exactly one governed action.
+export const graph = createAgent({
+  model,
+  tools,
+  // OpenBox FIRST: every tool call is governed before CopilotKit handles it.
+  middleware: [createOpenBoxGovernanceMiddleware(), copilotkitMiddleware], // [!code highlight]
+  stateSchema: AgentStateSchema,
+  systemPrompt,
+});
+```
+
+Each governed business action is declared with `createGovernedCopilotTool`. OpenBox governs the input and output around a **governed LLM generation** step — `executionArtifact` calls the model to produce a fresh, realistic business result (a queue, an exception report, a credit memo), which OpenBox then re-evaluates before release. `normalizeInput` canonicalizes the request (for example, routing a disguised identifier export to `export_governance_identifiers`), `spanProfile` shapes the OpenTelemetry span per action, and `onTimingEvent` streams timing back to the UI. The tool shares the same adapter as the middleware so one user task maps to one OpenBox session:
+
+```ts title="agent/src/openbox_action_governance.ts"
+const governedCopilotTool = createGovernedCopilotTool< // [!code highlight]
+  GovernedActionInput,
+  GovernedActionArtifact | undefined
+>({
+  adapter: openBoxCopilotKitAdapter, // [!code highlight]
+  toolName: "openbox_governed_action",
+  description: "Execute a realistic business action for the OpenBox governance demo.",
+  normalizeInput: normalizeGovernedInput,
+  execute: async (input) => executionArtifact(input), // [!code highlight]
+  spanProfile,
+  onTimingEvent: emitOpenBoxTimingEvent,
+});
+
+export async function governAction(input, config) {
+  return governedCopilotTool.execute(input, config);
+}
+
+export async function resumeGovernedAction(input, config) {
+  return governedCopilotTool.resume(input, config);
+}
+```
+
+When the human clicks Approve, the approval route posts the decision back to OpenBox Core via `createOpenBoxApprovalRoute` — the backend key stays server-only:
+
+```ts title="frontend/src/app/api/openbox/approvals/decide/route.ts"
+const DecisionSchema = z.object({
+  governanceEventId: z.string().min(1),
+  decision: z.enum(["approve", "reject"]), // [!code highlight]
+});
+
+const approvalRoute = createOpenBoxApprovalRoute({ // [!code highlight]
+  clientName: "openbox-governed-copilotkit",
+  backendTimeoutMs: 180_000,
+});
+
+export async function POST(request: Request) {
+  const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ ok: false, error: "Invalid OpenBox approval decision request." }, { status: 400 });
+  }
+  const resolved = await approvalRoute.decide(parsed.data);
+  return NextResponse.json({ ok: true, decision: parsed.data.decision, eventId: resolved.eventId });
+}
+```
+
+## Going further
+
+- **Observe before you enforce** — start in `governanceMode: "observe"` to log what *would* be allowed or blocked without changing behaviour, then flip to `"enforce"` once your policies match reality.
+- **Fail closed** — set `failClosed: true` so that if OpenBox Core is unreachable, governed actions are denied rather than allowed through. The included agent already refuses to produce business content when a tool result is `"error"` or `"halted"`.
+- **Govern more tools** — add tool names to `selfGovernedToolNames` (kept identical on the runtime adapter and the agent middleware) to bring additional actions under governance.
+- **Sign agent identity** — supply `OPENBOX_AGENT_DID` and a base64 raw `OPENBOX_AGENT_PRIVATE_KEY` so the agent signs requests with **DID + Ed25519**, giving OpenBox cryptographic proof of which agent took each action.
+- **Audit and replay** — every decision is appended to OpenBox Core's immutable audit trail; query it to review who did what, or replay a session to reproduce a governance outcome.
+
+## Get the code
+
+Full source to follow — the runnable showcase (the `agent/` LangGraph service with OpenBox middleware and the `frontend/` CopilotKit V2 chat with the wrapped runtime and approval route) will be published under `examples/showcases/openbox-governed-copilotkit`.
+
+For the upstream OpenBox × CopilotKit integration this recipe is based on, see the reference repo: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit).

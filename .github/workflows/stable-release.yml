@@ -9,8 +9,8 @@ on:
         type: choice
         options:
           - monorepo
-          - cli
           - angular
+          - channels
       bump:
         description: "Version bump level"
         required: true
@@ -26,7 +26,11 @@ on:
         type: boolean
 
 concurrency:
-  group: release-pr
+  # Scope the lock to the package being released so that, e.g., a `monorepo`
+  # create-pr run and an `angular` create-pr run proceed in independent lanes
+  # instead of queuing behind each other. Same-scope runs still serialize
+  # (cancel-in-progress: false), which is what protects the version bump.
+  group: release-pr-${{ inputs.scope }}
   cancel-in-progress: false
 
 permissions:
@@ -41,9 +45,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    environment: npm
     steps:
       - name: Check for existing release PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -64,18 +69,19 @@ jobs:
             }
 
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
 
@@ -91,6 +97,10 @@ jobs:
             pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
           fi
 
+      - name: Sync plugin skills
+        if: inputs.dry_run != true
+        run: pnpm sync:plugin-skills
+
       - name: Generate AI release notes
         if: inputs.dry_run != true
         id: ai_notes
@@ -100,12 +110,27 @@ jobs:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_RELEASE_NOTES_PAGE: ${{ secrets.NOTION_RELEASE_NOTES_PAGE }}
 
+      - name: Mint devops-bot token
+        if: inputs.dry_run != true
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Create release PR
         if: inputs.dry_run != true
         id: create_pr
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        env:
+          # The PR branch is validated by CI after creation; do not run local
+          # developer pre-commit hooks inside the automation commit.
+          LEFTHOOK: "0"
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: release/publish/${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}
           delete-branch: true
           commit-message: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
@@ -148,12 +173,12 @@ jobs:
 
       - name: Comment Notion link on PR
         if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const { owner, repo } = context.repo;
             const prNumber = parseInt(process.env.PR_NUMBER, 10);

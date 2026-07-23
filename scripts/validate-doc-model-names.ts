@@ -20,8 +20,11 @@ interface Violation {
 // Config
 // ---------------------------------------------------------------------------
 
-const DOCS_DIR = path.resolve(__dirname, "../docs");
-const ALLOWLIST_PATH = path.join(DOCS_DIR, "model-allowlist.json");
+const DOCS_DIR = path.resolve(__dirname, "../showcase/shell-docs/src/content");
+const ALLOWLIST_PATH = path.resolve(
+  __dirname,
+  "../showcase/shell-docs/model-allowlist.json",
+);
 
 // Provider prefixes stripped before matching (e.g. "openai/gpt-4o" -> "gpt-4o")
 const PROVIDER_PREFIXES = [
@@ -289,7 +292,7 @@ function main() {
   }
 
   console.log(
-    `\nTo fix: add valid names to docs/model-allowlist.json, or update the docs.`,
+    `\nTo fix: add valid names to showcase/shell-docs/model-allowlist.json, or update the docs.`,
   );
 
   if (fixMode) {

@@ -9,15 +9,16 @@ import {
   inject,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  PLATFORM_ID,
+  afterNextRender,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
 
 @Component({
   selector: "textarea[copilotChatTextarea]",
-  standalone: true,
-  imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {
@@ -28,6 +29,7 @@ import { injectChatState } from "../../chat-state";
     "[style.max-height.px]": "maxHeight()",
     "[style.overflow]": "'auto'",
     "[style.resize]": "'none'",
+    "[attr.data-testid]": "'copilot-chat-textarea'",
     "(input)": "onInput($event)",
     "(keydown)": "onKeyDown($event)",
     "[attr.rows]": "1",
@@ -37,6 +39,7 @@ import { injectChatState } from "../../chat-state";
 })
 export class CopilotChatTextarea implements AfterViewInit {
   private elementRef = inject(ElementRef<HTMLTextAreaElement>);
+  private platformId = inject(PLATFORM_ID);
   get textareaRef() {
     return this.elementRef;
   }
@@ -69,30 +72,32 @@ export class CopilotChatTextarea implements AfterViewInit {
   computedClass = computed(() => {
     const baseClasses = cn(
       // Layout and sizing
-      "w-full p-5 pb-0",
+      "cpk:w-full",
       // Behavior
-      "outline-none resize-none",
+      "cpk:outline-none cpk:resize-none",
       // Background
-      "bg-transparent",
+      "cpk:bg-transparent",
       // Typography
-      "antialiased font-regular leading-relaxed text-[16px]",
+      "cpk:antialiased cpk:font-regular cpk:leading-relaxed cpk:text-[16px]",
       // Placeholder styles
-      "placeholder:text-[#00000077] dark:placeholder:text-[#fffc]",
+      "cpk:placeholder:text-[#00000077] cpk:dark:placeholder:text-[#fffc]",
     );
     return cn(baseClasses, this.inputClass());
   });
 
-  constructor() {}
+  constructor() {
+    afterNextRender(() => {
+      if (this.inputAutoFocus() ?? true) {
+        this.elementRef.nativeElement.focus();
+      }
+    });
+  }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     this.calculateMaxHeight();
     this.adjustHeight();
-
-    if (this.inputAutoFocus() ?? true) {
-      setTimeout(() => {
-        this.elementRef.nativeElement.focus();
-      });
-    }
   }
 
   onInput(event: Event): void {

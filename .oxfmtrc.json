@@ -9,6 +9,10 @@
     ".github/actions/changesets-action/src/run.ts",
     "examples/v1/_legacy/copilot-anthropic-pinecone/src/app/api/copilotkit/route.ts",
     "examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/src/app/api/copilotkit/route.ts",
-    "packages/web-inspector/src/styles/generated.css"
+    "packages/web-inspector/src/styles/generated.css",
+    "showcase/aimock/shared/**",
+    "showcase/aimock/d4/**",
+    "showcase/aimock/d6/**",
+    "**/package.json"
   ]
 }

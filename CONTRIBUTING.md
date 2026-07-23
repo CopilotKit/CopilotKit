@@ -27,6 +27,13 @@ So, you've got an awesome feature in mind? Throw it over to us by [creating an i
 
 If you don't feel ready to make a code contribution yet, no problem! You can also check out the [documentation issues](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3Adocumentation).
 
+## Contributing to documentation
+
+There are two documentation domains — make sure your change goes to the right place, or it won't reach the live site:
+
+- **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`, `framework-overviews/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
+- **AG-UI protocol docs** (docs.ag-ui.com) are authored upstream in [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui), not in this repo. The `showcase/shell-docs/src/content/ag-ui/` copy is a downstream mirror.
+
 # How do I make a code contribution?
 
 ## Good first issues

@@ -2,11 +2,12 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
-import { useRenderTool, type RenderToolProps } from "../use-render-tool";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { useRenderTool } from "../use-render-tool";
+import type { RenderToolProps } from "../use-render-tool";
+import { useCopilotKit } from "../../context";
 import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
@@ -111,7 +112,11 @@ describe("useRenderTool", () => {
     const renderer = core.renderToolCalls.find((item) => item.name === "*");
     expect(renderer).toBeDefined();
     expect(typeof renderer?.render).toBe("function");
-    expect(renderer?.args.safeParse({ arbitrary: true }).success).toBe(true);
+    const args = renderer?.args;
+    if (!(args instanceof z.ZodType)) {
+      throw new Error("expected wildcard args to default to a zod schema");
+    }
+    expect(args.safeParse({ arbitrary: true }).success).toBe(true);
   });
 
   it("deduplicates by agentId:name and keeps unrelated entries", () => {

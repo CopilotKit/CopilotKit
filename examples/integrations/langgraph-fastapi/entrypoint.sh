@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "[entrypoint] Starting: langgraph-fastapi starter"
+echo "[entrypoint] Starting: langgraph-python starter"
 
 if [ -z "$OPENAI_API_KEY" ]; then
   echo "[entrypoint] WARNING: OPENAI_API_KEY not set!"
@@ -11,7 +11,7 @@ fi
 
 # Start agent via AG-UI protocol (serve.py wraps the original graph)
 echo "[entrypoint] Starting agent on port 8123..."
-AGENT_PORT=8123 /app/agent/.venv/bin/python /app/serve.py 2>&1 &
+AGENT_PORT=8123 python serve.py 2>&1 &
 AGENT_PID=$!
 
 sleep 3

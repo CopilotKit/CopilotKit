@@ -1,0 +1,82 @@
+---
+title: "ProxiedCopilotRuntimeAgentConfig"
+description: "Configuration object for constructing a ProxiedCopilotRuntimeAgent."
+---
+
+## Overview
+
+`ProxiedCopilotRuntimeAgentConfig` is the constructor argument for [`ProxiedCopilotRuntimeAgent`](/reference/core/classes/ProxiedCopilotRuntimeAgent). It extends AG-UI's `HttpAgentConfig` (omitting `url`, which is derived from `runtimeUrl`) and adds the routing, transport, and runtime-mode fields the proxy needs to reach a CopilotRuntime.
+
+## Import
+
+```ts
+import type { ProxiedCopilotRuntimeAgentConfig } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+interface ProxiedCopilotRuntimeAgentConfig
+  extends Omit<HttpAgentConfig, "url"> {
+  runtimeUrl?: string;
+  transport?: CopilotRuntimeTransport;
+  credentials?: RequestCredentials;
+  runtimeMode?: RuntimeMode | "pending";
+  intelligence?: IntelligenceRuntimeInfo;
+  capabilities?: AgentCapabilities;
+  debug?: ResolvedDebugConfig;
+  runtimeAgentId?: string;
+}
+```
+
+## Properties
+
+<PropertyReference name="runtimeUrl" type="string">
+  Base URL of the CopilotRuntime. The agent's request URL is derived from this value and the resolved transport.
+</PropertyReference>
+
+<PropertyReference name="transport" type='"rest" | "single" | "auto"' default="auto">
+  Transport style used to reach the runtime. `"auto"` probes REST first, then falls back to the single-endpoint envelope.
+</PropertyReference>
+
+<PropertyReference name="credentials" type="RequestCredentials">
+  Credentials mode applied to runtime fetch requests (e.g. `"include"`).
+</PropertyReference>
+
+<PropertyReference name="runtimeMode" type='"sse" | "intelligence" | "pending"' default="sse">
+  Runtime mode. `"sse"` and `"intelligence"` are the resolved modes; `"pending"` marks the mode as not-yet-resolved (resolved via a runtime-info fetch on the Intelligence delegate path).
+</PropertyReference>
+
+<PropertyReference name="intelligence" type="IntelligenceRuntimeInfo">
+  Intelligence runtime metadata (e.g. the websocket URL) used when running in Intelligence mode.
+</PropertyReference>
+
+<PropertyReference name="capabilities" type="AgentCapabilities">
+  Declared agent capabilities returned by `getCapabilities()`.
+</PropertyReference>
+
+<PropertyReference name="debug" type="ResolvedDebugConfig">
+  Resolved debug configuration for the client-side event pipeline.
+</PropertyReference>
+
+<PropertyReference name="runtimeAgentId" type="string">
+  When set, runtime requests are routed to this agent on the runtime instead of `agentId`. The local `agentId` remains the registry key used for subscriber bookkeeping; only outbound routing is overridden.
+</PropertyReference>
+
+## Usage
+
+```ts
+import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
+
+const agent = new ProxiedCopilotRuntimeAgent({
+  runtimeUrl: "/api/copilotkit",
+  agentId: "default",
+  transport: "auto",
+  credentials: "include",
+});
+```
+
+## Related
+
+- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent)
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)

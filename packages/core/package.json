@@ -1,7 +1,11 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.56.3",
+  "version": "1.63.2",
   "description": "Core web utilities for CopilotKit2",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -19,7 +23,9 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 tsdown",
+    "size": "size-limit",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
     "test": "vitest run",
@@ -29,7 +35,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.52",
+    "@ag-ui/client": "0.0.57",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",
@@ -39,9 +45,11 @@
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
+    "@types/phoenix": "^1.6.6",
     "@valibot/to-json-schema": "^1.5.0",
     "@vitest/coverage-v8": "^3.2.4",
     "arktype": "^2.1.29",
+    "cross-env": "^10.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "valibot": "^1.2.0",

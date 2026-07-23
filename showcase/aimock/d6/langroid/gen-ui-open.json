@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / gen-ui-open (basic + advanced)",
+    "sourceScript": "d5-gen-ui-open.ts, d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open basic pill — 3D axis visualization. The agent emits an iframe srcdoc payload >= 100 chars. hasToolResult:false prevents re-match.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_lr_open_genui_001",
+            "name": "render_open_ui",
+            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;display:flex;justify-content:center;align-items:center;height:100vh;background:#1a1a2e;font-family:monospace}canvas{border:1px solid #333}</style></head><body><canvas id=c width=400 height=400></canvas><script>const c=document.getElementById('c'),x=c.getContext('2d');x.translate(200,200);x.strokeStyle='#e94560';x.beginPath();x.moveTo(-150,0);x.lineTo(150,0);x.stroke();x.strokeStyle='#0f3460';x.beginPath();x.moveTo(0,-150);x.lineTo(0,150);x.stroke();x.strokeStyle='#16213e';x.beginPath();x.moveTo(-100,100);x.lineTo(100,-100);x.stroke();x.fillStyle='#fff';x.font='14px monospace';x.fillText('X',155,5);x.fillText('Y',-5,-155);x.fillText('Z',105,-105)</script></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open basic pill — follow-up narration.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — X (red), Y (blue), and Z (gray) axes drawn on a dark canvas."
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — Inline expression evaluator. Emits generateSandboxedUi tool call that mounts a sandboxed iframe.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_lr_open_adv_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"srcdoc\":\"<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;font-family:system-ui;background:#f8f9fa}input{width:100%;padding:8px;font-size:16px;border:1px solid #dee2e6;border-radius:4px;margin-bottom:8px}#result{padding:12px;background:#e9ecef;border-radius:4px;font-family:monospace;min-height:24px}</style></head><body><h3>Expression Evaluator</h3><input id=expr placeholder='Type an expression e.g. 2+2' oninput=\\\"try{document.getElementById('result').textContent=eval(this.value)}catch(e){document.getElementById('result').textContent='...'}\\\"><div id=result>...</div></body></html>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — follow-up narration.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Expression evaluator rendered in a sandboxed iframe — type any JavaScript expression to see the result live."
+      }
+    }
+  ]
+}

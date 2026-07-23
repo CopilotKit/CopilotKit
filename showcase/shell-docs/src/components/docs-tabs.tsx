@@ -1,135 +1,122 @@
-// <Tabs>/<Tab> — client-side tabs matching reference fumadocs visual.
+// <Tabs>/<Tab> — thin wrappers around Fumadocs's built-in tabs.
 //
-// Usage in MDX:
-//     <Tabs items={["JavaScript", "Python"]}>
-//       <Tab value="JavaScript">...</Tab>
-//       <Tab value="Python">...</Tab>
-//     </Tabs>
+// Why a wrapper instead of re-exporting Fumadocs directly:
 //
-// The reference uses fumadocs' Tabs with a pill-selected active state.
-// We reimplement a minimal version so selection + switching works
-// without pulling in the full fumadocs-ui package (keeps the shell
-// bundle lean and matches our RSC-first MDX flow).
+//   - Fumadocs's <Tabs items={[...]}> escapes each item via
+//     `value.toLowerCase().replace(/\s/, "-")` to derive radix-tabs
+//     `value` keys. Our authored MDX uses the literal label as the
+//     <Tab value="...">, e.g. `<Tab value="JavaScript">` against
+//     `<Tabs items={["JavaScript", "Python"]}>`. Fumadocs's Tab
+//     component applies this same escapeValue internally, so we pass
+//     the raw label — pre-escaping would double-escape multi-word
+//     values and break the trigger↔content match for labels like
+//     "JSON Configuration File" (two spaces → only first replaced →
+//     residual space in trigger but not in double-escaped content).
+//
+//   - We accept `groupId` / `persist` / `default` props that the legacy
+//     custom-Tabs MDX content was written against, so existing pages
+//     don't need to be rewritten. `groupId` and `persist` are accepted
+//     and currently ignored (Fumadocs's built-in tabs don't persist
+//     cross-page state in this configuration); `default` is mapped to
+//     Fumadocs's `defaultValue`.
+//
+// All other props (className, etc.) forward through to Fumadocs.
 
 "use client";
 
-import React, { useState, useMemo, Children, isValidElement } from "react";
+import * as React from "react";
+import {
+  Tabs as FumadocsTabs,
+  Tab as FumadocsTab,
+} from "fumadocs-ui/components/tabs";
+import type {
+  TabsProps as FumadocsTabsProps,
+  TabProps as FumadocsTabProps,
+} from "fumadocs-ui/components/tabs";
 
-interface TabsProps {
-  items?: string[];
+/**
+ * Mirror Fumadocs's internal `escapeValue` — keep this in sync with
+ * `node_modules/fumadocs-ui/dist/components/tabs.js`. Used ONLY for
+ * the `Tabs` defaultValue so the initial-selection value matches the
+ * trigger values Fumadocs generates from `items`. Do NOT apply to
+ * individual `Tab` values — Fumadocs's Tab component calls this
+ * internally; pre-escaping here would double-escape and break the
+ * trigger↔content pairing for multi-word labels.
+ */
+function escapeValue(v: string): string {
+  return v.toLowerCase().replace(/\s/, "-");
+}
+
+interface ExtendedTabsProps extends Omit<FumadocsTabsProps, "defaultValue"> {
   /**
    * Initial active tab label. MDX authors write `default="Python"`
-   * (fumadocs convention); we also accept `defaultValue` for
-   * programmatic callers. Either name resolves the same initial tab.
+   * (legacy convention from when this component shimmed fumadocs);
+   * we also accept Fumadocs's `defaultValue`.
    */
   default?: string;
   defaultValue?: string;
-  /**
-   * Author-supplied tab-group identifier used to key tab state across
-   * pages (e.g. "language_langgraph_agent"). Accepted for MDX source
-   * compatibility; the per-page `<Tabs>` override injected by
-   * DocsPageView reads it to compute URL-variant-driven defaults.
-   * Currently no persistence implemented.
-   */
+  /** Accepted for source compat — fumadocs persistent-tab feature. */
   groupId?: string;
-  /**
-   * Accepted for MDX source compatibility — fumadocs' persistent-tab
-   * feature. Not yet implemented here.
-   */
   persist?: boolean;
-  children: React.ReactNode;
 }
 
-interface TabProps {
-  value?: string;
-  title?: string;
-  children?: React.ReactNode;
+type TabChildProps = {
+  value?: unknown;
+  title?: unknown;
+};
+
+function deriveItemsFromChildren(
+  children: React.ReactNode,
+): string[] | undefined {
+  const items = React.Children.toArray(children)
+    .map((child) => {
+      if (!React.isValidElement<TabChildProps>(child)) {
+        return undefined;
+      }
+
+      const value = child.props.value ?? child.props.title;
+      return typeof value === "string" && value.length > 0 ? value : undefined;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return items.length > 0 ? items : undefined;
 }
 
 export function Tabs({
-  items,
   default: defaultProp,
   defaultValue,
+  groupId: _groupId,
+  persist: _persist,
+  items: itemsProp,
   children,
-}: TabsProps) {
-  // Discover tab labels from children when `items` isn't provided.
-  const kids = useMemo(() => {
-    const list: { label: string; content: React.ReactNode }[] = [];
-    Children.forEach(children, (child) => {
-      if (!isValidElement(child)) return;
-      const props = child.props as TabProps;
-      const label = props.value ?? props.title ?? "Tab";
-      list.push({ label, content: props.children });
-    });
-    return list;
-  }, [children]);
-
-  const labels = items ?? kids.map((k) => k.label);
-  const [active, setActive] = useState<string>(
-    defaultValue ?? defaultProp ?? labels[0] ?? "Tab",
-  );
+  ...rest
+}: ExtendedTabsProps) {
+  const items = itemsProp ?? deriveItemsFromChildren(children);
+  const resolvedDefault = defaultValue ?? defaultProp ?? items?.[0];
 
   return (
-    <div
-      style={{
-        margin: "1rem 0 1.25rem 0",
-        borderRadius: "0.5rem",
-        border: "1px solid var(--border)",
-        overflow: "hidden",
-        background: "var(--bg-surface)",
-      }}
+    <FumadocsTabs
+      {...rest}
+      items={items}
+      defaultValue={resolvedDefault ? escapeValue(resolvedDefault) : undefined}
     >
-      <div
-        role="tablist"
-        style={{
-          display: "flex",
-          borderBottom: "1px solid var(--border)",
-          background: "var(--bg-elevated)",
-          padding: "0.375rem 0.5rem 0 0.5rem",
-          gap: "0.25rem",
-        }}
-      >
-        {labels.map((label) => {
-          const isActive = label === active;
-          return (
-            <button
-              key={label}
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActive(label)}
-              style={{
-                padding: "0.5rem 0.875rem",
-                fontSize: "0.8125rem",
-                fontWeight: isActive ? 600 : 500,
-                color: isActive ? "var(--text)" : "var(--text-muted)",
-                background: isActive ? "var(--bg-surface)" : "transparent",
-                borderRadius: "0.375rem 0.375rem 0 0",
-                border: "none",
-                borderBottom: isActive
-                  ? "2px solid var(--accent)"
-                  : "2px solid transparent",
-                cursor: "pointer",
-                transition: "color 120ms, background 120ms",
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ padding: "1rem" }}>
-        {kids
-          .filter((k) => k.label === active)
-          .map((k, i) => (
-            <React.Fragment key={i}>{k.content}</React.Fragment>
-          ))}
-      </div>
-    </div>
+      {children}
+    </FumadocsTabs>
   );
 }
 
-export function Tab({ children }: TabProps) {
-  // When rendered standalone (outside <Tabs>) just pass through. <Tabs>
-  // extracts the `value` prop and children via React traversal above.
-  return <>{children}</>;
+interface ExtendedTabProps extends FumadocsTabProps {
+  /** Legacy MDX prop — mirrors `value`. */
+  title?: string;
+}
+
+export function Tab({ value, title, ...rest }: ExtendedTabProps) {
+  // Pass the raw label to FumadocsTab — Fumadocs's Tab component
+  // applies escapeValue internally to match the trigger's derived key.
+  // Pre-escaping here would double-escape and corrupt multi-word labels
+  // (e.g. "JSON Configuration File" → "json-configuration file" after
+  // one pass, then "json-configuration-file" after the second pass,
+  // which no longer matches the trigger's "json-configuration file").
+  const resolved = value ?? title;
+  return <FumadocsTab value={resolved} {...rest} />;
 }

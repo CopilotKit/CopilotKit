@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / tool-rendering-default-catchall",
+    "sourceFile": "harness/fixtures/d5/tool-rendering.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall sends 'weather in Tokyo' \u2014 first leg emits get_weather tool call. The default catchall renderer shows the SDK's built-in tool card. toolCallId-keyed follow-up MUST come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall second pill: 'What's the current price of AAPL?' \u2014 emits get_stock_price tool call, default catchall renderer shows built-in tool card.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolCallId": "call_d5_get_stock_price_001",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "current price of AAPL",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

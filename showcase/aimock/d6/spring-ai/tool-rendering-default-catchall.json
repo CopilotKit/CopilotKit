@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / tool-rendering-default-catchall",
+    "sourceScript": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall follow-up \u2014 after get_weather tool result. Must come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_dc_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 emit get_weather tool call. The built-in default renderer fires for this tool since no custom renderer is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_dc_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

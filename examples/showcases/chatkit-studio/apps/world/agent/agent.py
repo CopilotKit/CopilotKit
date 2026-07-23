@@ -15,15 +15,21 @@ from langgraph.types import Command
 from langgraph.graph import MessagesState
 from langgraph.prebuilt import ToolNode
 
+
 class AgentState(MessagesState):
     """Extends MessagesState to include tools from CopilotKit frontend."""
+
     tools: List[Any]  # Frontend tools like renderCountry
+
 
 # Backend tools run on server (currently empty - frontend tools come from CopilotKit)
 backend_tools = []
 backend_tool_names = [tool.name for tool in backend_tools]
 
-async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["tool_node", "__end__"]]:
+
+async def chat_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["tool_node", "__end__"]]:
     """Main ReAct node: binds tools, generates response, routes to tool_node if needed."""
     # Extract user-provided API key from config, fallback to environment variable
     configurable = config.get("configurable", {})
@@ -70,10 +76,13 @@ All of these should trigger BOTH visitCountry and renderCountry.
 - Keep responses concise but informative"""
     )
 
-    response = await model_with_tools.ainvoke([
-        system_message,
-        *state["messages"],
-    ], config)
+    response = await model_with_tools.ainvoke(
+        [
+            system_message,
+            *state["messages"],
+        ],
+        config,
+    )
 
     # Route to tool_node if backend tools called, otherwise end
     if route_to_tool_node(response):
@@ -81,12 +90,14 @@ All of these should trigger BOTH visitCountry and renderCountry.
 
     return Command(goto=END, update={"messages": [response]})
 
+
 def route_to_tool_node(response: BaseMessage):
     """Check if response contains backend tool calls (frontend tools handled by CopilotKit)."""
     tool_calls = getattr(response, "tool_calls", None)
     if not tool_calls:
         return False
     return any(tool_call.get("name") in backend_tool_names for tool_call in tool_calls)
+
 
 # Build LangGraph workflow
 workflow = StateGraph(AgentState)

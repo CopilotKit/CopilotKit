@@ -22,14 +22,10 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 import { MCPAppsActivityType } from "../../../components/MCPAppsActivityRenderer";
-import {
-  AbstractAgent,
-  RunAgentInput,
-  RunAgentResult,
-  BaseEvent,
-  EventType,
-} from "@ag-ui/client";
-import { Observable, Subject } from "rxjs";
+import type { RunAgentInput, RunAgentResult, BaseEvent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject } from "rxjs";
 
 /**
  * MockMCPProxyAgent with spying support for ui/message tests.
@@ -47,6 +43,11 @@ class MockMCPProxyAgent extends AbstractAgent {
 
   setRunAgentResponse(method: string, response: unknown) {
     this.runAgentResponses.set(method, response);
+  }
+
+  addMessage(msg: Parameters<AbstractAgent["addMessage"]>[0]) {
+    this.addMessageCalls.push(msg as any);
+    return super.addMessage(msg);
   }
 
   emit(event: BaseEvent) {
@@ -68,66 +69,6 @@ class MockMCPProxyAgent extends AbstractAgent {
     act(() => {
       this.subject.complete();
     });
-  }
-
-  clone(): MockMCPProxyAgent {
-    const cloned = new MockMCPProxyAgent();
-    cloned.agentId = this.agentId;
-    type Internal = {
-      subject: Subject<BaseEvent>;
-      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
-      addMessageCalls: Array<{ id: string; role: string; content: string }>;
-      runAgentResponses: Map<string, unknown>;
-    };
-    (cloned as unknown as Internal).subject = (
-      this as unknown as Internal
-    ).subject;
-    (cloned as unknown as Internal).runAgentCalls = (
-      this as unknown as Internal
-    ).runAgentCalls;
-    (cloned as unknown as Internal).addMessageCalls = (
-      this as unknown as Internal
-    ).addMessageCalls;
-    (cloned as unknown as Internal).runAgentResponses = (
-      this as unknown as Internal
-    ).runAgentResponses;
-
-    const registry = this;
-    Object.defineProperty(cloned, "isRunning", {
-      get() {
-        return registry.isRunning;
-      },
-      set(v: boolean) {
-        registry.isRunning = v;
-      },
-      configurable: true,
-      enumerable: true,
-    });
-
-    const proto = MockMCPProxyAgent.prototype;
-    cloned.runAgent = async function (
-      input?: Partial<RunAgentInput>,
-    ): Promise<RunAgentResult> {
-      const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
-      if (proxiedRequest) {
-        return registry.runAgent(input);
-      }
-      return proto.runAgent.call(cloned, input);
-    };
-
-    // Track addMessage calls on the clone (the component uses the clone)
-    const origAddMessage = cloned.addMessage.bind(cloned);
-    cloned.addMessage = function (msg: Parameters<typeof origAddMessage>[0]) {
-      registry.addMessageCalls.push(msg as any);
-      return origAddMessage(msg);
-    };
-
-    // Proxy run() calls so spies on the registry's run() see clone invocations
-    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
-      return registry.run(input);
-    };
-
-    return cloned;
   }
 
   async detachActiveRun(): Promise<void> {}
@@ -413,6 +354,43 @@ describe("MCP Apps ui/message followUp behavior", () => {
 
     // run() should have been called
     expect(runSpy.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it("does not run a queued ui/message follow-up against a thread the host switched to (issue #5819)", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "ui-msg-leak";
+
+    const iframe = await setupMCPActivity(agent, "ui-msg-leak", "Leak test");
+
+    const runSpy = vi.spyOn(agent, "run");
+
+    // The agent is busy when the follow-up arrives, so it gets queued rather
+    // than run immediately.
+    agent.isRunning = true;
+
+    await sendUiMessage(iframe, {
+      role: "user",
+      content: [{ type: "text", text: "queued while busy" }],
+    });
+
+    // The follow-up is still queued (agent busy) — nothing ran yet.
+    expect(runSpy.mock.calls.length).toBe(0);
+
+    // The host switches to a different thread before the queued work runs.
+    agent.threadId = "some-other-thread";
+
+    // The agent goes idle, so the queue drains (waitForAgentIdle polls isRunning).
+    agent.isRunning = false;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    });
+
+    // The follow-up must NOT have executed against the shared agent, which now
+    // points at 'some-other-thread'. A local (non-runtime) agent cannot be
+    // re-homed to the original thread, so the stale follow-up is dropped rather
+    // than leaked into the current thread.
+    expect(runSpy).not.toHaveBeenCalled();
+    expect(agent.threadId).toBe("some-other-thread");
   });
 
   it("message with text content always adds to agent messages regardless of followUp", async () => {

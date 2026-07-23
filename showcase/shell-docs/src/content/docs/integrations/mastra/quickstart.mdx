@@ -5,14 +5,34 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+  ServerIcon,
+} from "lucide-react";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+<OpsPlatformCTA
+  variant="card"
+  title="Ship Mastra to production"
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_mastra_quickstart"
 />
 
 ## Prerequisites
@@ -26,18 +46,21 @@ Before you begin, you'll need the following:
 ## Getting started
 
 <Steps>
-    <TailoredContent
-        className="step"
-        id="agent"
-        header={
-            <div>
-                <p className="text-xl font-semibold">Choose your starting point</p>
-                <p className="text-base">
-                    You can either start fresh with our starter template or integrate CopilotKit into your existing Mastra Agent.
-                </p>
-            </div>
-        }
-    >
+    <Step>
+        ### Create a free account
+
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+    </Step>
+
+    <Step>
+        ### Choose your starting point
+
+        You can either start fresh with our starter template or integrate CopilotKit into your existing Mastra Agent.
+
+        <TailoredContent
+            className="step"
+            id="agent"
+        >
         <TailoredContentOption
             id="starter"
             title="Start from scratch"
@@ -46,11 +69,15 @@ Before you begin, you'll need the following:
             <Step>
                 ### Run our CLI
 
-                First, we'll use our CLI to create a new project for us.
-
                 ```bash
-                npx copilotkit@latest create -f mastra
+                npx copilotkit@latest create
                 ```
+
+                The CLI walks you through:
+
+                - **Project name**
+                - **Enterprise Intelligence Platform** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **Framework** — pick **Mastra** when prompted.
             </Step>
             <Step>
                 ### Install dependencies
@@ -122,17 +149,21 @@ Before you begin, you'll need the following:
                 Create a new agent file in your Mastra project:
 
                 ```ts title="src/mastra/agents/index.ts"
+                import { openai } from "@ai-sdk/openai";
+                import { Agent } from "@mastra/core/agent";
 
                 export const myAgent = new Agent({
                   name: "My Agent",
                   instructions: "You are a helpful assistant!",
-                  model: openai("gpt-5.2"),
+                  model: openai("gpt-5.4"),
                 });
                 ```
 
                 Then export it from your Mastra instance:
 
                 ```ts title="src/mastra/index.ts"
+                import { Mastra } from "@mastra/core";
+                import { myAgent } from "./agents";
 
                 export const mastra = new Mastra({
                   agents: { myAgent },
@@ -175,10 +206,14 @@ Before you begin, you'll need the following:
                 Create an API route to connect CopilotKit to your Mastra agent:
 
                 ```ts title="app/api/copilotkit/route.ts"
+                import {
                   CopilotRuntime,
                   ExperimentalEmptyAdapter,
                   copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
+                import { NextRequest } from "next/server";
+                import { MastraAgent } from "@ag-ui/mastra"
+                import { mastra } from "@/mastra"; // the path to your Mastra instance
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -203,6 +238,9 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css";
+                import './globals.css';
 
                 // ...
 
@@ -226,6 +264,7 @@ Before you begin, you'll need the following:
               Add the CopilotSidebar component to your page:
 
               ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
 
               export default function Page() {
                 return (
@@ -268,6 +307,7 @@ Before you begin, you'll need the following:
             </Step>
         </TailoredContentOption>
     </TailoredContent>
+    </Step>
     <Step>
         ### 🎉 Start chatting!
 
@@ -293,7 +333,6 @@ Before you begin, you'll need the following:
             </Accordion>
         </Accordions>
     </Step>
-
 </Steps>
 
 ## What's next?
@@ -320,3 +359,13 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<WrenchIcon />}
   />
 </Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

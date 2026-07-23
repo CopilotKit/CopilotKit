@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / gen-ui-open-advanced",
+    "sourceFile": "d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced — 'Inline expression evaluator' pill, 1st leg: emit generateSandboxedUi (sandbox='allow-scripts') the D5 assertion probes for. sequenceIndex:0 gates it to the first match — Strands mints UUID tool ids so the toolCallId follow-up below can't match, and hasToolResult flips true after the tool runs; sequenceIndex is invariant to both, so the bare-userMessage content leg cleanly catches the follow-up turn.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_advanced_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":300,\"placeholderMessages\":[\"Building expression evaluator…\"],\"css\":\"body{margin:0;font-family:monospace;background:#0f172a;color:#e2e8f0;padding:16px}.wrap{max-width:320px;margin:0 auto}input{width:100%;padding:10px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#e2e8f0;font-family:monospace;font-size:14px;box-sizing:border-box}input:focus{outline:none;border-color:#3b82f6}.result{margin-top:12px;padding:12px;background:#1e293b;border-radius:6px;min-height:24px;font-size:16px}.label{font-size:11px;color:#94a3b8;margin-bottom:4px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"gen-ui-open-advanced-iframe\\\"><div class=\\\"label\\\">Expression</div><input id=\\\"expr\\\" placeholder=\\\"e.g. 2 + 3 * 4\\\" /><div class=\\\"label\\\" style=\\\"margin-top:12px\\\">Result</div><div class=\\\"result\\\" id=\\\"res\\\">—</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('expr');var result=document.getElementById('res');input.addEventListener('input',async function(){var val=input.value.trim();if(!val){result.textContent='—';return;}try{var r=await Websandbox.connection.remote.evaluateExpression({expression:val});if(r&&r.ok){result.textContent=String(r.value);}else{result.textContent='err';}}catch(e){result.textContent='err';}});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced — 'Inline expression evaluator' pill, 2nd leg: follow-up content after the iframe renders (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type any arithmetic expression and the result updates live via the sandboxed evaluation bridge."
+      }
+    }
+  ]
+}

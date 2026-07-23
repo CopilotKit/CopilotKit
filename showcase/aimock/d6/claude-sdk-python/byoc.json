@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / byoc (bring-your-own-component)",
+    "sourceScript": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — Sales Dashboard. The D5 script sends this pill prompt and asserts metric-card + chart DOM elements render. The response must include structured JSON that the BYOC renderer can parse into metric cards and charts.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_dashboard_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"label\":\"Avg Deal Size\",\"value\":\"$34K\",\"change\":\"+5%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":750000},{\"label\":\"Nov\",\"value\":800000},{\"label\":\"Dec\",\"value\":850000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Here is the Q4 sales dashboard with total revenue at $2.4M (+12%), 1,847 new customers, and a $34K average deal size. The pie chart breaks down revenue by segment and the bar chart shows monthly trends."
+      }
+    }
+  ]
+}

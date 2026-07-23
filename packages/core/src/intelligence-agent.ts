@@ -1,11 +1,13 @@
-import {
-  AbstractAgent,
+import type {
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
   AgentSubscriber,
-  EventType,
   BaseEvent,
+} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
   randomUUID,
   transformChunks,
   structuredClone_,
@@ -15,7 +17,7 @@ import {
   EMPTY,
   Subject,
   Notification,
-  Observable,
+  combineLatest,
   defer,
   dematerialize,
   lastValueFrom,
@@ -23,10 +25,12 @@ import {
   switchMap,
   throwError,
 } from "rxjs";
-import type { ObservableNotification } from "rxjs";
+import type { ObservableNotification, Observable } from "rxjs";
 import {
   catchError,
+  delay,
   endWith,
+  filter,
   finalize,
   ignoreElements,
   mergeMap,
@@ -37,23 +41,38 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import type { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
-  type ɵPhoenixChannelSession,
-  type ɵPhoenixSocketSession,
   ɵjoinPhoenixChannel$,
   ɵobservePhoenixSocketSignals$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixEvent$,
 } from "./utils/phoenix-observable";
+import type {
+  ɵPhoenixChannelLike,
+  ɵPhoenixChannelSession,
+  ɵPhoenixPushLike,
+  ɵPhoenixSocketLike,
+  ɵPhoenixSocketSession,
+} from "./utils/phoenix-observable";
+
+/**
+ * Structural Phoenix socket/channel contracts used by this agent, derived from
+ * the minimal `*Like` interfaces in {@link ./utils/phoenix-observable}.
+ */
+type Socket = ɵPhoenixSocketLike;
+
+interface Channel extends ɵPhoenixChannelLike {
+  push(event: string, payload: unknown): ɵPhoenixPushLike;
+}
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
+const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -76,6 +95,45 @@ export class AgentThreadLockedError extends Error {
     super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
     this.name = "AgentThreadLockedError";
   }
+}
+
+/**
+ * Typed contract for agents that expose the completion promise of their
+ * currently in-flight run.
+ *
+ * `IntelligenceAgent` resolves this promise once a run's observable pipeline
+ * finalizes (see {@link IntelligenceAgent.connectAgent}). Consumers (e.g. the
+ * v2 `CopilotChat` send-serialization path) await it to let an in-flight run —
+ * notably an interrupt RESUME — finish before dispatching a new run, instead
+ * of pre-empting it.
+ *
+ * The base `AbstractAgent` from `@ag-ui/client` only declares this property
+ * privately, so it is reachable only through this contract plus the
+ * {@link isRunCompletionAware} type guard. This keeps callers off `as unknown`
+ * casts while still degrading safely for agents that don't implement it.
+ */
+export interface RunCompletionAware {
+  /**
+   * Resolves when the active run's pipeline finalizes (completes, errors, or is
+   * detached). `undefined` when no run is in flight.
+   */
+  readonly activeRunCompletionPromise?: Promise<void>;
+}
+
+/**
+ * Type guard for {@link RunCompletionAware}. Returns true when `agent` exposes
+ * an `activeRunCompletionPromise` property, so callers can await an in-flight
+ * run without an `as unknown as` cast. Returns false for agents that don't
+ * implement the contract, letting the caller skip the await and degrade safely.
+ */
+export function isRunCompletionAware(
+  agent: unknown,
+): agent is RunCompletionAware {
+  return (
+    typeof agent === "object" &&
+    agent !== null &&
+    "activeRunCompletionPromise" in agent
+  );
 }
 
 export interface IntelligenceAgentConfig {
@@ -166,7 +224,9 @@ export class IntelligenceAgent extends AbstractAgent {
       const subscribers: AgentSubscriber[] = [
         {
           onRunFinishedEvent: (event) => {
-            result = event.result;
+            if (event.outcome === "success") {
+              result = event.result;
+            }
           },
         },
         ...this.subscribers,
@@ -183,7 +243,7 @@ export class IntelligenceAgent extends AbstractAgent {
 
       const source$ = defer(() => this.connect(input)).pipe(
         // transformChunks reassembles partial/streamed messages — still needed.
-        transformChunks(this.debug),
+        transformChunks(this.debugLogger),
         // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
         takeUntil(self.activeRunDetach$),
       );
@@ -279,12 +339,27 @@ export class IntelligenceAgent extends AbstractAgent {
    * Reconnect to an existing thread by fetching websocket credentials and
    * joining the realtime thread channel.
    */
+  /**
+   * Reconnect to an existing thread by fetching websocket credentials
+   * and joining the realtime thread channel.
+   *
+   * Note: this method does NOT clear the replay cursor. Whether to
+   * request a full historical replay vs. resume from
+   * `lastSeenEventId` is a decision the caller (typically
+   * `RunHandler.connectAgent`) makes by calling
+   * {@link clearReconnectCursor} ahead of time on a fresh thread
+   * restore. Same-thread churn re-connects preserve the cursor so the
+   * gateway only streams events past it instead of replaying the
+   * entire history every time the chat re-opens a socket.
+   */
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
-    this.clearReconnectCursor(input.threadId);
+    const replayCursor = this.getReconnectCursor(input);
 
-    return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
+    return defer(() =>
+      this.requestJoinCredentials$("connect", input, replayCursor),
+    ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
           return EMPTY;
@@ -299,6 +374,7 @@ export class IntelligenceAgent extends AbstractAgent {
         return this.observeThread$(canonicalInput, credentials, {
           completeOnRunError: false,
           streamMode: "connect",
+          replayCursor,
         });
       }),
     );
@@ -335,6 +411,7 @@ export class IntelligenceAgent extends AbstractAgent {
   private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
+    replayCursor?: string | null,
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
@@ -353,7 +430,12 @@ export class IntelligenceAgent extends AbstractAgent {
             state: input.state,
             forwardedProps: input.forwardedProps,
             ...(mode === "connect"
-              ? { lastSeenEventId: this.getReconnectCursor(input) }
+              ? {
+                  lastSeenEventId:
+                    replayCursor === undefined
+                      ? this.getReconnectCursor(input)
+                      : replayCursor,
+                }
               : {}),
           }),
           ...(this.config.credentials
@@ -447,7 +529,12 @@ export class IntelligenceAgent extends AbstractAgent {
           return throwError(() => error);
         }
 
-        return this.requestJoinCredentials$("connect", input).pipe(
+        const replayCursor = this.getReconnectCursor(input);
+        return this.requestJoinCredentials$(
+          "connect",
+          input,
+          replayCursor,
+        ).pipe(
           switchMap((refreshedCredentials) =>
             refreshedCredentials === null
               ? EMPTY
@@ -459,7 +546,7 @@ export class IntelligenceAgent extends AbstractAgent {
                   {
                     ...options,
                     channelMode: "connect",
-                    replayCursor: this.getReconnectCursor(input),
+                    replayCursor,
                   },
                 ),
           ),
@@ -522,23 +609,51 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
+      const reconnectCursor = this.readDurableEventId(
+        options.replayCursor ?? this.getReconnectCursor(input),
+      );
+      let latestObservedReplayCursor: string | null = null;
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
         channel$,
         options,
-      ).pipe(share());
+      ).pipe(
+        tap((payload) => {
+          latestObservedReplayCursor =
+            this.readEventId(payload) ?? latestObservedReplayCursor;
+        }),
+        share(),
+      );
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(ignoreElements(), share());
+      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
-        options.streamMode === "connect" ? streamIdle$.pipe(take(1)) : EMPTY;
+        options.streamMode === "connect"
+          ? merge(
+              combineLatest([
+                replayComplete$.pipe(take(1)),
+                streamIdle$.pipe(take(1)),
+              ]),
+              streamIdle$.pipe(
+                take(1),
+                filter((payload) =>
+                  this.canFallbackCompleteConnect(
+                    payload,
+                    reconnectCursor,
+                    latestObservedReplayCursor,
+                  ),
+                ),
+                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
+              ),
+            ).pipe(take(1))
+          : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
         endWith(null),
@@ -550,8 +665,11 @@ export class IntelligenceAgent extends AbstractAgent {
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
-        replayComplete$.pipe(takeUntil(terminal$)),
-        streamIdleCompletion$.pipe(ignoreElements()),
+        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
+        streamIdleCompletion$.pipe(
+          ignoreElements(),
+          takeUntil(threadCompleted$),
+        ),
       ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
     });
   }
@@ -611,7 +729,7 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private observeChannelEvent$<T>(
-    channel: Channel,
+    channel: ɵPhoenixChannelLike,
     eventName: string,
   ): Observable<T> {
     return ɵobservePhoenixEvent$<T>(channel, eventName);
@@ -685,7 +803,15 @@ export class IntelligenceAgent extends AbstractAgent {
     return this.getLastSeenEventId(input.threadId);
   }
 
-  private clearReconnectCursor(threadId: string): void {
+  /**
+   * Drop the cached `lastSeenEventId` cursor for `threadId` so the
+   * next connect to that topic asks the gateway for a full historical
+   * replay (rather than resuming). Public because
+   * `RunHandler.connectAgent` calls it on a detected thread switch
+   * to rebuild local state from scratch, and skips it on same-thread
+   * churn so the gateway can resume.
+   */
+  public clearReconnectCursor(threadId: string): void {
     this.sharedState.lastSeenEventIds.delete(threadId);
   }
 
@@ -695,7 +821,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
-    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    this.advanceLastSeenEventId(threadId, eventId);
   }
 
   private updateLastSeenEventIdFromControl(
@@ -707,6 +833,10 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
+    this.advanceLastSeenEventId(threadId, eventId);
+  }
+
+  private advanceLastSeenEventId(threadId: string, eventId: string): void {
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
@@ -716,9 +846,8 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const runnerEventId = (metadata as { cpki_event_id?: unknown })
-      .cpki_event_id;
-    return typeof runnerEventId === "string" ? runnerEventId : null;
+    const eventMetadata = metadata as { cpki_event_id?: unknown };
+    return this.readDurableEventId(eventMetadata.cpki_event_id);
   }
 
   private readControlEventId(payload: unknown): string | null {
@@ -726,9 +855,37 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const latestEventId = (payload as { latestEventId?: unknown })
-      .latestEventId;
-    return typeof latestEventId === "string" ? latestEventId : null;
+    const controlPayload = payload as {
+      latestEventId?: unknown;
+      latest_event_id?: unknown;
+    };
+    const latestEventId =
+      controlPayload.latestEventId ?? controlPayload.latest_event_id;
+    return this.readDurableEventId(latestEventId);
+  }
+
+  private readDurableEventId(eventId: unknown): string | null {
+    if (typeof eventId !== "string" || eventId.trim() === "") {
+      return null;
+    }
+
+    return eventId.startsWith("cpki_ingested") ? null : eventId;
+  }
+
+  private canFallbackCompleteConnect(
+    streamIdlePayload: unknown,
+    reconnectCursor: string | null,
+    latestObservedReplayCursor: string | null,
+  ): boolean {
+    const idleCursor = this.readControlEventId(streamIdlePayload);
+    if (!idleCursor) {
+      return true;
+    }
+
+    return (
+      idleCursor === reconnectCursor ||
+      idleCursor === latestObservedReplayCursor
+    );
   }
 
   private applyCanonicalRunIdentity(

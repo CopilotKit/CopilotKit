@@ -8,13 +8,29 @@ permissions:
   contents: read
 
 jobs:
-  check-binaries:
+  check-config-files:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Check build config allowlist
+        run: bash .github/scripts/check-config-allowlist.sh
+
+  check-binaries:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check for binary and build artifacts
         env:
@@ -55,13 +71,13 @@ jobs:
           fi
 
           # Check for large files (>1MB) among changed files
-          # Exclude known large files: lockfiles, assets, docs media, bundled actions
+          # Exclude known large files: lockfiles, assets, bundled actions
           LARGE_FILES=""
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               case "$file" in
                 pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
-                assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
+                assets/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
                 showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac

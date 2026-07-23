@@ -110,7 +110,7 @@ describe("auditPackage", () => {
       specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
-    const e2eDir = path.join(root, "packages", "perm", "tests", "e2e");
+    const e2eDir = path.join(root, "integrations", "perm", "tests", "e2e");
     const orig = fs.readdirSync;
     const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
       p: fs.PathLike,
@@ -141,7 +141,7 @@ describe("auditPackage", () => {
       specs: ["x.spec.ts"],
       qaFiles: ["x.md"],
     });
-    const qaDir = path.join(root, "packages", "qaperm", "qa");
+    const qaDir = path.join(root, "integrations", "qaperm", "qa");
     const orig = fs.readdirSync;
     const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
       p: fs.PathLike,
@@ -731,7 +731,7 @@ describe("buildReport", () => {
     });
     makeExampleDir(root, "mixed");
 
-    const e2eDir = path.join(root, "packages", "mixed", "tests", "e2e");
+    const e2eDir = path.join(root, "integrations", "mixed", "tests", "e2e");
     const orig = fs.readdirSync;
     const spy = vi.spyOn(fs, "readdirSync").mockImplementation(((
       p: fs.PathLike,

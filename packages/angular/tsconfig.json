@@ -8,7 +8,7 @@
     "lib": ["ES2022", "DOM"],
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strict": true,
@@ -18,8 +18,18 @@
     "importHelpers": true,
     "types": ["node"],
     "paths": {
-      "@copilotkit/core": ["../core/src/index.ts"],
-      "@copilotkit/shared": ["../shared/src/index.ts"]
+      "@copilotkit/angular": ["./src/public-api.ts"],
+      "@copilotkit/a2ui-renderer/web-components": [
+        "../a2ui-renderer/src/web-components/index.ts"
+      ],
+      "@copilotkit/a2ui-renderer/web-components/define": [
+        "../a2ui-renderer/src/web-components/define.ts"
+      ],
+      "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
+      "@copilotkit/shared": [
+        "../shared/dist/index.d.mts",
+        "../shared/src/index.ts"
+      ]
     }
   },
   "include": ["src/**/*"],

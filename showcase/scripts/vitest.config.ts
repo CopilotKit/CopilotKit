@@ -19,7 +19,7 @@ export default defineConfig({
     // and module-level state are naturally isolated. The two remaining FS
     // races (bundle-demo-content / generate-registry / create-integration
     // racing for `.git/index.lock` via `git checkout HEAD --`, and
-    // create-integration vs generate-registry on `showcase/packages/`) were
+    // create-integration vs generate-registry on `showcase/integrations/`) were
     // fixed in this PR: the first via a cross-process lock in
     // `test-cleanup.ts`, the second by redirecting create-integration at a
     // per-suite tmpdir. With those in place, parallel file execution is

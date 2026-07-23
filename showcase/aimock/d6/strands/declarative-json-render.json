@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / declarative-json-render. The dedicated /byoc-json-render StrandsAgent (src/agents/byoc_json_render.py) emits the @json-render/react flat-spec envelope { root, elements } consumed by the demo renderer (json-render-renderer.tsx) against a Zod-validated catalog (MetricCard + BarChart + PieChart). A MetricCard root nests the charts via its children array. Keyed on the exact suggestion-pill prompts (declarative-json-render/suggestions.ts). These supersede the legacy byoc.json render_dashboard/{metrics,charts} shape, which the json-render renderer cannot parse.",
+    "sourceFile": "harness/src/probes/scripts/d5-byoc.ts",
+    "created": "2026-06-07"
+  },
+  "fixtures": [
+    {
+      "_comment": "Sales dashboard pill — MetricCard root with a BarChart child. Renders [data-testid=metric-card] + [data-testid=bar-chart].",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "context": "strands"
+      },
+      "response": {
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":\"+12% YoY\"},\"children\":[\"revenue-bar\"]},\"revenue-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":520000},{\"label\":\"Q2\",\"value\":580000},{\"label\":\"Q3\",\"value\":640000},{\"label\":\"Q4\",\"value\":700000}]}}}}"
+      }
+    },
+    {
+      "_comment": "Revenue by category pill — MetricCard root with a PieChart child.",
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "context": "strands"
+      },
+      "response": {
+        "content": "{\"root\":\"category-metric\",\"elements\":{\"category-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":null},\"children\":[\"category-pie\"]},\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by Category\",\"description\":\"Share of revenue per category\",\"data\":[{\"label\":\"Platform\",\"value\":960000},{\"label\":\"Analytics\",\"value\":600000},{\"label\":\"Integrations\",\"value\":480000},{\"label\":\"Support\",\"value\":360000}]}}}}"
+      }
+    },
+    {
+      "_comment": "Expense trend pill — MetricCard root with a BarChart child of monthly expenses.",
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart",
+        "context": "strands"
+      },
+      "response": {
+        "content": "{\"root\":\"opex-metric\",\"elements\":{\"opex-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Avg Monthly OpEx\",\"value\":\"$612K\",\"trend\":\"+2% MoM\"},\"children\":[\"opex-bar\"]},\"opex-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly Operating Expenses\",\"description\":\"Last six months\",\"data\":[{\"label\":\"Jul\",\"value\":580000},{\"label\":\"Aug\",\"value\":595000},{\"label\":\"Sep\",\"value\":610000},{\"label\":\"Oct\",\"value\":625000},{\"label\":\"Nov\",\"value\":630000},{\"label\":\"Dec\",\"value\":632000}]}}}}"
+      }
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 # Showcase Integration Package — Styling Guide
 
+Tagline: Tailwind v4 purging traps, CopilotKit class overrides, chat layout
+wrapper pattern, theme tokens, and Docker-image CSS verification recipe.
+Externally referenced from per-demo READMEs — preserve path at
+`showcase/STYLING-GUIDE.md`.
+
 When building demo pages for integration packages, follow these rules to avoid common pitfalls.
 
 ## Tailwind v4 Purging
@@ -47,11 +52,12 @@ CopilotKit v2 components use `cpk:` prefixed Tailwind classes internally. To ove
   border-radius: 0.75rem;
   border: 1px solid var(--copilot-kit-separator-color) !important;
 }
-
-.copilotKitChat {
-  background-color: #fff !important;
-}
 ```
+
+> Do NOT hardcode `.copilotKitChat { background-color: #fff !important; }` in
+> these overrides. It overrides demo-level theming (e.g. beautiful-chat's dark
+> mode toggle) and forces white in every theme. Let the v2 styles + per-demo
+> `ThemeProvider` handle chat backgrounds.
 
 ```tsx
 // layout.tsx
@@ -127,7 +133,7 @@ Always build and test the Docker image locally before pushing:
 
 ```bash
 cd /proj/cpk/CopilotKit
-docker build -f showcase/packages/<slug>/Dockerfile -t <slug>-local showcase/packages/<slug>/
+docker build -f showcase/integrations/<slug>/Dockerfile -t <slug>-local showcase/integrations/<slug>/
 docker run -d --name <slug>-local -p 4444:10000 -e PORT=10000 <slug>-local
 
 # Verify CSS overrides survived the build

@@ -1,0 +1,250 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-typescript / tool-rendering-default-catchall",
+    "sourceFile": "langgraph-typescript/tool-rendering.json (same pills, default framework renderer)",
+    "copiedFrom": "langgraph-typescript/tool-rendering.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo. Follow-up content after get_weather tool ran. Keyed by toolCallId. MUST come before the tool-emitting fixture below.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_langgraph_typescript_dc_weather_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, emit get_weather. Uses toolName gate.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_langgraph_typescript_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, fallback content when no toolName gate matches.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "default-catchall pill: Chain tools \u2014 follow-up after all 3 tools ran.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_roll_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_flights_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_weather_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "default-catchall pill: Chain tools \u2014 emit 3 tool calls in one turn.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "langgraph-typescript",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall pill: Weather in SF \u2014 follow-up after get_weather ran.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_tr_weather_sf_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall pill: Find flights \u2014 second leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_tr_flights_sfo_jfk_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall pill: Roll a d20 \u2014 5-roll chain via toolCallId. Seq: 7\u219214\u21923\u219219\u219220.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_002",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_003",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_004",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_005",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Rolled the d20 five times \u2014 landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll \u2014 initial user prompt, no prior d20 tool result.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    }
+  ]
+}

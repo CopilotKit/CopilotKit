@@ -1,0 +1,152 @@
+---
+title: "Runtime HTTP endpoints"
+icon: "lucide/Network"
+description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
+---
+
+When you mount the CopilotKit runtime with `createCopilotExpressHandler`,
+`createCopilotHonoHandler`, `copilotRuntimeNextJSAppRouterEndpoint`, or any of the
+other framework adapters, it serves a small set of HTTP routes under the
+`basePath` you choose, such as `/api/copilotkit`. Most applications never call
+these routes directly. The frontend proxy (`ProxiedCopilotRuntimeAgent`) calls
+them for you. When you self-host behind a reverse proxy, lock down auth, or debug
+a connection failure with `curl`, use this page to confirm what the runtime
+exposes.
+
+## Multi-route mode (default)
+
+By default the runtime runs in **multi-route** mode, exposing a separate route per
+operation. Given a `basePath` of `/api/copilotkit`, the routes are:
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/copilotkit/info` | Runtime info. The frontend calls this on startup to discover registered agents and their metadata. |
+| `POST /api/copilotkit/agent/:agentId/run` | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. |
+| `POST /api/copilotkit/agent/:agentId/connect` | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream. |
+| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread. |
+| `POST /api/copilotkit/transcribe` | Transcribe audio (used by the voice / transcription input). |
+
+`:agentId` is the key under which you registered the agent in
+`new CopilotRuntime({ agents: { ... } })`, for example `default` or
+`research-agent`. `:threadId` is the thread the run belongs to.
+
+<Callout type="info">
+The `GET /info` route is the same endpoint the frontend uses for agent
+discovery. If it isn't reachable from the runtime, the frontend reports a
+`runtime_info_fetch_failed` error. See [Error Debugging](/troubleshooting/error-debugging).
+</Callout>
+
+### Probing the runtime with curl
+
+The fastest way to confirm a self-hosted runtime is wired up is to hit `/info`
+directly:
+
+```bash
+curl -s http://localhost:4000/api/copilotkit/info
+```
+
+You should get back a JSON body describing the registered agents. If you get a
+404, your `basePath` doesn't match the URL you're requesting (or the handler
+isn't mounted). If you get a connection error, the server isn't listening on that
+host/port.
+
+## Single-route mode
+
+If you prefer to expose a single `POST` endpoint, for example to simplify a
+reverse-proxy rule or an API gateway, pass `mode: "single-route"`. In that mode
+the runtime exposes one `POST {basePath}` endpoint that accepts a JSON envelope
+`{ method, params, body }` and dispatches internally to the same handlers:
+
+```ts title="app/api/copilotkit/route.ts (Express)"
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+});
+
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+  }),
+);
+```
+
+On the frontend, opt into the matching transport with the `useSingleEndpoint`
+prop:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint>
+  <YourApp />
+</CopilotKit>;
+```
+
+<Callout type="warn">
+The frontend transport must match the runtime mode. If the runtime is in
+single-route mode but the frontend is making multi-route requests (or vice
+versa), every call 404s. Set `useSingleEndpoint` on `<CopilotKit>` whenever the
+runtime uses `mode: "single-route"`.
+</Callout>
+
+## CORS
+
+The Express and Hono adapters apply permissive CORS by default
+(`origin: "*"`, all standard methods, all headers) so local development works out
+of the box. Pass `cors: false` to disable the built-in middleware and handle CORS
+yourself, or pass a configuration object to scope it for production:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: { origin: "https://app.example.com", methods: ["GET", "POST", "OPTIONS"] },
+});
+```
+
+## Authenticating requests
+
+Because these routes run on your server, they're the right place to enforce
+auth. The adapters accept lifecycle `hooks`. An `onRequest` hook runs before
+every request and can reject the request by throwing a `Response`:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: ({ request }) => {
+      if (!request.headers.get("authorization")) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+  },
+});
+```
+
+See [Auth](/auth) for the full authentication guide.
+
+## Connect route 404 on a fresh thread
+
+A frequent self-hosting symptom is a `404` from the
+`POST /agent/:agentId/connect` route right after the page loads, before the user
+has sent a single message. This usually means one of two things:
+
+1. **The `agentId` in the URL isn't registered.** The runtime returns
+   `{"error":"Agent not found","message":"Agent '<id>' does not exist"}` with a
+   `404` when no agent matches. The prebuilt components default to the agent named
+   `"default"`, so register one under that key (or pass an explicit `agentId`).
+2. **`connect()` is called before any `run()` for an auto-minted thread.** Some
+   persistence backends only know about a thread once a run has produced events.
+   See the [AgentRunner](/backend/agent-runner) guide and the
+   [`/connect` 404 troubleshooting entry](/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
+
+## Related
+
+- [Copilot Runtime](/backend/copilot-runtime): setting up the runtime and adapters.
+- [AgentRunner](/backend/agent-runner): the persistence abstraction behind `run`/`connect`/`stop`.
+- [Connect AG-UI agents](/backend/ag-ui): how the frontend proxy maps onto these routes.
+- [Error Debugging](/troubleshooting/error-debugging): the `onError` codes that map to these routes.

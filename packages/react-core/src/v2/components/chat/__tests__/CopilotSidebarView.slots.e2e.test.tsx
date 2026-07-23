@@ -2,6 +2,8 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotSidebarView } from "../CopilotSidebarView";
+import type { CopilotModalHeader } from "../CopilotModalHeader";
+import type { CopilotChatToggleButtonProps } from "../CopilotChatToggleButton";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -64,11 +66,16 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
   describe("2. Property Passing - Header Slot", () => {
     describe("header slot", () => {
       it("should pass custom props to header", () => {
+        const headerProps: Partial<
+          React.ComponentProps<typeof CopilotModalHeader>
+        > & { "data-testid": string } = {
+          "data-testid": "custom-sidebar-header",
+        };
         const { container } = render(
           <TestWrapper>
             <CopilotSidebarView
               messages={sampleMessages}
-              header={{ "data-testid": "custom-sidebar-header" }}
+              header={headerProps}
             />
           </TestWrapper>,
         );
@@ -435,11 +442,14 @@ describe("CopilotSidebarView Slot System E2E Tests", () => {
 
     describe("toggleButton slot - Props object", () => {
       it("should pass custom props to toggle button", () => {
+        const toggleButtonProps: Partial<CopilotChatToggleButtonProps> & {
+          "data-testid": string;
+        } = { "data-testid": "custom-toggle-button" };
         const { container } = render(
           <TestWrapper>
             <CopilotSidebarView
               messages={sampleMessages}
-              toggleButton={{ "data-testid": "custom-toggle-button" }}
+              toggleButton={toggleButtonProps}
             />
           </TestWrapper>,
         );

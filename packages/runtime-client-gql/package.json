@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime-client-gql",
-  "version": "1.56.3",
+  "version": "1.63.2",
   "private": false,
   "keywords": [
     "ai",
@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "pnpm run graphql-codegen && tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "concurrently \"pnpm run graphql-codegen:watch\" \"tsdown --watch\"",
     "test": "pnpm run graphql-codegen && vitest run",
     "test:watch": "pnpm run graphql-codegen && vitest",

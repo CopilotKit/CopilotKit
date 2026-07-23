@@ -17,13 +17,19 @@ from copilotkit.langgraph import copilotkit_interrupt
 # 1. render_chat_visual — inline visuals in the chat
 # ---------------------------------------------------------------------------
 
+
 @tool
-def render_chat_visual(type: str, title: str, data: list, series: list,
-                       totalCash: Optional[float] = None,
-                       totalLiabilities: Optional[float] = None,
-                       netPosition: Optional[float] = None,
-                       accounts: Optional[list] = None,
-                       chartType: Optional[str] = None) -> str:
+def render_chat_visual(
+    type: str,
+    title: str,
+    data: list,
+    series: list,
+    totalCash: Optional[float] = None,
+    totalLiabilities: Optional[float] = None,
+    netPosition: Optional[float] = None,
+    accounts: Optional[list] = None,
+    chartType: Optional[str] = None,
+) -> str:
     """Render a visual component inline in the chat.
 
     Args:
@@ -48,6 +54,7 @@ def render_chat_visual(type: str, title: str, data: list, series: list,
 # 2. navigate_and_filter — SPA navigation
 # ---------------------------------------------------------------------------
 
+
 @tool
 def navigate_and_filter(page: str, filter: Optional[str] = None) -> str:
     """Navigate to an ERP page and optionally apply a filter.
@@ -66,13 +73,17 @@ def navigate_and_filter(page: str, filter: Optional[str] = None) -> str:
 # 3. request_approval — human-in-the-loop
 # ---------------------------------------------------------------------------
 
+
 @tool
-def request_approval(type: str, invoices: Optional[list] = None,
-                     totalAmount: Optional[float] = None,
-                     action: Optional[str] = None,
-                     items: Optional[list] = None,
-                     estimatedTotal: Optional[float] = None,
-                     supplier: Optional[str] = None) -> str:
+def request_approval(
+    type: str,
+    invoices: Optional[list] = None,
+    totalAmount: Optional[float] = None,
+    action: Optional[str] = None,
+    items: Optional[list] = None,
+    estimatedTotal: Optional[float] = None,
+    supplier: Optional[str] = None,
+) -> str:
     """Request human approval for a financial action. MANDATORY before processing payments or reorders.
 
     Args:
@@ -87,14 +98,22 @@ def request_approval(type: str, invoices: Optional[list] = None,
     if type == "invoice_payment":
         answer, _ = copilotkit_interrupt(
             action="request_approval",
-            args={"type": "invoice_payment", "invoices": invoices,
-                  "totalAmount": totalAmount, "action": action},
+            args={
+                "type": "invoice_payment",
+                "invoices": invoices,
+                "totalAmount": totalAmount,
+                "action": action,
+            },
         )
     else:
         answer, _ = copilotkit_interrupt(
             action="request_approval",
-            args={"type": "inventory_reorder", "items": items,
-                  "estimatedTotal": estimatedTotal, "supplier": supplier or ""},
+            args={
+                "type": "inventory_reorder",
+                "items": items,
+                "estimatedTotal": estimatedTotal,
+                "supplier": supplier or "",
+            },
         )
     return answer
 
@@ -102,6 +121,7 @@ def request_approval(type: str, invoices: Optional[list] = None,
 # ---------------------------------------------------------------------------
 # 4. update_dashboard — add/update dashboard widgets (batch)
 # ---------------------------------------------------------------------------
+
 
 @tool
 def update_dashboard(widgets: list) -> str:
@@ -130,9 +150,11 @@ def update_dashboard(widgets: list) -> str:
 # 5. manage_dashboard — remove, reorder, or reset
 # ---------------------------------------------------------------------------
 
+
 @tool
-def manage_dashboard(action: str, widgetId: Optional[str] = None,
-                     updates: Optional[list] = None) -> str:
+def manage_dashboard(
+    action: str, widgetId: Optional[str] = None, updates: Optional[list] = None
+) -> str:
     """Manage the dashboard layout.
 
     Args:
@@ -154,6 +176,7 @@ def manage_dashboard(action: str, widgetId: Optional[str] = None,
 # 6. save_dashboard — persist current dashboard layout
 # ---------------------------------------------------------------------------
 
+
 @tool
 def save_dashboard(name: str) -> str:
     """Save the current dashboard layout with a name for later retrieval.
@@ -167,6 +190,7 @@ def save_dashboard(name: str) -> str:
 # ---------------------------------------------------------------------------
 # 7. load_dashboard — restore a previously saved dashboard
 # ---------------------------------------------------------------------------
+
 
 @tool
 def load_dashboard(name: str) -> str:

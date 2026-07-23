@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "checkpoint-3-shared-build",
+  "command": "pnpm --dir showcase/angular build",
+  "initial": {
+    "files": [
+      "chunk-GS43XRUT.js",
+      "chunk-NC6MS2JP.js",
+      "chunk-NMZXQPLZ.js",
+      "chunk-PG5SRZL2.js",
+      "chunk-PRARYYF3.js",
+      "chunk-XP3W3O3Q.js",
+      "main-MONXHJZQ.js",
+      "styles-EC4YU4UO.css"
+    ],
+    "rawBytes": 1410261,
+    "gzipBytes": 199367,
+    "brotliBytes": 160459
+  },
+  "maximumRelativeRegression": 0.1,
+  "absoluteCapBytes": 4600000,
+  "runtimeReadiness": {
+    "route": "/angular/agentic-chat",
+    "samplesPerIntegration": 10,
+    "maximumReadyMs": 2000,
+    "integrations": {
+      "langgraph-python": {
+        "sourceCommit": "0c261b3b0eddb9ffadea975314da1b01f832c295",
+        "containerImageRevision": "sha256:0288d2a366d45e48e88923b9be86f0dd5147bb11dcef8bd0e487ff9887cfe114",
+        "fixtureRevision": "0c261b3b0eddb9ffadea975314da1b01f832c295",
+        "browser": "chromium",
+        "cpuSlowdown": 4,
+        "network": "50Mbps/10Mbps/20ms",
+        "sampleCount": 10,
+        "measurementsMs": [231, 227, 225, 196, 207, 205, 202, 208, 209, 213],
+        "maximumMs": 231,
+        "p95Ms": 231,
+        "passed": true
+      },
+      "mastra": {
+        "sourceCommit": "0c261b3b0eddb9ffadea975314da1b01f832c295",
+        "containerImageRevision": "sha256:573c90e038079fea120c9309203b9a0f4669fdb44137bdb351abb928f2d6f714",
+        "fixtureRevision": "0c261b3b0eddb9ffadea975314da1b01f832c295",
+        "browser": "chromium",
+        "cpuSlowdown": 4,
+        "network": "50Mbps/10Mbps/20ms",
+        "sampleCount": 10,
+        "measurementsMs": [212, 217, 207, 211, 206, 206, 206, 226, 202, 204],
+        "maximumMs": 226,
+        "p95Ms": 226,
+        "passed": true
+      }
+    }
+  }
+}

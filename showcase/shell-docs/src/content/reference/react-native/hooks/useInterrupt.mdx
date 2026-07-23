@@ -1,0 +1,183 @@
+---
+title: "useInterrupt"
+description: "React hook for handling agent interrupt events and resuming execution with user input"
+---
+
+## Overview
+
+`useInterrupt` handles agent interrupts and resumes execution with user input. It supports the **AG-UI standard interrupt flow** — `RUN_FINISHED` with `outcome.type === "interrupt"` carrying an `interrupts` array — and the legacy custom-event flow (`on_interrupt`). For standard interrupts, your `render`/`handler` receive `interrupt` (the primary one) and `interrupts` (the full open set); call `resolve(payload)` to resume or `cancel()` to cancel.
+
+<Callout type="info">
+  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useInterrupt`](/reference/v2/hooks/useInterrupt); only the import path differs.
+</Callout>
+
+By default, interrupt UI is rendered inside [`CopilotChat`](/reference/react-native/components/CopilotChat) automatically. If you set `renderInChat: false`, the hook returns the element so you can place it manually. The element returned by `render` is a React Native element.
+
+`event.value` is typed as `any` since the interrupt payload shape depends on your agent. Type-narrow it in your callbacks (e.g. `handler`, `enabled`, `render`) as needed.
+
+## Signature
+
+```tsx
+import { useInterrupt } from "@copilotkit/react-native";
+
+function useInterrupt<
+  TResult = never,
+  TRenderInChat extends boolean | undefined = undefined,
+>(
+  config: UseInterruptConfig<any, TResult, TRenderInChat>,
+): TRenderInChat extends false
+  ? React.ReactElement | null
+  : TRenderInChat extends true | undefined
+    ? void
+    : React.ReactElement | null | void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="UseInterruptConfig<any, TResult, TRenderInChat>" required>
+  Interrupt configuration.
+
+  <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
+    Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
+    - `event`: interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
+    - `interrupt`: the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for legacy interrupts.
+    - `interrupts`: all open standard interrupts (empty array for legacy interrupts).
+    - `result`: inferred from `handler` return type, or `null`
+    - `resolve(payload?, interruptId?)`: for standard interrupts, records `{ status: "resolved", payload }` for the target interrupt (defaults to the primary) and submits once all open interrupts are addressed. For legacy interrupts, resumes immediately via `command.resume = payload`.
+    - `cancel(interruptId?)`: for standard interrupts, records `{ status: "cancelled" }` for the target interrupt and resumes once all are addressed. Not supported for legacy interrupts (dismisses without resuming).
+  </PropertyReference>
+
+<PropertyReference
+  name="handler"
+  type="(props: InterruptHandlerProps) => TResult | PromiseLike<TResult>"
+>
+  Optional preprocessing callback. Runs before rendering and can return sync or
+  async data that is exposed as `result` in `render`. `TResult` is automatically
+  inferred from the handler's return type. If the handler throws/rejects,
+  `result` is `null`.
+</PropertyReference>
+
+<PropertyReference name="enabled" type="(event: InterruptEvent) => boolean">
+  Optional filter. Return `false` to ignore matching interrupts for this hook
+  instance.
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  Optional agent id. Defaults to the currently configured chat agent.
+</PropertyReference>
+
+  <PropertyReference name="renderInChat" type="boolean" default="true">
+    Controls where UI renders:
+    - `true` (default): publishes interrupt UI into [`CopilotChat`](/reference/react-native/components/CopilotChat)
+    - `false`: returns interrupt element from the hook for manual placement
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="element" type="Conditional by renderInChat">
+  Return type is inferred from `renderInChat`:
+  - `renderInChat: false` -> `React.ReactElement | null`
+  - `renderInChat: true` or omitted -> `void`
+  - dynamic boolean -> `React.ReactElement | null | void`
+</PropertyReference>
+
+## Usage
+
+### In-chat interrupt UI (default)
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native";
+
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ event, resolve }) => (
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>{event.value.question}</Text>
+        <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity onPress={() => resolve({ approved: true })}>
+            <Text>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => resolve({ approved: false })}>
+            <Text>Reject</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    ),
+  });
+
+  return null;
+}
+```
+
+### AG-UI standard interrupt (approve / cancel)
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native";
+
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ interrupt, resolve, cancel }) => (
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>{interrupt?.message ?? "Approve this action?"}</Text>
+        <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity onPress={() => resolve({ approved: true })}>
+            <Text>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => cancel()}>
+            <Text>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    ),
+  });
+
+  return null;
+}
+```
+
+### Manual placement with async preprocessing
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native";
+
+function SidePanelInterrupt() {
+  const element = useInterrupt({
+    renderInChat: false,
+    enabled: (event) => event.value.startsWith("approval:"),
+    handler: async ({ event }) => ({ label: event.value.toUpperCase() }),
+    render: ({ event, result, resolve }) => (
+      <View style={{ borderWidth: 1, borderRadius: 8, padding: 12 }}>
+        <Text style={{ fontWeight: "500" }}>{result?.label ?? ""}</Text>
+        <Text style={{ marginTop: 8 }}>{event.value}</Text>
+        <TouchableOpacity style={{ marginTop: 8 }} onPress={() => resolve({ accepted: true })}>
+          <Text>Continue</Text>
+        </TouchableOpacity>
+      </View>
+    ),
+  });
+
+  return <>{element}</>;
+}
+```
+
+## Behavior
+
+- Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); legacy interrupts from `on_interrupt` custom events.
+- `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed.
+- Expired interrupts (past `expiresAt`) are not resumed.
+- Interrupt UI is surfaced when the run finalizes.
+- Starting a new run clears pending interrupt state.
+- `event.value` is `any`; type-narrow in your callbacks as needed. For standard interrupts, `event.value` is the primary `Interrupt`.
+- `render.result` is inferred from `handler` return type and is always `TResult | null`.
+- If `handler` throws or rejects, `result` is set to `null`.
+
+## Related
+
+- [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop): structured interactive tool workflows
+- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): client-side tool registration
+- [`useAgent`](/reference/react-native/hooks/useAgent): access and subscribe to agent events
+- [React (V2) reference](/reference/v2/hooks/useInterrupt)

@@ -6,6 +6,7 @@ This is a starter template for building AI agents using [strands](https://strand
 
 - Node.js 20+
 - Python 3.12+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - OpenAI API Key (for the strands agent)
 - Any of the following package managers:
   - npm (default)
@@ -42,7 +43,7 @@ export OPENAI_API_KEY="your-openai-api-key-here"
 or create a `.env` file.
 
 ```bash
-echo "OPENAI_API_KEY=your-openai-api-key-here" > agent/.env
+echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
 ```
 
 3. Start the development server:

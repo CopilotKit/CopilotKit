@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / shared-state-streaming",
+    "sourceFile": "d5-all.json",
+    "note": "Mastra port of the langgraph-python state-streaming pattern. Mastra has no StateStreamingMiddleware/predictive-state; the streaming equivalent is the built-in updateWorkingMemory tool whose STREAMED args the @ag-ui/mastra bridge turns into a leading STATE_SNAPSHOT + incremental STATE_DELTA on /document (OSS-414). Each pill = leg-2 (toolCallId-keyed confirmation, ordered first) + leg-1 (userMessage-only updateWorkingMemory call). toolCallId (not hasToolResult) disambiguates so sequential multi-pill D6 probe runs cleanly.",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "shared-state-streaming poem leg-2 (follow-up): confirmation, matched by the updateWorkingMemory toolCallId so sequential pills don't cross-match.",
+      "match": {
+        "userMessage": "Write a short poem about autumn leaves",
+        "toolCallId": "call_d6_uwm_poem",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Done — I've drafted a short autumn poem in the document panel."
+      }
+    },
+    {
+      "_comment": "shared-state-streaming poem leg-1: stream the document via updateWorkingMemory (progressive STATE_DELTA).",
+      "match": {
+        "userMessage": "Write a short poem about autumn leaves",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_uwm_poem",
+            "name": "updateWorkingMemory",
+            "arguments": "{\"memory\":\"{\\\"document\\\":\\\"Autumn Leaves\\\\n\\\\nAmber and crimson, they drift and they fall,\\\\nWhispering softly past window and wall.\\\\nCrisp on the pathway, they crackle and turn,\\\\nWhile low autumn sunlight begins to burn.\\\\n\\\\nBare go the branches, the season lets go,\\\\nMaking a bed for the coming of snow.\\\"}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "shared-state-streaming email leg-2 (follow-up): confirmation, matched by the updateWorkingMemory toolCallId so sequential pills don't cross-match.",
+      "match": {
+        "userMessage": "Draft a polite email declining a meeting next Tuesday afternoon",
+        "toolCallId": "call_d6_uwm_email",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Done — I've drafted your polite decline email in the document panel."
+      }
+    },
+    {
+      "_comment": "shared-state-streaming email leg-1: stream the document via updateWorkingMemory (progressive STATE_DELTA).",
+      "match": {
+        "userMessage": "Draft a polite email declining a meeting next Tuesday afternoon",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_uwm_email",
+            "name": "updateWorkingMemory",
+            "arguments": "{\"memory\":\"{\\\"document\\\":\\\"Subject: Re: Meeting Next Tuesday Afternoon\\\\n\\\\nHi there,\\\\n\\\\nThank you so much for the invitation. Unfortunately I have a prior commitment on Tuesday afternoon and won't be able to attend.\\\\n\\\\nI'd genuinely like to stay involved — could we find another time, or would sharing notes and any decisions afterward work for you? Happy to contribute async in the meantime.\\\\n\\\\nThanks for understanding.\\\\n\\\\nBest regards\\\"}\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "shared-state-streaming quantum leg-2 (follow-up): confirmation, matched by the updateWorkingMemory toolCallId so sequential pills don't cross-match.",
+      "match": {
+        "userMessage": "Write a 2-paragraph explanation of quantum computing for a curious teenager",
+        "toolCallId": "call_d6_uwm_quantum",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Done — I've written a two-paragraph quantum computing explainer in the document panel."
+      }
+    },
+    {
+      "_comment": "shared-state-streaming quantum leg-1: stream the document via updateWorkingMemory (progressive STATE_DELTA).",
+      "match": {
+        "userMessage": "Write a 2-paragraph explanation of quantum computing for a curious teenager",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_uwm_quantum",
+            "name": "updateWorkingMemory",
+            "arguments": "{\"memory\":\"{\\\"document\\\":\\\"Imagine a regular computer as a giant wall of light switches that can only be OFF (0) or ON (1). Everything it does — games, videos, messages — is built from billions of those on/off bits. A quantum computer plays by stranger rules. Its version of a bit, called a qubit, can act like it's a blend of 0 and 1 at the same time, a trick called superposition. Qubits can also be linked so that changing one instantly affects another, which scientists call entanglement.\\\\n\\\\nWhy bother? Because when many qubits work together, a quantum computer can explore a huge number of possibilities at once instead of checking them one by one. That makes it potentially amazing at specific hard jobs — like simulating molecules for new medicines or cracking certain codes — that would take normal computers longer than a lifetime. It won't replace your laptop for homework or games, but for a handful of gigantic puzzles, it could be a genuine superpower.\\\"}\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

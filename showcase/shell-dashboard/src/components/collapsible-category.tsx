@@ -6,7 +6,7 @@
  * Collapse state is persisted in localStorage using the key
  * `dashboard-collapse-{name}`.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /* ------------------------------------------------------------------ */
 /*  localStorage helpers                                               */
@@ -55,7 +55,11 @@ export function useCollapsible({
   name,
   defaultOpen,
 }: UseCollapsibleOptions): UseCollapsibleReturn {
-  const [isOpen, setIsOpen] = useState(() => readStorage(name, defaultOpen));
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  useEffect(() => {
+    setIsOpen(readStorage(name, defaultOpen));
+  }, [name, defaultOpen]);
 
   const toggle = () => {
     const next = !isOpen;

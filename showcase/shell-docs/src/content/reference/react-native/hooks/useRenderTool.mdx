@@ -1,0 +1,133 @@
+---
+title: "useRenderTool"
+description: "Register a React Native component to render inline when an agent calls a tool."
+---
+
+## Overview
+
+`useRenderTool` is the React Native counterpart of the web tool-rendering hooks. It registers a tool with the agent **and** a render function that produces a React Native element for that tool's call, so the agent can drive inline generative UI inside the chat. It combines [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) (registration + optional handler) with a render registry that the prebuilt [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui) reads when displaying tool calls.
+
+<Callout type="info">
+  The web-only rendering hooks (`useRenderToolCall`, `useDefaultRenderTool`,
+  `useRenderActivityMessage`, `useRenderCustomMessages`) are **not** exported on
+  React Native, because they depend on DOM elements. Use `useRenderTool` instead.
+</Callout>
+
+## Signature
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-native";
+
+function useRenderTool<T>(
+  options: UseRenderToolOptions<T>,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="options" type="UseRenderToolOptions<T>">
+  Tool definition and render function.
+
+  <PropertyReference name="name" type="string" required>
+    Unique tool name. Must match the name the agent calls.
+  </PropertyReference>
+
+  <PropertyReference name="description" type="string" required>
+    Human-readable description shown to the agent.
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="StandardSchemaV1<unknown, T>" required>
+    Schema describing the tool's parameters. Accepts any schema compatible with
+    [Standard Schema](https://standardschema.dev/) (Zod, Valibot, ArkType,
+    etc.).
+  </PropertyReference>
+
+  <PropertyReference name="render" type="(props: RenderToolProps<T>) => React.ReactElement | null" required>
+    Render function returning a React Native element for the tool call.
+  </PropertyReference>
+
+  <PropertyReference name="handler" type="(args: T) => Promise<unknown>">
+    Optional handler executed when the tool is called. Omit for a render-only
+    tool.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent ID to scope the tool to a specific agent.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="ReadonlyArray<unknown>">
+  Optional dependency array. Re-register the tool when these values change.
+</PropertyReference>
+
+### `RenderToolProps<T>`
+
+Props passed to your `render` function.
+
+<PropertyReference name="args" type="T">
+  Parsed tool-call arguments, typed by your `parameters` schema.
+</PropertyReference>
+
+<PropertyReference name="status" type='"executing" | "complete"'>
+  Current tool-call status.
+</PropertyReference>
+
+<PropertyReference name="result" type="string | undefined">
+  Result from the handler, when available.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { useRenderTool } from "@copilotkit/react-native";
+import { ActivityIndicator, Text, View } from "react-native";
+import { z } from "zod";
+
+function ChatScreen() {
+  useRenderTool({
+    name: "showWeather",
+    description: "Display weather for a city",
+    parameters: z.object({
+      city: z.string(),
+      temp: z.number(),
+      condition: z.string(),
+    }),
+    render: ({ args, status }) => (
+      <View style={{ padding: 12, backgroundColor: "#f0f0f0", borderRadius: 8 }}>
+        <Text style={{ fontWeight: "bold" }}>{args.city}</Text>
+        <Text>{args.temp}°C · {args.condition}</Text>
+        {status === "executing" && <ActivityIndicator />}
+      </View>
+    ),
+  });
+
+  return <CopilotChat agentName="default" />;
+}
+```
+
+## Behavior
+
+- **Render returns `ReactElement | null`**, not `ReactNode`. React Native's `FlatList` cannot render bare strings or portals, so a render function must return an element or `null`.
+- **Cleanup**: unmounting unregisters both the tool and its render function.
+
+## `RenderToolProvider` and `useRenderToolRegistry`
+
+These power the render registry and are installed automatically by [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider). You rarely use them directly.
+
+<PropertyReference name="RenderToolProvider" type="({ children }: { children: ReactNode }) => ReactElement">
+  Maintains the registry of tool render functions. Already mounted by
+  `CopilotKitProvider`; add it manually only for an isolated subtree.
+</PropertyReference>
+
+<PropertyReference name="useRenderToolRegistry" type="() => RenderToolRegistry">
+  Returns the `Map<string, RenderToolFunction>` of registered render functions,
+  subscribing to changes via `useSyncExternalStore`. Used internally by
+  `CopilotChat` to look up a renderer for each tool call. Throws if called
+  outside a `RenderToolProvider`.
+</PropertyReference>
+
+## Related
+
+- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): register a tool without inline rendering
+- [`useHumanInTheLoop`](/reference/react-native/hooks/useHumanInTheLoop): gate a tool call on user approval

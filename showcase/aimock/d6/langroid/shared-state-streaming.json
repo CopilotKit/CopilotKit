@@ -1,0 +1,20 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / shared-state-streaming",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "stream the counter to 5",
+        "turnIndex": 0,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Streaming state updates: counter advanced from 0 through 1, 2, 3, 4 to 5. Each intermediate value was reflected in the shared state and visible to the UI mid-stream."
+      }
+    }
+  ]
+}

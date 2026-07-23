@@ -1,7 +1,11 @@
 {
   "name": "@copilotkit/voice",
-  "version": "1.56.3",
+  "version": "1.63.2",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -20,6 +24,7 @@
   },
   "scripts": {
     "build": "tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "prepublishOnly": "pnpm run build",
     "dev": "tsdown --watch",
     "check-types": "tsc --noEmit",
@@ -30,15 +35,18 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@copilotkit/runtime": "workspace:*",
     "openai": "^5.9.0"
   },
   "devDependencies": {
+    "@copilotkit/runtime": "workspace:*",
     "@copilotkit/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
     "vitest": "^3.0.5"
+  },
+  "peerDependencies": {
+    "@copilotkit/runtime": "workspace:*"
   },
   "engines": {
     "node": ">=18"

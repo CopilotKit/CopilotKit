@@ -1,0 +1,375 @@
+{
+  "_comment": "D5 fixture for /demos/declarative-gen-ui. Four pill prompts (KPI dashboard / pie chart / bar chart / status report). Each produces a `generate_a2ui` tool call; the secondary LLM (also routed through aimock) returns the structured surface payload. The match `toolName` differs between integrations: LangGraph-Python binds the secondary call to `_design_a2ui_surface`; Google-ADK binds it to `render_a2ui` (see showcase/integrations/google-adk/src/agents/main.py and showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py). Both tools take an identical `components` array shape — flat entries with `id` + `component` + catalog-specific props at top level (NOT nested under `props`, and NOT keyed as `type` — `sanitize_a2ui_components` drops entries missing `component`).",
+  "fixtures": [
+    {
+      "match": { "userMessage": "KPI dashboard" },
+      "response": {
+        "content": "Here is the KPI dashboard you requested.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "pie chart of sales by region" },
+      "response": {
+        "content": "Here is the pie chart by region.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "bar chart of quarterly revenue" },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "match": { "userMessage": "status report on system health" },
+      "response": {
+        "content": "Here is the system health status report.",
+        "toolCalls": [{ "name": "generate_a2ui", "arguments": {} }]
+      }
+    },
+    {
+      "_comment": "render_a2ui — KPI dashboard pill (Google-ADK secondary tool name).",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "_design_a2ui_surface — KPI dashboard pill (LangGraph-Python secondary tool name). Card has a single `child` slot, so wrap metrics in a Column.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — pie-chart pill.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    { "label": "North America", "value": 540 },
+                    { "label": "EMEA", "value": 320 },
+                    { "label": "APAC", "value": 210 },
+                    { "label": "LATAM", "value": 90 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "_design_a2ui_surface — pie-chart pill (LGP variant).",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    { "label": "North America", "value": 540 },
+                    { "label": "EMEA", "value": 320 },
+                    { "label": "APAC", "value": 210 },
+                    { "label": "LATAM", "value": 90 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    { "label": "Q1", "value": 820 },
+                    { "label": "Q2", "value": 940 },
+                    { "label": "Q3", "value": 1080 },
+                    { "label": "Q4", "value": 1240 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "_design_a2ui_surface — bar-chart pill (LGP variant).",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    { "label": "Q1", "value": 820 },
+                    { "label": "Q2", "value": 940 },
+                    { "label": "Q3", "value": 1080 },
+                    { "label": "Q4", "value": 1240 }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — status-report pill.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "children": ["status-api", "status-db", "status-workers"]
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "_design_a2ui_surface — status-report pill (LGP variant).",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "_design_a2ui_surface",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "children": ["status-api", "status-db", "status-workers"]
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

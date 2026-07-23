@@ -28,14 +28,14 @@ export const AUDIT_SCRIPT = path.resolve(__dirname, "..", "audit.ts");
 
 /**
  * Build a throwaway temp tree mimicking:
- *   <root>/packages/<slug>/manifest.yaml
- *   <root>/packages/<slug>/tests/e2e/*.spec.ts
- *   <root>/packages/<slug>/qa/*.md
+ *   <root>/integrations/<slug>/manifest.yaml
+ *   <root>/integrations/<slug>/tests/e2e/*.spec.ts
+ *   <root>/integrations/<slug>/qa/*.md
  *   <root>/examples/integrations/<name>/
  */
 export function makeTmpTree(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "audit-fixture-"));
-  fs.mkdirSync(path.join(root, "packages"), { recursive: true });
+  fs.mkdirSync(path.join(root, "integrations"), { recursive: true });
   fs.mkdirSync(path.join(root, "examples", "integrations"), {
     recursive: true,
   });
@@ -44,7 +44,7 @@ export function makeTmpTree(): string {
 
 export function makeConfig(root: string): AuditConfig {
   return {
-    packagesDir: path.join(root, "packages"),
+    packagesDir: path.join(root, "integrations"),
     examplesIntegrationsDir: path.join(root, "examples", "integrations"),
     repoRoot: root,
   };
@@ -59,7 +59,7 @@ export function writePackage(
     qaFiles?: string[];
   },
 ) {
-  const pkgDir = path.join(root, "packages", slug);
+  const pkgDir = path.join(root, "integrations", slug);
   fs.mkdirSync(pkgDir, { recursive: true });
   if (opts.manifest !== undefined) {
     fs.writeFileSync(path.join(pkgDir, "manifest.yaml"), opts.manifest);

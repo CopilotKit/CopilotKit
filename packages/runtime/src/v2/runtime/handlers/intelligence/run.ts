@@ -1,18 +1,18 @@
-import {
+import type {
   AbstractAgent,
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
 } from "@ag-ui/client";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import { EventType } from "@ag-ui/client";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
-import { AgentRunnerRunRequest } from "../../runner/agent-runner";
-import { Observable } from "rxjs";
+import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import type { Observable } from "rxjs";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -172,6 +172,7 @@ export async function handleIntelligenceRun({
     try {
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
+        userId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),

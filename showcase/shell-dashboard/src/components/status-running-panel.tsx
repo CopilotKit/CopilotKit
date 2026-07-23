@@ -23,6 +23,9 @@ export interface StatusRunningPanelProps {
 type ServiceState = NonNullable<
   ProbeScheduleEntry["inflight"]
 >["services"][number]["state"];
+type ServiceResult = NonNullable<
+  NonNullable<ProbeScheduleEntry["inflight"]>["services"][number]["result"]
+>;
 
 const STATE_ICON: Record<ServiceState, string> = {
   completed: "✅",
@@ -30,6 +33,26 @@ const STATE_ICON: Record<ServiceState, string> = {
   queued: "⏸",
   failed: "❌",
 };
+
+/**
+ * Result-aware icon for completed services. A completed service with
+ * result "red" or "yellow" should NOT show ✅ — that misleads the
+ * operator into thinking everything passed when it didn't. Only
+ * result "green" earns the checkmark; yellow gets a warning, red
+ * gets the same ❌ as a failed service.
+ */
+const RESULT_ICON: Record<ServiceResult, string> = {
+  green: "✅",
+  yellow: "⚠️",
+  red: "❌",
+};
+
+function serviceIcon(state: ServiceState, result?: ServiceResult): string {
+  if (state === "completed" && result) {
+    return RESULT_ICON[result] ?? STATE_ICON[state];
+  }
+  return STATE_ICON[state];
+}
 
 function useNowTick(): number {
   const [now, setNow] = useState(() => Date.now());
@@ -148,7 +171,9 @@ export function StatusRunningPanel({ entries }: StatusRunningPanelProps) {
                     data-state={s.state}
                     className="flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border)]"
                   >
-                    <span aria-hidden="true">{STATE_ICON[s.state]}</span>
+                    <span aria-hidden="true">
+                      {serviceIcon(s.state, s.result)}
+                    </span>
                     <span className="font-mono truncate">{s.slug}</span>
                     {sElapsed && (
                       <span className="ml-auto text-[var(--text-muted)] tabular-nums">

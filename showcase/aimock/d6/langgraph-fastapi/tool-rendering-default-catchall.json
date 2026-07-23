@@ -1,0 +1,251 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-fastapi / tool-rendering-default-catchall",
+    "sourceFile": "tool-rendering.json (same tools, framework built-in default renderer)",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo. Follow-up content after get_weather tool ran. Keyed by toolCallId. MUST come before the tool-emitting fixture below.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_langgraph_fastapi_dc_weather_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, emit get_weather. Uses toolName gate.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_langgraph_fastapi_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, fallback content when no toolName gate matches.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "default-catchall — Weather in SF pill. get_weather tool call. Same tools as tool-rendering but the frontend registers ZERO custom render hooks, relying on the built-in DefaultToolCallRenderer.",
+      "match": {
+        "userMessage": "Weather in SF",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Weather in SF",
+        "toolCallId": "call_dc_weather_sf_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "default-catchall — Find flights pill. search_flights tool call.",
+      "match": {
+        "userMessage": "Find flights",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"flights\":[{\"airline\":\"United\",\"flightNumber\":\"UA231\",\"departureTime\":\"08:15\",\"price\":\"$348\"},{\"airline\":\"Delta\",\"flightNumber\":\"DL412\",\"departureTime\":\"11:20\",\"price\":\"$312\"},{\"airline\":\"JetBlue\",\"flightNumber\":\"B6722\",\"departureTime\":\"17:05\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Find flights",
+        "toolCallId": "call_dc_flights_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Three flights found — United UA231 ($348), Delta DL412 ($312), and JetBlue B6722 ($289)."
+      }
+    },
+    {
+      "_comment": "default-catchall — Roll a d20 pill. 5 sequential roll_d20 calls chained by toolCallId: [7, 14, 3, 19, 20].",
+      "match": {
+        "userMessage": "Roll a d20",
+        "toolCallId": "call_dc_d20_seq_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a d20",
+        "toolCallId": "call_dc_d20_seq_002",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a d20",
+        "toolCallId": "call_dc_d20_seq_003",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a d20",
+        "toolCallId": "call_dc_d20_seq_004",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a d20",
+        "toolCallId": "call_dc_d20_seq_005",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll. turnIndex=0 fires on initial user prompt before any tool results exist in the chain.",
+      "match": {
+        "userMessage": "Roll a d20",
+        "turnIndex": 0,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall — Chain tools pill. Emit 3 tool calls in one assistant turn.",
+      "match": {
+        "userMessage": "Chain tools",
+        "toolCallId": "call_dc_chain_roll_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain tools",
+        "toolCallId": "call_dc_chain_flights_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain tools",
+        "toolCallId": "call_dc_chain_weather_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain tools",
+        "turnIndex": 0,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_dc_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_dc_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_dc_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_comment": "D5 fixture for /demos/chat-customization-css. The demo overrides CopilotKit theme variables (--copilot-kit-primary-color: #ff006e pink/red; --copilot-kit-secondary-color: #fde047 amber/yellow) plus per-bubble CSS. The D5 assertion checks the computed background colors on the user-message bubble (red/pink gradient) and assistant-message bubble (amber/yellow #fde047). One-turn fixture — substring 'verify the css theme rendering' is unique.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "verify the css theme rendering" },
+      "response": {
+        "content": "The chat is themed with hot pink user bubbles and amber assistant bubbles. CSS variables are scoped to .chat-css-demo-scope so the theme does not leak."
+      }
+    }
+  ]
+}

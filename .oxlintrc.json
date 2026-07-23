@@ -29,6 +29,12 @@
   },
   "overrides": [
     {
+      "files": ["packages/**/*.{ts,tsx}"],
+      "rules": {
+        "copilotkit/no-single-arg-zod-record": "error"
+      }
+    },
+    {
       "files": ["packages/**/*.{ts,tsx}", "examples/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
@@ -66,6 +72,28 @@
         "typescript/consistent-type-imports": "off",
         "typescript/no-import-type-side-effects": "off",
         "import/consistent-type-specifier-style": "off"
+      }
+    },
+    {
+      "files": [
+        "showcase/shell-dashboard/src/**/*.{ts,tsx}",
+        "showcase/shell-docs/src/**/*.{ts,tsx}",
+        "showcase/shell/src/**/*.{ts,tsx}",
+        "showcase/shell-dojo/src/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "copilotkit/no-public-env-shell-read": "error"
+      }
+    },
+    {
+      "files": [
+        "showcase/shell-docs/src/content/**",
+        "showcase/**/lib/runtime-config*.{ts,tsx}",
+        "showcase/**/*.test.{ts,tsx}",
+        "showcase/**/*.spec.{ts,tsx}"
+      ],
+      "rules": {
+        "copilotkit/no-public-env-shell-read": "off"
       }
     }
   ],

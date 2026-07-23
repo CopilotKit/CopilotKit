@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill)",
+    "created": "2026-06-05"
+  },
+  "fixtures": [
+    {
+      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' This is CrewAI's orchestration LLM step deciding which crew to run; the only crew available is the parameterless A2UIFixedSchema crew, which (server-side) runs display_flight and emits the pre-authored flight_schema.json that renders the `a2ui-fixed-card`. Respond by calling A2UIFixedSchema (no args). Anchored on hasToolResult:false so it only fires on the routing turn before any crew tool result, never looping after the crew returns.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_flight_sfo_jfk_001",
+            "name": "A2UIFixedSchema",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill — follow-up content after the A2UIFixedSchema crew has run (flight card already rendered server-side). Anchored on hasToolResult:true so it fires AFTER the crew tool result instead of re-routing, preventing a crew-invocation loop.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": true,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      }
+    }
+  ]
+}

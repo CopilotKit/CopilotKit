@@ -1,9 +1,11 @@
 ---
-title: Tool Rendering
+title: Tool Call Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
 ---
+
+<InlineDemo demo="tool-rendering" />
 
 ## What is this?
 
@@ -14,7 +16,9 @@ a branded card for the call (arguments, live status, and the eventual
 result). This is the **Generative UI** variant CopilotKit calls **tool
 rendering**.
 
-<InlineDemo demo="tool-rendering" />
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
 
 ## When should I use this?
 
@@ -92,11 +96,10 @@ and `roll_dice`:
 ## The backend tool definition
 
 The frontend renderer only sees what the agent sends down. Here's the
-matching Python definition for `get_weather`, a standard LangChain tool,
-no CopilotKit-specific plumbing required:
+matching backend definition for `get_weather`: expose a tool named
+`get_weather`, return structured data, and let the frontend renderer with
+the same name paint the card.
 
 <Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
-
-<FeatureIntegrations feature="tool-rendering" />
 
 <IntegrationGrid path="generative-ui/tool-rendering" />

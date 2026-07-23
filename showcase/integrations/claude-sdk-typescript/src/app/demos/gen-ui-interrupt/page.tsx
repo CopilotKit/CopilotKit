@@ -1,0 +1,72 @@
+"use client";
+
+// @region[frontend-useinterrupt-render]
+import {
+  CopilotKit,
+  CopilotChat,
+  useInterrupt,
+} from "@copilotkit/react-core/v2";
+import type { TimeSlot } from "./_components/time-picker-card";
+import { TimePickerCard } from "./_components/time-picker-card";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import { useGenUiInterruptSuggestions } from "./suggestions";
+
+export default function GenUiInterruptDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  useGenUiInterruptSuggestions();
+
+  // The Claude backend surfaces a structured scheduling payload —
+  // `{ topic, attendee, slots }` — which we render inline in the chat as a
+  // message bubble. Calling `resolve(...)` sends the user's selection back
+  // through the AG-UI resume path.
+  useInterrupt({
+    agentId: "gen-ui-interrupt",
+    renderInChat: true,
+    render: ({ event, resolve }) => {
+      // The AG-UI adapter JSON-stringifies interrupt values, so parse
+      // when needed to extract the structured payload.
+      const raw = event.value ?? {};
+      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+        topic?: string;
+        attendee?: string;
+        slots?: TimeSlot[];
+      };
+      const slots =
+        payload.slots && payload.slots.length > 0
+          ? payload.slots
+          : generateFallbackSlots();
+      return (
+        <TimePickerCard
+          topic={payload.topic ?? "a call"}
+          attendee={payload.attendee}
+          slots={slots}
+          onSubmit={(result) => {
+            // Defer resolve so React commits the picked/cancelled state
+            // before useInterrupt clears the interrupt element. A single
+            // requestAnimationFrame is not reliable — rAF fires before
+            // React's commit in some scheduling scenarios. Using a short
+            // setTimeout ensures the commit lands first and the user sees
+            // the "Booked"/"Cancelled" badge before the card unmounts.
+            setTimeout(() => resolve(result), 500);
+          }}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-useinterrupt-render]
+
+  return (
+    <CopilotChat agentId="gen-ui-interrupt" className="h-full rounded-2xl" />
+  );
+}

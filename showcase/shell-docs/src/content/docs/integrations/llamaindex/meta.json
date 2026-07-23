@@ -5,15 +5,38 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "cli",
+    "build-with-agents",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
+    "frontend-tools",
     "shared-state",
     "---LlamaIndex---",
     "multi-agent-flows",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium"
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
+    "---Intelligence Platform---",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

@@ -2,8 +2,8 @@ import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkitnext/runtime";
-import { BuiltInAgent } from "@copilotkitnext/agent";
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 
 const agent = new BuiltInAgent({
@@ -16,7 +16,7 @@ You should:
 - Explain features like generative UI, human-in-the-loop, tool rendering, etc.
 - Be concise and helpful — 1-3 sentences unless they ask for detail
 
-When suggesting demos, provide links like /integrations/{slug}/{demoId}.
+When suggesting demos, provide links like /react/{slug}/{demoId}.
 Available integrations: LangGraph (Python) at /integrations/langgraph-python, Mastra at /integrations/mastra.
 Available features: agentic-chat, human-in-the-loop, tool-rendering, gen-ui-tool-based.`,
   maxSteps: 3,

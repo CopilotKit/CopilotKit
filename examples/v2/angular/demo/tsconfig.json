@@ -2,8 +2,9 @@
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": false,
+    "esModuleInterop": true,
     "module": "ES2020",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -12,23 +13,17 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@copilotkit/angular": [
-        "../../packages/angular/dist/index.d.ts",
-        "../../packages/angular/dist/fesm2022/copilotkit-angular.mjs"
+      "@copilotkit/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/core": ["node_modules/@copilotkit/core"],
+      "@copilotkit/shared": ["node_modules/@copilotkit/shared"],
+      "@copilotkit/web-inspector": ["node_modules/@copilotkit/web-inspector"],
+      "@copilotkit/a2ui-renderer": ["node_modules/@copilotkit/a2ui-renderer"],
+      "@copilotkit/a2ui-renderer/web-components": [
+        "node_modules/@copilotkit/a2ui-renderer/web-components"
       ],
-      "@copilotkit/core": [
-        "../../packages/core/dist/index.d.ts",
-        "../../packages/core/dist/index.mjs",
-        "../../packages/core/src/index.ts"
-      ],
-      "@copilotkit/shared": [
-        "../../packages/shared/dist/index.d.ts",
-        "../../packages/shared/dist/index.mjs",
-        "../../packages/shared/src/index.ts"
-      ],
-      "@copilotkit/web-inspector": [
-        "../../packages/web-inspector/dist/index.d.ts",
-        "../../packages/web-inspector/src/index.ts"
+      "@copilotkit/a2ui-renderer/web-components/define": [
+        "node_modules/@copilotkit/a2ui-renderer/web-components/define"
       ]
     }
   },

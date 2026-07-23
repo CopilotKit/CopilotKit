@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / tool-rendering-custom-catchall. Reuses the same tool calls as tool-rendering (weather in Tokyo + AAPL stock) but rendered through the user-supplied custom wildcard component. The probe drives two sequential prompts and asserts both render via the same [data-testid='custom-wildcard-card'] with distinct data-tool-name values.",
+    "sourceFile": "harness/src/probes/scripts/d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "note": "ported from tool-rendering-custom-catchall (langgraph-python); context rewritten to mastra"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall — weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d6_cc_weather_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — weather in Tokyo (first turn). Emits get_weather tool call. The custom wildcard renderer fires for this tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather'].",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — AAPL stock price follow-up. After get_stock_price tool result returns. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_cc_stock_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — AAPL stock price (second turn). Emits get_stock_price tool call. The custom wildcard renderer fires for this DIFFERENT tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_stock_price']. The cross-tool assertion verifies both tool names rendered through the same testid.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -16,6 +16,8 @@ import {
   AfterViewInit,
   input,
   output,
+  inject,
+  NgZone,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -24,12 +26,18 @@ import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-
 import { CopilotChatViewFeather } from "./copilot-chat-view-feather";
 import { CopilotChatViewInputContainer } from "./copilot-chat-view-input-container";
 import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
+import { CopilotChatInput } from "./copilot-chat-input";
+import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
+import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
+import { ChatState } from "../../chat-state";
+import { CopilotIcon, Upload } from "../icons/copilot-icon";
+import { injectChatLabels } from "../../chat-config";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -45,12 +53,19 @@ import { takeUntil } from "rxjs/operators";
  * ```
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view",
-  imports: [CommonModule, CopilotSlot, CopilotChatViewScrollView],
+  imports: [
+    CommonModule,
+    CopilotSlot,
+    CopilotChatViewScrollView,
+    CopilotChatAttachmentQueue,
+    CopilotChatSuggestionView,
+    CopilotIcon,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [ResizeObserverService, CopilotChatViewHandlers],
+  host: { class: "cpk:block cpk:h-full cpk:min-h-0" },
   template: `
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
@@ -58,17 +73,117 @@ import { takeUntil } from "rxjs/operators";
         [ngTemplateOutlet]="customLayoutTemplate"
         [ngTemplateOutletContext]="layoutContext()"
       ></ng-container>
+    } @else if (shouldShowWelcomeScreen()) {
+      <div
+        [class]="computedClass()"
+        (dragover)="chatState?.handleDragOver($event)"
+        (dragleave)="chatState?.handleDragLeave($event)"
+        (drop)="chatState?.handleDrop($event)"
+      >
+        @if (chatState?.dragOver?.()) {
+          <div [class]="dropOverlayClass()">
+            <div
+              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
+            >
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
+              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
+            </div>
+          </div>
+        }
+
+        <div
+          data-testid="copilot-welcome-screen"
+          class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+        >
+          <div
+            class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
+          >
+            <div class="cpk:mb-6">
+              <h1
+                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
+              >
+                {{ labels.welcomeMessageText }}
+              </h1>
+            </div>
+
+            <div class="cpk:w-full">
+              @if ((chatState?.attachments?.() ?? []).length > 0) {
+                <copilot-chat-attachment-queue
+                  [attachments]="chatState?.attachments?.() ?? []"
+                  inputClass="cpk:mb-2"
+                  (removeAttachment)="chatState?.removeAttachment($event)"
+                />
+              }
+
+              <copilot-slot
+                [slot]="inputSlot()"
+                [context]="{ inputClass: undefined }"
+                [defaultComponent]="defaultInputComponent"
+              >
+              </copilot-slot>
+
+              <copilot-slot
+                [slot]="disclaimerSlot()"
+                [context]="{
+                  text: disclaimerTextSignal(),
+                  inputClass: disclaimerClassSignal(),
+                }"
+                [defaultComponent]="defaultDisclaimerComponent"
+              >
+              </copilot-slot>
+            </div>
+
+            @if ((chatState?.suggestions?.() ?? []).length > 0) {
+              <div class="cpk:mt-4 cpk:flex cpk:justify-center">
+                <copilot-chat-suggestion-view
+                  [suggestions]="chatState?.suggestions?.() ?? []"
+                  (selectSuggestion)="
+                    chatState?.selectSuggestion($event.suggestion, $event.index)
+                  "
+                />
+              </div>
+            }
+          </div>
+        </div>
+      </div>
     } @else {
       <!-- Default layout - exact React DOM structure -->
-      <div [class]="computedClass()">
+      <div
+        [class]="computedClass()"
+        (dragover)="chatState?.handleDragOver($event)"
+        (dragleave)="chatState?.handleDragLeave($event)"
+        (drop)="chatState?.handleDrop($event)"
+      >
+        @if (chatState?.dragOver?.()) {
+          <div [class]="dropOverlayClass()">
+            <div
+              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
+            >
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
+              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
+            </div>
+          </div>
+        }
+
         <!-- ScrollView -->
         <copilot-chat-view-scroll-view
           [autoScroll]="autoScrollSignal()"
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [state]="state()"
+          [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
+          [assistantMessageComponent]="assistantMessageComponent()"
+          [assistantMessageTemplate]="assistantMessageTemplate()"
+          [assistantMessageClass]="assistantMessageClass()"
+          [reasoningMessageComponent]="reasoningMessageComponent()"
+          [reasoningMessageTemplate]="reasoningMessageTemplate()"
+          [reasoningMessageClass]="reasoningMessageClass()"
+          [messageViewChildrenComponent]="messageViewChildrenComponent()"
+          [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+          [messageViewChildrenClass]="messageViewChildrenClass()"
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
@@ -105,14 +220,35 @@ export class CopilotChatView
   implements OnInit, OnChanges, AfterViewInit, OnDestroy
 {
   // Core inputs matching React props
+  protected readonly chatState = inject(ChatState, { optional: true });
+  protected readonly UploadIcon = Upload;
   messages = input<Message[]>([]);
+  /** Current agent state forwarded to message-view extension slots. */
+  state = input<unknown>({});
+  agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
+  hasExplicitThreadId = input<boolean>(false);
 
   // MessageView slot inputs
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+
+  // AssistantMessage slot inputs
+  assistantMessageComponent = input<Type<any> | undefined>(undefined);
+  assistantMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  assistantMessageClass = input<string | undefined>(undefined);
+
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>(undefined);
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  reasoningMessageClass = input<string | undefined>(undefined);
+
+  // Content rendered after the default message collection.
+  messageViewChildrenComponent = input<Type<any> | undefined>(undefined);
+  messageViewChildrenTemplate = input<TemplateRef<any> | undefined>(undefined);
+  messageViewChildrenClass = input<string | undefined>(undefined);
 
   // ScrollView slot inputs
   scrollViewComponent = input<Type<any> | undefined>(undefined);
@@ -179,8 +315,10 @@ export class CopilotChatView
     CopilotChatViewScrollToBottomButton;
   protected readonly defaultInputContainerComponent =
     CopilotChatViewInputContainer;
+  protected readonly defaultInputComponent = CopilotChatInput;
   protected readonly defaultFeatherComponent = CopilotChatViewFeather;
   protected readonly defaultDisclaimerComponent = CopilotChatViewDisclaimer;
+  protected readonly labels = injectChatLabels();
 
   // Signals for reactive state
   protected messagesValue = computed(() => this.messages());
@@ -190,12 +328,24 @@ export class CopilotChatView
   protected disclaimerClassSignal = computed(() => this.disclaimerClass());
   protected inputContainerHeight = signal<number>(0);
   protected isResizing = signal<boolean>(false);
-  protected contentPaddingBottom = computed(
-    () => this.inputContainerHeight() + 32,
+  protected shouldShowWelcomeScreen = computed(
+    () => this.messagesValue().length === 0 && !this.hasExplicitThreadId(),
   );
 
   // Computed signals
-  protected computedClass = computed(() => cn("relative h-full"));
+  protected computedClass = computed(() =>
+    cn(
+      "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+    ),
+  );
+  protected dropOverlayClass = computed(() =>
+    cn(
+      "cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none",
+      "cpk:flex cpk:items-center cpk:justify-center",
+      "cpk:bg-primary/5 cpk:backdrop-blur-[2px]",
+      "cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2",
+    ),
+  );
 
   // Slot resolution computed signals
   protected messageViewSlot = computed(
@@ -236,8 +386,19 @@ export class CopilotChatView
     inputContainerHeight: this.inputContainerHeight(),
     isResizing: this.isResizing(),
     messages: this.messagesValue(),
+    state: this.state(),
+    agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
+    assistantMessageComponent: this.assistantMessageComponent(),
+    assistantMessageTemplate: this.assistantMessageTemplate(),
+    assistantMessageClass: this.assistantMessageClass(),
+    reasoningMessageComponent: this.reasoningMessageComponent(),
+    reasoningMessageTemplate: this.reasoningMessageTemplate(),
+    reasoningMessageClass: this.reasoningMessageClass(),
+    messageViewChildrenComponent: this.messageViewChildrenComponent(),
+    messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
+    messageViewChildrenClass: this.messageViewChildrenClass(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed
@@ -265,6 +426,9 @@ export class CopilotChatView
 
   private destroy$ = new Subject<void>();
   private resizeTimeoutRef?: number;
+  private measurementRetryTimeoutRef?: number;
+  private readonly ngZone = inject(NgZone);
+  private destroyed = false;
 
   constructor(
     private resizeObserverService: ResizeObserverService,
@@ -382,26 +546,41 @@ export class CopilotChatView
       const maxAttempts = 10;
 
       const retry = () => {
+        if (this.destroyed) return;
         attempts++;
         if (measureAndObserve()) {
           // Successfully measured
         } else if (attempts < maxAttempts) {
           // Exponential backoff: 50ms, 100ms, 200ms, 400ms, etc.
           const delay = 50 * Math.pow(2, Math.min(attempts - 1, 4));
-          setTimeout(retry, delay);
+          this.scheduleMeasurementRetry(retry, delay);
         } else {
           // Failed to measure after max attempts
         }
       };
 
       // Start retry with first delay
-      setTimeout(retry, 50);
+      this.scheduleMeasurementRetry(retry, 50);
     }
   }
 
+  /** Schedules a cancellable layout retry without triggering zone-wide ticks. */
+  private scheduleMeasurementRetry(callback: () => void, delay: number): void {
+    this.ngZone.runOutsideAngular(() => {
+      this.measurementRetryTimeoutRef = window.setTimeout(() => {
+        this.measurementRetryTimeoutRef = undefined;
+        callback();
+      }, delay);
+    });
+  }
+
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.resizeTimeoutRef) {
       clearTimeout(this.resizeTimeoutRef);
+    }
+    if (this.measurementRetryTimeoutRef) {
+      clearTimeout(this.measurementRetryTimeoutRef);
     }
     this.destroy$.next();
     this.destroy$.complete();

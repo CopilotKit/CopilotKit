@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for agno / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "Multimodal image turn \u2014 the D5 script clicks the 'Try with sample image' button which auto-sends a message. The assertion checks the assistant transcript contains the keyword 'image'. The userMessage match uses the describe prompt keyed in agentic-chat.json.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "agno"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "Multimodal PDF turn \u2014 the D5 script clicks the 'Try with sample PDF' button which auto-sends a message. The assertion checks the assistant transcript contains the keyword 'document'.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "agno"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    }
+  ]
+}

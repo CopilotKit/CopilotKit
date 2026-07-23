@@ -1,0 +1,21 @@
+{
+  "_comment": "D5 fixture for /demos/multimodal. The script clicks [data-testid=\"multimodal-sample-image-button\"] to attach the bundled sample.png and auto-sends via agent.addMessage; second turn does the same with the PDF sample. The aimock response references \"image\" / \"document\" so the assertion can verify a non-trivial substring lands in the assistant transcript. Substrings are unique autoPrompt phrases.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    }
+  ]
+}

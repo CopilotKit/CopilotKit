@@ -1,0 +1,88 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / gen-ui-agent",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "built-in-agent",
+    "created": "2026-05-21",
+    "_divergence": "langgraph-python streams 7 progressive set_steps calls chained by toolCallId; Strands mints its own UUID tool_call_ids per tool result, so that chain cannot survive a follow-up turn — it breaks, the bare-userMessage fixture re-fires, and the run loops until it crashes (leaving the previous pill's state on screen → the probe's 'duplicates an earlier pill' failure). The 3 pills also run in ONE thread, so hasToolResult is thread-global and unusable. This integration emits ONE set_steps call per pill (full, already-completed list) gated sequenceIndex:0 (per-pill userMessage counter, id- and thread-history-invariant; same pattern built-in-agent uses for its Responses-API non-deterministic ids), plus a bare-userMessage text conclusion. set_steps uses stateFromArgs so the card paints when the call fires; the d5 probe asserts >= 2 distinct step rows per pill, which this satisfies without the fragile id chain."
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-agent 'Plan a product launch' — 1st leg: single set_steps with the full completed launch plan. sequenceIndex:0 gates it to the first match of this pill's userMessage; the bare-userMessage conclusion below catches the post-tool follow-up. Distinct step titles fingerprint this pill apart from offsite/competitor.",
+      "match": {
+        "userMessage": "Plan a product launch",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_set_steps_launch",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-agent 'Plan a product launch' — 2nd leg: text conclusion after set_steps ran (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "Plan a product launch",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked — ready to ship."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "team offsite",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_set_steps_offsite",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "team offsite",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Offsite locked in. Venue booked, agenda set, travel and meals arranged."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_set_steps_competitor",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Competitor brief assembled. Surface mapped, themes summarized, exploitable weaknesses identified."
+      }
+    }
+  ]
+}

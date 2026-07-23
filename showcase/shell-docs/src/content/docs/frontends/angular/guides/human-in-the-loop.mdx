@@ -1,0 +1,167 @@
+---
+title: Human-in-the-loop and interrupts
+description: Pause an Angular agent flow for a user decision, then resume it from a typed component or interrupt controller.
+icon: "lucide/UserRoundCheck"
+doc_type: how-to
+---
+
+Human-in-the-loop flows pause agent work until a person supplies a decision.
+Angular has two paths with different owners.
+
+| Pattern | Who chooses the pause? | Angular API |
+| --- | --- | --- |
+| Human-in-the-loop tool | The agent calls a registered browser tool | `registerHumanInTheLoop` |
+| Interrupt | The backend agent emits an AG-UI interrupt | `injectInterrupt` |
+
+Use a tool when the model should decide whether to ask. Use an interrupt when
+the backend workflow must stop at a fixed checkpoint.
+
+## Register a decision tool
+
+The renderer receives a `toolCall` signal. Call `respond(result)` once the user
+has made a choice.
+
+```ts title="src/app/approval-card.component.ts"
+import { Component, input } from "@angular/core";
+import {
+  type HumanInTheLoopToolCall,
+  type HumanInTheLoopToolRenderer,
+} from "@copilotkit/angular";
+
+type ApprovalArgs = {
+  action: string;
+  reason: string;
+};
+
+@Component({
+  selector: "app-approval-card",
+  template: `
+    @let call = toolCall();
+    <article>
+      <h3>Approve {{ call.args.action ?? "this action" }}?</h3>
+      <p>{{ call.args.reason }}</p>
+
+      @if (call.status !== "complete") {
+        <button type="button" (click)="call.respond({ approved: true })">
+          Approve
+        </button>
+        <button type="button" (click)="call.respond({ approved: false })">
+          Reject
+        </button>
+      }
+    </article>
+  `,
+})
+export class ApprovalCardComponent
+  implements HumanInTheLoopToolRenderer<ApprovalArgs>
+{
+  readonly toolCall =
+    input.required<HumanInTheLoopToolCall<ApprovalArgs>>();
+}
+```
+
+Register the tool from the component or service that owns the decision UI:
+
+```ts title="src/app/approval-tools.service.ts"
+import { Injectable } from "@angular/core";
+import { registerHumanInTheLoop } from "@copilotkit/angular";
+import { z } from "zod";
+import { ApprovalCardComponent } from "./approval-card.component";
+
+@Injectable()
+export class ApprovalToolsService {
+  constructor() {
+    registerHumanInTheLoop({
+      name: "requestApproval",
+      description: "Ask the user before a consequential action",
+      parameters: z.object({
+        action: z.string(),
+        reason: z.string(),
+      }),
+      component: ApprovalCardComponent,
+    });
+  }
+}
+```
+
+There is no handler. CopilotKit supplies one that waits for `respond`, returns
+the decision to the agent, and continues the run. The registration is removed
+when the owning injector is destroyed.
+
+## Handle an interrupt
+
+`injectInterrupt` subscribes to one agent and exposes the pending decision as
+signals. It supports standard AG-UI interrupts and the legacy
+`on_interrupt` custom event.
+
+```ts title="src/app/interrupt-panel.component.ts"
+import { Component } from "@angular/core";
+import { injectInterrupt } from "@copilotkit/angular";
+
+type ReviewRequest = {
+  title?: string;
+  choices?: Array<{ id: string; label: string }>;
+};
+
+@Component({
+  selector: "app-interrupt-panel",
+  template: `
+    @if (controller.event(); as event) {
+      @let request = asReviewRequest(event.value);
+      <section aria-labelledby="review-title">
+        <h2 id="review-title">{{ request.title ?? "Review required" }}</h2>
+
+        @for (choice of request.choices ?? []; track choice.id) {
+          <button type="button" (click)="resolve(choice.id)">
+            {{ choice.label }}
+          </button>
+        }
+
+        <button type="button" (click)="cancel()">Cancel</button>
+      </section>
+    }
+
+    @if (controller.error()) {
+      <p role="alert">The decision could not be submitted.</p>
+    }
+  `,
+})
+export class InterruptPanelComponent {
+  protected readonly controller =
+    injectInterrupt<ReviewRequest>({ agentId: "default" });
+
+  protected asReviewRequest(value: unknown): ReviewRequest {
+    return typeof value === "object" && value !== null
+      ? (value as ReviewRequest)
+      : {};
+  }
+
+  protected resolve(choiceId: string): void {
+    this.controller.resolve({ choiceId }).catch(() => undefined);
+  }
+
+  protected cancel(): void {
+    this.controller.cancel().catch(() => undefined);
+  }
+}
+```
+
+The controller clears stale decisions when the thread changes. Calls to
+`resolve` or `cancel` share one in-flight resume promise, so a double click
+does not start two resume runs.
+
+Use the controller's `enabled` option when several components listen to the
+same agent and each should accept only certain interrupt payloads. Use
+`handler` when the view needs async data prepared before it appears.
+
+## Place the decision UI
+
+The tool renderer appears in the tool-call flow inside chat. An interrupt
+controller is headless: bind its signals anywhere in the application, including
+a route-level dialog, side panel, or task view.
+
+## Next steps
+
+- [registerHumanInTheLoop API](/reference/angular/functions/registerHumanInTheLoop)
+- [injectInterrupt API](/reference/angular/functions/injectInterrupt)
+- [Runnable interrupt examples](/angular/features#gen-ui-interrupt)

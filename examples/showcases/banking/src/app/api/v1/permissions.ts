@@ -11,5 +11,4 @@ export const PERMISSIONS = {
   SHOW_TRANSACTIONS: All,
   SET_PIN: All,
   APPROVE_TRANSACTION: AdminAndAssistants,
-  READ_MSA: AdminOnly,
 };

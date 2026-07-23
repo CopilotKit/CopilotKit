@@ -1,22 +1,24 @@
 /**
- * Pin Validator
+ * Pin Validator (showcase-internal)
  *
- * Enforces the INTEGRATION-CHECKLIST.md rule:
- *   "Always pin agent framework and SDK versions to exact versions from
- *    the working Dojo example."
+ * Enforces showcase-internal pin discipline. The historical mode that
+ * compared `showcase/integrations/<slug>` against the external
+ * `examples/integrations/<source>` Dojo has been REMOVED: showcase and
+ * the external Dojo are intentionally divergent products on independent
+ * release cadences and a cross-product pin-parity gate was backwards.
  *
- * For each showcase package at `showcase/packages/<slug>/`:
- *   1. Resolve its corresponding `examples/integrations/<source>/` dir.
- *   2. Read its dependency files (`package.json`, `requirements.txt`,
+ * For each showcase package at `showcase/integrations/<slug>/`:
+ *   1. Read its dependency files (`package.json`, `requirements.txt`,
  *      `pyproject.toml`).
- *   3. For each agent-framework or CopilotKit SDK dep that appears in BOTH
- *      the showcase package and the Dojo example, verify the version
- *      specifier strings match EXACTLY AND are themselves exact pins (no
- *      ranges, no dist-tags, no workspace refs).
- *   4. Emit `[FAIL] <pkg>: <dep> pinned to X, Dojo has Y` for drift.
- *   5. Emit `[FAIL] <pkg>: <dep> absent in showcase but Dojo pins X` if a
- *      framework dep is present in the Dojo example but missing from the
- *      showcase package.
+ *   2. Every `@copilotkit/*` dep must pin to the canonical version
+ *      declared in `showcase/scripts/showcase-canonical-pins.json`
+ *      (`canonicalCopilotKitVersion`), OR to the per-slug per-dep value
+ *      listed under `overrides[slug]`.
+ *   3. Every other framework / SDK dep (the FRAMEWORK_PATTERNS set —
+ *      mastra, langchain, langgraph, crewai, agno, llama-index, etc.)
+ *      must be an EXACT pin (no `^`/`~`/`>=`/`latest`/`next`/dist-tags/
+ *      `workspace:*`/URLs).
+ *   4. Emit `[FAIL] <slug>: <dep> ...` for each violation.
  *
  * Definition of "exact pin":
  *   - npm: bare semver (`1.2.3`, `1.2.3-beta.1`). NO `^`, `~`, `>=`, `*`,
@@ -43,22 +45,14 @@
  *   - [OK] and [SKIP] lines go to stdout.
  *   - [FAIL] and [WARN] lines go to stderr (per Unix convention).
  *
- * --- NOTE: SLUG_MAP staleness ---
+ * --- NOTE: SLUG_MAP / examples helpers ---
  *
- * The `SLUG_MAP` imported from `./lib/slug-map.js` can drift from the
- * current set of directory names under `showcase/packages/`. The
- * `FALLBACK_MAP` in that shared module supplies the overrides
- * (e.g. `strands -> strands-python`, `ms-agent-dotnet ->
- * ms-agent-framework-dotnet`, `ms-agent-python ->
- * ms-agent-framework-python`). See
- * `.github/workflows/showcase_validate.yml` for the drift ratchet
- * tracking this refresh (#4047). Once SLUG_MAP is refreshed, the
- * FALLBACK_MAP entries fall through to the direct reverse-map lookup
- * and can be pruned.
- *
- * Several showcase packages are also "born-in-showcase" — they have no
- * Dojo counterpart and are skipped with [SKIP]. See `BORN_IN_SHOWCASE`
- * in `./lib/slug-map.js`.
+ * The slug-map tables (`SLUG_MAP`, `FALLBACK_MAP`, `BORN_IN_SHOWCASE`)
+ * and the `resolveExampleDir` / `collectDojoDeps` helpers are NO LONGER
+ * USED by `validateAll` — the new invariant is showcase-internal. They
+ * are still EXPORTED so other consumers (audit.ts provenance, tests,
+ * future tooling that wants to peek at the live external Dojo) can
+ * import them. Removing those exports is out of scope for Phase 1.
  */
 
 import fs from "fs";
@@ -185,9 +179,121 @@ function paths() {
   const repoRoot = computeRepoRoot();
   return {
     REPO_ROOT: repoRoot,
+    // EXAMPLES_DIR is retained for the legacy `resolveExampleDir` /
+    // `collectDojoDeps` helpers (still exported for non-validateAll
+    // consumers). validateAll no longer reads it.
     EXAMPLES_DIR: path.join(repoRoot, "examples", "integrations"),
-    PACKAGES_DIR: path.join(repoRoot, "showcase", "packages"),
+    PACKAGES_DIR: path.join(repoRoot, "showcase", "integrations"),
+    CANONICAL_PINS_FILE: path.join(
+      repoRoot,
+      "showcase",
+      "scripts",
+      "showcase-canonical-pins.json",
+    ),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Canonical pins config
+// ---------------------------------------------------------------------------
+
+/**
+ * Schema for `showcase/scripts/showcase-canonical-pins.json`:
+ *   {
+ *     "canonicalCopilotKitVersion": "1.59.2",
+ *     "overrides": {
+ *       "<slug>": { "<dep-name>": "<allowed-spec>" }
+ *     }
+ *   }
+ *
+ * `canonicalCopilotKitVersion` is the canonical pin for every
+ * `@copilotkit/*` dep across all showcase integrations. `overrides[slug]`
+ * is a per-slug map of dep-name → allowed verbatim spec used when a
+ * specific integration legitimately deviates (e.g. a `pkg.pr.new` URL
+ * during a runtime upgrade, or a legacy stable for a harness fixture).
+ */
+export interface CanonicalPins {
+  canonicalCopilotKitVersion: string;
+  overrides: Readonly<Record<string, Readonly<Record<string, string>>>>;
+}
+
+class CanonicalPinsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CanonicalPinsError";
+  }
+}
+
+export function loadCanonicalPins(file: string): CanonicalPins {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(file, "utf-8");
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException;
+    if (err && err.code === "ENOENT") {
+      throw new UnreadableInputError(
+        `canonical pins file not found at ${file}`,
+      );
+    }
+    const msg = err && err.message ? err.message : String(e);
+    throw new UnreadableInputError(
+      `canonical pins file read failed (${err?.code ?? "unknown"}): ${file}: ${msg}`,
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new CanonicalPinsError(`${file}: JSON syntax error: ${msg}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new CanonicalPinsError(`${file}: expected top-level object`);
+  }
+  const obj = parsed as Record<string, unknown>;
+  const ver = obj.canonicalCopilotKitVersion;
+  if (typeof ver !== "string" || ver.length === 0) {
+    throw new CanonicalPinsError(
+      `${file}: 'canonicalCopilotKitVersion' must be a non-empty string`,
+    );
+  }
+  if (!isExactSpec(ver)) {
+    throw new CanonicalPinsError(
+      `${file}: 'canonicalCopilotKitVersion' must itself be an exact pin (got ${JSON.stringify(ver)})`,
+    );
+  }
+  const ovRaw = obj.overrides;
+  const overrides: Record<string, Record<string, string>> = {};
+  if (ovRaw !== undefined) {
+    if (typeof ovRaw !== "object" || ovRaw === null || Array.isArray(ovRaw)) {
+      throw new CanonicalPinsError(`${file}: 'overrides' must be an object`);
+    }
+    for (const [slug, depsRaw] of Object.entries(ovRaw)) {
+      if (
+        typeof depsRaw !== "object" ||
+        depsRaw === null ||
+        Array.isArray(depsRaw)
+      ) {
+        throw new CanonicalPinsError(
+          `${file}: 'overrides.${slug}' must be an object`,
+        );
+      }
+      const inner: Record<string, string> = {};
+      for (const [dep, spec] of Object.entries(depsRaw)) {
+        if (typeof spec !== "string" || spec.length === 0) {
+          throw new CanonicalPinsError(
+            `${file}: 'overrides.${slug}.${dep}' must be a non-empty string`,
+          );
+        }
+        inner[dep] = spec;
+      }
+      overrides[slug] = Object.freeze(inner);
+    }
+  }
+  return Object.freeze({
+    canonicalCopilotKitVersion: ver,
+    overrides: Object.freeze(overrides),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -518,7 +624,7 @@ function canonicalizePythonName(name: string): string {
  */
 function isWorkspaceRef(spec: string): boolean {
   if (!spec) return false;
-  return /^workspace:/.test(spec.trim());
+  return spec.trim().startsWith("workspace:");
 }
 
 /**
@@ -1192,7 +1298,7 @@ function parsePyprojectToml(file: string): DepMap {
 /**
  * Shape returned by `collectDepsFromDir` — used for both the Dojo side
  * (examples/integrations/<source>) and the showcase side
- * (showcase/packages/<slug>). Both sides walk the same
+ * (showcase/integrations/<slug>). Both sides walk the same
  * DEP_FILE_CANDIDATES list; the structure of the result is identical.
  *
  * `DojoDepSources` and `ShowcaseDepSources` are exported as aliases for
@@ -1540,7 +1646,15 @@ function validateAll(): Report {
   // slug turns every iteration into an fs.statSync call that has
   // already been performed.
   const resolvedPaths = paths();
-  const { PACKAGES_DIR, EXAMPLES_DIR, REPO_ROOT } = resolvedPaths;
+  const { PACKAGES_DIR, REPO_ROOT, CANONICAL_PINS_FILE } = resolvedPaths;
+
+  // Load the canonical pins config FIRST so a misconfigured/missing
+  // file fails loudly before we waste time scanning integrations.
+  // loadCanonicalPins() throws UnreadableInputError on read errors
+  // (missing file → EXIT_UNREADABLE) and CanonicalPinsError on
+  // schema/syntax problems (top-level catch routes to EXIT_INTERNAL,
+  // since a corrupt config is a validator-side bug not pin drift).
+  const canonical = loadCanonicalPins(CANONICAL_PINS_FILE);
 
   // Missing packages dir must not produce a silent pass. If the validator
   // can't see any packages, it has nothing to check, which is almost
@@ -1589,6 +1703,12 @@ function validateAll(): Report {
     slugs = fs
       .readdirSync(PACKAGES_DIR, { withFileTypes: true })
       .filter((d) => d.isDirectory())
+      // `_shared` is the shared-code directory (cvdiag emitters/schema staged
+      // into each integration via the per-integration `_shared` symlink), not
+      // a showcase package: it has no dependency files and must not be pin-
+      // audited. Dot-directories (e.g. a local `.pytest_cache`) are build/test
+      // artifacts, never package slugs, so they are excluded too.
+      .filter((d) => d.name !== "_shared" && !d.name.startsWith("."))
       .map((d) => d.name)
       .sort();
   } catch (e) {
@@ -1627,61 +1747,8 @@ function validateAll(): Report {
   for (const slug of slugs) {
     const pkgDir = path.join(PACKAGES_DIR, slug);
 
-    // resolveExampleDirDetailed can throw UnreadableInputError when its
-    // internal existsAsDir stat fails with EACCES/ENOTDIR/ELOOP/EIO/…
-    // on a candidate examples dir. An unguarded throw here escapes the
-    // slug loop and orphans every report entry accumulated for preceding
-    // slugs — the same orphan bug already guarded against in the
-    // content-parseError branch below. Route this through the same
-    // pendingInfraError accumulator so the loop continues, every other
-    // slug still contributes to the report, and the end-of-loop rebuild
-    // attaches partialReport so the top-level catch can print it.
-    let resolved: ResolveResult;
-    try {
-      resolved = resolveExampleDirDetailed(slug, resolvedPaths);
-    } catch (e) {
-      if (!(e instanceof UnreadableInputError)) {
-        // Non-infra throws are genuine bugs — let them bubble to
-        // EXIT_INTERNAL (2) rather than silently swallowing.
-        throw e;
-      }
-      if (pendingInfraError === undefined) {
-        pendingInfraError = new UnreadableInputError(`${slug}: ${e.message}`);
-      }
-      // Leave a per-slug breadcrumb in report.fail so operators see
-      // WHICH slug failed to resolve — a bare end-of-loop throw with
-      // only the first infra error would otherwise hide subsequent
-      // resolve-time infra errors entirely.
-      report.fail.push(
-        `[FAIL] ${slug}: unreadable example dir during resolve: ${e.message}`,
-      );
-      continue;
-    }
-    const exampleDir = resolved.exampleDir;
-
-    if (exampleDir === null) {
-      if (BORN_IN_SHOWCASE.has(slug)) {
-        report.skip.push(`[SKIP] ${slug}: born-in-showcase (no Dojo example)`);
-      } else if (resolved.missingFallbackTarget) {
-        report.warn.push(
-          `[WARN] ${slug}: FALLBACK_MAP target '${resolved.missingFallbackTarget}' does not exist`,
-        );
-      } else {
-        report.warn.push(`[WARN] unmatched slug: ${slug}`);
-      }
-      continue;
-    }
-
-    // Even when we resolved successfully, surface any fallback miss so
-    // operators know FALLBACK_MAP needs cleanup.
-    if (resolved.missingFallbackTarget) {
-      report.warn.push(
-        `[WARN] ${slug}: FALLBACK_MAP target '${resolved.missingFallbackTarget}' does not exist (fell through to reverse/direct match)`,
-      );
-    }
-
     const showcase = collectShowcaseDeps(pkgDir);
-    const dojo = collectDojoDeps(exampleDir);
+    const slugOverrides = canonical.overrides[slug] ?? {};
 
     // Parse errors: surface as FAIL so the process exits non-zero. A
     // silent WARN lets broken manifests slip through CI with [OK].
@@ -1698,7 +1765,7 @@ function validateAll(): Report {
     // EXIT_UNREADABLE, so operators see the full FAIL/WARN/SKIP for
     // every slug that was processed. Content-parse errors for THIS
     // slug's remaining files still land in report.fail below.
-    for (const pe of [...showcase.parseErrors, ...dojo.parseErrors]) {
+    for (const pe of showcase.parseErrors) {
       if (pe.infra && pendingInfraError === undefined) {
         pendingInfraError = new UnreadableInputError(
           `${slug}: unreadable input at ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
@@ -1714,29 +1781,18 @@ function validateAll(): Report {
         `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
       );
     }
-    for (const pe of dojo.parseErrors) {
-      if (pe.infra) continue;
-      report.fail.push(
-        `[FAIL] ${slug}: parse error in ${path.relative(REPO_ROOT, pe.file)}: ${pe.message}`,
-      );
-    }
     // Pre-seed pkgHadViolation from parseErrors. Otherwise a slug with
     // a mix of valid + parse-errored files would have one or more
     // [FAIL] lines AND still receive an [OK] line at the end (because
     // `pkgHadViolation` was only set from the per-dep loop). A slug
     // must not appear in both report.ok and report.fail.
     let pkgHadParseError = false;
-    if (showcase.parseErrors.length > 0 || dojo.parseErrors.length > 0) {
+    if (showcase.parseErrors.length > 0) {
       pkgHadParseError = true;
     }
 
     // Skipped deps (e.g. Poetry git-only) — WARN only.
     for (const s of showcase.skipped) {
-      report.warn.push(
-        `[WARN] ${slug}: skipped ${s.name} in ${path.relative(REPO_ROOT, s.file)}: ${s.reason}`,
-      );
-    }
-    for (const s of dojo.skipped) {
       report.warn.push(
         `[WARN] ${slug}: skipped ${s.name} in ${path.relative(REPO_ROOT, s.file)}: ${s.reason}`,
       );
@@ -1747,24 +1803,12 @@ function validateAll(): Report {
         `[WARN] ${slug}: dropped unparseable line '${d.line}' in ${path.relative(REPO_ROOT, d.file)}`,
       );
     }
-    for (const d of dojo.dropped) {
-      report.warn.push(
-        `[WARN] ${slug}: dropped unparseable line '${d.line}' in ${path.relative(REPO_ROOT, d.file)}`,
-      );
-    }
 
     // Distinguish "genuinely no files" from "files existed but all
-    // parse-errored". Only the former is a FAIL (unless the slug is
-    // explicitly born-in-showcase with no examples counterpart, which
-    // we already [SKIP]ed above); the latter already produced FAIL(s)
-    // above and we must not ALSO emit anything because that
-    // double-counts and muddles the signal.
-    //
-    // A showcase package with zero dep files is structurally wrong —
-    // it cannot possibly demonstrate a framework integration because
-    // it has no declared runtime dependencies. Emit [FAIL] (not
-    // [WARN]) so CI catches it rather than silently marking the
-    // package OK just because there was nothing to compare against.
+    // parse-errored". A showcase package with zero dep files is
+    // structurally wrong — it cannot demonstrate a framework
+    // integration without declared runtime dependencies. Emit [FAIL]
+    // so CI catches it rather than silently marking the package OK.
     if (showcase.files.length === 0) {
       if (showcase.filesAttempted === 0) {
         report.fail.push(
@@ -1774,214 +1818,141 @@ function validateAll(): Report {
       // else: all attempted files parse-errored; FAIL already emitted.
       continue;
     }
-    if (dojo.files.length === 0) {
-      if (dojo.filesAttempted === 0) {
-        report.warn.push(
-          `[WARN] ${slug}: no dependency files found in Dojo example ` +
-            `(${path.relative(REPO_ROOT, exampleDir)})`,
-        );
-      }
-      continue;
-    }
 
-    // JS deps must NOT be Python-canonicalized (npm names are
-    // case-sensitive and hyphen-sensitive, so `@Foo/bar` and `@foo/bar`
-    // are DIFFERENT packages). Build two separate lookups per side — a
-    // Python lookup (canonicalized) and a JS lookup (raw names) — then
-    // compare Python-to-Python and JS-to-JS.
-    const showcasePythonCanonResult = canonicalizeDepMap(
+    // Canonicalize separately for JS and Python (npm names are
+    // case-sensitive; PEP 503 normalization applies only to Python).
+    const scPythonCanonResult = canonicalizeDepMap(
       showcase.pythonDeps,
       /* isPython */ true,
     );
-    const showcasePythonCanon = showcasePythonCanonResult.out;
-    const dojoPythonCanonResult = canonicalizeDepMap(
-      dojo.pythonDeps,
-      /* isPython */ true,
-    );
-    const dojoPythonCanon = dojoPythonCanonResult.out;
-    // Invariant: the comparator reads `jsDeps` and `pythonDeps` directly
-    // from separate parse-time maps. This keeps JS and Python specs
-    // intact even when the same dep name appears in both ecosystems in
-    // the same tree (e.g. `openai` with a JS `4.0.0` pin alongside a
-    // Python `==1.2.3` pin) — neither side should be erased by the
-    // other during comparison.
-    const showcaseJsRawResult = canonicalizeDepMap(
+    const scJsRawResult = canonicalizeDepMap(
       showcase.jsDeps,
       /* isPython */ false,
     );
-    const showcaseJsRaw = showcaseJsRawResult.out;
-    const dojoJsRawResult = canonicalizeDepMap(
-      dojo.jsDeps,
-      /* isPython */ false,
-    );
-    const dojoJsRaw = dojoJsRawResult.out;
+    const scPythonCanon = scPythonCanonResult.out;
+    const scJsRaw = scJsRawResult.out;
 
-    // Surface canonical-key collisions with DIFFERENT specs as WARN so
-    // operators see a real drift signal (two pinned entries for the same
-    // distribution at different versions within a single file) rather
-    // than silently losing one pin to first-writer-wins. Tagged with
-    // the side (showcase vs Dojo) so the report is unambiguous.
-    const emitCanonicalWarnings = (
-      side: "showcase" | "Dojo",
-      warns: CanonicalizeWarning[],
-    ) => {
+    // Surface canonical-key collisions with DIFFERENT specs as WARN —
+    // two pinned entries for the same distribution at different versions
+    // within one file is a real drift signal that must not be silently
+    // dropped by first-writer-wins.
+    const emitCanonicalWarnings = (warns: CanonicalizeWarning[]) => {
       for (const w of warns) {
         report.warn.push(
-          `[WARN] ${slug}: ${side} has duplicate entries for canonical key '${w.key}' with different specs ` +
+          `[WARN] ${slug}: duplicate entries for canonical key '${w.key}' with different specs ` +
             `(${w.firstName}=${w.firstSpec || "(empty)"} vs ${w.dupName}=${w.dupSpec || "(empty)"})`,
         );
       }
     };
-    emitCanonicalWarnings("showcase", showcasePythonCanonResult.warnings);
-    emitCanonicalWarnings("Dojo", dojoPythonCanonResult.warnings);
-    emitCanonicalWarnings("showcase", showcaseJsRawResult.warnings);
-    emitCanonicalWarnings("Dojo", dojoJsRawResult.warnings);
+    emitCanonicalWarnings(scPythonCanonResult.warnings);
+    emitCanonicalWarnings(scJsRawResult.warnings);
 
     let pkgHadViolation = pkgHadParseError;
 
-    // Iterate the union of keys per ecosystem so drift where a framework
-    // is pinned on one side but missing on the other is also surfaced.
-    // Python keys live in one namespace, JS keys in another, with no risk
-    // of cross-ecosystem collision.
-    const pythonKeys = Array.from(
-      new Set<string>([
-        ...Object.keys(showcasePythonCanon),
-        ...Object.keys(dojoPythonCanon),
-      ]),
-    ).sort();
-    const jsKeys = Array.from(
-      new Set<string>([
-        ...Object.keys(showcaseJsRaw),
-        ...Object.keys(dojoJsRaw),
-      ]),
-    ).sort();
-
+    // Build the iteration set (Python + JS) with the same shape so a
+    // single loop applies the invariant. Sort within each ecosystem
+    // for stable, hash-friendly FAIL output.
     const iterations: Array<{
       key: string;
-      sc: { name: string; spec: string } | undefined;
-      dj: { name: string; spec: string } | undefined;
+      entry: { name: string; spec: string };
       isPython: boolean;
     }> = [];
-    for (const key of pythonKeys) {
-      iterations.push({
-        key,
-        sc: showcasePythonCanon[key],
-        dj: dojoPythonCanon[key],
-        isPython: true,
-      });
+    for (const key of Object.keys(scPythonCanon).sort()) {
+      iterations.push({ key, entry: scPythonCanon[key], isPython: true });
     }
-    for (const key of jsKeys) {
-      iterations.push({
-        key,
-        sc: showcaseJsRaw[key],
-        dj: dojoJsRaw[key],
-        isPython: false,
-      });
+    for (const key of Object.keys(scJsRaw).sort()) {
+      iterations.push({ key, entry: scJsRaw[key], isPython: false });
     }
 
-    for (const { sc, dj, isPython, key } of iterations) {
-      const displayName = sc?.name ?? dj?.name ?? key;
+    for (const { entry, isPython } of iterations) {
+      const displayName = entry.name;
+      const spec = entry.spec;
 
-      // Canonicalize the name before the framework-pattern test when we
-      // are on the Python path so PEP 503 variants (mixed case,
-      // hyphen/underscore/dot) are still recognized as framework deps.
-      // For JS deps the raw name is correct (npm is case-sensitive).
+      // Per-slug override resolution is done by the raw declared dep
+      // name (the way it appears in package.json / requirements.txt /
+      // pyproject.toml), so overrides authors can read & write the
+      // canonical-pins file directly. For Python, we ALSO match on the
+      // PEP 503 canonicalized name so e.g. `langgraph_checkpoint` in
+      // an override file aligns with a `langgraph-checkpoint` dep.
+      const overrideSpec =
+        slugOverrides[displayName] ??
+        (isPython
+          ? slugOverrides[canonicalizePythonName(displayName)]
+          : undefined);
+
+      // Workspace refs have no pin semantics — skip, don't FAIL. Mirror
+      // the historical behavior so workspace-resolved deps in showcase
+      // packages don't trip the validator.
+      if (isWorkspaceRef(spec)) {
+        report.skip.push(
+          `[SKIP] ${slug}: ${displayName} workspace ref (${spec})`,
+        );
+        continue;
+      }
+
+      // @copilotkit/* canonical-version check. Applies to JS deps
+      // only (the @-prefixed scope is npm-native; Python copilotkit
+      // packages, if any, fall through to the framework-exact-pin
+      // check below).
+      if (!isPython && displayName.startsWith("@copilotkit/")) {
+        if (overrideSpec !== undefined) {
+          // Override accepts the spec verbatim — does NOT require it
+          // to be an exact pin (this is how the `pkg.pr.new` URL
+          // case is allowed for built-in-agent).
+          if (spec !== overrideSpec) {
+            report.fail.push(
+              `[FAIL] ${slug}: ${displayName} pinned to ${spec || "(empty)"}, ` +
+                `override expects ${overrideSpec}`,
+            );
+            pkgHadViolation = true;
+          }
+          continue;
+        }
+        if (spec !== canonical.canonicalCopilotKitVersion) {
+          report.fail.push(
+            `[FAIL] ${slug}: ${displayName} pinned to ${spec || "(empty)"}, ` +
+              `canonical is ${canonical.canonicalCopilotKitVersion}`,
+          );
+          pkgHadViolation = true;
+        }
+        continue;
+      }
+
+      // Detect framework deps. For Python, canonicalize the name
+      // before matching FRAMEWORK_PATTERNS so PEP 503 variants are
+      // recognized.
       const detectionName = isPython
         ? canonicalizePythonName(displayName)
         : displayName;
       if (!isFrameworkDep(detectionName)) continue;
 
-      if (sc && !dj) {
-        // Showcase has a framework dep that's not in the Dojo example.
-        // This is allowed (showcase may add frameworks not in the example),
-        // but we still require it to be an exact pin.
-        if (isWorkspaceRef(sc.spec)) {
-          // Workspace refs have no pin semantics — skip, don't FAIL.
-          report.skip.push(
-            `[SKIP] ${slug}: ${displayName} workspace ref (${sc.spec})`,
-          );
-          continue;
-        }
-        if (!isExactSpec(sc.spec)) {
+      // Non-@copilotkit framework dep: must be EXACTLY pinned (or
+      // match a per-slug override verbatim). The override permits
+      // non-semver values (URLs, dist-tags) where a deliberate
+      // exception is documented; the canonical config schema requires
+      // an explicit override entry per slug+dep, so this is not a
+      // silent escape hatch.
+      if (overrideSpec !== undefined) {
+        if (spec !== overrideSpec) {
           report.fail.push(
-            `[FAIL] ${slug}: ${displayName} is not an exact pin in showcase ` +
-              `(${sc.spec || "(empty)"})`,
+            `[FAIL] ${slug}: ${displayName} pinned to ${spec || "(empty)"}, ` +
+              `override expects ${overrideSpec}`,
           );
           pkgHadViolation = true;
         }
         continue;
       }
-
-      if (!sc && dj) {
-        // Dojo pins a framework dep that's entirely missing in showcase.
-        // Surface as FAIL (or WARN for workspace refs below) so the
-        // missing dep is never silently dropped from the drift report.
-        if (isWorkspaceRef(dj.spec)) {
-          // Dojo uses a workspace ref but showcase has NO entry for this
-          // dep at all. A workspace ref does not give us a version to
-          // mirror, but it still tells us the framework is expected to
-          // be present. Emit a WARN rather than a silent SKIP so CI
-          // surfaces that showcase is missing the dep entirely.
-          report.warn.push(
-            `[WARN] ${slug}: ${displayName} absent in showcase; Dojo declares it as workspace ref (${dj.spec})`,
-          );
-          continue;
-        }
+      if (!isExactSpec(spec)) {
         report.fail.push(
-          `[FAIL] ${slug}: ${displayName} absent in showcase but Dojo pins ${dj.spec || "(empty)"}`,
+          `[FAIL] ${slug}: ${displayName} is not an exact pin ` +
+            `(${spec || "(empty)"})`,
         );
         pkgHadViolation = true;
-        continue;
-      }
-
-      if (sc && dj) {
-        const scSpec = sc.spec;
-        const djSpec = dj.spec;
-
-        // Workspace ref on either side: nothing to pin-check. Enrich
-        // the SKIP message with the counterpart pin so operators
-        // grepping the log for a dep see the concrete target version.
-        // Both branches render the same shape —
-        //   `<dep> <showcase-spec> (Dojo pins <dojo-spec>)`
-        // — so downstream log consumers can parse the SKIP line
-        // uniformly regardless of which side holds the workspace ref.
-        if (isWorkspaceRef(scSpec) && !isWorkspaceRef(djSpec)) {
-          report.skip.push(
-            `[SKIP] ${slug}: ${displayName} ${scSpec || "(empty)"} (Dojo pins ${djSpec || "(empty)"})`,
-          );
-          continue;
-        }
-        if (isWorkspaceRef(scSpec) || isWorkspaceRef(djSpec)) {
-          report.skip.push(
-            `[SKIP] ${slug}: ${displayName} ${scSpec || "(empty)"} (Dojo pins ${djSpec || "(empty)"})`,
-          );
-          continue;
-        }
-
-        // Per INTEGRATION-CHECKLIST: both sides must be EXACT pins, and
-        // they must match. `next`/`*`/`^1.0.0` on both sides is a FAIL.
-        if (!isExactSpec(scSpec) || !isExactSpec(djSpec)) {
-          report.fail.push(
-            `[FAIL] ${slug}: ${displayName} non-exact spec (showcase=${scSpec || "(empty)"}, Dojo=${djSpec || "(empty)"})`,
-          );
-          pkgHadViolation = true;
-          continue;
-        }
-
-        if (scSpec !== djSpec) {
-          report.fail.push(
-            `[FAIL] ${slug}: ${displayName} pinned to ${scSpec || "(empty)"}, ` +
-              `Dojo has ${djSpec || "(empty)"}`,
-          );
-          pkgHadViolation = true;
-        }
       }
     }
 
     if (!pkgHadViolation) {
-      report.ok.push(
-        `[OK] ${slug} (vs ${path.relative(EXAMPLES_DIR, exampleDir)})`,
-      );
+      report.ok.push(`[OK] ${slug}`);
     }
   }
 
@@ -2096,7 +2067,7 @@ if (isMainPath(process.argv[1], __filename)) {
 }
 
 // Re-export the drift-comparison core so downstream consumers (the
-// showcase-ops pin-drift probe driver, future CLI flags) can reach the
+// showcase-harness pin-drift probe driver, future CLI flags) can reach the
 // ratchet logic through the same entry point as the rest of validate-pins.
 // The core module is the single source of truth for the comparison that
 // used to live only in `.github/workflows/showcase_validate.yml` shell.

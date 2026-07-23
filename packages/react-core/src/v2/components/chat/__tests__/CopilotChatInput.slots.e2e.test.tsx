@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatInput } from "../CopilotChatInput";
+import type { AudioRecorderRef } from "../CopilotChatAudioRecorder";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -504,13 +505,16 @@ describe("CopilotChatInput Slot System E2E Tests", () => {
 
     describe("audioRecorder custom component", () => {
       it("should render custom audioRecorder component", () => {
-        const CustomRecorder: React.FC<any> = ({ onAudioReady }) => (
-          <div data-testid="custom-recorder">
-            <button onClick={() => onAudioReady?.(new Blob())}>
-              Custom Recorder
-            </button>
-          </div>
-        );
+        const CustomRecorder = React.forwardRef<
+          AudioRecorderRef,
+          React.HTMLAttributes<HTMLDivElement>
+        >(function CustomRecorder(_props, _ref) {
+          return (
+            <div data-testid="custom-recorder">
+              <button>Custom Recorder</button>
+            </div>
+          );
+        });
 
         render(
           <TestWrapper>

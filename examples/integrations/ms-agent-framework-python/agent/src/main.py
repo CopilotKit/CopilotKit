@@ -16,12 +16,15 @@ from agent import create_agent
 
 load_dotenv()
 
+
 def _build_chat_client() -> ChatClientProtocol:
     try:
         if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
             # Azure OpenAI setup - uses environment variables by default
             # Optionally can pass deployment_name explicitly
-            deployment_name = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini")
+            deployment_name = os.getenv(
+                "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"
+            )
             return AzureOpenAIChatClient(
                 credential=DefaultAzureCredential(),
                 deployment_name=deployment_name,
@@ -35,7 +38,9 @@ def _build_chat_client() -> ChatClientProtocol:
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
-        raise ValueError("Either AZURE_OPENAI_ENDPOINT or OPENAI_API_KEY environment variable is required")
+        raise ValueError(
+            "Either AZURE_OPENAI_ENDPOINT or OPENAI_API_KEY environment variable is required"
+        )
 
     except Exception as exc:  # pragma: no cover
         raise RuntimeError(

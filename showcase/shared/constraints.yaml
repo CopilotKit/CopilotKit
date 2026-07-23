@@ -42,6 +42,8 @@ generative_ui:
       - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
       - reasoning-default-render
+      - reasoning-default
+      - reasoning-custom
       - prebuilt-sidebar
       - prebuilt-popup
       - chat-slots
@@ -59,12 +61,14 @@ generative_ui:
       - hitl
       - declarative-gen-ui
       - a2ui-fixed-schema
+      - a2ui-recovery
       - mcp-apps
       - tool-rendering
       - useComponent
       - multimodal
       - suggestions
       - shared-state-read-write
+      - shared-state-read
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents
@@ -72,8 +76,13 @@ generative_ui:
       - auth
       - byoc-hashbrown
       - byoc-json-render
+      - declarative-hashbrown
+      - declarative-json-render
       - open-gen-ui
       - open-gen-ui-advanced
+      - background-agents
+      - observational-memory
+      - browser-use
 
 interaction_modalities:
   headless:

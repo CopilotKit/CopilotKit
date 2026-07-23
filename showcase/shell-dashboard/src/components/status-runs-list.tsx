@@ -16,9 +16,9 @@
  * Reuses `formatDuration` and `formatRelative` from status-table so the
  * dashboard's time/duration formatting stays consistent across views.
  */
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState, useCallback } from "react";
 import { formatDuration, formatRelative } from "./status-table";
-import type { ProbeRun } from "../lib/ops-api";
+import type { ProbeRun, ProbeRunServiceResult } from "../lib/ops-api";
 
 export interface StatusRunsListProps {
   runs: ProbeRun[];
@@ -75,8 +75,55 @@ function useNowTick(): number {
   return now;
 }
 
+const SERVICE_ICON: Record<string, string> = {
+  completed: "✅",
+  failed: "❌",
+};
+
+/**
+ * Result-aware icon for historical run service chips. Completed services
+ * with result "red" or "yellow" should not show ✅ — mirrors the fix
+ * in status-running-panel.tsx for inflight services.
+ */
+const RESULT_ICON: Record<string, string> = {
+  green: "✅",
+  yellow: "⚠️",
+  red: "❌",
+};
+
+function serviceChipIcon(svc: ProbeRunServiceResult): string {
+  if (svc.state === "completed" && svc.result) {
+    return RESULT_ICON[svc.result] ?? SERVICE_ICON[svc.state] ?? "—";
+  }
+  return SERVICE_ICON[svc.state] ?? "—";
+}
+
+function ServiceChip({ svc }: { svc: ProbeRunServiceResult }) {
+  const icon = serviceChipIcon(svc);
+  return (
+    <div
+      data-testid={`run-service-${svc.slug}`}
+      data-state={svc.state}
+      className="flex items-center gap-1.5 px-2 py-1 rounded border border-[var(--border)]"
+    >
+      <span aria-hidden="true">{icon}</span>
+      <span className="font-mono truncate">{svc.slug}</span>
+    </div>
+  );
+}
+
 export function StatusRunsList({ runs }: StatusRunsListProps) {
   const now = useNowTick();
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   if (runs.length === 0) {
     return (
@@ -114,38 +161,71 @@ export function StatusRunsList({ runs }: StatusRunsListProps) {
             const summaryText = r.summary
               ? `${r.summary.passed}/${r.summary.total} pass`
               : "—";
+            const services = r.summary?.services;
+            const hasServices = services && services.length > 0;
+            const isExpanded = expanded.has(r.id);
             return (
-              <tr
-                key={r.id}
-                data-testid={`status-run-row-${r.id}`}
-                className="border-b border-[var(--border)] hover:bg-[var(--surface-hover)]"
-              >
-                <td className="py-2 pr-4 text-xs tabular-nums">{startedRel}</td>
-                <td className="py-2 pr-4 text-xs tabular-nums">{duration}</td>
-                <td
-                  className={`py-2 pr-4 text-xs ${TONE_CLASS[tone]}`}
-                  data-testid={`status-run-row-${r.id}-state`}
-                  data-tone={tone}
+              <Fragment key={r.id}>
+                <tr
+                  data-testid={`status-run-row-${r.id}`}
+                  onClick={hasServices ? () => toggleExpanded(r.id) : undefined}
+                  className={`border-b border-[var(--border)] hover:bg-[var(--surface-hover)] ${hasServices ? "cursor-pointer" : ""}`}
                 >
-                  {label}
-                </td>
-                <td
-                  className="py-2 pr-4 text-xs"
-                  data-testid={`status-run-row-${r.id}-trigger`}
-                >
-                  {r.triggered ? (
-                    <span className="inline-block rounded border border-[var(--border)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]">
-                      manual
-                    </span>
-                  ) : null}
-                </td>
-                <td
-                  className="py-2 text-xs"
-                  data-testid={`status-run-row-${r.id}-summary`}
-                >
-                  {summaryText}
-                </td>
-              </tr>
+                  <td className="py-2 pr-4 text-xs tabular-nums">
+                    {hasServices && (
+                      <span
+                        className="inline-block mr-1.5 text-[10px] text-[var(--text-muted)] transition-transform"
+                        style={{
+                          transform: isExpanded
+                            ? "rotate(90deg)"
+                            : "rotate(0deg)",
+                        }}
+                      >
+                        ▶
+                      </span>
+                    )}
+                    {startedRel}
+                  </td>
+                  <td className="py-2 pr-4 text-xs tabular-nums">{duration}</td>
+                  <td
+                    className={`py-2 pr-4 text-xs ${TONE_CLASS[tone]}`}
+                    data-testid={`status-run-row-${r.id}-state`}
+                    data-tone={tone}
+                  >
+                    {label}
+                  </td>
+                  <td
+                    className="py-2 pr-4 text-xs"
+                    data-testid={`status-run-row-${r.id}-trigger`}
+                  >
+                    {r.triggered ? (
+                      <span className="inline-block rounded border border-[var(--border)] px-1.5 py-0.5 text-[11px] text-[var(--text-secondary)]">
+                        manual
+                      </span>
+                    ) : null}
+                  </td>
+                  <td
+                    className="py-2 text-xs"
+                    data-testid={`status-run-row-${r.id}-summary`}
+                  >
+                    {summaryText}
+                  </td>
+                </tr>
+                {isExpanded && hasServices && (
+                  <tr
+                    key={`${r.id}-detail`}
+                    className="border-b border-[var(--border)]"
+                  >
+                    <td colSpan={5} className="py-2 px-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 text-[11px]">
+                        {services.map((svc) => (
+                          <ServiceChip key={svc.slug} svc={svc} />
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             );
           })}
         </tbody>

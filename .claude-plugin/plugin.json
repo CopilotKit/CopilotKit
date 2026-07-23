@@ -1,0 +1,28 @@
+{
+  "name": "copilotkit",
+  "description": "AI agent skills for CopilotKit — setup, develop, integrate, debug, upgrade, and contribute to CopilotKit projects",
+  "version": "1.63.2",
+  "author": {
+    "name": "CopilotKit",
+    "url": "https://copilotkit.ai"
+  },
+  "homepage": "https://docs.copilotkit.ai",
+  "repository": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "keywords": [
+    "copilotkit",
+    "ai",
+    "agents",
+    "react",
+    "next.js",
+    "langgraph",
+    "crewai",
+    "pydantic-ai",
+    "mastra",
+    "ag-ui",
+    "mcp",
+    "copilot",
+    "chatbot"
+  ],
+  "mcpServers": "./.mcp.json"
+}

@@ -1,10 +1,13 @@
-import { Observable } from "rxjs";
+import { EMPTY, Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import { AbstractAgent, BaseEvent, EventType, HttpAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
+import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -15,7 +18,8 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    } as unknown as CopilotRuntime;
   };
 
   const createMockRequest = (): Request => {
@@ -51,7 +55,8 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    } as unknown as CopilotRuntime;
     const request = createMockRequest();
     const agentId = "test-agent";
 
@@ -84,7 +89,7 @@ describe("handleRunAgent", () => {
         this.headers = initialHeaders;
       }
 
-      clone(): AbstractAgent {
+      clone(): HttpAgent {
         return new RecordingHttpAgent({});
       }
     }
@@ -106,6 +111,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: ({ agent }: { agent: AbstractAgent }) =>
           new Observable<BaseEvent>((subscriber) => {
@@ -120,7 +126,7 @@ describe("handleRunAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
 
     const requestBody = {
       threadId: "thread-1",
@@ -206,6 +212,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
       a2ui: { enabled: true, injectA2UITool: true },
     } as unknown as CopilotRuntime;
@@ -231,6 +238,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner: createMockRunner(),
         a2ui: { enabled: true, agents: ["my-agent"] },
       }) as unknown as CopilotRuntime;
@@ -273,6 +281,179 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not apply A2UIMiddleware when a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // Config object present but explicitly disabled — the run path must
+      // honor the opt-out, not just `!!runtime.a2ui`.
+      a2ui: { enabled: false, injectA2UITool: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  // A run request whose forwardedProps signal that the React provider was
+  // given an A2UI catalog (`<CopilotKit a2ui={{ catalog }}>`). This is the
+  // signal that lets a catalog alone turn A2UI on end-to-end.
+  const createCatalogRunRequest = () =>
+    new Request("https://example.com/agent/my-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: { a2uiCatalogAvailable: true },
+      }),
+    });
+
+  const getAppliedA2UIMiddleware = (useSpy: ReturnType<typeof vi.fn>) => {
+    const call = useSpy.mock.calls.find((c) => c[0] instanceof A2UIMiddleware);
+    return call?.[0] as A2UIMiddleware | undefined;
+  };
+
+  it("applies A2UIMiddleware with tool injection when a catalog is forwarded and the runtime has no a2ui config", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // No `a2ui` config at all — the provider's catalog alone must enable it.
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(true);
+  });
+
+  it("respects an explicit injectA2UITool: false even when a catalog is forwarded", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      // Deeper, explicit opt-out — the catalog default must NOT override it.
+      a2ui: { enabled: true, injectA2UITool: false },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(false);
+  });
+
+  it("does not apply A2UIMiddleware when a catalog is forwarded but a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      a2ui: { enabled: false },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
+  it("defaults injectA2UITool to true when a catalog is forwarded and a2ui is enabled without an explicit flag", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: createMockRunner(),
+      a2ui: { enabled: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createCatalogRunRequest(),
+      agentId: "my-agent",
+    });
+
+    const middleware = getAppliedA2UIMiddleware(useSpy);
+    expect(middleware).toBeInstanceOf(A2UIMiddleware);
+    expect(
+      (middleware as unknown as { config: { injectA2UITool?: unknown } }).config
+        .injectA2UITool,
+    ).toBe(true);
+  });
+
+  it("does not apply A2UIMiddleware when neither a catalog is forwarded nor a2ui is configured", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: createMockRunner(),
     } as unknown as CopilotRuntime;
 
@@ -317,6 +498,7 @@ describe("handleRunAgent", () => {
         transcriptionService: undefined,
         beforeRequestMiddleware: undefined,
         afterRequestMiddleware: undefined,
+        forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
         runner,
         mode: "intelligence",
         generateThreadNames: options?.generateThreadNames ?? false,
@@ -406,6 +588,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
     });
 
@@ -640,10 +823,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup,
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup,
+        }));
       let settled = false;
 
       const responsePromise = handleRunAgent({
@@ -663,7 +847,9 @@ describe("handleRunAgent", () => {
       const response = await responsePromise;
 
       expect(response.status).toBe(200);
-      expect(runtime.runner.runWithStartupBoundary).toHaveBeenCalledWith(
+      expect(
+        (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           threadId: "canonical-thread",
           input: expect.objectContaining({
@@ -690,10 +876,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup: Promise.reject(new Error("Failed to join channel: denied")),
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup: Promise.reject(new Error("Failed to join channel: denied")),
+        }));
 
       const response = await handleRunAgent({
         runtime,
@@ -927,6 +1114,11 @@ describe("handleRunAgent", () => {
               id: "assistant-1",
               role: "assistant",
               content: '{"title":"**Order refund** status"}',
+            },
+            {
+              id: "tool-1",
+              role: "tool",
+              content: '{"timezone":"UTC","iso":"2026-06-01T00:00:00Z"}',
             },
           ],
         }),
@@ -1287,6 +1479,100 @@ describe("handleRunAgent", () => {
       } finally {
         captureSpy.mockRestore();
       }
+    });
+  });
+
+  describe("agentId tagging on cloned agents", () => {
+    /**
+     * Pins handle-run.ts:40 — `agent.agentId = agentId` is set on the clone
+     * BEFORE the agent reaches the runner. Without it, InMemoryAgentRunner
+     * falls back to "default" when stamping historic runs, and listThreads
+     * returns rows with the wrong agentId. This breaks the agentId filter
+     * in `GET /threads?agentId=...` for the local-dev fallback.
+     *
+     * This test runs the full flow through InMemoryAgentRunner with an
+     * AbstractAgent whose own `agentId` field is undefined (matches the
+     * shape after `clone()` returns a fresh instance), and asserts the
+     * runner records the registry key, NOT "default".
+     */
+    class TaggingTestAgent extends AbstractAgent {
+      run(_input: RunAgentInput): Observable<BaseEvent> {
+        return EMPTY;
+      }
+
+      async runAgent(
+        _input: RunAgentInput,
+        options: { onEvent: (event: { event: BaseEvent }) => void },
+      ): Promise<RunAgentResult> {
+        // Emit a single TEXT_MESSAGE_END event so the run produces at least
+        // one event and gets persisted to historicRuns. RUN_STARTED /
+        // RUN_FINISHED are appended by the runner itself.
+        options.onEvent({
+          event: {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: "msg-1",
+          } as BaseEvent,
+        });
+        return { result: undefined, newMessages: [] };
+      }
+
+      clone(): AbstractAgent {
+        // The fresh clone has NO agentId — the only way the runner can know
+        // the registry key is if handle-run.ts:40 stamps it before the run.
+        return new TaggingTestAgent();
+      }
+    }
+
+    const createRunRequestForAgent = (agentId: string, threadId: string) =>
+      new Request(`https://example.com/agent/${agentId}/run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          threadId,
+          runId: `run-${threadId}`,
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        }),
+      });
+
+    it("propagates the registry agentId onto historic runs (NOT 'default')", async () => {
+      const runner = new InMemoryAgentRunner();
+      const agent = new TaggingTestAgent();
+      const runtime = new CopilotRuntime({
+        agents: { tagged: agent },
+        runner,
+      });
+
+      // Use a unique threadId so this test does not collide with other
+      // tests that share the InMemoryAgentRunner GLOBAL_STORE.
+      const threadId = `thread-tagged-${Date.now()}-${Math.random()}`;
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequestForAgent("tagged", threadId),
+        agentId: "tagged",
+      });
+      expect(response.status).toBe(200);
+
+      // Drain the SSE stream so the underlying observable run completes —
+      // historicRuns is only populated AFTER the run finalizes.
+      const reader = response.body!.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+
+      const threads = runner.listThreads();
+      const thisThread = threads.find((t) => t.id === threadId);
+      expect(thisThread).toBeDefined();
+      expect(thisThread!.agentId).toBe("tagged");
+      // Negative assertion locks the regression: a future change that drops
+      // the `agent.agentId = agentId` line in handle-run will surface as
+      // "default" here, not as a missing thread.
+      expect(thisThread!.agentId).not.toBe("default");
     });
   });
 });

@@ -8,7 +8,7 @@ It defines the workflow graph, state, tools, nodes and edges.
 import sys
 
 # Only apply the patch if the module doesn't already exist
-if 'langgraph.graph.graph' not in sys.modules:
+if "langgraph.graph.graph" not in sys.modules:
     # Create a mock module for the incorrect import path that CopilotKit expects
     class _MockModule:
         pass
@@ -26,13 +26,19 @@ if 'langgraph.graph.graph' not in sys.modules:
     _mock_graph_module.CompiledGraph = CompiledStateGraph
 
     # Add it to sys.modules so CopilotKit's incorrect import will work
-    sys.modules['langgraph.graph.graph'] = _mock_graph_module
+    sys.modules["langgraph.graph.graph"] = _mock_graph_module
 
 # Now we can safely import everything else
 from typing import Any, List, Optional, Dict
 from typing_extensions import Literal
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage, BaseMessage, HumanMessage, AIMessage, ToolMessage
+from langchain_core.messages import (
+    SystemMessage,
+    BaseMessage,
+    HumanMessage,
+    AIMessage,
+    ToolMessage,
+)
 from langchain_core.runnables import RunnableConfig
 from langchain.tools import tool
 from langgraph.graph import StateGraph, END
@@ -40,6 +46,7 @@ from langgraph.types import Command
 from copilotkit import CopilotKitState
 from langgraph.prebuilt import ToolNode
 from langgraph.types import interrupt
+
 
 class AgentState(CopilotKitState):
     """
@@ -49,6 +56,7 @@ class AgentState(CopilotKitState):
     the CopilotKitState fields. We're also adding a custom field, `language`,
     which will be used to set the language of the agent.
     """
+
     proverbs: List[str] = []
     tools: List[Any] = []
     # Shared state fields synchronized with the frontend (AG-UI Canvas)
@@ -60,6 +68,8 @@ class AgentState(CopilotKitState):
     planSteps: List[Dict[str, Any]] = []
     currentStepIndex: int = -1
     planStatus: str = ""
+
+
 def summarize_items_for_prompt(state: AgentState) -> str:
     try:
         items = state.get("items", []) or []
@@ -75,24 +85,26 @@ def summarize_items_for_prompt(state: AgentState) -> str:
                 field1 = data.get("field1", "")
                 field2 = data.get("field2", "")
                 field3 = data.get("field3", "")
-                checklist_items = (data.get("field4", []) or [])
+                checklist_items = data.get("field4", []) or []
                 checklist = ", ".join([c.get("text", "") for c in checklist_items])
                 summary = f"subtitle={subtitle} · field1={field1} · field2={field2} · field3={field3} · field4=[{checklist}]"
             elif itype == "entity":
                 field1 = data.get("field1", "")
                 field2 = data.get("field2", "")
-                selected_tags = (data.get("field3", []) or [])
-                available_tags = (data.get("field3_options", []) or [])
+                selected_tags = data.get("field3", []) or []
+                available_tags = data.get("field3_options", []) or []
                 tags = ", ".join(selected_tags)
                 opts = ", ".join(available_tags)
                 summary = f"subtitle={subtitle} · field1={field1} · field2={field2} · field3(tags)=[{tags}] · field3_options=[{opts}]"
             elif itype == "note":
                 content = data.get("field1", "")
                 # Include full content so the model has complete visibility for edits
-                summary = f"subtitle={subtitle} · noteContent=\"{content}\""
+                summary = f'subtitle={subtitle} · noteContent="{content}"'
             elif itype == "chart":
-                metrics_list = (data.get("field1", []) or [])
-                metrics = ", ".join([f"{m.get('label','')}:{m.get('value', 0)}%" for m in metrics_list])
+                metrics_list = data.get("field1", []) or []
+                metrics = ", ".join(
+                    [f"{m.get('label', '')}:{m.get('value', 0)}%" for m in metrics_list]
+                )
                 summary = f"subtitle={subtitle} · field1(metrics)=[{metrics}]"
             lines.append(f"id={pid} · name={name} · type={itype} · {summary}")
         return "\n".join(lines) if lines else "(no items)"
@@ -107,12 +119,18 @@ def set_plan(steps: List[str]):
     """
     return {"initialized": True, "steps": steps}
 
+
 @tool
-def update_plan_progress(step_index: int, status: Literal["pending", "in_progress", "completed", "blocked", "failed"], note: Optional[str] = None):
+def update_plan_progress(
+    step_index: int,
+    status: Literal["pending", "in_progress", "completed", "blocked", "failed"],
+    note: Optional[str] = None,
+):
     """
     Update a single plan step's status, and optionally add a note.
     """
     return {"updated": True, "index": step_index, "status": status, "note": note}
+
 
 @tool
 def complete_plan():
@@ -120,6 +138,7 @@ def complete_plan():
     Mark the plan as completed.
     """
     return {"completed": True}
+
 
 # @tool
 # def your_tool_here(your_arg: str):
@@ -137,42 +156,46 @@ backend_tools = [
 backend_tool_names = [tool.name for tool in backend_tools]
 
 # Frontend tool allowlist to keep tool count under API limits and avoid noise
-FRONTEND_TOOL_ALLOWLIST = set([
-    "setGlobalTitle",
-    "setGlobalDescription",
-    "setItemName",
-    "setItemSubtitleOrDescription",
-    "setItemDescription",
-    # note
-    "setNoteField1",
-    "appendNoteField1",
-    "clearNoteField1",
-    # project
-    "setProjectField1",
-    "setProjectField2",
-    "setProjectField3",
-    "clearProjectField3",
-    "addProjectChecklistItem",
-    "setProjectChecklistItem",
-    "removeProjectChecklistItem",
-    # entity
-    "setEntityField1",
-    "setEntityField2",
-    "addEntityField3",
-    "removeEntityField3",
-    # chart
-    "addChartField1",
-    "setChartField1Label",
-    "setChartField1Value",
-    "clearChartField1Value",
-    "removeChartField1",
-    # items
-    "createItem",
-    "deleteItem",
-])
+FRONTEND_TOOL_ALLOWLIST = set(
+    [
+        "setGlobalTitle",
+        "setGlobalDescription",
+        "setItemName",
+        "setItemSubtitleOrDescription",
+        "setItemDescription",
+        # note
+        "setNoteField1",
+        "appendNoteField1",
+        "clearNoteField1",
+        # project
+        "setProjectField1",
+        "setProjectField2",
+        "setProjectField3",
+        "clearProjectField3",
+        "addProjectChecklistItem",
+        "setProjectChecklistItem",
+        "removeProjectChecklistItem",
+        # entity
+        "setEntityField1",
+        "setEntityField2",
+        "addEntityField3",
+        "removeEntityField3",
+        # chart
+        "addChartField1",
+        "setChartField1Label",
+        "setChartField1Value",
+        "clearChartField1Value",
+        "removeChartField1",
+        # items
+        "createItem",
+        "deleteItem",
+    ]
+)
 
 
-async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["tool_node", "__end__"]]:
+async def chat_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["tool_node", "__end__"]]:
     """
     Standard chat node based on the ReAct design pattern. It handles:
     - The model to use (and binds in CopilotKit actions and the tools defined above)
@@ -193,7 +216,11 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
         try:
             # OpenAI tool spec dict: { "type": "function", "function": { "name": "..." } }
             if isinstance(tool, dict):
-                fn = tool.get("function", {}) if isinstance(tool.get("function", {}), dict) else {}
+                fn = (
+                    tool.get("function", {})
+                    if isinstance(tool.get("function", {}), dict)
+                    else {}
+                )
                 name = fn.get("name") or tool.get("name")
                 if isinstance(name, str) and name.strip():
                     return name
@@ -207,7 +234,7 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             return None
 
     # Frontend tools may arrive either under state["tools"] or within the CopilotKit envelope
-    raw_tools = (state.get("tools", []) or [])
+    raw_tools = state.get("tools", []) or []
     try:
         ck = state.get("copilotkit", {}) or {}
         raw_actions = ck.get("actions", []) or []
@@ -345,19 +372,41 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             "   Always use these (ground truth) values as the only source of truth when responding.\n"
             "9) Generally, do not ask the user for IDs for metrics or checklist items; these IDs are assigned automatically and are immutable.\n"
             "   You may ask/include item IDs and sub-item IDs (metrics/checklist) in responses when helpful for clarity if there is possible confusion about which item the user is referring to.\n"
-            + (f"\nPOST-TOOL POLICY:\n{post_tool_guidance}\n" if post_tool_guidance else "")
+            + (
+                f"\nPOST-TOOL POLICY:\n{post_tool_guidance}\n"
+                if post_tool_guidance
+                else ""
+            )
         )
     )
 
     # 4. Run the model to generate a response
     # If the user asked to modify an item but did not specify which, interrupt to choose
     try:
-        last_user = next((m for m in reversed(state["messages"]) if getattr(m, "type", "") == "human"), None)
-        if last_user and any(k in last_user.content.lower() for k in ["item", "rename", "owner", "priority", "status"]) and not any(k in last_user.content.lower() for k in ["prj_", "item id", "id="]):
-            choice = interrupt({
-                "type": "choose_item",
-                "content": "Please choose which item you mean.",
-            })
+        last_user = next(
+            (
+                m
+                for m in reversed(state["messages"])
+                if getattr(m, "type", "") == "human"
+            ),
+            None,
+        )
+        if (
+            last_user
+            and any(
+                k in last_user.content.lower()
+                for k in ["item", "rename", "owner", "priority", "status"]
+            )
+            and not any(
+                k in last_user.content.lower() for k in ["prj_", "item id", "id="]
+            )
+        ):
+            choice = interrupt(
+                {
+                    "type": "choose_item",
+                    "content": "Please choose which item you mean.",
+                }
+            )
             state["chosen_item_id"] = choice
     except Exception:
         pass
@@ -371,7 +420,11 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             if isinstance(last_msg, AIMessage):
                 pending_frontend_call = False
                 for tc in getattr(last_msg, "tool_calls", []) or []:
-                    name = tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None)
+                    name = (
+                        tc.get("name")
+                        if isinstance(tc, dict)
+                        else getattr(tc, "name", None)
+                    )
                     if name and name not in backend_tool_names:
                         pending_frontend_call = True
                         break
@@ -415,15 +468,22 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             "Resolution policy: If ANY prior message mentions values that conflict with the above,\n"
             "those earlier mentions are obsolete and MUST be ignored.\n"
             "When asked 'what is it now', ALWAYS read from this LATEST GROUND TRUTH.\n"
-            + ("\nIf the last tool result indicated success (e.g., 'deleted:ID'), confirm the action rather than re-stating absence." if post_tool_guidance else "")
+            + (
+                "\nIf the last tool result indicated success (e.g., 'deleted:ID'), confirm the action rather than re-stating absence."
+                if post_tool_guidance
+                else ""
+            )
         )
     )
 
-    response = await model_with_tools.ainvoke([
-        system_message,
-        *trimmed_messages,
-        latest_state_system,
-    ], config)
+    response = await model_with_tools.ainvoke(
+        [
+            system_message,
+            *trimmed_messages,
+            latest_state_system,
+        ],
+        config,
+    )
 
     # Predictive plan state updates based on imminent tool calls (for UI rendering)
     try:
@@ -437,12 +497,16 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             if not isinstance(args, dict):
                 try:
                     import json as _json
+
                     args = _json.loads(args)  # sometimes args can be a json string
                 except Exception:
                     args = {}
             if name == "set_plan":
                 raw_steps = args.get("steps") or []
-                predicted_plan_steps = [{"title": s if isinstance(s, str) else str(s), "status": "pending"} for s in raw_steps]
+                predicted_plan_steps = [
+                    {"title": s if isinstance(s, str) else str(s), "status": "pending"}
+                    for s in raw_steps
+                ]
                 if predicted_plan_steps:
                     predicted_plan_steps[0]["status"] = "in_progress"
                     predicted_current_index = 0
@@ -454,7 +518,11 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                 idx = args.get("step_index")
                 status = args.get("status")
                 note = args.get("note")
-                if isinstance(idx, int) and 0 <= idx < len(predicted_plan_steps) and isinstance(status, str):
+                if (
+                    isinstance(idx, int)
+                    and 0 <= idx < len(predicted_plan_steps)
+                    and isinstance(status, str)
+                ):
                     if note:
                         predicted_plan_steps[idx]["note"] = note
                     predicted_plan_steps[idx]["status"] = status
@@ -483,7 +551,14 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                 predicted_plan_status = predicted_plan_status or ""
 
             # Only promote a new step when the previously active step transitioned to completed
-            active_idx = next((i for i, s in enumerate(predicted_plan_steps) if str(s.get("status", "")) == "in_progress"), -1)
+            active_idx = next(
+                (
+                    i
+                    for i, s in enumerate(predicted_plan_steps)
+                    if str(s.get("status", "")) == "in_progress"
+                ),
+                -1,
+            )
             if active_idx == -1:
                 # find last completed and promote the next pending, else first pending
                 last_completed = -1
@@ -491,9 +566,23 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                     if str(s.get("status", "")) == "completed":
                         last_completed = i
                 # Prefer the immediate next step after the last completed
-                promote_idx = next((i for i in range(last_completed + 1, len(predicted_plan_steps)) if str(predicted_plan_steps[i].get("status", "")) == "pending"), -1)
+                promote_idx = next(
+                    (
+                        i
+                        for i in range(last_completed + 1, len(predicted_plan_steps))
+                        if str(predicted_plan_steps[i].get("status", "")) == "pending"
+                    ),
+                    -1,
+                )
                 if promote_idx == -1:
-                    promote_idx = next((i for i, s in enumerate(predicted_plan_steps) if str(s.get("status", "")) == "pending"), -1)
+                    promote_idx = next(
+                        (
+                            i
+                            for i, s in enumerate(predicted_plan_steps)
+                            if str(s.get("status", "")) == "pending"
+                        ),
+                        -1,
+                    )
                 if promote_idx != -1:
                     predicted_plan_steps[promote_idx]["status"] = "in_progress"
                     predicted_current_index = promote_idx
@@ -527,8 +616,8 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
                 # guidance for follow-up after tool execution
-                "__last_tool_guidance": "If a deletion tool reports success (deleted:ID), acknowledge deletion even if the item no longer exists afterwards."
-            }
+                "__last_tool_guidance": "If a deletion tool reports success (deleted:ID), acknowledge deletion even if the item no longer exists afterwards.",
+            },
         )
 
     # 5. If there are remaining steps, auto-continue; otherwise end the graph.
@@ -598,13 +687,15 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                     "Plan is in progress. Proceed to the next step automatically. "
                     "Update the step status to in_progress, call necessary tools, and mark it completed when done."
                 ),
-            }
+            },
         )
 
     # If all steps look completed but planStatus is not yet 'completed', nudge the model to call complete_plan
     try:
-        all_steps_completed = bool(effective_steps) and all((s.get("status") == "completed") for s in effective_steps)
-        plan_marked_completed = (effective_plan_status == "completed")
+        all_steps_completed = bool(effective_steps) and all(
+            (s.get("status") == "completed") for s in effective_steps
+        )
+        plan_marked_completed = effective_plan_status == "completed"
     except Exception:
         all_steps_completed = False
         plan_marked_completed = False
@@ -628,12 +719,14 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
                     "All steps are completed. Call complete_plan to mark the plan as finished, "
                     "then present a concise summary of outcomes."
                 ),
-            }
+            },
         )
 
     # Only show chat messages when not actively in progress; always deliver frontend tool calls
-    currently_in_progress = (plan_updates.get("planStatus", plan_status) == "in_progress")
-    final_messages = [response] if (has_frontend_tool_calls or not currently_in_progress) else ([])
+    currently_in_progress = plan_updates.get("planStatus", plan_status) == "in_progress"
+    final_messages = (
+        [response] if (has_frontend_tool_calls or not currently_in_progress) else ([])
+    )
     return Command(
         goto=END,
         update={
@@ -649,8 +742,9 @@ async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Litera
             "planStatus": state.get("planStatus", ""),
             **plan_updates,
             "__last_tool_guidance": None,
-        }
+        },
     )
+
 
 def route_to_tool_node(response: BaseMessage):
     """
@@ -665,6 +759,7 @@ def route_to_tool_node(response: BaseMessage):
         if name in backend_tool_names:
             return True
     return False
+
 
 # Define the workflow graph
 workflow = StateGraph(AgentState)

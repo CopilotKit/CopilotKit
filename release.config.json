@@ -4,8 +4,10 @@
     "monorepo": {
       "packages": [
         "@copilotkit/a2ui-renderer",
+        "@copilotkit/agentcore-runner",
         "@copilotkit/core",
         "@copilotkit/react-core",
+        "@copilotkit/react-native",
         "@copilotkit/react-textarea",
         "@copilotkit/react-ui",
         "@copilotkit/runtime",
@@ -14,20 +16,32 @@
         "@copilotkit/shared",
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
+        "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
     },
-    "cli": {
-      "packages": ["copilotkit"],
-      "versionSource": "copilotkit",
+    "angular": {
+      "packages": ["@copilotkit/angular"],
+      "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
-    "angular": {
-      "packages": ["@copilotkitnext/angular"],
-      "versionSource": "@copilotkitnext/angular",
-      "sharedVersion": false
+    "channels": {
+      "packages": [
+        "@copilotkit/channels-ui",
+        "@copilotkit/channels-core",
+        "@copilotkit/channels-slack",
+        "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
+        "@copilotkit/channels-telegram",
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
+      ],
+      "versionSource": "@copilotkit/channels",
+      "sharedVersion": true
     }
   }
 }

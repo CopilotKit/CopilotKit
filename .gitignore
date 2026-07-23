@@ -33,11 +33,20 @@ __pycache__/
 .venv
 .vercel
 
+# Host-specific deploy config — lives in your platform's dashboard, not the repo.
+# (e.g. a local `railway up` upload filter generated when deploying from a worktree)
+.railwayignore
+
 docs/next-env.d.ts
+showcase/shell-docs/next-env.d.ts
+showcase/angular/public/demo-files/
+showcase/angular/public/mcp-apps-sandbox.html
+showcase/angular/src/app/generated/
+showcase/angular/.staged-angular-package/
 
 # Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
-showcase/packages/*/shared_python/
-showcase/packages/*/shared_typescript/
+showcase/integrations/*/shared_python/
+showcase/integrations/*/shared_typescript/
 
 # External repos (cloned for development)
 ext-apps/
@@ -48,6 +57,8 @@ build
 debug-storybook.log
 storybook-static
 coverage
+output/
+packages/angular/src/styles/generated.css
 .turbo
 .langgraph_api
 lefthook-local.yml
@@ -73,3 +84,7 @@ release-notes-notion.json
 *.lib
 *.wasm
 tasks/
+
+# Transient session artifacts
+.playwright-mcp/
+.claude/scheduled_tasks.lock

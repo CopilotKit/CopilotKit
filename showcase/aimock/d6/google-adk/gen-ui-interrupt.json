@@ -1,0 +1,91 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / gen-ui-interrupt. Strategy-B scheduling flow (no LangGraph interrupt()): each pill is a 2-leg round-trip — an emit leg returns a `schedule_meeting` tool call routed to the frontend useHumanInTheLoop picker; a narration leg (gated on that call's toolCallId) returns the confirmation after the user picks a slot. The narration (toolCallId) leg is ordered BEFORE the emit leg so it wins once the pill's own tool result is the last message, and the emit leg matches on userMessage+toolName only — NOT hasToolResult, which is thread-global and would wrongly fail the second pill once an earlier pill left a tool result in history (the alice pill 503'd that way). toolCallIds (call_d5_schedule_sales_001 / _alice_001) match the shared d5 contract.",
+    "sourceFile": "d5-all.json",
+    "created": "2026-06-08"
+  },
+  "fixtures": [
+    {
+      "_comment": "sales pill — narration leg: after the user picks a slot, the sales tool result is the last message. Ordered before the emit leg so it wins on the post-pick turn.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "sales pill — emit leg: userMessage+toolName only (no hasToolResult gate). The narration leg above already claims the post-pick turn via toolCallId, so this only fires on the initial request.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_sales_001"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "alice pill — narration leg: gated on the alice tool result's toolCallId. Ordered before the emit leg.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "alice pill — emit leg: userMessage+toolName only. Previously gated hasToolResult:false, which failed once the sales pill left a tool result in the thread (hasToolResult became true) -> 503 -> time-picker-card never mounted.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            },
+            "id": "call_d5_schedule_alice_001"
+          }
+        ]
+      }
+    }
+  ]
+}

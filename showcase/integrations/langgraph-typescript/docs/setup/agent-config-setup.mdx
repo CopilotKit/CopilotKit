@@ -1,0 +1,21 @@
+<Steps>
+  <Step>
+    ### Install the CopilotKit LangGraph SDK
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+
+  </Step>
+  <Step>
+    ### Wire CopilotKit state into your graph
+
+    Agent config flows from the UI through `useAgentContext` and arrives on
+    `state.copilotkit.context`. Use `CopilotKitStateAnnotation` to expose
+    that channel — your chat node reads it to assemble the system prompt
+    on every turn.
+
+    <DemoCode file="src/agent/agent-config.ts" region="agent-config-setup" />
+
+  </Step>
+</Steps>

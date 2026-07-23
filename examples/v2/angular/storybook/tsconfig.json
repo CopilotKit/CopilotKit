@@ -14,11 +14,19 @@
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true,
     "useDefineForClassFields": false,
+    "baseUrl": ".",
     "paths": {
-      "@copilotkit/angular": ["../../../packages/angular/src/index.ts"],
-      "@copilotkit/angular/*": ["../../../packages/angular/src/*"],
-      "@copilotkit/core": ["../../../packages/core/src/index.ts"],
-      "@copilotkit/shared": ["../../../packages/shared/src/index.ts"]
+      "@copilotkit/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/a2ui-renderer": ["node_modules/@copilotkit/a2ui-renderer"],
+      "@copilotkit/a2ui-renderer/web-components": [
+        "node_modules/@copilotkit/a2ui-renderer/web-components"
+      ],
+      "@copilotkit/a2ui-renderer/web-components/define": [
+        "node_modules/@copilotkit/a2ui-renderer/web-components/define"
+      ],
+      "@copilotkit/core": ["node_modules/@copilotkit/core"],
+      "@copilotkit/shared": ["node_modules/@copilotkit/shared"]
     },
     "types": ["node"]
   },

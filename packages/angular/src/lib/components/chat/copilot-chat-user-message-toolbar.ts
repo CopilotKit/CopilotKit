@@ -5,13 +5,11 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 @Component({
   selector: "div[copilotChatUserMessageToolbar]",
-  standalone: true,
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -26,7 +24,7 @@ export class CopilotChatUserMessageToolbar {
 
   readonly computedClass = computed(() =>
     cn(
-      "w-full bg-transparent flex items-center justify-end mt-[4px] invisible group-hover:visible",
+      "cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:mt-[4px] cpk:invisible cpk:group-hover:visible",
       this.inputClass(),
     ),
   );

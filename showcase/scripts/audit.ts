@@ -1,7 +1,7 @@
 /**
  * Showcase Audit CLI
  *
- * Walks showcase/packages/* and emits a human-readable coverage report
+ * Walks showcase/integrations/* and emits a human-readable coverage report
  * comparing declared demos vs. e2e spec files vs. QA markdown, plus
  * deployment status and examples/integrations provenance.
  *
@@ -306,7 +306,7 @@ function buildCliConfig(): AuditConfig {
     // Tests: SHOWCASE_AUDIT_ROOT=/tmp/fixture → /tmp/fixture/packages,
     // /tmp/fixture/examples/integrations, repoRoot = /tmp/fixture.
     return {
-      packagesDir: path.join(envRoot, "packages"),
+      packagesDir: path.join(envRoot, "integrations"),
       examplesIntegrationsDir: path.join(envRoot, "examples", "integrations"),
       repoRoot: envRoot,
     };
@@ -314,7 +314,7 @@ function buildCliConfig(): AuditConfig {
   const showcaseRoot = path.resolve(__dirname, "..");
   const repoRoot = path.resolve(showcaseRoot, "..");
   return {
-    packagesDir: path.join(showcaseRoot, "packages"),
+    packagesDir: path.join(showcaseRoot, "integrations"),
     examplesIntegrationsDir: path.join(repoRoot, "examples", "integrations"),
     repoRoot,
   };

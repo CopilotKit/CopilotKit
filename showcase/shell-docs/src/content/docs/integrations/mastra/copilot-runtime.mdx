@@ -1,0 +1,36 @@
+---
+title: "Copilot Runtime"
+description: "The Copilot Runtime is the backend that connects your frontend to your AI agents, providing authentication, middleware, routing, and more."
+icon: "lucide/Server"
+---
+
+import CopilotRuntime from "@/snippets/copilot-runtime.mdx";
+
+<CopilotRuntime components={props.components} />
+
+## Execution tracing
+
+When you embed a Mastra agent in Copilot Runtime, its tracing is carried through
+AG-UI end to end, so runs show up in your Mastra observability backend with no
+extra wiring.
+
+- **Inbound** — pass `tracingOptions` alongside `mastra` in
+  `MastraAgent.getLocalAgents` to anchor each run under a caller-chosen trace.
+  The shape is `{ traceId?: string; metadata?: Record<string, unknown> }`:
+
+  ```ts
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({
+      mastra,
+      tracingOptions: {
+        traceId: myTraceId,
+        metadata: { feature: "support-chat", tenant: tenantId },
+      },
+    }),
+  });
+  ```
+
+- **Outbound** — the execution `traceId` Mastra assigns to a run is surfaced on
+  the `RUN_FINISHED` event's `result` field as `{ traceId }`, so you can anchor
+  feedback or scores back to the exact run (e.g. `createFeedback({ traceId })`).
+

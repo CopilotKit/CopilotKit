@@ -1,0 +1,100 @@
+---
+title: "Self-managed agents"
+icon: "lucide/PlugZap"
+description: "Connect AG-UI agents that you host and secure yourself."
+---
+
+`<CopilotKit>` usually talks to your agents through the
+[runtime](/backend/copilot-runtime): the frontend hits `runtimeUrl`, the runtime
+discovers agents from `/info`, and a proxy forwards every run server-side. But you
+can also hand the provider **AG-UI agent instances directly** and skip the runtime
+for those agents. There are two props for this, and choosing the right one matters.
+
+## Production: self-managed agents
+
+`selfManagedAgents` is the supported prop for connecting agents you manage
+yourself, for example an [`HttpAgent`](/backend/ag-ui) pointing at an
+AG-UI-compatible backend you own and have already secured:
+
+<Callout type="info" title="Part of Enterprise Intelligence">
+  `selfManagedAgents` is part of CopilotKit's [Enterprise
+  Intelligence](/premium/intelligence-platform) offering. [Talk to an
+  engineer](https://copilotkit.ai/talk-to-an-engineer) about licensing for
+  production use.
+</Callout>
+
+```tsx
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+const supportAgent = new HttpAgent({
+  url: "https://agents.example.com/support",
+});
+
+<CopilotKit
+  selfManagedAgents={{ "support-agent": supportAgent }}
+>
+  <YourApp />
+</CopilotKit>;
+```
+
+Each key is the `agentId` the prebuilt components and `useAgent({ agentId })` use
+to address that agent. Self-managed agents use your transport and your security
+model. Because the requests don't pass through the CopilotKit runtime, the
+runtime's server-side auth, middleware, and routing do not apply. Your agent
+endpoint must authenticate and authorize every request.
+
+<Callout type="info">
+You can combine `selfManagedAgents` with `runtimeUrl`. Runtime-discovered agents
+and self-managed agents coexist; address each by its `agentId`.
+</Callout>
+
+## Development: unsafe local agents
+
+`agents__unsafe_dev_only` accepts the same shape: a map of `agentId` to
+`AbstractAgent`. The name is intentionally loud. Use it only for local
+development and prototyping.
+
+```tsx
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+const myAgent = new HttpAgent({ url: "http://localhost:8000" });
+
+<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+  <YourApp />
+</CopilotKit>;
+```
+
+Reach for it when you're wiring up an agent locally and don't want to stand up a
+runtime yet. Don't ship it to production. Switch to `selfManagedAgents` if you
+intend to manage and secure the connection yourself, or move the agent behind the
+[runtime](/backend/copilot-runtime).
+
+## How they relate
+
+Both props feed the same client-side agent registry. When both are supplied they
+are merged, and **`selfManagedAgents` wins on a key collision**:
+
+```ts
+// effective agents ≈ { ...agents__unsafe_dev_only, ...selfManagedAgents }
+```
+
+Supplying agents through either prop also satisfies the provider's configuration
+check. You won't get the
+`Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'`
+error (see the [error reference](/troubleshooting/error-reference)) when at least
+one local agent is registered.
+
+| | `selfManagedAgents` | `agents__unsafe_dev_only` |
+|---|---|---|
+| **Intended for** | Production, agents you manage | Local dev / prototyping |
+| **Auth** | Your responsibility | Your responsibility |
+| **Runtime middleware / routing** | Not applied | Not applied |
+| **Precedence on collision** | Wins | Overridden by `selfManagedAgents` |
+
+## Related
+
+- [Copilot Runtime](/backend/copilot-runtime): the recommended runtime-backed path and its trade-offs compared with direct connections.
+- [Connect AG-UI agents](/backend/ag-ui): the `AbstractAgent` / `HttpAgent` interface these props accept.
+- [Auth](/auth): securing agent traffic when you self-manage the connection.

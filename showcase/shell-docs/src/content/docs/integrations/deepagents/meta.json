@@ -1,0 +1,27 @@
+{
+  "title": "Deep Agents",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "quickstart",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "---Human in the Loop---",
+    "...human-in-the-loop",
+    "---Intelligence Platform---",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    }
+  ]
+}

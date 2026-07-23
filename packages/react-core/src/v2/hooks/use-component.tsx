@@ -57,7 +57,8 @@ type InferRenderProps<T> = T extends StandardSchemaV1
  * ```
  */
 export function useComponent<
-  TSchema extends StandardSchemaV1 | undefined = undefined,
+  TSchema extends StandardSchemaV1<any, Record<string, unknown>> | undefined =
+    undefined,
 >(
   config: {
     name: string;
@@ -65,6 +66,7 @@ export function useComponent<
     parameters?: TSchema;
     render: ComponentType<NoInfer<InferRenderProps<TSchema>>>;
     agentId?: string;
+    followUp?: boolean;
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -83,6 +85,7 @@ export function useComponent<
         return <Component {...(args as InferRenderProps<TSchema>)} />;
       },
       agentId: config.agentId,
+      followUp: config.followUp,
     },
     deps,
   );

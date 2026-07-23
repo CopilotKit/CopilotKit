@@ -208,10 +208,15 @@
 }
 
 .copilotKitImageRenderingImage {
-  max-width: 100%;
+  max-width: 80px;
+  max-height: 80px;
+  width: auto;
   height: auto;
-  border-radius: 8px;
+  object-fit: cover;
+  border-radius: 12px;
+  background-color: var(--copilot-kit-input-background-color);
   box-shadow: var(--copilot-kit-shadow-sm);
+  cursor: pointer;
 }
 
 .copilotKitImageRenderingContent {

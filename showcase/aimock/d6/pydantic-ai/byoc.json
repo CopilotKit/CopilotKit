@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for pydantic-ai / byoc (declarative-hashbrown + byoc-json-render)",
+    "sourceFile": "harness/src/probes/scripts/d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — Sales dashboard with metric card + chart. The probe sends this verbatim pill prompt and asserts [data-testid='metric-card'] + a chart selector mount in DOM.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "hasToolResult": false,
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_hashbrown_sales_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after generate_a2ui returns.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "toolCallId": "call_d6_byoc_hashbrown_sales_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Here is your Q4 sales dashboard with total revenue, a pie chart of revenue by segment, and a bar chart of monthly revenue."
+      }
+    },
+    {
+      "_comment": "byoc json-render pill — Sales dashboard with metrics and revenue chart.",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "hasToolResult": false,
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_json_render_sales_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc json-render pill — follow-up after generate_a2ui returns.",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "toolCallId": "call_d6_byoc_json_render_sales_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Here is the sales dashboard with key metrics and a revenue chart."
+      }
+    }
+  ]
+}

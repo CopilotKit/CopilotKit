@@ -1,34 +1,93 @@
 {
   "title": "Overview",
   "pages": [
-    "---Getting Started---",
+    "---Get Started---",
     "index",
     "quickstart",
-    "coding-agents",
-    "...unselected",
-    "---Basics---",
+    "cli",
+    "build-with-agents",
+    "---Concepts---",
+    "...concepts",
+    "...agentic-protocols",
+    "---Build Chat UIs---",
     "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "premium/threads-explained"
+      ]
+    },
     "custom-look-and-feel",
-    "programmatic-control",
-    "inspector",
-    "---Generative UI---",
-    "...generative-ui",
-    "---App Control---",
-    "frontend-tools",
-    "shared-state",
-    "---Threads---",
-    "threads",
-    "---Platform---",
     "multimodal-attachments",
-    "runtime-server-adapter",
-    "vs-code-extension",
-    "---Backend---",
+    "voice",
+    "generative-ui/reasoning",
+    "---Build Generative UI---",
+    "...generative-ui",
+    "---Add Agent Powers---",
+    "frontend-tools",
+    {
+      "title": "Shared State",
+      "pages": [
+        "shared-state",
+        "shared-state/rendering-in-app",
+        "shared-state/streaming",
+        "shared-state/agent-readonly"
+      ]
+    },
+    "human-in-the-loop",
+    "multi-agent/subagents",
+    "agent-config",
+    "programmatic-control",
+    "---Runtime---",
     "...backend",
-    "---Premium Features---",
-    "...premium",
-    "---Troubleshooting---",
-    "...troubleshooting",
+    "runtime-server-adapter",
+    "auth",
+    "---Observe & Operate---",
+    "inspector",
+    "vs-code-extension",
+    "---Intelligence Platform---",
+    "premium/overview",
+    "premium/managed-intelligence-platform",
+    "premium/self-hosting",
+    "premium/intelligence-platform",
+    "---Channels---",
+    "channels",
+    "---Deploy---",
+    "...deploy",
     "---Other---",
-    "...(other)"
+    "...(other)",
+    {
+      "title": "Troubleshooting",
+      "pages": [
+        "troubleshooting/common-issues",
+        "troubleshooting/error-reference",
+        "troubleshooting/error-debugging",
+        "troubleshooting/inspector-dev-console",
+        "troubleshooting/debug-mode",
+        "troubleshooting/event-inspector",
+        "troubleshooting/hook-explorer"
+      ]
+    },
+    {
+      "title": "What's New",
+      "pages": [
+        "whats-new/mcp-apps-support",
+        "whats-new/langgraph-deep-agents",
+        "whats-new/a2ui-launch",
+        "whats-new/v1-50",
+        "whats-new/generative-ui-spec-support",
+        "whats-new/a2a-mcp-handshake"
+      ]
+    },
+    {
+      "title": "Migrate",
+      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+    }
   ]
 }

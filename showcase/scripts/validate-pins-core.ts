@@ -6,7 +6,7 @@
  * `validate-pins.ts` and compares the count + SHA-256 against the baseline
  * in `showcase/scripts/fail-baseline.json`. That comparison lived only in
  * shell — meaning: unreachable from the CLI, unreachable from
- * `showcase-ops`' pin-drift probe driver, and impossible to unit-test
+ * `showcase-harness`' pin-drift probe driver, and impossible to unit-test
  * without spinning up a shell harness. This module lifts the comparison
  * into TypeScript so both the CLI and the driver consume identical logic.
  *

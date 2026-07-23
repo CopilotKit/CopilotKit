@@ -1,14 +1,12 @@
-import { ActivityMessage } from "@ag-ui/core";
+import type { ActivityMessage } from "@ag-ui/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useCopilotKit, useCopilotChatConfiguration } from "../providers";
 import { useCallback, useMemo } from "react";
-import { ReactActivityMessageRenderer } from "../types";
-import { getThreadClone } from "./use-agent";
+import type { ReactActivityMessageRenderer } from "../types";
 
 export function useRenderActivityMessage() {
   const { copilotkit } = useCopilotKit();
-  const config = useCopilotChatConfiguration();
-  const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
+  const agentId = useCopilotChatConfiguration()?.agentId ?? DEFAULT_AGENT_ID;
 
   const renderers = copilotkit.renderActivityMessages;
 
@@ -41,36 +39,39 @@ export function useRenderActivityMessage() {
         return null;
       }
 
-      const parseResult = renderer.content.safeParse(message.content);
+      const parseResult = renderer.content["~standard"].validate(
+        message.content,
+      );
 
-      if (!parseResult.success) {
+      if (parseResult instanceof Promise) {
+        console.warn(
+          `Async content validation is not supported for activity message '${message.activityType}'`,
+        );
+        return null;
+      }
+
+      if (parseResult.issues) {
         console.warn(
           `Failed to parse content for activity message '${message.activityType}':`,
-          parseResult.error,
+          parseResult.issues,
         );
         return null;
       }
 
       const Component = renderer.render;
-      // Prefer the per-thread clone so that handleAction in ReactSurfaceHost
-      // calls runAgent on the same agent instance that CopilotChat renders from.
-      // Without this, button clicks accumulate messages on the registry agent
-      // while CopilotChat displays from the clone — responses appear to vanish.
-      const registryAgent = copilotkit.getAgent(agentId);
-      const agent =
-        getThreadClone(registryAgent, config?.threadId) ?? registryAgent;
+      const agent = copilotkit.getAgent(agentId);
 
       return (
         <Component
           key={message.id}
           activityType={message.activityType}
-          content={parseResult.data}
+          content={parseResult.value}
           message={message}
           agent={agent}
         />
       );
     },
-    [agentId, config?.threadId, copilotkit, findRenderer],
+    [agentId, copilotkit, findRenderer],
   );
 
   return useMemo(

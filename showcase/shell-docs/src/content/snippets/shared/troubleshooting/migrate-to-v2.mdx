@@ -6,23 +6,25 @@ CopilotKit V2 consolidates the frontend into a single package. Both hooks and UI
 
 | Before                            | After                                  |
 | --------------------------------- | -------------------------------------- |
-| `@copilotkit/react-core`          | `@copilotkit/react-core/v2`            |
+| v1 hooks from `@copilotkit/react-core` | v2 hooks from `@copilotkit/react-core/v2` |
 | `@copilotkit/react-ui`            | `@copilotkit/react-core/v2`            |
 | `@copilotkit/react-ui/styles.css` | `@copilotkit/react-core/v2/styles.css` |
 
-**What's NOT changing:**
+**What's not changing:**
 
-- Backend packages (`@copilotkit/runtime`, etc.) — no changes needed
-- Your `CopilotRuntime` configuration — stays the same
-- Agent definitions and backend setup — stays the same
+- Backend packages (`@copilotkit/runtime`, etc.) do not need changes.
+- Your `CopilotRuntime` configuration stays the same.
+- Agent definitions and backend setup stay the same.
+- Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
 
 ## Migration Steps
 
 <Steps>
 <Step>
-### Update `@copilotkit/react-core` imports
+### Update v1 hook imports
 
-Replace imports from `@copilotkit/react-core` with `@copilotkit/react-core/v2`.
+Replace v1 hooks from `@copilotkit/react-core` with their v2 equivalents from `@copilotkit/react-core/v2`.
+Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.
 
 #### Before
 
@@ -34,13 +36,34 @@ import { useCopilotReadable, useCopilotAction } from "@copilotkit/react-core";
 #### After
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-import { useAgent } from "@copilotkit/react-core/v2";
+import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";
 ```
+
+#### Hook mapping from v1 to v2
+
+Use this table to find the v2 replacement for each v1 hook:
+
+| v1 hook | v2 hook |
+| --- | --- |
+| `useCopilotAction` | `useFrontendTool` |
+| `useCopilotReadable` | `useAgentContext` |
+| `useCopilotAdditionalInstructions` | `useAgentContext` |
+| `useCoAgent` | `useAgent` |
+| `useCopilotChat` | `useAgent` (low-level headless chat: `useCopilotChatHeadless_c`) |
+
+Chat-UI customization props were also renamed in v2:
+
+| v1 (component prop) | v2 (slot / prop) |
+| --- | --- |
+| `AssistantMessage` | `assistantMessage` slot (under `messageView`) |
+| `markdownTagRenderers` | `markdownRenderer` slot (under `assistantMessage`) |
+
+See [Slots](/custom-look-and-feel/slots) for how the v2 slot system replaces the
+v1 component-override props.
 
 </Step>
 <Step>
-### Replace `@copilotkit/react-ui` imports
+### Replace React UI imports
 
 UI components like `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` are now exported from `@copilotkit/react-core/v2`.
 
@@ -78,7 +101,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 </Step>
 <Step>
-### Upgrade `@ag-ui/client` (if using directly)
+### Upgrade AG-UI client if using it directly
 
 If you import from `@ag-ui/client` directly, upgrade to the latest version:
 
@@ -113,15 +136,15 @@ export function App() {
 ### After
 
 ```tsx
-import { CopilotKitProvider, CopilotPopup } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export function App() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <YourApp />
       <CopilotPopup />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```

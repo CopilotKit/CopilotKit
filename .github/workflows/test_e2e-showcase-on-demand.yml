@@ -56,31 +56,22 @@ on:
   workflow_dispatch:
     inputs:
       slug:
-        description: "Package slug to test (must ship aimock_toggle.py)"
+        description: "Package slug to test (Python integration with aimock support)"
         required: true
-        # Only crewai-crews currently ships aimock_toggle.py and exercises
-        # the AIMOCK_URL path end-to-end. Restricting the enum here prevents
-        # accidental dispatch of a TS-only (mastra) or Java (spring-ai) slug
-        # that would skip the Python agent startup step and then fail with a
-        # misleading Playwright timeout instead of a clear "no toggle shipped"
-        # error. When a new Python slug adds aimock_toggle.py, append it here.
+        # Only Python integrations that exercise the AIMOCK_URL path
+        # end-to-end belong here. Restricting the enum prevents accidental
+        # dispatch of a TS-only (mastra) or Java (spring-ai) slug that would
+        # skip the Python agent startup step and then fail with a misleading
+        # Playwright timeout. When a new Python slug is validated, append it.
         #
         # No `default:` is set — the operator must pick a slug explicitly. A
         # hidden default would silently bind manual dispatches to whichever
         # slug happens to be first in the enum, which contradicts the
         # "no silent fallback" guarantee the comment-path extractor enforces.
-        #
-        # Single-choice enum UX note: the GitHub Actions UI pre-selects the
-        # only option when a `choice` has one entry. That IS the intended
-        # experience here — with exactly one valid slug today, showing a
-        # disabled dropdown matches what "the operator must pick a slug"
-        # reduces to when the valid set has size one. Do not add a sentinel
-        # option (e.g. "--choose--") to force a picker — sentinel values
-        # would need separate validation and re-introduce the silent-fallback
-        # class of bug the comment-path extractor was hardened against.
         type: choice
         options:
           - crewai-crews
+          - langgraph-python
 
 # Default to read-only at the job level. The only step that needs write access
 # is "Post result to PR" at the end — we grant it write perms inline there.
@@ -129,7 +120,7 @@ jobs:
       - name: Resolve PR HEAD ref
         id: pr-ref
         if: github.event_name == 'issue_comment'
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const { data: pr } = await github.rest.pulls.get({
@@ -148,7 +139,7 @@ jobs:
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
@@ -159,13 +150,13 @@ jobs:
           # depth cheap — disable credential persistence.
           persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
 
-      - uses: pnpm/action-setup@v4.4.0
-        with:
-          version: "10.13.1"
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (via corepack).
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Determine slug
         id: slug
@@ -211,7 +202,7 @@ jobs:
           fi
           # Strict slug whitelist: lowercase alphanumerics + hyphens only. This
           # blocks path traversal (`../`), absolute paths, command substitution,
-          # and anything else that could escape `showcase/packages/$SLUG`.
+          # and anything else that could escape `showcase/integrations/$SLUG`.
           case "$SLUG" in
             ''|*[!a-z0-9-]*)
               echo "::error::Invalid slug '$SLUG' — must match ^[a-z0-9-]+$"
@@ -220,8 +211,8 @@ jobs:
           esac
           # Belt-and-suspenders: the slug must correspond to an existing package
           # directory. Rejects typos and anything that bypasses the regex.
-          if [ ! -d "showcase/packages/$SLUG" ]; then
-            echo "::error::Slug '$SLUG' does not map to showcase/packages/$SLUG"
+          if [ ! -d "showcase/integrations/$SLUG" ]; then
+            echo "::error::Slug '$SLUG' does not map to showcase/integrations/$SLUG"
             exit 1
           fi
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
@@ -239,57 +230,82 @@ jobs:
         id: pkg-type
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          PKG_DIR="showcase/packages/$SLUG"
+          PKG_DIR="showcase/integrations/$SLUG"
           if [ -f "$PKG_DIR/requirements.txt" ] || [ -f "$PKG_DIR/pyproject.toml" ]; then
             echo "has_python=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_python=false" >> "$GITHUB_OUTPUT"
           fi
-          # The workflow's downstream steps (dev-server + Playwright) assume
-          # a Python agent listening on :8000. Dispatching a TS (mastra) or
-          # Java (spring-ai) slug would skip the Python agent start step and
-          # then fail with a misleading Playwright timeout. Short-circuit
-          # with a clear error instead — the workflow_dispatch enum narrows
-          # this at the UI layer, but a comment-trigger slug bypasses that.
+          # Detect agent server type: langgraph (langgraph_cli dev on :8123)
+          # vs uvicorn (agent_server:app on :8000). The two use different
+          # start commands, ports, and health endpoints.
+          if [ -f "$PKG_DIR/langgraph.json" ]; then
+            echo "agent_type=langgraph" >> "$GITHUB_OUTPUT"
+            echo "agent_port=8123" >> "$GITHUB_OUTPUT"
+            echo "agent_health_path=/ok" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent_type=uvicorn" >> "$GITHUB_OUTPUT"
+            echo "agent_port=8000" >> "$GITHUB_OUTPUT"
+            echo "agent_health_path=/health" >> "$GITHUB_OUTPUT"
+          fi
+          # aimock_toggle.py ships in crewai-crews and wires AIMOCK_URL
+          # end-to-end via configure_aimock(). Packages without it (e.g.
+          # langgraph-python) can still use aimock — the workflow injects
+          # OPENAI_BASE_URL directly on the agent process. Log the status
+          # but do not block; the toggle is a nice-to-have, not a gate.
           if [ -f "$PKG_DIR/src/aimock_toggle.py" ]; then
             echo "ships_toggle=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Slug '$SLUG' ships aimock_toggle.py — aimock redirect handled by configure_aimock()"
           else
-            echo "::error::Slug '$SLUG' does not ship src/aimock_toggle.py — this workflow only exercises packages that wire AIMOCK_URL end-to-end. Add aimock_toggle.py (and requirements.txt) to the package first."
+            echo "ships_toggle=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Slug '$SLUG' does not ship aimock_toggle.py — aimock redirect will be injected via OPENAI_BASE_URL env var"
+          fi
+          # Still require Python — this workflow cannot exercise TS-only or
+          # Java slugs (no Python agent to start).
+          if [ ! -f "$PKG_DIR/requirements.txt" ] && [ ! -f "$PKG_DIR/pyproject.toml" ]; then
+            echo "::error::Slug '$SLUG' has no requirements.txt or pyproject.toml — this workflow only exercises Python-backed packages."
             exit 1
           fi
 
+      - name: Install aimock
+        run: |
+          # aimock is pinned as a workspace dependency (@copilotkit/showcase-scripts)
+          # and installed from the frozen lockfile — no ad-hoc `npm install -g`.
+          # A frozen install guarantees the exact pinned version resolves (the old
+          # caret floor could drift to a bad publish); this keeps the CI signal
+          # reproducible AND satisfies zizmor's adhoc-packages audit.
+          #
+          # `--ignore-scripts`: a trusted commenter can run this workflow on a PR
+          # whose package.json is untrusted content, so we never execute install-time
+          # scripts. aimock's `llmock` bin runs fine without them.
+          #
+          # `--filter` scopes the install to just the aimock owner package so we
+          # don't pay for the full monorepo install here (the per-slug package deps
+          # are installed later in "Install package dependencies").
+          pnpm --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
       - name: Start aimock
         run: |
-          # Pin aimock to a known-good floor (caret = safe patch/minor).
-          # An unrestricted `@latest` means a bad aimock publish silently
-          # poisons CI for everyone; pinning makes the upgrade explicit and
-          # keeps this PR's CI signal reproducible.
-          npm install -g "@copilotkit/aimock@^1.14.3" --ignore-scripts
-          # Invoke the installed global binary directly rather than `npx`.
-          # `npx @copilotkit/aimock@^1.14.3` re-resolves the spec against the
-          # registry and MAY re-fetch a package even when an identical global
-          # install exists — which would defeat `--ignore-scripts` on the
-          # npm-install step above (npx's transient install does not inherit
-          # that flag) and would also defeat the caret pin if a new patch
-          # published between those two invocations.
-          #
-          # `npm prefix -g` returns the npm global prefix; its `bin/` subdir
-          # holds globally-installed binaries. We deliberately avoid `npm bin
-          # -g` here: the `bin` subcommand was removed in npm 9.0.0 and
-          # `setup-node@v4` with node 22.x ships npm 10+, so `npm bin -g`
-          # would exit with "Unknown command: 'bin'" and the existence check
-          # below would fire every run. `npm prefix -g` has been stable since
-          # npm 7 and returns the prefix on every supported version. The
-          # `$(npm prefix -g)/bin` dir is also on PATH via setup-node, so we
-          # could call `aimock` directly — keeping the absolute-path pattern
-          # + existence check as defense-in-depth against a PATH-shadowing
-          # binary sneaking in from a prior step on the runner.
-          AIMOCK_BIN="$(npm prefix -g)/bin/aimock"
+          # Invoke the workspace-installed `llmock` bin directly from the repo root.
+          # `llmock` is aimock's fixtures-based CLI (the package also ships an
+          # `aimock` bin, which is the newer config-only CLI that does NOT accept
+          # --fixtures). Running from the repo root keeps the root-relative
+          # --fixtures paths correct (a `pnpm --filter exec` would run inside
+          # showcase/scripts and break them).
+          AIMOCK_BIN="./showcase/scripts/node_modules/.bin/llmock"
           if [ ! -x "$AIMOCK_BIN" ]; then
-            echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
+            echo "::error::aimock binary not found at $AIMOCK_BIN after workspace install"
             exit 1
           fi
-          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
+          # Fixture layout matches docker-compose.local.yml: feature-parity.json
+          # was split into per-framework shared/d4/d5-recorded/d6 directories
+          # (directory-based loading, one --fixtures per directory).
+          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
+            --fixtures showcase/aimock/shared \
+            --fixtures showcase/aimock/d4 \
+            --fixtures showcase/aimock/d5-recorded \
+            --fixtures showcase/aimock/d6 \
+            --validate-on-load &
           AIMOCK_PID=$!
           echo "AIMOCK_PID=$AIMOCK_PID" >> "$GITHUB_ENV"
           # Wait for aimock to be ready. Capture the PID + `kill -0` inside
@@ -316,25 +332,23 @@ jobs:
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           # Cache pip to avoid reinstalling CrewAI's heavy transitive dep
           # tree on every PR run. Key scopes to the selected slug so each
           # package gets its own cache bucket keyed on its requirements.txt.
           cache: "pip"
-          cache-dependency-path: showcase/packages/${{ steps.slug.outputs.slug }}/requirements.txt
+          cache-dependency-path: showcase/integrations/${{ steps.slug.outputs.slug }}/requirements.txt
 
       - name: Start Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        # NOTE: this workflow tests the SOURCE PACKAGE directly
-        # (showcase/packages/<slug>), whose dev script binds the agent on port
-        # 8000. Generated STARTERS (showcase/starters/<slug>) instead bind on
-        # port 8123 — that's the production scaffold users copy. If you're
-        # debugging a scaffolded starter, the health checks here won't apply.
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          AGENT_TYPE="${{ steps.pkg-type.outputs.agent_type }}"
+          AGENT_PORT="${{ steps.pkg-type.outputs.agent_port }}"
+          AGENT_HEALTH="${{ steps.pkg-type.outputs.agent_health_path }}"
+          cd "showcase/integrations/$SLUG"
           # SECURITY / RELIABILITY trade-off: `pip install` runs setup.py /
           # PEP 517 build hooks from PR-controlled packages. Unlike npm / pnpm
           # there is no `--ignore-scripts` flag for pip; the closest equivalent
@@ -350,58 +364,54 @@ jobs:
           # linux-x86_64/py3.12. The `author_association` gate at the job
           # level still restricts WHO can trigger this workflow, so the
           # residual source-build-hook risk is bounded to a trusted commenter.
-          #
-          # If a future requirements.txt needs an even stronger guarantee,
-          # `--require-hashes` + a fully hash-pinned requirements.txt blocks
-          # swap-in attacks while allowing the pinned source build to run.
           pip install --prefer-binary -r requirements.txt
-          # All currently-dispatchable slugs (the `workflow_dispatch` enum +
-          # the "ships_toggle" short-circuit in the step above) ship
-          # src/agent_server.py, so the `agent_server:app` entrypoint is the
-          # only path actually exercised by this workflow today. The
-          # existence check below is retained as defense-in-depth: a future
-          # refactor that removes agent_server.py from a supported slug
-          # should fail loudly here rather than silently fall through to a
-          # guessed module name and then die mid-Playwright.
-          if [ ! -f "src/agent_server.py" ]; then
-            echo "::error::Slug '$SLUG' is missing src/agent_server.py — this workflow requires the FastAPI entrypoint. Add the file to the package or widen this step."
-            exit 1
+
+          if [ "$AGENT_TYPE" = "langgraph" ]; then
+            # langgraph-python: start via langgraph_cli dev on port 8123.
+            # Uses langgraph.json for graph configuration. The /ok endpoint
+            # is the readiness probe. Inject OPENAI_BASE_URL + dummy key
+            # directly since langgraph-python does not ship aimock_toggle.py.
+            if [ ! -f "langgraph.json" ]; then
+              echo "::error::Slug '$SLUG' detected as langgraph but langgraph.json is missing."
+              exit 1
+            fi
+            OPENAI_BASE_URL=http://localhost:4010/v1 \
+            OPENAI_API_KEY=sk-aimock-dev-ci-only \
+            python -u -m langgraph_cli dev \
+              --config langgraph.json \
+              --host 127.0.0.1 \
+              --port "$AGENT_PORT" \
+              --no-browser &
+          else
+            # uvicorn-based agent (crewai-crews): start via agent_server:app
+            # on port 8000. Packages that ship aimock_toggle.py wire
+            # OPENAI_BASE_URL internally — set AIMOCK_URL only so the toggle
+            # itself is exercised end-to-end.
+            if [ ! -f "src/agent_server.py" ]; then
+              echo "::error::Slug '$SLUG' is missing src/agent_server.py — uvicorn agent type requires the FastAPI entrypoint."
+              exit 1
+            fi
+            export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
+            AIMOCK_URL=http://localhost:4010/v1 \
+            python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &
           fi
-          export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
-          APP_MODULE="agent_server:app"
-          # Set AIMOCK_URL ONLY (not OPENAI_BASE_URL). Packages that ship
-          # aimock_toggle.py MUST prove the toggle itself wires OPENAI_BASE_URL
-          # + LITELLM_API_BASE + dummy key. Pre-setting OPENAI_BASE_URL here
-          # would make a green E2E indistinguishable from "toggle worked"
-          # vs "OPENAI_BASE_URL was already set before the toggle ran" — so
-          # we deliberately leave the rest for configure_aimock() to inject.
-          # OPENAI_API_KEY is left unset so the toggle's dummy-key injection
-          # path is exercised too.
-          AIMOCK_URL=http://localhost:4010/v1 \
-          python -m uvicorn "$APP_MODULE" --host 127.0.0.1 --port 8000 &
-          # Wait for agent to be ready. CrewAI's cold import (litellm + the
-          # full crew graph) can exceed 60s on a cold runner, so give it 90s
-          # (45 iterations × 2s) before declaring failure. Mirrors the aimock
-          # start pattern: loop + hard-fail so a cryptic Playwright timeout
-          # doesn't mask a bind/startup failure here.
-          #
-          # Only probe `/health` — the root `/` of a FastAPI app is typically
-          # a POST endpoint (AG-UI SSE stream) that fails `curl -sf`. Probing
-          # `/` was copy-paste residue from a prior iteration and added no
-          # signal (the check always failed, which made the fallback dead
-          # code). If a future Python agent doesn't expose `/health`, add a
-          # dedicated readiness endpoint instead of reintroducing `/`.
+
+          # Wait for agent to be ready. Cold imports (litellm + crew graph
+          # or langgraph compile) can exceed 60s on a cold runner, so give
+          # it 90s (45 iterations x 2s). Mirrors the aimock start pattern:
+          # loop + hard-fail so a cryptic Playwright timeout doesn't mask a
+          # bind/startup failure.
           for i in $(seq 1 45); do
-            curl -sf --max-time 2 --connect-timeout 1 http://localhost:8000/health > /dev/null 2>&1 && break
+            curl -sf --max-time 2 --connect-timeout 1 "http://localhost:${AGENT_PORT}${AGENT_HEALTH}" > /dev/null 2>&1 && break
             sleep 2
           done
-          curl -sf --max-time 2 --connect-timeout 1 http://localhost:8000/health > /dev/null 2>&1 \
-            || { echo "Python agent failed to start on :8000"; exit 1; }
+          curl -sf --max-time 2 --connect-timeout 1 "http://localhost:${AGENT_PORT}${AGENT_HEALTH}" > /dev/null 2>&1 \
+            || { echo "Python agent failed to start on :${AGENT_PORT}"; exit 1; }
 
       - name: Install package dependencies
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           # `--ignore-scripts`: a trusted commenter can run `/test-aimock` on
           # a PR whose package.json is untrusted content. Without this flag
           # an attacker's postinstall script would execute on the runner with
@@ -412,26 +422,33 @@ jobs:
       - name: Start dev server
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          AGENT_TYPE="${{ steps.pkg-type.outputs.agent_type }}"
+          AGENT_PORT="${{ steps.pkg-type.outputs.agent_port }}"
+          cd "showcase/integrations/$SLUG"
           # Invoke `next dev` directly instead of `pnpm dev` — the package's
-          # `pnpm dev` script spawns a SECOND uvicorn on :8000 via concurrently,
-          # but the previous "Start Python agent" step already bound :8000. A
-          # second uvicorn bind there would fail with EADDRINUSE and silently
-          # race the Playwright test against whichever agent happened to win
-          # the port. Running Next directly also keeps the AIMOCK_URL env flow
-          # clean (only the Python agent reads AIMOCK_URL).
+          # `pnpm dev` script spawns a SECOND agent process via concurrently,
+          # but the previous "Start Python agent" step already bound the agent
+          # port. A second bind would fail with EADDRINUSE. Running Next
+          # directly also keeps the aimock env flow clean.
           #
-          # `OPENAI_BASE_URL` + `OPENAI_API_KEY` on Next here are DEFENSIVE ONLY.
-          # In the CrewAI showcase, Next proxies chat traffic to the Python
-          # agent via the CopilotKit runtime — it does not call OpenAI directly.
-          # Setting these on Next still matters if a future route in this
-          # showcase adds a direct OpenAI call (server action, tool call, etc.),
-          # because the default `OPENAI_API_KEY` would fall back to real OpenAI
-          # and the test would pass/fail on real API traffic. The values here
-          # keep that class of leak impossible even if the showcase changes.
-          OPENAI_BASE_URL=http://localhost:4010/v1 \
-          OPENAI_API_KEY=test-key \
-          AGENT_URL=http://localhost:8000 \
+          # `OPENAI_BASE_URL` + `OPENAI_API_KEY` on Next are DEFENSIVE ONLY.
+          # Next proxies chat traffic to the Python agent via the CopilotKit
+          # runtime — it does not call OpenAI directly. Setting these prevents
+          # accidental real-API fallback if a future route adds a direct call.
+          #
+          # Agent URL wiring differs by agent type:
+          # - uvicorn (crewai-crews): AGENT_URL=http://localhost:8000
+          # - langgraph: LANGGRAPH_DEPLOYMENT_URL=http://localhost:8123
+          #   (langgraph-python's Next routes read this env var, defaulting
+          #   to localhost:8123 if unset — but we set it explicitly for clarity)
+          # Export the correct agent URL env var for Next.js to read.
+          if [ "$AGENT_TYPE" = "langgraph" ]; then
+            export LANGGRAPH_DEPLOYMENT_URL="http://localhost:${AGENT_PORT}"
+          else
+            export AGENT_URL="http://localhost:${AGENT_PORT}"
+          fi
+          export OPENAI_BASE_URL=http://localhost:4010/v1
+          export OPENAI_API_KEY=sk-aimock-dev-ci-only
           npx next dev --turbopack &
           # Wait for dev server. `--max-time 2 --connect-timeout 1` caps each
           # probe so a hung socket can't blow the loop budget.
@@ -443,7 +460,7 @@ jobs:
 
       - name: Install Playwright
         run: |
-          cd "showcase/packages/${{ steps.slug.outputs.slug }}"
+          cd "showcase/integrations/${{ steps.slug.outputs.slug }}"
           npx playwright install chromium --with-deps
 
       - name: Re-probe aimock liveness
@@ -465,7 +482,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           BASE_URL=http://localhost:3000 npx playwright test --reporter=list
         env:
           CI: "true"
@@ -491,10 +508,10 @@ jobs:
 
       - name: Upload test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report-${{ steps.slug.outputs.slug }}
-          path: showcase/packages/${{ steps.slug.outputs.slug }}/playwright-report/
+          path: showcase/integrations/${{ steps.slug.outputs.slug }}/playwright-report/
           retention-days: 7
           if-no-files-found: ignore
 
@@ -516,7 +533,7 @@ jobs:
       issues: write
     steps:
       - name: Post result to PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         # Pass dynamic values through env (NOT `${{ ... }}` interpolation into
         # the script body). Even though the slug is whitelisted upstream, the
         # env-var pattern is the defensive default: any future additions that

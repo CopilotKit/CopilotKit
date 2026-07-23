@@ -1,15 +1,16 @@
 /**
- * Tests for the showcase-ops fetch client.
+ * Tests for the showcase-harness fetch client.
  *
  * Mocks `globalThis.fetch` and asserts the on-the-wire contract that B3
- * (the showcase-ops HTTP API) is being built to satisfy:
+ * (the showcase-harness HTTP API) is being built to satisfy:
  *   - GET  <base>/probes                  → ProbesResponse
  *   - GET  <base>/probes/<id>             → { probe, runs }
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse
  *
- * `baseUrl` resolution order is: explicit param → NEXT_PUBLIC_OPS_BASE_URL
- * → fallback `/api/ops` (proxy). The trigger token is supplied per-call;
- * the client just attaches it as a Bearer header.
+ * `baseUrl` resolution order is: explicit param → runtimeConfig.opsBaseUrl
+ * (from `window.__SHOWCASE_CONFIG__`) → fallback `/api/ops` (proxy). The
+ * trigger token is supplied per-call; the client just attaches it as a
+ * Bearer header.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -17,10 +18,18 @@ import {
   fetchProbes,
   fetchProbeDetail,
   triggerProbe,
+  fetchWorkerRuns,
+  fetchWorkerRunHistory,
+  fetchWorkerRunDetail,
+  OpsApiHttpError,
+  ThrottledError,
   type ProbesResponse,
   type TriggerResponse,
   type ProbeScheduleEntry,
   type ProbeRun,
+  type WorkerRunsResponse,
+  type WorkerRunHistoryResponse,
+  type WorkerRunDetailResponse,
 } from "./ops-api";
 
 type FetchInit = Parameters<typeof fetch>[1];
@@ -72,9 +81,11 @@ let fetchSpy: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
-  // Reset env across tests so explicit-param vs env-var resolution is
-  // exercised cleanly.
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  // Reset runtime config across tests so explicit-param vs env-var
+  // resolution is exercised cleanly. The runtime config is normally
+  // injected by the root layout into `window.__SHOWCASE_CONFIG__`.
+  delete (window as Window & { __SHOWCASE_CONFIG__?: unknown })
+    .__SHOWCASE_CONFIG__;
 });
 
 afterEach(() => {
@@ -99,12 +110,56 @@ describe("fetchProbes", () => {
     expect(String(url)).toBe("/api/ops/probes");
   });
 
-  it("uses NEXT_PUBLIC_OPS_BASE_URL when explicit param omitted", async () => {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://ops.example.com";
+  it("uses runtimeConfig.opsBaseUrl when explicit param omitted", async () => {
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "https://ops.example.com",
+      };
     fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
     await fetchProbes();
     const [url] = fetchSpy.mock.calls[0]!;
     expect(String(url)).toBe("https://ops.example.com/probes");
+  });
+
+  it("uses same-origin /api/ops when opsBaseUrl is empty (no client-direct override)", async () => {
+    // Regression for the staging no-data bug: when the injected client
+    // config carries an EMPTY opsBaseUrl (the production default — the
+    // server proxy target OPS_BASE_URL is NOT leaked into the client),
+    // the client must fall through to the same-origin /api/ops proxy
+    // rather than fetching the harness cross-origin.
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "",
+      };
+    fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
+    await fetchProbes();
+    const [url] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toBe("/api/ops/probes");
+    // And explicitly NOT the cross-origin harness path.
+    expect(String(url)).not.toMatch(/^https?:\/\//);
+  });
+
+  it("does NOT fetch the harness directly when only the server proxy target is configured", async () => {
+    // The injected client config never carries the harness URL as a
+    // fetch base in production. Simulate the post-fix injection: the
+    // server proxy target lives only in process.env.OPS_BASE_URL (read
+    // by the Route Handler), and the client config's opsBaseUrl stays
+    // empty. The client must hit /api/ops, never the harness origin.
+    (window as Window & { __SHOWCASE_CONFIG__?: unknown }).__SHOWCASE_CONFIG__ =
+      {
+        pocketbaseUrl: "",
+        shellUrl: "",
+        opsBaseUrl: "",
+      };
+    fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
+    await fetchProbes();
+    const [url] = fetchSpy.mock.calls[0]!;
+    expect(String(url)).toBe("/api/ops/probes");
+    expect(String(url)).not.toContain("harness-staging");
   });
 
   it("strips trailing slashes from baseUrl", async () => {
@@ -415,5 +470,175 @@ describe("triggerProbe abort behavior (R2-C.4)", () => {
       caught = err;
     }
     expect((caught as { name?: string })?.name).toBe("AbortError");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Worker-runs fetchers — §5.2.1–§5.2.3 wire contract (runviz T10)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe("worker-runs fetchers", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function workerRunsBody(): WorkerRunsResponse {
+    return { families: [], workers: [] };
+  }
+
+  function historyBody(): WorkerRunHistoryResponse {
+    return {
+      family: "d5",
+      runs: [],
+      perPage: 20,
+      nextBefore: null,
+      nextBeforeId: null,
+    };
+  }
+
+  function detailBody(): WorkerRunDetailResponse {
+    return { family: "d5", runId: "01JXRUN", jobs: [] };
+  }
+
+  describe("fetchWorkerRuns", () => {
+    it("hits <base>/runs with cache no-store", async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(workerRunsBody()));
+      const out = await fetchWorkerRuns({ baseUrl: "http://ops.test" });
+      expect(out).toEqual(workerRunsBody());
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchSpy.mock.calls[0]!;
+      expect(String(url)).toBe("http://ops.test/runs");
+      expect((init as FetchInit)?.cache).toBe("no-store");
+    });
+
+    it("falls back to the same-origin /api/ops proxy path", async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(workerRunsBody()));
+      await fetchWorkerRuns();
+      const [url] = fetchSpy.mock.calls[0]!;
+      expect(String(url)).toBe("/api/ops/runs");
+    });
+
+    it("surfaces a 404 as OpsApiHttpError carrying status 404 (the §6.1 misdeploy classifier input)", async () => {
+      fetchSpy.mockResolvedValue(
+        new Response("not here", { status: 404, statusText: "Not Found" }),
+      );
+      let caught: unknown = null;
+      try {
+        await fetchWorkerRuns({ baseUrl: "http://ops.test" });
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(OpsApiHttpError);
+      expect((caught as OpsApiHttpError).status).toBe(404);
+    });
+  });
+
+  describe("fetchWorkerRunHistory", () => {
+    it("hits <base>/runs/:family with cache no-store", async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(historyBody()));
+      const out = await fetchWorkerRunHistory("d5", undefined, {
+        baseUrl: "http://ops.test",
+      });
+      expect(out).toEqual(historyBody());
+      const [url, init] = fetchSpy.mock.calls[0]!;
+      expect(String(url)).toBe("http://ops.test/runs/d5");
+      expect((init as FetchInit)?.cache).toBe("no-store");
+    });
+
+    it("echoes before AND beforeId verbatim as query params (§5.2.2 composite cursor)", async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(historyBody()));
+      await fetchWorkerRunHistory(
+        "d5",
+        { before: "2026-06-10T01:02:03.004Z", beforeId: "row_42" },
+        { baseUrl: "http://ops.test" },
+      );
+      const [url] = fetchSpy.mock.calls[0]!;
+      const parsed = new URL(String(url));
+      expect(parsed.pathname).toBe("/runs/d5");
+      expect(parsed.searchParams.get("before")).toBe(
+        "2026-06-10T01:02:03.004Z",
+      );
+      expect(parsed.searchParams.get("beforeId")).toBe("row_42");
+    });
+
+    it("honors Retry-After on a 429 before retrying (§6.1 NON-incident path)", async () => {
+      vi.useFakeTimers();
+      fetchSpy
+        .mockResolvedValueOnce(
+          new Response("", { status: 429, headers: { "retry-after": "5" } }),
+        )
+        .mockResolvedValueOnce(jsonResponse(historyBody()));
+      const promise = fetchWorkerRunHistory("d5", undefined, {
+        baseUrl: "http://ops.test",
+      });
+      // Flush microtasks so the first 429 is consumed and the wait armed.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      // 1ms short of Retry-After: 5s — must NOT have retried yet.
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      await expect(promise).resolves.toEqual(historyBody());
+    });
+
+    it("falls back to the 10s rate-limit window when Retry-After is absent", async () => {
+      vi.useFakeTimers();
+      fetchSpy
+        .mockResolvedValueOnce(new Response("", { status: 429 }))
+        .mockResolvedValueOnce(jsonResponse(historyBody()));
+      const promise = fetchWorkerRunHistory("d5", undefined, {
+        baseUrl: "http://ops.test",
+      });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      await expect(promise).resolves.toEqual(historyBody());
+    });
+
+    it("caps retries at 3 attempts then throws a typed ThrottledError", async () => {
+      vi.useFakeTimers();
+      fetchSpy.mockResolvedValue(
+        new Response("", { status: 429, headers: { "retry-after": "1" } }),
+      );
+      const settled = fetchWorkerRunHistory("d5", undefined, {
+        baseUrl: "http://ops.test",
+      }).catch((err: unknown) => err);
+      // Two 1s waits separate the three attempts; advance well past both.
+      await vi.advanceTimersByTimeAsync(10_000);
+      const err = await settled;
+      expect(err).toBeInstanceOf(ThrottledError);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("fetchWorkerRunDetail", () => {
+    it("hits <base>/runs/:family/:runId with cache no-store", async () => {
+      fetchSpy.mockResolvedValue(jsonResponse(detailBody()));
+      const out = await fetchWorkerRunDetail("d5", "01JXRUN", {
+        baseUrl: "http://ops.test",
+      });
+      expect(out).toEqual(detailBody());
+      const [url, init] = fetchSpy.mock.calls[0]!;
+      expect(String(url)).toBe("http://ops.test/runs/d5/01JXRUN");
+      expect((init as FetchInit)?.cache).toBe("no-store");
+    });
+
+    it("shares the 429 retry-then-ThrottledError path with the history fetcher", async () => {
+      vi.useFakeTimers();
+      fetchSpy.mockResolvedValue(
+        new Response("", { status: 429, headers: { "retry-after": "1" } }),
+      );
+      const settled = fetchWorkerRunDetail("d5", "01JXRUN", {
+        baseUrl: "http://ops.test",
+      }).catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(10_000);
+      const err = await settled;
+      expect(err).toBeInstanceOf(ThrottledError);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+    });
   });
 });

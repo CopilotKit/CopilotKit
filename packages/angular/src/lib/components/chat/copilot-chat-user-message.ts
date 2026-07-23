@@ -29,35 +29,15 @@ import { CopilotChatUserMessageToolbar } from "./copilot-chat-user-message-toolb
 import { CopilotChatUserMessageBranchNavigation } from "./copilot-chat-user-message-branch-navigation";
 import { cn } from "../../utils";
 import { UserMessage } from "@ag-ui/core";
-
-function flattenUserMessageContent(content?: UserMessage["content"]): string {
-  if (!content) {
-    return "";
-  }
-
-  if (typeof content === "string") {
-    return content;
-  }
-
-  return content
-    .map((part) => {
-      if (
-        part &&
-        typeof part === "object" &&
-        "type" in part &&
-        (part as { type?: unknown }).type === "text" &&
-        typeof (part as { text?: unknown }).text === "string"
-      ) {
-        return (part as { text: string }).text;
-      }
-      return "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n");
-}
+import { CopilotChatAttachmentRenderer } from "./copilot-chat-attachment-renderer";
+import {
+  flattenUserMessageContent,
+  getUserMessageMediaFilename,
+  getUserMessageMediaParts,
+  type UserMessageMediaPart,
+} from "./copilot-chat-user-message-utils";
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message",
   host: { "data-copilotkit": "" },
   imports: [
@@ -68,11 +48,31 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
     CopilotChatUserMessageEditButton,
     CopilotChatUserMessageToolbar,
     CopilotChatUserMessageBranchNavigation,
+    CopilotChatAttachmentRenderer,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()" [attr.data-message-id]="message()?.id">
+    <div
+      [class]="computedClass()"
+      [attr.data-message-id]="message()?.id"
+      data-message-role="user"
+      role="article"
+    >
+      @if (mediaParts().length > 0) {
+        <div
+          class="cpk:flex cpk:flex-row cpk:flex-wrap cpk:justify-end cpk:gap-2 cpk:mb-2"
+        >
+          @for (part of mediaParts(); track $index) {
+            <copilot-chat-attachment-renderer
+              [type]="part.type"
+              [source]="part.source"
+              [filename]="filenameFor(part)"
+            />
+          }
+        </div>
+      }
+
       <!-- Message Renderer -->
       @if (messageRendererTemplate || messageRendererComponent()) {
         <copilot-slot
@@ -99,7 +99,7 @@ function flattenUserMessageContent(content?: UserMessage["content"]): string {
         </copilot-slot>
       } @else {
         <div copilotChatUserMessageToolbar [inputClass]="toolbarClass()">
-          <div class="flex items-center gap-1 justify-end">
+          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
             <!-- Additional toolbar items -->
             @if (additionalToolbarItems()) {
               <ng-container
@@ -232,12 +232,18 @@ export class CopilotChatUserMessage {
   showBranchNavigation = computed(() => (this.numberOfBranches() ?? 1) > 1);
 
   computedClass = computed(() =>
-    cn("flex flex-col items-end group pt-10", this.inputClass()),
+    cn(
+      "copilotKitMessage copilotKitUserMessage cpk:flex cpk:flex-col cpk:items-end cpk:group cpk:pt-10",
+      this.inputClass(),
+    ),
   );
 
   // Context for slots (reactive via signals)
   flattenedContent = computed(() =>
     flattenUserMessageContent(this.message()?.content),
+  );
+  mediaParts = computed(() =>
+    getUserMessageMediaParts(this.message()?.content),
   );
 
   messageRendererContext = computed<MessageRendererContext>(() => ({
@@ -272,6 +278,10 @@ export class CopilotChatUserMessage {
     props: CopilotChatUserMessageOnSwitchToBranchProps,
   ): void {
     this.switchToBranch.emit(props);
+  }
+
+  filenameFor(part: UserMessageMediaPart): string | undefined {
+    return getUserMessageMediaFilename(part);
   }
   constructor() {}
 }

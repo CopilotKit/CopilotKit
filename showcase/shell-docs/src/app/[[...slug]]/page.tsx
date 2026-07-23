@@ -1,298 +1,164 @@
-// /<...slug> — the framework-agnostic docs entry point.
+// /<...slug> — the root docs entry point.
 //
-// When a framework is already selected (URL-scoped or from localStorage
-// via <RouterPivot>'s useEffect), the user is auto-redirected to
-// `/<framework>/<slug>`. Otherwise we render a "pick an agentic
-// backend" pivot UI above the page title and hide the MDX body until
-// the user chooses one — code without a backend context is incomplete.
+// The Built-in Agent (the default framework) is served at the root
+// surface: the bare `/` renders the docs overview with the BIA sidebar,
+// and `/<slug>` URLs resolve BIA-authored pages first (see
+// UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
 import React from "react";
-import Link from "next/link";
+import type { Metadata } from "next";
+import { DocsLandingNext } from "@/components/docs-landing-next";
+import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import {
+  HeroStartActions,
+  LearnMoreAgentsLink,
+} from "@/components/hero-start-commands";
+import { LandingSampleTabs } from "@/components/landing-sample-tabs";
+import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
-import { SidebarLink } from "@/components/sidebar-link";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
-  CONTENT_DIR,
-  FRAMEWORK_CATEGORY_ORDER,
-  buildNavTree,
-  type NavNode,
+  buildFrameworkNav,
+  buildRootSurfaceNav,
+  loadDoc,
 } from "@/lib/docs-render";
+import { compareByDisplayOrder } from "@/lib/framework-order";
+import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegration,
   getIntegrations,
-  getCategoryLabel,
-  type Integration,
+  ROOT_FRAMEWORK,
 } from "@/lib/registry";
+import { buildDocMetadata } from "@/lib/seo-metadata";
 
-// Category ordering for the framework picker grid is imported from
-// @/lib/docs-render so the landing grid, sidebar dropdown, and this
-// overview share a single source of truth.
+// Force dynamic rendering so unknown slugs reliably return HTTP 404
+// from `notFound()` instead of being cached as a 200 with the not-found
+// UI baked in (the search-engine-killing soft-404). The bare home page
+// and known unscoped docs are still cheap to render — they're
+// filesystem reads of MDX content — and Railway / upstream CDN caches
+// successful responses at the edge anyway.
+export const dynamic = "force-dynamic";
 
-// Docs-section cards shown beneath the framework picker. Each href
-// targets the framework-agnostic root route — when the user already
-// has a framework stored, `<RouterPivot>` on the destination page
-// redirects them into the scoped view.
-const DOCS_SECTIONS: {
-  href: string;
-  title: string;
-  description: string;
-  category: string;
-}[] = [
-  {
-    href: "/quickstart",
-    title: "Quickstart",
-    description: "Five-minute setup for a working copilot",
-    category: "Getting Started",
-  },
-  {
-    href: "/coding-agents",
-    title: "Coding Agents",
-    description: "Bootstrap with Claude Code, Cursor, Windsurf, and friends",
-    category: "Getting Started",
-  },
-  {
-    href: "/agentic-chat-ui",
-    title: "Chat Components",
-    description: "Drop-in CopilotChat & CopilotSidebar for agentic chat",
-    category: "Basics",
-  },
-  {
-    href: "/custom-look-and-feel",
-    title: "Custom Look & Feel",
-    description: "Theme, slot, and fully-headless chat UI",
-    category: "Basics",
-  },
-  {
-    href: "/generative-ui",
-    title: "Generative UI",
-    description: "Render live React components from the agent's stream",
-    category: "Generative UI",
-  },
-  {
-    href: "/frontend-tools",
-    title: "Frontend Tools",
-    description: "Expose client-side actions to the agent",
-    category: "App Control",
-  },
-  {
-    href: "/shared-state",
-    title: "Shared State",
-    description: "Two-way state binding between the UI and the agent",
-    category: "App Control",
-  },
-  {
-    href: "/human-in-the-loop",
-    title: "Human-in-the-Loop",
-    description: "Intercept tool calls for explicit user approval",
-    category: "App Control",
-  },
-];
+// Soft-default framework rendered on the bare `/` URL — the same
+// framework whose docs are served at the root surface, so the sidebar
+// tree on `/` is identical to what the user sees after clicking any
+// Built-in Agent sidebar link.
+const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
+
+// Per-framework self-canonical: each variant of a doc page declares
+// itself canonical so search engines index every framework's quickstart
+// (etc.) at its own URL rather than collapsing them all onto the bare
+// /quickstart. Done at the page level so the metadata depends on params.
+//
+// For the bare home page we hand-wire title/description so visitors and
+// social platforms see CopilotKit's positioning rather than the page's
+// own first MDX line.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const slugPath = slug?.join("/") ?? "";
+  const canonicalPath = slugPath ? `/${slugPath}` : "/";
+  // Home page: brand-level title + tagline. Other unscoped slugs (e.g.
+  // /quickstart, /concepts/architecture) read frontmatter via loadDoc.
+  if (!slugPath) {
+    return buildDocMetadata({
+      title: "CopilotKit: the frontend stack for agents",
+      description:
+        "Connect any agent framework or model to your React app for chat, generative UI, canvas, and human-in-the-loop workflows.",
+      canonicalPath: "/",
+    });
+  }
+  // Root URLs serve the BIA-authored page when one exists (see
+  // UnscopedDocsPage) — mirror that resolution for metadata.
+  const doc =
+    loadDoc(
+      `integrations/${getDocsFolder(HOME_DEFAULT_FRAMEWORK)}/${slugPath}`,
+    ) ?? loadDoc(slugPath);
+  return buildDocMetadata({
+    title: doc?.fm.title ?? slugPath,
+    description: doc?.fm.description,
+    canonicalPath,
+    ogPath: `/og${canonicalPath}/og.png`,
+  });
+}
 
 function DocsOverview() {
-  const integrations = getIntegrations()
+  // Sidebar matches the soft-default framework so home `/` and the
+  // root-served BIA pages share the same authored IA. The empty href
+  // prefix serves every sidebar link at the root (`/quickstart`, …);
+  // the tree's `index` entry resolves to `/` and gets the active
+  // highlight on landing.
+  const docsFolder = getDocsFolder(HOME_DEFAULT_FRAMEWORK);
+  const integrationName =
+    getIntegration(HOME_DEFAULT_FRAMEWORK)?.name ?? "Built-in Agent";
+  // Same unified root-surface sidebar every other root page uses, so the
+  // sidebar is stable from the home page into any doc.
+  const navTree =
+    getDocsMode(HOME_DEFAULT_FRAMEWORK) === "authored"
+      ? buildRootSurfaceNav(docsFolder)
+      : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
+  const pageTree = navTreeToPageTree(navTree, "");
+
+  // The home hero has no framework context, so its quickstart CTA is the
+  // framework picker dropdown (same accent treatment as the framework pages'
+  // direct quickstart link). The default framework sorts first; its
+  // quickstart lives at the root.
+  const quickstartOptions = getIntegrations()
+    .filter((i) => getDocsMode(i.slug) !== "hidden")
     .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
-
-  // Bucket integrations by category, honoring the canonical ordering.
-  const buckets = new Map<string, Integration[]>();
-  for (const cat of FRAMEWORK_CATEGORY_ORDER) buckets.set(cat, []);
-  buckets.set("other", []);
-  for (const i of integrations) {
-    const key = buckets.has(i.category) ? i.category : "other";
-    buckets.get(key)!.push(i);
-  }
-
-  const navTree = buildNavTree(CONTENT_DIR);
-
-  // Preserve insertion order while grouping section cards by category.
-  const sectionsByCategory = new Map<string, typeof DOCS_SECTIONS>();
-  for (const s of DOCS_SECTIONS) {
-    if (!sectionsByCategory.has(s.category))
-      sectionsByCategory.set(s.category, []);
-    sectionsByCategory.get(s.category)!.push(s);
-  }
-
+    .sort((a, b) => {
+      if (a.slug === HOME_DEFAULT_FRAMEWORK) return -1;
+      if (b.slug === HOME_DEFAULT_FRAMEWORK) return 1;
+      return compareByDisplayOrder(a.slug, b.slug);
+    })
+    .map((i) => ({
+      slug: i.slug,
+      name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
+      logo: i.logo ?? null,
+      href:
+        i.slug === HOME_DEFAULT_FRAMEWORK
+          ? "/quickstart"
+          : `/${i.slug}/quickstart`,
+    }));
   return (
-    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
-      <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
-        <SidebarFrameworkSelector />
-        <Link
-          href="/"
-          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
-        >
-          CopilotKit Docs
-        </Link>
-        {navTree.map((node) => (
-          <OverviewNavItem key={nodeKey(node)} node={node} />
-        ))}
-      </SidebarNav>
-
-      {/* <main> is the full-width scroll container so the scrollbar
-       * lands at the viewport edge. Content width is capped by the
-       * inner wrapper below. Previously `max-w-4xl` sat on <main>
-       * directly, which parked the scrollbar mid-page. */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl px-8 py-10">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Documentation
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+      <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
+        <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
+          <div className="flex max-w-[765px] flex-col">
+            <div>
+              <h1 className="max-w-[24ch] text-[2rem] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--text)] sm:text-[2.5rem] md:mt-3">
+                CopilotKit
+              </h1>
+              <p className="mt-3 max-w-[58ch] text-lg font-medium leading-snug text-[var(--text-muted)] sm:text-[1.375rem]">
+                The frontend stack for agentic user experience.
+              </p>
+              <p className="mt-4 max-w-[58ch] text-base leading-[1.55] text-[var(--text-secondary)] sm:text-lg">
+                Build production chat, generative UI, shared state, and
+                human-in-the-loop workflows on any AG-UI compatible backend.
+              </p>
+            </div>
+            <div className="mt-7">
+              <HeroStartActions
+                quickstart={
+                  <HeroQuickstartDropdown options={quickstartOptions} />
+                }
+                trailing={<LearnMoreAgentsLink />}
+              />
+            </div>
           </div>
-          <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-            Build AI-powered apps with CopilotKit
-          </h1>
-          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
-            CopilotKit ships deep integrations across every major agent
-            framework and SDK. Pick your <em>agentic backend</em> below — the
-            rest of the docs adapt every snippet and code sample to that
-            framework.
-          </p>
+        </section>
 
-          {/* Framework picker — big grid of all integrations, grouped by category */}
-          <section className="mb-12">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-              Step 1
-            </div>
-            <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-              Pick an agentic backend
-            </h2>
-            <p className="text-sm text-[var(--text-secondary)] mb-5">
-              We store your choice locally so every page renders the right code.
-            </p>
-
-            {[...buckets.entries()].map(([catId, items]) => {
-              if (items.length === 0) return null;
-              const label =
-                catId === "other" ? "Other" : getCategoryLabel(catId);
-              return (
-                <div key={catId} className="mb-6">
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                    {label}
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {items.map((i) => (
-                      <Link
-                        key={i.slug}
-                        href={`/${i.slug}`}
-                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
-                      >
-                        {i.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={i.logo}
-                            alt=""
-                            className="w-5 h-5 shrink-0"
-                          />
-                        ) : (
-                          <span className="w-5 h-5 shrink-0" />
-                        )}
-                        <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                          {i.name}
-                        </span>
-                        {/* Marks the framework currently stored in
-                          localStorage so repeat visitors can spot "their"
-                          choice at a glance without an auto-redirect. */}
-                        <StoredFrameworkHighlight slug={i.slug} />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </section>
-
-          {/* Section cards — grouped by broad topic. Clicking any of
-            these before picking a framework lands on the per-feature
-            pivot; once a framework is stored the destination's
-            <RouterPivot /> redirects into the scoped view. */}
-          <section>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-              Step 2
-            </div>
-            <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
-              Or jump into a topic
-            </h2>
-
-            {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
-              <div key={catLabel} className="mb-6">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                  {catLabel}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {sections.map((s) => (
-                    <SidebarLink
-                      key={s.href}
-                      slug={s.href.slice(1)}
-                      className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-                    >
-                      <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-                        {s.title}
-                      </div>
-                      <div className="text-xs text-[var(--text-muted)] leading-relaxed">
-                        {s.description}
-                      </div>
-                    </SidebarLink>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </section>
+        <div className="space-y-10 pt-8">
+          <LandingSampleTabs />
+          <DocsLandingNext />
         </div>
-      </main>
-    </div>
-  );
-}
-
-// Render a single nav node for the overview sidebar. Unlike
-// `<DocsPageView>`, there is no active slug here — this is the docs
-// root — so every page link is rendered in its idle state.
-function nodeKey(node: NavNode): string {
-  if (node.type === "section") return `section-${node.title}`;
-  if (node.type === "page") return `page-${node.slug}`;
-  return `group-${node.slug}`;
-}
-
-function OverviewNavItem({
-  node,
-  depth = 0,
-}: {
-  node: NavNode;
-  depth?: number;
-}) {
-  const indent = depth * 16;
-  if (node.type === "section") {
-    return (
-      <div
-        className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mt-4 mb-2"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
       </div>
-    );
-  }
-  if (node.type === "page") {
-    return (
-      <div style={{ paddingLeft: `${indent}px` }}>
-        <SidebarLink
-          slug={node.slug}
-          className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        >
-          {node.title}
-        </SidebarLink>
-      </div>
-    );
-  }
-  return (
-    <div className="mt-1">
-      <div
-        className="py-[5px] text-[13px] font-medium text-[var(--text-secondary)]"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
-      </div>
-      {node.children.map((child) => (
-        <OverviewNavItem key={nodeKey(child)} node={child} depth={depth + 1} />
-      ))}
-    </div>
+    </ShellDocsLayout>
   );
 }
 

@@ -1,0 +1,495 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / render-a2ui",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "render the a2ui schema",
+        "turnIndex": 0,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "The A2UI fixed-schema component was rendered. The schema-driven UI received the agent's payload and produced the corresponding UI element from the locked schema definition."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "have the agent emit a ui",
+        "turnIndex": 0,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "The agent emitted a UI block as part of its turn. The agent acts as the UI generator: its response payload describes the component and the renderer materialized it inline with the assistant message."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "render the declarative card",
+        "turnIndex": 0,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "The declarative gen-UI specification has been resolved into a rendered card. The component descriptor was forwarded to the frontend renderer which materialized the card declaratively from the schema."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_show_card_001",
+            "name": "show_card",
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815\\u20131852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine \\u2014 including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": false,
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_steps_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Research Mars mission requirements and timeline\",\"status\":\"enabled\"},{\"description\":\"Design spacecraft and life support systems\",\"status\":\"enabled\"},{\"description\":\"Recruit and train the crew\",\"status\":\"enabled\"},{\"description\":\"Launch and navigate to Mars\",\"status\":\"enabled\"},{\"description\":\"Land and establish base camp\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": true,
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolCallId": "call_d5_a2ui_dynamic_kpi_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the KPI dashboard you requested."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"KPI dashboard\"}",
+            "id": "call_d5_a2ui_dynamic_kpi_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_kpi_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"kpi-dashboard\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"Quarterly KPIs\", \"subtitle\": \"Revenue, signups, and churn\", \"child\": \"metrics-row\"}, {\"id\": \"metrics-row\", \"component\": \"Row\", \"children\": [\"m-rev\", \"m-sign\", \"m-churn\"], \"gap\": 16}, {\"id\": \"m-rev\", \"component\": \"Metric\", \"label\": \"Revenue\", \"value\": \"$1.24M\", \"trend\": \"up\"}, {\"id\": \"m-sign\", \"component\": \"Metric\", \"label\": \"Signups\", \"value\": \"8,420\", \"trend\": \"up\"}, {\"id\": \"m-churn\", \"component\": \"Metric\", \"label\": \"Churn\", \"value\": \"2.3%\", \"trend\": \"down\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolCallId": "call_d5_a2ui_dynamic_pie_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the pie chart by region."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"pie chart of sales by region\"}",
+            "id": "call_d5_a2ui_dynamic_pie_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_pie_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"pie-sales\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"PieChart\", \"title\": \"Sales by region\", \"description\": \"Q4 revenue split\", \"data\": [{\"label\": \"NA\", \"value\": 540}, {\"label\": \"EMEA\", \"value\": 320}, {\"label\": \"APAC\", \"value\": 210}, {\"label\": \"LATAM\", \"value\": 90}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolCallId": "call_d5_a2ui_dynamic_bar_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the bar chart of quarterly revenue."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
+            "id": "call_d5_a2ui_dynamic_bar_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_bar_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"bar-quarterly\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"BarChart\", \"title\": \"Quarterly revenue\", \"description\": \"FY 2025 per quarter\", \"data\": [{\"label\": \"Q1\", \"value\": 820}, {\"label\": \"Q2\", \"value\": 950}, {\"label\": \"Q3\", \"value\": 1100}, {\"label\": \"Q4\", \"value\": 1240}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolCallId": "call_d5_a2ui_dynamic_status_001",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Here is the system health status report."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "generate_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"status report on system health\"}",
+            "id": "call_d5_a2ui_dynamic_status_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "_design_a2ui_surface",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_design_a2ui_status_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"status-report\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Card\", \"title\": \"System health\", \"subtitle\": \"Live status\", \"child\": \"rows\"}, {\"id\": \"rows\", \"component\": \"Column\", \"children\": [\"r-api\", \"r-db\", \"r-bg\"], \"gap\": 8}, {\"id\": \"r-api\", \"component\": \"Row\", \"children\": [\"l-api\", \"b-api\"], \"gap\": 8}, {\"id\": \"l-api\", \"component\": \"InfoRow\", \"label\": \"API\", \"value\": \"p99 142ms\"}, {\"id\": \"b-api\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}, {\"id\": \"r-db\", \"component\": \"Row\", \"children\": [\"l-db\", \"b-db\"], \"gap\": 8}, {\"id\": \"l-db\", \"component\": \"InfoRow\", \"label\": \"Database\", \"value\": \"Replication lag 220ms\"}, {\"id\": \"b-db\", \"component\": \"StatusBadge\", \"text\": \"Degraded\", \"variant\": \"warning\"}, {\"id\": \"r-bg\", \"component\": \"Row\", \"children\": [\"l-bg\", \"b-bg\"], \"gap\": 8}, {\"id\": \"l-bg\", \"component\": \"InfoRow\", \"label\": \"Background workers\", \"value\": \"Queue depth 12\"}, {\"id\": \"b-bg\", \"component\": \"StatusBadge\", \"text\": \"Healthy\", \"variant\": \"success\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — KPI dashboard pill (Google-ADK secondary tool name). Card has a single `child` slot (per myDefinitions.Card.props.child: string), so we wrap the three Metrics in a basic-catalog Column to satisfy the multi-child layout.",
+      "match": {
+        "userMessage": "KPI dashboard",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "KPI dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "PieChart",
+                  "title": "Sales by region",
+                  "description": "Q4 — share of total revenue",
+                  "data": [
+                    {
+                      "label": "North America",
+                      "value": 540
+                    },
+                    {
+                      "label": "EMEA",
+                      "value": 320
+                    },
+                    {
+                      "label": "APAC",
+                      "value": 210
+                    },
+                    {
+                      "label": "LATAM",
+                      "value": 90
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "BarChart",
+                  "title": "Quarterly revenue",
+                  "description": "FY24 — USD thousands",
+                  "data": [
+                    {
+                      "label": "Q1",
+                      "value": 820
+                    },
+                    {
+                      "label": "Q2",
+                      "value": 940
+                    },
+                    {
+                      "label": "Q3",
+                      "value": 1080
+                    },
+                    {
+                      "label": "Q4",
+                      "value": 1240
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "render_a2ui — status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
+      "match": {
+        "userMessage": "status report on system health",
+        "toolName": "render_a2ui",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "System health",
+                  "subtitle": "All services",
+                  "child": "status-col"
+                },
+                {
+                  "id": "status-col",
+                  "component": "Column",
+                  "children": [
+                    "status-api",
+                    "status-db",
+                    "status-workers"
+                  ],
+                  "gap": 8
+                },
+                {
+                  "id": "status-api",
+                  "component": "StatusBadge",
+                  "text": "API: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-db",
+                  "component": "StatusBadge",
+                  "text": "Database: healthy",
+                  "variant": "success"
+                },
+                {
+                  "id": "status-workers",
+                  "component": "StatusBadge",
+                  "text": "Workers: degraded",
+                  "variant": "warning"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

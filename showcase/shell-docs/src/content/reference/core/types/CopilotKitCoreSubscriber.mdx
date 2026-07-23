@@ -1,0 +1,113 @@
+---
+title: "CopilotKitCoreSubscriber"
+description: "Set of optional callbacks notified of CopilotKitCore lifecycle events."
+---
+
+## Overview
+
+`CopilotKitCoreSubscriber` is the object passed to [`CopilotKitCore.subscribe`](/reference/core/classes/CopilotKitCore). Every callback is optional, receives an event object that always includes the `copilotkit` instance, and may return `void` or a `Promise<void>`. Use it to react to connection status, tool execution, suggestions, configuration changes, and errors.
+
+## Import
+
+```ts
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
+```
+
+## Definition
+
+Every callback is optional, receives an event object that always includes the
+`copilotkit` instance, and returns `void` or `Promise<void>`. The shape below
+shows the representative `onRuntimeConnectionStatusChanged` callback; the
+[Properties](#properties) section documents each callback's exact event shape.
+
+```ts
+interface CopilotKitCoreSubscriber {
+  onRuntimeConnectionStatusChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    status: CopilotKitCoreRuntimeConnectionStatus;
+  }) => void | Promise<void>;
+  // ...one optional callback per lifecycle event (tool execution, agents,
+  // context, suggestions, properties, headers, errors, thread stores).
+  // See the Properties section below for each callback's event shape.
+}
+```
+
+## Properties
+
+<PropertyReference name="onRuntimeConnectionStatusChanged" type="(event) => void | Promise<void>">
+  Fired when the runtime connection status changes. Event: `{ copilotkit, status }` where `status` is a [`CopilotKitCoreRuntimeConnectionStatus`](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
+</PropertyReference>
+
+<PropertyReference name="onToolExecutionStart" type="(event) => void | Promise<void>">
+  Fired when a frontend tool starts executing. Event: `{ copilotkit, toolCallId, agentId, toolName, args }`.
+</PropertyReference>
+
+<PropertyReference name="onToolExecutionEnd" type="(event) => void | Promise<void>">
+  Fired when a frontend tool finishes executing. Event: `{ copilotkit, toolCallId, agentId, toolName, result, error? }`, where `result` is the stringified tool result.
+</PropertyReference>
+
+<PropertyReference name="onAgentsChanged" type="(event) => void | Promise<void>">
+  Fired when the registered agents change. Event: `{ copilotkit, agents }`.
+</PropertyReference>
+
+<PropertyReference name="onContextChanged" type="(event) => void | Promise<void>">
+  Fired when the shared context changes. Event: `{ copilotkit, context }`.
+</PropertyReference>
+
+<PropertyReference name="onSuggestionsConfigChanged" type="(event) => void | Promise<void>">
+  Fired when the suggestions configuration changes. Event: `{ copilotkit, suggestionsConfig }`.
+</PropertyReference>
+
+<PropertyReference name="onSuggestionsChanged" type="(event) => void | Promise<void>">
+  Fired when the generated suggestions for an agent change. Event: `{ copilotkit, agentId, suggestions }`.
+</PropertyReference>
+
+<PropertyReference name="onSuggestionsStartedLoading" type="(event) => void | Promise<void>">
+  Fired when suggestion generation begins for an agent. Event: `{ copilotkit, agentId }`.
+</PropertyReference>
+
+<PropertyReference name="onSuggestionsFinishedLoading" type="(event) => void | Promise<void>">
+  Fired when suggestion generation completes for an agent. Event: `{ copilotkit, agentId }`.
+</PropertyReference>
+
+<PropertyReference name="onPropertiesChanged" type="(event) => void | Promise<void>">
+  Fired when the forwarded properties change. Event: `{ copilotkit, properties }`.
+</PropertyReference>
+
+<PropertyReference name="onHeadersChanged" type="(event) => void | Promise<void>">
+  Fired when the request headers change. Event: `{ copilotkit, headers }`.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event) => void | Promise<void>">
+  Fired when an error occurs. Event: `{ copilotkit, error, code, context }` where `code` is a [`CopilotKitCoreErrorCode`](/reference/core/enums/CopilotKitCoreErrorCode).
+</PropertyReference>
+
+<PropertyReference name="onThreadStoreRegistered" type="(event) => void | Promise<void>">
+  Fired when a thread store is registered. Event: `{ copilotkit, agentId, store }`.
+</PropertyReference>
+
+<PropertyReference name="onThreadStoreUnregistered" type="(event) => void | Promise<void>">
+  Fired when a thread store is removed (by explicit unregister or by a replacing register). The previous store is delivered via `prevStore`. Event: `{ copilotkit, agentId, prevStore }`.
+</PropertyReference>
+
+## Usage
+
+```ts
+const subscription = copilotkit.subscribe({
+  onRuntimeConnectionStatusChanged: ({ status }) => {
+    console.log("connection:", status);
+  },
+  onError: ({ code, error }) => {
+    console.error(code, error);
+  },
+});
+
+// later
+subscription.unsubscribe();
+```
+
+## Related
+
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
+- [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode)
+- [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus)

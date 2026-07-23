@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 fixture for /demos/beautiful-chat — Toggle Theme pill. Single-shot frontend tool call (toggleTheme has no args), followed by a closing content message that lets the runner's settle plateau advance. Each beautiful-chat-* probe runs in its own fresh page session so toolCallId-based matchers are safe (no cross-turn leakage).",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    }
+  ]
+}

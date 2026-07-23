@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "@copilotkit/react-core/v2/styles.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Map the CSS variables declared on :root below into Tailwind v4 theme tokens
+ * so utilities like `bg-background`, `text-foreground`, `bg-muted`,
+ * `border-border`, etc. actually generate CSS. Without this block the
+ * shadcn primitives used in headless-complete fall back to no styling. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --copilot-kit-background-color: #fafaf9;
+  --copilot-kit-primary-color: #4285f4;
+  --copilot-kit-response-button-background-color: #f5f5f3;
+  --copilot-kit-response-button-color: #1a1a18;
+
+  --background: #ffffff;
+  --foreground: #1a1a18;
+  --card: #ffffff;
+  --card-foreground: #1a1a18;
+  --primary: #1a1a18;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #1a1a18;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #1a1a18;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
+  --radius: 0.75rem;
+}
+
+:root.dark,
+.dark {
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #191a1e;
+  --card-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #1a1a18;
+  --secondary: #242529;
+  --secondary-foreground: #fafafa;
+  --muted: #242529;
+  --muted-foreground: #adadb2;
+  --accent: #303136;
+  --accent-foreground: #fafafa;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #303136;
+  --input: #303136;
+  --ring: #bec2ff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* `body` deliberately does NOT have `width: 100%`. Letting it auto-size
+ * lets <CopilotSidebar /> shrink the document via `margin-inline-end` so
+ * the sidebar pushes the page content instead of overlapping it. */
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* When a Radix overlay (Select / Dialog / Popover) opens, react-remove-scroll
+ * adds `body[data-scroll-locked]` with `padding-right` equal to what it
+ * thinks is the scrollbar width. Because our <body> uses `margin-inline-end`
+ * to make room for <CopilotSidebar />, the lib mis-detects the sidebar
+ * width as scrollbar width and injects a matching padding-right, which
+ * shrinks the page on every dropdown open. We have no real scrollbar
+ * (`overflow: hidden` above) so the compensation is unnecessary — neutralize
+ * it here. */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+}

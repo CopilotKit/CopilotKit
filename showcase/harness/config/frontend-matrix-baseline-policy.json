@@ -1,0 +1,4556 @@
+{
+  "schemaVersion": 1,
+  "frozenBaseCommit": "dd20114b015ae6f76fe97b5dff5a295d2ca8c94e",
+  "acceptedFailures": [
+    {
+      "integration": "ag2",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ag2",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "agno",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "built-in-agent",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-python",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "claude-sdk-typescript",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "crewai-crews",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "gen-ui-interrupt",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "google-adk",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-fastapi",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-python",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langgraph-typescript",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "langroid",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "llamaindex",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "background-agents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "gen-ui-interrupt",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "interrupt-headless",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "observational-memory",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "mastra",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-dotnet",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "tool-rendering-reasoning-chain",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-harness-dotnet",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "ms-agent-python",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "reasoning-custom",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "reasoning-default",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "pydantic-ai",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "shared-state-streaming",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "spring-ai",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands-typescript",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "a2ui-fixed-schema",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "a2ui-recovery",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "agent-config",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "agentic-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "auth",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "beautiful-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "chat-customization-css",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "chat-slots",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "declarative-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "declarative-hashbrown",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "declarative-json-render",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "frontend-tools",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "frontend-tools-async",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "gen-ui-agent",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "gen-ui-tool-based",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "headless-complete",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "headless-simple",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "hitl-in-app",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "hitl-in-chat",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "mcp-apps",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "multimodal",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "open-gen-ui",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "open-gen-ui-advanced",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "prebuilt-popup",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "prebuilt-sidebar",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "readonly-state-agent-context",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "shared-state-read",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "shared-state-read-write",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "subagents",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "tool-rendering",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "tool-rendering-custom-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "tool-rendering-default-catchall",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    },
+    {
+      "integration": "strands",
+      "feature": "voice",
+      "category": "probe",
+      "owner": "Showcase maintainers",
+      "issue": "https://github.com/CopilotKit/CopilotKit/issues/6113"
+    }
+  ]
+}

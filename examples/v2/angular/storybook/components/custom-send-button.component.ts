@@ -9,7 +9,7 @@ import { CommonModule } from "@angular/common";
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-blue-500 text-white hover:bg-blue-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-blue-500 cpk:text-white cpk:hover:bg-blue-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
     >
       ✈️
     </button>

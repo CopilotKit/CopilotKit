@@ -1,21 +1,29 @@
 """
 Thin wrapper to serve the LangGraph agent via AG-UI protocol.
-Used in Docker where the full pyproject.toml dependency chain (which pulls
-ExecutionInfo conflicts) is bypassed with --no-deps installs.
-The original main.py, agent code, and pyproject.toml remain unmodified.
+Used in Docker where langgraph-cli dev (which needs Docker) is unavailable.
+The original main.py and all agent code remain unmodified.
 """
+
 import os
 import sys
 
-# Add the agent directory to the path so "from src.agent import graph" works
+# Add the agent directory to the path so imports work
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "agent"))
 
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from langgraph.checkpoint.memory import MemorySaver
 
 # Import the original graph from the unmodified agent code
-from src.agent import graph
+from main import graph
+
+# The create_agent() graph may not have a checkpointer (it's normally
+# provided by the LangGraph Platform server). Add one for standalone serving.
+if not hasattr(graph, "checkpointer") or graph.checkpointer is None:
+    # Recompile with a checkpointer
+    graph = graph.copy()
+    graph.checkpointer = MemorySaver()
 
 # Use copilotkit's LangGraphAGUIAgent to serve via AG-UI
 from copilotkit import LangGraphAGUIAgent
@@ -40,7 +48,7 @@ add_langgraph_fastapi_endpoint(
     app=app,
     agent=LangGraphAGUIAgent(
         name="sample_agent",
-        description="LangGraph FastAPI starter agent",
+        description="LangGraph Python starter agent",
         graph=graph,
     ),
     path="/",

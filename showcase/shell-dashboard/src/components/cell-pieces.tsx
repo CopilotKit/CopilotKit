@@ -2,30 +2,39 @@
 // Shared cell-level helpers: docs links row, status (badges) row.
 import { useState } from "react";
 import type { CellContext } from "@/components/feature-grid";
-import { getDocsStatus, type DocState } from "@/lib/docs-status";
+import { getDocsStatus } from "@/lib/docs-status";
+import type { DocState } from "@/lib/docs-status";
 import { Badge, FlashOnChange } from "@/components/badges";
-import { keyFor, resolveCell, type BadgeRender } from "@/lib/live-status";
+import { keyFor, resolveCell } from "@/lib/live-status";
+import type { BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
-
-/**
- * Magic path segment used by the shell when no framework column is selected.
- * Coupled to the shell's routing under `/<slug>/<framework-or-unselected>/...`
- * — if the shell ever renames or removes this fallback segment, this constant
- * MUST move in lockstep. Kept here as a local const because no shared
- * registry constant exists today; promote to a shared module if a second
- * caller appears.
- */
-const SHELL_UNSELECTED_PATH = "unselected";
+import { formatTs } from "@/lib/format-ts";
+import {
+  useWorkerRuns,
+  isFamilySilent,
+  familyForProbeKey,
+  freshestBounceMs,
+} from "@/lib/worker-runs-context";
 
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
   codeUrl: string;
   hostedUrl: string;
 } {
+  // Strip any trailing slash from the base before concatenating the
+  // `/integrations/...` path. `readUrl` in runtime-config.ts already
+  // normalizes real shellUrls this way, but the SSR placeholder
+  // (`https://ssr-placeholder.invalid/`, runtime-config.client.ts) carries
+  // a trailing slash and is what the client config reader returns during
+  // server-side render. Without this guard the server-rendered HTML froze
+  // double-slash links (`https://ssr-placeholder.invalid//integrations/...`)
+  // that leaked into the page before hydration. Normalizing here makes the
+  // link builder correct for any base, sentinel or real.
+  const base = ctx.shellUrl.replace(/\/+$/, "");
   return {
-    demoUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
-    codeUrl: `${ctx.shellUrl}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
+    demoUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/preview`,
+    codeUrl: `${base}/integrations/${ctx.integration.slug}/${ctx.feature.id}/code`,
     hostedUrl: ctx.hostedUrl,
   };
 }
@@ -47,14 +56,25 @@ export function DocsRow({
   const probed = getDocsStatus(feature.id);
   const override = integration.docs_links?.features?.[feature.id];
 
-  const ogHref = override?.og_docs_url ?? feature.og_docs_url ?? undefined;
-  const shellPath = override?.shell_docs_path ?? undefined;
-  const shellHref = shellPath
-    ? `${shellUrl}/${integration.slug}/${SHELL_UNSELECTED_PATH}${shellPath}`
-    : undefined;
-
   const hasOgOverride = override?.og_docs_url !== undefined;
   const hasShellOverride = override?.shell_docs_path !== undefined;
+  // Override resolution. When the framework has an explicit override (even
+  // an explicit null = opt-out), it wins. When no override is set, fall
+  // back to the feature-registry default so cells inherit the canonical
+  // doc location without each integration having to repeat it.
+  const ogHref = hasOgOverride
+    ? (override?.og_docs_url ?? undefined)
+    : (feature.og_docs_url ?? undefined);
+  const shellPath = hasShellOverride
+    ? (override?.shell_docs_path ?? undefined)
+    : (feature.shell_docs_path ?? undefined);
+  // Point at the canonical docs host directly. Pre-cutover this CNAME serves
+  // the Vercel docs site; post-cutover it serves shell-docs on Railway. Both
+  // resolve `/<framework>/<slug>` — `${shellUrl}` no longer serves /docs/**
+  // after PR #4702 moved redirect middleware to shell-docs (2026-05-08).
+  const shellHref = shellPath
+    ? `https://docs.copilotkit.ai/${integration.slug}${shellPath}`
+    : undefined;
   // CP5: distinguish the two "missing" sub-cases so the tooltip is honest.
   // The override shape (`og_docs_url: string | null`) lets us tell apart:
   //   (a) framework explicitly set `og_docs_url: null` → opt-out
@@ -80,7 +100,7 @@ export function DocsRow({
     : probed.shell;
 
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center justify-center gap-2.5">
       <DocsLink
         label="docs-og"
         href={ogHref}
@@ -211,6 +231,58 @@ function LiveBadge({
   // for rows with state === "degraded" (F5.5 verification). Do NOT remove
   // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
+  // §7.3 clock glyph: a STALE-degraded badge whose worker family has no
+  // successful run within 2× the server-computed `periodMs` gains a `·⏱`
+  // suffix, distinguishing scheduler/worker silence from a fresh red.
+  // Safe by construction without a provider: `useWorkerRuns()` never throws
+  // and returns the no-data default (`null`) — see the T10 no-provider
+  // contract in worker-runs-context.tsx — so provider-less renders simply
+  // show no glyph.
+  const workerRuns = useWorkerRuns();
+  // Stale-degraded signature: amber with `fail_count === 0` — the
+  // stale-green downgrade `buildBadge` applies under the cell's EXISTING
+  // window. A producer-degraded row (`fail_count > 0`) is a real failure,
+  // not staleness, and a red badge keeps its red rendering — the glyph
+  // only ever DECORATES an already stale-degraded badge (§7.3).
+  const isStaleDegraded =
+    badge.tone === "amber" && badge.row !== null && badge.row.fail_count === 0;
+  const okRuns =
+    workerRuns !== null && workerRuns.status === "ok" ? workerRuns : null;
+  const families = okRuns ? okRuns.data.families : null;
+  // Post-bounce drain grace (PR #5715): a recent fleet bounce suppresses the
+  // §7.3 silence glyph just as it suppresses the §7.4 banner and §9 alert,
+  // keyed off the same worker `registeredAt`.
+  const bounceAtMs = okRuns ? freshestBounceMs(okRuns.data.workers) : null;
+  // Family mapping is payload-driven via the `probeKeyPrefix` each family
+  // entry echoes (§5.2.1) — never a dashboard-side prefix table.
+  const silentFamily =
+    isStaleDegraded && families !== null && badge.row !== null
+      ? familyForProbeKey(badge.row.key, families)
+      : undefined;
+  const clockGlyph =
+    silentFamily !== undefined &&
+    isFamilySilent(silentFamily, Date.now(), bounceAtMs);
+  // Minimal per §7.3: a label SUFFIX only — tone, tooltip machinery, and the
+  // amber branch above stay intact.
+  const label = clockGlyph ? `${badge.label} ·⏱` : badge.label;
+  // B.4: the INITIAL status projection (`STATUS_LIST_FIELDS` in live-status.ts)
+  // drops the heavy `signal` blob, so a row materialised from the bulk fetch
+  // arrives with `signal === undefined` until a live SSE delta re-attaches it.
+  // Read it defensively (the field is now effectively optional) and surface a
+  // neutral "unknown" availability marker instead of assuming presence — the
+  // badge must not imply we have probe detail we don't yet hold. `signal`-less
+  // rows degrade to a neutral state rather than misrendering. `null` (an
+  // explicitly empty signal) is treated as "no detail" too, matching
+  // `summarizeSignal`'s `signal == null` short-circuit upstream.
+  // Only eligible (red/amber) badges carry signal detail worth surfacing — a
+  // green/gray/no-data badge has nothing to disambiguate, so it gets no marker
+  // (`undefined` omits the attribute entirely).
+  const rowSignal = (badge.row as { signal?: unknown } | null)?.signal;
+  const signalAvailability: "present" | "unknown" | undefined = eligible
+    ? rowSignal == null
+      ? "unknown"
+      : "present"
+    : undefined;
   const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
   // CP2: format the transition line from the source `transition` enum
   // rather than just `state`. `first` and `error` don't encode a prior
@@ -227,12 +299,13 @@ function LiveBadge({
   return (
     <FlashOnChange tone={badge.tone}>
       <span
+        data-signal={signalAvailability}
         onMouseLeave={() => setTooltipOpen(false)}
         onBlur={() => setTooltipOpen(false)}
       >
         <Badge
           name={name}
-          state={{ tone: badge.tone, label: badge.label }}
+          state={{ tone: badge.tone, label }}
           href={href}
           title={title}
           onTooltipOpen={() => setTooltipOpen(true)}
@@ -258,28 +331,36 @@ function formatTransitionLine(row: {
   observed_at: string;
 }): string {
   if (row.transition === "first") {
-    return ` — since ${row.observed_at} (initial: ${row.state})`;
+    return ` — since ${formatTs(row.observed_at)} (initial: ${row.state})`;
   }
   if (row.transition === "error") {
-    return ` — since ${row.observed_at} (error → ${row.state})`;
+    return ` — since ${formatTs(row.observed_at)} (error → ${row.state})`;
   }
   const { from, to } = deriveFromTo(row.transition);
   // Any non-first/non-error transition that deriveFromTo can't decode
   // (unexpected enum value) falls back to the row's current state so we
   // never render "null → null" copy.
   const pair = from && to ? `${from} → ${to}` : row.state;
-  return ` — since ${row.observed_at} (${pair})`;
+  return ` — since ${formatTs(row.observed_at)} (${pair})`;
 }
 
 /**
- * Shared status row: docs-og/docs-shell line + E2E badge.
+ * Shared status row: API / UI / 1P badges (D2 API / D3 UI / D5 Single Pill).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
- * Consumes `liveStatus` from `ctx` (spec §5.4 wiring). Hides the docs row
- * for `testing`-kind features to match previous behavior.
+ * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
+ * gated on the `overlays.has("docs")` toggle.
+ * Consumes `liveStatus` from `ctx` (spec §5.4 wiring).
  */
 export function CellStatus({ ctx }: { ctx: CellContext }) {
   const isTesting = ctx.feature.kind === "testing";
+  const isDocsOnly = ctx.feature.kind === "docs-only";
+
+  // docs-only features have no runnable probes — rendering badge chips
+  // would show perpetual gray "?" for every dimension. Return null so the
+  // cell stays clean; the docs row is rendered separately by DocsLayer.
+  if (isDocsOnly) return null;
+
   const cell = resolveCell(
     ctx.liveStatus,
     ctx.integration.slug,
@@ -292,54 +373,44 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
   // CP3: `cell.smoke` is computed by `resolveCell` for backwards-compat but
   // intentionally NOT rendered here — smoke is integration-scoped and lives
   // in the per-integration strip (Phase 3 Decision #7), not in the per-cell
-  // status row. The `smoke` field is a candidate for removal from
-  // `CellState`; that narrowing must happen in `live-status.ts` (separate
-  // worktree) and is tracked in the cross-worktree concerns of this fix.
+  // status row. `smoke` remains a permanent field on `CellState` (resolveCell
+  // still populates it); it is simply not consumed by this per-cell row.
 
   return (
-    <>
-      {!isTesting && (
-        <DocsRow
-          integration={ctx.integration}
-          feature={ctx.feature}
-          shellUrl={ctx.shellUrl}
-        />
-      )}
-      <div className="flex items-center gap-2.5">
-        <LiveBadge
-          name="E2E"
-          badge={cell.e2e}
-          dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
-        />
-        {/*
-          CP8: D5/D6 producers (`e2e-deep`, `e2e-parity`) only emit rows for
-          primary features per spec; testing-kind features never get a D5 or
-          D6 row, so the badge would render a perpetual gray "?" that adds
-          noise without information. Hide for `isTesting` to mirror the
-          docs-row visibility rule.
+    <div className="flex items-center justify-center gap-2.5">
+      <LiveBadge
+        name="API"
+        badge={cell.d2}
+        dimensionKey={keyFor("agent", ctx.integration.slug)}
+      />
+      <LiveBadge
+        name="UI"
+        badge={cell.e2e}
+        dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
+      />
+      {/*
+        CP8: 1P producers (`e2e-deep`) only emit rows for primary features
+        per spec; testing-kind features never get a 1P row, so the badge
+        would render a perpetual gray "?" that adds noise without
+        information. Hide for `isTesting` so operators only see badges
+        backed by real data.
 
-          CP9: D5/D6 chips intentionally have no `href` — there is no
-          per-feature drilldown URL convention in shell-dashboard today.
-          When a drilldown route exists (e.g. a per-(slug, feature) D5 run
-          history page), wire the URL through `keyFor` here.
-          TODO(showcase-dashboard): D5/D6 drilldown URL — see
-          docs/spec §5.6 follow-up.
-        */}
-        {!isTesting && (
-          <>
-            <LiveBadge
-              name="D5"
-              badge={cell.d5}
-              dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
-            />
-            <LiveBadge
-              name="D6"
-              badge={cell.d6}
-              dimensionKey={keyFor("d6", ctx.integration.slug, ctx.feature.id)}
-            />
-          </>
-        )}
-      </div>
-    </>
+        CP9: 1P badges intentionally have no `href` — there is no
+        per-feature drilldown URL convention in shell-dashboard today.
+        When a drilldown route exists (e.g. a per-(slug, feature) D5 run
+        history page), wire the URL through `keyFor` here.
+        TODO(showcase-dashboard): 1P drilldown URL — see
+        docs/spec §5.6 follow-up.
+      */}
+      {!isTesting && (
+        <>
+          <LiveBadge
+            name="1P"
+            badge={cell.d5}
+            dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
+          />
+        </>
+      )}
+    </div>
   );
 }

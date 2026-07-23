@@ -36,9 +36,9 @@
 // than throwing — docs pages should degrade gracefully while authors iterate.
 
 import React from "react";
-import hljs from "highlight.js";
 import demoContent from "../data/demo-content.json";
-import { CopyButton } from "./copy-button";
+import catalogData from "../data/catalog.json";
+import { HighlightedDynamicCodeBlock } from "./highlighted-dynamic-codeblock";
 
 interface Region {
   file: string;
@@ -69,6 +69,28 @@ interface WarningMessage {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+// Build a `(framework, cell) → catalog entry` lookup at module scope so we
+// can detect when a (framework × cell) pair is explicitly flagged
+// `unsupported` and render a friendlier placeholder instead of the yellow
+// "Missing snippet" warning that fires for genuine docs gaps.
+interface CatalogCell {
+  id: string;
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const catalogByKey: Map<string, CatalogCell> = (() => {
+  const m = new Map<string, CatalogCell>();
+  const cells = (catalogData as { cells?: CatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 interface SnippetProps {
   /** Region name declared via `@region[<name>]` in the cell's source. */
@@ -104,12 +126,17 @@ interface SnippetProps {
   title?: string;
   /** Hide the file-path caption. */
   noCaption?: boolean;
+  /**
+   * Line ranges to emphasize in the rendered snippet, relative to the
+   * extracted snippet body. Examples: "1-6", "3", "4-".
+   */
+  highlight?: string;
 }
 
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-yellow-500/40 bg-yellow-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="alert"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">
@@ -120,13 +147,45 @@ function WarningBox({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Track languages we've already warned about so each unknown language name
-// only produces one console message per process, regardless of how many
-// <Snippet>s reference it.
-const warnedUnknownLanguages = new Set<string>();
+/**
+ * `UnsupportedBox` — neutral, intentional-looking placeholder used when the
+ * dashboard catalog flags a (framework × cell) pair as `unsupported`.
+ *
+ * Distinct from `WarningBox` (yellow / "something is broken") — this signals
+ * "the framework deliberately doesn't implement this feature", which is an
+ * expected state, not a docs gap.
+ */
+export function UnsupportedBox({
+  integrationName,
+  featureName,
+}: {
+  integrationName: string;
+  featureName: string;
+}) {
+  return (
+    <div
+      className="shell-docs-radius-surface my-4 border border-l-4 border-[var(--accent)] bg-[var(--accent-dim)] p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
+      role="note"
+    >
+      <div className="font-semibold mb-1 text-[var(--text)]">
+        Not supported on {integrationName}
+      </div>
+      <div>
+        {integrationName} doesn't support {featureName}. See{" "}
+        <a
+          href="/"
+          className="underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text-secondary)]"
+        >
+          the framework grid
+        </a>{" "}
+        for which integrations support this feature.
+      </div>
+    </div>
+  );
+}
 
-/** Map the bundler's coarse language hint to an hljs language name. */
-function resolveHljsLanguage(lang: string): string | null {
+/** Map the bundler's coarse language hint to a Shiki language name. */
+function resolveShikiLanguage(lang: string): string {
   const map: Record<string, string> = {
     typescript: "typescript",
     javascript: "javascript",
@@ -138,16 +197,7 @@ function resolveHljsLanguage(lang: string): string | null {
     markdown: "markdown",
     text: "plaintext",
   };
-  const mapped = map[lang];
-  if (mapped) return mapped;
-  if (lang && !warnedUnknownLanguages.has(lang)) {
-    warnedUnknownLanguages.add(lang);
-    console.warn(
-      `[snippet] unknown language "${lang}" — falling back to hljs.highlightAuto. ` +
-        `Add it to resolveHljsLanguage() for deterministic highlighting.`,
-    );
-  }
-  return null;
+  return map[lang] ?? lang;
 }
 
 /**
@@ -185,6 +235,28 @@ function parseLineRange(input: string | undefined): [number, number] | null {
     if (n > 0) return [n, n];
   }
   return null;
+}
+
+function parseHighlightedLines(
+  input: string | undefined,
+  totalLines: number,
+): Set<number> | null {
+  if (!input) return null;
+  const highlighted = new Set<number>();
+  for (const part of input.split(",")) {
+    const range = parseLineRange(part);
+    if (!range) return null;
+    const [start, end] = range;
+    const clampedEnd = Math.min(
+      end === Number.POSITIVE_INFINITY ? totalLines : end,
+      totalLines,
+    );
+    if (start > clampedEnd) continue;
+    for (let line = start; line <= clampedEnd; line++) {
+      highlighted.add(line);
+    }
+  }
+  return highlighted.size > 0 ? highlighted : null;
 }
 
 /**
@@ -250,8 +322,13 @@ export function Snippet({
   cell,
   defaultFramework,
   defaultCell,
-  title,
+  // `title` is accepted for source compat but deliberately ignored —
+  // the figcaption now always renders the bare filename. Most MDX
+  // call sites pass "<path> — <description>" which doubled up on the
+  // path that's already implied by surrounding doc context.
+  title: _title,
   noCaption,
+  highlight,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
@@ -269,7 +346,7 @@ export function Snippet({
 
   if (!resolvedFramework) {
     return (
-      <div className="my-4 rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)] bg-[var(--bg-elevated)]">
+      <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.
       </div>
     );
@@ -288,6 +365,22 @@ export function Snippet({
   }
 
   const key = `${resolvedFramework}::${resolvedCell}`;
+
+  // If the catalog explicitly marks this (framework × cell) pair as
+  // `unsupported`, render a neutral "not supported" placeholder instead of
+  // falling through to the yellow "Missing snippet" warning. The latter
+  // implies a docs gap that needs filling; the former is an intentional
+  // statement that the framework doesn't implement this feature.
+  const catalogEntry = catalogByKey.get(key);
+  if (catalogEntry?.status === "unsupported") {
+    return (
+      <UnsupportedBox
+        integrationName={catalogEntry.integration_name ?? resolvedFramework}
+        featureName={catalogEntry.feature_name ?? resolvedCell}
+      />
+    );
+  }
+
   const demo = demos[key];
   if (!demo) {
     return (
@@ -357,72 +450,28 @@ export function Snippet({
     );
   }
 
-  const hljsLang = resolveHljsLanguage(reg.language);
-  let html: string;
-  let highlightFailed = false;
-  try {
-    html = hljsLang
-      ? hljs.highlight(reg.code, { language: hljsLang, ignoreIllegals: true })
-          .value
-      : hljs.highlightAuto(reg.code).value;
-  } catch (err) {
-    // highlight.js should never throw with ignoreIllegals, but defensively
-    // fall back to unhighlighted text rather than crashing the render. Log
-    // enough context that authors can find the offending snippet.
-    console.warn(
-      `[snippet] highlight failed for ${key} ${reg.file} (language=${reg.language})`,
-      err,
-    );
-    html = escapeHtml(reg.code);
-    highlightFailed = true;
-  }
-  // Defense-in-depth: if hljs ever returns a non-string (unknown edge case),
-  // fall back to escaped plain text so `dangerouslySetInnerHTML` can't
-  // receive garbage.
-  if (typeof html !== "string") {
-    html = escapeHtml(reg.code);
-    highlightFailed = true;
-  }
-
-  const caption = title ?? reg.file;
-  // When highlighting failed we render escaped plain text; drop the `hljs`
-  // class so the output doesn't get styled as though it were highlighted.
-  const codeClassName = highlightFailed
-    ? undefined
-    : hljsLang
-      ? `hljs language-${hljsLang}`
-      : "hljs";
+  // Caption is always the bare filename \u2014 no path, no line range, and
+  // we deliberately ignore the `title` prop. Most authors pass titles
+  // like "frontend/src/app/page.tsx \u2014 chat surface" which duplicates
+  // the path + adds a description; the path is implied by surrounding
+  // doc context and the description doesn't earn its real estate next
+  // to working code. When `noCaption` is set the title is dropped
+  // entirely so the figure's floating copy button sits alone.
+  const basename = reg.file.split("/").pop() ?? reg.file;
+  const caption = noCaption ? undefined : basename;
+  const highlightedLines = parseHighlightedLines(
+    highlight,
+    reg.code.split("\n").length,
+  );
 
   return (
-    <figure className="my-5 rounded-lg border border-[var(--border)] overflow-hidden bg-[var(--bg-surface)]">
-      {!noCaption && (
-        <figcaption className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] text-[11px] font-mono text-[var(--text-muted)]">
-          <span className="truncate">{caption}</span>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[var(--text-faint)]">
-              {reg.startLine === reg.endLine
-                ? `L${reg.startLine}`
-                : `L${reg.startLine}\u2013${reg.endLine}`}
-            </span>
-            <CopyButton text={reg.code} />
-          </div>
-        </figcaption>
-      )}
-      <pre className="text-[12.5px] leading-[1.55] overflow-x-auto p-4 m-0">
-        <code
-          className={codeClassName}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
-      </pre>
-    </figure>
+    <HighlightedDynamicCodeBlock
+      lang={resolveShikiLanguage(reg.language)}
+      code={reg.code}
+      codeblock={caption ? { title: caption } : undefined}
+      highlightedLines={
+        highlightedLines ? Array.from(highlightedLines) : undefined
+      }
+    />
   );
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }

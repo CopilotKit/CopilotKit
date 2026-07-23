@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
       - "showcase/**"
@@ -12,7 +11,6 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
       - "showcase/**"
@@ -44,28 +42,51 @@ jobs:
   unit:
     name: "unit"
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         node-version: [20.x, 22.x, 24.x]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
+          # Full history so `nx affected` can diff HEAD against the PR base /
+          # the previous push, instead of rebuilding+retesting every package
+          # on every run. A shallow clone has no merge-base to diff against.
+          fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-          cache-dependency-path: "**/pnpm-lock.yaml"
+          # Do NOT use cache: "pnpm" here — its key omits the Node.js version,
+          # so a better-sqlite3 binary compiled for one Node ABI (e.g. ABI 137
+          # from Node 24) would be served to a job running a different ABI
+          # (Node 20 = ABI 115, Node 22 = ABI 127), causing "Module did not
+          # self-register". We handle pnpm caching manually below with the
+          # node-version in the key.
+          # Fork-safety note: actions/cache is equally fork-safe — GitHub
+          # prevents fork PRs from writing to the base repo's cache at the platform level.
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store (scoped to Node.js version)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-${{ matrix.node-version }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -76,15 +97,101 @@ jobs:
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
           echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
           echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+          echo "NX_TUI=false" >> $GITHUB_ENV
+
+      - name: Determine affected range
+        # Pass GitHub context through env (not inline ${{ }} in the script) to
+        # avoid template-injection — base_ref is attacker-influenceable.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Diff against the merge-base with the (current tip of the) base
+            # branch so advances on main don't drag unrelated packages in.
+            git fetch --no-tags origin "$BASE_REF"
+            BASE=$(git merge-base FETCH_HEAD HEAD)
+          elif [ "$EVENT_NAME" = "push" ]; then
+            # BEFORE_SHA (github.event.before) is the previous tip of this branch.
+            BASE="$BEFORE_SHA"
+            if [ -z "$BASE" ] \
+               || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+              # First push / force-push / unknown parent → previous commit.
+              BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+            fi
+          fi
+          echo "NX_BASE=${BASE}" >> "$GITHUB_ENV"
+          echo "NX_HEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "Affected range: ${BASE:-<full>}...$(git rev-parse HEAD)"
 
       - name: Generate GraphQL codegen files
         run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
 
-      - name: Build
-        run: pnpm run build
+      - name: Select test projects
+        id: select
+        # PR/push → only packages affected since the base. workflow_dispatch
+        # (manual / nightly-style full run) → every package with tests.
+        # `--projects` scopes to packages/** in `nx show projects` (it does NOT
+        # in the `nx affected` run form, which also pulls in downstream
+        # examples/storybook — hence the show-projects → run-many split).
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          # The workflow sets NX_VERBOSE_LOGGING=true, which makes `nx show
+          # projects` print "[isolated-plugin] spawned worker…" to stdout and
+          # corrupt the --json payload we parse below. Force it off here.
+          NX_VERBOSE_LOGGING: "false"
+        run: |
+          # Editing this workflow can't surface as an "affected" nx package, so
+          # `nx affected` would select nothing and the build/test path would go
+          # unexercised on the very PR that changes it. Force a full run when
+          # this file itself changed in the range, same as a manual dispatch.
+          FULL=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            FULL=true
+          elif git diff --name-only "$NX_BASE" "$NX_HEAD" \
+               | grep -qx '.github/workflows/test_unit.yml'; then
+            FULL=true
+            echo "test_unit.yml changed in range → running ALL packages."
+          fi
+          if [ "$FULL" = "true" ]; then
+            PROJECTS=$(npx nx show projects --projects='packages/**' --exclude=@copilotkit/demo-agents -t test --json)
+          else
+            PROJECTS=$(npx nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" --projects='packages/**' --exclude=@copilotkit/demo-agents -t test --json)
+          fi
+          LIST=$(printf '%s' "$PROJECTS" | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).join(',')))")
+          echo "projects=$LIST" >> "$GITHUB_OUTPUT"
+          if [ -n "$LIST" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
+          echo "Selected projects: ${LIST:-<none>}"
 
-      - name: Run tests
-        run: pnpm run test
+      - name: Build and test affected packages
+        if: steps.select.outputs.has == 'true'
+        # run-many builds each selected package's upstream deps via `^build`,
+        # so unchanged dependencies are still compiled when something needs them.
+        env:
+          PROJECTS: ${{ steps.select.outputs.projects }}
+        run: npx nx run-many -t build,test --projects="$PROJECTS" --exclude=@copilotkit/demo-agents
+
+      - name: No affected packages
+        if: steps.select.outputs.has != 'true'
+        run: echo "No package code affected since the base — skipping build & test."
 
       - name: Run release script tests
         run: npx vitest run --config scripts/release/vitest.config.mts
+
+      - name: Verify packed Channels umbrella contract
+        if: matrix.node-version == '20.x'
+        run: pnpm run verify:channels-umbrella
+
+      - name: Install Chromium for packed Angular browser smoke
+        if: matrix.node-version == '22.x'
+        run: pnpm --dir showcase/scripts exec playwright install --with-deps chromium
+
+      - name: Verify packed Angular consumer matrix
+        if: matrix.node-version == '22.x'
+        run: pnpm run verify:angular-package
+
+      - name: Verify packed Runtime managed Channels contract
+        if: matrix.node-version == '20.x'
+        run: pnpm run verify:runtime-package

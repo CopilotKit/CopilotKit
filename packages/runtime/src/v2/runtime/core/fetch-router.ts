@@ -96,6 +96,17 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "agent/run", agentId };
   }
 
+  // /agent/:agentId/suggest (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "agent" &&
+    segments[len - 1] === "suggest"
+  ) {
+    const agentId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!agentId) return null;
+    return { method: "agent/suggest", agentId };
+  }
+
   // /agent/:agentId/connect (3 segments)
   if (
     len >= 3 &&
@@ -139,6 +150,28 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/messages", threadId };
   }
 
+  // /threads/:threadId/events (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "events"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/events", threadId };
+  }
+
+  // /threads/:threadId/state (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "state"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/state", threadId };
+  }
+
   // /threads/:threadId/archive (3 segments)
   if (
     len >= 3 &&
@@ -150,11 +183,21 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/archive", threadId };
   }
 
+  // /threads/clear (2 segments) — wipe in-memory thread history
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "clear"
+  ) {
+    return { method: "threads/clear" };
+  }
+
   // /threads/:threadId (2 segments) — update or delete
   if (
     len >= 2 &&
     segments[len - 2] === "threads" &&
-    segments[len - 1] !== "subscribe"
+    segments[len - 1] !== "subscribe" &&
+    segments[len - 1] !== "clear"
   ) {
     const threadId = safeDecodeURIComponent(segments[len - 1]!);
     if (!threadId) return null;
@@ -165,6 +208,37 @@ function matchSegments(path: string): RouteInfo | null {
   // /threads (1 segment) — list
   if (len >= 1 && segments[len - 1] === "threads") {
     return { method: "threads/list" };
+  }
+
+  // /memories/subscribe (2 segments) — mint memory-realtime join credentials.
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] === "subscribe"
+  ) {
+    return { method: "memories/subscribe" };
+  }
+
+  // /memories/:id (2 segments) — supersede (PATCH) or retire (DELETE).
+  // Disambiguated by HTTP method in the handler.
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] !== "subscribe"
+  ) {
+    const memoryId = safeDecodeURIComponent(segments[len - 1]!);
+    if (!memoryId) return null;
+    return { method: "memories/mutate", memoryId };
+  }
+
+  // /memories (1 segment) — GET lists; POST creates.
+  if (len >= 1 && segments[len - 1] === "memories") {
+    return { method: "memories/list" };
+  }
+
+  // /annotate (1 segment) — annotate a thread event
+  if (len >= 1 && segments[len - 1] === "annotate") {
+    return { method: "annotate" };
   }
 
   return null;

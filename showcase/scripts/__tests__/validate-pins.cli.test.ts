@@ -1,30 +1,32 @@
 // Split from validate-pins.test.ts — see validate-pins.shared.ts header
 // for the full rationale (vitest birpc 60s cliff, fork-per-file).
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "fs";
-import os from "os";
 import path from "path";
 import { spawnSync } from "child_process";
-import {} from "../validate-pins.js";
-import {
-  VALIDATE_PINS_SCRIPT,
-  tmpdir,
-  withTmp,
-  write,
-} from "./validate-pins.shared.js";
+import { VALIDATE_PINS_SCRIPT, tmpdir, write } from "./validate-pins.shared.js";
+
+function writeCanonical(
+  repoRoot: string,
+  version = "1.59.2",
+  overrides: Record<string, Record<string, string>> = {},
+): void {
+  write(
+    path.join(repoRoot, "showcase", "scripts", "showcase-canonical-pins.json"),
+    JSON.stringify({ canonicalCopilotKitVersion: version, overrides }),
+  );
+}
 
 describe("validate-pins CLI exit codes", () => {
   let repoRoot: string;
 
   beforeEach(() => {
     repoRoot = tmpdir();
-    fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
-      recursive: true,
-    });
+    writeCanonical(repoRoot);
   });
 
   afterEach(() => {
@@ -40,24 +42,11 @@ describe("validate-pins CLI exit codes", () => {
   }
 
   it("exits 1 when FAIL>0 (real drift: non-exact pin)", () => {
-    // Create a slug with a non-exact spec on both sides to force a
-    // drift [FAIL] — this exercises the EXIT_DRIFT path rather than
-    // the EXIT_UNREADABLE path that missing/empty packages dirs now
-    // take.
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
-    const exDir = path.join(repoRoot, "examples", "integrations", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     fs.mkdirSync(pkgDir, { recursive: true });
-    fs.mkdirSync(exDir, { recursive: true });
     write(
       path.join(pkgDir, "package.json"),
-      JSON.stringify({
-        name: slug,
-        dependencies: { "@mastra/core": "next" },
-      }),
-    );
-    write(
-      path.join(exDir, "package.json"),
       JSON.stringify({
         name: slug,
         dependencies: { "@mastra/core": "next" },
@@ -67,15 +56,25 @@ describe("validate-pins CLI exit codes", () => {
     expect(r.status, r.stdout + r.stderr).toBe(1);
   });
 
-  it("exits 0 when clean (all [OK]/[SKIP])", () => {
-    // Create one born-in-showcase slug → [SKIP], FAIL=0, exit 0.
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages", "ag2"), {
-      recursive: true,
-    });
+  it("exits 0 when clean (all framework deps exact-pinned and @copilotkit canonical)", () => {
+    const slug = "mastra";
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
+    fs.mkdirSync(pkgDir, { recursive: true });
+    write(
+      path.join(pkgDir, "package.json"),
+      JSON.stringify({
+        name: slug,
+        dependencies: {
+          "@copilotkit/react-core": "1.59.2",
+          "@mastra/core": "0.15.0",
+        },
+      }),
+    );
     const r = runCli();
     expect(r.status, r.stdout + r.stderr).toBe(0);
   });
 });
+
 describe("validate-pins CLI exit code 3 (unreadable input)", () => {
   it("exits 3 when VALIDATE_PINS_REPO_ROOT points at a non-directory", () => {
     const tmp = tmpdir();
@@ -93,6 +92,7 @@ describe("validate-pins CLI exit code 3 (unreadable input)", () => {
     }
   });
 });
+
 describe("module import does not invoke main()", () => {
   it("importing the module exits cleanly (status 0)", () => {
     // Use tsx's module loader via a small inline program that imports

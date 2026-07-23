@@ -1,8 +1,7 @@
+import type { KeyboardEvent, ChangeEvent } from "react";
 import React, {
   useState,
   useRef,
-  KeyboardEvent,
-  ChangeEvent,
   useEffect,
   useLayoutEffect,
   forwardRef,
@@ -13,8 +12,8 @@ import React, {
 import { twMerge } from "tailwind-merge";
 import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
 
+import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
 import {
-  CopilotChatLabels,
   useCopilotChatConfiguration,
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
@@ -36,7 +35,8 @@ import {
 } from "../../components/ui/dropdown-menu";
 
 import { CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder";
-import { renderSlot, WithSlots } from "../../lib/slots";
+import type { WithSlots } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import { cn } from "../../lib/utils";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
@@ -456,7 +456,15 @@ export function CopilotChatInput({
 
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (isProcessing) {
+      // When the composer holds sendable text, Enter ALWAYS sends — even
+      // while a run is in flight. A non-empty composer is unambiguous intent
+      // to send a new message, not to stop the agent. This is what unblocks
+      // consecutive interrupt pills: after picking turn-1's slot the resume
+      // run is still streaming (`isProcessing` true) when the user types and
+      // Enters turn-2's prompt; routing that Enter to `onStop` aborted the
+      // run and the next interrupt never surfaced. Stop stays reachable via
+      // Enter only when the composer is empty (the genuine stop affordance).
+      if (isProcessing && !canSend) {
         onStop?.();
       } else {
         send();
@@ -510,6 +518,10 @@ export function CopilotChatInput({
   const canStop = !!onStop;
 
   const handleSendButtonClick = () => {
+    // The send/stop button is an explicit control: when a run is in flight it
+    // renders as a Stop (Square) button, so a click maps to stop regardless of
+    // composer contents. The Enter key behaves differently (see handleKeyDown):
+    // a non-empty composer + Enter sends a new message rather than stopping.
     if (isProcessing) {
       onStop?.();
       return;
@@ -1122,7 +1134,7 @@ export function CopilotChatInput({
       }}
       {...props}
     >
-      <div className="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
+      <div className="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
         {inputPill}
       </div>
       {shouldShowDisclaimer && BoundDisclaimer}

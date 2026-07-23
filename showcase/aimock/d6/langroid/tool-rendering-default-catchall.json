@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / tool-rendering-default-catchall",
+    "sourceScript": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "Default catchall turn: weather in Tokyo \u2014 emits get_weather tool call. The built-in CopilotKit default renderer (copilot-tool-render testid) fires for unhandled tools. hasToolResult:false on first leg.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_lr_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Default catchall turn: weather in Tokyo \u2014 follow-up after tool result.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy with light easterly winds."
+      }
+    }
+  ]
+}

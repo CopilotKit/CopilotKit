@@ -1,23 +1,26 @@
 ---
-title: "Factory Mode"
+title: "Use any model router"
 icon: "lucide/Blocks"
 description: "Use BuiltInAgent's factory mode to bring your own AI SDK, TanStack AI, or custom LLM backend."
 ---
 
-`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide a factory function that talks to any backend — CopilotKit handles converting the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
+`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide
+a factory function that talks to any backend, and CopilotKit handles converting
+the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
 
 ## When to use Simple Mode vs Factory Mode
 
 | | Simple Mode | Factory Mode |
 |---|---|---|
-| **Setup** | Minimal — pass a model string | You own the LLM call and stream |
+| **Setup** | Minimal: pass a model string | You own the LLM call and stream |
 | **Model resolution** | Built-in (`"openai/gpt-4o"`) | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
 | **Backend support** | Vercel AI SDK only | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
 
 <Callout type="info">
-If simple mode covers your needs, stick with it — it's simpler. Use factory mode when you need control that simple mode doesn't offer.
+If simple mode covers your needs, stick with it. Use factory mode when you need
+control that simple mode doesn't offer.
 </Callout>
 
 ## Quick Start
@@ -147,14 +150,15 @@ export default copilotEndpoint;
 </Tab>
 </Tabs>
 
-The frontend setup is the same as [BuiltInAgent](/quickstart) — wrap your app with `<CopilotKit>` and add a chat component.
+The frontend setup is the same as [BuiltInAgent](/quickstart). Wrap your app with
+`<CopilotKit>` and add a chat component.
 
 ## How It Works
 
 Factory mode accepts a config with two fields:
 
-- **`type`** — which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
-- **`factory`** — a function that receives the raw request and returns a backend-native stream
+- **`type`:** which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
+- **`factory`:** a function that receives the raw request and returns a backend-native stream
 
 The factory receives an `AgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
@@ -168,7 +172,12 @@ interface AgentFactoryContext {
 
 CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
 
-The factory can be async — return a `Promise` if you need to do setup before streaming:
+The `runner: new InMemoryAgentRunner()` in the examples above is the persistence
+backend that stores threads in process memory. To understand the runner
+abstraction and how to swap in durable persistence, see
+[AgentRunner & persistence](/backend/agent-runner).
+
+The factory can be async. Return a `Promise` if you need to do setup before streaming:
 
 ```typescript
 factory: async ({ input, abortSignal }) => {
@@ -206,7 +215,7 @@ const agent = new BuiltInAgent({
 });
 ```
 
-`convertToolsToVercelAITools` converts the frontend-defined tools (from `useCopilotAction`) into AI SDK's `ToolSet` format automatically.
+`convertToolsToVercelAITools` converts the frontend-defined tools (from `useFrontendTool`) into AI SDK's `ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
@@ -358,7 +367,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const systemParts: string[] = ["You are a helpful assistant."];
 
-    // Add context from the frontend (useCopilotReadable)
+    // Add context from the frontend (useAgentContext)
     if (input.context?.length) {
       for (const ctx of input.context) {
         systemParts.push(`${ctx.description}:\n${ctx.value}`);

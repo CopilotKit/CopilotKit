@@ -99,7 +99,7 @@ is a situation where a user and an agent are working together to solve a problem
             # Run the model to generate a response
             response = await copilotkit_stream(
                 completion(
-                    model="openai/gpt-5.2",
+                    model="openai/gpt-5.4",
                     messages=[
                         {"role": "system", "content": "You are a helpful assistant."},
                         *self.state.get("messages", [])

@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk /demos/threadid-frontend-tool-roundtrip (ENT-658, langgraph-python parity). First turn emits a frontend tool call (testFrontendToolCalling); the follow-up turn confirms the tool result without changing threads. Cribbed from aimock/d6/langgraph-python/threadid-frontend-tool-roundtrip.json with context:\"google-adk\" added to every match. The toolCallId-keyed fixture is ordered first so it catches the second-leg request (after the frontend tool result, where the toolCallId is preserved through the HttpAgent proxy — same disambiguation scheme proven by frontend-tools.json). The bare userMessage fixture only matches the first-leg request that emits the tool call.",
+    "sourceFile": "aimock/d6/langgraph-python/threadid-frontend-tool-roundtrip.json",
+    "created": "2026-06-09"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "toolCallId": "call_ent_658_test_frontend_tool_x",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Frontend tool finished for X."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Calling frontend tool.",
+        "toolCalls": [
+          {
+            "id": "call_ent_658_test_frontend_tool_x",
+            "name": "testFrontendToolCalling",
+            "arguments": {
+              "label": "X"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

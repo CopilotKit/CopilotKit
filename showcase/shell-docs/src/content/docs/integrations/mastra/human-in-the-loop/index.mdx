@@ -3,6 +3,7 @@ title: Human-in-the-Loop
 description: Learn how to implement Human-in-the-Loop (HITL) using Mastra Agents.
 icon: lucide/User
 ---
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
   className="rounded-lg shadow-xl"
@@ -28,24 +29,24 @@ HITL combines the efficiency of AI with human judgment, creating a system that's
 
 ## How can I use this?
 
-Mastra supports two approaches to HITL, each suited for different use cases.
+Mastra supports HITL through frontend tools that render UI and collect user input.
 
 <CTACards
   columns={2}
   cards={[
     {
-      iconKey: "circlePause",
-      title: "Interrupt-based",
+      iconKey: "share2",
+      title: "Tool-based (Supported)",
       description:
-        "Use Mastra's native suspend/resume to pause tool execution and collect user input via useInterrupt.",
-      href: "/mastra/human-in-the-loop/interrupt-flow",
+        "Register frontend tools with useHumanInTheLoop that render UI and wait for user responses. This is the working approach for Mastra.",
+      href: "/mastra/human-in-the-loop/tool-based",
     },
     {
-      iconKey: "share2",
-      title: "Tool-based",
+      iconKey: "circlePause",
+      title: "Interrupt-based (Not Supported)",
       description:
-        "Register frontend tools with useHumanInTheLoop that render UI and wait for user responses.",
-      href: "/mastra/human-in-the-loop/tool-based",
+        "Mastra does not support native interrupt flow. See this page to understand why and learn about the tool-based alternative.",
+      href: "/mastra/human-in-the-loop/interrupt-flow",
     },
   ]}
 />

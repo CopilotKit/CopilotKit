@@ -1,4 +1,5 @@
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
 import { FrontendTool, FrontendToolHandlerContext } from "@copilotkit/core";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 import { CopilotKit } from "./copilotkit";
@@ -7,16 +8,19 @@ export type AngularToolCall<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > =
   | {
+      name?: string;
       args: Partial<Args>;
       status: "in-progress";
       result: undefined;
     }
   | {
+      name?: string;
       args: Args;
       status: "executing";
       result: undefined;
     }
   | {
+      name?: string;
       args: Args;
       status: "complete";
       result: string;
@@ -26,18 +30,21 @@ export type HumanInTheLoopToolCall<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > =
   | {
+      name?: string;
       args: Partial<Args>;
       status: "in-progress";
       result: undefined;
       respond: (result: unknown) => void;
     }
   | {
+      name?: string;
       args: Args;
       status: "executing";
       result: undefined;
       respond: (result: unknown) => void;
     }
   | {
+      name?: string;
       args: Args;
       status: "complete";
       result: string;
@@ -48,6 +55,7 @@ export interface ToolRenderer<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > {
   toolCall: Signal<AngularToolCall<Args>>;
+  agent?: Signal<AbstractAgent | undefined>;
 }
 
 export interface HumanInTheLoopToolRenderer<
@@ -66,9 +74,10 @@ export interface RenderToolCallConfig<
   Args extends Record<string, unknown> = Record<string, unknown>,
 > {
   name: string;
-  args: StandardSchemaV1<any, Args>;
+  args: StandardSchemaV1<unknown, Args>;
   component: Type<ToolRenderer<Args>>;
   agentId?: string;
+  passAgent?: boolean;
 }
 
 export interface FrontendToolConfig<
@@ -76,12 +85,13 @@ export interface FrontendToolConfig<
 > {
   name: string;
   description: string;
-  parameters: StandardSchemaV1<any, Args>;
+  parameters: StandardSchemaV1<unknown, Args>;
   component?: Type<ToolRenderer<Args>>;
   handler: (
     args: Args,
     context: FrontendToolHandlerContext,
   ) => Promise<unknown>;
+  followUp?: boolean;
   agentId?: string;
 }
 
@@ -90,7 +100,7 @@ export interface HumanInTheLoopConfig<
 > {
   name: string;
   description: string;
-  parameters: StandardSchemaV1<any, Args>;
+  parameters: StandardSchemaV1<unknown, Args>;
   component: Type<HumanInTheLoopToolRenderer<Args>>;
   agentId?: string;
 }

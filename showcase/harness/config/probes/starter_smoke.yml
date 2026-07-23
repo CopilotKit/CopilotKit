@@ -1,0 +1,123 @@
+# Probe: starter_smoke
+#
+# Per-starter smoke health over HTTP — the harness twin of the GitHub
+# Actions `smoke-starter` matrix (`showcase/tests/e2e/starter-smoke.spec.ts`).
+# Instead of building each starter image and driving Playwright in CI, this
+# probe HTTP-probes each starter's own deployed (scale-to-zero) Railway
+# service on the harness cadence — the SAME probe model `smoke.yml` runs
+# against the 19 deployed showcase services, no new harness capability.
+#
+# Discovery-driven: the `railway-services` source enumerates every
+# `starter-*` service in the orchestrator's project (paralleling smoke's
+# `showcase-*` filter), and the driver fans out one invocation per service.
+#
+# Each driver invocation issues FOUR HTTP checks against the deployed base
+# URL and side-emits one row per smoke level plus an aggregate primary
+# (see drivers/starter-smoke.ts). The deployed starters mount the v2 runtime
+# in its default PATH-BASED `mode:"multi-route"` at `/api/copilotkit`, so the
+# checks dispatch by URL path (the dead single-route envelope POST to bare
+# `/api/copilotkit` is never issued):
+#   - health      GET  `${base}/api/copilotkit/info` → 200 (lightweight
+#                                                     runtime-mount liveness;
+#                                                     the starter has no
+#                                                     `/api/health` route)
+#   - agent       GET  `${base}/api/copilotkit/info` → 200 JSON carrying a
+#                                                     `version` field
+#   - chat        POST `${base}/api/copilotkit/agent/<resolved-id>/run`
+#                 where `<resolved-id>` is resolved PER-STARTER from the `/info`
+#                 `agents` map (preferring `default`, else the first registered
+#                 key; e.g. mastra → `weatherAgent`), with `default` as the
+#                 last-resort fallback only when the agent rung answered `/info`
+#                 with no usable map (Accept: text/event-stream) → AG-UI SSE
+#                 stream asserting ≥1 TEXT_MESSAGE_CONTENT delta + terminal
+#                 RUN_FINISHED + NO RUN_ERROR
+#   - interaction GET  `${base}/`                    → 200 (app shell serves)
+#
+# Rows emitted per invocation:
+#   - Primary `starter:<column-slug>`           aggregate { total, passed,
+#                                               failed[], errorClass }.
+#                                               Green iff all four levels
+#                                               passed; red if ANY flipped.
+#   - Side    `starter:<column-slug>/<level>`   one per level ∈
+#                                               {health,agent,chat,
+#                                               interaction}; green/red with
+#                                               a keyed `errorClass`
+#                                               (transport-error |
+#                                               smoke-failed | aborted) and a
+#                                               Slack-safe `errorDesc`.
+#
+# Slug remap: the driver strips the `starter-` prefix from the Railway
+# service name to get the smoke-matrix slug, then remaps that to the
+# dashboard COLUMN slug via probes/helpers/starter-mapping.ts (S1's source
+# of truth) BEFORE any emit, so the dashboard only ever sees column slugs.
+#
+# Transport-failure classification: a scale-to-zero starter must WAKE on the
+# probe's first request, and that cold-start can legitimately exceed a
+# per-check timeout. Such a fetch-level failure is classified
+# `transport-error` (distinct from a real `smoke-failed` HTTP regression)
+# so a single slow wake reads soft, not as a hard red — the dashboard's
+# two-miss staleness rule absorbs it.
+#
+# ── Cadence ────────────────────────────────────────────────────────────
+#
+# Hourly at :40 (offset from smoke :*/5, e2e-demos :10, D5/D6 to avoid
+# contention). Starters are aimock-backed (zero LLM cost per tick) and the
+# four checks are cheap HTTP round-trips, but each tick WAKES sleeping
+# scale-to-zero services, so we keep the cadence well above the 15-min smoke
+# rhythm to keep wake frequency (and idle cost) low. The dashboard's
+# `STARTER_STALE_AFTER_MS` (UI slot) is derived from THIS hourly schedule
+# (1h probe period) at strictly > 2 probe periods — it is set to 2.5h, so a
+# single missed/slow-wake tick (last row ~2h old) stays green and only two
+# consecutive misses (last row ~3h old) flip amber. Keep this cron and that
+# 2.5h staleness window in lockstep.
+kind: starter_smoke
+id: starter_smoke
+schedule: "40 * * * *"
+#
+# ── timeout_ms ─────────────────────────────────────────────────────────
+#
+# Outer driver-invocation cap. GENEROUS, DELIBERATELY PROVISIONAL: the
+# Railway scale-to-zero wake latency is the primary open unknown (spec
+# §c / Risks) and is measured by a SEPARATE, GATED slot (S5 — the Railway
+# starter-services + wake-latency spike). Until that spike lands and gives
+# us a worst-case wake number, this cap is set high enough that a cold-start
+# wake plus four sequential HTTP checks cannot trip the outer race and read
+# a spurious red on the first tick of a sleeping service. TUNE THIS DOWN to
+# (observed worst-case wake latency + check budget) once the S5 spike
+# reports its number — that is the explicit follow-up, not a value to trust
+# blindly here. The driver also re-applies a per-check timeout internally
+# (STARTER_SMOKE_TIMEOUT_MS / 30s default) so one hung endpoint can't steal
+# the whole budget from its sibling checks.
+timeout_ms: 120000
+#
+# ── max_concurrency ────────────────────────────────────────────────────
+#
+# Caps simultaneous per-tick driver invocations. ≤12 starter services, four
+# HTTP checks each; at concurrency 6 the tick clears in ≤2 pool-cycles and
+# stays well under any Railway edge rate limit. Per-tick socket bound:
+# max_concurrency × 4 checks = 24 inflight. Mirrors smoke.yml's bound.
+max_concurrency: 6
+discovery:
+  source: railway-services
+  filter:
+    # Matches all `starter-*` Railway services (the per-starter sleepable
+    # services stood up by the gated S5 slot). The driver strips the
+    # `starter-` prefix internally to derive the smoke-matrix slug, then
+    # remaps to the dashboard column slug. Paralleling smoke's
+    # `showcase-*` filter.
+    #
+    # NOTE: the historical `showcase-starter-*` services (decommissioned in
+    # PR #4390, excluded in smoke.yml) are NOT matched here — those used the
+    # `showcase-` prefix. The new model deploys clean `starter-<slug>`
+    # services (one image, one app, one signal; spec §b). When S5 lands the
+    # services, no YAML edit is needed — auto-discovery picks up each new
+    # `starter-*` service on the next tick.
+    namePrefix: "starter-"
+  # `key_template` lives at the `discovery:` level (sibling of `source` /
+  # `filter`), per loader/schema.ts:DiscoveryBlockSchema. The driver derives
+  # the primary key as `starter:<column-slug>` itself (after the
+  # starter→column remap), so this template value is only the discovery
+  # dedupe key carrying the full Railway service name — the driver rewrites
+  # to the column-slug key before returning, matching how liveness.ts
+  # rewrites `smoke:showcase-<name>` → `smoke:<slug>`.
+  key_template: "starter_smoke:${name}"

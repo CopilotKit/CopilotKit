@@ -13,12 +13,7 @@ load_dotenv()
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
-from a2a.types import (
-    AgentCapabilities,
-    AgentCard,
-    AgentSkill,
-    Message
-)
+from a2a.types import AgentCapabilities, AgentCard, AgentSkill, Message
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
 from a2a.utils import new_agent_text_message
@@ -27,9 +22,11 @@ from langchain_openai import ChatOpenAI
 from typing import TypedDict, Optional, List
 from pydantic import BaseModel, Field
 
+
 class ResearchFinding(BaseModel):
     title: str = Field(description="Title or key point of the finding")
     description: str = Field(description="Detailed description of the finding")
+
 
 class StructuredResearch(BaseModel):
     topic: str = Field(description="The research topic")
@@ -37,10 +34,12 @@ class StructuredResearch(BaseModel):
     findings: List[ResearchFinding] = Field(description="List of key findings")
     sources: str = Field(description="Note about information sources")
 
+
 class ResearchState(TypedDict):
     message: str
     research: str
     structured_research: Optional[dict]
+
 
 class ResearchAgent:
     def __init__(self):
@@ -103,16 +102,14 @@ class ResearchAgent:
     async def invoke(self, message: Message) -> str:
         """Process A2A message and return research JSON."""
         message_text = message.parts[0].root.text
-        result = self.graph.invoke({
-            "message": message_text,
-            "research": "",
-            "structured_research": None
-        })
+        result = self.graph.invoke(
+            {"message": message_text, "research": "", "structured_research": None}
+        )
         return result["research"]
+
 
 # A2A Protocol executor wraps the LangGraph agent
 class ResearchAgentExecutor(AgentExecutor):
-
     def __init__(self):
         self.agent = ResearchAgent()
 
@@ -124,36 +121,36 @@ class ResearchAgentExecutor(AgentExecutor):
         result = await self.agent.invoke(context.message)
         await event_queue.enqueue_event(new_agent_text_message(result))
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
-        raise Exception('cancel not supported')
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("cancel not supported")
+
 
 port = int(os.getenv("RESEARCH_PORT", 9001))
 
 skill = AgentSkill(
-    id='research_agent',
-    name='Research Agent',
-    description='Gathers and summarizes information about a given topic using LangGraph',
-    tags=['research', 'information', 'summary', 'langgraph'],
+    id="research_agent",
+    name="Research Agent",
+    description="Gathers and summarizes information about a given topic using LangGraph",
+    tags=["research", "information", "summary", "langgraph"],
     examples=[
-        'Research quantum computing',
-        'Tell me about artificial intelligence',
-        'Gather information on renewable energy'
+        "Research quantum computing",
+        "Tell me about artificial intelligence",
+        "Gather information on renewable energy",
     ],
 )
 
 public_agent_card = AgentCard(
-    name='Research Agent',
-    description='LangGraph-powered agent that gathers and summarizes information about any topic',
-    url=f'http://localhost:{port}/',
-    version='1.0.0',
-    defaultInputModes=['text'],
-    defaultOutputModes=['text'],
+    name="Research Agent",
+    description="LangGraph-powered agent that gathers and summarizes information about any topic",
+    url=f"http://localhost:{port}/",
+    version="1.0.0",
+    defaultInputModes=["text"],
+    defaultOutputModes=["text"],
     capabilities=AgentCapabilities(streaming=True),
     skills=[skill],
     supportsAuthenticatedExtendedCard=False,
 )
+
 
 def main():
     if not os.getenv("OPENAI_API_KEY"):
@@ -176,8 +173,8 @@ def main():
     print(f"🔍 Starting Research Agent (LangGraph + A2A) on http://localhost:{port}")
     print(f"   Agent: {public_agent_card.name}")
     print(f"   Description: {public_agent_card.description}")
-    uvicorn.run(server.build(), host='0.0.0.0', port=port)
+    uvicorn.run(server.build(), host="0.0.0.0", port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

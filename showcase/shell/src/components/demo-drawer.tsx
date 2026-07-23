@@ -203,7 +203,7 @@ export function DemoDrawer({
               src={iframeSrc}
               className="h-full w-full border-0"
               title={`${demoName} demo`}
-              allow="clipboard-read; clipboard-write"
+              allow="clipboard-read; clipboard-write; microphone"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           )}

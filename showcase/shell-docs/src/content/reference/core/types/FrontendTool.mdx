@@ -1,0 +1,100 @@
+---
+title: "FrontendTool"
+description: "Definition of a frontend tool the agent can call in the browser."
+---
+
+## Overview
+
+`FrontendTool` describes a tool that runs in the browser and can be invoked by an agent. You register frontend tools via [`CopilotKitCoreConfig.tools`](/reference/core/types/CopilotKitCoreConfig) (or at runtime on [`CopilotKitCore`](/reference/core/classes/CopilotKitCore)). A tool has a name, an optional parameter schema, and a handler that receives the parsed arguments and an execution context.
+
+## Import
+
+```ts
+import type { FrontendTool } from "@copilotkit/core";
+```
+
+## Definition
+
+```ts
+type FrontendTool<T extends Record<string, unknown> = Record<string, unknown>> = {
+  name: string;
+  description?: string;
+  parameters?: StandardSchemaV1<any, T>;
+  handler?: (args: T, context: FrontendToolHandlerContext) => Promise<unknown>;
+  followUp?: boolean;
+  agentId?: string;
+  available?: boolean;
+};
+
+type FrontendToolHandlerContext = {
+  toolCall: ToolCall;
+  agent: AbstractAgent;
+  signal?: AbortSignal;
+};
+```
+
+## Properties
+
+<PropertyReference name="name" type="string" required>
+  Unique name of the tool. This is the name the agent uses to call it.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  Human-readable description of what the tool does. Helps the model decide when to call it.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="StandardSchemaV1<any, T>">
+  Standard Schema describing the tool's arguments. Used to validate and type the `args` passed to `handler`.
+</PropertyReference>
+
+<PropertyReference name="handler" type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>">
+  Function executed when the agent calls the tool. Receives the parsed `args` and an execution context.
+
+  <PropertyReference name="context.toolCall" type="ToolCall">
+    The AG-UI tool call that triggered this handler.
+  </PropertyReference>
+
+  <PropertyReference name="context.agent" type="AbstractAgent">
+    The agent instance that issued the tool call.
+  </PropertyReference>
+
+  <PropertyReference name="context.signal" type="AbortSignal">
+    Aborted when `stopAgent()` is called. Handlers can check `signal.aborted` or pass the signal to `fetch`/`setTimeout` to cooperatively cancel.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="followUp" type="boolean">
+  Whether the agent should run again after the tool result is returned.
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  Optional agent ID to constrain this tool to a specific agent. If specified, the tool is only available to that agent.
+</PropertyReference>
+
+<PropertyReference name="available" type="boolean" default="true">
+  Whether this tool is available to the agent. Set to `false` to hide the tool without unregistering it.
+</PropertyReference>
+
+## Usage
+
+```ts
+import type { FrontendTool } from "@copilotkit/core";
+import { z } from "zod";
+
+const setThemeTool: FrontendTool<{ theme: "light" | "dark" }> = {
+  name: "setTheme",
+  description: "Switch the app between light and dark mode",
+  parameters: z.object({ theme: z.enum(["light", "dark"]) }),
+  handler: async ({ theme }, { signal }) => {
+    if (signal?.aborted) return;
+    document.documentElement.dataset.theme = theme;
+    return `Theme set to ${theme}`;
+  },
+};
+```
+
+## Related
+
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
+- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig)
+- [ToolCallStatus](/reference/core/enums/ToolCallStatus)

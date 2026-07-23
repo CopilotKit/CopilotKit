@@ -29,7 +29,7 @@ const defaultMetadata = {
 describe("DebugEventBus", () => {
   it("subscribe adds a listener and broadcast calls it with the correct envelope shape", () => {
     const bus = new DebugEventBus();
-    const listener = vi.fn<[DebugEventEnvelope], void>();
+    const listener = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent({ type: EventType.RUN_STARTED });
 
     bus.subscribe(listener);
@@ -50,7 +50,7 @@ describe("DebugEventBus", () => {
 
   it("unsubscribe removes the listener so subsequent broadcasts don't reach it", () => {
     const bus = new DebugEventBus();
-    const listener = vi.fn<[DebugEventEnvelope], void>();
+    const listener = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent();
 
     const unsub = bus.subscribe(listener);
@@ -62,8 +62,8 @@ describe("DebugEventBus", () => {
 
   it("multiple listeners all receive the same broadcast", () => {
     const bus = new DebugEventBus();
-    const listenerA = vi.fn<[DebugEventEnvelope], void>();
-    const listenerB = vi.fn<[DebugEventEnvelope], void>();
+    const listenerA = vi.fn<(envelope: DebugEventEnvelope) => void>();
+    const listenerB = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent();
 
     bus.subscribe(listenerA);
@@ -79,11 +79,11 @@ describe("DebugEventBus", () => {
   it("listener errors are swallowed and other listeners still receive the event", () => {
     const bus = new DebugEventBus();
     const failingListener = vi
-      .fn<[DebugEventEnvelope], void>()
+      .fn<(envelope: DebugEventEnvelope) => void>()
       .mockImplementation(() => {
         throw new Error("boom");
       });
-    const healthyListener = vi.fn<[DebugEventEnvelope], void>();
+    const healthyListener = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent();
 
     bus.subscribe(failingListener);
@@ -122,7 +122,7 @@ describe("DebugEventBus", () => {
 
   it("envelope has correct timestamp, agentId, threadId, runId, and the original event", () => {
     const bus = new DebugEventBus();
-    const listener = vi.fn<[DebugEventEnvelope], void>();
+    const listener = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent({ type: EventType.STEP_STARTED });
     const metadata = { agentId: "agent-x", threadId: "t-42", runId: "r-99" };
 
@@ -142,7 +142,7 @@ describe("DebugEventBus", () => {
 
   it("RUN_STARTED event type passthrough: envelope.event is the original object, not a copy", () => {
     const bus = new DebugEventBus();
-    const listener = vi.fn<[DebugEventEnvelope], void>();
+    const listener = vi.fn<(envelope: DebugEventEnvelope) => void>();
     const event = createBaseEvent({ type: EventType.RUN_STARTED });
 
     bus.subscribe(listener);

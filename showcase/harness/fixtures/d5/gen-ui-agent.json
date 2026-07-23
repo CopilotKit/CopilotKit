@@ -1,0 +1,331 @@
+{
+  "_comment": "D5 fixture for /demos/gen-ui-agent. Three pill prompts (product launch / team offsite / competitor research) each drive the 7-step progression spelled out in gen_ui_agent.py's SYSTEM_PROMPT: an initial all-pending set_steps, six transitions advancing each step pending → in_progress → completed in order, then a final narration. Each leg is keyed on the prior leg's `toolCallId` so the chain rides the matcher's first-match-wins ordering — leg N's response emits the tool call with id `..._00N+1`, the agent invokes set_steps which appends a tool message with that id, and aimock's matcher picks the next leg whose toolCallId matches. The seed leg uses ONLY `userMessage` (no hasToolResult gate) so a fresh pill click fires even when prior pills have left tool messages in the thread — this is the same hazard PR #4770 fixed for the tool-rendering chain. Fixture order: toolCallId-keyed legs FIRST, userMessage seed LAST, so the more specific matchers win when applicable. Without this chain the LLM short-circuits to a single all-completed set_steps call and the InlineAgentStateCard renders the final 3/3 state instantly with no sequential animation. Argument JSON is auto-stringified by aimock's fixture-loader so we keep the object form for readability. Mirrored verbatim into showcase/aimock/d5-all.json so re-bundling stays consistent.",
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_007"
+      },
+      "response": {
+        "content": "All three launch steps complete. Goals defined, marketing aligned, post-launch metrics tracked — ready to ship."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"completed\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"in_progress\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"completed\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_launch_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"in_progress\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a product launch"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_launch_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"launch-1\",\"title\":\"Define launch goals and audience\",\"status\":\"pending\"},{\"id\":\"launch-2\",\"title\":\"Coordinate marketing and PR rollout\",\"status\":\"pending\"},{\"id\":\"launch-3\",\"title\":\"Track post-launch metrics for week 1\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_007"
+      },
+      "response": {
+        "content": "Offsite locked in. Venue booked, agenda set, travel and meals arranged."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"completed\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"in_progress\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"completed\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_offsite_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"in_progress\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "team offsite"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_offsite_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"offsite-1\",\"title\":\"Reserve venue near downtown for 30 engineers\",\"status\":\"pending\"},{\"id\":\"offsite-2\",\"title\":\"Build day-by-day agenda with workshop slots\",\"status\":\"pending\"},{\"id\":\"offsite-3\",\"title\":\"Arrange travel, lodging and group meals\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_007"
+      },
+      "response": {
+        "content": "Competitor brief assembled. Surface mapped, themes summarized, exploitable weaknesses identified."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_006"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_007",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"completed\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_005"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_006",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"in_progress\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_004"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_005",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"completed\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_003"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_004",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"in_progress\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_002"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_003",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"completed\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d5_set_steps_competitor_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_002",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"in_progress\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research our top competitor"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_steps_competitor_001",
+            "name": "set_steps",
+            "arguments": "{\"steps\":[{\"id\":\"comp-1\",\"title\":\"Map competitor product surface and pricing tiers\",\"status\":\"pending\"},{\"id\":\"comp-2\",\"title\":\"Summarize their public differentiation themes\",\"status\":\"pending\"},{\"id\":\"comp-3\",\"title\":\"Identify weaknesses our positioning can exploit\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "have the agent emit a ui"
+      },
+      "response": {
+        "content": "The agent emitted a UI block as part of its turn."
+      }
+    }
+  ]
+}

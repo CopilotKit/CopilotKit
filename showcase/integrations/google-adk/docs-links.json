@@ -1,0 +1,113 @@
+{
+  "framework": "google-adk",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/agentic-chat-ui"
+    },
+    "beautiful-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/agentic-chat-ui"
+    },
+    "cli-start": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/quickstart",
+      "shell_docs_path": "/quickstart"
+    },
+    "prebuilt-sidebar": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/prebuilt-components/sidebar"
+    },
+    "prebuilt-popup": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/prebuilt-components/popup"
+    },
+    "chat-slots": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/custom-look-and-feel/slots"
+    },
+    "headless-simple": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/headless"
+    },
+    "headless-complete": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk",
+      "shell_docs_path": "/headless"
+    },
+    "agentic-chat-reasoning": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "reasoning-default-render": {
+      "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+      "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+    },
+    "frontend-tools": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "frontend-tools-async": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "hitl-in-app": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/frontend-tools",
+      "shell_docs_path": "/human-in-the-loop"
+    },
+    "declarative-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
+    },
+    "a2ui-fixed-schema": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
+    },
+    "open-gen-ui": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "open-gen-ui-advanced": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+      "shell_docs_path": "/generative-ui/open-generative-ui"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    },
+    "tool-rendering-default-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-custom-catchall": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "tool-rendering-reasoning-chain": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/in-app-agent-write",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/predictive-state-updates",
+      "shell_docs_path": "/shared-state/streaming"
+    },
+    "readonly-state-agent-context": {
+      "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/in-app-agent-read",
+      "shell_docs_path": "/shared-state/agent-readonly"
+    }
+  }
+}

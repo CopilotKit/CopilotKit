@@ -1,0 +1,127 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-fastapi / gen-ui-open",
+    "sourceFile": "harness/fixtures/d5/gen-ui-open.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "open-gen-ui — 3D axis pill. generateSandboxedUi tool call with inline HTML/CSS.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_3d_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d6_open_gen_ui_3d_axis_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "3D axis visualization rendered — pitch, yaw, and roll axes displayed in the sandbox."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — Neural network pill.",
+      "match": {
+        "userMessage": "How a neural network works",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_neural_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing neural network forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}circle{fill:#6366f1}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Forward pass: input → hidden → output</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-neural-net\\\"><g><circle cx=\\\"40\\\" cy=\\\"40\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"90\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"140\\\" r=\\\"8\\\"/><circle cx=\\\"40\\\" cy=\\\"190\\\" r=\\\"8\\\"/></g><g fill=\\\"#a78bfa\\\"><circle cx=\\\"160\\\" cy=\\\"30\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"75\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"115\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"155\\\" r=\\\"8\\\"/><circle cx=\\\"160\\\" cy=\\\"195\\\" r=\\\"8\\\"/></g><g fill=\\\"#10b981\\\"><circle cx=\\\"280\\\" cy=\\\"80\\\" r=\\\"8\\\"/><circle cx=\\\"280\\\" cy=\\\"140\\\" r=\\\"8\\\"/></g></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "toolCallId": "call_d6_open_gen_ui_neural_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Neural network forward-pass diagram rendered — input, hidden, and output layers displayed."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — Quicksort pill.",
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_quicksort_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing quicksort animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}rect{fill:#64748b}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Quicksort: partition around pivot</h1><svg width=\\\"320\\\" height=\\\"220\\\" data-testid=\\\"ogui-quicksort\\\"><rect x=\\\"10\\\"  y=\\\"170\\\" width=\\\"24\\\" height=\\\"40\\\"/><rect x=\\\"40\\\"  y=\\\"130\\\" width=\\\"24\\\" height=\\\"80\\\"/><rect x=\\\"70\\\"  y=\\\"100\\\" width=\\\"24\\\" height=\\\"110\\\"/><rect x=\\\"100\\\" y=\\\"60\\\"  width=\\\"24\\\" height=\\\"150\\\" fill=\\\"#f59e0b\\\"/><rect x=\\\"130\\\" y=\\\"80\\\"  width=\\\"24\\\" height=\\\"130\\\" fill=\\\"#6366f1\\\"/><rect x=\\\"160\\\" y=\\\"110\\\" width=\\\"24\\\" height=\\\"100\\\"/><rect x=\\\"190\\\" y=\\\"50\\\"  width=\\\"24\\\" height=\\\"160\\\"/><rect x=\\\"220\\\" y=\\\"90\\\"  width=\\\"24\\\" height=\\\"120\\\"/><rect x=\\\"250\\\" y=\\\"140\\\" width=\\\"24\\\" height=\\\"70\\\"/><rect x=\\\"280\\\" y=\\\"160\\\" width=\\\"24\\\" height=\\\"50\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "toolCallId": "call_d6_open_gen_ui_quicksort_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Quicksort partition visualization rendered — pivot and comparison bars displayed."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — Fourier pill.",
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing Fourier series animation…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>Fourier series: square wave</h1><svg width=\\\"320\\\" height=\\\"220\\\" viewBox=\\\"0 -60 320 120\\\" data-testid=\\\"ogui-fourier\\\"><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"40\\\" stroke=\\\"#6366f1\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"13\\\" stroke=\\\"#a78bfa\\\" fill=\\\"none\\\"/><circle cx=\\\"60\\\" cy=\\\"0\\\" r=\\\"8\\\"  stroke=\\\"#c4b5fd\\\" fill=\\\"none\\\"/><path d=\\\"M120 0 L300 0\\\" stroke=\\\"#10b981\\\" fill=\\\"none\\\"/></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "toolCallId": "call_d6_open_gen_ui_fourier_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Fourier series visualization rendered — overlapping sine harmonics approximating a square wave."
+      }
+    },
+    {
+      "_comment": "Fallback narration entries for back-compat probes.",
+      "match": {
+        "userMessage": "render an open gen-ui element",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "The open gen-UI element was rendered. The LLM produced an arbitrary-shape JSON payload and the renderer materialized it as a UI block."
+      }
+    }
+  ]
+}

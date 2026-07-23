@@ -9,6 +9,13 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
 
+  define: {
+    "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
+      process.env.VITE_COPILOTKIT_THREADS_ENABLED ??
+        (process.env.COPILOTKIT_LICENSE_TOKEN ? "true" : "false"),
+    ),
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

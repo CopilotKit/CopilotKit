@@ -6,6 +6,8 @@ hideTOC: true
 snippet_cell: subagents
 ---
 
+<InlineDemo demo="subagents" />
+
 ## What is this?
 
 Sub-agents are the canonical multi-agent pattern: a top-level
@@ -17,8 +19,6 @@ back up to the supervisor's next step.
 This is fundamentally the same shape as tool-calling, but each "tool"
 is itself a full-blown agent with its own system prompt and (often) its
 own tools, memory, and model.
-
-<InlineDemo demo="subagents" />
 
 ## When should I use this?
 
@@ -37,10 +37,11 @@ canonical example.
 
 ## Setting up sub-agents
 
-Each sub-agent is a full `create_agent(...)` call with its own model,
-its own system prompt, and (optionally) its own tools. They don't share
-memory or tools with the supervisor; the supervisor only ever sees
-what the sub-agent returns.
+<FrameworkSetup concept="subagents-setup" />
+
+Each sub-agent is an isolated agent call with its own model, system
+prompt, and optional tools. They don't share memory or tools with the
+supervisor; the supervisor only ever sees what the sub-agent returns.
 
 <Snippet region="subagent-setup" title="backend/agent.py — three sub-agents" />
 
@@ -51,14 +52,14 @@ wrong.
 
 ## Exposing sub-agents as tools
 
-The supervisor delegates by calling tools. Each tool is a thin wrapper
-around `sub_agent.invoke(...)` that:
+The supervisor delegates by calling tools. Each delegation tool is a thin
+wrapper around a specialized agent call that:
 
-1. Runs the sub-agent synchronously on the supplied `task` string.
+1. Runs the sub-agent on the supplied `task` string.
 2. Records the delegation into a `delegations` slot in shared agent
    state (so the UI can render a live log).
-3. Returns the sub-agent's final message as a `ToolMessage`, which the
-   supervisor sees as a normal tool result on its next turn.
+3. Returns the sub-agent's final message as the tool result, which the
+   supervisor sees on its next turn.
 
 <Snippet region="supervisor-delegation-tools" title="backend/agent.py — supervisor tools" />
 
@@ -70,8 +71,8 @@ frontend renders every new entry live.
 
 On the frontend, the delegation log is just a reactive render of the
 `delegations` slot. Subscribe with `useAgent({ updates:
-[OnStateChanged, OnRunStatusChanged] })`, read `agent.state.delegations`,
-and render one card per entry.
+[UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })`,
+read `agent.state.delegations`, and render one card per entry.
 
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
 
@@ -85,5 +86,3 @@ would otherwise be a long opaque spinner.
   delegation log live.
 - **[State streaming](/shared-state/streaming)** — stream
   *individual* sub-agent outputs token-by-token inside each log entry.
-
-<FeatureIntegrations feature="subagents" />

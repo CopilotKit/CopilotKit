@@ -13,7 +13,7 @@ from .exc import (
     ActionNotFoundException,
     AgentNotFoundException,
     ActionExecutionException,
-    AgentExecutionException
+    AgentExecutionException,
 )
 from .logging import get_logger, bold
 
@@ -29,18 +29,21 @@ COPILOTKIT_SDK_VERSION = __version__
 
 logger = get_logger(__name__)
 
+
 class InfoDict(TypedDict):
     """
     Info dictionary
     """
+
     sdkVersion: str
     actions: List[ActionDict]
     agents: List[AgentDict]
 
+
 class CopilotKitContext(TypedDict):
     """
     CopilotKit Context
-    
+
     Parameters
     ----------
     properties : Any
@@ -50,9 +53,11 @@ class CopilotKitContext(TypedDict):
     headers : Mapping[str, str]
         The headers of the request
     """
+
     properties: Any
     frontend_url: Optional[str]
     headers: Mapping[str, str]
+
 
 # Alias for backwards compatibility
 CopilotKitSDKContext = CopilotKitContext
@@ -60,7 +65,7 @@ CopilotKitSDKContext = CopilotKitContext
 
 class CopilotKitRemoteEndpoint:
     """
-    CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your 
+    CopilotKitRemoteEndpoint lets you connect actions and agents written in Python to your
     CopilotKit application.
 
     To install CopilotKit for Python, run:
@@ -106,7 +111,7 @@ class CopilotKitRemoteEndpoint:
         actions=lambda context: [
             Action(
                 name="greet_user",
-                handler=make_greet_user_handler(context["properties"]["name"]), 
+                handler=make_greet_user_handler(context["properties"]["name"]),
                 description="Greet the user"
             )
         ]
@@ -211,27 +216,16 @@ class CopilotKitRemoteEndpoint:
         self,
         *,
         actions: Optional[
-            Union[
-                List[Action],
-                Callable[[CopilotKitContext], List[Action]]
-            ]
+            Union[List[Action], Callable[[CopilotKitContext], List[Action]]]
         ] = None,
         agents: Optional[
-            Union[
-                List[Agent],
-                Callable[[CopilotKitContext], List[Agent]]
-            ]
+            Union[List[Agent], Callable[[CopilotKitContext], List[Agent]]]
         ] = None,
     ):
         self.agents = agents or []
         self.actions = actions or []
 
-
-    def info(
-        self,
-        *,
-        context: CopilotKitContext
-    ) -> InfoDict:
+    def info(self, *, context: CopilotKitContext) -> InfoDict:
         """
         Returns information about available actions and agents
         """
@@ -248,13 +242,13 @@ class CopilotKitRemoteEndpoint:
                 ("Context", context),
                 ("Actions", actions_list),
                 ("Agents", agents_list),
-            ]
+            ],
         )
 
         return {
             "actions": actions_list,
             "agents": agents_list,
-            "sdkVersion": COPILOTKIT_SDK_VERSION
+            "sdkVersion": COPILOTKIT_SDK_VERSION,
         }
 
     def _get_action(
@@ -273,11 +267,11 @@ class CopilotKitRemoteEndpoint:
         return action
 
     def execute_action(
-            self,
-            *,
-            context: CopilotKitContext,
-            name: str,
-            arguments: dict,
+        self,
+        *,
+        context: CopilotKitContext,
+        name: str,
+        arguments: dict,
     ) -> Coroutine[Any, Any, ActionResultDict]:
         """
         Execute an action
@@ -291,7 +285,7 @@ class CopilotKitRemoteEndpoint:
                 ("Context", context),
                 ("Action", action.dict_repr()),
                 ("Arguments", arguments),
-            ]
+            ],
         )
 
         try:
@@ -300,7 +294,7 @@ class CopilotKitRemoteEndpoint:
         except Exception as error:
             raise ActionExecutionException(name, error) from error
 
-    def execute_agent( # pylint: disable=too-many-arguments
+    def execute_agent(  # pylint: disable=too-many-arguments
         self,
         *,
         context: CopilotKitContext,
@@ -333,7 +327,7 @@ class CopilotKitRemoteEndpoint:
                 ("Messages", messages),
                 ("Actions", actions),
                 ("MetaEvents", meta_events),
-            ]
+            ],
         )
 
         try:
@@ -344,7 +338,7 @@ class CopilotKitRemoteEndpoint:
                 config=config,
                 messages=messages,
                 actions=actions,
-                meta_events=meta_events
+                meta_events=meta_events,
             )
         except Exception as error:
             raise AgentExecutionException(name, error) from error
@@ -370,7 +364,7 @@ class CopilotKitRemoteEndpoint:
                 ("Context", context),
                 ("Agent", agent.dict_repr()),
                 ("Thread ID", thread_id),
-            ]
+            ],
         )
         try:
             return await agent.get_state(thread_id=thread_id)
@@ -384,9 +378,10 @@ class CopilotKitRemoteEndpoint:
         logger.info(bold(title))
         logger.info("--------------------------")
         for key, value in data:
-            logger.info(bold(key+":"))
+            logger.info(bold(key + ":"))
             logger.info(pformat(value))
         logger.info("--------------------------")
+
 
 # Alias for backwards compatibility
 class CopilotKitSDK(CopilotKitRemoteEndpoint):
@@ -397,6 +392,6 @@ class CopilotKitSDK(CopilotKitRemoteEndpoint):
             "CopilotKitSDK is deprecated since version 0.1.31. "
             "Use CopilotKitRemoteEndpoint instead.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
         super().__init__(*args, **kwargs)

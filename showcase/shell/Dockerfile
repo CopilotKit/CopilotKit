@@ -12,24 +12,39 @@ RUN cd scripts && npm install --silent && cd ../shell && npm install --silent
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
+COPY showcase/angular/src/ ./angular/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
+# generate-registry.ts imports the catalog cross-join/flatten fold from
+# ../harness/src/shared/catalog/catalog-flatten.js. That file is ESM (relies on
+# the harness package.json's `"type": "module"`) and does `import yaml from
+# "js-yaml"`, resolved by walking up from the harness tree. Stage the fold + the
+# harness package.json for the ESM scope, then point harness/node_modules at the
+# already-installed scripts node_modules so js-yaml (+ its argparse dep) resolve
+# — no second install of the harness package.
+COPY showcase/harness/src/shared/catalog/ ./harness/src/shared/catalog/
+COPY showcase/harness/package.json ./harness/package.json
+RUN ln -s ../scripts/node_modules harness/node_modules
+
 # Generate registry + content, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
 FROM node:20-slim AS runner
 WORKDIR /app
+ARG COMMIT_SHA=unknown
+ARG BRANCH=unknown
 ENV NODE_ENV=production
 ENV PORT=10000
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}

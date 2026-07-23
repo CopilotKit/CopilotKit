@@ -1,0 +1,45 @@
+{
+  "title": "Built-in Agent",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "cli",
+    "build-with-agents",
+    "---Concepts---",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "agent-app-context",
+    "---Built-in Agent---",
+    "server-tools",
+    "mcp-servers",
+    "model-selection",
+    "advanced-configuration",
+    "telemetry",
+    "---Runtime---",
+    "---Intelligence Platform---",
+    "---Deploy---",
+    "---Platforms---",
+    "---Other---"
+  ]
+}

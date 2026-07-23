@@ -1,0 +1,78 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-typescript / shared-state-read-write",
+    "sourceFile": "d5-all.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "recall the user preference",
+        "turnIndex": 0,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Per the read-only context the user prefers concise responses. The agent received this preference via the shared-state context and is honoring it without writing back to state."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write \u2014 Greet pill. Matches on userMessage only; the systemMessage gate was too fragile (the middleware's output format varies by CopilotKit runtime version and system prompt ordering).",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "turnIndex": 0,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Hi \u2014 I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "shared-state-read-write \u2014 Plan-a-weekend pill. Same no-systemMessage gate as the Greet pill.",
+      "match": {
+        "userMessage": "weekend plan based on my interests",
+        "turnIndex": 0,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": false,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "hasToolResult": true,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Got it \u2014 I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "_comment": "shared-state-write turn 2 \u2014 recall. No turnIndex gate: this is turn 2 of a 2-turn probe (turn 1 = set_notes, turn 2 = recall).",
+      "match": {
+        "userMessage": "favorite color",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Your favorite color is blue \u2014 I noted it earlier."
+      }
+    }
+  ]
+}

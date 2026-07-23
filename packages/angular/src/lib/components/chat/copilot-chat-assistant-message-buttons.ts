@@ -7,16 +7,16 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import {
-  LucideAngularModule,
+  CopilotIcon,
   Copy,
   Check,
   ThumbsUp,
   ThumbsDown,
   Volume2,
   RefreshCw,
-} from "lucide-angular";
+} from "../icons/copilot-icon";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -24,9 +24,7 @@ import { copyToClipboard } from "@copilotkit/shared";
 
 // Base toolbar button component
 @Component({
-  standalone: true,
   selector: "button[copilotChatAssistantMessageToolbarButton]",
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -53,28 +51,28 @@ export class CopilotChatAssistantMessageToolbarButton {
   computedClass = computed(() => {
     return cn(
       // Flex centering with gap (from React button base styles)
-      "inline-flex items-center justify-center gap-2",
+      "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2",
       // Cursor
-      "cursor-pointer",
+      "cpk:cursor-pointer",
       // Background and text
-      "p-0 text-[rgb(93,93,93)] hover:bg-[#E8E8E8]",
+      "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
       // Dark mode
-      "dark:text-[rgb(243,243,243)] dark:hover:bg-[#303030]",
+      "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
       // Shape and sizing
-      "h-8 w-8 rounded-md",
+      "cpk:h-8 cpk:w-8 cpk:rounded-md",
       // Interactions
-      "transition-colors",
+      "cpk:transition-colors",
       // Hover states
-      "hover:text-[rgb(93,93,93)]",
-      "dark:hover:text-[rgb(243,243,243)]",
+      "cpk:hover:text-[rgb(93,93,93)]",
+      "cpk:dark:hover:text-[rgb(243,243,243)]",
       // Focus states
-      "focus:outline-none focus:ring-2 focus:ring-offset-2",
+      "cpk:focus:outline-none cpk:focus:ring-2 cpk:focus:ring-offset-2",
       // Disabled state
-      "disabled:opacity-50 disabled:cursor-not-allowed",
+      "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
       // SVG styling from React Button component
-      "[&_svg]:pointer-events-none [&_svg]:shrink-0",
+      "cpk:[&_svg]:pointer-events-none cpk:[&_svg]:shrink-0",
       // Ensure proper sizing
-      "shrink-0",
+      "cpk:shrink-0",
       this.inputClass(),
     );
   });
@@ -82,13 +80,8 @@ export class CopilotChatAssistantMessageToolbarButton {
 
 // Copy button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-copy-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -100,9 +93,9 @@ export class CopilotChatAssistantMessageToolbarButton {
       (click)="handleCopy($event)"
     >
       @if (copied()) {
-        <lucide-angular [img]="CheckIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
       } @else {
-        <lucide-angular [img]="CopyIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
       }
     </button>
   `,
@@ -134,13 +127,8 @@ export class CopilotChatAssistantMessageCopyButton {
 
 // Thumbs up button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-thumbs-up-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -151,7 +139,7 @@ export class CopilotChatAssistantMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="ThumbsUpIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="ThumbsUpIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })
@@ -173,13 +161,8 @@ export class CopilotChatAssistantMessageThumbsUpButton {
 
 // Thumbs down button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-thumbs-down-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -190,7 +173,7 @@ export class CopilotChatAssistantMessageThumbsUpButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="ThumbsDownIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="ThumbsDownIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })
@@ -212,13 +195,8 @@ export class CopilotChatAssistantMessageThumbsDownButton {
 
 // Read aloud button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-read-aloud-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -229,7 +207,7 @@ export class CopilotChatAssistantMessageThumbsDownButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="Volume2Icon" [size]="20"></lucide-angular>
+      <copilot-icon [img]="Volume2Icon" [size]="20"></copilot-icon>
     </button>
   `,
 })
@@ -251,13 +229,8 @@ export class CopilotChatAssistantMessageReadAloudButton {
 
 // Regenerate button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-assistant-message-regenerate-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatAssistantMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatAssistantMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -268,7 +241,7 @@ export class CopilotChatAssistantMessageReadAloudButton {
       [inputClass]="inputClass()"
       (click)="handleClick($event)"
     >
-      <lucide-angular [img]="RefreshCwIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="RefreshCwIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })

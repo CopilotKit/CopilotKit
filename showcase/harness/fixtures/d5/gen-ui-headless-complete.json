@@ -1,0 +1,75 @@
+{
+  "_comment": "D5 fixture for /demos/headless-complete. Four chips: Weather (covered by feature-parity weather fixture for `What's the weather in Tokyo?`), Stock price (get_stock_price → StockCard), Highlight a note (highlight_note frontend useComponent → HighlightNote), Revenue chart (get_revenue_chart → ChartCard). Two-leg fixtures pin BOTH userMessage AND toolCallId on the narration leg, with the more-specific narration fixture placed BEFORE the bare userMessage toolCall fixture in this array — aimock matches in array order with first-match-wins. Matchers use short distinctive substrings ('AAPL', 'ship the demo on Friday', 'revenue over the last six months') so they fire for the SuggestionBar pills configured by use-headless-suggestions.ts.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "AAPL",
+        "toolCallId": "call_d5_get_stock_price_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "AAPL"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolCallId": "call_d5_highlight_note_001"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "ship the demo on Friday"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_highlight_note_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue over the last six months",
+        "toolCallId": "call_d5_get_revenue_chart_001"
+      },
+      "response": {
+        "content": "Revenue grew from $1.4M in January to $2.1M in June — a clean upward trend with one dip in April. The chart above shows the full six-month series."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue over the last six months"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}",
+            "result": "{\"title\":\"Revenue (last 6 months)\",\"subtitle\":\"USD, millions\",\"data\":[{\"label\":\"Jan\",\"value\":1.4},{\"label\":\"Feb\",\"value\":1.6},{\"label\":\"Mar\",\"value\":1.7},{\"label\":\"Apr\",\"value\":1.5},{\"label\":\"May\",\"value\":1.9},{\"label\":\"Jun\",\"value\":2.1}]}"
+          }
+        ]
+      }
+    }
+  ]
+}

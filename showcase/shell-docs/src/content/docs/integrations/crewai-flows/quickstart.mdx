@@ -5,14 +5,12 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+<OpsPlatformCTA
+  variant="card"
+  title="Ship CrewAI Flows to production"
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_crewai_flows_quickstart"
 />
 
 ## Prerequisites
@@ -22,18 +20,21 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ## Getting started
 
 <Steps>
-<TailoredContent
-    className="step"
-    id="path"
-    header={
-        <div>
-            <p className="text-xl font-semibold">How do you want to get started?</p>
-            <p className="text-base">
-                Bootstrap with the new <span className="text-indigo-500 dark:text-indigo-400">CopilotKit CLI (Beta)</span> or code along with us to get started.
-            </p>
-        </div>
-    }
->
+<Step>
+    ### Create a free account
+
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+</Step>
+
+<Step>
+    ### How do you want to get started?
+
+    Bootstrap with the new CopilotKit CLI (Beta) or code along with us to get started.
+
+    <TailoredContent
+        className="step"
+        id="path"
+    >
     <TailoredContentOption
         id="cli"
         title="Use the CopilotKit CLI (NextJS only)"
@@ -54,7 +55,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             </Accordions>
 
             ```bash
-            npx copilotkit@latest init -m CrewAI --crew-type Flows
+            npx copilotkit@latest init --framework flows
             ```
         </Step>
         <Step>
@@ -84,7 +85,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
     >
         <Step>
             ### Connect to Copilot Cloud
-            1. Go to [Copilot Cloud](https://cloud.copilotkit.ai), sign in and click Get Started
+            1. Go to [Copilot Cloud](https://dashboard.operations.copilotkit.ai), sign in and click Get Started
             2. Click "Add Remote Endpoint" and fill in the details of your CrewAI Flow. Note: If your Agent Name contains multiple words, use underscores (`_`) as separators.
             3. Click "Save Endpoint"
             4. Copy the Copilot Cloud Public API Key
@@ -96,7 +97,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ### Install CopilotKit
             First, install the latest packages for CopilotKit into your frontend.
             ```npm
-            npm install @copilotkit/react-ui @copilotkit/react-core
+            npm install @copilotkit/react-core
             ```
         </Step>
 
@@ -105,7 +106,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             The [`<CopilotKit>`](/reference/v1/components/CopilotKit) component must wrap the Copilot-aware parts of your application. For most use-cases,
             it's appropriate to wrap the CopilotKit provider around the entire app, e.g. in your layout.tsx.
 
-            <CloudCopilotKitProvider />
+            <CloudCopilotKit />
         </Step>
         <Step>
             ### Choose a Copilot UI
@@ -205,6 +206,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
         </Step>
     </TailoredContentOption>
     </TailoredContent>
+</Step>
 
 </Steps>
 
@@ -241,3 +243,13 @@ can help you build power agent native applications.
     icon={<WrenchIcon />}
   />
 </Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

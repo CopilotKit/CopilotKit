@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.56.3",
+  "version": "1.63.2",
   "private": false,
   "keywords": [
     "ai",
@@ -39,18 +39,19 @@
   },
   "scripts": {
     "build": "tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
-    "publint": "publint .",
+    "publint": "publint . && node scripts/verify-cjs-exports.cjs",
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.52",
-    "@copilotkit/license-verifier": "0.2.0",
+    "@ag-ui/client": "0.0.57",
+    "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
     "chalk": "4.1.2",

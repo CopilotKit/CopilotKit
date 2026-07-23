@@ -14,6 +14,18 @@ pre-commit:
     check-binaries:
       tags: binaries
       run: bash scripts/hooks/check-binaries.sh
+    sync-promote-dropdown:
+      tags: promote-dropdown
+      # Regenerate the showcase_promote.yml `service` dropdown from the
+      # railway-envs.ts SSOT and re-stage it so the option list can never
+      # drift from the set of promotable services. Plain regenerate + git add
+      # (no stash) — keep this hook worktree-safe; lefthook's shared
+      # refs/stash is not safe across concurrent worktree commits.
+      glob: "{showcase/scripts/railway-envs.ts,showcase/scripts/sync-promote-service-options.ts,.github/workflows/showcase_promote.yml}"
+      run: |
+        set -euo pipefail
+        pnpm exec tsx showcase/scripts/sync-promote-service-options.ts \
+          && git add .github/workflows/showcase_promote.yml
     sync-lockfile:
       tags: lockfile
       glob: "{packages,examples,showcase/scripts}/**/package.json"
@@ -29,24 +41,76 @@ pre-commit:
       # still invokes this hook with an empty expansion, and oxlint/oxfmt
       # would default to operating on the current directory, defeating the
       # scoping entirely. stage_fixed re-stages whatever the hooks modify.
-      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
-      # Mirror the ignorePatterns in .oxlintrc.json / .oxfmtrc.json at the
-      # hook layer. Without this, a docs-only commit expands {staged_files}
-      # to a single docs/** path; oxlint silently processes 0 files, then
-      # oxfmt exits 2 with "Expected at least one target file" and blocks
-      # the commit.
+      # Intentionally excludes json/jsonc/json5: oxfmt --write rewrites JSON
+      # files into JSON5 syntax (4-space indent, trailing commas, compact
+      # objects) when invoked via lefthook with staged file paths. The result
+      # is invalid strict JSON that pnpm rejects with ERR_PNPM_JSON_PARSE,
+      # blocking every commit that touches a package.json (see PRs #5054,
+      # #5055). JSON formatting is owned by pnpm/manual editing; oxfmt has
+      # no per-file knobs to keep package.json valid, so the only safe fix
+      # is to keep .json* out of this hook entirely.
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs,md,css,yml,yaml,html,vue,py}"
+      # Mirror the generated-data ignorePatterns in .oxlintrc.json /
+      # .oxfmtrc.json at the hook layer.
       exclude:
-        - "docs/**"
+        - "showcase/aimock/shared/**"
+        - "showcase/aimock/d4/**"
+        - "showcase/aimock/d6/**"
+      # Use `set --` so the staged files become positional args; this is the
+      # only shell-portable way to test "are there any" without breaking on
+      # multi-file expansion. The old `[ -n "{staged_files}" ]` form failed
+      # with `sh: 1: [: <path>: unexpected operator` because lefthook
+      # interpolates the file list as space-separated words, not a single
+      # quoted string, so [ saw 3+ args and tried to parse a binary op.
+      # IMPORTANT: keep this script DOUBLE-QUOTE-FREE. lefthook invokes a
+      # multi-line `run` as `sh -c "<script>"` and (in some versions / on
+      # Windows git-sh) does not escape embedded double quotes, so any `"$@"`
+      # / `[ "$#" ]` / `x=""` prematurely closes the `-c "…"` string and the
+      # shell aborts with `unexpected EOF`. Use unquoted `$@`/`$#` — staged
+      # paths in this monorepo never contain spaces. JSON is excluded from the
+      # glob above, so oxfmt never receives package.json (the old explicit
+      # package.json filter is unnecessary). ruff is scoped to .py via `case`.
       run: |
-        if [ -n "{staged_files}" ]; then
-          pnpm exec oxlint --fix {staged_files} && pnpm exec oxfmt --write {staged_files}
+        files=
+        for f in {staged_files}; do
+          [ -f $f ] && files=$files' '$f
+        done
+        set -- $files
+        if [ $# -gt 0 ]; then
+          pnpm exec oxlint --fix $@
+          pnpm exec oxfmt --write $@
+          for f in $@; do
+            case $f in *.py) ruff format $f 2>/dev/null || true ;; esac
+          done
         fi
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages
       env:
         NX_TUI: "false"
-      run: pnpm run test && pnpm run check:packages
+      run: |
+        files=
+        for f in {staged_files}; do
+          case $f in
+            packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|nx.json|tsconfig*.json) files=$files' '$f ;;
+          esac
+        done
+        set -- $files
+        if [ "$#" -gt 0 ]; then
+          projects=$(printf '%s\n' "$@" | pnpm nx show projects --affected --projects 'packages/*' --stdin --sep=,)
+          if [ -n "$projects" ]; then
+            pnpm nx run-many -t test,publint,attw --projects="$projects" --outputStyle=static
+          fi
+        fi
+
+    check-plugin-skills:
+      tags: plugin-skills
+      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
+      run: pnpm check:plugin-skills
+      fail_text: |
+        Plugin skill mirror is out of sync with the Intent source.
+        Run: pnpm sync:plugin-skills
+        Then stage the changes and re-commit.
 
 commit-msg:
   commands:

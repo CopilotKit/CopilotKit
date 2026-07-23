@@ -17,8 +17,34 @@ export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
+export { useMemories } from "./use-memories";
+export type { UseMemoriesResult } from "./use-memories";
+// Re-export the public memory types referenced by UseMemoriesResult so consumers
+// can import them from the binding package alongside the hook result type.
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
+} from "@copilotkit/core";
+export { useLearnFromUserAction } from "./use-learn-from-user-action";
+export type {
+  LearnFromUserActionInput,
+  LearnFromUserActionResult,
+  UseLearnFromUserActionRecorder,
+} from "./use-learn-from-user-action";
+export { useLearnFromUserActionInCurrentThread } from "./use-learn-from-user-action-in-current-thread";
+export type {
+  LearnFromUserActionInCurrentThreadInput,
+  UseLearnFromUserActionInCurrentThreadRecorder,
+} from "./use-learn-from-user-action-in-current-thread";
 export { useAttachments } from "./use-attachments";
 export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
+export { useLearningContainers } from "./use-learning-containers";
+export type { UseLearningContainersArgs } from "./use-learning-containers";
+export { useLearningContainersInCurrentThread } from "./use-learning-containers-in-current-thread";
+export type { UseLearningContainersInCurrentThreadArgs } from "./use-learning-containers-in-current-thread";

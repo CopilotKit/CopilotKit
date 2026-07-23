@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-dotnet / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional pill — professional introduction (must differ from casual below)",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit-powered assistant, configured to operate in a professional tone. I am here to assist with technical queries, architectural guidance, and workflow optimization. How may I help you today?"
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual pill — casual introduction (must differ from professional above)",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, running in chill mode. Ask me anything — code stuff, random questions, whatever. Let's have fun with it!"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner pill — beginner-level explanation",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "CopilotKit is a toolkit that helps you add AI chat to your web apps. Think of it like adding a smart helper that can talk to your users and do things in your app. You connect it to an AI model and it handles all the tricky parts for you."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert pill — expert-level explanation (must differ from beginner above)",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "CopilotKit orchestrates bidirectional communication between React frontends and LLM-backed agents via the AG-UI protocol. The runtime layer proxies tool calls, manages multi-turn state, and supports interrupt/resume semantics through LangGraph's checkpoint system. Frontend hooks like useCoAgent and useCopilotAction expose typed tool interfaces that map directly to agent-side tool definitions."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise pill — short response (must be >=80 chars shorter than detailed below)",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Agent context lets you pass frontend config (tone, expertise, length) to the agent on every turn via useAgentContext."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed pill — long response (must exceed concise by >=80 chars)",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "ms-agent-dotnet"
+      },
+      "response": {
+        "content": "Agent context is CopilotKit's mechanism for forwarding arbitrary frontend configuration to the backend agent on every conversational turn. When your React component calls useAgentContext with a payload — such as tone, expertise level, or desired response length — the runtime serializes that payload and injects it into the agent's system prompt builder. This means the agent can dynamically adjust its behavior without requiring separate API endpoints or manual state synchronization. The configuration is per-turn, so users can change their preferences mid-conversation and see the effect immediately on the next response. Under the hood, the context travels as forwardedProps through the AG-UI protocol, arriving at the agent alongside the user message and tool definitions."
+      }
+    }
+  ]
+}

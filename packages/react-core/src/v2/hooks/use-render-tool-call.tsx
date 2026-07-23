@@ -1,11 +1,11 @@
 import React, { useCallback, useMemo, useSyncExternalStore } from "react";
-import { ToolCall, ToolMessage } from "@ag-ui/core";
+import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import { useCopilotKit } from "../providers/CopilotKitProvider";
+import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -153,11 +153,18 @@ export function useRenderToolCall() {
         exactMatches[0] ||
         renderToolCalls.find((rc) => rc.name === "*");
 
+      // No per-tool or wildcard renderer registered → render nothing.
+      // Showing an unhandled tool call is opt-in: register a named/wildcard
+      // renderer via useRenderTool, or call useDefaultRenderTool() for the
+      // built-in card. Auto-painting a default card here would leak internal
+      // tool names plus raw args/result JSON into every app's chat in
+      // production, so the card must be explicitly enabled.
       if (!renderConfig) {
         return null;
       }
 
-      const RenderComponent = renderConfig.render;
+      const RenderComponent =
+        renderConfig.render as ReactToolCallRenderer<unknown>["render"];
       const isExecuting = executingToolCallIds.has(toolCall.id);
 
       // Use the memoized ToolCallRenderer component to prevent unnecessary re-renders

@@ -1,7 +1,5 @@
-import {
-  RuntimeEventSource,
-  RuntimeEventTypes,
-} from "../service-adapters/events";
+import type { RuntimeEventSource } from "../service-adapters/events";
+import { RuntimeEventTypes } from "../service-adapters/events";
 
 export interface LLMRequestData {
   threadId?: string;
@@ -49,7 +47,7 @@ export interface CopilotObservabilityHooks {
  *
  * @remarks
  * Custom logging handlers require a valid CopilotKit public API key.
- * Sign up at https://docs.copilotkit.ai/quickstart#get-a-copilot-cloud-public-api-key to get your key.
+ * Sign up at https://docs.copilotkit.ai/built-in-agent/quickstart#create-a-free-account to get your key.
  */
 export interface CopilotObservabilityConfig {
   /**

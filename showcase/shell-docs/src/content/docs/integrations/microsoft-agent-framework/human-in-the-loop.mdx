@@ -48,6 +48,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         ```tsx title="page.tsx"
         import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod"
 
         export function Page() {
           // ...
@@ -55,14 +56,9 @@ Use frontend tools when you need your agent to interact with client-side primiti
           useHumanInTheLoop({
             name: "humanApprovedCommand",
             description: "Ask human for approval to run a command.",
-            parameters: [
-              {
-                name: "command",
-                type: "string",
-                description: "The command to run",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              command: z.string().describe("The command to run"),
+            }),
             render: ({ args, respond }) => {
               if (!respond) return <></>;
               return (
@@ -98,7 +94,7 @@ Use frontend tools when you need your agent to interact with client-side primiti
             var app = builder.Build();
 
             string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+            string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
 
             // Create the agent - frontend tools are automatically available
             var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())

@@ -5,19 +5,20 @@ import {
   computed,
   effect,
   ChangeDetectionStrategy,
-  AfterViewInit,
   OnDestroy,
   Type,
   ViewEncapsulation,
-  ContentChild,
+  contentChild,
   input,
   output,
-  ViewChild,
+  viewChild,
+  untracked,
+  afterNextRender,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { LucideAngularModule, ArrowUp } from "lucide-angular";
+import { ArrowUp, CopilotIcon } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -50,31 +51,28 @@ export interface ToolbarContext {
 }
 
 @Component({
-  standalone: true,
   selector: "copilot-chat-input",
   host: { "data-copilotkit": "" },
   imports: [
     CommonModule,
     CopilotSlot,
-    LucideAngularModule,
+    CopilotIcon,
     CopilotChatTextarea,
     CopilotChatAudioRecorder,
     CopilotChatStartTranscribeButton,
     CopilotChatCancelTranscribeButton,
     CopilotChatFinishTranscribeButton,
     CopilotChatAddFileButton,
-    CopilotChatToolbar,
     CopilotChatToolsMenu,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()">
-      <!-- Main input area: either textarea or audio recorder -->
+    <ng-template #mainInputArea>
       @if (computedMode() === "transcribe") {
-        @if (audioRecorderTemplate || audioRecorderComponent()) {
+        @if (audioRecorderTemplate() || audioRecorderComponent()) {
           <copilot-slot
-            [slot]="audioRecorderTemplate || audioRecorderComponent()"
+            [slot]="audioRecorderTemplate() || audioRecorderComponent()"
             [context]="audioRecorderContext()"
             [defaultComponent]="defaultAudioRecorder"
           >
@@ -84,9 +82,9 @@ export interface ToolbarContext {
           </copilot-chat-audio-recorder>
         }
       } @else {
-        @if (textAreaTemplate || textAreaComponent()) {
+        @if (textAreaTemplate() || textAreaComponent()) {
           <copilot-slot
-            [slot]="textAreaTemplate || textAreaComponent()"
+            [slot]="textAreaTemplate() || textAreaComponent()"
             [context]="textAreaContext()"
           >
           </copilot-slot>
@@ -96,7 +94,7 @@ export interface ToolbarContext {
             [inputValue]="computedValue()"
             [inputAutoFocus]="computedAutoFocus()"
             [inputDisabled]="computedMode() === 'processing'"
-            [inputClass]="textAreaClass()"
+            [inputClass]="defaultTextAreaClass()"
             [inputMaxRows]="textAreaMaxRows()"
             [inputPlaceholder]="textAreaPlaceholder()"
             (keyDown)="handleKeyDown($event)"
@@ -104,141 +102,166 @@ export interface ToolbarContext {
           ></textarea>
         }
       }
+    </ng-template>
 
-      <!-- Toolbar -->
-      @if (toolbarTemplate || toolbarComponent()) {
+    <ng-template #leadingToolbarItems>
+      @if (
+        addFileButtonTemplate() ||
+        addFileButtonComponent() ||
+        toolsButtonTemplate() ||
+        toolsButtonComponent()
+      ) {
+        @if (addFileButtonTemplate() || addFileButtonComponent()) {
+          <copilot-slot
+            [slot]="addFileButtonTemplate() || addFileButtonComponent()"
+            [context]="{
+              inputDisabled: addFileButtonDisabled(),
+            }"
+            [outputs]="addFileButtonOutputs"
+            [defaultComponent]="CopilotChatAddFileButton"
+          >
+          </copilot-slot>
+        } @else if (chatState.attachmentsEnabled()) {
+          <copilot-chat-add-file-button
+            [disabled]="addFileButtonDisabled()"
+            (clicked)="handleAddFile()"
+          >
+          </copilot-chat-add-file-button>
+        }
+        @if (computedToolsMenu().length > 0) {
+          @if (toolsButtonTemplate() || toolsButtonComponent()) {
+            <copilot-slot
+              [slot]="toolsButtonTemplate() || toolsButtonComponent()"
+              [context]="toolsContext()"
+              [defaultComponent]="CopilotChatToolsMenu"
+            >
+            </copilot-slot>
+          } @else {
+            <copilot-chat-tools-menu
+              [inputToolsMenu]="computedToolsMenu()"
+              [inputDisabled]="computedMode() === 'transcribe'"
+            >
+            </copilot-chat-tools-menu>
+          }
+        }
+      } @else {
+        <copilot-chat-tools-menu
+          [inputToolsMenu]="computedToolsMenu()"
+          [inputAddFile]="addFileMenuAction()"
+          [inputDisabled]="computedMode() === 'transcribe'"
+        >
+        </copilot-chat-tools-menu>
+      }
+      @if (additionalToolbarItems()) {
+        <ng-container
+          [ngTemplateOutlet]="additionalToolbarItems() || null"
+        ></ng-container>
+      }
+    </ng-template>
+
+    <ng-template #trailingToolbarItems>
+      @if (computedMode() === "transcribe") {
+        @if (
+          cancelTranscribeButtonTemplate() || cancelTranscribeButtonComponent()
+        ) {
+          <copilot-slot
+            [slot]="
+              cancelTranscribeButtonTemplate() || cancelTranscribeButtonComponent()
+            "
+            [context]="{}"
+            [outputs]="cancelTranscribeButtonOutputs"
+            [defaultComponent]="CopilotChatCancelTranscribeButton"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-cancel-transcribe-button
+            (clicked)="handleCancelTranscribe()"
+          >
+          </copilot-chat-cancel-transcribe-button>
+        }
+        @if (
+          finishTranscribeButtonTemplate() || finishTranscribeButtonComponent()
+        ) {
+          <copilot-slot
+            [slot]="
+              finishTranscribeButtonTemplate() || finishTranscribeButtonComponent()
+            "
+            [context]="{}"
+            [outputs]="finishTranscribeButtonOutputs"
+            [defaultComponent]="CopilotChatFinishTranscribeButton"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-finish-transcribe-button
+            (clicked)="handleFinishTranscribe()"
+          >
+          </copilot-chat-finish-transcribe-button>
+        }
+      } @else {
+        @if (startTranscribeButtonTemplate() || startTranscribeButtonComponent()) {
+          <copilot-slot
+            [slot]="
+              startTranscribeButtonTemplate() || startTranscribeButtonComponent()
+            "
+            [context]="{}"
+            [outputs]="startTranscribeButtonOutputs"
+            [defaultComponent]="CopilotChatStartTranscribeButton"
+          >
+          </copilot-slot>
+        } @else {
+          <copilot-chat-start-transcribe-button (clicked)="handleStartTranscribe()">
+          </copilot-chat-start-transcribe-button>
+        }
+        <!-- Send button with slot -->
+        @if (sendButtonTemplate() || sendButtonComponent()) {
+          <copilot-slot
+            [slot]="sendButtonTemplate() || sendButtonComponent()"
+            [context]="sendButtonContext()"
+            [outputs]="sendButtonOutputs"
+          >
+          </copilot-slot>
+        } @else {
+          <div class="cpk:mr-[10px]">
+            <button
+              type="button"
+              aria-label="Send message"
+              [class]="sendButtonClass() || defaultButtonClass"
+              [disabled]="sendButtonDisabled()"
+              (click)="send()"
+            >
+              <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
+            </button>
+          </div>
+        }
+      }
+    </ng-template>
+
+    <div [class]="computedClass()">
+      @if (toolbarTemplate() || toolbarComponent()) {
+        <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
         <copilot-slot
-          [slot]="toolbarTemplate || toolbarComponent()"
+          [slot]="toolbarTemplate() || toolbarComponent()"
           [context]="toolbarContext()"
           [defaultComponent]="CopilotChatToolbar"
         >
         </copilot-slot>
       } @else {
-        <div copilotChatToolbar>
-          <div class="flex items-center">
-            @if (addFileButtonTemplate || addFileButtonComponent()) {
-              <copilot-slot
-                [slot]="addFileButtonTemplate || addFileButtonComponent()"
-                [context]="{ inputDisabled: computedMode() === 'transcribe' }"
-                [outputs]="addFileButtonOutputs"
-                [defaultComponent]="CopilotChatAddFileButton"
-              >
-              </copilot-slot>
-            } @else {
-              <copilot-chat-add-file-button
-                [disabled]="computedMode() === 'transcribe'"
-                (clicked)="handleAddFile()"
-              >
-              </copilot-chat-add-file-button>
-            }
-            @if (computedToolsMenu().length > 0) {
-              @if (toolsButtonTemplate || toolsButtonComponent()) {
-                <copilot-slot
-                  [slot]="toolsButtonTemplate || toolsButtonComponent()"
-                  [context]="toolsContext()"
-                  [defaultComponent]="CopilotChatToolsMenu"
-                >
-                </copilot-slot>
-              } @else {
-                <copilot-chat-tools-menu
-                  [inputToolsMenu]="computedToolsMenu()"
-                  [inputDisabled]="computedMode() === 'transcribe'"
-                >
-                </copilot-chat-tools-menu>
-              }
-            }
-            @if (additionalToolbarItems()) {
-              <ng-container
-                [ngTemplateOutlet]="additionalToolbarItems() || null"
-              ></ng-container>
-            }
+        <div
+          class="cpk:grid cpk:w-full cpk:grid-cols-[auto_minmax(0,1fr)_auto] cpk:items-center cpk:gap-x-3 cpk:gap-y-3 cpk:px-3 cpk:py-2"
+          data-layout="compact"
+        >
+          <div class="cpk:col-start-1 cpk:row-start-1 cpk:flex cpk:items-center">
+            <ng-container [ngTemplateOutlet]="leadingToolbarItems"></ng-container>
           </div>
-          <div class="flex items-center">
-            @if (computedMode() === "transcribe") {
-              @if (
-                cancelTranscribeButtonTemplate || cancelTranscribeButtonComponent()
-              ) {
-                <copilot-slot
-                  [slot]="
-                    cancelTranscribeButtonTemplate ||
-                    cancelTranscribeButtonComponent()
-                  "
-                  [context]="{}"
-                  [outputs]="cancelTranscribeButtonOutputs"
-                  [defaultComponent]="CopilotChatCancelTranscribeButton"
-                >
-                </copilot-slot>
-              } @else {
-                <copilot-chat-cancel-transcribe-button
-                  (clicked)="handleCancelTranscribe()"
-                >
-                </copilot-chat-cancel-transcribe-button>
-              }
-              @if (
-                finishTranscribeButtonTemplate || finishTranscribeButtonComponent()
-              ) {
-                <copilot-slot
-                  [slot]="
-                    finishTranscribeButtonTemplate ||
-                    finishTranscribeButtonComponent()
-                  "
-                  [context]="{}"
-                  [outputs]="finishTranscribeButtonOutputs"
-                  [defaultComponent]="CopilotChatFinishTranscribeButton"
-                >
-                </copilot-slot>
-              } @else {
-                <copilot-chat-finish-transcribe-button
-                  (clicked)="handleFinishTranscribe()"
-                >
-                </copilot-chat-finish-transcribe-button>
-              }
-            } @else {
-              @if (
-                startTranscribeButtonTemplate || startTranscribeButtonComponent()
-              ) {
-                <copilot-slot
-                  [slot]="
-                    startTranscribeButtonTemplate ||
-                    startTranscribeButtonComponent()
-                  "
-                  [context]="{}"
-                  [outputs]="startTranscribeButtonOutputs"
-                  [defaultComponent]="CopilotChatStartTranscribeButton"
-                >
-                </copilot-slot>
-              } @else {
-                <copilot-chat-start-transcribe-button
-                  (clicked)="handleStartTranscribe()"
-                >
-                </copilot-chat-start-transcribe-button>
-              }
-              <!-- Send button with slot -->
-              @if (sendButtonTemplate || sendButtonComponent()) {
-                <copilot-slot
-                  [slot]="sendButtonTemplate || sendButtonComponent()"
-                  [context]="sendButtonContext()"
-                  [outputs]="sendButtonOutputs"
-                >
-                </copilot-slot>
-              } @else {
-                <div class="mr-[10px]">
-                  <button
-                    type="button"
-                    [class]="sendButtonClass() || defaultButtonClass"
-                    [disabled]="
-                      !computedValue().trim() || computedMode() === 'processing'
-                    "
-                    (click)="send()"
-                  >
-                    <lucide-angular
-                      [img]="ArrowUpIcon"
-                      [size]="18"
-                    ></lucide-angular>
-                  </button>
-                </div>
-              }
-            }
+          <div
+            class="cpk:relative cpk:col-start-2 cpk:row-start-1 cpk:flex cpk:min-h-[50px] cpk:min-w-0 cpk:flex-col cpk:justify-center"
+          >
+            <ng-container [ngTemplateOutlet]="mainInputArea"></ng-container>
+          </div>
+          <div
+            class="cpk:col-start-3 cpk:row-start-1 cpk:flex cpk:items-center cpk:justify-end cpk:gap-2"
+          >
+            <ng-container [ngTemplateOutlet]="trailingToolbarItems"></ng-container>
           </div>
         </div>
       }
@@ -250,7 +273,7 @@ export interface ToolbarContext {
         display: block;
         width: 100%;
       }
-      .shadow-\\[0_4px_4px_0_\\#0000000a\\2c_0_0_1px_0_\\#0000009e\\] {
+      .ck-input-shadow {
         box-shadow:
           0 4px 4px 0 #0000000a,
           0 0 1px 0 #0000009e !important;
@@ -258,32 +281,48 @@ export interface ToolbarContext {
     `,
   ],
 })
-export class CopilotChatInput implements AfterViewInit, OnDestroy {
-  @ViewChild(CopilotChatTextarea, { read: CopilotChatTextarea })
-  textAreaRef?: CopilotChatTextarea;
+export class CopilotChatInput implements OnDestroy {
+  readonly textAreaRef = viewChild(CopilotChatTextarea);
 
-  @ViewChild(CopilotChatAudioRecorder)
-  audioRecorderRef?: CopilotChatAudioRecorder;
+  readonly audioRecorderRef = viewChild(CopilotChatAudioRecorder);
 
   // Capture templates from content projection
-  @ContentChild("sendButton", { read: TemplateRef })
-  sendButtonTemplate?: TemplateRef<SendButtonContext>;
-  @ContentChild("toolbar", { read: TemplateRef })
-  toolbarTemplate?: TemplateRef<ToolbarContext>;
-  @ContentChild("textArea", { read: TemplateRef })
-  textAreaTemplate?: TemplateRef<any>;
-  @ContentChild("audioRecorder", { read: TemplateRef })
-  audioRecorderTemplate?: TemplateRef<any>;
-  @ContentChild("startTranscribeButton", { read: TemplateRef })
-  startTranscribeButtonTemplate?: TemplateRef<any>;
-  @ContentChild("cancelTranscribeButton", { read: TemplateRef })
-  cancelTranscribeButtonTemplate?: TemplateRef<any>;
-  @ContentChild("finishTranscribeButton", { read: TemplateRef })
-  finishTranscribeButtonTemplate?: TemplateRef<any>;
-  @ContentChild("addFileButton", { read: TemplateRef })
-  addFileButtonTemplate?: TemplateRef<any>;
-  @ContentChild("toolsButton", { read: TemplateRef })
-  toolsButtonTemplate?: TemplateRef<any>;
+  readonly sendButtonTemplate = contentChild<
+    unknown,
+    TemplateRef<SendButtonContext>
+  >("sendButton", { read: TemplateRef });
+  readonly toolbarTemplate = contentChild<unknown, TemplateRef<ToolbarContext>>(
+    "toolbar",
+    { read: TemplateRef },
+  );
+  readonly textAreaTemplate = contentChild<unknown, TemplateRef<any>>(
+    "textArea",
+    { read: TemplateRef },
+  );
+  readonly audioRecorderTemplate = contentChild<unknown, TemplateRef<any>>(
+    "audioRecorder",
+    { read: TemplateRef },
+  );
+  readonly startTranscribeButtonTemplate = contentChild<
+    unknown,
+    TemplateRef<any>
+  >("startTranscribeButton", { read: TemplateRef });
+  readonly cancelTranscribeButtonTemplate = contentChild<
+    unknown,
+    TemplateRef<any>
+  >("cancelTranscribeButton", { read: TemplateRef });
+  readonly finishTranscribeButtonTemplate = contentChild<
+    unknown,
+    TemplateRef<any>
+  >("finishTranscribeButton", { read: TemplateRef });
+  readonly addFileButtonTemplate = contentChild<unknown, TemplateRef<any>>(
+    "addFileButton",
+    { read: TemplateRef },
+  );
+  readonly toolsButtonTemplate = contentChild<unknown, TemplateRef<any>>(
+    "toolsButton",
+    { read: TemplateRef },
+  );
 
   // Class inputs for styling default components
   sendButtonClass = input<string | undefined>(undefined);
@@ -324,6 +363,7 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   startTranscribe = output<void>();
   cancelTranscribe = output<void>();
   finishTranscribe = output<void>();
+  finishTranscribeWithAudio = output<Blob>();
   addFile = output<void>();
   valueChange = output<string>();
 
@@ -331,20 +371,20 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   readonly ArrowUpIcon = ArrowUp;
   readonly defaultButtonClass = cn(
     // Base button styles
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium",
-    "transition-all disabled:pointer-events-none disabled:opacity-50",
-    "shrink-0 outline-none",
-    "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+    "cpk:inline-flex cpk:items-center cpk:justify-center cpk:gap-2 cpk:whitespace-nowrap cpk:rounded-md cpk:text-sm cpk:font-medium",
+    "cpk:transition-all cpk:disabled:pointer-events-none cpk:disabled:opacity-50",
+    "cpk:shrink-0 cpk:outline-none",
+    "cpk:focus-visible:border-ring cpk:focus-visible:ring-ring/50 cpk:focus-visible:ring-[3px]",
     // chatInputToolbarPrimary variant
-    "cursor-pointer",
-    "bg-black text-white",
-    "dark:bg-white dark:text-black dark:focus-visible:outline-white",
-    "rounded-full h-9 w-9",
-    "transition-colors",
-    "focus:outline-none",
-    "hover:opacity-70 disabled:hover:opacity-100",
-    "disabled:cursor-not-allowed disabled:bg-[#00000014] disabled:text-[rgb(13,13,13)]",
-    "dark:disabled:bg-[#454545] dark:disabled:text-white",
+    "cpk:cursor-pointer",
+    "cpk:bg-black cpk:text-white",
+    "cpk:dark:bg-white cpk:dark:text-black cpk:dark:focus-visible:outline-white",
+    "cpk:rounded-full cpk:h-9 cpk:w-9",
+    "cpk:transition-colors",
+    "cpk:focus:outline-none",
+    "cpk:hover:opacity-70 cpk:disabled:hover:opacity-100",
+    "cpk:disabled:cursor-not-allowed cpk:disabled:bg-[#00000014] cpk:disabled:text-[rgb(13,13,13)]",
+    "cpk:dark:disabled:bg-[#454545] cpk:dark:disabled:text-white",
   );
 
   // Services
@@ -370,36 +410,58 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   CopilotChatStartTranscribeButton = CopilotChatStartTranscribeButton;
 
   // Computed values
-  computedMode = computed(() => this.modeSignal());
+  computedMode = computed(() => this.mode() ?? this.modeSignal());
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
   computedValue = computed(() => {
-    const customValue = this.value() ?? "";
-    const configValue = this.chatState.inputValue();
-    return customValue || configValue || "";
+    const customValue = this.value();
+    return customValue !== undefined
+      ? customValue
+      : (this.chatState.inputValue() ?? "");
   });
+  addFileButtonDisabled = computed(
+    () =>
+      this.computedMode() === "transcribe" ||
+      !this.chatState.attachmentsEnabled(),
+  );
+  addFileMenuAction = computed<(() => void) | undefined>(() =>
+    this.chatState.attachmentsEnabled()
+      ? () => this.handleAddFile()
+      : undefined,
+  );
+  sendButtonDisabled = computed(
+    () =>
+      !this.computedValue().trim() ||
+      this.computedMode() === "processing" ||
+      this.chatState.attachmentsUploading(),
+  );
 
   computedClass = computed(() => {
     const baseClasses = cn(
+      // V1 compatibility class for custom styling
+      "copilotKitInput",
       // Layout
-      "flex w-full flex-col items-center justify-center",
+      "cpk:flex cpk:w-full cpk:flex-col cpk:items-center cpk:justify-center",
       // Interaction
-      "cursor-text",
+      "cpk:cursor-text",
       // Overflow and clipping
-      "overflow-visible bg-clip-padding contain-inline-size",
+      "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
       // Background
-      "bg-white dark:bg-[#303030]",
+      "cpk:bg-white cpk:dark:bg-[#303030]",
       // Visual effects
-      "shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] rounded-[28px]",
+      "ck-input-shadow cpk:rounded-[28px]",
     );
     return cn(baseClasses, this.customClass());
   });
 
+  defaultTextAreaClass = computed(() =>
+    cn("cpk:w-full cpk:py-3 cpk:pr-5", this.textAreaClass()),
+  );
+
   // Context for slots (reactive via signals)
   sendButtonContext = computed<SendButtonContext>(() => ({
     send: () => this.send(),
-    disabled:
-      !this.computedValue().trim() || this.computedMode() === "processing",
+    disabled: this.sendButtonDisabled(),
     value: this.computedValue(),
   }));
 
@@ -431,13 +493,24 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   }));
 
   constructor() {
-    // Effect to handle mode changes (no signal writes)
     effect(() => {
-      const currentMode = this.computedMode();
-      if (currentMode === "transcribe" && this.audioRecorderRef) {
-        this.audioRecorderRef.start().catch(console.error);
-      } else if (this.audioRecorderRef?.getState() === "recording") {
-        this.audioRecorderRef.stop().catch(console.error);
+      const recorder = this.audioRecorderRef();
+      const mode = this.computedMode();
+      if (!recorder) return;
+      untracked(() => {
+        if (mode === "transcribe") {
+          if (recorder.getState() === "idle") {
+            recorder.start().catch((error) => console.error(error));
+          }
+        } else if (recorder.getState() === "recording") {
+          recorder.stop().catch((error) => console.error(error));
+        }
+      });
+    });
+
+    afterNextRender(() => {
+      if (this.computedAutoFocus()) {
+        this.textAreaRef()?.focus();
       }
     });
   }
@@ -456,23 +529,21 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
   sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
 
-  ngAfterViewInit(): void {
-    // Auto-focus if needed
-    if (this.computedAutoFocus() && this.textAreaRef) {
-      setTimeout(() => {
-        this.textAreaRef?.focus();
-      });
-    }
-  }
-
   ngOnDestroy(): void {
     // Clean up any resources
-    if (this.audioRecorderRef?.getState() === "recording") {
-      this.audioRecorderRef?.stop().catch(console.error);
+    const recorder = this.audioRecorderRef();
+    if (recorder?.getState() === "recording") {
+      recorder.stop().catch(console.error);
     }
   }
 
   handleKeyDown(event: KeyboardEvent): void {
+    // Skip key handling during IME composition (e.g. CJK input).
+    // The compositionend event will fire separately when composition ends.
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       this.send();
@@ -486,18 +557,18 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
 
   send(): void {
     const trimmed = this.computedValue().trim();
-    if (trimmed) {
+    if (trimmed && !this.chatState.attachmentsUploading()) {
       this.submitMessage.emit(trimmed);
 
       this.chatState.submitInput(trimmed);
 
       if (this.chatState) this.chatState.changeInput("");
-      if (this.textAreaRef) this.textAreaRef.setValue("");
+      this.textAreaRef()?.setValue("");
 
       // Refocus input
-      if (this.textAreaRef) {
+      if (this.textAreaRef()) {
         setTimeout(() => {
-          this.textAreaRef?.focus();
+          this.textAreaRef()?.focus();
         });
       }
     }
@@ -513,12 +584,31 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
     this.modeSignal.set("input");
   }
 
-  handleFinishTranscribe(): void {
+  async handleFinishTranscribe(): Promise<void> {
+    const recorder = this.audioRecorderRef();
+    let audioBlob: Blob | undefined;
+    if (recorder?.getState() === "recording") {
+      try {
+        audioBlob = await recorder.stop();
+      } catch (error) {
+        console.error("Failed to stop recording:", error);
+      }
+    }
+
     this.finishTranscribe.emit();
     this.modeSignal.set("input");
+
+    if (audioBlob) {
+      this.finishTranscribeWithAudio.emit(audioBlob);
+      await this.chatState.finishTranscription(audioBlob);
+    }
   }
 
   handleAddFile(): void {
+    if (this.addFileButtonDisabled()) {
+      return;
+    }
     this.addFile.emit();
+    this.chatState.addFile();
   }
 }

@@ -5,7 +5,7 @@ CopilotKit provides visual error display for local development and debugging. Th
 ## Quick Setup
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function App() {
   return (
@@ -31,16 +31,16 @@ export default function App() {
 
 ## Programmatic Error Handling (v2)
 
-The v2 API provides an `onError` callback on both `CopilotKitProvider` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
+The v2 API provides an `onError` callback on both `CopilotKit` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
 
 ### Provider-Level Error Handling
 
 Catches all errors across the entire application:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={(event) => {
     // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
@@ -51,7 +51,7 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   }}
 >
   <App />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ### Chat-Level Error Handling

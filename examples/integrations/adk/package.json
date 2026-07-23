@@ -13,14 +13,20 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.52",
-    "@copilotkit/react-core": "1.55.2",
-    "@copilotkit/react-ui": "1.55.2",
-    "@copilotkit/runtime": "1.55.2",
+    "@ag-ui/client": "0.0.57",
+    "@copilotkit/react-core": "1.62.3",
+    "@copilotkit/runtime": "1.62.3",
+    "@hono/node-server": "^1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4",
+    "lucide-react": "^0.577.0",
     "next": "16.1.1",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "shiki": "^3.19.0"
+    "shiki": "^3.19.0",
+    "tailwind-merge": "^3.5.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -30,5 +36,11 @@
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
+    "@ag-ui/encoder": "0.0.57",
+    "@ag-ui/proto": "0.0.57"
   }
 }

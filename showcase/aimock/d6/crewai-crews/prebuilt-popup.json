@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / prebuilt-popup",
+    "sourceFile": "harness/fixtures/d5/prebuilt-popup.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "CopilotPopup one-turn fixture — probe sends 'hi from the popup test' inside the auto-opened popup.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "turnIndex": 0,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

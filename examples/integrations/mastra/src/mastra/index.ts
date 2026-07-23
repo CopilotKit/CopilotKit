@@ -7,7 +7,7 @@ const LOG_LEVEL = (process.env.LOG_LEVEL as LogLevel) || "info";
 
 export const mastra = new Mastra({
   agents: {
-    weatherAgent,
+    default: weatherAgent,
   },
   storage: new LibSQLStore({
     id: "mastra-storage",

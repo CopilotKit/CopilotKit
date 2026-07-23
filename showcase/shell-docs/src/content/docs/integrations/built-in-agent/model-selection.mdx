@@ -3,11 +3,13 @@ title: "Model Selection"
 icon: "lucide/Cpu"
 description: "Choose and configure models for your Built-in Agent."
 ---
-The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from OpenAI, Anthropic, and Google — plus the ability to use any custom AI SDK model.
+
+The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai), so you can use
+models from OpenAI, Anthropic, and Google, or pass any custom AI SDK model.
 
 ## Supported Models
 
-Specify a model using the `"provider:model"` format (or `"provider/model"` — both work).
+Specify a model using the `"provider:model"` format. `"provider/model"` also works.
 
 ### OpenAI
 
@@ -18,7 +20,8 @@ Specify a model using the `"provider:model"` format (or `"provider/model"` — b
 | GPT-4.1 | `openai:gpt-4.1` |
 | GPT-4.1 Mini | `openai:gpt-4.1-mini` |
 | GPT-4.1 Nano | `openai:gpt-4.1-nano` |
-| GPT-5.4 Mini | `openai:gpt-5.4-mini` |
+| GPT-4o | `openai:gpt-4o` |
+| GPT-4o Mini | `openai:gpt-4o-mini` |
 | o3 | `openai:o3` |
 | o3-mini | `openai:o3-mini` |
 | o4-mini | `openai:o4-mini` |
@@ -102,7 +105,8 @@ const agent = new BuiltInAgent({
 });
 ```
 
-This works with any AI SDK provider — Azure OpenAI, AWS Bedrock, Ollama, or any OpenAI-compatible endpoint:
+This works with any AI SDK provider, including Azure OpenAI, AWS Bedrock, Ollama,
+or any OpenAI-compatible endpoint:
 
 ```typescript
 import { createAzure } from "@ai-sdk/azure";
@@ -117,16 +121,61 @@ const agent = new BuiltInAgent({
 });
 ```
 
-## How It Works
+## OpenRouter, proxies, and bring-your-own LLM
 
-Under the hood, the Built-in Agent resolves model strings to AI SDK provider instances:
+Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
+a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Together](https://together.ai),
+[Groq](https://groq.com), or your own fine-tuned endpoint, works through the same
+`createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
+above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
 
-- `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
-- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4-5")`
-- `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
+
+// OpenRouter: one key, hundreds of models behind an OpenAI-compatible API
+const openrouter = createOpenAI({ // [!code highlight]
+  apiKey: process.env.OPENROUTER_API_KEY, // [!code highlight]
+  baseURL: "https://openrouter.ai/api/v1", // [!code highlight]
+}); // [!code highlight]
+
+const agent = new BuiltInAgent({
+  model: openrouter("anthropic/claude-sonnet-4-5"), // [!code highlight]
+});
+```
+
+The same shape works for any OpenAI-compatible proxy. Swap the `baseURL` and key.
+There is no CopilotKit-specific provider to install; if the
+AI SDK can talk to it, the Built-in Agent can use it.
+
+<Callout type="warn" title="The model is set on the agent">
+  CopilotKit does **not** expose a hosted/Cloud endpoint for choosing or
+  switching the model at request time. The model is configured **on the agent**,
+  either as a `"provider:model"` string or an AI SDK `LanguageModel` instance:
+
+  ```typescript
+  new BuiltInAgent({ model: "openai:gpt-4.1" });        // built-in string
+  new BuiltInAgent({ model: openrouter("...") });        // any LanguageModel
+  ```
+
+  To switch models per user, request, or feature flag, construct the agent with
+  the desired `model` on your own backend. For full control over the runtime you
+  can also use a [Custom Agent](/backend/custom-agent).
+</Callout>
+
+## How it works
+
+The Built-in Agent resolves model strings to AI SDK provider instances:
+
+| Model string | AI SDK provider | Resolved call |
+|---|---|---|
+| `"openai:gpt-4.1"` | `@ai-sdk/openai` | `openai("gpt-4.1")` |
+| `"anthropic:claude-sonnet-4-5"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-5")` |
+| `"google:gemini-2.5-pro"` | `@ai-sdk/google` | `google("gemini-2.5-pro")` |
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
 
 <Callout type="info" title="Need a different AI SDK or full control?">
-  The [Custom Agent](/built-in-agent/custom-agent) lets you bring your own AI SDK, TanStack AI, or any custom LLM backend — while CopilotKit handles the rest.
+  The [Custom Agent](/backend/custom-agent) lets you bring your own AI SDK,
+  TanStack AI, or any custom LLM backend while CopilotKit handles the rest.
 </Callout>

@@ -9,8 +9,23 @@ import cors from "cors";
 import type { CorsOptions } from "cors";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
+import type {
+  ActivateChannelEngine,
+  ChannelsControl,
+} from "../core/channel-manager";
 import { createExpressNodeHandler } from "./express-fetch-bridge";
 import type { CopilotRuntimeHooks } from "../core/hooks";
+
+/**
+ * An Express {@link Router} that may also carry an optional
+ * {@link ChannelsControl} surface. Express's Router is a request-scoped
+ * middleware object, not a long-running process owner — Node
+ * (`createCopilotNodeListener`) is the lifecycle-owning surface for
+ * `.channels`. It is attached here too, best-effort, for callers that mount
+ * the router directly and want to observe/stop managed Channel activation
+ * without also standing up a Node listener.
+ */
+export type CopilotExpressRouter = Router & { channels?: ChannelsControl };
 
 export interface CopilotExpressEndpointParams {
   runtime: CopilotRuntimeLike;
@@ -35,6 +50,19 @@ export interface CopilotExpressEndpointParams {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Whether the underlying handler activates the runtime's declared managed
+   * Channels at creation time. Defaults to `true`. See
+   * `CopilotRuntimeHandlerOptions.activateChannels`.
+   */
+  activateChannels?: boolean;
+
+  /**
+   * @internal Test seam: inject a fake Channel activation engine. Forwarded
+   * to `createCopilotRuntimeHandler`. Not part of the public API.
+   */
+  __channelEngine?: ActivateChannelEngine;
 }
 
 /**
@@ -94,7 +122,9 @@ export function createCopilotExpressHandler({
   mode = "multi-route",
   cors: corsOption = true,
   hooks,
-}: CopilotExpressEndpointParams): Router {
+  activateChannels,
+  __channelEngine,
+}: CopilotExpressEndpointParams): CopilotExpressRouter {
   const normalizedBase = normalizeBasePath(basePath);
 
   const handler = createCopilotRuntimeHandler({
@@ -103,6 +133,8 @@ export function createCopilotExpressHandler({
     mode,
     cors: false, // CORS is handled at the Express middleware layer
     hooks,
+    activateChannels,
+    __channelEngine,
   });
 
   const nodeHandler = createExpressNodeHandler(handler);
@@ -147,13 +179,21 @@ export function createCopilotExpressHandler({
     router.post(normalizedBase, expressHandler);
     router.options(normalizedBase, expressHandler);
   } else if (normalizedBase === "/") {
-    router.all("*", expressHandler);
+    router.all(/.*/, expressHandler);
   } else {
-    router.all(`${normalizedBase}/*`, expressHandler);
-    router.all(normalizedBase, expressHandler);
+    router.all(
+      new RegExp(`^${escapeRegExp(normalizedBase)}(\\/.*)?$`),
+      expressHandler,
+    );
   }
 
-  return router;
+  const exposedRouter: CopilotExpressRouter = router;
+  exposedRouter.channels = handler.channels;
+  return exposedRouter;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeBasePath(path: string): string {

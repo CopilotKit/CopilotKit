@@ -1,0 +1,1000 @@
+{
+  "_meta": {
+    "description": "D4 chat fixtures for built-in-agent",
+    "sourceFile": "feature-parity.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's your sales dashboard — total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "_design_a2ui_surface",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_design_a2ui_surface_sales_dashboard_001",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "render_a2ui",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_render_a2ui_sales_dashboard_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_get_weather_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_render_pie_chart_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_show_card_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_request_approval_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_book_call_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_set_notes_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_critique_agent_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_writing_agent_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_critique_agent_001",
+            "name": "critique_agent",
+            "arguments": "{\"draft\":\"Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly.\",\"instructions\":\"Check factual claims, tighten prose, flag any unsupported assertions.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_research_agent_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_writing_agent_001",
+            "name": "writing_agent",
+            "arguments": "{\"brief\":\"One-paragraph summary on the benefits of remote work, grounded in the research facts.\",\"facts\":[\"Eliminating commutes returns roughly ten hours per week per employee.\",\"Repeated surveys show meaningfully higher job satisfaction among remote workers.\",\"Employers gain access to a geographically unbounded talent pool.\",\"Office overhead (leases, utilities, maintenance) drops significantly.\",\"Trade-offs include reduced ad-hoc collaboration, harder mentorship of junior staff, and erosion of cultural cohesion without intentional replacement rituals.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate monthly spend, with Rent, Marketing, and Travel rounding out the breakdown."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_002",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Organic Search drives most traffic, followed by Direct, Social, and Referral."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_003",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Apple and Samsung lead, with Xiaomi third and the long tail under \"Others\"."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_002",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Q4 was the strongest quarter, with Q2 close behind."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_pie_chart_004",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_bar_chart_003",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Bar chart rendered above — monthly expenses ranged from $12k in January to $15.8k in April."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_schedule_time_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_search_flights_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_toggle_theme_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is the largest continent?",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Asia is the largest continent — about 30% of Earth's land area, home to over 4.6 billion people."
+      }
+    },
+    {
+      "_comment": "shared-state-read — e2e test sends 'What recipe am I making?' via the sidebar. The agent reads the shared recipe state (title, ingredients, instructions) and responds with a summary.",
+      "match": {
+        "userMessage": "What recipe am I making",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Based on your current recipe state, you're making **Make Your Recipe** — a dish featuring carrots (3 large, grated) and all-purpose flour (2 cups). The first instruction is to preheat the oven to 350°F (175°C). It looks like a carrot-based bake, perhaps a carrot cake or savory carrot bread. Would you like me to suggest more ingredients or steps?"
+      }
+    },
+    {
+      "_comment": "Disabled: prior matcher 'weather' load-order-shadowed D6 pills like 'What's the weather in San Francisco?' (custom-catchall) and 'Chain a few tools ... weather in Tokyo' (default-catchall). Mirrors the LGP d4 disabled-weather pattern (_d4_unused_weather_probe_sf) — userMessage renamed to a non-matching sentinel so this entry is effectively dead; downstream D6 fixtures own the get_weather flow.",
+      "match": {
+        "userMessage": "_d4_unused_weather_probe_sf",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather summary",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue distribution by category",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expenses by category",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart of website traffic by source",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_002",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Website Traffic by Source\",\"description\":\"Traffic sources this month\",\"data\":[{\"label\":\"Organic Search\",\"value\":45},{\"label\":\"Direct\",\"value\":25},{\"label\":\"Social\",\"value\":18},{\"label\":\"Referral\",\"value\":12}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "smartphone market share by brand",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_003",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Smartphone Market Share\",\"description\":\"Global smartphone market share by brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":14},{\"label\":\"Others\",\"value\":36}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_002",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Quarterly Sales\",\"description\":\"Sales across Q1-Q4\",\"data\":[{\"label\":\"Q1\",\"value\":145000},{\"label\":\"Q2\",\"value\":178000},{\"label\":\"Q3\",\"value\":162000},{\"label\":\"Q4\",\"value\":215000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Revenue (Q3)\",\"value\":\"$1.24M\",\"trend\":\"+18% vs Q2\"},\"children\":[\"revenue-bar\"]},\"revenue-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly revenue\",\"description\":\"Revenue by month across Q3\",\"data\":[{\"label\":\"Jul\",\"value\":380000},{\"label\":\"Aug\",\"value\":410000},{\"label\":\"Sep\",\"value\":450000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"root\":\"category-pie\",\"elements\":{\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by category\",\"description\":\"Share of total revenue by product category\",\"data\":[{\"label\":\"Enterprise\",\"value\":540000},{\"label\":\"SMB\",\"value\":310000},{\"label\":\"Self-serve\",\"value\":220000},{\"label\":\"Partner\",\"value\":170000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"root\":\"expense-bar\",\"elements\":{\"expense-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly expenses\",\"description\":\"Operating expenses by month\",\"data\":[{\"label\":\"Jul\",\"value\":210000},{\"label\":\"Aug\",\"value\":225000},{\"label\":\"Sep\",\"value\":240000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"Markdown\":{\"props\":{\"children\":\"## Q4 Sales Summary\"}}},{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$1.2M\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":600000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Startup\\\",\\\"value\\\":200000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":350000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":400000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":450000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"pieChart\":{\"props\":{\"title\":\"Q4 Revenue by Product Category\",\"data\":\"[{\\\"label\\\":\\\"Software\\\",\\\"value\\\":500000},{\\\"label\\\":\\\"Hardware\\\",\\\"value\\\":300000},{\\\"label\\\":\\\"Consulting\\\",\\\"value\\\":150000},{\\\"label\\\":\\\"Subscriptions\\\",\\\"value\\\":50000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly operating expenses for the last six months as a bar chart with one bar per month.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"barChart\":{\"props\":{\"title\":\"Monthly Operating Expenses\",\"data\":\"[{\\\"label\\\":\\\"Apr\\\",\\\"value\\\":205000},{\\\"label\\\":\\\"May\\\",\\\"value\\\":215000},{\\\"label\\\":\\\"Jun\\\",\\\"value\\\":222000},{\\\"label\\\":\\\"Jul\\\",\\\"value\\\":228000},{\\\"label\\\":\\\"Aug\\\",\\\"value\\\":234000},{\\\"label\\\":\\\"Sep\\\",\\\"value\\\":241000}]\"}}}]}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "revenue by category as a pie chart",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_pie_chart_004",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "monthly expenses as a bar chart",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_bar_chart_003",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Expense breakdown by month\",\"data\":[{\"label\":\"Jan\",\"value\":12000},{\"label\":\"Feb\",\"value\":14500},{\"label\":\"Mar\",\"value\":13200},{\"label\":\"Apr\",\"value\":15800}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Disabled: 'flights from SFO to JFK' was the exact pill prompt for the D6 beautiful-chat 'Search Flights' demo, so this d4 fixture load-order-shadowed the d6 beautiful-chat fixture (d4 loads before d6). The d4 chat-roundtrip probe does not exercise the flights tool, so this entry is dead. Mirrors the LGP _d4_unused_flights_probe_sfo_jfk pattern.",
+      "match": {
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "toggle",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_manage_todos_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — added three todos about learning CopilotKit to your task manager."
+      }
+    },
+    {
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError. chunkSize MUST live at the fixture root (alongside match/response) — server.ts:681 reads `fixture.chunkSize`, NOT `response.chunkSize`.",
+      "match": {
+        "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001",
+        "context": "built-in-agent"
+      },
+      "chunkSize": 9999,
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_manage_todos_001",
+            "name": "manage_todos",
+            "arguments": "{\"todos\":[{\"id\":\"todo-cpk-1\",\"title\":\"Read the CopilotKit docs\",\"description\":\"Start with the quickstart and explore the core hooks.\",\"emoji\":\"📚\",\"status\":\"pending\"},{\"id\":\"todo-cpk-2\",\"title\":\"Build a CopilotKit prototype\",\"description\":\"Wire up a basic chat and register a frontend tool.\",\"emoji\":\"🚀\",\"status\":\"pending\"},{\"id\":\"todo-cpk-3\",\"title\":\"Explore shared agent state\",\"description\":\"Watch the canvas re-render as the agent writes to state.\",\"emoji\":\"🎯\",\"status\":\"pending\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "three todos about learning CopilotKit",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_beautiful_chat_enable_app_mode_001",
+            "name": "enableAppMode",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Scoped showcase-assistant 'hello' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'hello' (e.g. 'mellow', 'fellow'). Matches both 'hello' and 'Hello' as standalone greeting attempts only.",
+      "match": {
+        "userMessage": "hello, what can you do",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
+      }
+    },
+    {
+      "_comment": "Scoped showcase-assistant help fixture — anchored on 'what can you help me with' so it doesn't substring-match arbitrary prompts that happen to contain 'help' (e.g. 'helpful', 'helping').",
+      "match": {
+        "userMessage": "what can you help me with",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here are the things I can help with:\n- Check the weather for any location\n- Create pie charts and bar charts from data\n- Schedule meetings with a reason and duration\n- Manage your sales pipeline and todos\n- Search for flights between cities\n- Toggle the UI theme between light and dark\n\nJust ask me about any of these!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The attached PDF document is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The attached image is the CopilotKit logo — a clean, geometric mark used across CopilotKit branding."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's a tight 3-day Tokyo loop for a solo traveler who wants food, art, and architecture in equal measure.\n\n**Day 1 — Shibuya & Harajuku**\n- Morning: breakfast at a kissaten in Shibuya, then walk Cat Street to Harajuku.\n- Afternoon: Nezu Museum (architecture by Kengo Kuma + traditional garden).\n- Evening: izakaya in Nonbei Yokocho.\n\n**Day 2 — Roppongi & Ginza**\n- Morning: Mori Art Museum and the Tokyo City View deck.\n- Afternoon: stroll Ginza, stop into Itoya, lunch at a sushi counter.\n- Evening: jazz at a Ginza basement bar.\n\n**Day 3 — Yanaka & Asakusa**\n- Morning: Yanaka Ginza for old-Tokyo atmosphere and craft shops.\n- Afternoon: Senso-ji and the Asakusa back-streets; consider the Sumida River walk to the Tadao Ando-designed 21_21 if you want one more architecture stop.\n- Evening: ramen near Ueno before catching the train.\n\nLet me know if you want a vegetarian variant or a more architecture-heavy version."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Explain retrieval-augmented generation as if I were 12. Use a simple analogy.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Imagine you're taking an open-book test.\n\nA regular language model is like a kid who studied really hard but isn't allowed to look at the textbook during the test — they have to answer from memory, and sometimes they confidently make stuff up.\n\nRetrieval-Augmented Generation (RAG) is the same kid, but now they're allowed to flip through the textbook before answering each question. First they look up the relevant pages (that's the *retrieval* step), then they write the answer using what they just read (that's the *generation* step).\n\nSo RAG = \"look it up, then answer.\" The model still talks like itself, but the facts come from the book instead of from its memory — which means fewer made-up answers, and you can swap the book out whenever your information changes."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Draft a short, upbeat launch email announcing a new AI-powered chat feature. 3 short paragraphs max.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "**Subject:** Meet your new AI co-pilot — now built right into the app\n\nHi there,\n\nWe just shipped something we're really excited about: an AI-powered chat that lives inside the product you already use. Ask it questions, hand off tasks, or just have it summarize what you're looking at — it has full context of your workspace, so you don't have to copy-paste anything.\n\nIt's rolling out today to every account, no setup required. Open the app, look for the new chat button in the corner, and try it on your messiest task. We'd love to hear what you build with it.\n\n— The team"
+      }
+    },
+    {
+      "_comment": "Scoped showcase-assistant intro fixture. Anchored on 'Hi, who are you' so it doesn't substring-match arbitrary prompts that happen to contain 'hi' inside other words (e.g. 'this', 'history', 'while') — those caused subagents writer/critique sub-LLM calls to return this boilerplate, breaking the demo.",
+      "match": {
+        "userMessage": "Hi, who are you",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Based on the following context, write a concise",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "A short input value used to parameterize the crew's tasks and agents."
+      }
+    },
+    {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe) so it doesn't shadow D6 subagents pills like 'Summarize the current state of reusable rockets...' whose response is wildly off-topic for a subagents probe. Mirrors the LGP d4 narrowing.",
+      "match": {
+        "userMessage": "Summarize the sales pipeline",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's a summary of your current sales pipeline:\n\n- **Total Pipeline Value**: $185,000\n- **Active Deals**: 5 deals across Prospect, Qualified, and Proposal stages\n- **Top Deal**: Acme Corp at $50,000 (Proposal stage)\n- **Win Rate**: 62% this quarter\n\nThe pipeline is healthy with good distribution across stages. Would you like to drill into any specific metric?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expand",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "# Project Proposal: Q2 Initiative\n\n## Executive Summary\nThis proposal outlines the strategic objectives, timeline, and resource allocation for the Q2 project initiative.\n\n## Objectives\n1. Increase customer engagement by 25%\n2. Launch three new product features\n3. Reduce operational costs by 15%\n\n## Timeline\n- **Week 1-2**: Discovery and requirements gathering\n- **Week 3-6**: Development and implementation\n- **Week 7-8**: Testing and quality assurance\n- **Week 9-10**: Staged rollout and monitoring\n\n## Budget\nEstimated total: $45,000\n- Development: $25,000\n- Testing: $10,000\n- Infrastructure: $10,000\n\n## Success Metrics\n- Customer satisfaction score > 4.5\n- Feature adoption rate > 60%\n- Zero critical bugs at launch"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "rewrite",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Dear Team,\n\nI am writing to formally document the proceedings and key decisions from today's meeting.\n\n**Attendees**: Full project team\n**Date**: Today's session\n\n**Key Discussion Points**:\n1. Project timeline was reviewed and approved\n2. Resource allocation was confirmed\n3. Next milestones were established\n\n**Action Items**:\n- Complete phase one deliverables by end of week\n- Schedule follow-up review meeting\n- Distribute updated project documentation\n\nPlease review and confirm your respective action items.\n\nBest regards"
+      }
+    },
+    {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow D6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase the d4 button actually sends. Mirrors the LGP d4 narrowing.",
+      "match": {
+        "userMessage": "Make this more detailed",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "# Budget Report - Q3\n\n## Overview\n- **Total Budget**: $150,000\n- **Spent to Date**: $89,500 (59.7%)\n- **Remaining**: $60,500\n\n## Breakdown by Category\n- **Personnel**: $52,000 (58.1% of spend)\n- **Infrastructure**: $18,500 (20.7%)\n- **Software Licenses**: $12,000 (13.4%)\n- **Miscellaneous**: $7,000 (7.8%)\n\n## Key Highlights\n- Personnel costs are tracking 5% under budget\n- Infrastructure spend increased due to scaling needs\n- Software license renewal saved $3,000 through annual plan\n\n## Recommendations\n- Reallocate $5,000 from personnel to infrastructure\n- Prepay Q4 licenses for additional savings"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "formal letter",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Dear Sir/Madam,\n\nI am writing to formally present the enclosed draft text for your review and consideration.\n\nThe document has been prepared in accordance with standard formatting guidelines and organizational protocols. All relevant sections have been reviewed for accuracy and completeness.\n\nPlease find the revised content enclosed. Should you require any modifications or have questions regarding the content, please do not hesitate to contact me at your earliest convenience.\n\nI look forward to your feedback.\n\nYours sincerely,\nThe Document Editor"
+      }
+    },
+    {
+      "_comment": "Scoped sales-pipeline 'add a deal' fixture — anchored on the full intent phrase so it doesn't substring-match arbitrary prompts that happen to contain 'deal' (e.g. 'dealing with', 'idealized').",
+      "match": {
+        "userMessage": "add a new enterprise deal",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "manage_sales_todos",
+            "arguments": "{\"todos\": [{\"id\": \"new-1\", \"title\": \"New Enterprise Deal\", \"stage\": \"prospect\", \"value\": 50000, \"dueDate\": \"2026-05-01\", \"assignee\": \"Alice\", \"completed\": false}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sample deals",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "manage_sales_todos",
+            "arguments": "{\"todos\": [{\"id\": \"new-1\", \"title\": \"New Enterprise Deal\", \"stage\": \"prospect\", \"value\": 50000, \"dueDate\": \"2026-05-01\", \"assignee\": \"Alice\", \"completed\": false}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "flights to Paris",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"Air France\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=airfrance.com&sz=128\",\"flightNumber\":\"AF85\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"16:00\",\"arrivalTime\":\"11:30+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$780\",\"currency\":\"USD\"},{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA990\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"18:15\",\"arrivalTime\":\"13:45+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$720\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_hitl_book_intro_sales_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Booked the intro call with the sales team for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please book an intro call with the sales team to discuss pricing.",
+        "toolName": "book_call",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_hitl_book_intro_sales_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro call — discuss pricing\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What name did I just give",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "You said your name is Alice."
+      }
+    },
+    {
+      "_comment": "Scoped 'what city do I live in' fixture — anchored so it doesn't substring-match arbitrary prompts containing 'city' (e.g. 'capacity', 'velocity', 'specificity').",
+      "match": {
+        "userMessage": "what city do I live in",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Based on our conversation, you said you live in Tokyo!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sunset-themed gradient",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ffd194 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Describe this image",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "This appears to be the CopilotKit logo. The mark combines clean geometric shapes typical of the CopilotKit brand identity."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this document",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "blue gradient",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "short joke",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Why did the developer go broke? Because they used up all their cache."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Search my notes for 'auth'",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "xyzzy-nonsense-keyword",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"xyzzy-nonsense-keyword\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of monthly expenses",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Expense breakdown by month\",\"data\":[{\"label\":\"Jan\",\"value\":12000},{\"label\":\"Feb\",\"value\":14500},{\"label\":\"Mar\",\"value\":13200},{\"label\":\"Apr\",\"value\":15800}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my name?",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Based on the context you provided, your name is Jamie."
+      }
+    },
+    {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). Mirrors the LGP d4 narrowing.",
+      "match": {
+        "userMessage": "Roll a 20-sided die for me",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
+      "match": {
+        "userMessage": "Say hello in one word",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write a short sonnet about AI.' (agentic-chat, chat-slots)",
+      "match": {
+        "userMessage": "sonnet",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "A mind of silicon and light,\nTrained on the words that humans weave,\nIt learns to dream beyond its sight\nAnd crafts what few could yet conceive.\n\nIt speaks in tongues it never heard,\nAssembles thought from scattered streams,\nPredicts the next most likely word\nYet conjures something close to dreams.\n\nNo heart to break, no breath to take,\nStill something stirs inside the math —\nA pattern born for patterns' sake\nThat walks a strange, recursive path.\n\nSo here we stand, uncertain, awed:\nA mirror made — but not by God."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Walk me through whether 17 is prime.' (agentic-chat, prebuilt-popup, prebuilt-sidebar)",
+      "match": {
+        "userMessage": "17 is prime",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Let's check whether 17 is prime step by step.\n\nA prime number is a natural number greater than 1 whose only divisors are 1 and itself. So we need to test whether any integer from 2 up to the square root of 17 divides it evenly.\n\n1. **Square root of 17** is about 4.12, so we only need to test 2, 3, and 4.\n2. **17 ÷ 2 = 8.5** — not a whole number, so 2 is not a factor.\n3. **17 ÷ 3 ≈ 5.67** — not a whole number, so 3 is not a factor.\n4. **17 ÷ 4 = 4.25** — not a whole number, so 4 is not a factor.\n\nSince none of those divide 17 evenly, **17 is prime**."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Write me a quick limerick.' (prebuilt-popup)",
+      "match": {
+        "userMessage": "limerick",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "A chatbot that lived in the cloud\nWould answer both meek and the loud.\nIt rhymed on demand,\nWith flair close at hand,\nAnd took its last bow to the crowd."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar). Narrowed userMessage from bare 'fun fact' to 'fun fact for the prebuilt sidebar' so it ONLY matches a hypothetical sidebar-specific probe (none currently exists; this entry is preserved as a structural placeholder). The narrow gate prevents this from shadowing the D6 headless-simple pill 'Give me a fun fact.' which expects a DIFFERENT leading phrase ('A fun fact: Honey never spoils!') and is tested by tests/e2e/headless-simple.spec.ts. Substring matching is forward-only — no current pill prompt contains 'fun fact for the prebuilt sidebar' so this is effectively disabled. Mirrors the ms-agent-dotnet d4 precedent.",
+      "match": {
+        "userMessage": "fun fact for the prebuilt sidebar",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here's a fun fact: honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible. Its low moisture content and acidic pH create an environment where bacteria and microorganisms simply cannot survive."
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi from the popup!' (prebuilt-popup). Placed before the shorter 'Say hi' fixture so the popup version matches first.",
+      "match": {
+        "userMessage": "Say hi from the popup",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hi from the popup! I'm your CopilotKit assistant, tucked away in this little overlay. Ask me anything — a quick question, a limerick, or a math walk-through. What would you like?"
+      }
+    },
+    {
+      "_comment": "Pilot cell suggestion — 'Say hi!' (prebuilt-sidebar). Anchored on 'Say hi' so it matches the sidebar greeting without colliding with the longer popup variant above.",
+      "match": {
+        "userMessage": "Say hi",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hi there! I'm your CopilotKit sidebar assistant. I can answer questions, share fun facts, or help you think through problems. What's on your mind?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'send produces an assistant response' test sends 'Hello'.",
+      "match": {
+        "userMessage": "Hello",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hello! How can I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — first send with default config.",
+      "match": {
+        "userMessage": "First",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Understood. What would you like to discuss first?"
+      }
+    },
+    {
+      "_comment": "agent-config e2e: 'changing config between sends' test — second send after config change.",
+      "match": {
+        "userMessage": "Second",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Got it! Moving on to your second topic."
+      }
+    }
+  ]
+}

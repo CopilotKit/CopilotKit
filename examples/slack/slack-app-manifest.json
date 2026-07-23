@@ -1,0 +1,103 @@
+{
+  "display_information": {
+    "name": "CopilotKit Triage",
+    "description": "On-call triage assistant \u2014 query/file Linear issues and find/write Notion pages from Slack.",
+    "background_color": "#1a1a1a"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "CopilotKit Triage",
+      "always_online": true
+    },
+    "assistant_view": {
+      "assistant_description": "On-call triage assistant — query/file Linear issues and find/write Notion pages.",
+      "suggested_prompts": [
+        {
+          "title": "Triage my open issues",
+          "message": "Triage my open issues"
+        },
+        {
+          "title": "What shipped this week?",
+          "message": "Summarize what shipped this week"
+        }
+      ]
+    },
+    "slash_commands": [
+      {
+        "command": "/agent",
+        "description": "Talk to the AG-UI agent from any channel",
+        "usage_hint": "<your message>",
+        "should_escape": false
+      },
+      {
+        "command": "/triage",
+        "description": "Triage this thread \u2014 summarize and propose Linear issues",
+        "usage_hint": "",
+        "should_escape": false
+      },
+      {
+        "command": "/preview",
+        "description": "Privately preview the issue I'd file",
+        "usage_hint": "<issue title>",
+        "should_escape": false
+      },
+      {
+        "command": "/file-issue",
+        "description": "Open a form to file a Linear issue",
+        "usage_hint": "",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "user": ["chat:write"],
+      "bot": [
+        "app_mentions:read",
+        "assistant:write",
+        "channels:history",
+        "groups:history",
+        "im:history",
+        "mpim:history",
+        "channels:read",
+        "groups:read",
+        "im:read",
+        "mpim:read",
+        "users:read",
+        "users:read.email",
+        "team:read",
+        "chat:write",
+        "chat:write.public",
+        "chat:write.customize",
+        "im:write",
+        "mpim:write",
+        "files:read",
+        "files:write",
+        "channels:join",
+        "commands"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": [
+        "app_mention",
+        "assistant_thread_started",
+        "assistant_thread_context_changed",
+        "message.im",
+        "message.mpim"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "socket_mode_enabled": true,
+    "org_deploy_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

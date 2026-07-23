@@ -1,0 +1,16 @@
+**/node_modules
+.next
+.env
+.env.local
+playwright-report
+test-results
+**/vitest.config.ts
+**/test-setup.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+# LangGraph FileSystemPersistence state — can grow to hundreds of MB after
+# many local dev runs. Never bake developer-machine state into the image;
+# entrypoint.sh deletes it on every fresh container boot anyway.
+src/agent/.langgraph_api

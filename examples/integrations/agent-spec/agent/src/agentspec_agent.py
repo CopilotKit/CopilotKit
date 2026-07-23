@@ -4,6 +4,7 @@ import os
 from typing import Dict, Any
 
 import dotenv
+
 dotenv.load_dotenv()
 
 from pyagentspec.agent import Agent
@@ -18,6 +19,7 @@ def get_weather(location: str) -> Dict[str, Any]:
     Get the weather for a given location.
     """
     import time
+
     time.sleep(1)  # simulates real tool execution
     return {
         "temperature": 20,
@@ -37,17 +39,16 @@ weather_tool = ServerTool(
             json_schema={
                 "title": "location",
                 "type": "string",
-                "description": "The location to get the weather forecast. Must be a city/town name."
+                "description": "The location to get the weather forecast. Must be a city/town name.",
             },
-        )],
+        )
+    ],
     outputs=[
         Property(
             title="weather_result",
-            json_schema={
-                "title": "weather_result",
-                "type": "string"
-            },
-        )],
+            json_schema={"title": "weather_result", "type": "string"},
+        )
+    ],
 )
 
 go_to_moon_tool = ClientTool(

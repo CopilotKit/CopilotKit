@@ -100,8 +100,8 @@ describe("main() exit codes via CLI subprocess", () => {
         env: { SHOWCASE_AUDIT_ROOT: empty },
       });
       expect(r.status, r.stdout + r.stderr).toBe(3);
-      // Tighten from /packages/i — that would also match log lines that
-      // merely name the string "packages". Pin the specific diagnostic
+      // Tighten from /integrations/i — that would also match log lines that
+      // merely name the string "integrations". Pin the specific diagnostic
       // phrase so a regression that swallows the reason (and exits 3
       // for some other cause) can't slip through.
       expect(r.stderr).toMatch(/packages dir does not exist/);
@@ -118,7 +118,7 @@ describe("main() exit codes via CLI subprocess", () => {
     const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "audit-file-"));
     try {
       // Create <fixture>/packages as a FILE, not a directory.
-      fs.writeFileSync(path.join(fixture, "packages"), "not a dir\n");
+      fs.writeFileSync(path.join(fixture, "integrations"), "not a dir\n");
       const r = runCli([], {
         env: { SHOWCASE_AUDIT_ROOT: fixture },
       });
@@ -150,7 +150,7 @@ describe("main() exit codes via CLI subprocess", () => {
     const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "audit-eacces-"));
     const preload = fs.mkdtempSync(path.join(os.tmpdir(), "audit-pre-"));
     const preloadScript = path.join(preload, "eacces.cjs");
-    const pkgDir = path.join(fixture, "packages");
+    const pkgDir = path.join(fixture, "integrations");
     // Create the dir so existsSync would return true — the bug is that
     // statSync failing with EACCES should yield a distinct message. The
     // old redundant existsSync check short-circuits ENOENT only; EACCES

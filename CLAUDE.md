@@ -13,6 +13,8 @@
 
 <!-- nx configuration end-->
 
+> Working under `showcase/`? Read `showcase/AGENTS.md` FIRST — it defines the non-negotiable iron rules for showcase cells.
+
 # CopilotKit
 
 AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → **Runtime** (Express/Hono) → **Agent** (LangGraph/CrewAI/BuiltIn/Custom), communicating via the AG-UI protocol (event-based SSE).
@@ -23,6 +25,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Flat package structure** — all packages live directly under `packages/` (no `v1/` or `v2/` subdirectories). Every package uses the `@copilotkit/` scope.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+- **Documentation lives in shell-docs** — author all CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not here. See [Documentation](.claude/docs/documentation.md).
 
 ## Reference (read when relevant to your task)
 
@@ -30,3 +33,4 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - [Hook Development](.claude/docs/hooks.md) — checklist for creating new hooks (docs, tests, JSDoc)
 - [Workflow & Process](.claude/docs/workflow.md) — when to plan, when to fix autonomously, verification, self-improvement loop, this should be your default mindset when working on any task
 - [Git & PRs](.claude/docs/git.md) — worktree workflow, branching, creating PRs
+- [Documentation](.claude/docs/documentation.md) — where to author docs (CopilotKit → shell-docs; AG-UI → upstream); `docs/` is retired

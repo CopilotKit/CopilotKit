@@ -9,7 +9,6 @@
     "category",
     "language",
     "description",
-    "backend_url",
     "features",
     "demos"
   ],
@@ -68,12 +67,18 @@
     "backend_url": {
       "type": "string",
       "format": "uri",
-      "description": "Deployed Render service URL"
+      "description": "Deprecated/optional. Synthesized at build time by generate-registry.ts from SHOWCASE_BACKEND_HOST_PATTERN + slug. Manifests should omit this field; if present, the manifest value still wins via dual-read."
     },
     "deployed": {
       "type": "boolean",
       "default": false,
       "description": "Whether the backend is deployed and live. Stack nav and demo links only activate when true."
+    },
+    "docs_mode": {
+      "type": "string",
+      "enum": ["generated", "authored", "hidden"],
+      "default": "generated",
+      "description": "How shell-docs serves this framework's docs pages: 'generated' = data-driven FrameworkOverview + agnostic root MDX (current behavior, kept for langgraph-* and google-adk). 'authored' = render the per-framework MDX tree under content/docs/integrations/<docsFolder>/ with its own sidebar. 'hidden' = exclude from the docs site (no framework page, no switcher entry). Defaults to 'generated' when omitted."
     },
     "sort_order": {
       "type": "integer",
@@ -87,11 +92,14 @@
     },
     "features": {
       "type": "array",
-      "items": {
-        "type": "string"
-      },
+      "items": { "type": "string" },
       "minItems": 1,
       "description": "List of supported feature IDs from the feature registry"
+    },
+    "not_supported_features": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "List of feature IDs that this integration's framework cannot architecturally support (e.g., framework lacks graph-interrupt API or MCP tool runtime). These are excluded from parity computation."
     },
     "demos": {
       "type": "array",
@@ -113,9 +121,7 @@
           },
           "tags": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
+            "items": { "type": "string" },
             "description": "Freeform tags for search and filtering"
           },
           "route": {
@@ -185,6 +191,37 @@
       },
       "additionalProperties": false,
       "description": "Managed platform details if this integration is hosted on a managed service"
+    },
+    "a2ui_pattern": {
+      "type": ["string", "null"],
+      "enum": ["schema-loading", "schema-inline", "llm-driven", null],
+      "description": "Implementation pattern used by this integration for `a2ui-fixed-schema`. Set only when the feature is wired. `schema-loading` = backend loads schema JSON at startup; `schema-inline` = schema is declared inline as a typed literal in source; `llm-driven` = backend generates the schema via a secondary LLM call. Consumed by docs `<WhenFrameworkHas>` to gate per-pattern prose."
+    },
+    "interrupt_pattern": {
+      "type": ["string", "null"],
+      "enum": ["native", "promise-based", null],
+      "description": "Implementation pattern used by this integration for `gen-ui-interrupt` / `interrupt-headless`. Set only when at least one is wired. `native` = framework has a real interrupt primitive (e.g. LangGraph `interrupt()` + `useInterrupt`); `promise-based` = the demo uses `useFrontendTool` with a Promise-based handler. Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "thread_persistence_pattern": {
+      "type": ["string", "null"],
+      "enum": ["langgraph", "adk-session", null],
+      "description": "Framework-specific thread persistence/interoperability pattern. Set only when docs need to explain how CopilotKit Enterprise Intelligence Platform threads can be aligned with an external framework's own run/session identifiers. `langgraph` = explicit CopilotKit thread IDs are forwarded as AG-UI thread IDs and can be aligned with LangGraph checkpoint/thread IDs when the backend accepts them; `adk-session` = CopilotKit thread IDs may be mapped to ADK session IDs, while ADK durability depends on the configured ADK session service. Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "agent_config_pattern": {
+      "type": ["string", "null"],
+      "enum": ["shared-state", "runtime-properties", null],
+      "description": "Implementation pattern used by this integration for the `agent-config` feature. Set only when the feature is wired. `shared-state` = UI calls `agent.setState({...})` and the agent reads typed config out of state on each turn (most external-backend frameworks); `runtime-properties` = UI passes the typed object as `<CopilotKitProvider properties={...}>` and the runtime hands it to the agent factory via `input.forwardedProps` (built-in-agent). Consumed by docs `<WhenFrameworkHas>`."
+    },
+    "auth_pattern": {
+      "type": ["string", "null"],
+      "enum": [
+        "langgraph",
+        "ag2-context-variables",
+        "microsoft-agent-framework",
+        "runtime-onrequest",
+        null
+      ],
+      "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-context-variables` = AG2 backend reads the Authorization header on `/chat` and threads ContextVariables to tools (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`."
     },
     "starter": {
       "type": "object",

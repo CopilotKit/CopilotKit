@@ -5,7 +5,7 @@ import {
   CopilotChatUserMessage,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
-import { UserMessage } from "@ag-ui/client";
+import type { UserMessage } from "@ag-ui/client";
 
 // Simple default message
 const simpleMessage: UserMessage = {
@@ -375,13 +375,13 @@ export const WithAdditionalToolbarItems: Story = {
     template: `
       <ng-template #additionalItems>
         <button
-          class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
           (click)="alert('Custom button 1 clicked!')"
           title="Custom Action 1">
           📎
         </button>
         <button
-          class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+          class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
           (click)="alert('Custom button 2 clicked!')"
           title="Custom Action 2">
           🔄
@@ -413,13 +413,13 @@ import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
   template: \`
     <ng-template #additionalItems>
       <button
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
         (click)="onCustomAction1()"
         title="Custom Action 1">
         📎
       </button>
       <button
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
         (click)="onCustomAction2()"
         title="Custom Action 2">
         🔄
@@ -465,7 +465,8 @@ export const CustomAppearance: Story = {
   args: {
     message: simpleMessage,
     editMessage: () => console.log("Edit clicked!"),
-    inputClass: "bg-blue-50 border border-blue-200 rounded-lg p-4",
+    inputClass:
+      "cpk:bg-blue-50 cpk:border cpk:border-blue-200 cpk:rounded-lg cpk:p-4",
   },
   render: () => ({
     props: {
@@ -474,21 +475,21 @@ export const CustomAppearance: Story = {
     },
     template: `
       <ng-template #messageRenderer let-content="content">
-        <div class="prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap text-blue-900 font-medium">
+        <div class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap cpk:text-blue-900 cpk:font-medium">
           {{ content }}
         </div>
       </ng-template>
 
       <ng-template #toolbar>
-        <div class="w-full bg-transparent flex items-center justify-end -mr-[5px] mt-[8px] invisible group-hover:visible">
-          <div class="flex items-center gap-1 justify-end">
+        <div class="cpk:w-full cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-end cpk:-mr-[5px] cpk:mt-[8px] cpk:invisible cpk:group-hover:visible">
+          <div class="cpk:flex cpk:items-center cpk:gap-1 cpk:justify-end">
             <button
-              class="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
+              class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:text-blue-600 cpk:hover:bg-blue-100 cpk:flex cpk:items-center cpk:justify-center"
               (click)="handleCopy()">
               📋
             </button>
             <button
-              class="h-8 w-8 p-0 rounded-md text-blue-600 hover:bg-blue-100 flex items-center justify-center"
+              class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:text-blue-600 cpk:hover:bg-blue-100 cpk:flex cpk:items-center cpk:justify-center"
               (click)="editMessage({message: message})">
               ✏️
             </button>
@@ -500,10 +501,10 @@ export const CustomAppearance: Story = {
         <div style="width: 100%; max-width: 640px;">
           <copilot-chat-user-message
             [message]="message"
-            inputClass="bg-blue-50 border-blue-200 rounded-lg p-4"
+            inputClass="cpk:bg-blue-50 cpk:border-blue-200 cpk:rounded-lg cpk:p-4"
             (editMessage)="editMessage($event)">
             <ng-template #messageRenderer let-content="content">
-              <div class="prose dark:prose-invert bg-muted relative max-w-[80%] rounded-[18px] px-4 py-1.5 data-[multiline]:py-3 inline-block whitespace-pre-wrap text-blue-900 font-medium">
+              <div class="cpk:prose cpk:dark:prose-invert cpk:bg-muted cpk:relative cpk:max-w-[80%] cpk:rounded-[18px] cpk:px-4 cpk:py-1.5 cpk:data-[multiline]:py-3 cpk:inline-block cpk:whitespace-pre-wrap cpk:text-blue-900 cpk:font-medium">
                 {{ content }}
               </div>
             </ng-template>
@@ -519,7 +520,7 @@ export const CustomComponents: Story = {
     message: simpleMessage,
     editMessage: () => console.log("Edit clicked!"),
     inputClass:
-      "bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm",
+      "cpk:bg-gradient-to-r cpk:from-purple-100 cpk:to-pink-100 cpk:rounded-xl cpk:p-4 cpk:shadow-sm",
   },
   render: () => ({
     props: {
@@ -528,7 +529,7 @@ export const CustomComponents: Story = {
     },
     template: `
       <ng-template #messageRenderer let-content="content">
-        <div class="font-mono text-purple-800 bg-white/50 rounded-lg px-3 py-2 inline-block">
+        <div class="cpk:font-mono cpk:text-purple-800 cpk:bg-white/50 cpk:rounded-lg cpk:px-3 cpk:py-2 cpk:inline-block">
           💬 {{ content }}
         </div>
       </ng-template>
@@ -537,10 +538,10 @@ export const CustomComponents: Story = {
         <div style="width: 100%; max-width: 640px;">
           <copilot-chat-user-message
             [message]="message"
-            inputClass="bg-gradient-to-r from-purple-100 to-pink-100 rounded-xl p-4 shadow-sm"
+            inputClass="cpk:bg-gradient-to-r cpk:from-purple-100 cpk:to-pink-100 cpk:rounded-xl cpk:p-4 cpk:shadow-sm"
             (editMessage)="editMessage($event)">
             <ng-template #messageRenderer let-content="content">
-              <div class="font-mono text-purple-800 bg-white/50 rounded-lg px-3 py-2 inline-block">
+              <div class="cpk:font-mono cpk:text-purple-800 cpk:bg-white/50 cpk:rounded-lg cpk:px-3 cpk:py-2 cpk:inline-block">
                 💬 {{ content }}
               </div>
             </ng-template>

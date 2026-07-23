@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-typescript / prebuilt-popup",
+    "sourceFile": "harness/fixtures/d5/prebuilt-popup.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup single turn — the popup auto-opens via defaultOpen={true}, probe sends this message inside the popup surface.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

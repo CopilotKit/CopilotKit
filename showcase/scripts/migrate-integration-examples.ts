@@ -1,7 +1,7 @@
-// Migration Script: examples/integrations → showcase/packages
+// Migration Script: examples/integrations → showcase/integrations
 //
 // Copies agent code from existing examples/integrations/<name>/
-// into the corresponding showcase/packages/<slug>/src/agents/
+// into the corresponding showcase/integrations/<slug>/src/agents/
 //
 // Usage (standalone):
 //   npx tsx showcase/scripts/migrate-integration-examples.ts [--dry-run] [--redo]
@@ -20,7 +20,7 @@ const __dirname = path.dirname(__filename);
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const EXAMPLES_DIR = path.join(REPO_ROOT, "examples", "integrations");
-const PACKAGES_DIR = path.join(__dirname, "..", "packages");
+const PACKAGES_DIR = path.join(__dirname, "..", "integrations");
 
 // Map from examples/integrations dir name → showcase package slug
 const SLUG_MAP: Record<string, string> = {
@@ -151,7 +151,7 @@ function migrateIntegration(
 
   if (!fs.existsSync(packageDir)) {
     result.skipped.push(
-      `Package dir doesn't exist: showcase/packages/${slug}/`,
+      `Package dir doesn't exist: showcase/integrations/${slug}/`,
     );
     return result;
   }
@@ -258,7 +258,7 @@ function main() {
   const singleIdx = args.indexOf("--integration");
   const singleName = singleIdx >= 0 ? args[singleIdx + 1] : null;
 
-  console.log("Migration: examples/integrations → showcase/packages\n");
+  console.log("Migration: examples/integrations → showcase/integrations\n");
   if (DRY_RUN) console.log("DRY RUN — no files will be copied\n");
   if (REDO) console.log("REDO MODE — will wipe and re-import\n");
 

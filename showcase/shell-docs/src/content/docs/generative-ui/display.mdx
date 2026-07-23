@@ -3,7 +3,10 @@ title: Display components
 icon: "lucide/Eye"
 description: Register React components that your agent can render in the chat.
 hideTOC: true
+snippet_cell: gen-ui-tool-based
 ---
+
+<InlineDemo demo="gen-ui-tool-based" />
 
 ## What is this?
 
@@ -57,6 +60,18 @@ Use render-only generative UI when you want to:
 - Render previews, status indicators, or visual feedback
 - Let the agent present information beyond plain text
 
-## Choose your Integration
+## How it works in code
+
+<FrameworkSetup concept="frontend-tools-setup" />
+
+The renderer component receives the tool's arguments as typed props and
+mounts inline in the chat. Below is the chart renderer wired up in the
+canonical demo — the agent emits the data, the component draws it.
+
+<Snippet
+  region="bar-chart-renderer"
+  title="frontend/src/app/page.tsx — bar chart renderer"
+  highlight="1-6"
+/>
 
 <IntegrationGrid path="render-only" />

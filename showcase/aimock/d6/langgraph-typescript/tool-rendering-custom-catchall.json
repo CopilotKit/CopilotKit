@@ -1,0 +1,267 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-typescript / tool-rendering-custom-catchall",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-typescript/tool-rendering.json",
+    "created": "2026-05-29",
+    "note": "Mirrors tool-rendering.json fixture set adapted for the custom-catchall demo (single wildcard renderer, same 4 pills as tool-rendering: Weather in SF, Find flights, Roll a d20, Chain tools). turnIndex:0 gates dropped on catch-all toolCalls-emitting rules so multi-pill sessions don't poison subsequent pills (LGP D6 fix pattern)."
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d6_cc_langgraph_typescript_weather_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 weather in Tokyo (first turn). Emits get_weather tool call. The custom wildcard renderer fires for this tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_weather'].",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_langgraph_typescript_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price follow-up. After get_stock_price tool result returns. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_cc_langgraph_typescript_stock_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 AAPL stock price (second turn). Emits get_stock_price tool call. The custom wildcard renderer fires for this DIFFERENT tool and renders [data-testid='custom-wildcard-card'][data-tool-name='get_stock_price']. The cross-tool assertion verifies both tool names rendered through the same testid.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_langgraph_typescript_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Chain tools \u2014 follow-up content after all 3 tool results return (gated on whichever chained id arrives last).",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_roll_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_flights_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_weather_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "Chain tools first turn \u2014 emit 3 tool calls (weather Tokyo + flights SFO->Tokyo + roll_d20=11). No turnIndex / hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which would skip this fixture and fall through to tool-rendering.json's \"weather in Tokyo\" matcher (substring of this prompt). The toolCallId fixtures above eat iteration 2 via last-message tool_call_id gating, so removing the hasToolResult gate is safe.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Weather in SF \u2014 follow-up content after get_weather ran.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_tr_weather_sf_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "Weather in SF \u2014 first turn, emits get_weather('San Francisco'). No turnIndex gate.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Find flights \u2014 follow-up content after search_flights ran. Contains United/Delta/JetBlue tokens for the spec assertion on `data-testid='custom-wildcard-result'`.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_tr_flights_sfo_jfk_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "Find flights \u2014 first turn, emits search_flights. Spec asserts on result containing United/Delta/JetBlue \u2014 bake those into the tool args so the catchall renderer surfaces them.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"flights\":[{\"airline\":\"United\",\"flight\":\"UA231\",\"depart\":\"08:15\",\"price_usd\":348},{\"airline\":\"Delta\",\"flight\":\"DL412\",\"depart\":\"11:20\",\"price_usd\":312},{\"airline\":\"JetBlue\",\"flight\":\"B6722\",\"depart\":\"17:05\",\"price_usd\":289}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Roll a d20 \u2014 sequence chained by toolCallId. Iteration 1 emits seq_001 (value 7); subsequent iterations are keyed to the prior id.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_002",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_003",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_004",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_005",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Rolled the d20 five times \u2014 landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "Roll a d20 \u2014 first roll. No turnIndex gate so multi-pill sessions work; the toolCallId-chained fixtures above take precedence for iterations 2-6.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # Multi-Frontend Consolidation Strategy
 
+Tagline: rationale for the multi-shell layout (`shell/`, `shell-dojo/`,
+`shell-docs/`, `shell-dashboard/`), the rollout order, and how packages target
+shells today (they don't — every shell embeds every package).
+
 This document records the intentional rationale for having multiple showcase shells in this repo, which shell each one replaces, and how packages target them during the transition.
 
 > This is a transition-period strategy document. Once the rollouts below are complete, expect this doc to be updated or retired.
@@ -74,7 +78,7 @@ Order is driven by which external property is most worth consolidating next — 
 **There is currently no explicit shell-selection field on packages.** The relationship is one-to-many in the other direction: every shell can embed every package.
 
 - **At runtime, in every shell:** each integration package is embedded via `<iframe src={integration.backend_url + demo.route}>`. Both `shell/` (`src/app/integrations/[slug]/[demo]/page.tsx`) and `shell-dojo/` (`src/app/page.tsx`) do this using the exact same `backend_url` and `route` fields from `manifest.yaml`. Which shell a user sees is determined by which **domain** they visit, not by anything on the package.
-- **For per-package E2E:** tests in `packages/<slug>/tests/e2e/` run against the **package's own dev server** on `http://localhost:3000/demos/<id>` — not against any shell. `scripts/run-e2e-with-aimock.sh <slug>` starts aimock + the package's `pnpm dev` + Playwright; no shell is involved. See `QA-COVERAGE.md` for the current per-package/shared E2E split.
+- **For per-package E2E:** tests in `packages/<slug>/tests/e2e/` run against the **package's own dev server** on `http://localhost:3000/demos/<id>` — not against any shell. `scripts/run-e2e-with-aimock.sh <slug>` starts aimock + the package's `pnpm dev` + Playwright; no shell is involved. See [`TESTING.md`](./TESTING.md#per-demo-coverage-matrix) for the current per-package/shared E2E split.
 - **For shared E2E** (`scripts/__tests__/e2e/`): these target whatever is running at `BASE_URL` (defaults to `http://localhost:3000`). The starter hero tests (`starter-e2e.spec.ts`) expect the starter app; demo tests (`demo-e2e.spec.ts`) expect a package dev server. Again, no shell is mounted.
 - **`NEXT_PUBLIC_BASE_URL`** on packages points at `showcase.copilotkit.dev` for production links back to the canonical shell. It does not gate which shell embeds a given demo.
 
@@ -87,5 +91,5 @@ Order is driven by which external property is most worth consolidating next — 
 - **Domain / DNS cutover plan for ag-ui Dojo replacement.** Which domain does `shell-dojo/` land on, and is the external Dojo repo archived or redirected on cutover?
 - **Shared vs. per-shell content.** `shell/` has substantial MDX docs under `src/content/`; `shell-dojo/` has none. When we add a third shell, is documentation shell-specific or hoisted into `shared/`?
 - **Visibility filtering.** Do we ever need a package to appear in one shell but not another? If yes, add a manifest field now rather than after the second rollout makes the lack of one painful.
-- **`generate-starters` and preview capture.** These scripts assume the `shell/` layout (`showcase/shell/public/previews/`, `showcase/shell/src/data/registry.json`). When a future shell wants previews, decide whether to hoist these assets into `shared/` or dual-write.
+- **`extract-starter` and preview capture.** Preview capture scripts assume the `shell/` layout (`showcase/shell/public/previews/`, `showcase/shell/src/data/registry.json`). When a future shell wants previews, decide whether to hoist these assets into `shared/` or dual-write.
 - **E2E strategy once shells proliferate.** Per-package E2E still tests the package dev server directly, which is correct. But do we want shell-level E2E (iframe load, nav, search) per shell, and if so, where do those specs live?

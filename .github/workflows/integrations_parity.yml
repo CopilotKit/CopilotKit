@@ -1,0 +1,50 @@
+name: "Integrations: Parity Check"
+
+on:
+  pull_request:
+    paths:
+      - "examples/integrations/**"
+      - ".github/workflows/integrations_parity.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/integrations/**"
+      - ".github/workflows/integrations_parity.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          run_install: false
+
+      - name: Install root dev dependencies (tsx)
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter=.
+
+      - name: Verify integration-demo parity
+        run: |
+          echo "Checking examples/integrations/* against north-star..."
+          echo "If this fails, run: pnpm parity:sync --target=<instance>"
+          echo "and resolve agent-surface drift manually (see _parity/README.md)."
+          pnpm parity:check

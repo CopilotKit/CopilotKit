@@ -1,5 +1,5 @@
 {
   "title": "Prebuilt Components",
   "icon": "lucide/MessageSquare",
-  "pages": ["chat", "sidebar", "popup"]
+  "pages": ["chat", "sidebar", "popup", "chat-controls"]
 }

@@ -1,0 +1,203 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / gen-ui-declarative (A2UI Dynamic Schema)",
+    "sourceScript": "d5-gen-ui-declarative.ts",
+    "_note": "Agent plays a sales analyst for the fictional Vantage Threads company (OSS-136). ms-agent-python uses a two-stage A2UI pattern (src/agents/a2ui_dynamic.py) with inner tool `_design_a2ui_surface` (vs google-adk's render_a2ui). Because the ms-agent-framework session does not surface the latest user message to the secondary generate_a2ui LLM call, the OUTER generate_a2ui fixture returns a `context` steering phrase that becomes the inner call's user_content; the inner `_design_a2ui_surface` fixture matches that phrase (NOT the full pill prompt). Mirrors the llamaindex green north-star for this backend shape (same VantageThreads surfaces, same declarative-gen-ui-catalog). hasToolResult discriminates outer (false) vs narration (true).",
+    "created": "2026-07-18",
+    "copiedFrom": "llamaindex"
+  },
+  "fixtures": [
+    {
+      "_comment": "pill sales-dashboard hero — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false so it fires once.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_dash_outer_mspy_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"sales dashboard for this quarter\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill sales-dashboard hero — INNER secondary planner (forced _design_a2ui_surface via OpenAIClient against aimock). Inner user message = the outer's context arg. Args copied verbatim from LGP sales-dashboard render entry. Asserts declarative-metric (>=4) + declarative-pie-chart + declarative-bar-chart. Keyed userMessage(=outer context arg) + toolName:_design_a2ui_surface + context:ms-agent-python — the harness/HttpAgent forwards X-AIMock-Context to the secondary OpenAIClient() call (verified live: inner request carried ctxHdr=ms-agent-python, status 200), so context-scoping is both correct AND prevents cross-slug _design_a2ui_surface collisions (e.g. built-in-agent reuses the same context-arg userMessage strings).",
+      "match": {
+        "userMessage": "sales dashboard for this quarter",
+        "toolName": "_design_a2ui_surface",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_dash_design_mspy_001_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill sales-dashboard hero — TERMINAL narration after generate_a2ui returns (hasToolResult:true) so the run emits RUN_FINISHED.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "hasToolResult": true,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Here's your Q2 sales dashboard."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_team_outer_mspy_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"sales rep performance against quota\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance — INNER forced _design_a2ui_surface. Inner user message = the outer's context arg. Args copied verbatim from LGP team-performance render entry. Asserts declarative-data-table + declarative-bar-chart. Keyed userMessage(=outer context arg) + toolName:_design_a2ui_surface + context:ms-agent-python — the harness/HttpAgent forwards X-AIMock-Context to the secondary OpenAIClient() call (verified live: inner request carried ctxHdr=ms-agent-python, status 200), so context-scoping is both correct AND prevents cross-slug _design_a2ui_surface collisions (e.g. built-in-agent reuses the same context-arg userMessage strings).",
+      "match": {
+        "userMessage": "sales rep performance against quota",
+        "toolName": "_design_a2ui_surface",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_team_design_mspy_001_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"rep-quota-performance\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"title\",\"summary\",\"content\"]},{\"id\":\"title\",\"component\":\"Text\",\"text\":\"Sales rep performance vs quota\"},{\"id\":\"summary\",\"component\":\"Text\",\"text\":\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\"},{\"id\":\"content\",\"component\":\"Row\",\"gap\":16,\"children\":[\"table-card\",\"attainment-chart\"]},{\"id\":\"table-card\",\"component\":\"Card\",\"title\":\"Rep attainment table\",\"child\":\"rep-table\"},{\"id\":\"rep-table\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Rep\"},{\"key\":\"attainment\",\"label\":\"Attainment\"},{\"key\":\"pipeline\",\"label\":\"Pipeline\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\",\"pipeline\":\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\",\"pipeline\":\"Above plan\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\",\"pipeline\":\"Near quota\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\",\"pipeline\":\"Below plan\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\",\"pipeline\":\"Furthest from quota\"}]},{\"id\":\"attainment-chart\",\"component\":\"BarChart\",\"title\":\"Quota attainment by rep\",\"description\":\"Q2 quota attainment percentages for all sales reps.\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance — TERMINAL narration after generate_a2ui returns.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "hasToolResult": true,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_risk_outer_mspy_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"accounts and pipeline deals at risk this quarter\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk — INNER forced _design_a2ui_surface. Inner user message = the outer's context arg. Args copied verbatim from LGP at-risk render entry. Asserts declarative-status-badge (>=3) + declarative-metric (>=3). Keyed userMessage(=outer context arg) + toolName:_design_a2ui_surface + context:ms-agent-python — the harness/HttpAgent forwards X-AIMock-Context to the secondary OpenAIClient() call (verified live: inner request carried ctxHdr=ms-agent-python, status 200), so context-scoping is both correct AND prevents cross-slug _design_a2ui_surface collisions (e.g. built-in-agent reuses the same context-arg userMessage strings).",
+      "match": {
+        "userMessage": "accounts and pipeline deals at risk this quarter",
+        "toolName": "_design_a2ui_surface",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_risk_design_mspy_001_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"risk-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"metrics-row\",\"accounts-row\"]},{\"id\":\"metrics-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-arr\",\"metric-accounts\",\"metric-biggest\"]},{\"id\":\"metric-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\"},{\"id\":\"metric-accounts\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\",\"trend\":\"neutral\"},{\"id\":\"metric-biggest\",\"component\":\"Metric\",\"label\":\"Biggest exposure\",\"value\":\"Northwind Retail\",\"trend\":\"down\"},{\"id\":\"accounts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"card-northwind\",\"card-cascadia\",\"card-atlas\"]},{\"id\":\"card-northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"subtitle\":\"$340k ARR at stake\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"northwind-badge\",\"northwind-text\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High severity\",\"variant\":\"error\"},{\"id\":\"northwind-text\",\"component\":\"Text\",\"text\":\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\"},{\"id\":\"card-cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"subtitle\":\"$180k ARR at stake\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"cascadia-badge\",\"cascadia-text\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"cascadia-text\",\"component\":\"Text\",\"text\":\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\"},{\"id\":\"card-atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"subtitle\":\"$95k ARR at stake\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"atlas-badge\",\"atlas-text\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"atlas-text\",\"component\":\"Text\",\"text\":\"Legal review is stalled; next action: align procurement and legal on open terms.\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk — TERMINAL narration after generate_a2ui returns.",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "hasToolResult": true,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account — OUTER agent emits generate_a2ui with a per-pill context arg, guarded hasToolResult:false.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_outer_mspy_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"details on our biggest account\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account — INNER forced _design_a2ui_surface. Inner user message = the outer's context arg. Args copied verbatim from LGP top-account render entry. Asserts declarative-info-row + declarative-pie-chart. Keyed userMessage(=outer context arg) + toolName:_design_a2ui_surface + context:ms-agent-python — the harness/HttpAgent forwards X-AIMock-Context to the secondary OpenAIClient() call (verified live: inner request carried ctxHdr=ms-agent-python, status 200), so context-scoping is both correct AND prevents cross-slug _design_a2ui_surface collisions (e.g. built-in-agent reuses the same context-arg userMessage strings).",
+      "match": {
+        "userMessage": "details on our biggest account",
+        "toolName": "_design_a2ui_surface",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_design_mspy_001_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\":\"biggest-account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Row\",\"gap\":16,\"children\":[\"account-card\",\"revenue-pie\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"subtitle\":\"Biggest account\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"gap\":8,\"children\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\",\"fact6\",\"fact7\"]},{\"id\":\"fact1\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"fact2\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"fact3\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"fact4\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"fact5\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"fact6\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"Green\"},{\"id\":\"fact7\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 opportunities worth $210k\"},{\"id\":\"revenue-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"description\":\"Meridian Apparel Group revenue mix across product lines.\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account — TERMINAL narration after generate_a2ui returns.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "hasToolResult": true,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

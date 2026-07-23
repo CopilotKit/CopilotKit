@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / agent-config",
+    "sourceScript": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tone:professional — value-A prompt. Must produce a response that differs from the casual variant.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit-powered assistant, configured to communicate in a professional tone. I am here to provide clear, well-structured guidance on any topic you bring forward. How may I assist you today?"
+      }
+    },
+    {
+      "_comment": "tone:casual — value-B prompt. Must differ from professional variant.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, keeping things chill and casual. Got questions? Toss 'em my way — happy to help with whatever you need!"
+      }
+    },
+    {
+      "_comment": "expertise:beginner — value-A prompt.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "CopilotKit is a tool that lets you add an AI assistant to your website or app. Think of it like a smart helper that lives inside your project and can answer questions, fill out forms, or do tasks for you. You don't need to be an AI expert to use it — it handles the hard parts behind the scenes."
+      }
+    },
+    {
+      "_comment": "expertise:expert — value-B prompt. Must differ from beginner variant.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "CopilotKit provides a React-based SDK that orchestrates agent interactions via the AG-UI protocol over SSE. The runtime layer mediates between frontend hooks (useCopilotChat, useCopilotAction) and backend agent frameworks (LangGraph, CrewAI, custom). Context injection, tool registration, and multi-agent coordination are handled declaratively through provider props and hook composition."
+      }
+    },
+    {
+      "_comment": "responseLength:concise — value-A prompt. Must be noticeably shorter than detailed variant.",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Agent context lets the frontend pass runtime configuration to the agent on every turn. Values like tone, expertise level, and response length shape the agent's system prompt dynamically."
+      }
+    },
+    {
+      "_comment": "responseLength:detailed — value-B prompt. Must exceed concise by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Agent context is a CopilotKit mechanism that allows the frontend to pass arbitrary key-value configuration to the agent on every conversational turn. When you call useAgentContext, the values you set — such as tone, expertise level, and desired response length — are serialized into the request payload and injected into the agent's system prompt before the LLM processes the user's message.\n\nThis enables dynamic behavior without redeploying the agent. For example, a settings panel can let end users toggle between professional and casual tone, beginner and expert explanations, or concise and detailed output. The agent reads these values from its per-turn context and adjusts its generation strategy accordingly.\n\nUnder the hood, CopilotKit's runtime merges the frontend-supplied context with any server-side defaults, resolves conflicts in favor of the most recent frontend value, and passes the merged context object to the agent framework's system-prompt builder. This makes agent context a first-class configuration surface for personalizing AI behavior in real time."
+      }
+    }
+  ]
+}

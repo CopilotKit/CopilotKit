@@ -1,0 +1,45 @@
+{
+  "_comment": "D5 fixture for /demos/readonly-state-agent-context. The probe seeds a sentinel into the user-name input and asserts the value lands in the outgoing /api/copilotkit request body — a network-payload assertion that catches a regression where useAgentContext stops plumbing the value end-to-end.",
+  "fixtures": [
+    {
+      "_comment": "D5 probe path: the harness edits the user name to CTX-PROBE-7g3kqz before sending the pill. Match that sentinel in the system prompt so this fixture proves changed context is forwarded without catching arbitrary user edits.",
+      "match": {
+        "userMessage": "What do you know about me from my context",
+        "systemMessage": "CTX-PROBE-7g3kqz"
+      },
+      "response": {
+        "content": "I can see your current context says your display name is CTX-PROBE-7g3kqz, with the rest of the profile coming from the app's read-only context."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What do you know about me from my context",
+        "systemMessage": [
+          "currently logged-in user's display name",
+          "Atai",
+          "IANA timezone",
+          "America/Los_Angeles",
+          "Viewed the pricing page",
+          "Watched the product demo video"
+        ]
+      },
+      "response": {
+        "content": "Based on your context I can see your name and recent activity. I'll keep responses calibrated to your timezone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "recall the user preference",
+        "systemMessage": [
+          "currently logged-in user's display name",
+          "Atai",
+          "IANA timezone",
+          "America/Los_Angeles"
+        ]
+      },
+      "response": {
+        "content": "The agent received the preference via read-only context."
+      }
+    }
+  ]
+}

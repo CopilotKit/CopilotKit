@@ -5,7 +5,7 @@ description: "React hook for handling agent interrupt events and resuming execut
 
 ## Overview
 
-`useInterrupt` listens for agent custom events named `on_interrupt`, captures the latest interrupt payload for a run, and renders interrupt UI once the run finalizes. Your UI can call `resolve(response)` to resume the agent with a resume payload.
+`useInterrupt` handles agent interrupts and resumes execution with user input. It supports the **AG-UI standard interrupt flow** — `RUN_FINISHED` with `outcome.type === "interrupt"` carrying an `interrupts` array — and the legacy custom-event flow (`on_interrupt`). For standard interrupts, your `render`/`handler` receive `interrupt` (the primary one) and `interrupts` (the full open set); call `resolve(payload)` to resume or `cancel()` to cancel.
 
 By default, interrupt UI is rendered inside `<CopilotChat>` automatically. If you set `renderInChat: false`, the hook returns the element so you can place it manually.
 
@@ -36,8 +36,11 @@ function useInterrupt<
   <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
     Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
     - `event` -- interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
+    - `interrupt` -- the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for legacy interrupts.
+    - `interrupts` -- all open standard interrupts (empty array for legacy interrupts).
     - `result` -- inferred from `handler` return type, or `null`
-    - `resolve(response)` -- resumes the agent with `command.resume = response`
+    - `resolve(payload?, interruptId?)` -- for standard interrupts, records `{ status: "resolved", payload }` for the target interrupt (defaults to the primary) and submits the resume once all open interrupts are addressed. For legacy interrupts, maps to `command.resume = payload`.
+    - `cancel(interruptId?)` -- for standard interrupts, records `{ status: "cancelled" }` for the target interrupt and submits once all open interrupts are addressed. For legacy interrupts, dismisses the pending interrupt without resuming.
   </PropertyReference>
 
 <PropertyReference
@@ -120,9 +123,30 @@ function SidePanelInterrupt() {
 }
 ```
 
+### AG-UI standard interrupt (approve / cancel)
+
+```tsx
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ interrupt, resolve, cancel }) => (
+      <div className="p-3 border rounded">
+        <p>{interrupt?.message ?? "Approve this action?"}</p>
+        <div className="mt-2 flex gap-2">
+          <button onClick={() => resolve({ approved: true })}>Approve</button>
+          <button onClick={() => cancel()}>Cancel</button>
+        </div>
+      </div>
+    ),
+  });
+  return null;
+}
+```
+
 ## Behavior
 
-- Interrupts are collected from agent custom events named `on_interrupt`.
+- Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); legacy interrupts from `on_interrupt` custom events. Standard takes precedence if both appear in the same run.
+- `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed.
+- Expired interrupts (past `expiresAt`) are not resumed — the hook logs an error and clears pending state.
 - Interrupt UI is surfaced when the run finalizes.
 - Starting a new run clears pending interrupt state.
 - `event.value` is `any` -- type-narrow in your callbacks as needed.

@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / headless-simple",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "headless-simple pill 1: locks the deterministic greeting leading phrase. The reply is intentionally NON-boilerplate (i.e. NOT the showcase-assistant catch-all 'I can help you with weather lookups...') so the headless-simple spec's HELLO_LEADING assertion fails when fixture priority misroutes this prompt to the catch-all.",
+      "match": {
+        "userMessage": "Say hello in one short sentence",
+        "turnIndex": 0,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Hi! In one short sentence: I'm a CopilotKit demo agent here to help you try features."
+      }
+    },
+    {
+      "_comment": "headless-simple pill 2: locks the deterministic joke.",
+      "match": {
+        "userMessage": "Tell me a one-line joke",
+        "turnIndex": 0,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "Why did the scarecrow win an award? Because he was outstanding in his field!"
+      }
+    },
+    {
+      "_comment": "headless-simple pill 3: locks the deterministic fun fact.",
+      "match": {
+        "userMessage": "Give me a fun fact",
+        "turnIndex": 0,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "A fun fact: Honey never spoils! Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible."
+      }
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 {
-  "title": "Premium Features",
-  "pages": ["self-hosting"]
+  "title": "Intelligence Platform",
+  "icon": "lucide/Star",
+  "pages": ["overview", "self-hosting"]
 }

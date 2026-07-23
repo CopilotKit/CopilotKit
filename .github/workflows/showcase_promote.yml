@@ -1,0 +1,634 @@
+name: "Showcase: Promote (staging → prod)"
+
+# Promotes the staging-tested digest of one or more services to prod.
+# Workflow_dispatch only. Humans trigger. No automatic prod promotes.
+#
+# Order:
+#   0. resolve-targets              → expand the workflow_dispatch `service`
+#                                     input (SSOT key, dispatch_name, or
+#                                     'all') into the canonical services_csv
+#                                     consumed by every downstream job.
+#   1. verify-staging-precondition  → live-probe staging for the target service(s).
+#                                     Refuse on red (matches bin/railway
+#                                     --require-staging-green default).
+#   2. promote                      → bin/railway promote <service>; runs the
+#                                     spec §7 hardening (P1..P6).
+#   3. verify-prod                  → verify-deploy.ts --env prod for the
+#                                     target service(s). Feature-level probes,
+#                                     not naked 200. Then the prod equivalence
+#                                     re-sweep gate (§6.2) and the pinned-ness
+#                                     gate (lint-prod, §8.2 — every prod service
+#                                     must be on an immutable @sha256: digest).
+#   4. notify                       → Slack #oss-alerts on any red. Never #engr.
+#                                     success → #team-showcase.
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to promote (dispatch_name or SSOT key). 'all' = whole fleet. Leave the placeholder to abort."
+        required: true
+        type: choice
+        # >>> BEGIN GENERATED service options (showcase/scripts/sync-promote-service-options.ts) — DO NOT EDIT
+        default: __select_a_service__
+        options:
+          - __select_a_service__
+          - all
+          - ag2
+          - agno
+          - built-in-agent
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - ms-agent-python
+          - pydantic-ai
+          - shell
+          - shell-dashboard
+          - shell-docs
+          - shell-dojo
+          - showcase-aimock
+          - showcase-harness
+          - showcase-pocketbase
+          - spring-ai
+          - starter-adk
+          - starter-agno
+          - starter-crewai-crews
+          - starter-langgraph-fastapi
+          - starter-langgraph-js
+          - starter-langgraph-python
+          - starter-llamaindex
+          - starter-mastra
+          - starter-ms-agent-framework-dotnet
+          - starter-ms-agent-framework-python
+          - starter-pydantic-ai
+          - starter-strands-python
+          - strands
+          - strands-typescript
+          - webhooks
+        # <<< END GENERATED service options
+      digest:
+        description: "Optional digest override (default: snapshot from staging)"
+        required: false
+        type: string
+
+# Serialize ALL promotes on a single input-agnostic group so concurrent runs
+# (e.g. `all` + a single-service promote) can't pin the same Railway service
+# at once; `cancel-in-progress: false` ensures an in-flight prod promote is
+# never cancelled by a newer run queued behind it.
+concurrency:
+  group: showcase-promote
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-targets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      # Leaf-set CSV — the BACKWARD-COMPAT promote target the promote job still
+      # drives off (Phase 1 behavior is unchanged).
+      services_csv: ${{ steps.resolve.outputs.services_csv }}
+      # Tier-ordered promote closure (requested ∪ transitive runtimeDeps ∪
+      # Tier-1 verification, §4.2). Phase 1 SURFACES it (operators see the
+      # closure in the step summary) but the actual promote still uses
+      # services_csv; U4 enforces tier ordering / dependent-gating off these.
+      closure_csv: ${{ steps.resolve.outputs.closure_csv }}
+      # Machine-readable `tier:name` form of the closure for U4 to consume.
+      closure_plan: ${{ steps.resolve.outputs.closure_plan }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Generate SSOT artifact
+        working-directory: showcase/scripts
+        # The emitted JSON is EPHEMERAL here: resolve-promote-targets.sh reads it
+        # with jq to resolve which service(s) to promote and it is NEVER
+        # committed, so oxfmt-canonical formatting is irrelevant. This job's
+        # `npm ci` runs in showcase/scripts only and does NOT install the
+        # repo-root oxfmt binary the committed-artifact path shells out to, so
+        # leave it canonical-free via EMIT_SKIP_OXFMT (else spawnSync ENOENT
+        # fails the step and blocks EVERY promote). The committed-artifact path
+        # (static_quality.yml) keeps oxfmt REQUIRED + fail-loud.
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: Resolve target service set
+        id: resolve
+        # Resolution + the tiered-closure derivation live in the bats-tested
+        # showcase/scripts/resolve-promote-targets.sh so they can't drift from
+        # their test (see __tests__/resolve-promote-targets.bats), mirroring how
+        # promote-fleet.sh / verify-prod-display.sh were extracted from this same
+        # workflow. The script preserves the existing guards (--digest+all
+        # reject, empty-`all` fail-loud, unknown/ambiguous/not-prod-eligible) and
+        # emits services_csv (leaf, backward-compat) + closure_csv/closure_plan
+        # (tiered closure) into $GITHUB_OUTPUT, plus the closure plan + skips into
+        # $GITHUB_STEP_SUMMARY.
+        env:
+          INPUT: ${{ inputs.service }}
+          DIGEST: ${{ inputs.digest }}
+          GENERATED: showcase/scripts/railway-envs.generated.json
+        run: showcase/scripts/resolve-promote-targets.sh
+
+  verify-staging-precondition:
+    needs: [resolve-targets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: railway
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Live-probe staging for promote precondition
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # Spec §7.2 P3: the live staging probe at promote time is
+          # authoritative. CI verify history is a leading indicator only.
+          # Run from showcase/scripts (where `npm ci` installed tsx) so npx
+          # uses the local install instead of network-fetching it.
+          #
+          # --skip-ineligible: SERVICES_CSV is the PROMOTE target set, which
+          # for `service=all` legitimately includes services that are
+          # promotable but NOT staging-probe-eligible (the starter-* fleet
+          # carries probe.staging=false in the SSOT). Those are an expected
+          # state here, not a fault — verify-deploy SKIPS them with a clear
+          # status line and probes only the eligible services, rather than
+          # hard-crashing the whole precondition on the first starter-*. This
+          # flag does NOT relax green for eligible services, nor does it
+          # tolerate an unknown (non-SSOT) name — a typo is still a hard error.
+          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV" --skip-ineligible
+
+  promote:
+    needs: [resolve-targets, verify-staging-precondition]
+    # Do NOT hard-depend on verify-staging-precondition's RESULT. That job
+    # probes the FULL requested set all-or-nothing, so a single staging-red
+    # service (e.g. a chronically-broken integration in `all`) fails it and
+    # — under the default `if: success()` — would SKIP promote entirely,
+    # re-blocking the whole fleet. bin/railway enforces staging-green
+    # PER-SERVICE (spec §7 P2 = latest staging deploy must be SUCCESS, P3 =
+    # live staging probe, default-on), so a red service is refused on its own
+    # and lands in promote-fleet.sh's failed set (reds the run) without
+    # taking the greens down with it. verify-staging-precondition therefore
+    # stays as an advisory early signal surfaced in the notify payload, not a
+    # hard blocker. `!cancelled()` keeps a human-cancelled run from promoting;
+    # mirrors the verify-prod gate idiom below.
+    if: ${{ !cancelled() && needs.resolve-targets.result == 'success' }}
+    runs-on: ubuntu-latest
+    # promote-fleet.sh now fans out promotes WITHIN a tier (PROMOTE_FANOUT, cap
+    # 5) instead of running the whole fleet serially. Even so, the largest tier
+    # (~30 integration leaves) at cap 5 with bin/railway's ~300s/service
+    # verify_serving_digest! is ~6 batches * ~5 min ≈ 30 min, so 20 min cancelled
+    # a `service=all` promote mid-fleet. 35 min leaves headroom above the
+    # worst-case tier without masking a genuinely stuck promote.
+    timeout-minutes: 35
+    environment: railway
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      # CSV of the services that ACTUALLY promoted (best-effort: a partial
+      # failure still exposes the succeeded subset). verify-prod scopes its
+      # prod verification to exactly this set so a single failed service can't
+      # red the verification of the services that did promote.
+      succeeded_csv: ${{ steps.promote.outputs.succeeded_csv }}
+      # Aggregated staging-drift payload: non-empty when any promoted service's
+      # staging RUNNING digest differed from the current GHCR :latest (i.e.
+      # staging was NOT serving :latest). Folded into the Slack notify payload
+      # so operators see "what shipped to prod is not current :latest".
+      staging_drift: ${{ steps.promote.outputs.staging_drift }}
+      # Base64-encoded results JSON (schema_version=1) carrying BOTH the
+      # succeeded[] and failed[] sets, consumed by the three-variant Slack
+      # renderer (showcase_promote_notify.yml). promote-fleet.sh is the SSOT
+      # for the result set; the notify job enriches this blob with run-context
+      # (run_id, trigger, operator, elapsed, pre_staging) before dispatch.
+      # Empty when the promote step did not run (the notify job synthesizes a
+      # total-failure blob in that case).
+      results_b64: ${{ steps.promote.outputs.results_b64 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.3"
+          bundler-cache: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        # Same EPHEMERAL regeneration as resolve-targets: bin/railway reads this
+        # JSON to derive EXPECTED_DOMAINS and it is never committed, so skip the
+        # oxfmt-canonical pass (repo-root oxfmt is not installed by this job's
+        # showcase/scripts-scoped `npm ci`; an ENOENT here would abort promote).
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+      - name: bin/railway promote
+        id: promote
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tier-ordered closure plan (U4): promote-fleet.sh prefers CLOSURE_PLAN
+          # over SERVICES_CSV, promoting BY TIER (0->1->2) with dependent-tier
+          # gating AND within-tier parallel fan-out (PROMOTE_FANOUT). A serial
+          # `service=all` fleet overran the job timeout; tiered fan-out cuts the
+          # wall-clock so the whole fleet completes inside timeout-minutes.
+          CLOSURE_PLAN: ${{ needs.resolve-targets.outputs.closure_plan }}
+          # Retained as the backward-compat fallback: promote-fleet.sh uses this
+          # ONLY when CLOSURE_PLAN is empty (e.g. an older resolve step).
+          SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # promote-fleet.sh runs each service in turn BEST-EFFORT: a single
+          # red service (e.g. a chronically-broken integration in the `all`
+          # set) must not abort promotion of the rest of the fleet. The script
+          # attempts every service, aggregates the succeeded/failed sets, emits
+          # a step summary, and exits non-zero iff ANY service failed (so the
+          # notify job still fires) — but only AFTER attempting all of them.
+          # bin/railway itself handles spec §7 preconditions (P1..P6);
+          # --require-staging-green is default-on and the prior job already
+          # established staging is green (defense in depth). We deliberately do
+          # NOT pass --confirm-divergence: WARN-divergence refusals are a real
+          # signal that must fail the run.
+          RAILWAY_BIN="showcase/bin/railway" \
+            showcase/scripts/promote-fleet.sh
+
+  verify-prod:
+    needs: [resolve-targets, promote]
+    # Run whenever promote actually RAN — success OR partial failure — so the
+    # services that DID promote still get prod verification. `!cancelled()`
+    # excludes a human-cancelled run; `needs.promote.result != 'skipped'`
+    # excludes the case where promote never ran (e.g. an upstream abort/skip).
+    # Under the default `if: success()` this job was SKIPPED on any partial
+    # promote failure, leaving the promoted services with zero prod
+    # verification — that is the bug this gate fixes.
+    if: ${{ !cancelled() && needs.promote.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: railway
+    permissions:
+      contents: read
+    outputs:
+      # Distinguishes a job that actually PROBED prod (`success`) from one that
+      # SKIPPED probing because nothing promoted (`skipped`). The GitHub job
+      # `result` is `success` in BOTH cases (the skip path exits 0), so the
+      # notify job must read THIS output — not `needs.verify-prod.result` — to
+      # avoid reporting a misleading `verify-prod=success` when prod was never
+      # touched. A real probe failure / contract violation exits non-zero, so
+      # the job `result` becomes `failure` and this output is never written
+      # (notify falls back to the job result for that case).
+      status: ${{ steps.verify.outputs.status }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - working-directory: showcase/scripts
+        run: npm ci
+      - name: Run verify-deploy --env prod
+        id: verify
+        working-directory: showcase/scripts
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Scope verification to the services that ACTUALLY promoted (from the
+          # promote job's best-effort succeeded set), NOT the full requested set
+          # (resolve-targets) — verifying a service that failed to promote would
+          # guarantee a red verify and mask the health of the ones that did
+          # promote.
+          SERVICES_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          # The promote job's result, so the empty-CSV branch can tell a genuine
+          # all-failed run (empty succeeded set is expected) apart from a
+          # contract violation (promote reported success yet emitted no CSV).
+          PROMOTE_RESULT: ${{ needs.promote.result }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          # If NOTHING promoted (every requested service failed, so the
+          # succeeded set is empty), there is nothing to verify — skip with a
+          # clear log line rather than calling verify-deploy.ts with an empty
+          # --services (which would either error or vacuously pass). The promote
+          # job already exited non-zero in that case, so the overall run is red
+          # via the notify state machine regardless.
+          #
+          # BUT: an empty succeeded set is only legitimate when promote did NOT
+          # succeed. If promote reported success and STILL emitted no CSV, the
+          # "promote already failed" assumption that justifies the vacuous skip
+          # is violated — fail loud instead of silently exiting 0.
+          if [ -z "$SERVICES_CSV" ]; then
+            if [ "$PROMOTE_RESULT" = "success" ]; then
+              echo "::error::promote reported success but succeeded_csv is empty — contract violation"
+              exit 1
+            fi
+            echo "::notice::succeeded_csv is empty (no services promoted, or promote did not run); skipping prod verification. The run is red via the promote job result if anything failed."
+            # Record that prod was SKIPPED, not verified. The job still exits 0
+            # (its `result` is `success`), so the notify job reads this `status`
+            # output to render `verify-prod=skipped` instead of a misleading
+            # `verify-prod=success`.
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Run from showcase/scripts (where `npm ci` installed tsx) so npx uses
+          # the local install instead of network-fetching it. A non-zero exit
+          # here fails the step (job `result` = failure) and `status` is never
+          # written, so notify falls back to the job result.
+          npx tsx verify-deploy.ts --env prod --services "$SERVICES_CSV"
+          # Prod was actually probed and passed.
+          echo "status=success" >> "$GITHUB_OUTPUT"
+      # ── Prod equivalence gate (UNIT U10, spec §6.2) ──────────────────────
+      # After the closure pins (promote job) AND the per-service prod probe
+      # (above), re-sweep the promoted integration closure on the PROD control
+      # plane (prod harness scheduler + prod harness-workers, or scheduler
+      # INLINE fallback when workers are unprovisioned — §4.4) and run U9's
+      # equivalence gate over the FRESH prod rows vs current staging. Promote
+      # success flips to the equivalence definition (fail only on
+      # staging-green / prod-not-green, gray/stale excluded, one-directional).
+      #
+      # GATED ON CONFIGURATION: the equivalence gate needs prod + staging
+      # PocketBase creds and the prod Railway environment id. Those are an
+      # out-of-PR operational prerequisite (§8.1) — until the secrets are wired
+      # the step ANNOTATES "not configured" and is a no-op, so this job's
+      # existing per-service prod verification (above) remains the gate. Once
+      # configured, a gate FAILURE fails the step (and the run).
+      # Install the pnpm workspace ONLY when the equivalence gate is configured
+      # (the gate step's enqueue dynamically imports the harness producer graph,
+      # which lives in the pnpm workspace — `npm ci` in showcase/scripts alone
+      # does not resolve it). `--ignore-scripts` skips postinstall/Playwright
+      # browser downloads: the host only ENQUEUES + POLLS prod PocketBase; the
+      # prod harness-workers own the browser. Gated on the same config check as
+      # the gate step so the no-op (unconfigured) path stays cheap.
+      - name: Set up pnpm (equivalence gate only)
+        if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: pnpm install (equivalence gate only)
+        if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
+        run: pnpm install --ignore-scripts
+      - name: Prod equivalence re-sweep gate
+        if: ${{ steps.verify.outputs.status == 'success' }}
+        working-directory: showcase/scripts
+        env:
+          # The promoted closure subset that ACTUALLY pinned (best-effort) —
+          # the set to re-sweep + compare. Same scope as the prod probe above.
+          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.SHOWCASE_RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID_PROD: ${{ vars.SHOWCASE_RAILWAY_ENV_ID_PROD }}
+          PROD_POCKETBASE_URL: ${{ vars.SHOWCASE_PROD_POCKETBASE_URL }}
+          PROD_POCKETBASE_SUPERUSER_EMAIL: ${{ secrets.SHOWCASE_PROD_POCKETBASE_SUPERUSER_EMAIL }}
+          PROD_POCKETBASE_SUPERUSER_PASSWORD: ${{ secrets.SHOWCASE_PROD_POCKETBASE_SUPERUSER_PASSWORD }}
+          STAGING_POCKETBASE_URL: ${{ vars.SHOWCASE_STAGING_POCKETBASE_URL }}
+          STAGING_POCKETBASE_SUPERUSER_EMAIL: ${{ secrets.SHOWCASE_STAGING_POCKETBASE_SUPERUSER_EMAIL }}
+          STAGING_POCKETBASE_SUPERUSER_PASSWORD: ${{ secrets.SHOWCASE_STAGING_POCKETBASE_SUPERUSER_PASSWORD }}
+          # §4.4 annotation: flip to "false" once prod harness-workers are
+          # provisioned-but-degraded is the default-true full-throughput path.
+          PROD_HARNESS_WORKERS_PROVISIONED: ${{ vars.SHOWCASE_PROD_HARNESS_WORKERS_PROVISIONED }}
+        run: |
+          set -euo pipefail
+          # OUT-OF-PR PREREQ GATE: the equivalence gate is inert until the prod
+          # + staging PocketBase + prod Railway env-id config is wired (§8.1).
+          # Absence is NOT a failure — the per-service prod probe above already
+          # gated the run; this step just annotates that the equivalence gate
+          # was skipped for lack of configuration.
+          if [ -z "${PROD_POCKETBASE_URL:-}" ] || [ -z "${STAGING_POCKETBASE_URL:-}" ] || [ -z "${RAILWAY_ENVIRONMENT_ID_PROD:-}" ]; then
+            echo "::notice::Prod equivalence gate not configured (prod/staging PocketBase + prod Railway env-id absent) — skipping the re-sweep gate. This is the §8.1 out-of-PR prerequisite; the per-service prod probe remains the gate."
+            exit 0
+          fi
+          if [ -z "${PROMOTED_CLOSURE_CSV:-}" ]; then
+            echo "::notice::no promoted closure to re-sweep — equivalence gate vacuously passes."
+            exit 0
+          fi
+          # A gate FAILURE (a genuine staging-green / prod-not-green regression)
+          # or a re-sweep timeout (REFUSE) exits non-zero → fails this step and
+          # the run, exactly like the per-service probe above. `pnpm exec` (not
+          # `npx`) so the dynamically-imported harness producer graph resolves
+          # through the workspace node_modules the install step above created.
+          pnpm exec tsx verify-prod-resweep.ts
+      # ── Prod pinned-ness gate (UNIT U12, spec §8.2) ──────────────────────
+      # COMPLEMENTS the equivalence gate above — it asserts PINNED-NESS, not
+      # equivalence. After the promote pins the closure and prod is verified
+      # healthy + equivalent, assert that EVERY prod service is on an immutable
+      # `@sha256:` digest, not a mutable `:latest` tag. A born-on-:latest prod
+      # service (deploy-to-railway.ts provisions an unpinned source.image, spec
+      # R-E) can be healthy AND equivalent while still floating on a mutable tag
+      # — a latent rollback/repro hazard the other gates do not catch. The gate
+      # logic lives in the bats-tested showcase/scripts/lint-prod-gate.sh (a thin
+      # `bin/railway lint-prod` wrapper) so it can't drift from its test (see
+      # __tests__/lint-prod-gate.bats). Runs whenever prod was actually probed
+      # (same `status == 'success'` guard as the equivalence gate); a non-zero
+      # exit (an unpinned prod service, or a hard lint-prod error) fails the step
+      # and the run. No `--exit-zero`: an unpinned prod service must red the run.
+      - name: Prod pinned-ness gate (lint-prod)
+        if: ${{ steps.verify.outputs.status == 'success' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          showcase/scripts/lint-prod-gate.sh
+
+  notify:
+    # Single Slack message per run via the three-variant aggregated renderer
+    # (.github/workflows/showcase_promote_notify.yml): success ✅ / partial ⚠️
+    # (per-service Failed bullets, cross-posts #oss-alerts) / total ❌. This job
+    # REPLACES the old inline two-state notify (success/failure-only, which
+    # dumped the full requested CSV and mislabeled a partial promote as a blanket
+    # "Failed [all 39]"). It builds the results JSON (from the promote job's
+    # results_b64, enriched with this run's context) and DISPATCHES the renderer.
+    #
+    # Best-effort promote invariant (do NOT reintroduce a PRE gate):
+    #   resolve-targets              = HARD precondition (must succeed).
+    #   verify-staging-precondition  = ADVISORY only — surfaced in the Slack
+    #                                  payload (`pre_staging`), never gates
+    #                                  promote or run success.
+    #   promote                      = best-effort (exits non-zero iff a
+    #                                  service failed).
+    #   verify-prod                  = verifies the succeeded subset.
+    needs: [resolve-targets, verify-staging-precondition, promote, verify-prod]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      # The job's own GITHUB_TOKEN cannot start NEW workflow runs (Actions'
+      # recursion-prevention drops workflow_dispatch events authenticated with
+      # GITHUB_TOKEN), so the renderer dispatch goes through the devops-bot App
+      # token minted below — mirroring canary.yml's cross-workflow dispatch.
+      contents: read
+      # actions:read lets the payload step query this run's own metadata
+      # (created_at) to compute real wall-clock elapsed for the Slack message.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build notify payload
+        id: payload
+        env:
+          INPUT: ${{ inputs.service }}
+          # promote-fleet's results JSON (schema_version=1, succeeded[]+failed[]).
+          # Empty when the promote step did not run (upstream abort/skip/cancel).
+          RESULTS_B64: ${{ needs.promote.outputs.results_b64 }}
+          RESOLVE: ${{ needs.resolve-targets.result }}
+          PRE: ${{ needs.verify-staging-precondition.result }}
+          PROMOTE: ${{ needs.promote.result }}
+          PROD: ${{ needs.verify-prod.result }}
+          # Operator identity for the renderer's `operator_mention`. The renderer
+          # prefers a Slack users.lookupByEmail on operator_email; we have no
+          # reliable email for github.actor, so pass the actor as the git-name
+          # fallback (the renderer degrades to it when the email lookup is empty).
+          ACTOR: ${{ github.actor }}
+          # gh api (run metadata lookup for real wall-clock elapsed) needs a token.
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # SKIP cases that must NOT post a Slack message (parity with the old
+          # neutral-state arms): a deliberate no-pick abort, or a human cancel.
+          if [ "$INPUT" = "__select_a_service__" ]; then
+            echo "::notice::no service selected (deliberate no-op abort); skipping Slack notify."
+            echo "dispatch=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$RESOLVE" = "cancelled" ] || [ "$PRE" = "cancelled" ] || [ "$PROMOTE" = "cancelled" ] || [ "$PROD" = "cancelled" ]; then
+            echo "::notice::run cancelled by a human; skipping Slack notify (no red page)."
+            echo "dispatch=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Map the ADVISORY verify-staging-precondition result onto the
+          # renderer's pre_staging glyph vocabulary (green/amber/red/skipped).
+          case "$PRE" in
+            success) PRE_STAGING="green" ;;
+            failure) PRE_STAGING="amber" ;;   # advisory red → amber (not a gate)
+            *)       PRE_STAGING="skipped" ;;
+          esac
+
+          # 6-char lowercase hex run_id — the renderer's HARD CONTRACT
+          # (^[0-9a-f]{6}$; see its run-name directive). Derive it from this
+          # run's own id so it is stable + greppable, never random.
+          RUN_ID=$(printf '%06x' "$(( GITHUB_RUN_ID % 16777216 ))")
+
+          # Base results JSON: prefer promote-fleet's emitted blob (the SSOT for
+          # succeeded[]/failed[]). When promote never ran (no results_b64), the
+          # run aborted upstream — synthesize a total-failure blob so the
+          # renderer posts the ❌ variant instead of nothing.
+          if [ -n "${RESULTS_B64:-}" ]; then
+            if ! printf '%s' "$RESULTS_B64" | base64 -d > /tmp/results-base.json 2>/dev/null; then
+              echo "::error::failed to decode promote results_b64"
+              exit 1
+            fi
+          else
+            jq -nc '{schema_version:1, abort_reason:"fleet-preflight", succeeded:[], failed:[]}' > /tmp/results-base.json
+          fi
+
+          # Real wall-clock elapsed: this notify job runs last (needs: [...],
+          # if: always()), so (now - run.created_at) is the run's end-to-end
+          # duration. Query this run's own metadata via gh api (actions:read).
+          # Fall back to 0 only if the lookup fails or yields a non-sane value,
+          # in which case the renderer omits the "in {elapsed}" phrasing.
+          ELAPSED=0
+          created_at=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --jq '.created_at' 2>/dev/null || echo "")
+          if [ -n "$created_at" ]; then
+            start_epoch=$(date -u -d "$created_at" +%s 2>/dev/null || echo "")
+            if [ -n "$start_epoch" ]; then
+              now_epoch=$(date -u +%s)
+              delta=$(( now_epoch - start_epoch ))
+              # Guard against clock skew / parse glitches producing a negative.
+              if [ "$delta" -ge 0 ]; then
+                ELAPSED="$delta"
+              fi
+            fi
+          fi
+
+          # Enrich the base blob with this run's context (run_id, trigger,
+          # operator, elapsed, pre_staging). trigger=workflow (the renderer maps
+          # it to the `showcase_promote.yml` label). elapsed_seconds is the real
+          # wall-clock computed above; the renderer formats it as "Nm SSs".
+          ENRICHED_B64=$(jq -c \
+            --arg run_id "$RUN_ID" \
+            --arg trigger "workflow" \
+            --arg actor "$ACTOR" \
+            --arg pre "$PRE_STAGING" \
+            --argjson elapsed "$ELAPSED" \
+            '. + {run_id:$run_id, trigger:$trigger, operator_git_name:$actor, elapsed_seconds:$elapsed, pre_staging:$pre}' \
+            /tmp/results-base.json | base64 | tr -d '\n')
+
+          {
+            echo "dispatch=1"
+            echo "run_id=$RUN_ID"
+            echo "results_b64=$ENRICHED_B64"
+          } >> "$GITHUB_OUTPUT"
+      - name: Mint devops-bot token
+        id: app-token
+        if: steps.payload.outputs.dispatch == '1'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          # actions=write is the ONLY scope needed: dispatch the sibling renderer
+          # workflow. The default GITHUB_TOKEN cannot start new workflow runs.
+          permission-actions: write
+      - name: Dispatch showcase_promote_notify.yml
+        if: steps.payload.outputs.dispatch == '1'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RESULTS_B64: ${{ steps.payload.outputs.results_b64 }}
+          RUN_ID: ${{ steps.payload.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          # Dispatch the three-variant renderer. It owns ALL Slack posting
+          # (#team-showcase init + thread, #oss-alerts cross-post on
+          # partial/total). Pass trigger=workflow + the 6-hex run_id (which is
+          # also the renderer's run-name for the CLI's gh-run-list polling
+          # contract). Dispatched on the default branch (no --ref) so the
+          # renderer's reviewed main-branch definition runs.
+          gh workflow run showcase_promote_notify.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            -f results="$RESULTS_B64" \
+            -f trigger=workflow \
+            -f run_id="$RUN_ID"
+          echo "dispatched showcase_promote_notify.yml (run_id=$RUN_ID)"

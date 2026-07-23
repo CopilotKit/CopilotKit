@@ -1,0 +1,218 @@
+#!/usr/bin/env bash
+# showcase — unified CLI for the CopilotKit showcase platform.
+#
+# Dispatches to built-in compose commands (up, down, build, ps, ports, logs)
+# and to plugin commands defined in scripts/cli/cmd-*.sh files.
+
+set -euo pipefail
+
+# ── Bootstrap ────────────────────────────────────────────────────────────────
+
+BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SHOWCASE_ROOT="$(cd "$BIN_DIR/.." && pwd)"
+export SHOWCASE_ROOT
+
+# shellcheck source=../scripts/cli/_common.sh
+source "$SHOWCASE_ROOT/scripts/cli/_common.sh"
+
+# ── Auto-discover plugin commands (cmd-*.sh) ─────────────────────────────────
+
+# Plugin names and their descriptions, stored as parallel arrays for bash 3
+# compatibility (no associative arrays on macOS default bash).
+_plugin_names=()
+_plugin_descs=()
+
+for cmd_file in "$SHOWCASE_ROOT"/scripts/cli/cmd-*.sh; do
+  [ -f "$cmd_file" ] || continue
+  # shellcheck disable=SC1090
+  source "$cmd_file"
+  # Extract command name: cmd-foo-bar.sh → foo-bar
+  _name="$(basename "$cmd_file" .sh)"
+  _name="${_name#cmd-}"
+  _plugin_names+=("$_name")
+  # Each cmd file should define CMD_<NAME>_DESC (dashes→underscores, uppercased)
+  # e.g. cmd-aimock-rebuild.sh defines CMD_AIMOCK_REBUILD_DESC
+  _desc_var="CMD_${_name//-/_}"
+  _desc_var="$(echo "$_desc_var" | tr '[:lower:]' '[:upper:]')_DESC"
+  _plugin_descs+=("${!_desc_var:-}")
+done
+
+# ── Built-in commands ────────────────────────────────────────────────────────
+
+cmd_up() {
+  require_env
+  trap restore_symlinks EXIT
+  stage_shared
+
+  # Fleet topology: bring up the SAME shape prod runs — the control-plane
+  # container + worker container(s) + PocketBase + demos + aimock — NOT an
+  # in-process pool. The harness control-plane and pool worker(s) live in the
+  # `infra` profile (alongside aimock/pocketbase/dashboard), so always include
+  # `--profile infra`.
+  #
+  # Demo slugs (bare args like `langgraph-python`) select that demo's compose
+  # PROFILE — they must become `--profile <slug>` flags, NOT positional service
+  # names. A positional service arg restricts `up` to only that service + its
+  # deps, which (a) leaves the demo's own profile disabled and (b) makes
+  # `--scale harness-pool-worker=N` fail with "no such service:
+  # harness-pool-worker: disabled" because the worker is no longer in the active
+  # set. Raw compose flags (anything starting with `-`, e.g. `--no-build`) are
+  # passed through verbatim.
+  #
+  # HARNESS_POOL_COUNT drives the worker fleet size. Local default is 1 (a
+  # single worker container); staging/prod export HARNESS_POOL_COUNT=2. The
+  # compose `harness-pool-worker` service is scaled to that count via
+  # `--scale` so the same compose file scales from local (1) to prod (N)
+  # purely by the env var — no per-environment compose edits.
+  local pool_count="${HARNESS_POOL_COUNT:-1}"
+  export HARNESS_POOL_COUNT="$pool_count"
+
+  # Split args: bare slugs → `--profile <slug>` + build target; flags (-*) →
+  # pass through. `--dev` is intercepted (not passed to compose): it layers
+  # the dev overlay (docker-compose.dev.yml) which bind-mounts integration
+  # source + overrides the run command to a hot-reload entrypoint — fast
+  # iteration without an image rebuild. The built-image mode (no --dev) stays
+  # the faithful default.
+  local profile_args=()
+  local build_targets=()
+  local passthrough_args=()
+  local dev_mode=false
+  local arg
+  for arg in "$@"; do
+    if [[ "$arg" == "--dev" ]]; then
+      dev_mode=true
+    elif [[ "$arg" == -* ]]; then
+      passthrough_args+=("$arg")
+    else
+      profile_args+=(--profile "$arg")
+      build_targets+=("$arg")
+    fi
+  done
+
+  local compose_cmd="$COMPOSE_CMD"
+  if $dev_mode; then
+    compose_cmd="$compose_cmd -f $SHOWCASE_ROOT/docker-compose.dev.yml"
+    info "DEV MODE: bind-mounting integration source + hot reload (NOT the faithful built-image path)"
+  fi
+
+  info "Launching fleet topology: control-plane + ${pool_count} worker(s) + PocketBase + demos + aimock (HARNESS_POOL_COUNT=${pool_count})"
+  # Two-call strategy to preserve A21's BuildKit-contention fix (target-only
+  # rebuild) WITHOUT regressing infra startup that A21 inadvertently dropped
+  # (A21b, issue #5495).
+  #
+  # docker compose semantics: positional service names after `up` restrict
+  # WHICH services start to the named ones + their `depends_on` chain — not
+  # just which ones get `--build`-rebuilt. So a single
+  # `up -d --build <slug>` only brings up the slug + its depends_on (aimock),
+  # leaving the rest of the infra profile (pocketbase/dashboard/harness/
+  # harness-pool-worker) down. Under `--isolate` with a sibling stack on the
+  # same host ports, health checks then cross onto foreign containers and
+  # cells silently misroute → 0.0s red.
+  #
+  # Fix: when slugs are present, emit TWO compose calls:
+  #   1. <profiles> up -d (no --build, no positional services) — start all
+  #      services in the active profiles using cached images.
+  #   2. <profiles> up -d --build <slug...> — force-rebuild ONLY the named
+  #      services and ensure they're up. Other services from call (1) are
+  #      no-ops.
+  # When no slugs are present (infra-only bring-up), keep the single blanket
+  # `--build` call so first-time bootstrap still builds missing images.
+  #
+  # bash 3.2 (macOS default) errors on `${arr[@]}` for an EMPTY array under
+  # `set -u`; the `${arr[@]+...}` guard expands to nothing when unset/empty.
+  if [[ ${#build_targets[@]} -gt 0 ]]; then
+    # Call 1: bring up ALL services in active profiles, no build.
+    $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
+    # Call 2: rebuild ONLY the targeted slug(s) and ensure they're up.
+    $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d --build \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"} \
+      "${build_targets[@]}"
+  else
+    # Infra-only: single call with blanket --build for first-time bootstrap.
+    $compose_cmd --profile infra up -d --build \
+      --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
+  fi
+}
+
+cmd_down() {
+  $COMPOSE_CMD down "$@"
+}
+
+cmd_build() {
+  trap restore_symlinks EXIT
+  stage_shared
+  $COMPOSE_CMD build "$@"
+}
+
+cmd_ps() {
+  $COMPOSE_CMD ps "$@"
+}
+
+cmd_ports() {
+  if command -v jq &>/dev/null; then
+    jq -r 'to_entries[] | "\(.key)\t→ localhost:\(.value)"' "$PORTS_FILE"
+  else
+    cat "$PORTS_FILE"
+  fi
+}
+
+# ── Usage ────────────────────────────────────────────────────────────────────
+
+usage() {
+  cat <<'HEADER'
+Usage: showcase <command> [options]
+
+Core commands:
+  up [slug...]      Start containers (rebuilds if source changed)
+                    --dev  bind-mount integration source + hot reload
+                           (fast iteration; NOT the faithful built-image path)
+  down [slug...]    Stop containers
+  build [slug...]   Build Docker images
+  ps                Show running containers
+  ports             Print slug → host port mapping
+HEADER
+
+  # Print plugin commands if any are loaded
+  if [ ${#_plugin_names[@]} -gt 0 ]; then
+    echo ""
+    echo "Plugin commands:"
+    local i
+    for i in "${!_plugin_names[@]}"; do
+      printf "  %-17s %s\n" "${_plugin_names[$i]}" "${_plugin_descs[$i]}"
+    done
+  fi
+
+  cat <<'FOOTER'
+
+Run 'showcase <command> --help' for details on a specific command.
+FOOTER
+}
+
+# ── Dispatch ─────────────────────────────────────────────────────────────────
+
+subcmd="${1:-}"
+shift || true
+
+case "$subcmd" in
+  ""|"-h"|"--help"|"help")
+    usage
+    [ -z "$subcmd" ] && exit 1
+    exit 0
+    ;;
+  eval)
+    exec npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" eval "$@"
+    ;;
+  *)
+    # Convert dashes to underscores for function lookup: foo-bar → cmd_foo_bar
+    func_name="cmd_${subcmd//-/_}"
+    if type "$func_name" 2>/dev/null | head -1 | grep -q 'function'; then
+      "$func_name" "$@"
+    else
+      echo "Unknown command: $subcmd" >&2
+      echo ""
+      usage
+      exit 1
+    fi
+    ;;
+esac

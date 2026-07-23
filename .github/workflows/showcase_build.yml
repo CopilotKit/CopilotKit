@@ -1,0 +1,1270 @@
+name: "Showcase: Build & Push"
+
+# Decoupled from the old "Build & Deploy" workflow. This workflow builds
+# Docker images, pushes them to GHCR, and triggers Railway to redeploy.
+# The separate "Showcase: Verify Deploy" workflow (showcase_deploy.yml)
+# handles health verification.
+#
+# Critical design property: NO concurrency group with cancel-in-progress.
+# Every push to main runs to completion so that rapid-fire PR merges never
+# cancel in-flight builds. This was the #1 operational pain point with the
+# old combined workflow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "showcase/**"
+      - "examples/integrations/**"
+      - ".github/workflows/showcase_build.yml"
+      - ".github/workflows/showcase_build_check.yml"
+  workflow_dispatch:
+    inputs:
+      service:
+        description: "Service to build"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - shell
+          - langgraph-python
+          - mastra
+          - crewai-crews
+          - pydantic-ai
+          - google-adk
+          - ag2
+          - agno
+          - llamaindex
+          - langgraph-fastapi
+          - langgraph-typescript
+          - langroid
+          - spring-ai
+          - strands
+          - strands-typescript
+          - ms-agent-python
+          - claude-sdk-typescript
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - claude-sdk-python
+          - built-in-agent
+          - shell-dojo
+          - shell-dashboard
+          - shell-docs
+          - showcase-harness
+          - showcase-aimock
+          - showcase-pocketbase
+          - webhooks
+          # Per-starter image builds (model B, §b stage 1). These map to the
+          # build-starters job below, NOT the showcase `build` job. "all"
+          # builds the full showcase fleet AND all 12 starters; a specific
+          # starter slug narrows to that one starter via STARTER_DISPATCH.
+          - starter-langgraph-python
+          - starter-mastra
+          - starter-langgraph-js
+          - starter-crewai-crews
+          - starter-pydantic-ai
+          - starter-adk
+          - starter-agno
+          - starter-llamaindex
+          - starter-langgraph-fastapi
+          - starter-strands-python
+          - starter-ms-agent-framework-python
+          - starter-ms-agent-framework-dotnet
+
+# No top-level concurrency group. Every build run completes. This is the
+# whole point of the decoupling: rapid pushes to main no longer cancel
+# in-flight builds.
+
+# Top-level env intentionally empty: env IDs are resolved inside
+# showcase/scripts/redeploy-env.ts from the showcase/scripts/railway-envs.ts
+# SSOT (and its emitted railway-envs.generated.json), not by this workflow.
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          # All filter values use list form for consistency. `shell`
+          # genuinely needs multiple paths; the others could collapse to
+          # single-line strings, but mixing styles (list vs. string)
+          # in the same filters block is easy to misread during review.
+          filters: |
+            workflow_config:
+              - '.github/workflows/showcase_build.yml'
+              - '.github/workflows/showcase_build_check.yml'
+            shell:
+              - 'showcase/shell/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            langgraph_python:
+              - 'showcase/integrations/langgraph-python/**'
+            mastra:
+              - 'showcase/integrations/mastra/**'
+            crewai_crews:
+              - 'showcase/integrations/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/integrations/pydantic-ai/**'
+            google_adk:
+              - 'showcase/integrations/google-adk/**'
+            ag2:
+              - 'showcase/integrations/ag2/**'
+            agno:
+              - 'showcase/integrations/agno/**'
+            llamaindex:
+              - 'showcase/integrations/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/integrations/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/integrations/langgraph-typescript/**'
+            langroid:
+              - 'showcase/integrations/langroid/**'
+            spring_ai:
+              - 'showcase/integrations/spring-ai/**'
+            strands:
+              - 'showcase/integrations/strands/**'
+            strands_typescript:
+              - 'showcase/integrations/strands-typescript/**'
+            ms_agent_python:
+              - 'showcase/integrations/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/integrations/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/integrations/ms-agent-dotnet/**'
+            ms_agent_harness_dotnet:
+              - 'showcase/integrations/ms-agent-harness-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/integrations/claude-sdk-python/**'
+            built_in_agent:
+              - 'showcase/integrations/built-in-agent/**'
+            shell_dojo:
+              - 'showcase/shell-dojo/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+              # The dashboard re-exports the harness's shared cell-model fold
+              # (src/lib/{cell-model,live-status,staleness,format-ts}.ts →
+              # ../../../harness/src/shared/cell-model/*), so those files are
+              # compiled INTO the dashboard's `next build`. A change to the
+              # fold that only touches showcase/harness/** would otherwise
+              # select `showcase_harness` but NOT this slot — exactly how
+              # #5952 shipped an unbuilt dashboard. Gate the dashboard on the
+              # fold so a fold change can never again bypass its build.
+              - 'showcase/harness/src/shared/**'
+            shell_docs:
+              - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+              - 'showcase/integrations/*/docs-links.json'
+              - 'showcase/integrations/*/docs/setup/**'
+              - 'showcase/integrations/*/src/**'
+            showcase_harness:
+              - 'showcase/harness/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/integrations/*/manifest.yaml'
+            showcase_aimock:
+              - 'showcase/aimock/**'
+            pocketbase:
+              # PB image is self-contained: PB binary + pb_migrations +
+              # pb_hooks + Dockerfile. No shared-module copy, so the slot
+              # is gated purely to its own subtree — it does NOT rebuild
+              # on every showcase push, only when migrations/hooks/Dockerfile
+              # change.
+              - 'showcase/pocketbase/**'
+            webhooks:
+              # Sentinel pattern that cannot match any in-tree path.
+              # The webhooks GHCR image is built by the showcase-eval-webhook
+              # repo's own release workflow, so we never want a push-driven
+              # build run to include it. workflow_dispatch can still target
+              # webhooks explicitly via the service input — that path skips
+              # paths-filter entirely.
+              - 'showcase/__no_match_webhooks_built_out_of_band__'
+
+      - name: Build service matrix
+        id: build-matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          GITHUB_SHA_ENV: ${{ github.sha }}
+          GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          # Full service config as JSON
+          # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
+          # skip_build (optional, boolean): when true, the Docker build step
+          # is skipped for this slot (image is built out-of-band by another
+          # workflow/repo). Currently used by `webhooks` (built by the
+          # showcase-eval-webhook repo's own release workflow).
+          # health_path: historical field retained in the matrix for human
+          # reference. The actual verify probe is driven by per-service
+          # drivers in verify-deploy.ts (showcase/scripts/verify-deploy.ts),
+          # NOT by this field — it is informational only at this layer.
+          ALL_SERVICES='[
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","railway_id":"d6f47c8c-a0a1-4dbe-991c-50f8463fd68d","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
+            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
+            {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
+          ]'
+
+          DISPATCH="$DISPATCH_SERVICE"
+          CHANGES="${FILTER_CHANGES:-[]}"
+
+          # Filter services based on three dispatch modes:
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally.
+          #     This re-pulls :latest for every matrix slot (~38 services); intentional for
+          #     drift-rebuild runs and full-fleet restarts. Do NOT try to short-circuit
+          #     unchanged services here — operators invoke "all" precisely when they want
+          #     the fleet re-deployed regardless of git state (cache poisoning, base-image CVE).
+          #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
+          #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
+          #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
+          #     drift-rebuild and manual single-service dispatches work regardless of $changes).
+          #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
+          MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" --arg sha "$GITHUB_SHA_ENV" --arg ref "$GITHUB_REF_NAME_ENV" '
+            [.[] |
+              if .build_args_sha == "__GH_SHA__" then .build_args_sha = $sha else . end |
+              if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
+              (.filter_key as $fk | select(
+              $dispatch == "all" or
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
+              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+            ))]
+          ')
+
+          # Fail loudly on typo'd workflow_dispatch inputs. If a user types a
+          # service name that doesn't exist in ALL_SERVICES, the jq filter
+          # silently produces [] and the run shows green with zero work
+          # done — a common "did my dispatch deploy?" footgun. The `all` and
+          # empty (push-event) modes legitimately produce [] when there are
+          # no changes and must still succeed.
+          #
+          # The `starter-*` namespace is OWNED by the detect-starter-changes
+          # job (which scopes its OWN fail-loud to `starter-*`). A
+          # `service=starter-<slug>` dispatch legitimately yields [] here
+          # (no showcase service is named `starter-*`), so it must SKIP — an
+          # empty showcase matrix, NOT a fail-loud exit 1. Mirrors how the
+          # starter job scopes its fail-loud to the `starter-*` namespace.
+          case "$DISPATCH" in
+            starter-*) ;; # starter namespace → empty showcase matrix + skip
+            "" | "all") ;; # push / full-fleet → [] is legitimate
+            *)
+              if [ "$MATRIX" = "[]" ]; then
+                echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  check-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (enforced via corepack).
+      # Earlier revisions hard-pinned `version: 10.13.1` which silently
+      # drifted from package.json whenever the repo bumped pnpm —
+      # resulting in lockfile-vs-engine mismatches that only surfaced on
+      # the slow `--frozen-lockfile` path.
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+
+  verify-image-refs:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+
+  build:
+    needs: [detect-changes, check-lockfile, verify-image-refs]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # Always pull LFS. Nearly every integration ships LFS-tracked demo
+          # assets under public/ (public/demo-files/*.png|*.pdf,
+          # public/demo-audio/*.wav per root .gitattributes). With lfs:false
+          # these check out as 130-byte LFS pointer stubs and get COPYed into
+          # the image as text — the deployed image then serves the pointer
+          # with HTTP 200 and the frontend's magic-bytes guard rejects it,
+          # breaking the multimodal test pill. The per-slot matrix.service.lfs
+          # flag was true only for shell/shell-dashboard/shell-docs, leaving
+          # every framework integration shipping pointer stubs. Uniform
+          # lfs:true is the least-error-prone fix: a new integration that adds
+          # demo assets is covered automatically, with no matrix flag to
+          # forget.
+          lfs: true
+          persist-credentials: false
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare build args
+        id: build-args
+        env:
+          BUILD_ARGS_SHA: ${{ matrix.service.build_args_sha }}
+          BUILD_ARGS_BRANCH: ${{ matrix.service.build_args_branch }}
+        run: |
+          # set -euo pipefail: without `-e`, a transient `$GITHUB_OUTPUT`
+          # write failure (disk pressure, ENOSPC) could silently produce
+          # empty build-args and we'd ship an image without COMMIT_SHA /
+          # BRANCH baked in — invisible drift between build label and
+          # what's actually running.
+          set -euo pipefail
+          ARGS=""
+          if [ -n "$BUILD_ARGS_SHA" ]; then
+            ARGS="COMMIT_SHA=${BUILD_ARGS_SHA}"
+            ARGS="${ARGS}"$'\n'"BRANCH=${BUILD_ARGS_BRANCH}"
+          fi
+          # Use delimiter to safely pass multiline value
+          echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
+          echo "$ARGS" >> $GITHUB_OUTPUT
+          echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
+
+      - name: Copy shared modules into build context
+        run: |
+          set -euo pipefail
+          CONTEXT="${{ matrix.service.context }}"
+          # Idempotent copy: if a stale `shared_python`/`shared_typescript`
+          # already exists (previous failed run on the same runner, or a
+          # checkout artifact), remove it first. `cp -r src dst` into an
+          # existing directory nests source-inside-destination, which
+          # would silently produce a broken build context.
+          if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_python"
+            cp -r showcase/shared/python "$CONTEXT/shared_python"
+          fi
+          if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_typescript"
+            mkdir -p "$CONTEXT/shared_typescript"
+            cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
+          fi
+
+          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Docker context. Integration directories use symlinks pointing to
+          # ../../shared/python/tools etc., and _shared -> ../_shared for the
+          # CVDIAG bootstrap modules. Docker cannot follow symlinks outside
+          # the build context (buildkit fails the checksum with "too many
+          # symlinks: /_shared"), so we replace each symlink with a real copy
+          # of its target. Mirrors stage_shared() in
+          # showcase/scripts/cli/_common.sh (the local bin/showcase path).
+          for link_name in tools shared-tools _shared; do
+            link_path="$CONTEXT/$link_name"
+            if [ -L "$link_path" ]; then
+              target="$(readlink -f "$link_path")"
+              if [ -d "$target" ]; then
+                rm "$link_path"
+                cp -r "$target" "$link_path"
+              fi
+            fi
+          done
+
+      - name: Build and push
+        if: ${{ matrix.service.skip_build != true }}
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
+        with:
+          project: m2kw2wmmcp
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          # Pin amd64: Railway and GHCR serve x86 hosts. An arm64-only
+          # image crashes on pull with "does not have a linux/amd64
+          # variant available".
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/copilotkit/${{ matrix.service.image }}:latest
+            ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          build-args: ${{ steps.build-args.outputs.args }}
+
+      - name: Write per-slot build result
+        if: always()
+        env:
+          SERVICE: ${{ matrix.service.dispatch_name }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          # job.status is one of: success, failure, cancelled. Normalize
+          # cancelled→skipped to match the BuildOutcome contract in
+          # showcase/scripts/lib/build-outputs.ts. We deliberately do NOT
+          # write to $GITHUB_OUTPUT — matrix-slot outputs are not
+          # aggregable across slots in GitHub Actions, so we publish the
+          # per-slot result as an artifact instead. The downstream
+          # aggregator job downloads every `build-result-*` artifact.
+          case "$BUILD_STATUS" in
+            success) STATUS=success ;;
+            failure) STATUS=failure ;;
+            *)       STATUS=skipped ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/build-result"
+          printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
+            > "$RUNNER_TEMP/build-result/result.json"
+
+      - name: Upload per-slot build-result artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          # Canonical per-slot name (see buildResultArtifactName in
+          # showcase/scripts/lib/build-outputs.ts). The aggregator
+          # downloads every artifact matching `build-result-*`.
+          name: build-result-${{ matrix.service.dispatch_name }}
+          path: ${{ runner.temp }}/build-result/result.json
+          if-no-files-found: error
+          retention-days: 7
+
+  # ────────────────────────────────────────────────────────────────────
+  # Per-starter image publish (model B, §b stage 1 / Phase 1).
+  #
+  # Fully decoupled from the showcase `build`→`aggregate`→`redeploy` chain
+  # above: starters are self-contained npm projects (no monorepo-source
+  # build, no shared-module copy) and build from their own root Dockerfile
+  # at examples/integrations/<slug>/Dockerfile (the single-image deployable:
+  # Next.js frontend + agent, EXPOSE 3000, CMD entrypoint.sh — distinct from
+  # the docker/Dockerfile.app + docker/Dockerfile.agent split stack used by
+  # docker-compose.test.yml). Published to ghcr.io/copilotkit/starter-<slug>
+  # (the `starter-` prefix is disjoint from `showcase-*`; S2's harness
+  # discovery filters on namePrefix "starter-"). Railway deploy is the
+  # gated S5 — NOT done here.
+  #
+  # The 12 starter slugs are the matrix source of truth (the smoke matrix in
+  # test_smoke-starter.yml and STARTER_TO_COLUMN in
+  # showcase/harness/src/probes/helpers/starter-mapping.ts). The dashboard
+  # column remap lives in the harness (§a), so this layer uses raw starter
+  # slugs.
+  detect-starter-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.starter-matrix.outputs.matrix }}
+      has_changes: ${{ steps.starter-matrix.outputs.has_changes }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Detect changed starter paths
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        id: filter
+        with:
+          filters: |
+            workflow_config:
+              - '.github/workflows/showcase_build.yml'
+            langgraph_python:
+              - 'examples/integrations/langgraph-python/**'
+            mastra:
+              - 'examples/integrations/mastra/**'
+            langgraph_js:
+              - 'examples/integrations/langgraph-js/**'
+            crewai_crews:
+              - 'examples/integrations/crewai-crews/**'
+            pydantic_ai:
+              - 'examples/integrations/pydantic-ai/**'
+            adk:
+              - 'examples/integrations/adk/**'
+            agno:
+              - 'examples/integrations/agno/**'
+            llamaindex:
+              - 'examples/integrations/llamaindex/**'
+            langgraph_fastapi:
+              - 'examples/integrations/langgraph-fastapi/**'
+            strands_python:
+              - 'examples/integrations/strands-python/**'
+            ms_agent_framework_python:
+              - 'examples/integrations/ms-agent-framework-python/**'
+            ms_agent_framework_dotnet:
+              - 'examples/integrations/ms-agent-framework-dotnet/**'
+
+      - name: Build starter matrix
+        id: starter-matrix
+        env:
+          DISPATCH_SERVICE: ${{ github.event.inputs.service }}
+          FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
+        run: |
+          set -euo pipefail
+          # One slot per starter. `slug` is the examples/integrations/<slug>
+          # directory name; `image` is the published GHCR repo (starter-<slug>);
+          # `filter_key` matches the paths-filter key above.
+          ALL_STARTERS='[
+            {"slug":"langgraph-python","image":"starter-langgraph-python","filter_key":"langgraph_python"},
+            {"slug":"mastra","image":"starter-mastra","filter_key":"mastra"},
+            {"slug":"langgraph-js","image":"starter-langgraph-js","filter_key":"langgraph_js"},
+            {"slug":"crewai-crews","image":"starter-crewai-crews","filter_key":"crewai_crews"},
+            {"slug":"pydantic-ai","image":"starter-pydantic-ai","filter_key":"pydantic_ai"},
+            {"slug":"adk","image":"starter-adk","filter_key":"adk"},
+            {"slug":"agno","image":"starter-agno","filter_key":"agno"},
+            {"slug":"llamaindex","image":"starter-llamaindex","filter_key":"llamaindex"},
+            {"slug":"langgraph-fastapi","image":"starter-langgraph-fastapi","filter_key":"langgraph_fastapi"},
+            {"slug":"strands-python","image":"starter-strands-python","filter_key":"strands_python"},
+            {"slug":"ms-agent-framework-python","image":"starter-ms-agent-framework-python","filter_key":"ms_agent_framework_python"},
+            {"slug":"ms-agent-framework-dotnet","image":"starter-ms-agent-framework-dotnet","filter_key":"ms_agent_framework_dotnet"}
+          ]'
+
+          # Dispatch modes (mirror the showcase detect-changes job):
+          #   "all"                     → every starter (full-fleet rebuild).
+          #   "starter-<slug>"          → that one starter (strip "starter-" prefix to match .image).
+          #   "<showcase service slug>" → no starters (this is a showcase-only dispatch).
+          #   "" (push event)           → starters whose filter_key appears in CHANGES
+          #                               (or workflow_config touched → rebuild all).
+          DISPATCH="${DISPATCH_SERVICE:-}"
+          CHANGES="${FILTER_CHANGES:-[]}"
+
+          # `.image` is exactly "starter-<slug>", which is also the
+          # workflow_dispatch choice value, so a specific-starter dispatch
+          # matches `$dispatch == .image` directly.
+          MATRIX=$(echo "$ALL_STARTERS" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
+            [.[] |
+              (.filter_key as $fk | select(
+              $dispatch == "all" or
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .image) or
+              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+            ))]
+          ')
+
+          # Fail loudly on a typo'd starter dispatch (mirrors showcase job).
+          # Only applies to the starter-* dispatch namespace; a showcase
+          # service slug or "all" legitimately yields [] here.
+          case "$DISPATCH" in
+            starter-*)
+              if [ "$MATRIX" = "[]" ]; then
+                echo "::error::workflow_dispatch service='$DISPATCH' did not match any starter — check the slug"
+                exit 1
+              fi
+              ;;
+          esac
+
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          if [ "$MATRIX" = "[]" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build-starters:
+    needs: [detect-starter-changes]
+    if: needs.detect-starter-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        starter: ${{ fromJSON(needs.detect-starter-changes.outputs.matrix) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Depot
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to GHCR
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push starter image
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
+        with:
+          project: m2kw2wmmcp
+          context: examples/integrations/${{ matrix.starter.slug }}
+          file: examples/integrations/${{ matrix.starter.slug }}/Dockerfile
+          # Pin amd64: Railway and GHCR serve x86 hosts. Depot defaults to
+          # the runner's native arch, so an arm64-only image would crash on
+          # pull with "does not have a linux/amd64 variant available".
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
+            ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
+
+      - name: Write per-slot starter build result
+        if: always()
+        env:
+          SERVICE: ${{ matrix.starter.slug }}
+          BUILD_STATUS: ${{ job.status }}
+        run: |
+          # Mirror of the main `build` matrix's per-slot result write
+          # (see "Write per-slot build result" above). job.status is one of
+          # success, failure, cancelled; normalize cancelled→skipped to match
+          # the same {service,status} shape. We publish per-slot via artifact
+          # because matrix-slot outputs aren't aggregable across slots.
+          #
+          # IMPORTANT: starter artifacts use the `starter-build-result-*`
+          # prefix, NOT `build-result-*`. The aggregate-build-results job
+          # downloads every `build-result-*` and feeds it to the showcase
+          # redeploy set (keyed by showcase dispatch_name). Starters are a
+          # separate namespace and must NOT pollute that intersection, so
+          # they get their own prefix. This artifact exists to give the
+          # `notify` job a durable per-starter failure surface.
+          case "$BUILD_STATUS" in
+            success) STATUS=success ;;
+            failure) STATUS=failure ;;
+            *)       STATUS=skipped ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/starter-build-result"
+          printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
+            > "$RUNNER_TEMP/starter-build-result/result.json"
+
+      - name: Upload per-slot starter build-result artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          # Distinct `starter-build-result-*` prefix so this never matches the
+          # aggregator's `build-result-*` download pattern.
+          name: starter-build-result-${{ matrix.starter.slug }}
+          path: ${{ runner.temp }}/starter-build-result/result.json
+          if-no-files-found: error
+          retention-days: 7
+
+  aggregate-build-results:
+    name: Aggregate build results
+    needs: [detect-changes, build]
+    if: ${{ !cancelled() && needs.detect-changes.outputs.has_changes == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    outputs:
+      results: ${{ steps.collect.outputs.results }}
+      any_success: ${{ steps.collect.outputs.any_success }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+          cache: pnpm
+      - name: Install
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download all per-slot build-result artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          # `pattern` matches every per-slot artifact emitted by the
+          # build matrix. `merge-multiple: false` keeps each artifact
+          # in its own subdirectory so we can iterate them deterministically.
+          pattern: build-result-*
+          path: ${{ runner.temp }}/build-results-in
+          merge-multiple: false
+
+      - name: Collect per-service build outcomes
+        id: collect
+        env:
+          INPUT_DIR: ${{ runner.temp }}/build-results-in
+          OUTPUT_DIR: ${{ runner.temp }}/build-results-out
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUTPUT_DIR"
+          # Each per-slot artifact extracts to
+          #   $INPUT_DIR/build-result-<dispatch_name>/result.json
+          # The aggregator script (showcase/scripts/aggregate-build-results.ts)
+          # reads them, merges via the shared helper (mergeBuildResultFiles),
+          # writes $OUTPUT_DIR/results.json, and appends `results` +
+          # `any_success` to $GITHUB_OUTPUT. The contract (service +
+          # status enum) is enforced in one place (build-outputs.ts).
+          npx tsx showcase/scripts/aggregate-build-results.ts
+
+      - name: Upload aggregated build-results artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: build-results
+          path: ${{ runner.temp }}/build-results-out/results.json
+          if-no-files-found: error
+          retention-days: 7
+
+  redeploy-staging:
+    name: Trigger Railway staging redeploy
+    needs: [detect-changes, build, aggregate-build-results]
+    # Run if the WORKFLOW RUN was not cancelled, at least one service was
+    # scheduled, AND at least one slot actually built
+    # (aggregate-build-results.outputs.any_success). any_success is the
+    # single source of truth for "should we redeploy?": it is derived from
+    # the real per-slot build-result artifacts (see aggregate-build-results),
+    # so it is 'true' on a PARTIAL build (fail-fast: false) and 'false' on a
+    # genuinely dead / entirely-skipped build — subsuming the old
+    # needs.build.result != 'skipped' check. It is the explicit "do not
+    # redeploy when nothing was pushed" guard: without it an all-failed run
+    # would still kick a redeploy that re-pulls the stale :latest and
+    # silently looks healthy.
+    #
+    # We deliberately do NOT gate on needs.build.result (the matrix rollup).
+    # GitHub Actions rolls a matrix job up to 'cancelled' when ANY single leg
+    # is cancelled (e.g. the LFS shell build under runner contention), so
+    # `needs.build.result != 'cancelled'` skipped the redeploy for the WHOLE
+    # fleet even when 27/28 legs succeeded. Mirror the sibling
+    # aggregate-build-results job instead: gate on !cancelled() + has_changes
+    # and let the artifact-derived any_success decide. !cancelled() (a status
+    # function) still overrides GH's default "skip when a needed job did not
+    # succeed", so this job runs even when the build rollup is cancelled/
+    # failure — as long as the RUN itself was not cancelled.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.aggregate-build-results.outputs.any_success == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Compute changed-service list from build matrix
+        id: changed
+        env:
+          MATRIX_JSON: ${{ needs.detect-changes.outputs.matrix }}
+          BUILD_RESULTS_JSON: ${{ needs.aggregate-build-results.outputs.results }}
+        run: |
+          # We feed the redeploy script with the INTERSECTION of:
+          #   (a) the scheduled build matrix (detect-changes.outputs.matrix —
+          #       JSON array of objects with `dispatch_name`), and
+          #   (b) the SUCCESS set from the aggregator
+          #       (aggregate-build-results.outputs.results — JSON array of
+          #       `{service: <dispatch_name>, status: success|failure|skipped}`;
+          #       the `service` field is the dispatch_name; shape defined in
+          #       showcase/scripts/lib/build-outputs.ts).
+          # Without this intersection a service whose Docker build FAILED
+          # would still be in the redeploy CSV, Railway would re-pull its
+          # stale `:latest`, and the verify workflow would report it as a
+          # fresh, healthy deploy — a false green. Skipped slots are also
+          # excluded (only `status == "success"` qualifies).
+          set -euo pipefail
+          matrix_names="$(echo "$MATRIX_JSON" | jq -r '[.[] | .dispatch_name]')"
+          success_names="$(echo "$BUILD_RESULTS_JSON" | jq -r '[.[] | select(.status == "success") | .service]')"
+          csv="$(jq -rn --argjson m "$matrix_names" --argjson s "$success_names" \
+            '($m | map(select(. as $n | $s | index($n)))) | join(",")')"
+          if [ -z "$csv" ]; then
+            # This job only runs when aggregate-build-results.any_success == 'true'
+            # (see the job-level `if:` guard). So reaching an EMPTY intersection
+            # here does NOT mean "nothing to deploy" — it means at least one slot
+            # BUILT successfully yet none of those successes maps back into the
+            # scheduled build matrix. That is a dispatch_name↔service contract
+            # skew: the aggregator's `service` values and the matrix's
+            # `dispatch_name` values have drifted out of sync. Emitting an empty
+            # `services=` here would let the build go GREEN while redeploying
+            # NOTHING — a silent "we thought we shipped but didn't" hole. Fail
+            # LOUD instead, naming both sides of the skew so it can be diagnosed.
+            echo "::error::Build succeeded (any_success=true) but matrix ∩ success-set is EMPTY — dispatch_name/service contract skew; nothing would be redeployed."
+            echo "Successful build service values (from aggregate-build-results): $success_names"
+            echo "Scheduled matrix dispatch_name values (from detect-changes):    $matrix_names"
+            echo "These two sets share no members — a successful build maps to no matrix entry. Reconcile showcase/scripts/lib/build-outputs.ts (service field) with the build matrix dispatch_name values."
+            exit 1
+          fi
+          echo "services=$csv" >> "$GITHUB_OUTPUT"
+          echo "Computed services CSV (matrix ∩ build-success): $csv"
+      - name: Redeploy changed services in staging
+        if: steps.changed.outputs.services != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ steps.changed.outputs.services }}
+          # Bridge the per-service redeploy summary to showcase_deploy.yml's
+          # `enforce-redeploy-gate` (consumed via the `redeploy-summary`
+          # artifact, extracted to `.redeploy/summary.json`). redeploy-env.ts
+          # writes this path atomically (.tmp → rename) but does NOT create
+          # parent dirs, so the step below mkdir's `.redeploy` first.
+          REDEPLOY_SUMMARY_JSON: .redeploy/summary.json
+        run: |
+          # Staging is non-blocking by design: the script always exits 0
+          # and writes per-service failures into $GITHUB_STEP_SUMMARY. The
+          # verify-deploy workflow is the real release gate.
+          mkdir -p .redeploy
+          npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
+
+      - name: Upload redeploy summary
+        # Upload is MANDATORY whenever a redeploy was attempted (services
+        # != ''). Both failure modes red the build — no false-green path:
+        #
+        #   (A) HARD crash inside redeploy-env.ts BEFORE summary.json is
+        #       written. redeploy-env.ts writes the summary atomically
+        #       (.tmp → rename) AFTER the per-service loop completes, so
+        #       a crash leaves no file. The redeploy step itself exits
+        #       non-zero on that crash and fails the redeploy-staging
+        #       job; this upload step is then skipped entirely by
+        #       step-failure propagation. Build → red.
+        #
+        #   (B) redeploy step exits 0 but summary.json is absent (e.g. a
+        #       logic bug skipped the write). `if-no-files-found: error`
+        #       reds this step → reds the redeploy-staging job → reds the
+        #       build. The deploy workflow's resolve-matrix.if
+        #       (workflow_run.conclusion == 'success') then blocks the
+        #       deploy run from starting at all.
+        #
+        # Do NOT add hashFiles() guards here: that would silently skip
+        # the upload on (B), the deploy workflow would see "artifact
+        # absent" via check-redeploy-summary, treat it as "nothing
+        # redeployed", skip the gate, and ship a false-green.
+        # The legitimate "services == '' → nothing redeployed → no upload"
+        # path is preserved by the services != '' guard.
+        #
+        # If a future change ever switches this step to `if: always()`,
+        # `if-no-files-found: error` STILL reds path (A): the redeploy
+        # step's non-zero exit on a HARD crash is independent of upload
+        # gating, and `if-no-files-found: error` on `always()` then trips
+        # because summary.json was never written. So neither relaxation
+        # alone opens a false-green window.
+        #
+        # However, swapping the guard to `if: always()` would ALSO red the
+        # legitimate `services == ''` (nothing-to-redeploy) path — no
+        # summary.json is written there either, so `if-no-files-found:
+        # error` would trip on every push that didn't redeploy anything.
+        # Net effect: trades the (already-closed) false-green risk for a
+        # false-red on every non-buildable push. Don't do it.
+        if: steps.changed.outputs.services != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          # Artifact name MUST stay `redeploy-summary`: showcase_deploy.yml's
+          # `resolve-matrix` job downloads it by this exact name and reads
+          # `.redeploy/summary.json` inside.
+          name: redeploy-summary
+          path: .redeploy/summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+  redeploy-staging-starters:
+    name: Trigger Railway staging redeploy (starters)
+    needs: [detect-starter-changes, build-starters]
+    # Starter analogue of `redeploy-staging`. The starter lane
+    # (detect-starter-changes → build-starters) previously ENDED at the GHCR
+    # push: a starter-only change (examples/integrations/<slug>/**) built a
+    # fresh `starter-<slug>:latest` image, but nothing ever told Railway to
+    # pull it, so the fix sat undeployed until someone manually redeployed
+    # (the PR #6061 agno incident — merged + built to GHCR, never deployed,
+    # starter-agno stayed crashed). The showcase `redeploy-staging` job only
+    # covers the showcase `build` lane (needs: [detect-changes, build, ...]),
+    # so the starter lane had NO redeploy step at all. This job closes that
+    # gap by redeploying — in STAGING only — exactly the starters that built
+    # successfully.
+    #
+    # Gate mirrors redeploy-staging:
+    #   - !cancelled()                               → don't fire when the
+    #                                                   whole RUN was cancelled.
+    #   - detect-starter-changes.has_changes=='true' → at least one starter in
+    #                                                   the build matrix.
+    #
+    # We deliberately do NOT gate on needs.build-starters.result (the matrix
+    # rollup). GitHub Actions rolls a matrix job up to 'cancelled' when ANY
+    # single leg is cancelled (e.g. under runner contention), so the old
+    # `build-starters.result != 'cancelled'` clause skipped the redeploy for
+    # the WHOLE starter fleet even when every other starter built fine — the
+    # same P0 defect that hit redeploy-staging.
+    #
+    # This is safe WITHOUT an any_success job guard: the "deploy on a dead
+    # build" footgun is closed NOT by the job `if:` but by the per-slot
+    # success intersection in the compute step below (only starters whose OWN
+    # build slot reported status:success are redeployed) plus the
+    # `if: steps.changed.outputs.services != ''` guard on the redeploy step.
+    # A partial success (fail-fast:false) redeploys exactly what built; a
+    # zero-success run (all failed / all cancelled / build hard-crashed before
+    # writing any result artifact) yields an EMPTY CSV → the redeploy step is
+    # skipped → nothing is deployed. The compute step's fail-loud checks only
+    # fire when build-starters.result == 'success', so a cancelled/failure
+    # rollup does not misfire them. This is the same net guarantee
+    # redeploy-staging gets from aggregate-build-results.any_success, enforced
+    # one level down to avoid standing up a second aggregator job.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-starter-changes.outputs.has_changes == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Download per-slot starter build-result artifacts
+        # `pattern` (not `name`) download: unlike a `name:` download, a
+        # pattern that matches ZERO artifacts logs a warning and SUCCEEDS
+        # rather than hard-failing. That is exactly the wanted behavior when
+        # build-starters hard-crashed before any slot wrote its result
+        # artifact — the compute step then sees an empty success set and the
+        # redeploy step is skipped (no deploy on a total build failure). These
+        # `starter-build-result-*` artifacts are already emitted per-slot by
+        # build-starters; before this job they were write-only.
+        # merge-multiple:false keeps each slot in its own subdirectory so the
+        # find below reads them deterministically.
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: starter-build-result-*
+          path: ${{ runner.temp }}/starter-build-results-in
+          merge-multiple: false
+
+      - name: Compute successfully-built starter services
+        id: changed
+        env:
+          MATRIX_JSON: ${{ needs.detect-starter-changes.outputs.matrix }}
+          RESULTS_DIR: ${{ runner.temp }}/starter-build-results-in
+          BUILD_STARTERS_RESULT: ${{ needs.build-starters.result }}
+        run: |
+          set -euo pipefail
+          # Each per-slot artifact extracts to
+          #   $RESULTS_DIR/starter-build-result-<slug>/result.json
+          # with shape {"service":"<RAW slug>","status":"success|failure|skipped"}
+          # (see build-starters' "Write per-slot starter build result" step).
+          # Slurp ALL result records first. `find -exec cat {} +` runs cat zero
+          # times when nothing matches (empty or absent result dir) → jq -s
+          # slurps zero inputs → `[]`, so an all-failed / crashed build yields
+          # an empty record set with no xargs-on-empty hang.
+          #
+          # NO `2>/dev/null` on the cat (Finding 2): suppressing read errors
+          # would let a starter whose result.json exists-but-is-unreadable be
+          # silently dropped from the success set (a silent under-deploy). Let a
+          # read error surface and trip `pipefail` so the job fails loud.
+          records='[]'
+          if [ -d "$RESULTS_DIR" ]; then
+            records="$(find "$RESULTS_DIR" -name result.json -exec cat {} + \
+              | jq -sc '.')"
+          fi
+          # Fail-loud artifact-completeness check (Finding 2): every matrix slot
+          # writes a result.json ("Write per-slot starter build result" runs
+          # `if: always()`), so when ALL slots built (build-starters.result ==
+          # 'success') the parsed record count MUST equal the matrix slot count.
+          # A shortfall means a `starter-build-result-*` artifact is missing or
+          # expired → a successfully-built starter would be silently dropped
+          # from the redeploy set. Gated on 'success' so a partial/total build
+          # FAILURE (where a crashed slot may legitimately lack its artifact) is
+          # NOT double-reported here — that failure is already surfaced by the
+          # build-starters job itself.
+          matrix_slot_count="$(echo "$MATRIX_JSON" | jq 'length')"
+          record_count="$(echo "$records" | jq 'length')"
+          if [ "$BUILD_STARTERS_RESULT" = "success" ] && [ "$record_count" -ne "$matrix_slot_count" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but parsed $record_count build-result record(s) for $matrix_slot_count matrix slot(s) — a per-slot starter-build-result-* artifact is missing or expired. A successfully-built starter could be silently dropped from the redeploy set. Check the build-starters upload step and artifact retention (retention-days)."
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Parsed build-result records (from RESULTS_DIR):     $records"
+            exit 1
+          fi
+          success_slugs="$(echo "$records" | jq -c '[.[] | select(.status == "success") | .service]')"
+          # Map each successfully-built RAW slug → its SSOT key via the starter
+          # matrix `.image` field (image === "starter-<slug>" === the
+          # railway-envs.ts SERVICES key). redeploy-env.ts resolves that SSOT
+          # key directly. The RAW slug must NOT be passed: e.g. the raw slug
+          # "agno" collides with the SHOWCASE `agno` dispatch_name and would
+          # redeploy the wrong (showcase, not starter) Railway service.
+          csv="$(jq -rn --argjson m "$MATRIX_JSON" --argjson s "$success_slugs" \
+            '($m | map(select(.slug as $sl | $s | index($sl)) | .image)) | join(",")')"
+          # Fail-loud empty-deploy-set check (Finding 1): mirror the sibling
+          # redeploy-staging job's empty-intersection guard. When ALL slots
+          # built (build-starters.result == 'success') yet the matrix ∩ success
+          # CSV is EMPTY, everything built but nothing would be redeployed — a
+          # silent "we thought we shipped but didn't" hole (a slug↔.image
+          # contract skew, or the success set maps to no matrix entry). Fail
+          # loud. Do NOT fail when build-starters merely FAILED (partial or
+          # total): an empty CSV there is the legitimate "no slot succeeded →
+          # nothing to deploy" path, and the build failure is already surfaced
+          # by build-starters itself.
+          if [ -z "$csv" ] && [ "$BUILD_STARTERS_RESULT" = "success" ]; then
+            echo "::error::All starter slots built (build-starters.result=success) but matrix ∩ success-set is EMPTY — nothing would be redeployed. Likely a slug↔.image contract skew between detect-starter-changes' matrix and the per-slot result artifacts' service values."
+            echo "Successful starter slugs (status:success records): $success_slugs"
+            echo "Scheduled starter matrix (detect-starter-changes): $MATRIX_JSON"
+            echo "Reconcile the starter matrix (.slug/.image) with build-starters' per-slot result service values so every built starter maps to a Railway service."
+            exit 1
+          fi
+          if [ -z "$csv" ]; then
+            echo "build-starters.result=$BUILD_STARTERS_RESULT with an empty deploy set — no starter built successfully, nothing to redeploy (any build failure is surfaced by the build-starters job)."
+          fi
+          echo "services=$csv" >> "$GITHUB_OUTPUT"
+          echo "Computed starter services CSV (matrix ∩ build-success): $csv"
+
+      - name: Redeploy changed starters in staging
+        # Empty CSV = no starter built successfully (or the build hard-crashed
+        # before writing any result artifact) → nothing to redeploy → skip.
+        # This is the "no deploy on failure" guard for the starter lane.
+        if: steps.changed.outputs.services != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICES_CSV: ${{ steps.changed.outputs.services }}
+        run: |
+          # Staging is non-blocking by design: redeploy-env.ts always exits 0
+          # on staging and writes per-service failures to $GITHUB_STEP_SUMMARY.
+          # We deliberately do NOT set REDEPLOY_SUMMARY_JSON or upload a
+          # `redeploy-summary` artifact here: that artifact name is OWNED by
+          # the showcase `redeploy-staging` job and is downloaded by
+          # showcase_deploy.yml by EXACT name, so a second upload of the same
+          # name would collide on a combined (starter + showcase) push.
+          # Starter STAGING verification is intentionally out of scope for
+          # this deploy-gap fix — starters are already smoke-covered by
+          # test_smoke-starter.yml and the harness `starter_smoke` axis.
+          npx tsx showcase/scripts/redeploy-env.ts staging --services "$SERVICES_CSV"
+
+  notify-all-builds-failed:
+    name: Notify all builds failed (staging unchanged)
+    needs: [detect-changes, build, aggregate-build-results]
+    # Explicit "everything failed; nothing redeployed" signal — distinct
+    # from the `notify:` job below which fires on any build-job failure
+    # (some slots may still have succeeded in that case). Both jobs can
+    # fire; that's intentional and matches the Slack alert SOP.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.build.result != 'skipped'
+          && needs.aggregate-build-results.outputs.any_success == 'false' }}
+    # Previously this keyed off `needs.build.result == 'failure'`, which shared
+    # the redeploy job's cancelled-rollup blind spot: GitHub rolls the build
+    # matrix up to 'cancelled' when ANY leg is cancelled (e.g. the LFS shell
+    # leg under runner contention), so an all-failed build with one cancelled
+    # leg rolled up to 'cancelled', the `== 'failure'` clause went false, and
+    # NO alert fired. `any_success == 'false'` (the artifact-derived signal the
+    # redeploy fix uses) is the authoritative "nothing built" check, so we fire
+    # on it directly. The `!= 'skipped'` clause still guards the case where the
+    # build job was SKIPPED (e.g. verify-image-refs failed upstream, so the
+    # matrix never executed) — the aggregator would report `any_success=false`
+    # for an empty run, and the sibling `notify` job already covers that
+    # upstream red, so firing here too would be a misleading "all builds
+    # failed" alert. `!cancelled()` keeps a user-cancelled RUN silent.
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Mark workflow red (no service succeeded)
+        run: |
+          echo "::error::All builds failed for this run; staging redeploy skipped; :latest unchanged."
+          exit 1
+      - name: Slack #oss-alerts
+        if: always() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
+
+  notify:
+    name: Notify on failure
+    # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
+    # alone meant a failure in aggregate-build-results or redeploy-staging
+    # produced ZERO Slack signal (verify just never ran). Likewise, a red
+    # in detect-changes, check-lockfile, or verify-image-refs would skip
+    # `build` (skipped != failure) so the original `needs: [build]` form
+    # also missed those pre-build red paths. Adding the early-stage jobs
+    # to `needs` extends the alert surface to the full workflow, matching
+    # the workflow-level notify pattern in showcase_promote.yml.
+    # The guard is `!cancelled() && (failure() || any_success == 'false')`
+    # rather than a bare `failure()`. Bare `failure()` shared the redeploy
+    # job's cancelled-rollup blind spot: when every real build leg failed but
+    # one leg was CANCELLED (runner contention), the matrix rolled up to
+    # 'cancelled' — which is NOT a `failure()` — so no needs job "failed" and
+    # the alert stayed silent on a genuinely dead build. The extra
+    # `any_success == 'false'` clause (the artifact-derived signal the redeploy
+    # fix uses) fires on "nothing built" regardless of the rollup. `failure()`
+    # is retained so a failure DOWNSTREAM of a successful build (e.g.
+    # redeploy-staging, on which any_success == 'true') still alerts. `!cancelled()`
+    # keeps a user-cancelled RUN silent, and the "no changes → build skipped"
+    # path stays a no-op (aggregate is skipped, so any_success is '' not 'false',
+    # and nothing failed). If `notify-all-builds-failed` also fires (genuine
+    # all-failed case), both alerts firing for the same event is acceptable per
+    # the alert SOP.
+    #
+    # `detect-starter-changes` + `build-starters` + `redeploy-staging-starters`
+    # are included so a FAILED starter image build OR a failed starter staging
+    # redeploy (examples/integrations/*) also triggers the Slack alert + PR
+    # comment. Previously the starter lane had NO alert surface: its jobs were
+    # absent from `needs`, so `if: failure()` could never see a starter build
+    # failure and it shipped silently. `if: failure()` still no-ops when the
+    # starter jobs are skipped (no starter changes) — skipped != failure — so
+    # this only fires on a genuine starter build or starter redeploy failure.
+    needs:
+      [
+        detect-changes,
+        detect-starter-changes,
+        check-lockfile,
+        verify-image-refs,
+        build,
+        build-starters,
+        aggregate-build-results,
+        redeploy-staging,
+        redeploy-staging-starters,
+      ]
+    if: >-
+      ${{ !cancelled()
+          && (failure()
+              || needs.aggregate-build-results.outputs.any_success == 'false') }}
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    timeout-minutes: 5
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Slack alert
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({4}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
+
+      - name: Comment on PR
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            const merged = prs.find(pr => pr.merged_at);
+            if (!merged) {
+              console.log('No merged PR found for this commit — skipping comment');
+              return;
+            }
+            const marker = '<!-- showcase-build-failure -->';
+            const body = [
+              marker,
+              `### :x: Showcase Build Failed`,
+              ``,
+              `The Docker build triggered by this PR's merge failed.`,
+              ``,
+              `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              `**Commit:** \`${context.sha.slice(0, 8)}\``,
+              ``,
+              `@${merged.user?.login ?? 'unknown'} — please check the build logs and fix the issue.`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: merged.number,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: merged.number,
+                body,
+              });
+            }

@@ -1,0 +1,12 @@
+{
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/built-in-agent/quickstart",
+      "shell_docs_path": "/integrations/built-in-agent/quickstart"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/built-in-agent/shared-state",
+      "shell_docs_path": "/integrations/built-in-agent/shared-state"
+    }
+  }
+}

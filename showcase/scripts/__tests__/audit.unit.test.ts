@@ -139,7 +139,7 @@ describe("readManifest", () => {
     writePackage(root, "mypkg", {
       manifest: "slug: mypkg\ndeployed: true\ndemos:\n  - id: foo\n",
     });
-    const target = path.join(root, "packages", "mypkg", "manifest.yaml");
+    const target = path.join(root, "integrations", "mypkg", "manifest.yaml");
     const orig = fs.readFileSync;
     const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
       p: fs.PathOrFileDescriptor,
@@ -290,7 +290,13 @@ describe("auditPackage — EACCES on spec dir stat → unreadable-dir anomaly (n
       specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
-    const e2eDir = path.join(root, "packages", "eacces-e2e", "tests", "e2e");
+    const e2eDir = path.join(
+      root,
+      "integrations",
+      "eacces-e2e",
+      "tests",
+      "e2e",
+    );
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,
@@ -673,11 +679,11 @@ describe("BORN_IN_SHOWCASE set", () => {
   });
 });
 describe("SLUG_TO_EXAMPLES — dead entries removed", () => {
-  // These showcase slugs do not exist under showcase/packages/. Keeping
+  // These showcase slugs do not exist under showcase/integrations/. Keeping
   // them in the map produced phantom "no examples source" anomalies for
   // nothing (and made the table/doc noise confusing). Each is a
   // regression guard: if you add any of these back, you must create the
-  // corresponding showcase/packages/<slug>/ dir too.
+  // corresponding showcase/integrations/<slug>/ dir too.
   it.each(["crewai-flows", "agent-spec-langgraph", "mcp-apps"])(
     "does not include dead entry %s",
     (slug) => {

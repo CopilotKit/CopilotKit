@@ -2,17 +2,17 @@
   "title": "Open Agent Spec",
   "root": true,
   "pages": [
-    "---Getting Started---",
     "index",
-    "quickstart",
     "---Generative UI---",
     "...generative-ui",
     "---Agent Spec---",
     "langgraph",
     "wayflow",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium"
+    "---Intelligence Platform---",
+    {
+      "title": "Threads",
+      "defaultOpen": true,
+      "pages": ["threads", "headless-threads"]
+    }
   ]
 }

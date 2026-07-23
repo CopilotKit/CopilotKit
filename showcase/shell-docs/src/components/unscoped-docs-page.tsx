@@ -1,135 +1,71 @@
-// UnscopedDocsPage — server component that renders a framework-agnostic
-// doc page with a RouterPivot banner for picking an agentic backend.
+// UnscopedDocsPage — server component for `/<slug>` URLs where the
+// first segment isn't a registered integration slug (e.g. `/quickstart`,
+// `/concepts/architecture`).
 //
-// Shared between two routes:
-//   app/[[...slug]]/page.tsx    — handles `/` (overview) + unscoped slugs
-//   app/[framework]/[[...slug]]/page.tsx — falls through here when the
-//     first URL segment is not a registered integration slug. This is
-//     necessary because Next.js routes `/<slug>` to [framework] before
-//     [[...slug]] (dynamic segment has higher priority than optional
-//     catch-all), so without this fallthrough `/<slug>` would always 404.
+// The Built-in Agent docs are served at the ROOT surface: when BIA (the
+// default framework, `docs_mode: authored`) has a page for the slug
+// under `integrations/built-in-agent/`, that page renders here BIA-scoped
+// — exactly what `/built-in-agent/<slug>` used to serve before the prefix
+// was retired. Agnostic slugs (no BIA override) render the root MDX.
+//
+// Either way the sidebar is the SAME unified tree (`buildRootSurfaceNav`):
+// the BIA IA with the agnostic root sections folded in. This is what
+// keeps the sidebar stable as you move between a BIA page and an agnostic
+// page at the root — without it, the two IAs swap and the whole sidebar
+// reshuffles.
+//
+// Shared between `app/[[...slug]]/page.tsx` and the
+// `app/[framework]/[[...slug]]/page.tsx` fall-through (when the first
+// URL segment isn't a registered integration).
 
 import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
-import {
-  FrameworkGuardedContent,
-  RouterPivot,
-} from "@/components/router-pivot";
-import {
-  CONTENT_DIR,
-  buildNavTree,
-  findFrameworksWithCell,
-  loadDoc,
-  readMeta,
-} from "@/lib/docs-render";
-import { getIntegration, getIntegrations, getFeature } from "@/lib/registry";
-import demoContent from "@/data/demo-content.json";
-
-interface DemoRecord {
-  regions?: Record<string, unknown>;
-}
-const demos: Record<string, DemoRecord> = (
-  demoContent as { demos: Record<string, DemoRecord> }
-).demos;
+import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
+import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
 
 export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
+  // The legacy `/integrations/<framework>/<slug>` URL scheme is dead.
+  // Refuse to render a doc page from `loadDoc("integrations/...")` here
+  // so the legacy URL surfaces as a 404 (middleware redirects cover the
+  // real traffic) rather than rendering with a stray, unscoped sidebar.
+  if (slugPath.startsWith("integrations/")) notFound();
+
+  // One sidebar for the entire root surface (BIA IA + folded-in agnostic
+  // sections), so navigating between BIA and agnostic pages never swaps it.
+  const docsFolder = getDocsFolder(ROOT_FRAMEWORK);
+  const navTree = buildRootSurfaceNav(docsFolder);
+
+  // BIA-authored page for this slug → render it BIA-scoped at the root
+  // URL: BIA snippet resolution, root-relative hrefs.
+  const overridePath = `integrations/${docsFolder}/${slugPath}`;
+  if (getDocsMode(ROOT_FRAMEWORK) === "authored" && loadDoc(overridePath)) {
+    return (
+      <DocsPageView
+        slugPath={slugPath}
+        contentSlugPath={overridePath}
+        slugHrefPrefix=""
+        frameworkOverride={ROOT_FRAMEWORK}
+        navTree={navTree}
+      />
+    );
+  }
+
   const doc = loadDoc(slugPath);
   if (!doc) notFound();
 
-  let navTree;
-  let sidebarTitle = "CopilotKit Docs";
-  let backLink = null;
-  let showPivot = true;
-  const integrationMatch = slugPath.match(/^integrations\/([^/]+)/);
-  if (integrationMatch) {
-    const framework = integrationMatch[1];
-    if (!getIntegration(framework)) notFound();
-    const frameworkDir = `${CONTENT_DIR}/integrations/${framework}`;
-    const frameworkMeta = readMeta(frameworkDir);
-    sidebarTitle =
-      frameworkMeta?.title ||
-      framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
-    backLink = { label: "← Back to Docs", href: "/" };
-    showPivot = false;
-  } else {
-    navTree = buildNavTree(CONTENT_DIR);
-  }
-
-  const options = getIntegrations()
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
-    .map((i) => ({
-      slug: i.slug,
-      name: i.name,
-      category: i.category ?? "other",
-      logo: i.logo ?? null,
-      deployed: i.deployed,
-    }));
-
-  const frameworksWithCell = doc.fm.defaultCell
-    ? findFrameworksWithCell(
-        doc.fm.defaultCell,
-        getIntegrations()
-          .filter((i) => i.deployed === true)
-          .map((i) => i.slug),
-        demos,
-      )
-    : [];
-
-  const featureFromCell = doc.fm.defaultCell
-    ? getFeature(doc.fm.defaultCell)
-    : undefined;
-
-  let previewUrl: string | null | undefined = undefined;
-  if (doc.fm.defaultCell) {
-    const sortedIntegrations = getIntegrations()
-      .filter((i) => i.deployed === true)
-      .sort((a, b) => {
-        const orderA = a.sort_order ?? 999;
-        const orderB = b.sort_order ?? 999;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.slug.localeCompare(b.slug);
-      });
-    for (const integration of sortedIntegrations) {
-      const demo = integration.demos?.find((d) => d.id === doc.fm.defaultCell);
-      if (demo?.animated_preview_url) {
-        previewUrl = demo.animated_preview_url;
-        break;
-      }
-    }
-  }
-
-  const pivot =
-    showPivot && doc.fm.defaultCell ? (
-      <div className="mb-8">
-        <RouterPivot
-          slugPath={slugPath}
-          options={options}
-          frameworksWithCell={frameworksWithCell}
-          previewUrl={previewUrl}
-          featureName={featureFromCell?.name ?? doc.fm.title}
-          featureDescription={
-            featureFromCell?.description ?? doc.fm.description
-          }
-        />
-      </div>
-    ) : null;
-
-  const contentIsFrameworkScoped = showPivot && !!doc.fm.defaultCell;
-
+  // Agnostic page. Feature pages (those declaring a snippet cell) used to
+  // bounce every visitor to `/built-in-agent/<slug>` via a client-side
+  // redirect and hide the body in the meantime. Render them in place
+  // instead, resolved against the default framework — the same content
+  // the bounce produced, minus the redirect. Pages without a cell render
+  // framework-agnostic. Both keep the unified root-surface sidebar.
   return (
     <DocsPageView
       slugPath={slugPath}
       slugHrefPrefix=""
-      sidebarTitle={sidebarTitle}
-      backLink={backLink}
+      frameworkOverride={doc.fm.defaultCell ? ROOT_FRAMEWORK : undefined}
       navTree={navTree}
-      bannerSlot={pivot}
-      ContentWrapper={
-        contentIsFrameworkScoped ? FrameworkGuardedContent : undefined
-      }
     />
   );
 }

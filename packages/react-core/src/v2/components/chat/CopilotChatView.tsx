@@ -9,6 +9,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
+import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
@@ -89,8 +90,8 @@ export type CopilotChatViewProps = WithSlots<
     /**
      * When `true`, suppresses the welcome screen while a thread's initial
      * connect is in flight. Prevents the "How can I help you today?" flash
-     * that would otherwise appear between mounting an empty cloned agent and
-     * the bootstrap messages arriving from /connect.
+     * that would otherwise appear between mounting an empty agent instance
+     * and the bootstrap messages arriving from /connect.
      */
     isConnecting?: boolean;
     /**
@@ -108,7 +109,13 @@ export type CopilotChatViewProps = WithSlots<
      * ```
      */
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
-  } & React.HTMLAttributes<HTMLDivElement>
+    /**
+     * Slot for the "Using CopilotKit Intelligence" indicator. Pass-through
+     * to `CopilotChatMessageView`'s `intelligenceIndicator` slot — accepts a
+     * className string, a props object, or a replacement component.
+     */
+    intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
+  } & Omit<React.HTMLAttributes<HTMLDivElement>, "inputMode">
 >;
 
 function DropOverlay() {
@@ -163,11 +170,23 @@ export function CopilotChatView({
   hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
+  // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
+  intelligenceIndicator,
   children,
   className,
   ...props
 }: CopilotChatViewProps) {
-  const inputContainerRef = useRef<HTMLDivElement>(null);
+  // Element-as-state via callback ref. The overlay wrapper only renders on the
+  // chat-view branch (the welcome-screen branch omits it), so a plain
+  // useRef + `[]` useEffect would observe `null` on mount whenever the chat
+  // starts on the welcome screen and never re-attach after the user sends
+  // their first message — leaving inputContainerHeight at 0 and the scroll
+  // content's reserved bottom padding at 32px instead of ~input height. The
+  // result is the last messages scrolling underneath the absolute-positioned
+  // input pill. Subscribing to element state lets the observer attach (and
+  // detach) reactively as the overlay mounts/unmounts.
+  const [inputContainerEl, setInputContainerEl] =
+    useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,8 +197,14 @@ export function CopilotChatView({
 
   // Track input container height changes
   useEffect(() => {
-    const element = inputContainerRef.current;
-    if (!element) return;
+    const element = inputContainerEl;
+    if (!element) {
+      // Reset measured height so the scroll content's paddingBottom doesn't
+      // hold a stale value if the overlay unmounts (e.g. messages cleared
+      // and the welcome screen returns).
+      setInputContainerHeight(0);
+      return;
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -218,11 +243,12 @@ export function CopilotChatView({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, []);
+  }, [inputContainerEl]);
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
     isRunning,
+    intelligenceIndicator,
   });
 
   const BoundInput = renderSlot(input, CopilotChatInput, {
@@ -280,7 +306,7 @@ export function CopilotChatView({
         <div className="cpk:max-w-3xl cpk:mx-auto">
           {BoundMessageView}
           {hasSuggestions ? (
-            <div className="cpk:pl-0 cpk:pr-4 cpk:sm:px-0 cpk:mt-4">
+            <div className="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
               {BoundSuggestionView}
             </div>
           ) : null}
@@ -356,7 +382,7 @@ export function CopilotChatView({
         onDragLeave={onDragLeave}
         onDrop={onDrop}
         className={cn(
-          "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+          "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
           className,
         )}
         {...props}
@@ -389,7 +415,7 @@ export function CopilotChatView({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        "copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+        "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
         className,
       )}
       {...props}
@@ -398,7 +424,7 @@ export function CopilotChatView({
       {BoundScrollView}
 
       <div
-        ref={inputContainerRef}
+        ref={setInputContainerEl}
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
@@ -458,7 +484,7 @@ export namespace CopilotChatView {
             className="cpk:overflow-y-auto cpk:overflow-x-hidden"
             style={{ flex: "1 1 0%", minHeight: 0 }}
           >
-            <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+            <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
               {children}
             </div>
           </StickToBottom.Content>
@@ -491,7 +517,7 @@ export namespace CopilotChatView {
   const PinToSendScrollContainer: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       scrollRef: React.MutableRefObject<HTMLElement | null>;
-      contentRef: React.MutableRefObject<HTMLElement | null>;
+      contentRef: React.MutableRefObject<HTMLDivElement | null>;
       scrollToBottom: () => void;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
@@ -549,7 +575,7 @@ export namespace CopilotChatView {
           >
             <div
               ref={contentRef}
-              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
               {children}
             </div>
@@ -610,7 +636,7 @@ export namespace CopilotChatView {
     // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
     // gets its refs via <StickToBottom> below, scoped to that branch only.
     const scrollRef = useRef<HTMLElement | null>(null);
-    const contentRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const scrollToBottom = useCallback(() => {
       const el = scrollRef.current;
       if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
@@ -642,7 +668,7 @@ export namespace CopilotChatView {
     useEffect(() => {
       if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
-      const scrollElement = scrollRef.current;
+      const scrollElement = nonAutoScrollEl;
       if (!scrollElement) return;
 
       const checkScroll = () => {
@@ -665,12 +691,12 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, mode]);
+    }, [nonAutoScrollEl, mode]);
 
     if (!hasMounted) {
       return (
         <div className="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden">
-          <div className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
+          <div className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6">
             {children}
           </div>
         </div>
@@ -694,7 +720,7 @@ export namespace CopilotChatView {
           >
             <div
               ref={contentRef}
-              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+              className="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
               {children}
             </div>

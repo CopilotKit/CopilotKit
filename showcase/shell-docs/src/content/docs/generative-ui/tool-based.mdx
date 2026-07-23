@@ -1,10 +1,11 @@
 ---
-title: Tool-based Generative UI
+title: Components as Tools
 icon: "lucide/LayoutDashboard"
 description: Let your agent render rich React components directly in the chat by calling them as tools.
-hideTOC: true
 snippet_cell: gen-ui-tool-based
 ---
+
+<InlineDemo demo="gen-ui-tool-based" />
 
 ## What is this?
 
@@ -18,8 +19,6 @@ Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a
 real backend tool in a custom UI, tool-based GenUI is the component. There
 is no handler, no user interaction, no server-side execution. The agent
 decides when to show it, populates the data, and CopilotKit paints it.
-
-<InlineDemo demo="gen-ui-tool-based" />
 
 ## When should I use this?
 
@@ -36,12 +35,18 @@ around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
 
 ## How it works in code
 
+<FrameworkSetup concept="frontend-tools-setup" />
+
 `useComponent` takes a name, a Zod schema for its props, and the component
 to render. The runtime registers it as a frontend tool so the agent can
 discover it, and Zod validates the LLM's arguments before they reach your
 component.
 
-<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart component" />
+<Snippet
+  region="bar-chart-renderer"
+  title="frontend/src/app/page.tsx — bar chart component"
+  highlight="1-6"
+/>
 
 The component itself is ordinary React: it reads only its props and can
 stream in as the agent fills the payload. The example above uses
@@ -53,7 +58,5 @@ anything about CopilotKit.
   name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM
   reliably picks it when the user asks for that visualization.
 </Callout>
-
-<FeatureIntegrations feature="gen-ui-tool-based" />
 
 <IntegrationGrid path="generative-ui/tool-based" />

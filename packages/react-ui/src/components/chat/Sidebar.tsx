@@ -33,10 +33,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ * <CopilotKit>
  *   <CopilotSidebar
  *     observabilityHooks={{
  *       onChatExpanded: () => {
@@ -70,7 +69,8 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 import React, { useState } from "react";
-import { CopilotModal, CopilotModalProps } from "./Modal";
+import type { CopilotModalProps } from "./Modal";
+import { CopilotModal } from "./Modal";
 
 export function CopilotSidebar(props: CopilotModalProps) {
   props = {

@@ -1,0 +1,54 @@
+# ── Secrets ────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── OS / editor ────────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# ── Node / Next.js ─────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js build output + caches
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Test / coverage
+coverage/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vercel
+.vercel
+
+# ── Python / uv (agent/) ──────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ── Misc ───────────────────────────────────────────────────────────
+*.log
+*.pem

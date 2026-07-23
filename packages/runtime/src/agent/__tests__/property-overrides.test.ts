@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
-import { type RunAgentInput } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
 
@@ -63,8 +63,9 @@ describe("Property Overrides - Edge Cases", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.model.provider).toBe("anthropic");
-      expect(callArgs.model.modelId).toBe("claude-sonnet-4.5");
+      const model = callArgs.model as { provider: string; modelId: string };
+      expect(model.provider).toBe("anthropic");
+      expect(model.modelId).toBe("claude-sonnet-4.5");
     });
 
     it("should accept LanguageModel instance for override", async () => {
@@ -121,7 +122,7 @@ describe("Property Overrides - Edge Cases", () => {
       await collectEvents(agent["run"](input));
 
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
-      expect(callArgs.model.modelId).toBe("gpt-4o"); // Original value
+      expect((callArgs.model as { modelId: string }).modelId).toBe("gpt-4o"); // Original value
     });
   });
 

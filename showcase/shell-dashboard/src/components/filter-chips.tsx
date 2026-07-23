@@ -17,7 +17,7 @@ export interface FilterChipsProps {
 
 const FILTERS: Array<{ id: FilterMode; label: string }> = [
   { id: "all", label: "All" },
-  { id: "wired", label: "Wired" },
+  { id: "wired", label: "API (HTTP)" },
   { id: "gaps", label: "Gaps" },
   { id: "regressions", label: "Regressions" },
   { id: "reference", label: "Reference" },

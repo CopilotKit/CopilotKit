@@ -30,10 +30,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ * <CopilotKit>
  *   <CopilotChat
  *     observabilityHooks={{
  *       onMessageSent: (message) => {
@@ -62,12 +61,8 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import {
-  ChatContext,
-  ChatContextProvider,
-  CopilotChatIcons,
-  CopilotChatLabels,
-} from "./ChatContext";
+import type { CopilotChatIcons, CopilotChatLabels } from "./ChatContext";
+import { ChatContext, ChatContextProvider } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
@@ -75,26 +70,25 @@ import { AssistantMessage as DefaultAssistantMessage } from "./messages/Assistan
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import type { SystemMessageFunction } from "@copilotkit/react-core";
 import {
-  SystemMessageFunction,
   useCopilotContext,
   useCopilotChatInternal,
-  type OnStopGeneration,
-  type OnReloadMessages,
-  type ChatSuggestions,
+} from "@copilotkit/react-core";
+import type {
+  OnStopGeneration,
+  OnReloadMessages,
+  ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  CopilotErrorEvent,
-  Message,
   Severity,
   ErrorVisibility,
   styledConsole,
-  CopilotErrorHandler,
   randomUUID,
 } from "@copilotkit/shared";
-import {
+import type {
   AssistantMessageProps,
   ChatError,
   ComponentsMap,
@@ -119,7 +113,12 @@ import {
   formatFileSize,
   deprecationWarning,
 } from "./attachment-utils";
-import type { InputContent } from "@copilotkit/shared";
+import type {
+  InputContent,
+  CopilotErrorEvent,
+  Message,
+  CopilotErrorHandler,
+} from "@copilotkit/shared";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
 
 /**
@@ -237,16 +236,19 @@ export interface CopilotChatProps {
    * Configuration for file attachments in the chat input.
    * Enables users to attach images, audio, video, and documents.
    *
+   * Supports images, audio, video, and documents. Omit `accept` to allow all
+   * file types (default: `"*\/*"`), or restrict with a MIME filter.
+   *
    * @example
    * ```tsx
    * <CopilotChat
    *   attachments={{
    *     enabled: true,
-   *     accept: "image/*,application/pdf",
+   *     accept: "image/*,audio/*,video/*,application/pdf",
    *     maxSize: 10 * 1024 * 1024, // 10MB
    *     onUpload: async (file) => {
    *       const url = await uploadToS3(file);
-   *       return { url, mimeType: file.type };
+   *       return { type: "url", value: url, mimeType: file.type };
    *     },
    *   }}
    * />
@@ -354,7 +356,6 @@ export interface CopilotChatProps {
 
   /**
    * Event hooks for CopilotKit chat events.
-   * These hooks only work when publicApiKey is provided.
    */
   observabilityHooks?: CopilotObservabilityHooks;
 

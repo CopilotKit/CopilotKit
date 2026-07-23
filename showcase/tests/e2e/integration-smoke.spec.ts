@@ -27,11 +27,25 @@ import localPorts from "../../shared/local-ports.json";
 // because they're not represented in local-ports.json (local dev only
 // targets the 17 integration backends).
 const USE_LOCAL_PORTS = process.env.LOCAL_PORTS === "1";
+
+// SHOWCASE_BACKEND_HOST_PATTERN lets a single deployed test image be
+// re-pointed at a different backend environment (e.g. staging) without
+// regenerating registry.json. `{slug}` is the only placeholder. If unset,
+// each integration's baked-in backend_url is used as-is (current behavior).
+// LOCAL_PORTS=1 takes precedence so docker-compose flows are unaffected.
+const HOST_PATTERN_OVERRIDE = process.env.SHOWCASE_BACKEND_HOST_PATTERN || "";
+const applyHostPattern = (slug: string, defaultUrl: string): string => {
+  if (!HOST_PATTERN_OVERRIDE) return defaultUrl;
+  return `https://${HOST_PATTERN_OVERRIDE.replace("{slug}", slug)}`;
+};
+
 const rewriteBackendUrl = (slug: string, railwayUrl: string): string => {
-  if (!USE_LOCAL_PORTS) return railwayUrl;
-  const port = (localPorts as Record<string, number>)[slug];
-  if (!port) throw new Error(`LOCAL_PORTS=1 but no port for slug '${slug}'`);
-  return `http://localhost:${port}`;
+  if (USE_LOCAL_PORTS) {
+    const port = (localPorts as Record<string, number>)[slug];
+    if (!port) throw new Error(`LOCAL_PORTS=1 but no port for slug '${slug}'`);
+    return `http://localhost:${port}`;
+  }
+  return applyHostPattern(slug, railwayUrl);
 };
 
 // ---------------------------------------------------------------------------
@@ -210,95 +224,6 @@ test.describe("Level 4: Tool Rendering @tools", () => {
           `\u26a0\ufe0f ${integration.slug}: Tool response contains text but no rendered chart/weather component. This would have missed the query_data loop bug.`,
         );
       }
-    });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// Deployed Starters: L1-L3 smoke tests (@starter-health, @starter-agent, @starter-chat)
-// ---------------------------------------------------------------------------
-
-interface Starter {
-  slug: string;
-  name: string;
-  demoUrl: string;
-}
-
-type RegistryIntegration = (typeof registry)["integrations"][number];
-
-const STARTER_SLUG = process.env.STARTER_SLUG;
-
-// Registry uses integration-level `deployed` as the single deployment flag.
-// An earlier iteration had `starter.deployed` as a per-starter override, but
-// the manifest→registry bundler (showcase/scripts/bundle-demo-content.ts +
-// generate-registry.ts) doesn't carry that field forward from the source YAML
-// manifests, so any value written there is dropped on regen. Gating on
-// `i.deployed === true` matches how the INTEGRATIONS array above filters
-// `activeIntegrations` and keeps both filters anchored to the same source of
-// truth. Without this, the Deployed Starters describe block yields zero tests
-// and Playwright's --grep fails with "No tests found."
-const STARTERS: Starter[] = registry.integrations
-  .filter(
-    (
-      i,
-    ): i is RegistryIntegration & {
-      starter: NonNullable<RegistryIntegration["starter"]>;
-    } =>
-      Boolean(i.starter?.demo_url) &&
-      (!STARTER_SLUG || i.slug === STARTER_SLUG) &&
-      (SMOKE_ALL || i.deployed === true),
-  )
-  .map((i) => ({
-    slug: i.slug,
-    name: i.starter.name,
-    demoUrl: i.starter.demo_url,
-  }));
-
-test.describe("Deployed Starters", () => {
-  // Starters don't have local-port mappings; skip them under LOCAL_PORTS=1.
-  test.skip(USE_LOCAL_PORTS, "LOCAL_PORTS=1: starters not mapped");
-  for (const starter of STARTERS) {
-    // Single test per starter so L2/L3 are naturally skipped when L1 fails.
-    // (fullyParallel: true in playwright.config.ts overrides describe.configure serial mode)
-    test(`[Starter] ${starter.slug} deployed smoke @starter-health @starter-agent @starter-chat`, async ({
-      request,
-      page,
-    }) => {
-      // L1: Health — 3 retries with 15s delay to handle Railway cold starts
-      const health = await checkHealth(
-        request,
-        starter.demoUrl,
-        undefined,
-        3,
-        15_000,
-      );
-      expect(
-        health.ok,
-        `${starter.slug} starter health check failed: status=${health.status} path=${health.path} body=${health.body.slice(0, 500)}`,
-      ).toBe(true);
-
-      // L2: Agent endpoint reachability
-      const agent = await checkAgentEndpoint(request, starter.demoUrl);
-      expect(
-        agent.status,
-        `${starter.slug} starter agent endpoint returned 404. Status=${agent.status} body=${agent.body.slice(0, 500)}`,
-      ).not.toBe(404);
-      expect(
-        agent.ok,
-        `${starter.slug} starter agent endpoint is unreachable: status=${agent.status} body=${agent.body.slice(0, 500)}`,
-      ).toBe(true);
-
-      // L3: Round-trip chat
-      test.slow(); // Allow extra time for cold starts
-      const chat = await sendChatMessage(page, starter.demoUrl, "Hello", "/");
-      expect(
-        chat.gotResponse,
-        `${starter.slug} starter did not produce an assistant response.`,
-      ).toBe(true);
-      expect(
-        chat.responseText.length,
-        `${starter.slug} starter assistant response was empty`,
-      ).toBeGreaterThan(0);
     });
   }
 });

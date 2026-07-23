@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
-import { createPortal, flushSync } from "react-dom";
+import React, { useEffect, useState } from "react";
 import type { Attachment } from "@copilotkit/shared";
 import {
   formatFileSize,
   getSourceUrl,
   getDocumentIcon,
 } from "@copilotkit/shared";
-import { Play, X } from "lucide-react";
+import { Play } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Lightbox, useLightbox } from "./Lightbox";
 
 interface CopilotChatAttachmentQueueProps {
   attachments: Attachment[];
@@ -86,116 +86,6 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
     case "document":
       return <DocumentPreview attachment={attachment} />;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Lightbox – fullscreen overlay for images and videos (portal to body)
-// Uses the View Transition API when available for a smooth thumbnail-to-
-// fullscreen morph; falls back to a simple opacity fade.
-// ---------------------------------------------------------------------------
-
-interface LightboxProps {
-  onClose: () => void;
-  children: React.ReactNode;
-}
-
-function Lightbox({ onClose, children }: LightboxProps) {
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="cpk:fixed cpk:inset-0 cpk:z-[9999] cpk:flex cpk:items-center cpk:justify-center cpk:bg-black/80 cpk:animate-fade-in"
-      onClick={onClose}
-    >
-      <button
-        onClick={onClose}
-        className="cpk:absolute cpk:top-4 cpk:right-4 cpk:text-white cpk:bg-white/10 cpk:hover:bg-white/20 cpk:rounded-full cpk:w-10 cpk:h-10 cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer cpk:border-none cpk:z-10"
-        aria-label="Close preview"
-      >
-        <X className="cpk:w-5 cpk:h-5" />
-      </button>
-
-      <div onClick={(e) => e.stopPropagation()}>{children}</div>
-    </div>,
-    document.body,
-  );
-}
-
-type DocWithVT = Document & {
-  startViewTransition?: (cb: () => void) => { finished: Promise<void> };
-};
-
-/**
- * Hook that manages lightbox open/close and uses the View Transition API to
- * morph the thumbnail into fullscreen content.
- *
- * The trick: `view-transition-name` must live on exactly ONE element at a time.
- * - Old state (thumbnail visible): name is on the thumbnail.
- * - New state (lightbox visible): name moves to the lightbox content.
- * `flushSync` ensures React commits the DOM change synchronously inside the
- * `startViewTransition` callback so the API can snapshot old → new correctly.
- */
-function useLightbox() {
-  const thumbnailRef = useRef<HTMLElement>(null);
-  const [open, setOpen] = useState(false);
-  const vtName = useId();
-
-  const openLightbox = useCallback(() => {
-    const thumb = thumbnailRef.current;
-    const doc = document as DocWithVT;
-
-    if (doc.startViewTransition && thumb) {
-      // Old snapshot: name on the thumbnail
-      thumb.style.viewTransitionName = vtName;
-
-      doc.startViewTransition(() => {
-        // New snapshot: remove from thumb (lightbox content will have it)
-        thumb.style.viewTransitionName = "";
-        flushSync(() => setOpen(true));
-      });
-    } else {
-      setOpen(true);
-    }
-  }, []);
-
-  const closeLightbox = useCallback(() => {
-    const thumb = thumbnailRef.current;
-    const doc = document as DocWithVT;
-
-    if (doc.startViewTransition && thumb) {
-      const transition = doc.startViewTransition(() => {
-        // New snapshot: name back on thumbnail
-        flushSync(() => setOpen(false));
-        thumb.style.viewTransitionName = vtName;
-      });
-      // Clean up the name after animation finishes (or fails)
-      transition.finished
-        .then(() => {
-          thumb.style.viewTransitionName = "";
-        })
-        .catch(() => {
-          thumb.style.viewTransitionName = "";
-        });
-    } else {
-      setOpen(false);
-    }
-  }, []);
-
-  return {
-    thumbnailRef,
-    vtName,
-    open,
-    openLightbox,
-    closeLightbox,
-  };
 }
 
 // ---------------------------------------------------------------------------

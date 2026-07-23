@@ -1,0 +1,20 @@
+{
+  "_comment": "Tiered evaluation order. Tier 1 fail_fast stops eval early on gold-standard regression.",
+  "tiers": [
+    {
+      "name": "Gold Standard",
+      "slugs": ["langgraph-python"],
+      "fail_fast": true
+    },
+    {
+      "name": "Key Partners",
+      "slugs": ["mastra", "crewai-crews", "google-adk", "langgraph-typescript"],
+      "fail_fast": false
+    },
+    {
+      "name": "Full Matrix",
+      "slugs": "*",
+      "fail_fast": false
+    }
+  ]
+}

@@ -1,0 +1,224 @@
+---
+title: "registerRenderToolCall"
+description: "Angular function for registering a renderer component for a tool call with CopilotKit, with access to streaming arguments, status, and result"
+---
+
+## Overview
+
+`registerRenderToolCall` registers a renderer for a tool call. It does not run a handler. It tells CopilotKit which standalone Angular component to render whenever a tool call with a matching `name` appears in the conversation. Use it to visualize tool calls that execute somewhere other than the browser, for example a server-side tool or an agentic (long-running) tool, where you only want to show progress and results in the chat.
+
+You call `registerRenderToolCall` inside an Angular injection context (a component or service constructor, or a field initializer). The renderer registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
+
+If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead.
+
+<Callout type="info">
+  Import from the package root, `@copilotkit/angular`. There is no `/v2`
+  subpath. `registerRenderToolCall` must run in an injection context that has
+  [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in
+  scope.
+</Callout>
+
+## Signature
+
+```ts
+import { registerRenderToolCall } from "@copilotkit/angular";
+
+function registerRenderToolCall<Args extends Record<string, unknown>>(
+  renderToolCall: RenderToolCallConfig<Args>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="renderToolCall" type="RenderToolCallConfig<Args>" required>
+  The renderer definition object.
+
+  <PropertyReference name="name" type="string" required>
+    The name of the tool call to render. Use the literal `"*"` to register a
+    catch-all renderer that handles any tool call that has no more specific
+    renderer registered.
+  </PropertyReference>
+
+  <PropertyReference name="args" type="StandardSchemaV1<unknown, Args>" required>
+    A [Standard Schema](https://standardschema.dev) (for example a Zod object)
+    that describes the tool call arguments. It is used to type the `args`
+    exposed to your component.
+  </PropertyReference>
+
+  <PropertyReference name="component" type="Type<ToolRenderer<Args>>" required>
+    The standalone Angular component class to render for this tool call.
+    CopilotKit instantiates it and binds a `toolCall` signal input.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent scope. When set, the renderer only applies to tool calls
+    emitted by the agent with this id. When omitted, the renderer applies across
+    agents.
+  </PropertyReference>
+
+  <PropertyReference name="passAgent" type="boolean" default="false">
+    When `true`, CopilotKit also binds an `agent` signal input on the component
+    with the agent instance that emitted the tool call. Leave it `false` (the
+    default) if your renderer does not need the agent.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+`registerRenderToolCall` returns `void`. It registers the renderer as a side effect and wires up name-and-agent-id cleanup for the owning injector. Frontend tools, human-in-the-loop tools, and renderer registrations sharing that key are removed together.
+
+## The renderer component
+
+Your `component` implements the `ToolRenderer<Args>` interface. CopilotKit binds the inputs by name, so declare them with Angular's `input()`:
+
+```ts
+import { Signal } from "@angular/core";
+import { AbstractAgent } from "@ag-ui/client";
+
+interface ToolRenderer<Args extends Record<string, unknown>> {
+  // Required: the current state of the tool call.
+  toolCall: Signal<AngularToolCall<Args>>;
+  // Bound only when the config sets passAgent: true.
+  agent?: Signal<AbstractAgent | undefined>;
+}
+```
+
+### AngularToolCall
+
+`toolCall()` returns a discriminated union keyed on `status`. The shape of `args` and `result` depends on the status:
+
+```ts
+type AngularToolCall<Args extends Record<string, unknown>> =
+  | {
+      name?: string;
+      args: Partial<Args>; // streaming, may be incomplete
+      status: "in-progress";
+      result: undefined;
+    }
+  | {
+      name?: string;
+      args: Args; // fully parsed
+      status: "executing";
+      result: undefined;
+    }
+  | {
+      name?: string;
+      args: Args; // fully parsed
+      status: "complete";
+      result: string; // the tool result, as a string
+    };
+```
+
+- **`in-progress`** means the arguments are still streaming in, so `args` is `Partial<Args>` and `result` is `undefined`.
+- **`executing`** means the arguments have fully arrived and the tool is running, so `args` is the complete `Args` and `result` is still `undefined`.
+- **`complete`** means the tool finished, so `args` is complete and `result` holds the string result.
+
+## Usage
+
+### A renderer component for a server-side tool
+
+This renderer shows a spinner while the tool runs and then renders the result. It narrows on `status` so the template only reads `result` once it is available.
+
+```ts title="src/app/search-tool-view.component.ts"
+import { Component, input } from "@angular/core";
+import { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
+
+type SearchArgs = { query: string };
+
+@Component({
+  selector: "app-search-tool-view",
+  standalone: true,
+  template: `
+    @let call = toolCall();
+    @switch (call.status) {
+      @case ("in-progress") {
+        <div class="text-sm opacity-70">Preparing search...</div>
+      }
+      @case ("executing") {
+        <div class="text-sm opacity-70">Searching for "{{ call.args.query }}"...</div>
+      }
+      @case ("complete") {
+        <pre class="rounded border p-3 text-sm">{{ call.result }}</pre>
+      }
+    }
+  `,
+})
+export class SearchToolViewComponent implements ToolRenderer<SearchArgs> {
+  readonly toolCall = input.required<AngularToolCall<SearchArgs>>();
+}
+```
+
+Register it for the tool name your agent emits:
+
+```ts title="src/app/chat.component.ts"
+import { Component } from "@angular/core";
+import { z } from "zod";
+import { registerRenderToolCall } from "@copilotkit/angular";
+import { SearchToolViewComponent } from "./search-tool-view.component";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  template: ``,
+})
+export class ChatComponent {
+  constructor() {
+    registerRenderToolCall({
+      name: "searchDocuments",
+      args: z.object({ query: z.string() }),
+      component: SearchToolViewComponent,
+    });
+  }
+}
+```
+
+### Receiving the agent instance
+
+Set `passAgent: true` to have CopilotKit bind the `agent` signal input as well. Declare it on the component as an optional `input()`.
+
+```ts title="src/app/handoff-tool-view.component.ts"
+import { Component, input } from "@angular/core";
+import { AbstractAgent } from "@ag-ui/client";
+import { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
+
+type HandoffArgs = { target: string };
+
+@Component({
+  selector: "app-handoff-tool-view",
+  standalone: true,
+  template: `<div>Handing off to {{ toolCall().args.target }}</div>`,
+})
+export class HandoffToolViewComponent implements ToolRenderer<HandoffArgs> {
+  readonly toolCall = input.required<AngularToolCall<HandoffArgs>>();
+  readonly agent = input<AbstractAgent | undefined>();
+}
+```
+
+```ts title="src/app/chat.component.ts"
+registerRenderToolCall({
+  name: "handoff",
+  args: z.object({ target: z.string() }),
+  component: HandoffToolViewComponent,
+  passAgent: true,
+});
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="registerFrontendTool"
+    description="Register a client-side tool with an async handler and an optional renderer component."
+    href="/reference/angular/functions/registerFrontendTool"
+  />
+  <Card
+    title="registerHumanInTheLoop"
+    description="Register a tool that pauses the agent and waits for the user to respond from a rendered component."
+    href="/reference/angular/functions/registerHumanInTheLoop"
+  />
+  <Card
+    title="CopilotKit service"
+    description="The central service that holds agents, tools, and the runtime connection."
+    href="/reference/angular/services/CopilotKit"
+  />
+</Cards>

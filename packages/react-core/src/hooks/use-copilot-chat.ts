@@ -5,7 +5,7 @@
  * **Open Source Friendly** - Works without requiring a free public license key.
  *
  * <Callout title="Looking for fully headless UI?">
- * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/v1/hooks/useCopilotChatHeadless_c).
+ * Get started with [useCopilotChatHeadless_c](https://docs.copilotkit.ai/reference/v2/hooks/useCopilotChatHeadless_c).
  * </Callout>
  *
  * ## Use Cases
@@ -73,11 +73,11 @@
  * </PropertyReference>
  */
 
-import {
+import type {
   UseCopilotChatOptions,
-  useCopilotChatInternal,
   UseCopilotChatReturn as UseCopilotChatReturnInternal,
 } from "./use-copilot-chat_internal";
+import { useCopilotChatInternal } from "./use-copilot-chat_internal";
 
 // Create a type that excludes message-related properties from the internal type
 export type UseCopilotChatReturn = Omit<

@@ -1,76 +1,95 @@
-import React from "react";
-import Link from "next/link";
+import type React from "react";
+import Image from "next/image";
+import {
+  Card as FumadocsCard,
+  Cards as FumadocsCards,
+} from "fumadocs-ui/components/card";
 
-// `Callout` is owned by `docs-callout.tsx` (broader type surface: info |
-// tip | warn | warning | error | danger | note). Re-exported here so
-// historical imports from `@/components/mdx-components` keep working.
-export { Callout } from "@/components/docs-callout";
+// Re-export fumadocs's default `<Callout>` so historical imports from
+// `@/components/mdx-components` keep working. Fumadocs supports the
+// types `info | warn | warning | error | success | idea`, plus the
+// alias `tip` (resolves to info). Other custom types fall back to the
+// default tone.
+export { Callout } from "fumadocs-ui/components/callout";
 
 export function Cards({
-  children,
-  className: _className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+  className,
+  ...props
+}: React.ComponentProps<typeof FumadocsCards>) {
+  // `not-prose` opts the wrapped Cards out of the .reference-content
+  // prose-link styling (which forces underline + accent color on every
+  // <a>). The Card's own className already controls link appearance.
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">{children}</div>
+    <FumadocsCards
+      {...props}
+      className={["not-prose my-6 grid-cols-1 gap-4 sm:grid-cols-2", className]
+        .filter(Boolean)
+        .join(" ")}
+    />
   );
 }
 
+type DocsCardProps = React.ComponentProps<typeof FumadocsCard> & {
+  logo?: string;
+  logoAlt?: string;
+  logoClassName?: string;
+};
+
 export function Card({
-  title,
-  description,
   href,
-  icon,
   className,
-  children,
-}: {
-  title: string;
-  description?: string;
-  href?: string;
-  icon?: React.ReactNode;
-  className?: string;
-  children?: React.ReactNode;
-}) {
-  // Render `icon`, `className`, and `children` instead of silently
-  // dropping them — matches MDX author expectations (Mintlify-style
-  // Cards accept all three).
+  style,
+  icon,
+  logo,
+  logoAlt = "",
+  logoClassName,
+  ...props
+}: DocsCardProps) {
+  // Match the docs-landing pointer-card style:
+  // - bordered surface, accent border on hover, subtle shadow on hover
+  // - title flips to accent color on hover via `group-hover` so the link
+  //   feels active without using a default underline
+  // - `not-prose` is the load-bearing class: the article body uses
+  //   `.reference-content` which forces `text-decoration: underline;
+  //   color: var(--accent)` on every <a>; that rule wins over the
+  //   Tailwind `no-underline` class on specificity. `not-prose`
+  //   triggers the global escape-hatch rule that drops both.
+  const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
+  const resolvedIcon =
+    icon ??
+    (logo ? (
+      <Image
+        src={logo}
+        alt={logoAlt}
+        width={20}
+        height={20}
+        className={["h-5 w-5 shrink-0 object-contain", logoClassName]
+          .filter(Boolean)
+          .join(" ")}
+        unoptimized
+      />
+    ) : undefined);
   const mergedClassName = [
-    "rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors",
+    "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
+    "[&_h3]:!mt-0 [&_h3]:!mb-1.5 [&_h3]:!text-base [&_h3]:!font-semibold [&_h3]:!leading-snug [&_p]:!text-sm [&_p]:!leading-relaxed",
+    href
+      ? "not-prose hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+      : null,
     className,
   ]
     .filter(Boolean)
     .join(" ");
-
-  const content = (
-    <div className={mergedClassName}>
-      {icon && (
-        <div className="mb-2 text-[var(--text-muted)]" aria-hidden>
-          {icon}
-        </div>
-      )}
-      <div className="font-semibold text-[var(--text)] text-sm">{title}</div>
-      {description && (
-        <div className="text-xs text-[var(--text-muted)] mt-1">
-          {description}
-        </div>
-      )}
-      {children && (
-        <div className="text-xs text-[var(--text-secondary)] mt-2">
-          {children}
-        </div>
-      )}
-    </div>
+  return (
+    <FumadocsCard
+      {...props}
+      href={resolvedHref}
+      icon={resolvedIcon}
+      className={mergedClassName}
+      style={
+        href ? { textDecoration: "none", color: "inherit", ...style } : style
+      }
+    />
   );
-
-  if (href) {
-    // Rewrite /reference/v2/... paths to /reference/...
-    const resolvedHref = href.replace(/^\/reference\/v2\//, "/reference/");
-    return <Link href={resolvedHref}>{content}</Link>;
-  }
-
-  return content;
 }
 
 export function Accordions({ children }: { children: React.ReactNode }) {
@@ -85,8 +104,8 @@ export function Accordion({
   children: React.ReactNode;
 }) {
   return (
-    <details className="group rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--text)] select-none hover:bg-[var(--bg-elevated)] transition-colors">
+    <details className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)]">
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elevated)]">
         {title}
       </summary>
       <div className="px-4 pb-4 text-sm text-[var(--text-secondary)]">

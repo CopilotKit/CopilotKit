@@ -1,0 +1,125 @@
+{
+  "_comment": "D5 fixture for /demos/gen-ui-tool-based. Two integration families: (1) langgraph-python registers render_pie_chart via useComponent (PieChart SVG donut); (2) all other integrations register generate_haiku via useFrontendTool (HaikuCard div). Uses hasToolResult matching: aimock checks for role:tool messages in the request to disambiguate multi-turn fixtures sharing the same userMessage. Fixtures ordered by hasToolResult false→true for readability. The 'Sales bar chart' / 'Traffic pie chart' / 'Market share' entries mirror the suggestion chips wired in src/app/demos/gen-ui-tool-based/suggestions.ts for LGP and ADK — keep them in sync with that file so D5 covers the suggestion-click path end-to-end.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_bar_chart_sales",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Quarterly Sales\",\"description\":\"Illustrative quarterly sales figures\",\"data\":[{\"label\":\"Q1\",\"value\":120000},{\"label\":\"Q2\",\"value\":150000},{\"label\":\"Q3\",\"value\":175000},{\"label\":\"Q4\",\"value\":210000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Bar chart rendered above — sales grew quarter over quarter, with Q4 the strongest. Values are illustrative samples."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of website traffic by source.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_traffic",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Website Traffic by Source\",\"description\":\"Illustrative traffic breakdown by acquisition channel\",\"data\":[{\"label\":\"Organic Search\",\"value\":45},{\"label\":\"Direct\",\"value\":22},{\"label\":\"Referral\",\"value\":15},{\"label\":\"Social\",\"value\":12},{\"label\":\"Paid\",\"value\":6}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of website traffic by source.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Organic Search drives most traffic, with Direct and Referral following. Values are illustrative samples."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show a pie chart of smartphone market share by brand.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_market_share",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Smartphone Market Share\",\"description\":\"Illustrative global market share by brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":14},{\"label\":\"Oppo\",\"value\":9},{\"label\":\"Other\",\"value\":27}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show a pie chart of smartphone market share by brand.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Pie chart rendered above — Apple and Samsung lead, with Xiaomi and Oppo close behind. Values are illustrative samples."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_haiku_001",
+            "name": "generate_haiku",
+            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a haiku about nature",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
+      }
+    }
+  ]
+}

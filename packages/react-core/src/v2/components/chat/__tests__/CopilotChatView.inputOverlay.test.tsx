@@ -6,6 +6,7 @@ import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChat
 import { CopilotChatView } from "../CopilotChatView";
 import { LastUserMessageContext } from "../last-user-message-context";
 import type { Attachment } from "@copilotkit/shared";
+import type { Message } from "@ag-ui/core";
 
 beforeEach(() => {
   HTMLElement.prototype.scrollTo = vi.fn();
@@ -163,6 +164,97 @@ describe("CopilotChatView input overlay layout", () => {
       // no suggestions) = "152px". The test asserts the formula.
       await waitFor(() =>
         expect(scrollContent.style.paddingBottom).toBe("152px"),
+      );
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (global as any).ResizeObserver = OriginalRO;
+    }
+  });
+
+  it("attaches the resize observer when transitioning from welcome to chat view", async () => {
+    // Regression: a `[]`-deps useEffect captured `inputContainerRef.current`
+    // as null when mounted on the welcome screen and never re-ran after the
+    // user sent their first message. The overlay rendered without a measured
+    // height, so paddingBottom stayed at 32 and the last messages slid
+    // underneath the absolute-positioned input pill. Verify the observer
+    // attaches reactively when the overlay mounts post-transition.
+    const callbacks: Array<{
+      cb: ResizeObserverCallback;
+      target: Element | null;
+    }> = [];
+    const OriginalRO = global.ResizeObserver;
+    class MockResizeObserver {
+      private cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+      }
+      observe(target: Element) {
+        callbacks.push({ cb: this.cb, target });
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global as any).ResizeObserver = MockResizeObserver as any;
+
+    try {
+      // Render with no messages to start on the welcome screen branch — the
+      // overlay wrapper does not exist in this DOM, so the observer cannot
+      // attach yet.
+      const initialMessages: Message[] = [];
+      const screen = render(
+        <TestWrapper>
+          <LastUserMessageContext.Provider value={{ id: null, sendNonce: 0 }}>
+            <CopilotChatView messages={initialMessages} />
+          </LastUserMessageContext.Provider>
+        </TestWrapper>,
+      );
+
+      await screen.findByTestId("copilot-welcome-screen");
+      expect(screen.queryByTestId("copilot-input-overlay")).toBeNull();
+
+      // Transition to the chat view by re-rendering with messages — mirrors
+      // what happens when CopilotChat re-renders after the user submits.
+      screen.rerender(
+        <TestWrapper>
+          <LastUserMessageContext.Provider value={{ id: null, sendNonce: 0 }}>
+            <CopilotChatView messages={sampleMessages} />
+          </LastUserMessageContext.Provider>
+        </TestWrapper>,
+      );
+
+      await waitForMount(screen);
+      const overlay = screen.getByTestId("copilot-input-overlay");
+
+      // The bug: observer was attached at mount when the overlay element was
+      // null, so it never re-attached after the transition. Verify it now
+      // observes the overlay specifically.
+      await waitFor(() =>
+        expect(callbacks.some(({ target }) => target === overlay)).toBe(true),
+      );
+
+      const scrollContent = screen.getByTestId("copilot-scroll-content");
+      // Simulate the overlay reporting a real height (e.g. 88px input pill).
+      // Only fire on the overlay's own observer — other components (e.g. the
+      // textarea autosize) also use ResizeObserver and would corrupt the
+      // assertion if we fed all observers a 88px contentRect.
+      for (const { cb, target } of callbacks) {
+        if (target !== overlay) continue;
+        cb(
+          [
+            {
+              contentRect: { height: 88 } as DOMRectReadOnly,
+            } as ResizeObserverEntry,
+          ],
+          {} as ResizeObserver,
+        );
+      }
+
+      // 88 (input) + 32 (no suggestions baseline) = 120px. Without the fix,
+      // paddingBottom would be stuck at 32px because the observer never
+      // attached.
+      await waitFor(() =>
+        expect(scrollContent.style.paddingBottom).toBe("120px"),
       );
     } finally {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

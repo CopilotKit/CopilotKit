@@ -1,0 +1,11 @@
+{
+  "_comment": "D5 fixture for /demos/prebuilt-sidebar. The demo mounts <CopilotSidebar defaultOpen={true} /> over a static main-content page. The D5 assertion verifies (a) the sidebar root '.copilotKitSidebar' is rendered, and (b) sending a message inside the sidebar yields an assistant response inside the sidebar surface. The backend is the LGP default helpful-assistant agent. One-turn fixture — substring 'hi from the sidebar test' is unique.",
+  "fixtures": [
+    {
+      "match": { "userMessage": "hi from the sidebar test" },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

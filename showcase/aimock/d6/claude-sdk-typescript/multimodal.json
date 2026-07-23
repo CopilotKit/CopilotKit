@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal image turn \u2014 the D5 script clicks the sample-image button which auto-sends. The user message comes from the sample button's injected text. Response must contain 'image' keyword for the assertion.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "multimodal PDF turn \u2014 the D5 script clicks the sample-pdf button which auto-sends. Response must contain 'document' keyword for the assertion.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    },
+    {
+      "_comment": "multimodal fallback \u2014 matches common auto-sent messages from the sample attachment buttons that may vary across integrations.",
+      "match": {
+        "userMessage": "Describe this image",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "The image shows a small test pattern \u2014 a colorful abstract composition used to validate the multimodal image upload pipeline."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this document",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "The document is a single-page test PDF used by the multimodal demo to validate the document upload and text extraction pipeline."
+      }
+    }
+  ]
+}

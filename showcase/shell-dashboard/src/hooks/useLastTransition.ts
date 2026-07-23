@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { pb } from "../lib/pb";
+import { getPb } from "../lib/pb";
 
 /**
  * A `status_history` row per the PB migration (1745193700_init_status_history).
@@ -184,6 +184,7 @@ export function useLastTransition(
     let alive = true;
     (async (): Promise<void> => {
       try {
+        const pb = getPb();
         // Parameterized filter via PB SDK helper — avoids injection and
         // handles quoting/escaping per `pb.filter` semantics.
         const filter = pb.filter("key = {:key}", { key });

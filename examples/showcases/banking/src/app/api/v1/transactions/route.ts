@@ -1,6 +1,6 @@
-import { data } from "../data";
+import * as store from "@/lib/store";
 
 // Get all transactions
 export const GET = async () => {
-  return new Response(JSON.stringify(data.transactions), { status: 200 });
+  return new Response(JSON.stringify(store.transactions()), { status: 200 });
 };

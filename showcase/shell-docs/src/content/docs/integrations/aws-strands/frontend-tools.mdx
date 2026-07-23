@@ -48,48 +48,93 @@ Use frontend tools when you need your agent to interact with client-side primiti
     <Step>
         ### Register the frontend tool in your agent
 
-        In your Strands agent, define a tool that returns `None`. This registers the tool with the LLM so it knows about it,
+        In your Strands agent, define a tool that returns a null value. This registers the tool with the LLM so it knows about it,
         but the actual execution will happen on the frontend.
 
-        ```python title="main.py"
-        from strands import Agent, tool
-        from strands.models.openai import OpenAIModel
-        from ag_ui_strands import StrandsAgent, create_strands_app
+        <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+            <Tab value="Python">
+                ```python title="main.py"
+                from strands import Agent, tool
+                from strands.models.openai import OpenAIModel
+                from ag_ui_strands import StrandsAgent, create_strands_app
 
-        @tool
-        def change_background(background: str):
-            """
-            Change the background color of the chat. Can be anything that CSS accepts.
+                @tool
+                def change_background(background: str):
+                    """
+                    Change the background color of the chat. Can be anything that CSS accepts.
 
-            Args:
-                background: The background color or gradient. Prefer gradients.
+                    Args:
+                        background: The background color or gradient. Prefer gradients.
 
-            Returns:
-                None - execution happens on the frontend
-            """
-            # Return None - frontend will handle execution
-            return None  # [!code highlight]
+                    Returns:
+                        None - execution happens on the frontend
+                    """
+                    # Return None - frontend will handle execution
+                    return None  # [!code highlight]
 
-        api_key = os.getenv("OPENAI_API_KEY", "")
-        model = OpenAIModel(
-            client_args={"api_key": api_key},
-            model_id="gpt-5.2",
-        )
+                api_key = os.getenv("OPENAI_API_KEY", "")
+                model = OpenAIModel(
+                    client_args={"api_key": api_key},
+                    model_id="gpt-5.4",
+                )
 
-        agent = Agent(
-            model=model,
-            tools=[change_background],  # [!code highlight]
-            system_prompt="You are a helpful assistant.",
-        )
+                agent = Agent(
+                    model=model,
+                    tools=[change_background],  # [!code highlight]
+                    system_prompt="You are a helpful assistant.",
+                )
 
-        agui_agent = StrandsAgent(
-            agent=agent,
-            name="my_agent",
-            description="A helpful assistant",
-        )
+                agui_agent = StrandsAgent(
+                    agent=agent,
+                    name="my_agent",
+                    description="A helpful assistant",
+                )
 
-        app = create_strands_app(agui_agent, "/")
-        ```
+                app = create_strands_app(agui_agent, "/")
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="main.ts"
+                import { Agent, tool } from "@strands-agents/sdk";
+                import { OpenAIModel } from "@strands-agents/sdk/models/openai";
+                import { StrandsAgent } from "@ag-ui/aws-strands";
+                import { createStrandsApp } from "@ag-ui/aws-strands/server";
+                import { z } from "zod";
+
+                // Return null — the frontend handles execution.
+                const changeBackground = tool({
+                  name: "change_background",
+                  description: "Change the background color of the chat. Can be anything that CSS accepts.",
+                  inputSchema: z.object({
+                    background: z.string().describe("The background color or gradient. Prefer gradients."),
+                  }),
+                  callback: () => null, // [!code highlight]
+                });
+
+                const model = new OpenAIModel({
+                  apiKey: process.env.OPENAI_API_KEY ?? "",
+                  modelId: "gpt-5.4",
+                });
+
+                const agent = new Agent({
+                  model,
+                  tools: [changeBackground], // [!code highlight]
+                  systemPrompt: "You are a helpful assistant.",
+                });
+
+                await agent.initialize();
+
+                const aguiAgent = new StrandsAgent({
+                  agent,
+                  name: "my_agent",
+                  description: "A helpful assistant",
+                });
+
+                const app = await createStrandsApp(aguiAgent, { path: "/" });
+                app.listen(8000);
+                ```
+            </Tab>
+        </Tabs>
     </Step>
 
     <Step>

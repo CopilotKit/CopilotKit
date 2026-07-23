@@ -1,6 +1,7 @@
 """
 CrewAI
 """
+
 from .crewai_agent import CrewAIAgent
 from .crewai_sdk import (
     CopilotKitProperties,
@@ -20,8 +21,9 @@ from .copilotkit_integration import (
     create_tool_proxy,
     FlowInputState,
     CopilotKitStateUpdateEvent,
-    emit_copilotkit_state_update_event
+    emit_copilotkit_state_update_event,
 )
+
 __all__ = [
     "CrewAIAgent",
     "CopilotKitProperties",
@@ -39,5 +41,5 @@ __all__ = [
     "create_tool_proxy",
     "FlowInputState",
     "CopilotKitStateUpdateEvent",
-    "emit_copilotkit_state_update_event"
+    "emit_copilotkit_state_update_event",
 ]

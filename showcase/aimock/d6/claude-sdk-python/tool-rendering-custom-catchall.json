@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / tool-rendering-custom-catchall",
+    "sourceScript": "d5-tool-rendering-custom-catchall.ts",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22",
+    "updated": "2026-06-15",
+    "note": "Dropped the toolName gate on tool-emit fixtures and the no-tool-registered fallback. Reason: when toolName:get_stock_price failed to match (claude-sdk-python backend appears not to forward the tool definition uniformly on the second turn), the userMessage-only fallback returned plain content with no toolCall \u2192 no custom-wildcard card \u2192 D5 assertion fails with 'missing tool name [get_stock_price]'. Canonical pattern (no gate on tool-emit, toolCallId narration above for first-match-wins) lets the tool call always emit; the toolCallId narration fires on iteration 2 regardless of which tools the backend forwards."
+  },
+  "fixtures": [
+    {
+      "_comment": "custom-catchall: weather in Tokyo follow-up after get_weather tool result. MUST come before the tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall: weather in Tokyo first leg \u2014 emit get_weather tool call. The custom wildcard renderer fires for this tool. Matches on userMessage+context alone; the toolCallId narration above wins after the tool result arrives.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "custom-catchall: AAPL stock price follow-up after get_stock_price tool result. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d5_get_stock_price_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "custom-catchall: AAPL stock price first leg \u2014 emit get_stock_price tool call. No toolName/hasToolResult gate so the tool call emits regardless of which tools the backend forwards on the second turn. The toolCallId narration above wins on iteration 2.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

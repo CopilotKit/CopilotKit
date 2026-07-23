@@ -6,19 +6,18 @@ hideTOC: true
 snippet_cell: shared-state-streaming
 ---
 
+<InlineDemo demo="shared-state-streaming" />
+
 ## What is this?
 
-By default, agent state only updates *between* LangGraph node
-transitions, so a long-running tool call (writing a full document,
-drafting an email) appears to the UI as one big burst at the end. For
-agent-native apps, that feels broken: users expect to watch the output
-materialise.
+By default, agent state only updates *between* backend checkpoints, so
+a long-running tool call (writing a full document, drafting an email)
+appears to the UI as one big burst at the end. For agent-native apps,
+that feels broken: users expect to watch the output materialise.
 
 **State streaming** forwards the value of a specific tool argument
 straight into an agent state key *as the argument is being generated*.
 The UI, subscribed via `useAgent`, re-renders every token.
-
-<InlineDemo demo="shared-state-streaming" />
 
 ## When should I use this?
 
@@ -33,22 +32,28 @@ real time. Common shapes:
 Without streaming, the user stares at a spinner. With streaming, they
 see the answer grow token-by-token.
 
-## The backend: one middleware, one StateItem
+## The backend: one streaming state mapping
 
-The canonical pattern for prebuilt agents is `StateStreamingMiddleware`.
-It takes one or more `StateItem(...)` entries, each mapping a tool
-argument to a state key. When the LLM streams that argument, CopilotKit
-writes every partial value into shared state before the tool even
-finishes executing.
+<FrameworkSetup concept="state-streaming-setup" />
 
-<Snippet region="state-streaming-middleware" title="backend/agent.py — StateStreamingMiddleware" />
+The backend pattern is always the same: map one streaming tool argument
+to one shared-state key. Middleware-backed frameworks usually expose
+this as a declarative mapping — for example, LangGraph Python's
+`StateStreamingMiddleware` with `StateItem(...)` entries, or
+`copilotkitCustomizeConfig` with an `emitIntermediateState` mapping for
+LangGraph TypeScript graphs. Direct SDK adapters do the same work in
+their streaming loop by parsing partial tool arguments and emitting
+`STATE_SNAPSHOT` whenever the mapped value changes. When the LLM streams
+that argument, CopilotKit writes every partial value into shared state
+before the tool even finishes executing.
+
+<Snippet region="state-streaming-middleware" title="backend — streaming state mapping" />
 
 A few things to note:
 
-- The `state_key` must exist on your `AgentState` schema (`document:
-  str` in this demo).
-- The `tool` and `tool_argument` name the exact LLM-facing tool and
-  argument to forward.
+- The state key must exist in your agent state (`document` in this demo).
+- The tool and argument names must match the exact LLM-facing tool call
+  you want to forward (`write_document.document` here).
 - When the tool call completes, its final return value is written to
   the same key, so the streamed partial eventually becomes the
   authoritative final value.
@@ -72,6 +77,4 @@ indicator.
 - **[Agent read-only context](/shared-state/agent-readonly)** —
   for the inverse, UI → agent one-way channel.
 
-<FeatureIntegrations feature="shared-state-streaming" />
-
-<IntegrationGrid path="shared-state/predictive-state-updates" />
+<IntegrationGrid path="shared-state/streaming" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

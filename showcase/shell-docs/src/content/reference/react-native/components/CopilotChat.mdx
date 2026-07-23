@@ -1,0 +1,241 @@
+---
+title: "CopilotChat"
+description: "Headless chat primitive that wires an agent into context, plus a prebuilt full-screen chat UI from the /components subpath."
+---
+
+## Overview
+
+`CopilotChat` connects an agent and exposes its conversation state to descendants. There are **two** versions, chosen by import path:
+
+- **Headless** (`@copilotkit/react-native`) renders no UI. It wires up [`useAgent`](/reference/react-native/hooks/useAgent), manages attachments, and exposes everything through [`useCopilotChatContext`](#usecopilotchatcontext) so you build the interface from React Native views.
+- **Prebuilt UI** (`@copilotkit/react-native/components`) is a ready-made full-screen chat with a message list, input bar, and optional header. See [Prebuilt UI](#prebuilt-ui).
+
+## Headless `CopilotChat`
+
+```tsx
+import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
+```
+
+### Props
+
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent to connect to. Resolution order: `agentId` → `agentName` →
+  `"default"`.
+</PropertyReference>
+
+<PropertyReference name="agentName" type="string">
+  **Deprecated.** Use `agentId`. Kept for backwards compatibility.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  Thread ID for this chat session. When provided, the chat resumes the
+  specified thread instead of starting a new one.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler scoped to this chat's agent. Fires in addition to the
+  provider-level `onError` (does not suppress it), receiving only errors whose
+  `context.agentId` matches this chat's agent.
+</PropertyReference>
+
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval (ms) for re-renders triggered by message changes. Overrides
+  the provider's `defaultThrottleMs`.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="NativeAttachmentsConfig">
+  Enable and configure multimodal file attachments. Children read attachment
+  state and actions from [`useCopilotChatContext`](#usecopilotchatcontext). See
+  [`useAttachments`](/reference/react-native/hooks/useAttachments).
+</PropertyReference>
+
+<PropertyReference name="children" type="ReactNode">
+  Your chat UI. Render React Native views that consume
+  [`useCopilotChatContext`](#usecopilotchatcontext).
+</PropertyReference>
+
+### `useCopilotChatContext`
+
+Call inside a `<CopilotChat>` tree to read the conversation state and actions. Throws if called outside a `<CopilotChat>`.
+
+```tsx
+function useCopilotChatContext(): CopilotChatContextValue;
+```
+
+<PropertyReference name="agent" type="AbstractAgent">
+  The resolved agent instance.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean">
+  Whether the agent is currently running.
+</PropertyReference>
+
+<PropertyReference name="messages" type="Message[]">
+  The current conversation messages.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="Attachment[]">
+  Currently selected attachments (uploading + ready).
+</PropertyReference>
+
+<PropertyReference name="attachmentsEnabled" type="boolean">
+  Whether attachments are enabled for this chat.
+</PropertyReference>
+
+<PropertyReference name="openPicker" type="() => Promise<void>">
+  Open the native document picker to add files.
+</PropertyReference>
+
+<PropertyReference name="removeAttachment" type="(id: string) => void">
+  Remove an attachment by ID.
+</PropertyReference>
+
+<PropertyReference name="submitMessage" type="(text: string) => Promise<void>">
+  Submit a message. Consumes ready attachments, builds the message content,
+  adds the user message, and runs the agent.
+</PropertyReference>
+
+### Usage
+
+```tsx
+import { CopilotChat, useCopilotChatContext } from "@copilotkit/react-native";
+import { useState } from "react";
+import { FlatList, Text, TextInput, TouchableOpacity, View } from "react-native";
+
+function ChatUI() {
+  const { messages, isRunning, submitMessage } = useCopilotChatContext();
+  const [text, setText] = useState("");
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={messages.filter((m) => m.content)}
+        keyExtractor={(m, i) => m.id ?? String(i)}
+        renderItem={({ item }) => (
+          <Text style={{ padding: 12 }}>{item.content}</Text>
+        )}
+      />
+      <View style={{ flexDirection: "row", padding: 8 }}>
+        <TextInput
+          style={{ flex: 1, borderWidth: 1, borderRadius: 8, padding: 8 }}
+          value={text}
+          onChangeText={setText}
+          placeholder="Type a message..."
+        />
+        <TouchableOpacity
+          disabled={isRunning}
+          onPress={() => {
+            submitMessage(text);
+            setText("");
+          }}
+          style={{ padding: 8 }}
+        >
+          <Text>Send</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+export function ChatScreen() {
+  return (
+    <CopilotChat agentId="default">
+      <ChatUI />
+    </CopilotChat>
+  );
+}
+```
+
+## Prebuilt UI
+
+For a ready-made interface, import `CopilotChat` from the `/components` subpath. It renders a full-screen chat with a message list, input bar, optional header, and inline tool-call rendering via the [render-tool registry](/reference/react-native/hooks/useRenderTool).
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-native/components";
+```
+
+### Props
+
+<Callout type="info">
+  The prebuilt UI components select their agent with `agentName` (not the
+  headless `agentId`). The two are equivalent; `agentName` is simply the prop
+  name the prebuilt components currently expose.
+</Callout>
+
+<PropertyReference name="agentName" type="string" default='"default"'>
+  ID of the agent to connect to.
+</PropertyReference>
+
+<PropertyReference name="placeholder" type="string">
+  Placeholder text for the input field.
+</PropertyReference>
+
+<PropertyReference name="initialMessages" type="string[]" default="[]">
+  Suggestion pills shown in the empty state.
+</PropertyReference>
+
+<PropertyReference name="emptyStateTitle" type="string">
+  Title shown when there are no messages.
+</PropertyReference>
+
+<PropertyReference name="emptyStateSubtitle" type="string">
+  Subtitle shown when there are no messages.
+</PropertyReference>
+
+<PropertyReference name="headerTitle" type="string">
+  Title for the optional header bar.
+</PropertyReference>
+
+<PropertyReference name="showHeader" type="boolean" default="true">
+  Whether to show the header bar.
+</PropertyReference>
+
+<PropertyReference name="style" type="ViewStyle">
+  Style override for the outermost container.
+</PropertyReference>
+
+<PropertyReference name="messageContainerStyle" type="ViewStyle">
+  Style override for the message list container.
+</PropertyReference>
+
+<PropertyReference name="inputContainerStyle" type="ViewStyle">
+  Style override for the input bar container.
+</PropertyReference>
+
+<PropertyReference name="onSendMessage" type="(text: string) => void">
+  Callback fired when the user sends a message.
+</PropertyReference>
+
+<PropertyReference name="FlatListComponent" type="React.ComponentType<any>" default="FlatList">
+  Custom list component, for example `BottomSheetFlatList` when nesting inside a
+  bottom sheet.
+</PropertyReference>
+
+<PropertyReference name="disableKeyboardAvoiding" type="boolean" default="false">
+  When `true`, skip the `KeyboardAvoidingView` wrapper (useful when a parent
+  already handles the keyboard).
+</PropertyReference>
+
+### Usage
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-native/components";
+
+export function ChatScreen() {
+  return (
+    <CopilotChat
+      agentName="default"
+      headerTitle="Assistant"
+      placeholder="Ask me anything..."
+      initialMessages={["What's the weather?", "Summarize my tasks"]}
+    />
+  );
+}
+```
+
+## Related
+
+- [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the runtime client directly
+- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): render React Native UI for agent tool calls
+- [`CopilotModal`](/reference/react-native/components/CopilotModal): modal variants of the chat
+- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar) · [`CopilotPopup`](/reference/react-native/components/CopilotPopup): prebuilt chrome

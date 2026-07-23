@@ -1,0 +1,19 @@
+<Steps>
+  <Step>
+    ### Install the Claude Agent SDK packages
+
+    ```bash
+    uv add claude-agent-sdk ag-ui-claude-sdk ag-ui-protocol anthropic fastapi uvicorn python-dotenv
+    ```
+  </Step>
+
+  <Step>
+    ### Bridge Claude Agent SDK to AG-UI
+
+    Use `ClaudeAgentAdapter` from `ag_ui_claude_sdk`. The adapter receives the
+    AG-UI run input, emits AG-UI events back to CopilotKit, and can expose
+    backend tools through an in-process Claude SDK MCP server.
+
+    <DemoCode file="src/agents/claude_agent_sdk_adapter.py" region="claude-agent-sdk-agent-setup" />
+  </Step>
+</Steps>

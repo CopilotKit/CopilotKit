@@ -1,8 +1,0 @@
-{
-  "slug": "langroid",
-  "name": "Langroid",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

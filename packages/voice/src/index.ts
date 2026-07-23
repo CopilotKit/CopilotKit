@@ -1,2 +1,2 @@
 // Transcription services
-export * from "./transcription/transcription-service-openai";
+export * from "./transcription/transcription-service-openai.js";

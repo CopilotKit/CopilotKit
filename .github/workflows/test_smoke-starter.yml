@@ -1,8 +1,26 @@
 name: test / smoke / starter
 
+# PR build-sanity gate (model B, §e / Phase 5) PLUS the post-merge 6h
+# floating-dependency breakage detector. The eventual live dashboard signal
+# for starter health comes from the harness HTTP-probing the deployed
+# (sleepable) Railway starter services — but those S5 Railway services do
+# NOT exist yet, so this `schedule` cron remains the ONLY post-merge
+# detector that catches a starter broken by a floating transitive dependency
+# or an upstream CopilotKit release. We KEEP the 6h cron (and the harness
+# alert path, alerts/alert-engine.ts → #oss-alerts, carries the
+# scheduled-failure Slack signal too) until S5 starter-service probing is
+# confirmed live, at which point the cron can be retired in favour of the
+# harness signal. The fast pre-merge build-sanity gate is the
+# `pull_request` trigger on examples/integrations/**: it builds + smoke-
+# tests each starter offline against aimock on every starter change. The
+# post-merge GHCR `:latest` publish that feeds the Railway services lives in
+# showcase_build.yml's build-starters job (push:main, §b stage 1), so it is
+# intentionally NOT duplicated here.
 on:
   schedule:
-    # Every 6 hours — catches floating dep breakage
+    # Every 6h — post-merge floating-dependency / upstream-release breakage
+    # detector. Stays until S5 harness probing of live Railway starter
+    # services is confirmed, then retire in favour of the harness signal.
     - cron: "0 */6 * * *"
   workflow_run:
     workflows: ["publish / release"]
@@ -21,6 +39,8 @@ jobs:
   smoke-starter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     strategy:
       matrix:
         starter:
@@ -39,10 +59,11 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
           lfs: false
+          persist-credentials: false
 
       - name: Run starter smoke tests
         working-directory: examples/integrations/${{ matrix.starter }}
@@ -61,6 +82,12 @@ jobs:
         if: failure()
         id: failure-cause
         working-directory: examples/integrations/${{ matrix.starter }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_USER_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           {
             echo "summary<<CAUSE_EOF"
@@ -86,10 +113,10 @@ jobs:
             echo ""
 
             # Identify recent changes that may have caused the failure
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "Triggered by PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.user.login }}): ${{ github.event.pull_request.title }}"
-              echo "Head: ${{ github.event.pull_request.head.sha }}"
-            elif [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "Triggered by PR #${PR_NUMBER} (${PR_USER_LOGIN}): ${PR_TITLE}"
+              echo "Head: ${PR_HEAD_SHA}"
+            elif [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_run" ]; then
               # Use GitHub API instead of git log (avoids needing deep clone)
               echo "Recent commits touching this starter (last 12h):"
               gh api "repos/${{ github.repository }}/commits?path=examples/integrations/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=5" \
@@ -112,7 +139,7 @@ jobs:
 
       - name: Upload test artifacts on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/
@@ -131,7 +158,7 @@ jobs:
       # same pattern used in test_smoke-starter-deployed.yml (PR #4068) and
       # showcase_validate.yml.
       - name: Prepare Slack alert fields
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
         env:
           SUMMARY_RAW: ${{ steps.failure-cause.outputs.summary }}
         run: |
@@ -152,10 +179,17 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Alert Slack on failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        uses: slackapi/slack-github-action@v2.1.0
+        if: failure() && env.SLACK_WEBHOOK != '' && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n" instead of a line break. Inject real newlines via
+          # `fromJSON('"\n"')` ({6}) so `toJSON` encodes them as a single `\n`
+          # that Slack honors. The code-fence delimiters sit on their own lines
+          # so the summary renders as a proper code block.
           payload: |
-            { "text": ${{ toJSON(format(':x: *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
+            { "text": ${{ toJSON(format(':x: `[ci:{2}]` *Starter smoke test failing: {0}*{6}<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>{6}```{6}{5}{6}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary, fromJSON('"\n"'))) }} }

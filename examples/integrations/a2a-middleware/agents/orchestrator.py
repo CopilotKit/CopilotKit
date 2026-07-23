@@ -6,6 +6,7 @@ Speaks AG-UI Protocol to the UI, delegates tasks to A2A agents via middleware.
 from __future__ import annotations
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import os
@@ -67,7 +68,7 @@ adk_orchestrator_agent = ADKAgent(
     app_name="orchestrator_app",
     user_id="demo_user",
     session_timeout_seconds=3600,
-    use_in_memory_services=True
+    use_in_memory_services=True,
 )
 
 app = FastAPI(title="A2A Orchestrator (ADK + AG-UI Protocol)")

@@ -1,0 +1,21 @@
+<Steps>
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+
+  </Step>
+  <Step>
+    ### Declare the predicted state mapping
+
+    ADK state streaming uses `PredictStateMapping` to map the streaming
+    `write_document` tool argument into `state["document"]`. Add
+    `AGUIToolset()` to the agent so CopilotKit can forward the state deltas to
+    the UI.
+
+    <DemoCode file="src/agents/shared_state_streaming_agent.py" region="state-streaming-middleware" />
+
+  </Step>
+</Steps>

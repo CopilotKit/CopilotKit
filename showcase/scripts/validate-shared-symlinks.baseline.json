@@ -1,0 +1,8 @@
+{
+  "_comment": "Known single-source erosions grandfathered by validate-shared-symlinks.ts. These are */shared-tools, */tools, */_shared dirs that SHOULD be symlinks into showcase/shared/... but are currently real directories. See showcase/AGENTS.md. This baseline is a SHRINK-ONLY ratchet: as symlinks are restored, remove the healed key (the validator reports stale entries). When this list reaches [], the guard becomes fully enforcing — any new real dir where a symlink belongs fails CI.",
+  "keys": [
+    "claude-sdk-typescript/shared-tools",
+    "langgraph-typescript/shared-tools",
+    "mastra/shared-tools"
+  ]
+}

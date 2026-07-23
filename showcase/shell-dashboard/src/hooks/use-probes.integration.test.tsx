@@ -3,7 +3,7 @@
  * mocks between the hook and the real client. This is the missing
  * coverage that masked the production bug where the dashboard rendered
  * "All probes idle" because the resolved URL was hitting the dashboard
- * origin (404) instead of the showcase-ops proxy path.
+ * origin (404) instead of the showcase-harness proxy path.
  *
  * Why both layers must be exercised together:
  *   - `use-probes.test.ts` mocks the entire `lib/ops-api` module, so it
@@ -24,7 +24,6 @@ import { useProbes } from "./use-probes";
 import type { ProbesResponse } from "../lib/ops-api";
 
 let fetchSpy: ReturnType<typeof vi.fn>;
-let savedOpsBaseUrl: string | undefined;
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -36,21 +35,18 @@ function jsonResponse(body: unknown): Response {
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
-  // Snapshot + clear NEXT_PUBLIC_OPS_BASE_URL so the resolveBaseUrl()
-  // fallback path is exercised. Restored in afterEach so test ordering
-  // never leaks env state to the next file.
-  savedOpsBaseUrl = process.env.NEXT_PUBLIC_OPS_BASE_URL;
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  // Clear runtime config so the resolveBaseUrl() fallback path is
+  // exercised. The runtime config is normally injected by the root
+  // layout into `window.__SHOWCASE_CONFIG__`.
+  delete (window as Window & { __SHOWCASE_CONFIG__?: unknown })
+    .__SHOWCASE_CONFIG__;
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  if (savedOpsBaseUrl !== undefined) {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = savedOpsBaseUrl;
-  } else {
-    delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
-  }
+  delete (window as Window & { __SHOWCASE_CONFIG__?: unknown })
+    .__SHOWCASE_CONFIG__;
 });
 
 describe("useProbes → ops-api → fetch wiring", () => {

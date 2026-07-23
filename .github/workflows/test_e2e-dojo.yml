@@ -7,14 +7,12 @@ on:
       - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/test_e2e-dojo.yml"
-      - ".changeset"
   pull_request:
     branches: [main]
     paths:
       - "packages/**"
       - "sdk-python/**"
       - ".github/workflows/test_e2e-dojo.yml"
-      - ".changeset"
   workflow_dispatch:
     inputs:
       branch:
@@ -32,30 +30,40 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       ts-changed: ${{ steps.changes.outputs.ts }}
       python-changed: ${{ steps.changes.outputs.python }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: changes
         with:
           filters: |
             ts:
               - 'packages/**'
               - '.github/workflows/test_e2e-dojo.yml'
-              - '.changeset'
             python:
               - 'sdk-python/**'
 
   dojo:
     needs: detect-changes
     name: ${{ matrix.suite }}
-    runs-on: depot-ubuntu-24.04
+    # 4-vCPU runner (was depot-ubuntu-24.04 = 2 vCPU) to speed the build, the
+    # dojo prep, and Playwright worker parallelism on the long-pole suites.
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -151,33 +159,51 @@ jobs:
             echo "⏭️ Skipping ${{ matrix.suite }} — no relevant changes"
           fi
 
+      - name: Detect fork PR
+        id: fork-check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO_FULL: ${{ github.repository }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" && \
+                "$PR_HEAD_REPO" != "$REPO_FULL" ]]; then
+            echo "prefix=fork-" >> "$GITHUB_OUTPUT"
+          else
+            echo "prefix=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout CPK
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           lfs: true
           path: CopilotKit
           ref: ${{ github.event.inputs.branch || github.ref }}
+          persist-credentials: false
 
       - name: Checkout AGUI
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ag-ui-protocol/ag-ui
           path: ag-ui
           ref: main
+          persist-credentials: false
 
       - name: Set up Node.js
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
       - name: Install pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
         if: steps.should-run.outputs.skip != 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
         with:
-          version: 10.13.1
+          package_json_file: CopilotKit/package.json
 
       # Now that pnpm is available, cache its store to speed installs
       - name: Resolve pnpm store path
@@ -187,31 +213,31 @@ jobs:
 
       - name: Cache pnpm store
         if: steps.should-run.outputs.skip != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-pnpm-store-
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pnpm-store-
 
       # Cache Python tool caches and virtualenvs; restore only to avoid long saves
       - name: Cache Python dependencies (restore-only)
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
         id: cache-python
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cache/pip
             ~/.cache/pypoetry
             ~/.cache/uv
             **/.venv
-          key: ${{ runner.os }}-pydeps-${{ hashFiles('**/poetry.lock', '**/pyproject.toml') }}
+          key: ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pydeps-${{ hashFiles('**/poetry.lock', '**/pyproject.toml') }}
           restore-keys: |
-            ${{ runner.os }}-pydeps-
+            ${{ steps.fork-check.outputs.prefix }}${{ runner.os }}-pydeps-
 
       - name: Install Poetry
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
         with:
           version: latest
           virtualenvs-create: true
@@ -219,7 +245,7 @@ jobs:
 
       - name: Install uv
         if: steps.should-run.outputs.skip != 'true' && matrix.needs_python
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
 
       - name: Install cpk dependencies
         if: steps.should-run.outputs.skip != 'true'
@@ -239,7 +265,8 @@ jobs:
         working-directory: CopilotKit
         env:
           NODE_OPTIONS: --max-old-space-size=8192
-          NX_PARALLEL: 2
+          # Match the 4-vCPU runner so the monorepo build uses the extra cores.
+          NX_PARALLEL: 4
         run: pnpm build
 
       - name: Install ag-ui dependencies
@@ -278,7 +305,7 @@ jobs:
           echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
       - name: Run dojo+agents
-        uses: JarvusInnovations/background-action@v1
+        uses: JarvusInnovations/background-action@2428e7b970a846423095c79d43f759abf979a635 # v1
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -304,7 +331,7 @@ jobs:
 
       - name: Upload traces – ${{ matrix.suite }}
         if: always() && steps.should-run.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ matrix.suite }}-playwright-traces
           path: |

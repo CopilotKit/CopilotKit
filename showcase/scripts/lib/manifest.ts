@@ -84,7 +84,7 @@ export interface ManifestDemo {
 /**
  * Union of the fields used by audit.ts / validate-parity.ts / capture-previews.ts.
  *
- * `slug` is REQUIRED: every manifest in showcase/packages/ carries a
+ * `slug` is REQUIRED: every manifest in showcase/integrations/ carries a
  * slug, and none of the three consumers ever constructs or accepts a
  * Manifest without one. Marking it required here lets downstream code
  * drop `manifest.slug ?? "(unknown)"` fallbacks without TypeScript

@@ -1,0 +1,163 @@
+---
+title: "Daytona"
+description: "Give CopilotKit's Built-in Agent a tool that executes code in an isolated Daytona sandbox, then return the output to the chat."
+icon: "custom/daytona"
+showIcon: true
+doc_type: how-to
+---
+
+[Daytona](https://www.daytona.io) gives AI agents isolated cloud **sandboxes** — full Linux runtimes with
+their own filesystem, network, and CPU/RAM. This recipe adds a server tool to CopilotKit's
+[Built-in Agent](/) that runs code inside one of those sandboxes and returns the result to
+the chat, so the agent can execute code it writes without touching your host.
+
+This guide assumes you already have a running Built-in Agent app. If you don't, follow the
+[Quickstart](/quickstart) first — it takes a few minutes.
+
+## Try it live
+
+{/* Placeholder URL — update to the permanent demo deployment once it exists. */}
+
+<iframe
+  src="https://showcase-daytona-runcode-production.up.railway.app"
+  title="Daytona runCode live demo"
+  className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
+/>
+
+## Prerequisites
+
+- A running Built-in Agent app (see the [Quickstart](/quickstart)).
+- A Daytona account and API key — create one in the [Daytona dashboard](https://app.daytona.io/dashboard/keys).
+
+Add the key to your `.env`:
+
+```plaintext title=".env"
+DAYTONA_API_KEY=your_daytona_api_key
+```
+
+## Install the Daytona SDK
+
+```npm
+npm install @daytonaio/sdk
+```
+
+## Define the sandbox tool
+
+Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAgent`. The
+tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up — so every call is
+isolated.
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2"; // [!code highlight]
+import { Daytona } from "@daytonaio/sdk"; // [!code highlight]
+import { NextRequest } from "next/server";
+import { z } from "zod";
+
+const daytona = new Daytona(); // reads DAYTONA_API_KEY
+
+const runCode = defineTool({ // [!code highlight:20]
+  name: "runCode",
+  description: "Execute code in an isolated Daytona sandbox and return its output.",
+  parameters: z.object({
+    code: z.string().describe("The code to run in the sandbox"),
+    language: z
+      .enum(["python", "typescript", "javascript"])
+      .default("python")
+      .describe("Language runtime for the code"),
+  }),
+  execute: async ({ code, language }) => {
+    const sandbox = await daytona.create({ language });
+    try {
+      const res = await sandbox.process.codeRun(code);
+      return { stdout: res.result, exitCode: res.exitCode };
+    } finally {
+      await sandbox.delete();
+    }
+  },
+});
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+  tools: [runCode], // [!code highlight]
+  maxSteps: 2, // required so the agent can call the tool and then respond // [!code highlight]
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: builtInAgent },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+<Callout type="info" title="Sandbox networking on the free tier">
+  Daytona Tier 1 & 2 organizations run sandboxes with restricted networking, but package registries
+  (npm, PyPI) and major AI APIs (Anthropic, OpenAI, Google) are whitelisted — so this recipe works on the
+  free tier. Code that needs to reach arbitrary external URLs requires Tier 3+. See
+  [Daytona's limits](https://app.daytona.io/dashboard/limits).
+</Callout>
+
+## Try it
+
+Start your app and ask the agent to run something. The tool runs Python by default, and the agent can
+pass `language` to run TypeScript or JavaScript instead:
+
+```text
+Run a Python snippet that prints the first 10 Fibonacci numbers.
+```
+
+```text
+Run JavaScript that logs the current timestamp.
+```
+
+The agent writes the code, calls `runCode`, and reports back the sandbox's output.
+
+## Going further
+
+- **Reuse a sandbox** to avoid per-call startup cost: create one lazily and cache it instead of deleting it
+  each call. Pause it with `sandbox.stop()` when idle.
+- **Run a server and preview it** — expose a port with `sandbox.getPreviewLink(port)` to hand back a live
+  URL for an app the agent builds.
+- **Custom environments** — preinstall packages with a snapshot so sandboxes start ready to go.
+- **Any other language** — `codeRun` covers Python, TypeScript, and JavaScript. For anything else (Go,
+  Rust, a shell pipeline), use `sandbox.process.executeCommand(...)` instead, optionally on a custom image
+  with the toolchain installed.
+
+See the [Daytona docs](https://www.daytona.io/docs) for the full SDK.
+
+## Get started with a coding agent
+
+Paste this prompt into your coding agent (Cursor, Claude Code, etc.) to add the integration to an existing
+Built-in Agent app:
+
+```text
+In my existing CopilotKit Built-in Agent app, add a Daytona-backed code execution tool:
+
+1. Install the Daytona SDK: `npm install @daytonaio/sdk`.
+2. Add DAYTONA_API_KEY to my .env (I'll supply the value).
+3. In my CopilotKit runtime route, create a Daytona client with `new Daytona()` and define a
+   server tool with `defineTool` from "@copilotkit/runtime/v2":
+   - name: "runCode"
+   - description: "Execute code in an isolated Daytona sandbox and return its output."
+   - parameters: a Zod object with a `code` string field and a `language` enum
+     ("python" | "typescript" | "javascript", default "python").
+   - execute: create a sandbox with `daytona.create({ language })`, run the code with
+     `const res = await sandbox.process.codeRun(code)` — note that `codeRun` returns an
+     `ExecuteResponse` where stdout lives on `res.result` (not `res.stdout`), so return
+     `{ stdout: res.result, exitCode: res.exitCode }`. Call `sandbox.delete()` in a finally
+     block so the sandbox is cleaned up even on error.
+4. Register the tool on my BuiltInAgent (`tools: [runCode]`) and set `maxSteps: 2` so it can call the
+   tool and then respond.
+
+Keep my existing model and runtime setup unchanged.
+```

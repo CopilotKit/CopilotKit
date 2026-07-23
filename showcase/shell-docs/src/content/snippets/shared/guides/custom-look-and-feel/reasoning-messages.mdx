@@ -63,7 +63,7 @@ receives these props:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 function CustomHeader({
   isOpen,
@@ -149,9 +149,9 @@ slot props. Your component receives the same top-level props as the built-in one
 | `isRunning` | `boolean`          | Whether the agent is currently running                   |
 
 ```tsx
-import { type CopilotChatReasoningMessageProps } from "@copilotkit/react-ui";
+import { type CopilotChatReasoningMessageProps } from "@copilotkit/react-core/v2";
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 function MyReasoningMessage({
   message,
@@ -190,9 +190,9 @@ pattern for cases where you want to rearrange the built-in sub-components
 without reimplementing them:
 
 ```tsx
-import { CopilotChatReasoningMessage } from "@copilotkit/react-ui";
+import { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import { CopilotChat } from "@copilotkit/react-core/v2";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 function MyReasoningLayout(
   props: React.ComponentProps<typeof CopilotChatReasoningMessage>,

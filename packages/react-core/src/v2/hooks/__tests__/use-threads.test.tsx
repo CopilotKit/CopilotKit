@@ -1,16 +1,46 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useCopilotKit } from "../../providers/CopilotKitProvider";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { useCopilotKit } from "../../context";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ɵMAX_SOCKET_RETRIES,
+} from "@copilotkit/core";
 
-vi.mock("../../providers/CopilotKitProvider", () => ({
+vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
+
+// Shape of the mock socket exposed via the hoisted `phoenix.sockets`
+// array. Defined as a named type so test-side assertions can drop the
+// blanket `any[]` cast and surface socket-API typos at compile time.
+interface MockChannelLike {
+  topic: string;
+  params: Record<string, unknown>;
+  left: boolean;
+  serverPush(event: string, payload: unknown): void;
+}
+interface MockSocketLike {
+  url: string;
+  connected: boolean;
+  disconnected: boolean;
+  channels: MockChannelLike[];
+  triggerError(error?: unknown): void;
+  triggerOpen(): void;
+}
+
 const phoenix = vi.hoisted(() => ({
-  sockets: [] as any[],
+  sockets: [] as MockSocketLike[],
 }));
 
 vi.mock("phoenix", () => {
@@ -31,13 +61,11 @@ vi.mock("phoenix", () => {
     topic: string;
     params: Record<string, unknown>;
     left = false;
-    channels: MockChannel[] = [];
 
     private handlers = new Map<
       string,
       Array<{ ref: number; callback: (payload: unknown) => void }>
     >();
-    private joinPush = new MockPush();
     private nextRef = 1;
 
     constructor(topic = "", params: Record<string, unknown> = {}) {
@@ -63,14 +91,24 @@ vi.mock("phoenix", () => {
         return;
       }
 
+      // Re-check after the early returns above: `off(event)` deletes the
+      // entry, so a subsequent `off(event, ref)` would otherwise hit a
+      // non-null assertion that lies and `.filter` on undefined.
+      const entries = this.handlers.get(event);
+      if (entries === undefined) {
+        return;
+      }
       this.handlers.set(
         event,
-        this.handlers.get(event)!.filter((entry) => entry.ref !== ref),
+        entries.filter((entry) => entry.ref !== ref),
       );
     }
 
     join(): MockPush {
-      return this.joinPush;
+      // Each rejoin must produce a distinct push instance — sharing
+      // one across joins lets stale "ok"/"error" callbacks from a
+      // prior join fire against a new join's listeners.
+      return new MockPush();
     }
 
     leave(): void {
@@ -101,10 +139,22 @@ vi.mock("phoenix", () => {
     }
 
     connect(): void {
+      // Phoenix sockets fire `onOpen` exactly once per WebSocket upgrade,
+      // and the upgrade is asynchronous. Tests must drive that transition
+      // explicitly via `triggerOpen()` so we exercise one open per
+      // connection — auto-firing here would either double-fire (when a
+      // test also calls `triggerOpen()`) or hide cases where production
+      // code forgets to await the open before joining a channel.
       this.connected = true;
     }
 
     disconnect(): void {
+      // Real Phoenix sockets flip `connected` back to false on disconnect —
+      // a mock that only sets `disconnected = true` lets a regression that
+      // forgets to clear `connected` slip through, since assertions like
+      // `socket.connected === false` would be vacuously satisfied by the
+      // initial value but never re-checked after a reconnect cycle.
+      this.connected = false;
       this.disconnected = true;
     }
 
@@ -139,11 +189,21 @@ vi.mock("phoenix", () => {
 });
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+// Use `vi.stubGlobal` so the original `fetch` is restored automatically
+// by `vi.unstubAllGlobals()` below — direct `globalThis.fetch = ...`
+// assignment leaks the mock across test files in the same vitest worker.
+vi.stubGlobal("fetch", fetchMock);
 
-function getMockSockets(): any[] {
+function getMockSockets(): MockSocketLike[] {
   return phoenix.sockets;
 }
+
+const supportedThreadEndpoints = {
+  list: true,
+  inspect: true,
+  mutations: true,
+  realtimeMetadata: true,
+};
 
 function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
   mockUseCopilotKit.mockReturnValue({
@@ -151,9 +211,12 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
       runtimeUrl,
       runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       headers: { Authorization: "Bearer test-token" },
+      threadEndpoints: supportedThreadEndpoints,
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
       },
+      registerThreadStore: vi.fn(),
+      unregisterThreadStore: vi.fn(),
     },
   });
 }
@@ -192,13 +255,28 @@ const sampleThreads = [
   },
 ];
 
-const { useThreads } = await import("../use-threads");
+let useThreads: typeof import("../use-threads").useThreads;
+
+beforeAll(async () => {
+  ({ useThreads } = await import("../use-threads"));
+});
 
 describe("useThreads", () => {
   beforeEach(() => {
     phoenix.sockets.splice(0);
     fetchMock.mockReset();
+    // Reset before re-priming. setupCopilotKit() uses mockReturnValue, so a
+    // future test that uses mockReturnValueOnce would otherwise leak any
+    // un-consumed queued returns into the next test.
+    mockUseCopilotKit.mockReset();
     setupCopilotKit();
+  });
+
+  afterAll(() => {
+    // Pair with `vi.stubGlobal("fetch", fetchMock)` above. Without this
+    // restoration the mock leaks into any sibling test file that runs in
+    // the same vitest worker and assumes a real `fetch`.
+    vi.unstubAllGlobals();
   });
 
   it("fetches threads and subscribes to the user metadata channel", async () => {
@@ -257,6 +335,156 @@ describe("useThreads", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.error?.message).toBe("Runtime URL is not configured");
+    // The runtime/config error must NOT leak into the end-user list-error
+    // channel — only genuine list-load failures surface there.
+    expect(result.current.listError).toBeNull();
+  });
+
+  it("startNewThread clears the runtime-config error banner", async () => {
+    setupCopilotKit("");
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.error?.message).toBe(
+        "Runtime URL is not configured",
+      );
+    });
+
+    act(() => {
+      result.current.startNewThread();
+    });
+
+    // "New thread" presents a clean welcome surface: the config error is
+    // dismissed even though it outranks the store's own (cleared) error.
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  it("does not register the thread store when disabled (avoids evicting a live store for the same agent)", () => {
+    const registerThreadStore = vi.fn();
+    const unregisterThreadStore = vi.fn();
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: {},
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore,
+        unregisterThreadStore,
+      },
+    });
+
+    renderHook(() => useThreads({ ...defaultInput, enabled: false }));
+
+    expect(registerThreadStore).not.toHaveBeenCalled();
+  });
+
+  it("does not fetch when the runtime does not advertise thread endpoints", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: {
+          list: false,
+          inspect: false,
+          mutations: false,
+          realtimeMetadata: false,
+        },
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.error?.message).toBe(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
+  });
+
+  it("uses legacy thread behavior when connected runtime omits thread endpoint info", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: undefined,
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/threads?agentId=agent-1"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "t-2",
+      "t-1",
+    ]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: {
+          list: true,
+          inspect: true,
+          mutations: false,
+          realtimeMetadata: false,
+        },
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    fetchMock.mockClear();
+
+    await expect(result.current.renameThread("t-1", "Renamed")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    await expect(result.current.archiveThread("t-1")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    await expect(result.current.deleteThread("t-1")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("updates local state directly from realtime metadata events", async () => {
@@ -323,6 +551,9 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.threads).toHaveLength(1);
     });
+    // Identity-check the remaining thread so a regression that removes
+    // the wrong thread (e.g. a swapped index) is caught.
+    expect(result.current.threads[0].id).toBe("t-1");
   });
 
   it("renames a thread through the runtime contract", async () => {
@@ -343,10 +574,18 @@ describe("useThreads", () => {
       await result.current.renameThread("t-1", "Renamed");
     });
 
-    const [url, options] = fetchMock.mock.calls[2];
-    expect(url).toContain("/threads/t-1");
-    expect(options.method).toBe("PATCH");
-    expect(JSON.parse(options.body)).toMatchObject({
+    // Find the PATCH call by URL+method rather than a hardcoded index —
+    // a future change to the fetch order (or an extra startup fetch) must
+    // not silently miss the actual rename request.
+    const renameCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-1") &&
+        (args[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(renameCall).toBeDefined();
+    const [, renameOptions] = renameCall!;
+    expect(JSON.parse((renameOptions as { body: string }).body)).toMatchObject({
       agentId: "agent-1",
       name: "Renamed",
     });
@@ -372,17 +611,61 @@ describe("useThreads", () => {
       await result.current.deleteThread("t-1");
     });
 
-    expect(fetchMock.mock.calls[2][0]).toContain("/threads/t-2/archive");
-    expect(fetchMock.mock.calls[2][1].method).toBe("POST");
-    expect(JSON.parse(fetchMock.mock.calls[2][1].body)).toMatchObject({
-      agentId: "agent-1",
+    // Filter by URL+method rather than fixed indices (mirrors the rename
+    // test above). A future change to the startup fetch order — adding an
+    // /info call, splitting the join token, etc. — must not silently miss
+    // the actual archive/delete requests.
+    const archiveCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-2/archive") &&
+        (args[1] as { method?: string } | undefined)?.method === "POST",
+    );
+    expect(archiveCall).toBeDefined();
+    expect(
+      JSON.parse((archiveCall![1] as { body: string }).body),
+    ).toMatchObject({ agentId: "agent-1" });
+
+    const deleteCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-1") &&
+        (args[1] as { method?: string } | undefined)?.method === "DELETE",
+    );
+    expect(deleteCall).toBeDefined();
+    expect(JSON.parse((deleteCall![1] as { body: string }).body)).toMatchObject(
+      { agentId: "agent-1" },
+    );
+  });
+
+  it("unarchives a thread through the runtime contract", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+      .mockReturnValueOnce(jsonResponse({}));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
     });
 
-    expect(fetchMock.mock.calls[3][0]).toContain("/threads/t-1");
-    expect(fetchMock.mock.calls[3][1].method).toBe("DELETE");
-    expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toMatchObject({
-      agentId: "agent-1",
+    await act(async () => {
+      await result.current.unarchiveThread("t-2");
     });
+
+    const unarchiveCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-2") &&
+        (args[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(unarchiveCall).toBeDefined();
+    expect(
+      JSON.parse((unarchiveCall![1] as { body: string }).body),
+    ).toMatchObject({ agentId: "agent-1", archived: false });
   });
 
   it("exposes thread-scoped pagination properties", async () => {
@@ -412,6 +695,63 @@ describe("useThreads", () => {
     expect(result.current.hasMoreThreads).toBe(true);
     expect(result.current.isFetchingMoreThreads).toBe(false);
     expect(typeof result.current.fetchMoreThreads).toBe("function");
+  });
+
+  it("fetchMoreThreads fetches the next page with the cursor and appends threads", async () => {
+    const nextPageThreads = [
+      {
+        id: "t-3",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Thread Three",
+        archived: false,
+        createdAt: "2026-01-03T00:00:00Z",
+        updatedAt: "2026-01-03T00:00:00Z",
+      },
+    ];
+
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: nextPageThreads, joinCode: "jc-1" }),
+      );
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.threads).toHaveLength(2);
+    expect(result.current.hasMoreThreads).toBe(true);
+
+    act(() => {
+      result.current.fetchMoreThreads();
+    });
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(3);
+    });
+
+    const nextPageCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("cursor=cursor-abc"),
+    );
+    expect(nextPageCall).toBeDefined();
+    expect(nextPageCall![0]).toContain("agentId=agent-1");
+    expect(result.current.threads.map((t: { id: string }) => t.id)).toContain(
+      "t-3",
+    );
+    expect(result.current.threads).toHaveLength(3);
   });
 
   it("does not expose organizationId or createdById on threads", async () => {
@@ -455,10 +795,20 @@ describe("useThreads", () => {
     const socket = getMockSockets()[0];
     const channel = socket.channels[0];
 
+    // Threshold is sourced from production (ɵMAX_SOCKET_RETRIES) so a
+    // future change to the retry budget cannot silently desync the test.
+    // We fire all errors inside a single act to keep the rxjs cleanup
+    // synchronous with the assertions, then check the pre-threshold and
+    // post-threshold states by inspecting the socket between iterations.
     act(() => {
-      for (let index = 0; index < 5; index += 1) {
+      for (let index = 0; index < ɵMAX_SOCKET_RETRIES - 1; index += 1) {
         socket.triggerError();
       }
+      // Pre-threshold: teardown must NOT be premature.
+      expect(channel.left).toBe(false);
+      expect(socket.disconnected).toBe(false);
+      // The Nth error crosses the threshold and triggers teardown.
+      socket.triggerError();
     });
 
     expect(channel.left).toBe(true);
@@ -487,6 +837,48 @@ describe("useThreads", () => {
     expect(socket.disconnected).toBe(true);
   });
 
+  it("registers thread store on mount and unregisters on unmount", async () => {
+    const registerThreadStore = vi.fn();
+    const unregisterThreadStore = vi.fn();
+    // Use mockReturnValue (not mockReturnValueOnce) so the same spies are
+    // returned across all renders, including the cleanup render where
+    // unmount triggers the effect's cleanup function.
+    // runtimeConnectionStatus is set explicitly to Connected — the hook
+    // treats anything other than Connected as "do not dispatch context",
+    // and we want this test to exercise a fully-wired flow.
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore,
+        unregisterThreadStore,
+      },
+    });
+
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { unmount } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(registerThreadStore).toHaveBeenCalledWith(
+        "agent-1",
+        expect.objectContaining({ select: expect.any(Function) }),
+      );
+    });
+
+    unmount();
+
+    expect(unregisterThreadStore).toHaveBeenCalledWith("agent-1");
+  });
+
   it("waits for runtimeConnectionStatus=Connected before fetching /threads", async () => {
     // Start in Connecting — hook should hold off on dispatching any request
     // so the initial list fetch includes wsUrl and avoids a redundant second
@@ -497,7 +889,10 @@ describe("useThreads", () => {
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connecting,
         headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
       },
     });
 
@@ -509,8 +904,15 @@ describe("useThreads", () => {
 
     const { result, rerender } = renderHook(() => useThreads(defaultInput));
 
-    // Give effects a tick to settle; no fetch should occur while Connecting.
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    // Flush React effects + microtasks deterministically. A bare
+    // setTimeout(20) raced the store-effect under load on slow machines.
+    // Chained microtask flushes inside `act` give every queued effect a
+    // chance to run without depending on real-time delay.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(fetchMock).not.toHaveBeenCalled();
 
     // While waiting for Connected, the hook must surface isLoading=true so
@@ -528,7 +930,10 @@ describe("useThreads", () => {
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
       },
     });
 

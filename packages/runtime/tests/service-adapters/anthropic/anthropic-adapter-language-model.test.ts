@@ -7,7 +7,8 @@ import Anthropic from "@anthropic-ai/sdk";
 type ForwardedAnthropicKeys = "baseURL" | "apiKey" | "headers" | "fetch";
 
 // We don't set `name` or `generateId` — they're provider-internal concerns.
-type ControlledAnthropicKeys = "name" | "generateId";
+// `authToken` is an alternative auth mechanism the adapter does not forward.
+type ControlledAnthropicKeys = "name" | "generateId" | "authToken";
 
 // Compile-time exhaustiveness check: every key in AnthropicProviderSettings
 // must be accounted for. If this line errors, a new key was added.

@@ -1,83 +1,335 @@
+# release / publish
+#
+# Single npm OIDC entry point for both stable releases and prerelease canaries.
+# npm trusted publisher records for the monorepo packages plus independently
+# scoped @copilotkit packages are registered against THIS workflow file.
+# Matching happens on the OIDC token's `workflow_ref` claim, which is always
+# publish-release.yml when this workflow is the entry point.
+#
+# Triggers:
+#   - pull_request: closed on a release/publish/<scope>/v<X.Y.Z> branch → stable
+#     release of <scope> at version <X.Y.Z> (the normal flow).
+#   - workflow_dispatch with mode=stable → manual retrigger of a failed stable
+#     release. Republishes from the latest commit on main. Only use this when
+#     the normal flow failed BEFORE npm publish succeeded.
+#   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
+#     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
+#     skips tag push + GH Release + Notion notification.
 name: release / publish
+
+# This workflow handles two independent release lanes:
+#
+# 1. npm (TypeScript) — fires on merged release/publish/* PRs or manual dispatch.
+#    Build → publish via nx release + OIDC trusted publishers.
+#
+# 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
+#    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
+#    Ported from ag-ui's publish-release.yml Python lane.
 
 on:
   pull_request:
     types: [closed]
     branches: [main]
-
-concurrency:
-  group: publish-release
-  cancel-in-progress: false
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "What to release"
+        required: true
+        type: choice
+        options:
+          - monorepo
+          - angular
+          - channels
+      mode:
+        description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
+        required: false
+        default: stable
+        type: choice
+        options:
+          - stable
+          - prerelease
+      suffix:
+        description: "Canary suffix (only used when mode=prerelease). Falls back to timestamp if empty. Allowed: [a-zA-Z0-9._-]+"
+        required: false
+        type: string
+        default: ""
+      dry-run:
+        description: "Dry run (skip publish step)"
+        required: false
+        default: false
+        type: boolean
+      python_publish:
+        description: "Run the Python publish lane regardless of which files changed. Still no-ops if sdk-python's version already matches PyPI."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  # Scope the lock to the package being released so a `monorepo` publish and an
+  # `angular` publish run in independent lanes instead of queuing behind each
+  # other. On the manual path `inputs.scope` carries the target; on the merged
+  # release-PR path inputs are empty, but the PR branch is
+  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
+  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
+  # which is what protects the tag push / npm publish.
+  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
+  cancel-in-progress: false
 
 env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  publish:
-    # Only run when a release PR is merged (not just closed)
+  build:
+    # Run on a merged release PR (normal flow), a stable manual dispatch from
+    # main (retry escape hatch), or a prerelease manual dispatch from any
+    # selected branch. Canary publishes are intentionally branch-scoped so
+    # maintainers can push a button on feature work without merging first.
     if: >
-      github.event.pull_request.merged == true &&
-      startsWith(github.event.pull_request.head.ref, 'release/publish/')
+      (github.event_name == 'workflow_dispatch' &&
+        (inputs.mode == 'prerelease' || github.ref == 'refs/heads/main')) ||
+      (github.event.pull_request.merged == true &&
+        startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
-      - name: Extract scope from branch
+      - name: Determine scope and mode
         id: meta
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_MODE: ${{ inputs.mode }}
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          # Branch format: release/publish/<scope>/v<version>
-          SCOPE=$(echo "$BRANCH" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
-          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
-          echo "Detected scope: $SCOPE"
+          set -euo pipefail
+          if [ -n "$INPUT_SCOPE" ]; then
+            SCOPE="$INPUT_SCOPE"
+          else
+            # Branch format: release/publish/<scope>/v<version>
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
+          fi
+          MODE="${INPUT_MODE:-stable}"
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
+          echo "Detected scope: $SCOPE, mode: $MODE"
 
+      # No token/credential persistence: the publish job sets up its own
+      # `git config insteadOf` with secrets.GITHUB_TOKEN before pushing tags,
+      # so this checkout doesn't need write access. Critically, the
+      # subsequent `Upload workspace` step packs the entire checkout
+      # (including .git/config) into an artifact — persisting credentials
+      # here would leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20.x
-          registry-url: https://registry.npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Configure npm auth
-        run: |
-          npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          node-version: 22.x
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      # Validate user-supplied suffix against npm-safe charset before passing
+      # to bump-prerelease.ts. Empty suffix → omit the --suffix flag entirely
+      # so the script applies its timestamp fallback (passing an empty string
+      # would produce a version like "X.Y.Z-canary." with a trailing dot).
+      - name: Bump prerelease versions
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
+        env:
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_SUFFIX" ]; then
+            if ! [[ "$INPUT_SUFFIX" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+              echo "::error::Invalid suffix '$INPUT_SUFFIX'. Allowed: [a-zA-Z0-9._-]+"
+              exit 1
+            fi
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE" --suffix "$INPUT_SUFFIX"
+          else
+            pnpm tsx scripts/release/bump-prerelease.ts --scope "$INPUT_SCOPE"
+          fi
+
+      - name: Build packages
+        run: pnpm run build
+
+      # Strip caches and pack the workspace into a single tarball before
+      # upload. upload-artifact's path filters are post-walk: it still
+      # descends into every node_modules and stats every file (~6.4M for
+      # this monorepo with pnpm's .pnpm/ symlink farm) before applying
+      # negations, which is the actual bottleneck. Removing the dirs and
+      # uploading one file collapses that to a single fast step.
+      - name: Pack workspace
+        run: |
+          find . -type d \( -name node_modules -o -name .nx -o -name .turbo -o -name .next \) -prune -exec rm -rf {} +
+          tar -czf /tmp/workspace.tgz .
+
+      - name: Upload workspace
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: workspace
+          path: /tmp/workspace.tgz
+          retention-days: 1
+
+    outputs:
+      scope: ${{ steps.meta.outputs.scope }}
+      mode: ${{ steps.meta.outputs.mode }}
+
+  publish:
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # npm trusted publishing is bound to this environment. Its deployment
+    # branch policy must allow prerelease workflow_dispatch refs; stable
+    # releases remain main-only via the build job guard.
+    environment: npm
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Determine scope and mode
+        id: meta
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+          INPUT_MODE: ${{ inputs.mode }}
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_SCOPE" ]; then
+            SCOPE="$INPUT_SCOPE"
+          else
+            # Branch format: release/publish/<scope>/v<version>
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
+          fi
+          if [ -z "$SCOPE" ]; then
+            echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
+            exit 1
+          fi
+          MODE="${INPUT_MODE:-stable}"
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
+
+      - name: Download workspace
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: workspace
+
+      - name: Unpack workspace
+        run: |
+          tar -xzf workspace.tgz
+          rm workspace.tgz
+
+      - name: Configure git credentials
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+          registry-url: https://registry.npmjs.org
+
+      # Restore node_modules — the build job excludes them from the
+      # uploaded workspace artifact (see "Upload workspace" above). Uses
+      # pnpm-lock.yaml from the artifact, so this is a deterministic
+      # restore of exactly what the build job ran with.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Dry-run notice
+        if: ${{ inputs.dry-run == true }}
+        run: |
+          {
+            echo "## Dry Run"
+            echo ""
+            echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The family must exist on npm before the umbrella is allowed to ship:
+      # the registry verifier installs the packed umbrella against those exact
+      # published dependencies. Publish the foundation and adapters first, then
+      # verify, then let the final publish step release the umbrella.
+      - name: Publish Channels dependencies to npm
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NODE_AUTH_TOKEN: ""
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase dependencies
+
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
+
       - name: Publish to npm
         id: publish
-        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ steps.meta.outputs.scope }}
+        if: ${{ inputs.dry-run != true }}
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NODE_AUTH_TOKEN: ""
+          NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
+          PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_SCRIPT" = "prerelease.ts" ]; then
+            pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+          elif [ "$SCOPE" = "channels" ]; then
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase umbrella
+          else
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
+          fi
+
+      - name: Verify publish step emitted version
+        if: ${{ success() && inputs.dry-run != true }}
+        env:
+          MODE: ${{ steps.meta.outputs.mode }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VERSION" ]; then
+            if [ "$MODE" = "prerelease" ]; then
+              echo "::error::prerelease.ts did not emit 'version' output to GITHUB_OUTPUT. The Prerelease summary would render a blank Version field; aborting."
+            else
+              echo "::error::publish-release.ts did not emit 'version' output to GITHUB_OUTPUT. Tag/release creation would produce malformed artifacts; aborting."
+            fi
+            exit 1
+          fi
+          echo "VERSION=$VERSION confirmed (mode=$MODE)"
 
       - name: Configure git user
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
       - name: Check for pre-existing tags
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -89,9 +341,11 @@ jobs:
           fi
 
       - name: Create and push git tag
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
         run: |
-          SCOPE="${{ steps.meta.outputs.scope }}"
-          VERSION="${{ steps.publish.outputs.version }}"
           if [ "$SCOPE" == "monorepo" ]; then
             TAG="v${VERSION}"
           else
@@ -99,11 +353,12 @@ jobs:
           fi
           git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
       - name: Create GitHub Release
-        uses: actions/github-script@v7
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
           RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
@@ -142,10 +397,502 @@ jobs:
               });
             }
 
-      - name: Release summary
+      - name: Release summary (stable)
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         run: |
-          echo "## Release Published" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Scope:** ${{ steps.meta.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Release Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** ${{ steps.tag.outputs.tag }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Prerelease summary
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode == 'prerelease' }}
+        run: |
+          {
+            echo "## Prerelease Published"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            echo "**Tag:** (prerelease — no tag created)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dry-run summary
+        if: ${{ success() && inputs.dry-run == true }}
+        run: |
+          {
+            echo "## Dry Run Completed"
+            echo ""
+            echo "**Scope:** ${{ steps.meta.outputs.scope }}"
+            echo "**Mode:** ${{ steps.meta.outputs.mode }}"
+            echo "- Publish step was skipped; no npm publish, no git tag, no GitHub Release."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+    # Populated only on a stable, non-dry-run success (the publish/tag steps are
+    # gated on mode != prerelease && dry-run != true). On prerelease, dry-run, or
+    # failure these are empty — the notify job gates on that emptiness.
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
+
+  # ===========================================================================
+  # Python SDK publish lane
+  #
+  # Fires independently of the npm lane. Detects whether sdk-python/pyproject.toml
+  # has a version newer than what's on PyPI, builds with poetry, publishes with uv.
+  #
+  # SECURITY: Same build/publish separation as the npm lane — PYPI_API_TOKEN is
+  # only available in the publish-python job, never where poetry install runs.
+  # ===========================================================================
+
+  build-python:
+    # Fires when:
+    # 1. A PR merging to main touched sdk-python/pyproject.toml (version bump), OR
+    # 2. Manual dispatch with python_publish=true
+    if: >
+      (github.event_name == 'workflow_dispatch' && inputs.python_publish == true) ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      should_publish: ${{ steps.detect.outputs.should_publish }}
+      version: ${{ steps.detect.outputs.version }}
+      name: ${{ steps.detect.outputs.name }}
+      # Earliest Python-release intent signal: emitted by the `changed` step
+      # BEFORE any failure-prone step (setup-python, detect, build). The notify
+      # job gates the PyPI FAILURE alert on this (not should_publish, which is
+      # emitted only at the END of detect) so a build-python failure at/before
+      # detect on a genuine release still pages instead of being silently
+      # swallowed.
+      pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+          persist-credentials: false
+
+      # For PRs, skip early if this PR didn't touch pyproject.toml. Manual
+      # dispatch always continues (the user explicitly asked for it).
+      - name: Check if pyproject.toml changed in this PR
+        if: github.event_name == 'pull_request'
+        id: changed
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PR_BASE_SHA" ]; then
+            echo "::error::PR_BASE_SHA is empty — cannot determine PR base for diff. Refusing to silently skip Python publish."
+            exit 1
+          fi
+          if [ -z "$PR_HEAD_SHA" ]; then
+            echo "::error::PR_HEAD_SHA (merge_commit_sha) is empty — GitHub may not have computed the merge commit yet. Refusing to silently skip Python publish; rerun the workflow."
+            exit 1
+          fi
+          # Capture diff FIRST so a git failure trips set -e and fails loudly,
+          # rather than producing an empty pipe that grep silently routes to
+          # "not changed" — that path masked real version bumps before.
+          CHANGED="$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")"
+          # grep -q exits 1 on legitimate no-match; guard with `if` so set -e
+          # doesn't kill the step on that expected case.
+          if printf '%s\n' "$CHANGED" | grep -q '^sdk-python/pyproject.toml$'; then
+            echo "pyproject_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "pyproject_changed=false" >> "$GITHUB_OUTPUT"
+            echo "sdk-python/pyproject.toml not changed in this PR — skipping Python publish"
+          fi
+
+      - name: Set up Python
+        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Detect version change
+        if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
+        id: detect
+        run: ./scripts/release/detect-py-version-changes.sh
+
+      - name: Install Poetry
+        if: steps.detect.outputs.should_publish == 'true'
+        uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Build Python package
+        if: steps.detect.outputs.should_publish == 'true'
+        working-directory: sdk-python
+        run: poetry build
+
+      - name: Upload Python build artifacts
+        if: steps.detect.outputs.should_publish == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: py-build-artifacts
+          path: sdk-python/dist/
+          retention-days: 1
+
+      - name: Nothing to publish
+        if: steps.detect.outputs.should_publish != 'true'
+        run: |
+          {
+            echo "## Python SDK"
+            echo ""
+            echo "No version change detected — nothing to publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # WARNING: PyPI trusted-publisher binding pins to:
+  #   repository:    CopilotKit/CopilotKit
+  #   workflow_file: publish-release.yml
+  #   environment:   pypi
+  # Renaming this file, changing this job's `environment:` value, or moving the
+  # publish step into another workflow breaks PyPI publishing with HTTP 422
+  # until the Trusted Publisher record on pypi.org is updated to match.
+  publish-python:
+    needs: build-python
+    if: ${{ !cancelled() && needs.build-python.result == 'success' && needs.build-python.outputs.should_publish == 'true' && inputs.dry-run != true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: pypi
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout merged main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: ">=0.8.0"
+
+      - name: Download Python build artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: py-build-artifacts
+          path: sdk-python/dist
+
+      - name: Publish to PyPI (OIDC trusted publishing)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(sdk-python/dist/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::no build artifacts in sdk-python/dist — nothing to publish"
+            exit 1
+          fi
+          uv publish --trusted-publishing always "${files[@]}"
+
+      - name: Verify version is live on PyPI
+        env:
+          NAME: ${{ needs.build-python.outputs.name }}
+          VERSION: ${{ needs.build-python.outputs.version }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 18); do
+            if curl -fsS "https://pypi.org/pypi/${NAME}/${VERSION}/json" >/dev/null 2>&1; then
+              echo "Confirmed ${NAME}==${VERSION} on PyPI"; exit 0
+            fi
+            echo "Attempt ${i}: ${NAME}==${VERSION} not visible yet; retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::${NAME}==${VERSION} did not appear on PyPI within 180s"
+          echo "Last curl response:"
+          curl -sS "https://pypi.org/pypi/${NAME}/${VERSION}/json" 2>&1 | tail -n 5 || true
+          exit 1
+
+      - name: Configure git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git config --local url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - name: Create and push git tag
+        id: tag
+        env:
+          PY_VERSION: ${{ needs.build-python.outputs.version }}
+          PY_NAME: ${{ needs.build-python.outputs.name }}
+        run: |
+          set -euo pipefail
+          TAG="python-sdk/v${PY_VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skipping"
+          else
+            git tag -a "$TAG" -m "Release ${PY_NAME} ${PY_VERSION}"
+            git push origin "$TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.build-python.outputs.version }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const tag = process.env.RELEASE_TAG;
+            const version = process.env.RELEASE_VERSION;
+            const name = `python-sdk/v${version}`;
+            const body = `Python SDK release: copilotkit ${version}\n\nhttps://pypi.org/project/copilotkit/${version}/`;
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              await github.rest.repos.updateRelease({
+                owner, repo,
+                release_id: existing.data.id,
+                tag_name: tag, name, body,
+                draft: false, prerelease: false,
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.repos.createRelease({
+                owner, repo,
+                tag_name: tag, name, body,
+                draft: false, prerelease: false,
+              });
+            }
+
+      - name: Release summary
+        env:
+          PY_VERSION: ${{ needs.build-python.outputs.version }}
+        run: |
+          {
+            echo "## Python SDK Published"
+            echo ""
+            echo "- \`copilotkit@${PY_VERSION}\`"
+            echo "- https://pypi.org/project/copilotkit/${PY_VERSION}/"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ===========================================================================
+  # Slack #engr notification
+  #
+  # A single concise post to #engr when a release publishes (or fails).
+  # Runs after both lanes regardless of their outcome (`if: always()`). The
+  # load-bearing truth table lives in the unit-tested pure builder at
+  # scripts/release/lib/build-release-notification.ts; this job only feeds it the
+  # needs.* signals and posts what it returns. Suppressed entirely for canaries
+  # (mode=prerelease) and dry-runs — the builder returns should_post=false there.
+  # Webhook empty-guard mirrors showcase_validate.yml so an unset
+  # SLACK_WEBHOOK_ENGR secret does not break the shell or red this step.
+  # ===========================================================================
+  notify:
+    needs: [build, publish, build-python, publish-python]
+    # always() so we still report on a failed lane, but guard on a real release
+    # context: a workflow_dispatch (manual release) OR a *merged* PR. A
+    # closed-unmerged PR is not a release attempt and must not notify.
+    if: >
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+        github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+    steps:
+      # Determine release intent IN THIS JOB, from the github.event payload +
+      # the PR changed-files API — NOT from needs.build*/needs.build-python
+      # outputs. The build jobs emit their intent signals (should_publish,
+      # pyproject_changed) AFTER failure-prone steps (SHA guards, setup-python,
+      # the PyPI version-compare), so a build job that dies before emitting them
+      # on a REAL release would leave the intent empty → no alert. Computing
+      # intent here, independent of whether the build jobs ran at all, closes
+      # that silent-swallow class. The builder gates the npm/PyPI FAILURE arms on
+      # these signals.
+      #
+      # This step runs FIRST — before Checkout/Setup/Install — on purpose:
+      # computing intent before any infra step means steps.intent.outputs.* are
+      # always populated even if a later infra step (the dependency install,
+      # checkout, or setup) fails. The failure() self-alert below gates its
+      # best-effort Slack post on these outputs, so running intent first
+      # guarantees that gate can still fire when the notify job dies during
+      # install — exactly the silent-swallow the self-watchdog exists to prevent.
+      # It needs only `gh api` (preinstalled), the github.event context, and
+      # GITHUB_TOKEN (in its own env), so it has no dependency on checkout/deps.
+      - name: Determine release intent
+        id: intent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # npm intent: a STABLE manual dispatch (mode != prerelease — the default
+          # and the retry escape hatch both publish to npm), or a merged
+          # release/publish/* PR. A prerelease dispatch is a canary: it never pushes
+          # a tag, cuts a GH Release, or posts to Slack (the builder returns
+          # should_post=false, mirroring the `mode != 'prerelease'` guards on the
+          # publish/tag steps), so it is NOT stable-release intent and must never
+          # self-page on failure. Computed purely from event-context expressions
+          # (no API needed). Guarding on mode here is what stops a failed canary
+          # build (e.g. a stale lockfile on a canary/* branch) from tripping the
+          # notifier self-watchdog's best-effort Slack post below.
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease') || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
+
+          # Python intent: a python_publish dispatch, OR a merged PR that changed
+          # sdk-python/pyproject.toml (per the GitHub PR changed-files API —
+          # robust to an uncomputed local merge_commit_sha). Default false.
+          PY_INTENDED="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.python_publish }}" = "true" ]; then PY_INTENDED="true"; fi
+          elif [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+            # Query the merged PR's changed files. Fail TOWARD paging: if the API
+            # call fails on a merged PR, default PY_INTENDED=true (never toward
+            # silence) and emit a ::warning::.
+            if FILES="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename' 2>/dev/null)"; then
+              if printf '%s\n' "$FILES" | grep -qx 'sdk-python/pyproject.toml'; then PY_INTENDED="true"; fi
+            else
+              echo "::warning::Could not list changed files for PR #${{ github.event.pull_request.number }} via the GitHub API — defaulting py_intended=true (fail toward paging, never toward silence)."
+              PY_INTENDED="true"
+            fi
+          fi
+          echo "py_intended=$PY_INTENDED" >> "$GITHUB_OUTPUT"
+          echo "npm_intended=$NPM_INTENDED py_intended=$PY_INTENDED"
+
+      - name: Checkout Repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      # Restore node_modules so `pnpm tsx` (and the release-config import the
+      # notifier does) resolves. The build/publish jobs install before running
+      # tsx for the same reason; without this the notify step fails and NO
+      # release notification can ever post.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Compute the scope-correct npm URL: the monorepo packages live under the
+      # @copilotkit org page, while single-package scopes link to their package.
+      - name: Resolve npm URL for scope
+        id: npmurl
+        env:
+          SCOPE: ${{ needs.build.outputs.scope }}
+        run: |
+          set -euo pipefail
+          case "$SCOPE" in
+            angular)
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
+              ;;
+            *)
+              NPM_URL="https://www.npmjs.com/org/copilotkit"
+              ;;
+          esac
+          echo "npm_url=$NPM_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Build notification message
+        id: build
+        env:
+          MODE: ${{ needs.build.outputs.mode }}
+          NPM_RESULT: ${{ needs.publish.result }}
+          NPM_VER: ${{ needs.publish.outputs.version }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          # Event-derived release intent computed in the `intent` step above
+          # (independent of the build jobs). The builder gates the npm/PyPI
+          # FAILURE arms on these so a build-job failure on a genuine release
+          # always pages, even if the build jobs emitted no usable outputs.
+          NPM_INTENDED: ${{ steps.intent.outputs.npm_intended }}
+          PY_INTENDED: ${{ steps.intent.outputs.py_intended }}
+          # should_publish still legitimately gates the PyPI SUCCESS arm (a real
+          # success means detect ran and emitted it).
+          PY_PUB: ${{ needs.build-python.outputs.should_publish }}
+          PY_RESULT: ${{ needs.publish-python.result }}
+          PY_BUILD_RESULT: ${{ needs.build-python.result }}
+          PY_VER: ${{ needs.build-python.outputs.version }}
+          SCOPE: ${{ needs.build.outputs.scope }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Empty when no tag was created (non-stable / dry-run). The builder's
+          # empty-releaseUrl guard that consumes this is retained as
+          # DEFENSE-IN-DEPTH: the empty-releaseUrl-on-SUCCESS state is NOT
+          # currently reachable — the tag step is `if: success()`, so a tag-step
+          # failure flips the publish JOB to `failure` and routes to the failure
+          # arm rather than rendering an empty link. The guard protects against a
+          # FUTURE change making the tag step continue-on-error (publish success
+          # + empty tag output), which would otherwise render a broken empty
+          # "<|Release notes>" / "/releases/tag/" link — do NOT remove it.
+          RELEASE_URL: ${{ needs.publish.outputs.tag && format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.publish.outputs.tag) || '' }}
+          NPM_URL: ${{ steps.npmurl.outputs.npm_url }}
+          # Empty-version guard, mirroring RELEASE_URL above: with no version
+          # the per-version PyPI URL would be a broken ".../copilotkit//" link,
+          # so fall back to the project root page.
+          PY_URL: ${{ needs.build-python.outputs.version && format('https://pypi.org/project/copilotkit/{0}/', needs.build-python.outputs.version) || 'https://pypi.org/project/copilotkit/' }}
+        run: pnpm tsx scripts/release/build-release-notification.ts
+
+      - name: Post to #engr
+        if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.build.outputs.message) }}
+            }
+
+      - name: Log (no Slack — webhook unset)
+        if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK == '' }}
+        run: |
+          echo "::warning::A release notification was ready to post but SLACK_WEBHOOK_ENGR is not set; no Slack notification sent."
+
+      # Self-watchdog: if any earlier step in THIS job failed (e.g. the
+      # dependency install or the builder crashed), the notifier itself is the
+      # thing that broke — so a real release alert could be silently swallowed.
+      # Emit a ::error:: and, when the webhook is configured, a minimal
+      # best-effort Slack post so the failure isn't completely invisible.
+      - name: Notifier failed — self-alert
+        if: ${{ failure() }}
+        run: |
+          echo "::error::The release notify job failed before it could post — a release alert may have been swallowed. Check this run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Notifier failed — best-effort Slack
+        # Guard on dry-run: the self-watchdog Slack post must honor the same
+        # silence invariant as the real notification — a dry-run is silent
+        # EVERYWHERE, so a notify-job failure during one must not post a false
+        # red page.
+        #
+        # ALSO guard on real-release-context via the robust, build-job-INDEPENDENT
+        # intent computed in the `intent` step: the notify job runs on EVERY
+        # merged PR (always()), so a routine non-release merge whose notify job
+        # hits a transient install/builder flake would otherwise self-page even
+        # though no release was attempted. Only self-alert when a release was
+        # actually in flight (npm_intended OR py_intended). This replaces the old
+        # npm-biased `mode != 'prerelease'` + should_publish/pyproject_changed
+        # heuristic — which both relied on the build jobs' outputs (the very
+        # signals that may be empty if a build job died) AND would have suppressed
+        # a python_publish self-alert under a prerelease-mode dispatch. The intent
+        # gate is correct and robust. (The ::error:: echo step above stays
+        # unconditional — only the Slack POST needs these guards.)
+        if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format('🔴 *CopilotKit release notifier failed* — a release alert may have been swallowed · <{0}/{1}/actions/runs/{2}|View run>', github.server_url, github.repository, github.run_id)) }}
+            }

@@ -20,7 +20,7 @@ def build_a2ui_chat_agent(runtime: str = "langgraph") -> AgentSpecAgent:
     return AgentSpecAgent(
         agent_spec_config=a2ui_chat_json,
         runtime=runtime,
-        tool_registry=a2ui_demo_tool_registry
+        tool_registry=a2ui_demo_tool_registry,
     )
 
 
@@ -31,5 +31,5 @@ def build_agentspec_agent(runtime: str = "langgraph") -> AgentSpecAgent:
     return AgentSpecAgent(
         agent_spec_config=with_agentspec_agent_json,
         runtime=runtime,
-        tool_registry={"get_weather": get_weather}
+        tool_registry={"get_weather": get_weather},
     )

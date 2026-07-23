@@ -1,0 +1,16 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+python-dotenv
+pydantic
+google-adk
+# google-genai is required by both the primary LlmAgent (via google-adk) and
+# the secondary generate_a2ui planner call. Explicit pin keeps the version
+# floor independent of google-adk's transitive resolution.
+google-genai>=0.8.0
+# 0.7.0 ships the OSS-158 A2UI middleware path (auto-injected generate_a2ui,
+# toolkit recovery loop, render_as_llm_instructions prompt + parse_and_fix
+# healing, hard-failure envelope). Raises the effective google-adk floor to
+# >=1.28.1 and adds a2ui-agent-sdk + ag-ui-a2ui-toolkit transitively.
+# ag-ui-protocol stays at 0.1.18 (satisfies the middleware's >=0.1.15 floor).
+ag-ui-adk==0.7.0
+ag-ui-protocol==0.1.18

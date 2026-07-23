@@ -57,7 +57,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
                 # ...
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
-                    model = ChatOpenAI(model="gpt-5.2")
+                    model = ChatOpenAI(model="gpt-5.4")
 
                     # [!code highlight:2]
                     intermediate_message = "Thinking really hard..."
@@ -85,7 +85,7 @@ Manually emitted messages are great for **when you don't want to wait for the no
                 // ...
 
                 async function chat_node(state: AgentState, config: RunnableConfig) {
-                    const model = new ChatOpenAI({ model: "gpt-5.2" });
+                    const model = new ChatOpenAI({ model: "gpt-5.4" });
 
                     // [!code highlight:2]
                     const intermediateMessage = "Thinking really hard...";

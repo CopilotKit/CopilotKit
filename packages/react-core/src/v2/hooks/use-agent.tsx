@@ -1,13 +1,14 @@
-import { useCopilotKit } from "../providers/CopilotKitProvider";
-import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import { useCopilotKit } from "../context";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
-  type SubscribeToAgentSubscriber,
 } from "@copilotkit/core";
+import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
+import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -22,8 +23,11 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 ];
 
 export interface UseAgentProps {
+  /**
+   * Agent to bind to. Resolution precedence: this property, then the surrounding
+   * chat configuration's agentId, then the global default.
+   */
   agentId?: string;
-  threadId?: string;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by
@@ -50,93 +54,20 @@ export interface UseAgentProps {
   throttleMs?: number;
 }
 
-/**
- * Clone a registry agent for per-thread isolation.
- * Copies agent configuration (transport, headers, etc.) but resets conversation
- * state (messages, threadId, state) so each thread starts fresh.
- */
-function cloneForThread(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  const clone = source.clone();
-  if (clone === source) {
-    throw new Error(
-      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
-        `clone() must return a new, independent object.`,
-    );
-  }
-  clone.threadId = threadId;
-  clone.setMessages([]);
-  clone.setState({});
-  if (clone instanceof HttpAgent) {
-    clone.headers = { ...headers };
-  }
-  return clone;
-}
-
-/**
- * Module-level WeakMap: registryAgent → (threadId → clone).
- * Shared across all useAgent() calls so that every component using the same
- * (agentId, threadId) pair receives the same agent instance. Using WeakMap
- * ensures the clone map is garbage-collected when the registry agent is
- * replaced (e.g. after reconnect or hot-reload).
- */
-export const globalThreadCloneMap = new WeakMap<
-  AbstractAgent,
-  Map<string, AbstractAgent>
->();
-
-/**
- * Look up an existing per-thread clone without creating one.
- * Returns undefined when no clone has been created yet for this pair.
- */
-export function getThreadClone(
-  registryAgent: AbstractAgent | undefined | null,
-  threadId: string | undefined | null,
-): AbstractAgent | undefined {
-  if (!registryAgent || !threadId) return undefined;
-  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
-}
-
-function getOrCreateThreadClone(
-  existing: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  let byThread = globalThreadCloneMap.get(existing);
-  if (!byThread) {
-    byThread = new Map();
-    globalThreadCloneMap.set(existing, byThread);
-  }
-  const cached = byThread.get(threadId);
-  if (cached) return cached;
-
-  const clone = cloneForThread(existing, threadId, headers);
-  byThread.set(threadId, clone);
-  return clone;
-}
-
-export function useAgent({
-  agentId,
-  threadId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
-  agentId ??= DEFAULT_AGENT_ID;
+export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
+  // Resolve agentId mirroring CopilotChat's precedence: an explicit prop wins,
+  // then the surrounding chat configuration's agentId, then the global default.
+  // Without the chat-config fallback, a useAgent() consumer rendered inside a
+  // <CopilotChat agentId="..."> subtree resolves to 'default' and throws once
+  // the runtime has synced only a non-default agent (#5533).
+  const chatConfig = useCopilotChatConfiguration();
+  const resolvedAgentId = agentId ?? chatConfig?.agentId ?? DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
   // Read the provider-level default so it appears in the effect's dep array.
   // subscribeToAgentWithOptions reads it from the core instance, but React needs the dep
   // to know when to re-subscribe.
   const providerThrottleMs = copilotkit.defaultThrottleMs;
-  // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
-  // that useAgent() called without explicit threadId (e.g. inside a custom
-  // message renderer) automatically uses the same per-thread clone as the
-  // CopilotChat component it lives within.
-  const chatConfig = useCopilotChatConfiguration();
-  threadId ??= chatConfig?.threadId;
 
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -152,30 +83,15 @@ export function useAgent({
     new Map(),
   );
 
-  const agent: AbstractAgent = useMemo(() => {
-    // Use a composite key when threadId is provided so that different threads
-    // for the same agent get independent instances.
-    const cacheKey = threadId ? `${agentId}:${threadId}` : agentId;
-
-    const existing = copilotkit.getAgent(agentId);
+  const { agent, isReady } = useMemo<{
+    agent: AbstractAgent;
+    isReady: boolean;
+  }>(() => {
+    const existing = copilotkit.getAgent(resolvedAgentId);
     if (existing) {
-      // Real agent found — clear any cached provisionals for this key and the
-      // bare agentId key (handles the case where a provisional was created
-      // before threadId was available, then the component re-renders with one).
-      provisionalAgentCache.current.delete(cacheKey);
-      provisionalAgentCache.current.delete(agentId);
-
-      if (!threadId) {
-        // No threadId — return the shared registry agent (original behavior)
-        return existing;
-      }
-
-      // threadId provided — return the shared per-thread clone.
-      // The global WeakMap ensures all components using the same
-      // (registryAgent, threadId) pair receive the same instance, so state
-      // mutations (addMessage, setState) are visible everywhere. The WeakMap
-      // entry is GC-collected automatically when the registry agent is replaced.
-      return getOrCreateThreadClone(existing, threadId, copilotkit.headers);
+      // Real agent found — clear any cached provisional for this ID
+      provisionalAgentCache.current.delete(resolvedAgentId);
+      return { agent: existing, isReady: true };
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -188,26 +104,23 @@ export function useAgent({
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
       // Return cached provisional if available (keeps reference stable)
-      const cached = provisionalAgentCache.current.get(cacheKey);
+      const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
         // Update headers on the cached agent in case they changed
-        cached.headers = { ...copilotkit.headers };
-        return cached;
+        copilotkit.applyHeadersToAgent(cached);
+        return { agent: cached, isReady: false };
       }
 
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
-        agentId,
+        agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
         runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
-      provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
-      return provisional;
+      copilotkit.applyHeadersToAgent(provisional);
+      provisionalAgentCache.current.set(resolvedAgentId, provisional);
+      return { agent: provisional, isReady: false };
     }
 
     // Runtime is in Error state — return a provisional agent instead of throwing.
@@ -219,26 +132,20 @@ export function useAgent({
       isRuntimeConfigured &&
       status === CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
-      // Cache the provisional so that dep changes while in Error state (e.g.
-      // headers update) return the same agent reference, matching the
-      // Disconnected/Connecting path and preventing spurious re-subscriptions.
-      const cached = provisionalAgentCache.current.get(cacheKey);
+      const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        cached.headers = { ...copilotkit.headers };
-        return cached;
+        copilotkit.applyHeadersToAgent(cached);
+        return { agent: cached, isReady: false };
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
-        agentId,
+        agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
         runtimeMode: "pending",
       });
-      provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
-      return provisional;
+      copilotkit.applyHeadersToAgent(provisional);
+      provisionalAgentCache.current.set(resolvedAgentId, provisional);
+      return { agent: provisional, isReady: false };
     }
 
     // No runtime configured and agent doesn't exist — this is a configuration error.
@@ -247,7 +154,7 @@ export function useAgent({
       ? `runtimeUrl=${copilotkit.runtimeUrl}`
       : "no runtimeUrl";
     throw new Error(
-      `useAgent: Agent '${agentId}' not found after runtime sync (${runtimePart}). ` +
+      `useAgent: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
         (knownAgents.length
           ? `Known agents: [${knownAgents.join(", ")}]`
           : "No agents registered.") +
@@ -255,8 +162,7 @@ export function useAgent({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    agentId,
-    threadId,
+    resolvedAgentId,
     copilotkit.agents,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
@@ -290,7 +196,7 @@ export function useAgent({
     };
 
     if (updateFlags.includes(UseAgentUpdate.OnMessagesChanged)) {
-      handlers.onMessagesChanged = forceUpdate;
+      handlers.onMessagesChanged = batchedForceUpdate;
     }
 
     if (updateFlags.includes(UseAgentUpdate.OnStateChanged)) {
@@ -325,12 +231,45 @@ export function useAgent({
   // discard intermediate results, but mutations always land).
   useEffect(() => {
     if (agent instanceof HttpAgent) {
-      agent.headers = { ...copilotkit.headers };
+      // Merge core headers on top of the agent's own headers rather than
+      // replacing them, so per-agent headers (e.g. an Authorization for a
+      // self-hosted backend) are preserved (see #5635).
+      copilotkit.applyHeadersToAgent(agent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
 
+  // Propagate the caller-supplied threadId from the chat configuration onto
+  // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId
+  // is passed, so without this sync the agent ships its own random UUID in
+  // /agent/run, /agent/connect, /agent/stop — diverging from the threadId the
+  // app code reads via useThreads/useCopilotChatConfiguration. Gated on
+  // hasExplicitThreadId so a ThreadsProvider-minted placeholder UUID doesn't
+  // overwrite the auto-minted agent UUID (both are random and useless to the
+  // backend; the explicit gate keeps the agent's UUID stable across renders).
+  const configThreadId = chatConfig?.threadId;
+  const configHasExplicitThreadId = chatConfig?.hasExplicitThreadId;
+  useEffect(() => {
+    if (!configHasExplicitThreadId || !configThreadId) return;
+    agent.threadId = configThreadId;
+  }, [agent, configThreadId, configHasExplicitThreadId]);
+
   return {
     agent,
+    /**
+     * Whether `agent` is the real, runtime-synced (or locally-registered) agent
+     * rather than a provisional stand-in returned while the runtime is still
+     * connecting (or in an error state).
+     *
+     * `agent` is always a fully-constructed `AbstractAgent`, so calling
+     * `agent.subscribe(...)`, `agent.setState(...)`, etc. is always safe. But
+     * while `isReady` is `false` the instance is a placeholder that will be
+     * swapped for the real agent once the runtime `/info` sync resolves, at
+     * which point `agent` changes reference and dependent effects re-run.
+     * Guard on `isReady` when you only want to act against the real agent —
+     * e.g. subscribing to run-lifecycle events you don't want to miss during
+     * the provisional window (#5000).
+     */
+    isReady,
   };
 }

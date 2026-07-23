@@ -29,7 +29,9 @@ The `attachments` prop accepts an `AttachmentsConfig` object:
 <CopilotChat
   attachments={{
     enabled: true,
-    accept: "image/*",              // MIME filter (default: "*/*")
+    // Omit `accept` to allow all file types (default: "*/*").
+    // Restrict with a MIME filter if needed:
+    accept: "image/*,audio/*,video/*,application/pdf",
     maxSize: 10 * 1024 * 1024,      // 10MB limit (default: 20MB)
   }}
 />
@@ -173,7 +175,3 @@ When a user attaches files and sends a message, CopilotKit:
 4. The agent receives the multimodal content via the AG-UI protocol and forwards it to the model
 
 The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (BuiltInAgent, LangGraph, custom) can receive them.
-
-<Callout type="info">
-  Migrating from the old `imageUploadsEnabled` prop? See the [migration guide](/migration-guides/migrate-attachments) for a step-by-step walkthrough.
-</Callout>

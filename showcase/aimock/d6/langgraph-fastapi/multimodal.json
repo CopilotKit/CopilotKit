@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-fastapi / multimodal",
+    "sourceFile": "harness/fixtures/d5/multimodal.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal \u2014 image attachment pill. The script clicks the sample-image button, attaches sample.png, then sends this query.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "multimodal \u2014 PDF attachment pill. The script attaches the sample PDF, then sends this query.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    }
+  ]
+}

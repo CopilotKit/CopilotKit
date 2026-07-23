@@ -10,7 +10,7 @@ export interface CatalogCell {
   integration_name: string;
   feature: string | null;
   feature_name: string | null;
-  status: "wired" | "stub" | "unshipped";
+  status: "wired" | "stub" | "unshipped" | "unsupported";
   parity_tier: "reference" | "at_parity" | "partial" | "minimal" | "not_wired";
   max_depth: number;
   category: string | null;
@@ -23,6 +23,9 @@ export interface CatalogMetadata {
   wired: number;
   stub: number;
   unshipped: number;
+  unsupported: number;
+  /** Cells for docs-only features — excluded from wired/stub/unshipped/unsupported. */
+  docs_only: number;
   generated_at: string;
 }
 

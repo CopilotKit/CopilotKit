@@ -1,0 +1,120 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-fastapi / byoc (hashbrown + json-render)",
+    "sourceFile": "showcase/integrations/langgraph-fastapi/src/app/demos/byoc-*/suggestions.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc-hashbrown — Sales dashboard pill. Agent emits structured output for MetricCard + PieChart + BarChart. No tool call — the hashbrown renderer consumes the streamed JSON directly.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "{\"metric\":{\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"change\":\"+12%\"},\"pieChart\":{\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":520000},{\"label\":\"SMB\",\"value\":380000},{\"label\":\"Self-serve\",\"value\":300000}]},\"barChart\":{\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":380000},{\"label\":\"Nov\",\"value\":400000},{\"label\":\"Dec\",\"value\":420000}]}}"
+      }
+    },
+    {
+      "_comment": "byoc-hashbrown — Revenue by category pill.",
+      "match": {
+        "userMessage": "revenue by product category",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "{\"pieChart\":{\"title\":\"Q4 Revenue by Category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food & Beverage\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}}"
+      }
+    },
+    {
+      "_comment": "byoc-hashbrown — Expense trend pill.",
+      "match": {
+        "userMessage": "monthly operating expenses",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "{\"barChart\":{\"title\":\"Monthly Operating Expenses\",\"data\":[{\"label\":\"Jan\",\"value\":45000},{\"label\":\"Feb\",\"value\":42000},{\"label\":\"Mar\",\"value\":48000},{\"label\":\"Apr\",\"value\":44000},{\"label\":\"May\",\"value\":47000},{\"label\":\"Jun\",\"value\":50000}]}}"
+      }
+    },
+    {
+      "_comment": "byoc-json-render — Sales dashboard pill. Same pills as hashbrown but the renderer expects generate_a2ui tool calls.",
+      "match": {
+        "userMessage": "sales dashboard with metrics and a revenue chart",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_byoc_jr_sales_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sales dashboard with metrics and a revenue chart",
+        "toolCallId": "call_byoc_jr_sales_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Sales dashboard rendered above with revenue metrics and a chart breakdown."
+      }
+    },
+    {
+      "_comment": "byoc-json-render — Revenue by category pie chart pill.",
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_byoc_jr_pie_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart",
+        "toolCallId": "call_byoc_jr_pie_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Pie chart rendered above showing revenue breakdown by product category."
+      }
+    },
+    {
+      "_comment": "byoc-json-render — Expense trend bar chart pill.",
+      "match": {
+        "userMessage": "monthly expenses as a bar chart",
+        "hasToolResult": false,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_byoc_jr_bar_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "monthly expenses as a bar chart",
+        "toolCallId": "call_byoc_jr_bar_001",
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "Bar chart rendered above showing monthly operating expenses trend."
+      }
+    }
+  ]
+}

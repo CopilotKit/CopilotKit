@@ -472,7 +472,10 @@ export function DeveloperConsoleModal({
           >
             <button
               onClick={() =>
-                window.open("https://cloud.copilotkit.ai/sign-in", "_blank")
+                window.open(
+                  "https://dashboard.operations.copilotkit.ai/sign-in",
+                  "_blank",
+                )
               }
               style={{
                 // Following button system specifications

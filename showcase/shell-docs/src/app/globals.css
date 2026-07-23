@@ -1,35 +1,1123 @@
-/* highlight.js themes load BEFORE tailwindcss so Tailwind utility
- * layers can override specific selectors if ever needed. Both light
- * and dark themes are imported; the dark variant is scoped via
- * `prefers-color-scheme: dark` so only one paints at a time. shell-docs
- * does not yet ship a dark theme, but the stylesheet is ready for it. */
-@import "highlight.js/styles/github.css" layer(highlightjs);
-@import "highlight.js/styles/github-dark-dimmed.css" layer(highlightjs)
-  (prefers-color-scheme: dark);
+/* Syntax highlighting comes from Fumadocs's Shiki-based `rehypeCode`
+ * (see `src/app/[framework]/[[...slug]]/page.tsx` etc.). Shiki ships
+ * inline `--shiki-light` / `--shiki-dark` CSS variables on each token
+ * span; Fumadocs's preset CSS swaps between them via the `.dark`
+ * ancestor selector, so theme switching just works. We no longer pull
+ * in `highlight.js/styles/github.css` — see git history for the prior
+ * setup. */
 @import "tailwindcss";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* Activate `dark:` Tailwind variants based on the `.dark` class on an
+ * ancestor (typically <html>) instead of the default
+ * `prefers-color-scheme: dark` media query. Required for the navbar
+ * theme toggle to actually switch sun/moon icons and slanted-border
+ * SVG variants — they all key off `dark:` classes. Mirrors canonical
+ * docs.copilotkit.ai/app/global.css. */
+@custom-variant dark (&:is(.dark *));
+
+/* Top-of-layout chrome heights:
+ *   - Desktop (xl+): BrandNav is rendered in body flow at 64px.
+ *   - Tablet/mobile (< xl): BrandNav is hidden; MobileTopNav (inside
+ *     DocsLayout's nav slot, position: fixed) renders as a compact
+ *     single-row header.
+ *
+ * --fd-nav-height drives:
+ *   - Fumadocs sidebar's `top:` offset
+ *   - #nd-docs-layout's pt-(--fd-nav-height) (we override on desktop —
+ *     see below — but it's load-bearing on mobile to leave space for
+ *     the fixed mobile nav).
+ *
+ * --fd-banner-height is set dynamically by Banners (40px / 0px). */
+:root {
+  --fd-nav-height: 64px;
+  --shell-docs-layout-width: calc(97rem + 11px);
+  --shell-docs-grid-gutter: 0px;
+  --shell-docs-grid-top-offset: 0px;
+  --radius: 0.875rem;
+  --shell-docs-radius: var(--radius);
+  --shell-docs-radius-control: var(--radius);
+  --shell-docs-radius-surface: var(--radius);
+  --shell-docs-radius-icon: var(--radius);
+  --shadow-control: 0 1px 0 rgba(1, 5, 7, 0.03);
+  --shadow-panel: 0 18px 50px rgba(1, 5, 7, 0.18);
+  --shadow-modal:
+    0 24px 70px rgba(1, 5, 7, 0.22), 0 0 0 1px rgba(109, 69, 249, 0.05);
+  --overlay-backdrop: rgba(1, 5, 7, 0.25);
+  --accent-strong: color-mix(in oklch, var(--accent) 88%, black);
+  --nav-control-border: color-mix(in srgb, var(--accent) 24%, var(--border));
+  --nav-control-border-hover: color-mix(
+    in srgb,
+    var(--accent) 42%,
+    var(--border)
+  );
+  --warning: oklch(0.72 0.16 76);
+  --warning-dim: color-mix(in oklch, var(--warning) 10%, transparent);
+  --warning-border: color-mix(in oklch, var(--warning) 46%, var(--border));
+  --warning-text: color-mix(in oklch, var(--warning) 70%, var(--text));
+  /* Brand mint, backs --color-fd-success. mint/800 for contrast on the
+   * white callout card; the dark theme lifts this to mint/400. */
+  --success: #189370;
+  --window-control-close: #ff5f57;
+  --window-control-minimize: #ffbd2e;
+  --window-control-zoom: #28c840;
+}
+@media (min-width: 1280px) {
+  :root {
+    --fd-nav-height: 64px;
+    --shell-docs-grid-top-offset: 5px;
+    --shell-docs-grid-gutter: max(
+      0px,
+      calc((100% - var(--shell-docs-layout-width)) / 2)
+    );
+  }
+}
+
+.shell-docs-mobile-nav {
+  box-sizing: border-box;
+  height: var(--fd-nav-height);
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+.shell-docs-mobile-nav-top {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.shell-docs-mobile-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shell-docs-mobile-brand > span:not([aria-hidden="true"]) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-docs-mobile-search {
+  display: none;
+}
+
+.shell-docs-mobile-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  justify-self: end;
+}
+
+.shell-docs-mobile-tabs {
+  display: none;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding-bottom: 0.125rem;
+  scrollbar-width: none;
+}
+
+.shell-docs-mobile-tabs::-webkit-scrollbar,
+.shell-docs-mobile-sidebar-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.shell-docs-primary-tab {
+  display: inline-flex;
+  height: 2.25rem;
+  min-width: max-content;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .shell-docs-mobile-nav {
+    padding: 0 1.25rem;
+  }
+
+  .shell-docs-mobile-search {
+    display: block;
+    justify-self: end;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .shell-docs-mobile-nav-top {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .shell-docs-mobile-tabs {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .shell-docs-mobile-menu {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .shell-docs-mobile-nav {
+    display: none !important;
+  }
+}
+
+.shell-docs-mobile-sidebar-tabs {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.375rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  scrollbar-width: none;
+}
+
+.shell-docs-mobile-sidebar-tabs .shell-docs-primary-tab {
+  flex: 1 0 max-content;
+}
+
+@media (min-width: 768px) {
+  .shell-docs-mobile-sidebar-tabs {
+    display: none;
+  }
+}
+
+/* BrandNav keeps its content inset, but the bottom divider should span the
+ * full viewport width instead of stopping at the nav's 22px desktop margins. */
+.shell-docs-brand-nav::after {
+  position: absolute;
+  right: -22px;
+  bottom: 0;
+  left: -22px;
+  height: 1px;
+  background: var(--border);
+  content: "";
+}
+
+/* BrandNav is a full-width top bar. Keep a named hook so layout tests can
+ * assert the header does not regress back to the earlier capped pill chrome. */
+.shell-docs-brand-nav-inner {
+  width: 100%;
+}
+
+.shell-docs-brand-link {
+  margin-left: max(
+    0px,
+    calc((100vw - var(--shell-docs-layout-width)) / 2 - 22px)
+  );
+}
+
+.shell-docs-radius-control {
+  border-radius: var(--shell-docs-radius-control) !important;
+}
+
+.shell-docs-radius-surface {
+  border-radius: var(--shell-docs-radius-surface) !important;
+}
+
+.shell-docs-radius-icon {
+  border-radius: var(--shell-docs-radius-icon) !important;
+}
+
+.shell-docs-surface {
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-surface);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-control);
+}
+
+.shell-docs-icon-surface {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--shell-docs-radius-icon);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.shell-docs-picker-group {
+  border-radius: var(--shell-docs-radius-surface);
+  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+  padding: 4px;
+}
+
+.shell-docs-picker-group-selected {
+  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+}
+
+.shell-docs-picker-group-bordered {
+  border: 1px solid var(--nav-control-border);
+}
+
+.dark .shell-docs-picker-group {
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.dark .shell-docs-picker-group-selected {
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.shell-docs-picker-row {
+  border-radius: var(--shell-docs-radius-control);
+}
+
+.shell-docs-picker-row-divided {
+  position: relative;
+}
+
+.shell-docs-picker-row-divided::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 8px;
+  left: 8px;
+  height: 1px;
+  background: var(--nav-control-border);
+  pointer-events: none;
+}
+
+.shell-docs-picker-menu {
+  box-shadow: 0 18px 42px -18px rgba(1, 5, 7, 0.18);
+  clip-path: inset(0 -48px -48px -48px);
+}
+
+.shell-docs-picker-icon-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--bg-surface) 76%, transparent);
+  color: var(--accent);
+}
+
+.dark .shell-docs-picker-icon-chip {
+  background: color-mix(in oklch, var(--foreground) 92%, var(--accent) 8%);
+  color: var(--accent);
+}
+
+.shell-docs-warning-surface {
+  border-color: var(--warning-border);
+  border-left-color: var(--warning);
+  background: var(--warning-dim);
+}
+
+.shell-docs-commit-label {
+  position: fixed;
+  right: 12px;
+  bottom: 8px;
+  z-index: 9999;
+  color: var(--text-faint);
+  font-family: var(--font-docs-code);
+  font-size: 10px;
+  opacity: 0.55;
+  pointer-events: none;
+  user-select: none;
+}
+
+.reference-content a.shell-docs-cta-link,
+.reference-content a.shell-docs-cta-link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.reference-content a.shell-docs-primary-cta,
+.reference-content a.shell-docs-primary-cta:hover {
+  color: var(--primary-foreground);
+  text-decoration: none;
+}
+
+.reference-content a.shell-docs-cta-accent,
+.reference-content a.shell-docs-cta-accent:hover,
+.reference-content .shell-docs-cta-accent {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.shell-docs-cta-stripe {
+  background: var(--accent);
+}
+
+.shell-docs-course-banner {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--accent) 78%, black) 0%,
+    var(--accent) 52%,
+    color-mix(in oklch, var(--accent) 90%, white) 100%
+  ) !important;
+  border-color: color-mix(in oklch, var(--accent) 70%, white) !important;
+}
+
+.dark .shell-docs-course-banner {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklch, var(--accent) 72%, black) 0%,
+    color-mix(in oklch, var(--accent) 86%, black) 52%,
+    var(--accent) 100%
+  ) !important;
+  border-color: color-mix(in oklch, var(--accent) 62%, transparent) !important;
+}
+
+#shell-docs-course-banner > button {
+  width: 24px !important;
+  height: 24px !important;
+  border: 1px solid color-mix(in srgb, white 26%, transparent) !important;
+  background: color-mix(in srgb, white 10%, transparent) !important;
+  opacity: 1 !important;
+  color: white !important;
+  cursor: pointer !important;
+}
+
+#shell-docs-course-banner > button:hover {
+  background: color-mix(in srgb, white 16%, transparent) !important;
+}
+
+.shell-docs-nav-link-idle {
+  color: var(--text-muted);
+}
+
+.shell-docs-nav-link-idle:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.shell-docs-nav-link-active {
+  background: color-mix(in oklch, var(--accent) 13%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, var(--border)),
+    0 1px 0 rgba(1, 5, 7, 0.04);
+  color: var(--accent);
+}
+
+.shell-docs-nav-cta {
+  border-color: var(--nav-control-border);
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+  color: var(--accent);
+}
+
+.shell-docs-nav-cta:hover {
+  border-color: var(--nav-control-border-hover);
+  background: color-mix(in oklch, var(--accent) 13%, transparent);
+  color: var(--accent);
+}
+
+.dark .shell-docs-nav-link-idle:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.dark .shell-docs-nav-link-active {
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, var(--border)),
+    0 1px 0 rgba(0, 0, 0, 0.25);
+  color: var(--accent);
+}
+
+/* shell-docs sidebar overrides.
+ *
+ * Fumadocs's DocsLayout sidebar reserves a header row with the home
+ * logo + sidebar-collapse toggle. shell-docs has its own BrandNav with
+ * the same logo, and `collapsible: false` removes the toggle — but the
+ * empty home-link `<a>` still occupies space at the top of the sidebar
+ * column. Hide it so the framework selector (rendered via the `banner`
+ * slot) sits flush at the top. */
+/* Sidebar banner (holds the framework picker). Keep horizontal padding at
+ * zero so the picker edge aligns with BrandNav's visible surface. The top
+ * gap keeps the picker aligned under BrandNav; the larger bottom gap gives
+ * the first section header the same breathing room as section breaks below. */
+.shell-docs-sidebar > div:first-child {
+  padding: 0.75rem 0 1.25rem !important;
+}
+@media (min-width: 768px) {
+  .shell-docs-sidebar-cookbook > div:first-child {
+    display: none !important;
+  }
+}
+.shell-docs-sidebar-cookbook
+  [data-radix-scroll-area-viewport]
+  > div:first-child {
+  padding-top: 0 !important;
+  padding-bottom: 1.5rem !important;
+}
+/* Hide the empty home-link wrapper Fumadocs ships in the desktop
+ * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
+ * matches the desktop case — the mobile SidebarHeader's first flex
+ * child contains the iconLinks + theme-toggle row (children: real
+ * anchors + a button), so this selector deliberately doesn't apply
+ * there. */
+.shell-docs-sidebar
+  > div:first-child
+  > .flex:first-child:has(> a:only-child:empty) {
+  display: none !important;
+}
+
+/* Tighten Fumadocs folder rendering. The default gives folders an
+ * extra row of vertical padding above their children, which reads as
+ * a hole between the folder label and the first item. */
+#nd-sidebar [data-folder] > [data-folder-trigger] {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+}
+
+/* Fumadocs animates collapsible folder panels after mount. Because
+ * shell-docs currently mounts DocsLayout per page, route changes can
+ * replay those "open" animations for folders that are already open.
+ * SidebarFolderStatePreserver marks route-mounted panels with this
+ * attribute and removes it before a real folder-toggle click, so user
+ * interactions keep the default animation while navigation stays calm. */
+.shell-docs-sidebar [data-shell-docs-skip-initial-animation] {
+  animation: none !important;
+}
+
+/* Sidebar section headers (PageTree `separator` nodes). Fumadocs defaults
+ * to body-weight foreground text with `inline-flex`, which makes section
+ * labels (a) compete with the actual nav links underneath, and (b) flow
+ * onto the SAME row when two separators are adjacent (e.g. a folder's
+ * title + its first child separator). Push them into "shelf label"
+ * territory and force block-level layout so each one sits on its own row.
+ * The unique `--sidebar-item-offset` class fragment isolates these from
+ * any other `<p>` elements in the sidebar. */
+.shell-docs-sidebar p[class*="sidebar-item-offset"] {
+  display: flex !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  color: var(--text-secondary) !important;
+  /* Heavier `padding-top` opens a breath of space between the last
+   * item of the previous section and this header, so the section
+   * boundary reads as a real break instead of one continuous list.
+   * `padding-bottom` separates the header from its first child entry
+   * without making the header feel detached. Mirrors Mintlify's
+   * roomier section spacing. */
+  padding-top: 1.75rem !important;
+  padding-bottom: 0.625rem !important;
+  margin-top: 0.25rem !important;
+  margin-bottom: 0 !important;
+}
+/* Sidebar entry rhythm. Fumadocs ships `p-2` on every `<a>` link and
+ * `<button>` folder trigger, which packs items tightly together. Bump
+ * top/bottom padding by 2px each so each entry has a touch more
+ * breathing room without the sidebar growing taller than necessary.
+ * Targets the `ps-(--sidebar-item-offset)` class fragment shared by
+ * every sidebar item (link, folder trigger, separator); separators
+ * have their own padding overrides further down so they're unaffected. */
+.shell-docs-sidebar a[class*="sidebar-item-offset"],
+.shell-docs-sidebar button[class*="sidebar-item-offset"] {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+/* Shrink sidebar icons (folder chevrons, anything Fumadocs renders
+ * inside a navigation item) from the default 16px down to 14px.
+ * Targets only nav items via the `ps-(--sidebar-item-offset)` class
+ * fragment so the framework-selector pill / dropdown logos keep their
+ * explicit sizing. Section-header `<p>` icons are styled separately
+ * below (smaller + muted) so they read as visual scaffolding rather
+ * than competing with the all-caps section label. */
+.shell-docs-sidebar a[class*="sidebar-item-offset"] svg,
+.shell-docs-sidebar button[class*="sidebar-item-offset"] svg {
+  width: 14px;
+  height: 14px;
+}
+/* Sidebar footer (`SidebarFooter` — the row with GitHub/Discord icons
+ * and the custom `<ThemeSwitch>`). Fumadocs wraps our custom `footer`
+ * ReactNode in `<div class="flex flex-col border-t p-4 pt-2 empty:hidden">`,
+ * which already gives us a top divider. We override the divider color so
+ * it picks up the project's `--border` token (default `border-t` resolves
+ * to `currentColor` in Tailwind v4) and tighten the vertical padding so
+ * the row feels like a contained section under the nav rather than a
+ * floating chrome block. */
+.shell-docs-sidebar > div.flex.flex-col.p-4.pt-2:last-child {
+  padding: 0.75rem 1rem 0.875rem 1rem !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* Footer icon-link hover — pick up the accent on hover. Targets the
+ * GitHub / Discord anchors inside our custom footer row (marked with
+ * the `.sidebar-footer-row` class on the wrapper) so the icons feel
+ * branded even without a container pill. */
+.shell-docs-sidebar .sidebar-footer-row a {
+  transition:
+    color 150ms ease-out,
+    background-color 150ms ease-out;
+}
+.shell-docs-sidebar .sidebar-footer-row a:hover {
+  background-color: color-mix(
+    in srgb,
+    var(--accent) 10%,
+    transparent
+  ) !important;
+  color: var(--accent) !important;
+}
+
+/* First separator at the top of the sidebar — Fumadocs v16 emits the
+ * separator `<p>` with `first:mt-0`, which is correct for shell-docs
+ * because the picker wrapper owns the top-to-first-section gap. Keep this at
+ * zero so the picker-to-"Getting Started" space does not double up with
+ * the scroll viewport's padding. Selector matches the section-header
+ * `<p>` shape (`inline-flex items-center gap-2 ...`) since v16 dropped
+ * the older `sidebar-item-offset` class fragment. */
+.shell-docs-sidebar p.inline-flex.gap-2:first-of-type {
+  margin-top: 0 !important;
+}
+
+/* Section-header icons — accent purple. The lucide icons use
+ * `stroke="currentColor"` so setting `color` recolors the stroke. */
+.shell-docs-sidebar p.inline-flex.gap-2 svg {
+  color: var(--accent) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+/* Two separators stacked back-to-back (e.g. a top-level section
+ * "Build Generative UI" + sub-section "Controlled") would otherwise
+ * each get the full 1rem top padding, producing a yawning gap between
+ * them. Tighten the second one AND step its visual weight down so the
+ * pair reads as a heading + sub-heading rather than two competing
+ * top-level sections. */
+.shell-docs-sidebar
+  p[class*="sidebar-item-offset"]
+  + p[class*="sidebar-item-offset"] {
+  padding-top: 0.25rem !important;
+  margin-top: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--text-muted) !important;
+  letter-spacing: 0 !important;
+}
+
+.shell-docs-react-docs-proxy {
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--accent));
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy),
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy) {
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy):hover,
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy):hover {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) {
+  color: var(--text-muted) !important;
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) svg {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
+  opacity: 0.65;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-frontend-docs-upcoming) {
+  display: block !important;
+  padding: 0 0.5rem !important;
+  margin: 1.75rem 0 0.25rem !important;
+}
+
+.shell-docs-frontend-docs-upcoming {
+  position: relative;
+  display: flex;
+  min-height: max(36rem, calc(100dvh - 27rem));
+  flex-direction: column;
+  padding: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.shell-docs-frontend-docs-upcoming-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.shell-docs-frontend-docs-upcoming-header svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 auto;
+  color: var(--accent) !important;
+}
+
+.shell-docs-frontend-docs-upcoming-title {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-docs-frontend-docs-upcoming-copy {
+  display: block;
+  margin-top: 0.5rem;
+  max-width: 16.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: color-mix(in oklch, var(--text-muted) 78%, transparent);
+  text-transform: none;
+  user-select: text;
+}
+
+.shell-docs-frontend-docs-upcoming-link {
+  color: color-mix(in oklch, var(--accent) 86%, var(--text));
+  font-weight: 650;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.shell-docs-frontend-docs-upcoming-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.shell-docs-frontend-docs-upcoming-stack {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: repeat(8, minmax(2.875rem, 1fr));
+  gap: 0.375rem;
+  margin-top: 0.875rem;
+  padding-bottom: 0.75rem;
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  pointer-events: none;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.375rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--border) 52%, transparent);
+  border-radius: var(--shell-docs-radius-control);
+  background: color-mix(in oklch, var(--accent-dim) 15%, transparent);
+  padding: 0.625rem 0.875rem;
+  box-shadow: none;
+  opacity: 0.76;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::before,
+.shell-docs-frontend-docs-upcoming-sheet::after {
+  content: "";
+  position: absolute;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::before {
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--bg-surface) 28%, transparent),
+    transparent
+  );
+  opacity: 0.34;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::after {
+  display: none;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet:nth-child(2n) {
+  opacity: 0.66;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet:nth-child(3n) {
+  opacity: 0.56;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line {
+  position: relative;
+  display: block;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--text-faint) 19%, transparent);
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-long {
+  width: 78%;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-medium {
+  width: 60%;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-short {
+  width: 42%;
+}
+
+.dark .shell-docs-frontend-docs-upcoming-sheet {
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+}
+
+/* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.
+ *
+ * Out-of-the-box, Fumadocs paints the `<CodeBlock>` figure with
+ * `bg-fd-card` (and `bg-fd-secondary` when nested inside CodeBlockTabs),
+ * and the CodeBlockTabs container itself uses `bg-fd-card`. Those tints
+ * differ subtly from the page theme, giving the title strip a visibly
+ * separate band. Snap every surface to the shared card token so the file
+ * caption, the code body, and the tab strip read as one clean rounded box. */
+figure.shiki,
+.docs-inner-content [data-orientation="horizontal"]:has(> [role="tablist"]) {
+  background-color: var(--bg-surface) !important;
+  box-shadow: none !important;
+}
+.dark figure.shiki,
+.dark
+  .docs-inner-content
+  [data-orientation="horizontal"]:has(> [role="tablist"]) {
+  background-color: var(--bg-surface) !important;
+}
+/* Fumadocs's figcaption header ("page.tsx" strip) uses `border-b` which
+ * inherits `currentColor` from the parent's `text-fd-muted-foreground`
+ * — that resolves to a dark gray and reads as a heavy band against the
+ * white surface. Force the project border token so the divider matches
+ * every other border on the page. */
+figure.shiki > div:first-child[class*="border-b"] {
+  border-bottom-color: var(--border) !important;
+}
+
+/* Tighten Fumadocs DocsPage spacing.
+ *
+ * On desktop (xl+), shell-docs's BrandNav sits OUTSIDE DocsLayout in
+ * body flow — so `#nd-docs-layout`'s `pt-(--fd-nav-height)` would be a
+ * second 88px stacked on top of BrandNav's 88px (a doubled gap). We
+ * zero it on xl+ only.
+ *
+ * On tablet/mobile (< xl), BrandNav is hidden and the fixed-positioned
+ * MobileTopNav lives INSIDE DocsLayout — `pt-(--fd-nav-height)` (56px)
+ * is exactly the space the fixed nav needs. The course banner still
+ * sits in normal body flow above `<main>`, so Fumadocs's in-grid
+ * banner row must stay zero here too.
+ *
+ * The article-level padding (LayoutBody's `md:[&_#nd-page_article]:pt-12`
+ * plus PageArticle's own `pt-8`) is unwanted on both — we always zero
+ * those at the #nd-page / article wrappers. */
+/* Mobile: MobileTopNav is fixed at the top of the viewport. Push the docs
+ * grid down by the nav height plus a small breathing gap so the first page
+ * content does not feel pinned to the chrome. Fumadocs v16 no longer ships
+ * this `pt-(--fd-nav-height)` default on the grid root the way v15 did. */
+@media (max-width: 767px) {
+  #nd-docs-layout {
+    --fd-docs-row-1: 0px !important;
+    padding-top: calc(var(--fd-nav-height) + 1rem) !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #nd-sidebar,
+  #nd-docs-layout > [class*="[grid-area:sidebar]"],
+  #nd-toc {
+    display: none !important;
+  }
+
+  #nd-page {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  #nd-docs-layout {
+    --fd-docs-row-1: 0px !important;
+    padding-top: var(--fd-nav-height) !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #nd-docs-layout > .docs-inner-content {
+    grid-area: main !important;
+    grid-column: main !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  #nd-docs-layout {
+    margin-top: var(--shell-docs-grid-top-offset) !important;
+    padding-top: 0 !important;
+    /* Override fumadocs's `--fd-docs-row-1: var(--fd-banner-height, 0px)`.
+     * Fumadocs assumes the banner is sticky/fixed at the top of the
+     * viewport, so it uses banner-height as the sidebar wrapper's
+     * sticky-top offset (and as the offset of row 1 inside the docs
+     * grid). For shell-docs the banner is in NORMAL BODY FLOW above
+     * BrandNav — so it already pushes the entire `<main>` (and the
+     * docs grid inside it) down by `--fd-banner-height` via flow.
+     * Using `--fd-banner-height` AGAIN as the in-grid offset
+     * double-counts: when the banner appears the sidebar visually
+     * drops by another 54px below BrandNav, creating a gaping hole
+     * between BrandNav's bottom edge and the sidebar's framework
+     * picker. Pin row-1 to 0 so the sidebar sits directly under
+     * BrandNav regardless of banner presence. */
+    --fd-docs-row-1: 0px !important;
+    /* Override fumadocs's default `--fd-docs-height: 100dvh`. That
+     * assumes the docs grid spans the whole viewport, but shell-docs
+     * has BrandNav (64px) + mt-3 (12px) + mb-3 (12px) around `main`, plus
+     * a small grid top offset, in body flow (body itself is
+     * `overflow: hidden`, fixed 100dvh). We can't use `100%` here:
+     * the docs grid uses `min-h-(--fd-docs-height)`, so when the
+     * docs content is long it grows past main, and `100%` resolves
+     * against the GROWN height — making the sticky sidebar wrapper
+     * (sized as `calc(--fd-docs-height - --fd-docs-row-1)`) the
+     * full content height (3000px+) rather than the visible column.
+     * Use a viewport-bound calc that subtracts the chrome instead. */
+    --fd-docs-height: calc(
+      100dvh - var(--fd-banner-height, 0px) - 64px - 1.5rem -
+        var(--shell-docs-grid-top-offset)
+    ) !important;
+  }
+}
+#nd-page > article,
+#nd-page {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  padding-top: 0 !important;
+  padding-left: 0.75rem !important;
+  margin-top: 0 !important;
+}
+#nd-page > article > *:first-child {
+  margin-top: 0 !important;
+}
+
+/* When the docs layout renders without a TOC (overview routes that don't
+ * use DocsPage, or DocsPage with toc=[] / tableOfContent:disabled),
+ * the right side of the content slot becomes empty space and a
+ * 900px-capped column reads as left-anchored. Widen the inner column to
+ * fill that space so cards/text settle into a more balanced layout.
+ *
+ * Scoped to `#nd-docs-layout` (not `#nd-page`) so it also covers the
+ * Welcome route, which renders bespoke content directly inside DocsLayout
+ * without a DocsPage wrapper. */
+/* The inner content column sits inside a flex-col article whose width
+ * tracks the available viewport space (sidebar + TOC eat into the
+ * remaining room). Without `min-width: 0`, this child defaults to
+ * `min-width: auto`, which expands to fit its intrinsic min-content —
+ * a wide chat iframe or long code line then bursts past the article's
+ * rendered width and overlaps the sticky right-rail TOC. Force a zero
+ * floor AND pin width to 100% of the article so the child cannot
+ * grow content-first; oversize children (iframes, code blocks) must
+ * scroll internally to fit. */
+.docs-inner-content {
+  min-width: 0;
+  width: 100%;
+  /* Mobile default: keep the content close to the viewport edges so
+   * a 375px screen isn't eating 98px of side padding. */
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+}
+
+/* Tablet/sidebar-visible layouts can put the content column directly
+ * against the sidebar edge. Add a small extra left inset there without
+ * spending precious horizontal space on phone-sized screens. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .docs-inner-content {
+    padding-left: 24px !important;
+  }
+}
+
+/* Desktop (xl+): mirror the sidebar's 0.75rem left/right viewport
+ * inset so the content column has breathing room from both the
+ * floating sidebar (on the left) and the viewport edge (on the
+ * right). */
+@media (min-width: 1280px) {
+  .docs-inner-content {
+    padding-left: 49px !important;
+    padding-right: 49px !important;
+  }
+}
+
+/* TOC-less pages (frontmatter `hideTOC: true`, or any page where fumadocs
+ * doesn't render `#nd-toc`). The grid still allocates the full article
+ * column (TOC width collapses to 0), but the article element itself has
+ * a Tailwind `max-w-[900px]` cap baked in by fumadocs's default styles —
+ * which leaves a yawning empty band on wide viewports. Lift the cap on
+ * BOTH the article AND its inner content wrapper so the content stretches
+ * into the space the TOC would otherwise occupy. Still pin to `100%` so
+ * narrow viewports don't horizontal-scroll. */
+#nd-docs-layout:not(:has(#nd-toc)) article#nd-page {
+  max-width: 100% !important;
+}
+#nd-docs-layout:not(:has(#nd-toc)) .docs-inner-content {
+  max-width: min(1100px, 100%);
+}
+
+/* Tablet/mobile: the docs grid keeps 5 columns (sidebar / sidebar / main /
+ * toc / toc) even when the sidebar is `display: none` because it's
+ * the named grid template fumadocs ships. With `grid-area: auto`,
+ * the content lands in column 1 (a `1fr` outer-left column), so a
+ * narrow main column (col 3, no real content placed there) wastes
+ * the rest of the viewport on the right. Forcing the content to
+ * span the full grid lets it use the whole row. */
+@media (max-width: 1279px) {
+  #nd-page,
+  #nd-page > article,
+  .docs-content-wrapper {
+    overflow-x: clip;
+  }
+
+  .docs-inner-content {
+    grid-column: 1 / -1;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Sidebar — keep the navigation unframed at every viewport width. */
+.shell-docs-sidebar {
+  background-color: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Sidebar scroll viewport — the picker wrapper owns the top gap, so only
+ * keep bottom padding for scroll-end breathing room. Remove horizontal
+ * padding so the nav content uses the same full column width as the
+ * framework picker. */
+.shell-docs-sidebar [data-radix-scroll-area-viewport] {
+  padding: 0 0 1rem 0 !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+/* Bridge shell-docs's hand-rolled token names (--bg, --text, --accent, …)
+ * to the names Fumadocs's shadcn preset expects (--background, --foreground,
+ * --primary, …). Done in @theme inline so Tailwind's color utilities
+ * (`bg-fd-background`, etc.) and Fumadocs's internal components both
+ * resolve to the shell-docs palette. */
+@theme inline {
+  /* Fumadocs ships Tailwind utilities that use rounded-md/lg/xl/2xl in
+   * generated layout chrome. Map those radius tokens back to the shadcn
+   * `--radius` value so custom and Fumadocs surfaces share one shape
+   * instead of each rounded-* utility choosing a different corner size. */
+  --radius-sm: var(--shell-docs-radius);
+  --radius-md: var(--shell-docs-radius);
+  --radius-lg: var(--shell-docs-radius);
+  --radius-xl: var(--shell-docs-radius);
+  --radius-2xl: var(--shell-docs-radius);
+  --color-fd-background: var(--bg);
+  --color-fd-foreground: var(--text);
+  --color-fd-card: var(--bg-surface);
+  --color-fd-card-foreground: var(--text);
+  --color-fd-popover: var(--bg-surface);
+  --color-fd-popover-foreground: var(--text);
+  --color-fd-primary: var(--accent);
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: var(--bg-elevated);
+  --color-fd-secondary-foreground: var(--text);
+  --color-fd-muted: var(--bg-elevated);
+  --color-fd-muted-foreground: var(--text-muted);
+  --color-fd-accent: var(--bg-elevated);
+  --color-fd-accent-foreground: var(--text);
+  --color-fd-border: var(--border);
+  --color-fd-ring: var(--accent);
+}
+
+/* Callout / admonition accents (consumed by the fumadocs `<Callout>` via
+ * `var(--color-fd-info|warning|success)`). Fumadocs' preset ships generic
+ * blue/amber/green for these, which read as off-brand against the
+ * purple-anchored docs theme. Remap them to existing brand tokens: info ->
+ * brand accent (purple), warning -> the docs `--warning` orange already used
+ * by `.shell-docs-warning-surface`, success -> brand mint. These MUST be plain
+ * `:root` custom properties, not `@theme` tokens — Tailwind v4 tree-shakes
+ * theme variables that no utility class references, and the Callout reads
+ * these only through inline `var()`. The source tokens are theme-aware, so a
+ * single `:root` definition covers light and dark. `error` is intentionally
+ * left to `--destructive` (set by fumadocs' shadcn.css). */
+:root {
+  --color-fd-info: var(--accent);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
+}
 
 :root {
-  /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).
-   * Shell keeps a slightly lighter cast so code blocks on white surface
-   * still read well; key is that it's the same cool-gray family. */
-  --bg: #eaeaee;
-  --bg-surface: #ffffff;
-  --bg-elevated: #f1f1f6;
-  --bg-hover: #e5e5eb;
-  --border: #d9d9e0;
-  --border-dim: #e9e9ef;
-  --sidebar: #efeff3;
-  --text: #010507;
-  --text-secondary: #2b3238;
-  --text-muted: #6a7079;
-  --text-faint: #a3a8af;
-  /* Reference primary is oklch(0.55 0.25 285) — a blue-violet. Hex approx. */
-  --accent: #5a3cd1;
-  --accent-light: #ebe7fa;
-  --accent-dim: rgba(90, 60, 209, 0.06);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.457 0.24 277.023);
+  --primary-foreground: oklch(0.962 0.018 272.314);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent-token: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.511 0.262 276.966);
+  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  /* Light mode follows a shadcn-style neutral scale: white page/card
+   * surfaces, a very light sidebar, low-chroma borders, and a single
+   * purple primary. shell-docs keeps `--accent` as the primary color
+   * because existing CTAs and link states depend on that contract.
+   *
+   * Exception: `--nav-surface` remains explicit so the header can keep
+   * tracking the page background independently of elevated surfaces. */
+  --bg: var(--background);
+  --bg-surface: var(--card);
+  --bg-elevated: var(--secondary);
+  --bg-hover: var(--muted);
+  --border: oklch(0.922 0 0);
+  --border-dim: color-mix(in oklch, var(--border) 62%, transparent);
+  --sidebar: oklch(0.985 0 0);
+  --glass-background: var(--card);
+  --nav-surface: var(--background);
+  --text: var(--foreground);
+  --text-secondary: oklch(0.21 0.006 285.885);
+  --text-muted: var(--muted-foreground);
+  --text-faint: oklch(0.708 0 0);
+  --accent: var(--primary);
+  --accent-light: color-mix(in oklch, var(--accent) 14%, white);
+  --accent-dim: color-mix(in oklch, var(--accent) 8%, transparent);
   --blue: #1a5fb4;
-  --violet: #5a3cd1;
-  --violet-light: #ebe7fa;
+  /* Aliased to --accent / --accent-light. Consumed by AG-UI section pages
+   * and OpsPlatformCTA. Kept as separate names for backwards compatibility
+   * with existing class references; values track the canonical accent. */
+  --violet: var(--accent);
+  --violet-light: var(--accent-light);
+  /* Scrollbar tokens — applied to internal scroll containers (sidebar
+   * inner scroll, content wrapper) so thumb + track follow theme. */
+  --scrollbar-color: rgba(0, 0, 0, 0.2);
+  --scrollbar-track: transparent;
 
   /* Font stacks — fed by next/font CSS variables in layout.tsx with
    * safe fallbacks for environments where the font fails to load.
@@ -39,9 +1127,79 @@
   --font-docs-prose:
     var(--font-prose, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
+  /* Code font: canonical docs.copilotkit.ai now uses system mono only,
+   * so we follow suit. No Google Font fetched for monospaced text. */
   --font-docs-code:
-    var(--font-mono, "Spline Sans Mono"), ui-monospace, SFMono-Regular,
-    "SF Mono", Menlo, monospace;
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* Dark token set — same neutral scale, with purple lifted slightly brighter
+ * than the sample's dark primary so text and outline CTAs keep enough
+ * contrast on the docs header. */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.585 0.233 277.117);
+  --primary-foreground: oklch(0.962 0.018 272.314);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent-token: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.585 0.233 277.117);
+  --sidebar-primary-foreground: oklch(0.962 0.018 272.314);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --bg: var(--background);
+  --bg-surface: var(--card);
+  --bg-elevated: var(--secondary);
+  --bg-hover: color-mix(in oklch, var(--secondary) 82%, white 18%);
+  --nav-surface: var(--background);
+  --border-dim: oklch(1 0 0 / 5%);
+  --glass-background: color-mix(in oklch, var(--card) 70%, transparent);
+  --text: var(--foreground);
+  --text-secondary: oklch(0.82 0.01 286);
+  --text-muted: var(--muted-foreground);
+  --text-faint: oklch(0.556 0 0);
+  --accent: var(--primary);
+  --accent-light: color-mix(in oklch, var(--accent) 24%, transparent);
+  --accent-dim: color-mix(in oklch, var(--accent) 14%, transparent);
+  --warning: oklch(0.76 0.15 76);
+  --warning-dim: color-mix(in oklch, var(--warning) 14%, transparent);
+  --warning-border: color-mix(in oklch, var(--warning) 48%, var(--border));
+  --warning-text: color-mix(in oklch, var(--warning) 72%, var(--text));
+  /* Brand mint/400 — brighter than the light-mode mint/800 so the success
+   * accent reads on the dark callout card. */
+  --success: #85ecce;
+  --blue: #6ba6e8;
+  --violet: var(--accent);
+  --violet-light: var(--accent-light);
+  --scrollbar-color: rgba(255, 255, 255, 0.18);
+  --scrollbar-track: transparent;
+}
+
+/* Apply themed scrollbar to internal scroll containers. Targets the
+ * sidebar's inner scroll wrapper and the docs content wrapper so the
+ * thumb tracks the active theme instead of falling back to the
+ * browser default (a bright gray that pops against dark surfaces). */
+aside .overflow-y-auto,
+.docs-content-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-color) var(--scrollbar-track);
 }
 
 html,
@@ -53,12 +1211,49 @@ body {
   letter-spacing: -0.005em;
 }
 
+/* Canonical layout architecture (mirrors docs.copilotkit.ai global.css):
+ * body is a fixed-height flex column with no scroll. The banner + nav sit
+ * at the top of body; the horizontal flex row (sidebar + content) takes
+ * the remaining height. The ONLY scroll container is `.docs-content-wrapper`,
+ * so chrome that should stay put (banner, nav, sidebar) is naturally
+ * outside the scroll context — no `position: sticky` required, and no
+ * sub-pixel sticky-compositing drift on first scroll. */
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Code font inherits Spline Sans Mono via CSS variable */
 code,
 pre,
 kbd,
 samp {
   font-family: var(--font-docs-code);
+}
+
+/* Main content panel — mirrors canonical's `.docs-content-wrapper`.
+ * The horizontal flex row (`<main>`) supplies a fixed height; this
+ * element is the ONLY scroll container in the docs view, so banner,
+ * nav and sidebar (all naturally placed siblings outside this wrapper)
+ * stay put when the user scrolls long content. The `min-width: 0`
+ * allows the column to shrink inside the flex row even when the
+ * inline content has its own intrinsic min-content. */
+.docs-content-wrapper {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  background-color: var(--bg);
+  scrollbar-width: thin;
+}
+
+[data-theme="dark"] .docs-content-wrapper,
+.dark .docs-content-wrapper {
+  background-color: var(--bg);
 }
 
 /* Reference content (MDX) typography — calibrated against docs.copilotkit.ai.
@@ -72,12 +1267,12 @@ samp {
 
 .reference-content h2 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
   padding-bottom: 0;
-  letter-spacing: -0.015em;
+  letter-spacing: normal;
 }
 
 .reference-content h3 {
@@ -104,6 +1299,16 @@ samp {
   margin-bottom: 1rem;
 }
 
+/* prose-no-margin (used by fumadocs Callout and Table) lives in @layer utilities,
+ * which always loses to unlayered styles like .reference-content p above.
+ * Mirror its intent here at (0,2,1) specificity so the layered utility wins. */
+.reference-content .prose-no-margin > :first-child {
+  margin-top: 0;
+}
+.reference-content .prose-no-margin > :last-child {
+  margin-bottom: 0;
+}
+
 .reference-content ul,
 .reference-content ol {
   font-size: 0.9375rem;
@@ -125,11 +1330,15 @@ samp {
   list-style-type: decimal;
 }
 
-.reference-content code {
+/* Inline code chips (`<code>` inside paragraphs, list items, headings).
+ * Scoped with `:not(pre code)` so the block `<code>` inside Fumadocs's
+ * CodeBlock <pre> doesn't pick up the gray chip background — that
+ * would paint the entire code body with `--bg-elevated`. */
+.reference-content :not(pre) > code {
   font-size: 0.8125rem;
   background: var(--bg-elevated);
   padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  border-radius: var(--shell-docs-radius-control);
   font-family: var(--font-docs-code);
   color: var(--text);
 }
@@ -141,25 +1350,10 @@ samp {
   font-size: 0.875em;
 }
 
-/* Bare <pre> fallback (when an MDX page uses a triple-fence rather than
- * <Snippet>). Mirrors the chrome on <Snippet>'s figure so pages look
- * consistent whether the code is live-from-cell or inline. */
-.reference-content pre {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  overflow-x: auto;
-  margin-bottom: 1.25rem;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-
-.reference-content pre code {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-}
+/* Fenced code blocks go through Fumadocs's `<CodeBlock>` + `<Pre>` chrome
+ * (see `src/components/mdx-code-block.tsx`). No `.reference-content pre`
+ * overrides — they would double-decorate the figure with a second
+ * border / padding / background. */
 
 .reference-content a {
   color: var(--accent);
@@ -179,16 +1373,29 @@ samp {
 
 .reference-content table {
   width: 100%;
-  font-size: 0.8125rem;
-  border-collapse: collapse;
+  font-size: 0.875rem;
+  /* `separate` (with zero spacing) instead of `collapse` so the table
+   * itself can carry a border + radius and the inner cells lay
+   * horizontal row separators on top of it without doubling. */
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-surface);
+  overflow: hidden;
   margin-bottom: 1rem;
 }
 
 .reference-content th,
 .reference-content td {
-  border: 1px solid var(--border);
-  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding: 0.625rem 0.75rem;
   text-align: left;
+}
+
+/* Last row sits flush against the table's outer border, so a cell
+ * `border-bottom` would double up — strip it. */
+.reference-content tr:last-child td {
+  border-bottom: none;
 }
 
 .reference-content th {
@@ -206,3 +1413,165 @@ samp {
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
 }
+
+/* Reference prop rows are authored as individual <PropertyReference> MDX
+ * blocks, but rendered with Fumadocs' TypeTable. Join adjacent entries so
+ * each prop section reads as one table rather than a stack of separate cards. */
+.reference-content .shell-docs-property-reference {
+  margin-block: 0;
+  border-color: var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: var(--shell-docs-radius-surface);
+}
+
+.reference-content
+  :not(.shell-docs-property-reference)
+  + .shell-docs-property-reference {
+  margin-top: 1rem;
+}
+
+.reference-content
+  .shell-docs-property-reference:has(+ .shell-docs-property-reference) {
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.reference-content
+  .shell-docs-property-reference
+  + .shell-docs-property-reference {
+  border-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.reference-content
+  .shell-docs-property-reference
+  + .shell-docs-property-reference
+  > div:first-child {
+  display: none;
+}
+
+.reference-content
+  .shell-docs-property-reference:not(:has(+ .shell-docs-property-reference)) {
+  margin-bottom: 1.5rem;
+}
+
+.reference-content .shell-docs-property-reference button > code {
+  background: transparent;
+  border-radius: 0;
+  color: var(--accent);
+  font-size: inherit;
+  padding: 0;
+}
+
+/* Heading anchors — H2/H3 surface a hover-only `#` link aligned to the
+ * right of the heading text, matching canonical fumadocs prose. Keep the
+ * heading itself block-level so adjacent headings never share a line; the
+ * anchor is part of the heading's normal flow (not absolute) so it never
+ * collides with the right-rail TOC at narrow widths. */
+.reference-content .docs-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.reference-content .docs-heading-anchor {
+  color: var(--text-faint);
+  text-decoration: none;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.reference-content .docs-heading:hover .docs-heading-anchor,
+.reference-content .docs-heading-anchor:focus-visible {
+  opacity: 1;
+}
+
+.reference-content .docs-heading-anchor:hover {
+  color: var(--accent);
+  opacity: 1;
+}
+
+/* Fumadocs <Steps> / <Step>, themed to shell-docs tokens. */
+.fd-steps {
+  border-inline-start-color: var(--border);
+  margin-block: 1.5rem;
+}
+
+.fd-step {
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+
+.fd-step::before {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--shell-docs-radius-icon);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  height: 1.5rem;
+  inset-inline-start: -2.75rem;
+  line-height: 1;
+  top: 0.1875rem;
+  width: 1.5rem;
+}
+
+/* Step heading colors. Previously Step 1's heading carried an
+ * indigo→purple gradient text fill as a "this is the entry point"
+ * cue, but it competed visually with surrounding chrome and read as
+ * branding noise rather than guidance. Force every Step's H3 to the
+ * standard prose text color so the numbered badge supplies the only
+ * visual cue for step ordering. The `:is(:not(.docs-heading-anchor))`
+ * leaves the anchor `#` link alone so it keeps its faint hover styling.
+ *
+ * `-webkit-text-fill-color` must be reset explicitly — any prior
+ * gradient rule that set it to `transparent` would otherwise still
+ * override our `color` declaration on WebKit browsers. */
+.fd-steps h3,
+.fd-steps h3 > :is(:not(.docs-heading-anchor)) {
+  background-image: none !important;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+.fd-steps h3 a:not(.docs-heading-anchor) {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+
+/* Mute the SignupLink color in Step 1 so it tracks the body prose. The
+ * link stays underlined for affordance, inherits hover (opacity: 0.8)
+ * from .reference-content a. */
+.fd-steps > div:first-child a[data-cta-surface] {
+  color: var(--text);
+}
+
+/* Align each Step's first heading with its number badge.
+ * `.reference-content h2/h3/h4` ship with `margin-top` (1.25–2.5rem) so
+ * the heading would otherwise float below Fumadocs' numbered marker. */
+.fd-steps h2:first-child,
+.fd-steps h3:first-child,
+.fd-steps h4:first-child,
+.fd-steps .docs-step-title:first-child {
+  margin-top: 0;
+}
+
+.fd-steps .docs-step-title {
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.375rem;
+}
+
+/* Syntax-highlight token colors come from Shiki (Fumadocs's `rehypeCode`)
+ * as inline `--shiki-light` / `--shiki-dark` CSS vars on each token span.
+ * Fumadocs's preset CSS swaps between them based on the `.dark` ancestor.
+ * No theme overrides needed here. */
+
+/* Soften the prose link underline rule inside our code-block surfaces.
+ * `.reference-content a { text-decoration: underline; color: accent }`
+ * fires on any <a> that bleeds into a code block (e.g. a link inside
+ * a callout that sits above the code), which is fine. We don't touch
+ * that here; this is just the documented expectation. */

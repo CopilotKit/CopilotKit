@@ -33,6 +33,8 @@ RUN set -eux; \
     /pb/pocketbase --version
 
 FROM alpine:3.19
+LABEL org.opencontainers.image.source="https://github.com/CopilotKit/CopilotKit"
+LABEL org.opencontainers.image.description="PocketBase for CopilotKit showcase platform"
 # `su-exec` is alpine's minimal privilege-drop helper (~30 KB static
 # binary). Used by entrypoint.sh to run PocketBase as `pocketbase` while
 # still being able to chown /pb_data at container start — see the

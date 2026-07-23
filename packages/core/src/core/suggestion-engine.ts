@@ -1,14 +1,25 @@
-import { AbstractAgent, Message, Tool, Context } from "@ag-ui/client";
+import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
-import { CopilotKitCoreFriendsAccess } from "./core";
-import {
+import type { CopilotKitCoreFriendsAccess } from "./core";
+import type {
   DynamicSuggestionsConfig,
   StaticSuggestionsConfig,
   Suggestion,
   SuggestionsConfig,
 } from "../types";
+
+/**
+ * The minimal cancellation surface a running suggestion generation exposes.
+ * Both a cloned `AbstractAgent` (via `abortRun`) and the stateless fetch shim
+ * (which aborts an `AbortController`) satisfy this, so `clearSuggestions` can
+ * cancel either uniformly.
+ */
+interface AbortableSuggestionRun {
+  abortRun(): void;
+}
 
 /**
  * Manages suggestion generation, streaming, and lifecycle for CopilotKitCore.
@@ -17,7 +28,7 @@ import {
 export class SuggestionEngine {
   private _suggestionsConfig: Record<string, SuggestionsConfig> = {};
   private _suggestions: Record<string, Record<string, Suggestion[]>> = {};
-  private _runningSuggestions: Record<string, AbstractAgent[]> = {};
+  private _runningSuggestions: Record<string, AbortableSuggestionRun[]> = {};
 
   constructor(private core: CopilotKitCore) {}
 
@@ -52,29 +63,19 @@ export class SuggestionEngine {
   /**
    * Reload suggestions for a specific agent
    * This triggers generation of new suggestions based on current configs
-   *
-   * @param agentId - The consumer agent ID
-   * @param consumerAgent - Optional: the specific agent instance whose messages should be used
-   *   for availability filtering and context. When running with per-thread clones, the thread
-   *   clone holds the conversation messages; passing it here ensures dynamic suggestions fire
-   *   after the first message even though the registry agent has an empty message list.
    */
-  public reloadSuggestions(
-    agentId: string,
-    consumerAgent?: AbstractAgent,
-  ): void {
+  public reloadSuggestions(agentId: string): void {
     this.clearSuggestions(agentId);
 
-    // Use the provided agent instance when available; fall back to the registry agent.
-    // Per-thread clones hold the actual conversation messages; the registry agent does not.
-    const agent =
-      consumerAgent ??
-      (this.core as unknown as CopilotKitCoreFriendsAccess).getAgent(agentId);
-    if (!agent) {
-      return;
-    }
+    // The agent may legitimately be missing here (e.g. runtime info still loading,
+    // or the consumer agent is configured but not yet registered) — static suggestions
+    // don't need it, only dynamic generation does. Treat that case as "no messages yet"
+    // and process static configs anyway.
+    const agent = (
+      this.core as unknown as CopilotKitCoreFriendsAccess
+    ).getAgent(agentId);
 
-    const messageCount = agent.messages?.length ?? 0;
+    const messageCount = agent?.messages?.length ?? 0;
     let hasAnySuggestions = false;
 
     for (const config of Object.values(this._suggestionsConfig)) {
@@ -95,11 +96,17 @@ export class SuggestionEngine {
       const suggestionId = randomUUID();
 
       if (isDynamicSuggestionsConfig(config)) {
+        // Dynamic suggestions need a real agent (provider + consumer messages).
+        // Skip when the agent isn't ready yet — `reloadSuggestions` will be
+        // called again once it is.
+        if (!agent) {
+          continue;
+        }
         if (!hasAnySuggestions) {
           hasAnySuggestions = true;
           void this.notifySuggestionsStartedLoading(agentId);
         }
-        void this.generateSuggestions(suggestionId, config, agentId, agent);
+        void this.generateSuggestions(suggestionId, config, agentId);
       } else if (isStaticSuggestionsConfig(config)) {
         this.addStaticSuggestions(suggestionId, config, agentId);
       }
@@ -132,74 +139,137 @@ export class SuggestionEngine {
   }
 
   /**
-   * Generate suggestions using a provider agent
+   * Generate suggestions by running a provider agent and extracting the
+   * `copilotkitSuggest` tool call from its streamed messages.
+   *
+   * Two transports, one set of mechanics: both seed an agent with the
+   * consumer's messages + state and the instruction, then `runAgent` with
+   * forced `copilotkitSuggest` tool choice, parsing suggestions as messages
+   * stream in via `onMessagesChanged`.
+   *
+   * - **Stateless** (runtime advertises `suggestions` and transport isn't
+   *   `single`): a stock `HttpAgent` pointed at `/agent/:id/suggest`. That
+   *   endpoint runs the provider directly and streams AG-UI SSE **without**
+   *   persisting a thread, and a plain `HttpAgent` only ever speaks REST SSE —
+   *   it never routes through the Intelligence websocket delegate (which would
+   *   persist a thread). This is the path that removes the thread flood.
+   * - **Fallback** (capability absent → old runtime, or `single` transport):
+   *   clone the provider agent and run it client-side, as before.
+   *
+   * Gated to non-`single` transports because this client only builds the
+   * multi-route `/agent/:id/suggest` URL; single-route deployments (not the
+   * persisting-thread/Intelligence case) fall through to the clone fallback.
    */
   private async generateSuggestions(
     suggestionId: string,
     config: DynamicSuggestionsConfig,
     consumerAgentId: string,
-    consumerAgent?: AbstractAgent,
   ): Promise<void> {
-    let agent: AbstractAgent | undefined = undefined;
+    // The cancellable handle for this generation, removed from the running set
+    // in `finally`. `abortRun` flips `aborted` before cancelling the underlying
+    // agent so the `catch` can distinguish a deliberate clear/reload from a real
+    // failure — some engines (undici, some React Native) reject an aborted run
+    // with a non-"AbortError" error that `isAbortError` alone would misclassify.
+    let runHandle: AbortableSuggestionRun | undefined = undefined;
+    let aborted = false;
     try {
-      const suggestionsProviderAgent = (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(config.providerAgentId ?? "default");
+      const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const resolvedProviderAgentId = config.providerAgentId ?? "default";
+      const suggestionsProviderAgent = friends.getAgent(
+        resolvedProviderAgentId,
+      );
       if (!suggestionsProviderAgent) {
         throw new Error(
-          `Suggestions provider agent not found: ${config.providerAgentId}`,
+          `Suggestions provider agent not found: ${resolvedProviderAgentId}`,
         );
       }
-      // Use the provided consumer agent when available (per-thread clone with actual messages);
-      // fall back to the registry agent for non-threaded use.
-      const suggestionsConsumerAgent =
-        consumerAgent ??
-        (this.core as unknown as CopilotKitCoreFriendsAccess).getAgent(
-          consumerAgentId,
-        );
+      const suggestionsConsumerAgent = friends.getAgent(consumerAgentId);
       if (!suggestionsConsumerAgent) {
         throw new Error(
           `Suggestions consumer agent not found: ${consumerAgentId}`,
         );
       }
 
-      const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
-      agent = clonedAgent;
-      //agent.agentId = suggestionId;
-      agent.threadId = suggestionId;
-      agent.messages = JSON.parse(
-        JSON.stringify(suggestionsConsumerAgent.messages),
-      );
-      agent.state = JSON.parse(JSON.stringify(suggestionsConsumerAgent.state));
+      const instructionContent = [
+        `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
+        `Provide at least ${config.minSuggestions ?? 1} and at most ${
+          config.maxSuggestions ?? 3
+        } suggestions.`,
+        `The user has the following tools available: ${JSON.stringify(
+          friends.buildFrontendTools(consumerAgentId),
+        )}.`,
+        ` ${config.instructions}`,
+      ].join("\n");
 
       // Initialize suggestion storage for this agent/suggestion combo
       this._suggestions[consumerAgentId] = {
         ...this._suggestions[consumerAgentId],
         [suggestionId]: [],
       };
+
+      // Deep-clone the consumer's messages + state so the suggestion run sees
+      // the same context a real turn would, without sharing mutable references.
+      const seededMessages: Message[] = JSON.parse(
+        JSON.stringify(suggestionsConsumerAgent.messages),
+      );
+      const seededState: unknown = JSON.parse(
+        JSON.stringify(suggestionsConsumerAgent.state ?? {}),
+      );
+
+      const useStateless =
+        this.core.suggestions === true &&
+        this.core.runtimeTransport !== "single";
+
+      let suggestionAgent: AbstractAgent;
+      if (useStateless) {
+        const suggestUrl = `${this.core.runtimeUrl}/agent/${encodeURIComponent(
+          resolvedProviderAgentId,
+        )}/suggest`;
+        const credentials = this.core.credentials;
+        suggestionAgent = new HttpAgent({
+          agentId: resolvedProviderAgentId,
+          url: suggestUrl,
+          headers: { ...this.core.headers },
+          // `HttpAgentConfig` has no `credentials` field; inject it via a fetch
+          // wrapper so cookie-based / self-hosted auth still rides along on the
+          // `/suggest` request.
+          ...(credentials
+            ? {
+                fetch: (url: string, requestInit: RequestInit) =>
+                  fetch(url, { ...requestInit, credentials }),
+              }
+            : {}),
+        });
+      } else {
+        suggestionAgent = suggestionsProviderAgent.clone();
+      }
+
+      suggestionAgent.threadId = suggestionId;
+      suggestionAgent.setMessages(seededMessages);
+      suggestionAgent.setState(seededState);
+
+      runHandle = {
+        abortRun: () => {
+          aborted = true;
+          suggestionAgent.abortRun();
+        },
+      };
       this._runningSuggestions[consumerAgentId] = [
         ...(this._runningSuggestions[consumerAgentId] ?? []),
-        agent,
+        runHandle,
       ];
 
-      agent.addMessage({
+      suggestionAgent.addMessage({
         id: suggestionId,
         role: "user",
-        content: [
-          `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
-          `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
-          `The user has the following tools available: ${JSON.stringify((this.core as unknown as CopilotKitCoreFriendsAccess).buildFrontendTools(consumerAgentId))}.`,
-          ` ${config.instructions}`,
-        ].join("\n"),
+        content: instructionContent,
       });
 
-      await agent.runAgent(
+      await suggestionAgent.runAgent(
         {
-          context: Object.values(
-            (this.core as unknown as CopilotKitCoreFriendsAccess).context,
-          ),
+          context: friends.getContextForAgent(consumerAgentId),
           forwardedProps: {
-            ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
+            ...friends.properties,
             toolChoice: {
               type: "function",
               function: { name: "copilotkitSuggest" },
@@ -208,7 +278,7 @@ export class SuggestionEngine {
           tools: [SUGGEST_TOOL],
         },
         {
-          onMessagesChanged: ({ messages }: { messages: Message[] }) => {
+          onMessagesChanged: ({ messages }) => {
             this.extractSuggestions(
               messages,
               suggestionId,
@@ -219,22 +289,32 @@ export class SuggestionEngine {
         },
       );
     } catch (error) {
-      console.warn("Error generating suggestions:", error);
+      // An abort is expected when suggestions are cleared/reloaded mid-flight;
+      // swallow it quietly rather than surfacing it as a failure. `isAbortError`
+      // is the primary (name-based) check; `aborted` covers engines that reject
+      // an aborted run with a differently-named error (or a `TypeError`).
+      if (!isAbortError(error) && !aborted) {
+        console.warn("Error generating suggestions:", error);
+      }
     } finally {
       // Finalize suggestions by marking them as no longer loading
       this.finalizeSuggestions(suggestionId, consumerAgentId);
 
-      // Remove this agent from running suggestions
+      // Remove this run from the running set. `runHandle` may be undefined when
+      // generation threw before it was assigned (e.g. provider/consumer agent
+      // lookup failed); still perform cleanup so the loading balance holds. If
+      // no runs remain for this consumer, emit finished-loading — otherwise a
+      // subscriber that saw `started` would hang in the loading state.
       const runningAgents = this._runningSuggestions[consumerAgentId];
-      if (agent && runningAgents) {
-        const filteredAgents = runningAgents.filter((a) => a !== agent);
-        this._runningSuggestions[consumerAgentId] = filteredAgents;
+      const remaining = runHandle
+        ? (runningAgents ?? []).filter((a) => a !== runHandle)
+        : (runningAgents ?? []);
 
-        // If no more suggestions are running, emit loading end event
-        if (filteredAgents.length === 0) {
-          delete this._runningSuggestions[consumerAgentId];
-          await this.notifySuggestionsFinishedLoading(consumerAgentId);
-        }
+      if (remaining.length === 0) {
+        delete this._runningSuggestions[consumerAgentId];
+        await this.notifySuggestionsFinishedLoading(consumerAgentId);
+      } else {
+        this._runningSuggestions[consumerAgentId] = remaining;
       }
     }
   }
@@ -287,7 +367,7 @@ export class SuggestionEngine {
    * Extract suggestions from messages (called during streaming)
    */
   extractSuggestions(
-    messages: Message[],
+    messages: readonly Message[],
     suggestionId: string,
     consumerAgentId: string,
     isRunning: boolean,
@@ -322,7 +402,9 @@ export class SuggestionEngine {
                     suggestions.push({
                       title: item.title ?? "",
                       message: item.message ?? "",
-                      isLoading: false, // Will be set correctly below
+                      // Defaults to false; only the trailing item is flipped to
+                      // true below, and only while a streaming run is in flight.
+                      isLoading: false,
                     });
                   }
                 }
@@ -491,6 +573,22 @@ export class SuggestionEngine {
       "static suggestions added",
     );
   }
+}
+
+/**
+ * Detects an `AbortController`-driven cancellation so the stateless path can
+ * treat it as an expected (non-error) outcome on clear/reload.
+ */
+export function isAbortError(error: unknown): boolean {
+  // Detect purely by name: a `DOMException` is NOT `instanceof Error` in Safari
+  // and older engines, so gating on `instanceof Error` would misclassify a real
+  // user abort as a failure in the browser (this package runs client-side).
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
 }
 
 /**

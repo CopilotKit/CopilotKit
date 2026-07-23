@@ -1,9 +1,9 @@
-import { NextRequest } from "next/server";
-import { data } from "../data";
+import type { NextRequest } from "next/server";
+import * as store from "@/lib/store";
 
 // Get policy per card
 export const GET = async () => {
-  return new Response(JSON.stringify(data.policies), { status: 200 });
+  return new Response(JSON.stringify(store.policies()), { status: 200 });
 };
 
 // Assign policy
@@ -19,7 +19,7 @@ export const POST = async (req: NextRequest) => {
     }
     // Handle new policy creation
     const newPolicy = { id: policyId, type, limit, spent: 0 };
-    data.policies.push(newPolicy);
+    store.addPolicy(newPolicy);
     return new Response(JSON.stringify(newPolicy), { status: 201 });
   } catch (error) {
     console.error("POST Request error", error);

@@ -26,7 +26,7 @@ JSONL_RENDER_INSTRUCTION = (
     "\n\n## Output format — JSONL spec patches\n"
     "You MUST emit your UI updates as JSONL (one JSON object per line) inside\n"
     "a fenced code block with the ``spec`` language tag. Each line is a patch\n"
-    "object with at minimum an ``op`` field (\"add\", \"replace\", \"remove\")\n"
+    'object with at minimum an ``op`` field ("add", "replace", "remove")\n'
     "and a ``path`` field (JSON-Pointer into the component tree).\n\n"
     "Example:\n"
     "```spec\n"
@@ -41,6 +41,7 @@ JSONL_RENDER_INSTRUCTION = (
 # ---------------------------------------------------------------------------
 # Context extraction helpers
 # ---------------------------------------------------------------------------
+
 
 def get_render_mode(context: list[dict[str, Any]]) -> str:
     """Extract render_mode from CopilotKit context entries.
@@ -77,6 +78,7 @@ def get_output_schema(context: list[dict[str, Any]]) -> dict[str, Any] | None:
 # Prompt augmentation
 # ---------------------------------------------------------------------------
 
+
 def apply_render_mode_prompt(system_prompt: str, render_mode: str) -> str:
     """Return *system_prompt* with render-mode instructions appended.
 
@@ -91,6 +93,7 @@ def apply_render_mode_prompt(system_prompt: str, render_mode: str) -> str:
 # ---------------------------------------------------------------------------
 # LangGraph @wrap_model_call decorator
 # ---------------------------------------------------------------------------
+
 
 def apply_render_mode(fn=None):
     """``@wrap_model_call`` middleware that adapts the model request.

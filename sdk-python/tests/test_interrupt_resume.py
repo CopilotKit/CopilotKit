@@ -14,6 +14,7 @@ class TestInterruptNonListResume:
         mock_interrupt.return_value = "user approved"
 
         from copilotkit.langgraph import copilotkit_interrupt
+
         answer, response = copilotkit_interrupt(message="Do you approve?")
 
         assert answer == "user approved"
@@ -25,6 +26,7 @@ class TestInterruptNonListResume:
         mock_interrupt.return_value = {"approved": True, "reason": "looks good"}
 
         from copilotkit.langgraph import copilotkit_interrupt
+
         answer, response = copilotkit_interrupt(message="Do you approve?")
 
         parsed = json.loads(answer)
@@ -39,6 +41,7 @@ class TestInterruptNonListResume:
         mock_interrupt.return_value = [mock_msg]
 
         from copilotkit.langgraph import copilotkit_interrupt
+
         answer, response = copilotkit_interrupt(message="Do you approve?")
 
         assert answer == "yes"

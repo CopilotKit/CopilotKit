@@ -5,6 +5,23 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
+// Track calls to React.startTransition without losing its real behavior. The
+// hook wraps the heavy initial `setRows(initial)` commit in startTransition so
+// React 19 can yield to user input mid-walk instead of blocking on the
+// full-matrix re-render. We can't `vi.spyOn` a frozen ESM namespace export, so
+// we partial-mock `react` and wrap the real implementation.
+const startTransitionCalls = { count: 0 };
+vi.mock("react", async (importActual) => {
+  const actual = await importActual<typeof import("react")>();
+  return {
+    ...actual,
+    startTransition: (cb: () => void) => {
+      startTransitionCalls.count += 1;
+      return actual.startTransition(cb);
+    },
+  };
+});
+
 // Mock PB client used by the hook. Drives initial + subscribe events.
 type Action = "create" | "update" | "delete";
 type Listener = (e: {
@@ -12,13 +29,15 @@ type Listener = (e: {
   record: Record<string, unknown>;
 }) => void;
 
+// PocketBase clamps perPage to 500, so the paged initial fetch uses 500.
+const PB_PAGE_SIZE = 500;
+
 const mockState = {
   initial: [] as Record<string, unknown>[],
   listener: null as Listener | null,
   failRemaining: 0,
-  // Capture the options passed to getList / subscribe so tests can
-  // assert server-side filter is forwarded (not client-side only).
-  // (Initial fetch now uses paginated getList, not getFullList.)
+  // Capture the options passed to the initial getList(1, …) call / subscribe so
+  // tests can assert server-side filter is forwarded (not client-side only).
   lastInitialGetListOpts: undefined as unknown,
   lastSubscribeOpts: undefined as unknown,
   // Make getList (heartbeat) fail on demand to drive reconnection.
@@ -30,83 +49,186 @@ const mockState = {
   // Track how many times the unsubscribe function returned by subscribe
   // was actually invoked — for teardown / dimension-change tests.
   unsubscribeCalls: 0,
+  // Per-page resolution-delay map (page number → ms) so a test can make a
+  // LATER page resolve BEFORE an earlier one, proving the merge is ordered by
+  // request index, not by resolution order. Empty = all resolve immediately.
+  pageResolveDelayMs: {} as Record<number, number>,
+  // Records the order in which the initial getList page requests were ISSUED
+  // (before any await), so tests can assert pages 2..N are dispatched
+  // concurrently rather than awaited serially.
+  initialPageRequestOrder: [] as number[],
+  // Per-page options captured for EVERY initial getList page request (not just
+  // the last), so a test can assert the hook forwards a stable `sort` to ALL
+  // pages — offset pagination over a live-mutating collection drops/duplicates
+  // rows without one.
+  initialPageOpts: [] as { filter?: string; sort?: string }[],
+  // Rows served to the SUPPLEMENTAL comm-error aggregate fetch (CF7-F3 #1) —
+  // the narrow re-fetch of the FLEET_COMM_AGGREGATE_DIMENSIONS aggregate rows
+  // WITH `signal`. Served verbatim (full rows), the way real PB answers a
+  // request with no `fields` projection.
+  commAggregateRows: [] as Record<string, unknown>[],
+  // Supplemental comm-aggregate fetch instrumentation: call count + the last
+  // options, so tests can assert the filter shape and the skip behavior for
+  // dimension scopes outside the aggregate set.
+  commFetchCalls: 0,
+  lastCommFetchOpts: undefined as unknown,
 };
 
-vi.mock("../lib/pb", () => {
+// Build a PocketBase-style paged getList response over `mockState.initial`,
+// honouring the 500-row perPage clamp PB enforces server-side. When a `sort`
+// key is supplied, the rows are ordered by that field BEFORE slicing — exactly
+// as PocketBase applies `?sort=` server-side. This makes the stable-sort
+// assertion BEHAVIORAL: if the hook ever stopped forwarding `sort` to a page,
+// that page would slice an unsorted view and the merged result would differ.
+function pageResponse(
+  page: number,
+  perPage: number,
+  sort?: string,
+): {
+  items: Record<string, unknown>[];
+  page: number;
+  perPage: number;
+  totalItems: number;
+  totalPages: number;
+} {
+  const effPerPage = Math.min(perPage, PB_PAGE_SIZE);
+  const ordered = sort
+    ? [...mockState.initial].sort((a, b) => {
+        const av = String(a[sort] ?? "");
+        const bv = String(b[sort] ?? "");
+        return av < bv ? -1 : av > bv ? 1 : 0;
+      })
+    : mockState.initial;
+  const total = ordered.length;
+  const start = (page - 1) * effPerPage;
   return {
-    pbIsMisconfigured: false,
-    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
-    pb: {
-      filter: (raw: string, params?: Record<string, unknown>) => {
-        let out = raw;
-        if (params) {
-          for (const [k, v] of Object.entries(params)) {
-            out = out.replace(
-              new RegExp(`\\{:${k}\\}`, "g"),
-              JSON.stringify(v),
-            );
-          }
+    items: ordered.slice(start, start + effPerPage),
+    page,
+    perPage: effPerPage,
+    totalItems: total,
+    totalPages: Math.max(1, Math.ceil(total / effPerPage)),
+  };
+}
+
+vi.mock("../lib/pb", () => {
+  const pb = {
+    filter: (raw: string, params?: Record<string, unknown>) => {
+      let out = raw;
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          out = out.replace(new RegExp(`\\{:${k}\\}`, "g"), JSON.stringify(v));
         }
-        return out;
-      },
-      collection: (_name: string) => ({
-        getList: vi.fn(
-          async (page: number, perPage: number, opts?: unknown) => {
+      }
+      return out;
+    },
+    collection: (_name: string) => ({
+      // getList serves three callers:
+      //   - heartbeat ping       → getList(1, 1, …)            (perPage 1)
+      //   - supplemental comm    → filter contains `key !~`    (CF7-F3 #1)
+      //   - bulk initial fetch   → getList(page, PB_PAGE_SIZE, …) per page
+      // The bulk fetch issues page 1 first, then fans out pages 2..N
+      // concurrently. To prove the merge is order-safe, a test can set
+      // `pageResolveDelayMs` so a LATER page resolves BEFORE an earlier one —
+      // the hook must still return rows in page order.
+      getList: vi.fn(
+        async (
+          page: number,
+          perPage: number,
+          opts?: { filter?: string; sort?: string; fields?: string },
+        ) => {
+          // Heartbeat ping: perPage 1. Keep its 1-row contract + fail hook.
+          if (perPage === 1) {
             mockState.getListCalls += 1;
-            // Heuristic: the initial fetch uses perPage > 1 (our hook sends
-            // INITIAL_PAGE_SIZE = 200). The heartbeat uses getList(1, 1).
-            const isInitial = perPage > 1;
-            if (isInitial) {
-              mockState.lastInitialGetListOpts = opts;
-              if (mockState.failRemaining > 0) {
-                mockState.failRemaining -= 1;
-                throw new Error("pb-unreachable");
-              }
-              const start = (page - 1) * perPage;
-              return {
-                items: mockState.initial.slice(start, start + perPage),
-                page,
-                perPage,
-                totalItems: mockState.initial.length,
-                totalPages: Math.max(
-                  1,
-                  Math.ceil(mockState.initial.length / perPage),
-                ),
-              };
-            }
             if (mockState.heartbeatFailRemaining > 0) {
               mockState.heartbeatFailRemaining -= 1;
               throw new Error("heartbeat-fail");
             }
+            return pageResponse(1, 1);
+          }
+          // Supplemental comm-error aggregate fetch (CF7-F3 #1), identified
+          // by its aggregate-key filter marker (`key !~` — aggregate rows
+          // carry no `/<featureId>` segment). Served from a dedicated fixture
+          // VERBATIM (full rows, signal included — no `fields` projection is
+          // sent) and deliberately NOT recorded into the bulk-fetch
+          // instrumentation (initialPageRequestOrder / initialPageOpts /
+          // lastInitialGetListOpts) so the fan-out order/count assertions
+          // keep targeting the bulk fetch alone.
+          if (
+            typeof opts?.filter === "string" &&
+            opts.filter.includes("key !~")
+          ) {
+            mockState.getListCalls += 1;
+            mockState.commFetchCalls += 1;
+            mockState.lastCommFetchOpts = opts;
             return {
-              items: mockState.initial.slice(0, 1),
-              page: 1,
-              perPage: 1,
-              totalItems: mockState.initial.length,
-              totalPages: 1,
+              items: page === 1 ? mockState.commAggregateRows : [],
+              page,
+              perPage,
             };
-          },
-        ),
-        subscribe: vi.fn(
-          async (_topic: string, cb: Listener, opts?: unknown) => {
-            mockState.subscribeCalls += 1;
-            mockState.listener = cb;
-            mockState.lastSubscribeOpts = opts;
-            return async () => {
-              mockState.unsubscribeCalls += 1;
-              mockState.listener = null;
+          }
+          // Initial paged fetch.
+          mockState.getListCalls += 1;
+          mockState.initialPageRequestOrder.push(page);
+          mockState.lastInitialGetListOpts = opts;
+          mockState.initialPageOpts.push(opts ?? {});
+          if (mockState.failRemaining > 0) {
+            mockState.failRemaining -= 1;
+            throw new Error("pb-unreachable");
+          }
+          const delay = mockState.pageResolveDelayMs[page] ?? 0;
+          if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+          // Apply the requested `sort` server-side (see pageResponse) so the
+          // forwarded-sort contract is exercised behaviorally, not just by
+          // inspecting the captured option string.
+          const resp = pageResponse(page, perPage, opts?.sort);
+          // Honour the `fields` projection like real PB: the hook's bulk
+          // initial fetch projects `signal` away (STATUS_LIST_FIELDS), so the
+          // rows it receives must NOT carry `signal` — the old mock returned
+          // full rows here, which is exactly how the CF7-F3 #1 cold-fetch
+          // overlay bug stayed invisible to this suite.
+          const fields = opts?.fields;
+          if (
+            typeof fields === "string" &&
+            fields.length > 0 &&
+            !fields.split(",").includes("signal")
+          ) {
+            return {
+              ...resp,
+              items: resp.items.map(
+                ({ signal: _signal, ...rest }) =>
+                  rest as Record<string, unknown>,
+              ),
             };
-          },
-        ),
-        unsubscribe: vi.fn(async () => {
+          }
+          return resp;
+        },
+      ),
+      subscribe: vi.fn(async (_topic: string, cb: Listener, opts?: unknown) => {
+        mockState.subscribeCalls += 1;
+        mockState.listener = cb;
+        mockState.lastSubscribeOpts = opts;
+        return async () => {
+          mockState.unsubscribeCalls += 1;
           mockState.listener = null;
-        }),
+        };
       }),
-    },
+      unsubscribe: vi.fn(async () => {
+        mockState.listener = null;
+      }),
+    }),
+  };
+  return {
+    pbIsMisconfigured: () => false,
+    PB_MISCONFIG_MESSAGE: "Dashboard misconfigured (test stub)",
+    getPb: () => pb,
   };
 });
 
 import { useLiveStatus } from "./useLiveStatus";
+import { buildCellModel } from "../lib/cell-model";
+import { mergeRowsToMap } from "../lib/live-status";
 
 describe("useLiveStatus", () => {
   beforeEach(() => {
@@ -119,6 +241,15 @@ describe("useLiveStatus", () => {
     mockState.getListCalls = 0;
     mockState.subscribeCalls = 0;
     mockState.unsubscribeCalls = 0;
+    mockState.pageResolveDelayMs = {};
+    mockState.initialPageRequestOrder = [];
+    mockState.initialPageOpts = [];
+    mockState.commAggregateRows = [];
+    mockState.commFetchCalls = 0;
+    mockState.lastCommFetchOpts = undefined;
+    // Reset the startTransition counter so the transition assertion can't pass
+    // on stale state leaked from a prior test (A3).
+    startTransitionCalls.count = 0;
   });
 
   it("transitions connecting → live and exposes initial rows", async () => {
@@ -139,6 +270,36 @@ describe("useLiveStatus", () => {
     expect(result.current.status).toBe("connecting");
     await waitFor(() => expect(result.current.status).toBe("live"));
     expect(result.current.rows).toHaveLength(1);
+  });
+
+  it("applies the initial full-matrix rows inside a React transition (non-blocking first paint)", async () => {
+    // The first commit with real data invalidates per-key memo checks on EVERY
+    // cell (empty map → populated map), a hundreds-of-cells synchronous render.
+    // Wrapping `setRows(initial)` in startTransition lets React 19 yield to user
+    // input mid-walk instead of freezing the main thread for the load. The
+    // "connecting → live" status flip must stay urgent so the indicator updates
+    // immediately. React.startTransition is wrapped (see the top-of-file mock):
+    // it MUST be invoked when the initial rows land. The counter is reset in
+    // beforeEach (A3) so this assertion can't pass on state leaked by a prior
+    // test rather than this one's own initial-rows commit.
+    mockState.initial = [
+      {
+        id: "1",
+        key: "smoke:a/b",
+        dimension: "smoke",
+        state: "green",
+        signal: {},
+        observed_at: "2026-04-20T00:00:00Z",
+        transitioned_at: "2026-04-20T00:00:00Z",
+        fail_count: 0,
+        first_failure_at: null,
+      },
+    ];
+    const { result } = renderHook(() => useLiveStatus("smoke"));
+    await waitFor(() => expect(result.current.status).toBe("live"));
+    expect(result.current.rows).toHaveLength(1);
+    // The initial-rows commit must have gone through a transition.
+    expect(startTransitionCalls.count).toBeGreaterThan(0);
   });
 
   it("passes server-side filter to the initial getList and subscribe", async () => {
@@ -406,8 +567,10 @@ describe("useLiveStatus", () => {
     }
   });
 
-  it("INITIAL_CAP: stops at 500 rows even when more are available (C5 F20)", async () => {
-    // 350 rows: well below cap. Verify pagination pulls all 350.
+  it("single page: fetches all rows when the collection fits in one page", async () => {
+    // 350 rows: below the 500/page clamp. getList(1, 500) reads page 1 and its
+    // reported totalPages=1, so there is no fan-out and NO extra request — the
+    // initial fetch is a single best-effort snapshot reconciled by SSE.
     mockState.initial = Array.from({ length: 350 }, (_, i) => ({
       id: `r${i}`,
       key: `smoke:int/f${i}`,
@@ -422,11 +585,16 @@ describe("useLiveStatus", () => {
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
     expect(result.current.rows).toHaveLength(350);
+    // Only page 1 is requested — totalPages=1 means no fan-out and no probe.
+    expect(mockState.initialPageRequestOrder).toEqual([1]);
   });
 
-  it("INITIAL_CAP: truncates to 500 when collection is larger (C5 F20)", async () => {
-    // 600 rows: exceeds cap. We expect exactly 500.
-    mockState.initial = Array.from({ length: 600 }, (_, i) => ({
+  it("paged fetch: collects ALL pages (no INITIAL_CAP truncation)", async () => {
+    // 2100 rows across 5 pages (500/page, last page 100). The previous
+    // single-getFullList impl capped at INITIAL_CAP=2000, silently dropping
+    // 100 late-created rows (e2e per-cell → D2-instead-of-D4 bug). The paged
+    // fetch collects every page — all 2100 rows — with no length-based break.
+    mockState.initial = Array.from({ length: 2100 }, (_, i) => ({
       id: `r${i}`,
       key: `smoke:int/f${i}`,
       dimension: "smoke",
@@ -439,7 +607,118 @@ describe("useLiveStatus", () => {
     }));
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
-    expect(result.current.rows).toHaveLength(500);
+    expect(result.current.rows).toHaveLength(2100);
+    // 5 data pages requested (page 1 + concurrent fan-out 2..5). No probe.
+    expect(mockState.initialPageRequestOrder.sort((a, b) => a - b)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
+  });
+
+  it("paged fetch is order-safe under out-of-order page resolution AND concurrent (perf regression fix)", async () => {
+    // The reverted #4504 parallel fix pushed Promise.all page results into an
+    // array IN RESOLUTION ORDER and had an early `break` on
+    // `collected.length >= total` — a non-deterministic merge that could also
+    // truncate before late pages landed. This asserts the order-safe contract:
+    //
+    //   (a) ALL pages present (no truncation), and
+    //   (b) rows in deterministic PAGE order regardless of which page's HTTP
+    //       response lands first, and
+    //   (c) pages 2..N are dispatched CONCURRENTLY (page 2 issued before page 1
+    //       has resolved), not awaited serially.
+    //
+    // We force page 1 to resolve LAST: page 1 is delayed 60ms while pages 2+
+    // resolve immediately. A resolution-order merge would interleave/scramble;
+    // an index-ordered `Promise.all` merge yields rows in strict page order.
+    const TOTAL = 1300; // 3 pages: 500 + 500 + 300
+    // Zero-pad `id` so that the page response's `sort: "id"` ordering (applied
+    // server-side by the mock, mirroring PocketBase) matches the source array
+    // index order — this isolates the assertion to page-MERGE order under
+    // out-of-order HTTP resolution, not the sort itself.
+    mockState.initial = Array.from({ length: TOTAL }, (_, i) => ({
+      id: `r${String(i).padStart(4, "0")}`,
+      key: `smoke:int/f${String(i).padStart(4, "0")}`,
+      dimension: "smoke",
+      state: "green",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 0,
+      first_failure_at: null,
+    }));
+    // Make the EARLIEST page resolve LAST: page 1 slow, later pages fast.
+    mockState.pageResolveDelayMs = { 1: 60, 2: 10, 3: 0 };
+
+    const { result } = renderHook(() => useLiveStatus("smoke"));
+    await waitFor(() => expect(result.current.status).toBe("live"), {
+      timeout: 5000,
+    });
+
+    // (a) Completeness: every page present, no truncation.
+    expect(result.current.rows).toHaveLength(TOTAL);
+
+    // (b) Determinism: rows in strict page order — identical to the source
+    // order — even though page 1's response landed AFTER pages 2 & 3.
+    const expectedKeys = mockState.initial.map((r) => r.key as string);
+    expect(result.current.rows.map((r) => r.key)).toEqual(expectedKeys);
+
+    // (c) Concurrency: data pages 1..3 were ISSUED (pushed to the request
+    // order). Pages 2 and 3 are fanned out concurrently (not awaited serially).
+    expect(mockState.initialPageRequestOrder.sort((a, b) => a - b)).toEqual([
+      1, 2, 3,
+    ]);
+    // Pages 2 and 3 were dispatched together in the fan-out (a serial await
+    // chain would not have issued page 3 until page 2 resolved).
+    expect(mockState.initialPageRequestOrder).toContain(2);
+    expect(mockState.initialPageRequestOrder).toContain(3);
+  }, 10000);
+
+  it("forwards an explicit stable `sort` to EVERY initial getList page (A1)", async () => {
+    // Offset pagination over the LIVE-mutating `status` collection drops or
+    // duplicates rows across page boundaries unless every page request carries
+    // the SAME stable sort key. PocketBase orders by `created DESC` by default,
+    // which is NOT stable as rows are inserted — a row created between the
+    // page-1 and page-2 reads shifts every subsequent row down a slot, so a row
+    // can fall off the end of one page and reappear at the top of the next
+    // (duplicate) or vanish entirely (drop). This asserts the contract
+    // BEHAVIORALLY: the mock's pageResponse sorts `mockState.initial` by the
+    // requested `sort` key before slicing (exactly as PB applies `?sort=`), so
+    // a missing/inconsistent sort on any page would scramble the merged order.
+    // The source rows are SHUFFLED here so the only way the merged result comes
+    // back in `id` order is if the hook actually forwarded `sort: "id"` to
+    // every page.
+    const built = Array.from({ length: 1300 }, (_, i) => ({
+      id: `r${String(i).padStart(4, "0")}`,
+      key: `smoke:int/f${i}`,
+      dimension: "smoke",
+      state: "green",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 0,
+      first_failure_at: null,
+    }));
+    // Deterministic shuffle (reverse) so the source array is NOT pre-sorted by
+    // id — the sorted page response must do the ordering work.
+    mockState.initial = [...built].reverse();
+    const { result } = renderHook(() => useLiveStatus("smoke"));
+    await waitFor(() => expect(result.current.status).toBe("live"));
+    // Exactly the 3 data pages were requested — no probe.
+    expect(mockState.initialPageOpts).toHaveLength(3);
+    // EVERY initial getList request must carry a non-empty sort key. Without
+    // it, offset pagination over the live-mutating collection drops/duplicates
+    // rows across boundaries.
+    for (const opts of mockState.initialPageOpts) {
+      expect(opts.sort).toBeTruthy();
+    }
+    // All requests must use the SAME sort key (mixing keys across pages would
+    // itself reorder boundaries).
+    const sortKeys = new Set(mockState.initialPageOpts.map((o) => o.sort));
+    expect(sortKeys.size).toBe(1);
+    // BEHAVIORAL proof: because the sort was forwarded to every page, the
+    // merged rows come back in ascending `id` order even though the source
+    // array was shuffled.
+    const expectedIdOrder = built.map((r) => r.id);
+    expect(result.current.rows.map((r) => r.id)).toEqual(expectedIdOrder);
   });
 
   it("unmount during pending subscribe() resolves cleanly (HF-C1)", async () => {
@@ -452,14 +731,6 @@ describe("useLiveStatus", () => {
     const subscribePending = new Promise<void>((resolve) => {
       resolveSubscribe = resolve;
     });
-
-    // Monkey-patch the subscribe mock for this test only: gate on our
-    // external promise before resolving, so we can unmount in between.
-    const originalSubscribe =
-      // Bypass: we rewire through mockState so subsequent tests aren't
-      // affected (beforeEach resets mockState, not mock fns themselves).
-      (() => null)();
-    void originalSubscribe;
 
     // Seed one row so fetchInitial resolves quickly.
     mockState.initial = [
@@ -497,7 +768,7 @@ describe("useLiveStatus", () => {
     // The mocked pb.collection returns a minimal stub (see vi.mock above),
     // not a real PocketBase RecordService — casting through `unknown` to a
     // narrowed shape is the correct seam.
-    const pbHandle = pbMod.pb as unknown as {
+    const pbHandle = pbMod.getPb() as unknown as {
       collection: (name: string) => Record<string, unknown>;
     };
     const origCollection = pbHandle.collection;
@@ -548,5 +819,143 @@ describe("useLiveStatus", () => {
       });
     });
     expect(result.current.rows).toHaveLength(0);
+  });
+
+  describe("supplemental comm-error aggregate fetch (CF7-F3 #1)", () => {
+    // A fresh observedAt (relative to real Date.now(), which buildCellModel
+    // defaults to) so the comm error sits well inside the E2E staleness
+    // window from a cold load.
+    const COMM_OBSERVED_AT = new Date(Date.now() - 60_000).toISOString();
+    const COMM_SIGNAL = {
+      __fleetCommError: {
+        kind: "worker-unreachable",
+        message: "connect refused",
+        workerId: "fleet-worker-1",
+        observedAt: COMM_OBSERVED_AT,
+      },
+    };
+    // The d6:<slug> AGGREGATE row as it exists in the collection: the bulk
+    // initial fetch returns it WITHOUT signal (projection), the supplemental
+    // fetch returns it WITH signal.
+    const aggregateRow = {
+      id: "agg-acme",
+      key: "d6:acme",
+      dimension: "d6",
+      state: "green",
+      signal: COMM_SIGNAL,
+      observed_at: COMM_OBSERVED_AT,
+      transitioned_at: COMM_OBSERVED_AT,
+      fail_count: 0,
+      first_failure_at: null,
+    };
+
+    it("a mirrored comm error renders the overlay from a COLD initial fetch (no SSE delta)", async () => {
+      // REGRESSION (CF7-F3 #1): decodeCellCommError derives the REQ-B
+      // unreachable overlay from row.signal, but the bulk initial fetch
+      // projects signal away (STATUS_LIST_FIELDS) — so on every page refresh
+      // active overlays vanished until an SSE delta happened to re-deliver
+      // the row. The supplemental aggregate fetch must restore the signal on
+      // the comm-error candidate rows at cold-load time.
+      mockState.initial = [aggregateRow];
+      mockState.commAggregateRows = [aggregateRow];
+
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+
+      // The hook's rows must carry the aggregate row WITH its signal —
+      // pre-fix the projected (signal-less) bulk row was all consumers saw.
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg).toBeDefined();
+      expect(agg?.signal).toEqual(COMM_SIGNAL);
+
+      // End-to-end: the cell model derived from a cold fetch renders the
+      // unreachable overlay (this is what buildCellModel does per cell at
+      // render).
+      const model = buildCellModel(mergeRowsToMap([...result.current.rows]), {
+        slug: "acme",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: true,
+      });
+      expect(model.commError?.kind).toBe("worker-unreachable");
+      expect(model.surfaceState).toBe("unreachable");
+    });
+
+    it("requests ONLY aggregate-shaped keys for the comm-error dimensions (narrow filter)", async () => {
+      mockState.commAggregateRows = [aggregateRow];
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(1);
+      const opts = mockState.lastCommFetchOpts as {
+        filter?: string;
+        fields?: string;
+      };
+      // All four comm-error aggregate dimensions, aggregate keys only
+      // (no `/<featureId>` segment).
+      expect(opts.filter).toContain('dimension = "d6"');
+      expect(opts.filter).toContain('dimension = "d4"');
+      expect(opts.filter).toContain('dimension = "e2e-demos"');
+      expect(opts.filter).toContain('dimension = "d5-single-pill-e2e"');
+      expect(opts.filter).toContain('key !~ "%/%"');
+      // Full rows: NO fields projection — signal must come back.
+      expect(opts.fields).toBeUndefined();
+    });
+
+    it("a supplemental row OLDER than its bulk twin does NOT regress the newer bulk row (CF8 F3)", async () => {
+      // The supplemental fetch is kicked off CONCURRENTLY with the bulk
+      // pages, so the bulk copy of an aggregate row can be NEWER (the row's
+      // state changed between the two reads). The merge must not replace the
+      // newer bulk core fields with the supplemental response's older
+      // snapshot — and must not graft the older signal onto the newer row
+      // either: the reducer's no-op check compares signal PRESENCE only, so
+      // a chimera row (newer core + stale signal) could swallow the next SSE
+      // delta carrying the real current signal. The newer bulk row survives
+      // intact (signal-less); the live SSE subscription restores `signal`.
+      const NEWER_OBSERVED_AT = new Date(Date.now() - 30_000).toISOString();
+      const newerBulkRow = {
+        ...aggregateRow,
+        state: "red",
+        observed_at: NEWER_OBSERVED_AT,
+        transitioned_at: NEWER_OBSERVED_AT,
+        fail_count: 1,
+        first_failure_at: NEWER_OBSERVED_AT,
+      };
+      // Bulk snapshot carries the NEWER row (mock strips `signal` via the
+      // fields projection, like real PB); the supplemental response carries
+      // the OLDER signal-bearing snapshot.
+      mockState.initial = [newerBulkRow];
+      mockState.commAggregateRows = [aggregateRow];
+
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg).toBeDefined();
+      // The newer bulk core fields survive the merge...
+      expect(agg?.state).toBe("red");
+      expect(agg?.observed_at).toBe(NEWER_OBSERVED_AT);
+      expect(agg?.fail_count).toBe(1);
+      // ...and the OLDER supplemental signal is NOT backfilled (unsafe — see
+      // the chimera rationale above).
+      expect(agg?.signal).toBeUndefined();
+    });
+
+    it("a dimension scope OUTSIDE the aggregate set skips the supplemental fetch entirely", async () => {
+      const { result } = renderHook(() => useLiveStatus("smoke"));
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(0);
+    });
+
+    it("a dimension scope INSIDE the aggregate set narrows the supplemental fetch to that dimension", async () => {
+      mockState.commAggregateRows = [aggregateRow];
+      const { result } = renderHook(() => useLiveStatus("d6"));
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      expect(mockState.commFetchCalls).toBe(1);
+      const opts = mockState.lastCommFetchOpts as { filter?: string };
+      expect(opts.filter).toContain('dimension = "d6"');
+      expect(opts.filter).not.toContain("e2e-demos");
+      const agg = result.current.rows.find((r) => r.key === "d6:acme");
+      expect(agg?.signal).toEqual(COMM_SIGNAL);
+    });
   });
 });

@@ -1,0 +1,77 @@
+{
+  "_comment": "D5 fixture for /demos/shared-state-streaming. Three pill prompts produce `write_document` tool calls with non-trivial content payloads (≥ 100 chars) so the document streams into shared state and the DocumentView's char-count assertion can verify a substantive document was written. Each pill has TWO entries: a first-turn (matches by userMessage substring) returning toolCall + content with a STATIC tool_call_id, and a follow-up keyed on userMessage + that toolCallId returning content-only. The follow-up MUST appear ABOVE the first-turn entry so the matcher returns it after the tool result is appended (otherwise the unchanged last user message keeps re-matching the first-turn fixture, the agent re-fires write_document, and langgraph runs into its 100-step recursion limit). See showcase/harness/fixtures/d5/README.md (\"Mid-loop re-invocations after a tool call\"). `arguments` is shown JSON-stringified here for parity with the OpenAI wire shape; aimock auto-stringifies object-valued arguments at load time, so raw-object form would also work.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolCallId": "call_d5_write_document_poem_001"
+      },
+      "response": {
+        "content": "Done — the poem has been written into the shared document state."
+      }
+    },
+    {
+      "match": { "userMessage": "poem about autumn leaves" },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_poem_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolCallId": "call_d5_write_document_email_001"
+      },
+      "response": {
+        "content": "Done — the decline-email draft has been written into the shared document state."
+      }
+    },
+    {
+      "match": { "userMessage": "polite email declining" },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_email_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolCallId": "call_d5_write_document_quantum_001"
+      },
+      "response": {
+        "content": "Done — the quantum-computing explainer has been written into the shared document state."
+      }
+    },
+    {
+      "match": { "userMessage": "quantum computing for a curious teenager" },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_quantum_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "stream the counter to 5" },
+      "response": {
+        "content": "Streaming counter from 0 to 5."
+      }
+    }
+  ]
+}

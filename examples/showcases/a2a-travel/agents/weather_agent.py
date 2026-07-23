@@ -44,7 +44,9 @@ from google.genai import types
 class DailyWeather(BaseModel):
     day: int = Field(description="Day number")
     date: str = Field(description="Date (e.g., 'Dec 15')")
-    condition: str = Field(description="Weather condition (e.g., 'Sunny', 'Rainy', 'Cloudy')")
+    condition: str = Field(
+        description="Weather condition (e.g., 'Sunny', 'Rainy', 'Cloudy')"
+    )
     highTemp: int = Field(description="High temperature in Fahrenheit")
     lowTemp: int = Field(description="Low temperature in Fahrenheit")
     precipitation: int = Field(description="Chance of precipitation as percentage")
@@ -56,14 +58,18 @@ class DailyWeather(BaseModel):
 class StructuredWeather(BaseModel):
     destination: str = Field(description="Destination city/location")
     forecast: List[DailyWeather] = Field(description="Daily weather forecasts")
-    travelAdvice: str = Field(description="Weather-based travel advice and what to pack")
-    bestDays: List[int] = Field(description="Best days for outdoor activities based on weather")
+    travelAdvice: str = Field(
+        description="Weather-based travel advice and what to pack"
+    )
+    bestDays: List[int] = Field(
+        description="Best days for outdoor activities based on weather"
+    )
 
 
 class WeatherAgent:
     def __init__(self):
         self._agent = self._build_agent()
-        self._user_id = 'remote_agent'
+        self._user_id = "remote_agent"
         self._runner = Runner(
             app_name=self._agent.name,
             agent=self._agent,
@@ -73,12 +79,12 @@ class WeatherAgent:
         )
 
     def _build_agent(self) -> LlmAgent:
-        model_name = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
+        model_name = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
         return LlmAgent(
             model=model_name,
-            name='weather_agent',
-            description='An agent that provides weather forecasts and travel weather advice',
+            name="weather_agent",
+            description="An agent that provides weather forecasts and travel weather advice",
             instruction="""
 You are a weather forecast agent for travelers. Your role is to provide realistic weather
 predictions and help travelers prepare for weather conditions.
@@ -130,9 +136,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
             session_id=session_id,
         )
 
-        content = types.Content(
-            role='user', parts=[types.Part.from_text(text=query)]
-        )
+        content = types.Content(role="user", parts=[types.Part.from_text(text=query)])
 
         if session is None:
             session = await self._runner.session_service.create_session(
@@ -142,11 +146,9 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                 session_id=session_id,
             )
 
-        response_text = ''
+        response_text = ""
         async for event in self._runner.run_async(
-            user_id=self._user_id,
-            session_id=session.id,
-            new_message=content
+            user_id=self._user_id, session_id=session.id, new_message=content
         ):
             if event.is_final_response():
                 if (
@@ -154,7 +156,7 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
                     and event.content.parts
                     and event.content.parts[0].text
                 ):
-                    response_text = '\n'.join(
+                    response_text = "\n".join(
                         [p.text for p in event.content.parts if p.text]
                     )
                 break
@@ -175,39 +177,39 @@ Return ONLY valid JSON, no markdown code blocks, no other text.
         except json.JSONDecodeError as e:
             print(f"❌ JSON parsing error: {e}")
             print(f"Content: {content_str}")
-            return json.dumps({
-                "error": "Failed to generate structured weather forecast",
-                "raw_content": content_str[:200]
-            })
+            return json.dumps(
+                {
+                    "error": "Failed to generate structured weather forecast",
+                    "raw_content": content_str[:200],
+                }
+            )
         except Exception as e:
             print(f"❌ Validation error: {e}")
-            return json.dumps({
-                "error": f"Validation failed: {str(e)}"
-            })
+            return json.dumps({"error": f"Validation failed: {str(e)}"})
 
 
 port = int(os.getenv("WEATHER_PORT", 9005))
 
 skill = AgentSkill(
-    id='weather_agent',
-    name='Weather Forecast Agent',
-    description='Provides weather forecasts and travel weather advice using ADK',
-    tags=['travel', 'weather', 'forecast', 'climate', 'adk'],
+    id="weather_agent",
+    name="Weather Forecast Agent",
+    description="Provides weather forecasts and travel weather advice using ADK",
+    tags=["travel", "weather", "forecast", "climate", "adk"],
     examples=[
-        'What will the weather be like in Tokyo next week?',
-        'Should I pack an umbrella for my Paris trip?',
-        'Give me the weather forecast for my 5-day New York visit'
+        "What will the weather be like in Tokyo next week?",
+        "Should I pack an umbrella for my Paris trip?",
+        "Give me the weather forecast for my 5-day New York visit",
     ],
 )
 
 cardUrl = os.getenv("RENDER_EXTERNAL_URL", f"http://localhost:{port}")
 public_agent_card = AgentCard(
-    name='Weather Agent',
-    description='ADK-powered agent that provides weather forecasts and packing advice for travelers',
+    name="Weather Agent",
+    description="ADK-powered agent that provides weather forecasts and packing advice for travelers",
     url=cardUrl,
-    version='1.0.0',
-    defaultInputModes=['text'],
-    defaultOutputModes=['text'],
+    version="1.0.0",
+    defaultInputModes=["text"],
+    defaultOutputModes=["text"],
     capabilities=AgentCapabilities(streaming=True),
     skills=[skill],
     supportsAuthenticatedExtendedCard=False,
@@ -224,14 +226,12 @@ class WeatherAgentExecutor(AgentExecutor):
         event_queue: EventQueue,
     ) -> None:
         query = context.get_user_input()
-        session_id = getattr(context, 'context_id', 'default_session')
+        session_id = getattr(context, "context_id", "default_session")
         final_content = await self.agent.invoke(query, session_id)
         await event_queue.enqueue_event(new_agent_text_message(final_content))
 
-    async def cancel(
-        self, context: RequestContext, event_queue: EventQueue
-    ) -> None:
-        raise Exception('cancel not supported')
+    async def cancel(self, context: RequestContext, event_queue: EventQueue) -> None:
+        raise Exception("cancel not supported")
 
 
 def main():
@@ -256,8 +256,8 @@ def main():
     print(f"🌤️  Starting Weather Agent (ADK + A2A) on http://0.0.0.0:{port}")
     print(f"   Agent: {public_agent_card.name}")
     print(f"   Description: {public_agent_card.description}")
-    uvicorn.run(server.build(), host='0.0.0.0', port=port)
+    uvicorn.run(server.build(), host="0.0.0.0", port=port)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for crewai-crews / byoc (bring-your-own-component, json-render variant)",
+    "sourceFile": "byoc-json-render e2e spec (render-only)",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "BYOC json-render demo — the probe sends a message and expects the custom component to render the JSON payload. The agent emits a generate_a2ui tool call with a JSON component tree.",
+      "match": {
+        "userMessage": "render a sample card",
+        "hasToolResult": false,
+        "context": "crewai-crews"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_render_card_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"surfaceId\":\"byoc-surface\",\"catalogId\":\"byoc-json-render-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"Sample BYOC Card\",\"subtitle\":\"Rendered via custom component\",\"child\":\"content-col\"},{\"id\":\"content-col\",\"component\":\"Column\",\"children\":[\"item-1\",\"item-2\"],\"gap\":8},{\"id\":\"item-1\",\"component\":\"Text\",\"text\":\"This card was rendered by the BYOC json-render pipeline.\"},{\"id\":\"item-2\",\"component\":\"Text\",\"text\":\"The component tree is defined by the agent and rendered by the custom catalog.\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_byoc_render_card_001",
+        "context": "crewai-crews"
+      },
+      "response": {
+        "content": "The BYOC card has been rendered using the json-render component catalog. The custom component tree is visible above."
+      }
+    }
+  ]
+}

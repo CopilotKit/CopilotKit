@@ -1,0 +1,274 @@
+---
+title: "CopilotKitCore"
+description: "Framework-agnostic client that connects to a CopilotRuntime and manages agents, tools, context, and suggestions."
+---
+
+## Overview
+
+`CopilotKitCore` is the main entry point of `@copilotkit/core`. It connects to a CopilotRuntime over the AG-UI protocol, exposes the available agents, holds the registry of frontend tools, shared context, and suggestions, and notifies subscribers when any of that state changes. The React, Angular, and vanilla bindings all wrap a single instance of this class — reach for it directly when you need an agent client outside of those frameworks.
+
+## Import
+
+```ts
+import { CopilotKitCore } from "@copilotkit/core";
+```
+
+## Constructor
+
+```ts
+new CopilotKitCore(config: CopilotKitCoreConfig)
+```
+
+<PropertyReference name="config" type="CopilotKitCoreConfig" required>
+  Configuration object. See [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig) for the full type.
+
+  <PropertyReference name="runtimeUrl" type="string">
+    Endpoint of the CopilotRuntime that requests are sent to.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeTransport" type='"rest" | "single" | "auto"' default="auto">
+    Transport style for runtime endpoints. `"auto"` probes REST and falls back to single-route.
+  </PropertyReference>
+
+  <PropertyReference name="headers" type="Record<string, string>" default="{}">
+    Headers appended to every HTTP request made by the core.
+  </PropertyReference>
+
+  <PropertyReference name="credentials" type="RequestCredentials">
+    Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies).
+  </PropertyReference>
+
+  <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
+    Values sent as `forwardedProps` to the AG-UI agent.
+  </PropertyReference>
+
+  <PropertyReference name="tools" type="FrontendTool<any>[]" default="[]">
+    Frontend tools available to the core. See [FrontendTool](/reference/core/types/FrontendTool).
+  </PropertyReference>
+
+  <PropertyReference name="suggestionsConfig" type="SuggestionsConfig[]" default="[]">
+    Suggestion configurations registered at construction. See [SuggestionsConfig](/reference/core/types/SuggestionsConfig).
+  </PropertyReference>
+
+  <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>" default="{}">
+    Local agent instances keyed by name. Development only — production requires a CopilotRuntime.
+  </PropertyReference>
+
+  <PropertyReference name="debug" type="DebugConfig">
+    Enables debug logging for the client-side event pipeline.
+  </PropertyReference>
+</PropertyReference>
+
+## Methods
+
+### Agents
+
+<PropertyReference name="getAgent(id: string): AbstractAgent | undefined" type="method">
+  Returns the agent registered under `id`, or `undefined` if none exists.
+</PropertyReference>
+
+<PropertyReference name="runAgent(params: CopilotKitCoreRunAgentParams): Promise<RunAgentResult>" type="method">
+  Runs an agent against the runtime, streaming events and executing any frontend tool calls it produces.
+</PropertyReference>
+
+<PropertyReference name="connectAgent(params: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult>" type="method">
+  Connects to an agent to receive its current state and message stream without starting a new run.
+</PropertyReference>
+
+<PropertyReference name="stopAgent(params: CopilotKitCoreStopAgentParams): void" type="method">
+  Aborts the current run for the given agent.
+</PropertyReference>
+
+<PropertyReference name="registerProxiedAgent(params): { agent; unregister }" type="method">
+  Registers a [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent) under a local `agentId` that routes outbound requests to `runtimeAgentId`. Returns the proxy and an `unregister` cleanup handle. Throws if `agentId` is already taken.
+</PropertyReference>
+
+<PropertyReference name="addAgent__unsafe_dev_only(params: CopilotKitCoreAddAgentParams): void" type="method">
+  Adds a local agent instance. Development only.
+</PropertyReference>
+
+<PropertyReference name="removeAgent__unsafe_dev_only(id: string): void" type="method">
+  Removes a local agent by id. Development only.
+</PropertyReference>
+
+<PropertyReference name="setAgents__unsafe_dev_only(agents: Record<string, AbstractAgent>): void" type="method">
+  Replaces the full set of local agents. Development only.
+</PropertyReference>
+
+### Tools
+
+<PropertyReference name="addTool(tool: FrontendTool): void" type="method">
+  Registers a frontend tool the agent can call. If a tool with the same name and `agentId` is already registered, the call is a no-op (a warning is logged). See [FrontendTool](/reference/core/types/FrontendTool).
+</PropertyReference>
+
+<PropertyReference name="removeTool(id: string, agentId?: string): void" type="method">
+  Removes a registered tool by name. With no `agentId`, removes only the global (unscoped) tool of that name; with `agentId`, removes only the tool scoped to that agent.
+</PropertyReference>
+
+<PropertyReference name="getTool(params: CopilotKitCoreGetToolParams): FrontendTool<any> | undefined" type="method">
+  Returns a registered tool, or `undefined` if not found.
+</PropertyReference>
+
+<PropertyReference name="setTools(tools: FrontendTool<any>[]): void" type="method">
+  Replaces the entire tool registry.
+</PropertyReference>
+
+<PropertyReference name="runTool(params: CopilotKitCoreRunToolParams): Promise<CopilotKitCoreRunToolResult>" type="method">
+  Executes a registered frontend tool directly, without an LLM turn. The handler runs, render components appear, and both the tool call and result messages are appended to `agent.messages`.
+</PropertyReference>
+
+### Context
+
+<PropertyReference name="addContext(context: Context): string" type="method">
+  Adds a context entry shared with the agent and returns its generated id.
+</PropertyReference>
+
+<PropertyReference name="removeContext(id: string): void" type="method">
+  Removes a context entry by id.
+</PropertyReference>
+
+### Suggestions
+
+<PropertyReference name="addSuggestionsConfig(config: SuggestionsConfig): string" type="method">
+  Registers a suggestion configuration and returns its generated id.
+</PropertyReference>
+
+<PropertyReference name="removeSuggestionsConfig(id: string): void" type="method">
+  Removes a suggestion configuration by id.
+</PropertyReference>
+
+<PropertyReference name="getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult" type="method">
+  Returns the current suggestions and loading state for an agent.
+</PropertyReference>
+
+<PropertyReference name="reloadSuggestions(agentId: string): void" type="method">
+  Re-generates suggestions for an agent.
+</PropertyReference>
+
+<PropertyReference name="clearSuggestions(agentId: string): void" type="method">
+  Clears the current suggestions for an agent.
+</PropertyReference>
+
+### Subscriptions
+
+<PropertyReference name="subscribe(subscriber: CopilotKitCoreSubscriber): CopilotKitCoreSubscription" type="method">
+  Subscribes to core lifecycle events (agents changed, context changed, errors, runtime connection status, and more). Returns a subscription with an `unsubscribe()` method. See [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber).
+</PropertyReference>
+
+<PropertyReference name="subscribeToAgentWithOptions(agent, subscriber, options?): CopilotKitCoreSubscription" type="method">
+  Subscribes to a single agent's message, state, and run-lifecycle callbacks with optional throttling. Every callback is wrapped with error protection. Use `agent.subscribe()` directly when you need AG-UI event handlers or per-item notifications.
+</PropertyReference>
+
+### Configuration
+
+<PropertyReference name="setRuntimeUrl(runtimeUrl: string | undefined): void" type="method">
+  Updates the runtime endpoint.
+</PropertyReference>
+
+<PropertyReference name="setRuntimeTransport(runtimeTransport: CopilotRuntimeTransport): void" type="method">
+  Updates the transport style.
+</PropertyReference>
+
+<PropertyReference name="setHeaders(headers: Record<string, string | null | undefined>): void" type="method">
+  Replaces the request headers and re-applies them to existing agents. Any key whose value is `null` or `undefined` is dropped from the stored headers, which is the supported way to clear a header (e.g. `Authorization` on logout). An empty string remains a valid header value and is preserved.
+</PropertyReference>
+
+<PropertyReference name="setCredentials(credentials: RequestCredentials | undefined): void" type="method">
+  Replaces the fetch credentials mode and re-applies it to existing agents.
+</PropertyReference>
+
+<PropertyReference name="setProperties(properties: Record<string, unknown>): void" type="method">
+  Replaces the forwarded properties sent to agents.
+</PropertyReference>
+
+<PropertyReference name="setDebug(debug: DebugConfig | undefined): void" type="method">
+  Toggles debug logging for the client-side event pipeline.
+</PropertyReference>
+
+<PropertyReference name="setDefaultThrottleMs(value: number | undefined): void" type="method">
+  Sets the default throttle interval (ms) used by `subscribeToAgentWithOptions`. Invalid values are ignored.
+</PropertyReference>
+
+### State queries
+
+<PropertyReference name="getStateByRun(agentId, threadId, runId): State | undefined" type="method">
+  Returns the agent state snapshot recorded for a specific run.
+</PropertyReference>
+
+<PropertyReference name="getRunIdForMessage(agentId, threadId, messageId): string | undefined" type="method">
+  Returns the run id that produced a given message.
+</PropertyReference>
+
+<PropertyReference name="getRunIdsForThread(agentId, threadId): string[]" type="method">
+  Returns the ordered run ids recorded for a thread.
+</PropertyReference>
+
+### Properties (read-only)
+
+<PropertyReference name="agents: Readonly<Record<string, AbstractAgent>>" type="getter">
+  The currently registered agents, keyed by id.
+</PropertyReference>
+
+<PropertyReference name="tools: Readonly<FrontendTool<any>[]>" type="getter">
+  The currently registered frontend tools.
+</PropertyReference>
+
+<PropertyReference name="context: Readonly<Record<string, Context>>" type="getter">
+  The current shared context entries, keyed by id.
+</PropertyReference>
+
+<PropertyReference name="runtimeUrl: string | undefined" type="getter">
+  The configured runtime endpoint.
+</PropertyReference>
+
+<PropertyReference name="runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus" type="getter">
+  The current runtime connection status. See [CopilotKitCoreRuntimeConnectionStatus](/reference/core/enums/CopilotKitCoreRuntimeConnectionStatus).
+</PropertyReference>
+
+<PropertyReference name="headers / credentials / properties" type="getter">
+  Snapshots of the configured headers, credentials mode, and forwarded properties.
+</PropertyReference>
+
+## Usage
+
+```ts
+import { CopilotKitCore } from "@copilotkit/core";
+
+const copilotkit = new CopilotKitCore({
+  runtimeUrl: "/api/copilotkit",
+  tools: [
+    {
+      name: "showAlert",
+      handler: ({ message }: { message: string }) => window.alert(message),
+    },
+  ],
+});
+
+const subscription = copilotkit.subscribe({
+  onRuntimeConnectionStatusChanged: ({ status }) => console.log(status),
+});
+
+// `agents` populates after the runtime responds — `onAgentsChanged` (above)
+// fires when they're ready; this guarded lookup is for illustration.
+const agent = copilotkit.getAgent("default");
+if (agent) {
+  await copilotkit.runAgent({ agent });
+}
+
+subscription.unsubscribe();
+```
+
+## Behavior
+
+- **Asynchronous agent population** — `agents` is populated after the runtime responds, so it may be empty immediately after construction. Use `subscribe({ onAgentsChanged })` to react when agents become available.
+- **Error surfacing** — failures (runtime fetch, agent run, tool execution, subscriber callbacks) are delivered through the `onError` subscriber callback with a [CopilotKitCoreErrorCode](/reference/core/enums/CopilotKitCoreErrorCode); they are not thrown from the originating method — except `runTool()`, which also throws when the named tool or its resolved agent cannot be found.
+- **Subscriber isolation** — a throw in one subscriber callback is caught and logged; it does not stall notifications to other subscribers.
+- **`__unsafe_dev_only` APIs** — the `*Agent__unsafe_dev_only` methods register local in-memory agents for development. Production setups must go through a CopilotRuntime.
+
+## Related
+
+- [@copilotkit/core overview](/reference/core)
+- [CopilotKitCoreConfig](/reference/core/types/CopilotKitCoreConfig)
+- [CopilotKitCoreSubscriber](/reference/core/types/CopilotKitCoreSubscriber)
+- [ProxiedCopilotRuntimeAgent](/reference/core/classes/ProxiedCopilotRuntimeAgent)
+- [FrontendTool](/reference/core/types/FrontendTool)

@@ -2,7 +2,7 @@ name: "Showcase: Capture Previews"
 
 on:
   workflow_run:
-    workflows: ["Showcase: Build & Deploy"]
+    workflows: ["Showcase: Build & Push"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -18,8 +18,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "showcase/packages/*/src/app/demos/**"
-      - "showcase/packages/*/manifest.yaml"
+      - "showcase/integrations/*/src/app/demos/**"
+      - "showcase/integrations/*/manifest.yaml"
 
 concurrency:
   group: showcase-capture-${{ github.ref }}
@@ -56,17 +56,19 @@ jobs:
         # it for checkout + push. Mirrors the pattern in
         # CopilotKit/internal-skills's sync-versions.yml.
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: "1108748"
           private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
           token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Ensure preview release exists
         env:
@@ -79,12 +81,12 @@ jobs:
             --latest=false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
 
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -101,8 +103,8 @@ jobs:
         if: github.event_name == 'push'
         run: |
           # Find which package slugs had demo changes
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'showcase/packages/*/src/app/demos/' 'showcase/packages/*/manifest.yaml' | \
-            sed -n 's|showcase/packages/\([^/]*\)/.*|\1|p' | sort -u | tr '\n' ',' | sed 's/,$//')
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'showcase/integrations/*/src/app/demos/' 'showcase/integrations/*/manifest.yaml' | \
+            sed -n 's|showcase/integrations/\([^/]*\)/.*|\1|p' | sort -u | tr '\n' ',' | sed 's/,$//')
           echo "slugs=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed packages: $CHANGED"
 
@@ -113,34 +115,44 @@ jobs:
           npx tsx generate-registry.ts
 
       - name: Capture previews
+        env:
+          INPUT_SLUG: ${{ inputs.slug }}
+          INPUT_DEMO: ${{ inputs.demo }}
+          EVENT_NAME: ${{ github.event_name }}
+          DETECTED_SLUGS: ${{ steps.detect.outputs.slugs }}
         run: |
-          ARGS=""
+          # Build the args as an array (not a space-joined string) so a
+          # slug or demo value containing whitespace or shell metacharacters
+          # stays a single argument rather than being re-tokenized by the shell.
+          ARGS=()
           # Use input slug/demo if provided (manual dispatch)
-          if [ -n "${{ inputs.slug }}" ]; then
-            ARGS="$ARGS --slug ${{ inputs.slug }}"
+          if [ -n "$INPUT_SLUG" ]; then
+            ARGS+=(--slug "$INPUT_SLUG")
           fi
-          if [ -n "${{ inputs.demo }}" ]; then
-            ARGS="$ARGS --demo ${{ inputs.demo }}"
+          if [ -n "$INPUT_DEMO" ]; then
+            ARGS+=(--demo "$INPUT_DEMO")
           fi
           # Use detected slugs for push events (capture only changed)
-          if [ "${{ github.event_name }}" = "push" ] && [ -n "${{ steps.detect.outputs.slugs }}" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ -n "$DETECTED_SLUGS" ]; then
             # Capture each changed slug
-            IFS=',' read -ra SLUGS <<< "${{ steps.detect.outputs.slugs }}"
+            IFS=',' read -ra SLUGS <<< "$DETECTED_SLUGS"
             for slug in "${SLUGS[@]}"; do
               npx tsx showcase/scripts/capture-previews.ts --slug "$slug" || true
             done
           else
-            npx tsx showcase/scripts/capture-previews.ts $ARGS || true
+            npx tsx showcase/scripts/capture-previews.ts "${ARGS[@]}" || true
           fi
+
+      - name: Configure git for push
+        run: |
+          git config user.name "devops-bot[bot]"
+          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
+          git config --local url."https://x-access-token:${TOKEN}@github.com/".insteadOf "https://github.com/"
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
 
       - name: Commit registry updates
         run: |
-          # Commit as the devops-bot installation. The `<app-id>+<slug>[bot]`
-          # email is the conventional GitHub App noreply form; paired with
-          # the app-token used for checkout, the push lands on protected
-          # main via the bot's PROTECT_OUR_MAIN bypass.
-          git config user.name "devops-bot[bot]"
-          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
           cd showcase/shell/src/data
           if git diff --quiet registry.json; then
             echo "No registry changes"
@@ -250,7 +262,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@v2.1.0
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

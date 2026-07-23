@@ -30,7 +30,9 @@ class EntityData(BaseModel):
     field1: str = ""
     field2: str = ""
     field3: list[str] = Field(default_factory=list)
-    field3_options: list[str] = Field(default_factory=lambda: ["Tag 1", "Tag 2", "Tag 3"])
+    field3_options: list[str] = Field(
+        default_factory=lambda: ["Tag 1", "Tag 2", "Tag 3"]
+    )
 
 
 class NoteData(BaseModel):
@@ -80,7 +82,9 @@ async def set_plan(ctx: RunContext[deps], steps: list[str]) -> StateSnapshotEven
     ctx.deps.state.planSteps = [{"title": s, "status": "pending"} for s in steps]
     ctx.deps.state.currentStepIndex = 0 if steps else -1
     ctx.deps.state.planStatus = "in_progress" if steps else ""
-    return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump())
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump()
+    )
 
 
 @agent.tool
@@ -95,7 +99,9 @@ async def update_plan_progress(
         steps[step_index]["status"] = status
         if note:
             steps[step_index]["note"] = note
-        ctx.deps.state.currentStepIndex = step_index if status == "in_progress" else ctx.deps.state.currentStepIndex
+        ctx.deps.state.currentStepIndex = (
+            step_index if status == "in_progress" else ctx.deps.state.currentStepIndex
+        )
         # aggregate status
         statuses = [str(s.get("status", "")) for s in steps]
         if any(s == "failed" for s in statuses):
@@ -104,7 +110,9 @@ async def update_plan_progress(
             ctx.deps.state.planStatus = "in_progress"
         elif steps and all(s == "completed" for s in statuses):
             ctx.deps.state.planStatus = "completed"
-    return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump())
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump()
+    )
 
 
 @agent.tool
@@ -113,7 +121,9 @@ async def complete_plan(ctx: RunContext[deps]) -> StateSnapshotEvent:
         if s.get("status") != "completed":
             s["status"] = "completed"
     ctx.deps.state.planStatus = "completed"
-    return StateSnapshotEvent(type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump())
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT, snapshot=ctx.deps.state.model_dump()
+    )
 
 
 def summarize_items(state: CanvasState) -> str:
@@ -139,9 +149,14 @@ def summarize_items(state: CanvasState) -> str:
             summary = f"subtitle={subtitle} · field1={f1} · field2={f2} · field3(tags)=[{tags}] · field3_options=[{opts}]"
         elif itype == "note":
             content = data.get("field1", "")
-            summary = f"subtitle={subtitle} · noteContent=\"{content}\""
+            summary = f'subtitle={subtitle} · noteContent="{content}"'
         elif itype == "chart":
-            metrics = ", ".join([f"{m.get('label','')}:{m.get('value', 0)}%" for m in data.get("field1", []) or []])
+            metrics = ", ".join(
+                [
+                    f"{m.get('label', '')}:{m.get('value', 0)}%"
+                    for m in data.get("field1", []) or []
+                ]
+            )
             summary = f"subtitle={subtitle} · field1(metrics)=[{metrics}]"
         lines.append(f"id={pid} · name={name} · type={itype} · {summary}")
     return "\n".join(lines) if lines else "(no items)"
@@ -163,7 +178,7 @@ async def canvas_instructions(ctx: RunContext[deps]) -> str:
         - lastAction: {s.lastAction}
         - planStatus: {s.planStatus}
         - currentStepIndex: {s.currentStepIndex}
-        - planSteps: {[step.get('title', step) for step in s.planSteps]}
+        - planSteps: {[step.get("title", step) for step in s.planSteps]}
 
         Follow the FIELD SCHEMA and tool usage patterns provided by the UI. Prefer calling specific tools for updates. Keep replies concise and reflect actual state after tool calls.
         """
@@ -174,4 +189,5 @@ app = agent.to_ag_ui(deps=StateDeps(CanvasState()))
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

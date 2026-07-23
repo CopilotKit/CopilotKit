@@ -1,0 +1,159 @@
+---
+title: "Threads & Persistence Architecture"
+description: "Architecture and mental model behind CopilotKit threads: how persistent conversations work, how reconnection replays history, and what to expect from thread lifecycle operations."
+icon: "lucide/MessageSquareMore"
+doc_type: explanation
+---
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Want to see threads in your own app?"
+  body="Persistent threads ship with the Enterprise Intelligence Platform on the free Developer tier."
+  surface="docs_learn_threads"
+/>
+
+Start with the [Rich Threads overview](/threads) to understand what Rich Threads provide
+and choose between the prebuilt Drawer and a custom headless UI. This page
+explains the persistence and replay architecture beneath both paths. For the
+client-side lifecycle (minting a `threadId`, hydrating history on load, and
+switching or starting threads), see [Thread & History Lifecycle](/threads-lifecycle).
+
+## What are threads?
+
+A thread is a persistent, server-side container for a multi-turn conversation between a user and an agent. Unlike ephemeral chat sessions that disappear when the page reloads, threads store the full event history (every message, tool call, and state change), so conversations can be paused, resumed, and replayed across sessions and devices.
+
+Threads are a platform-level concept, not tied to any specific agent framework. Whether your backend uses LangGraph, Mastra, CrewAI, or any other framework, threads work the same way.
+
+## Key concepts
+
+### Thread vs. Run
+
+A **thread** is the durable container. A **run** is a single agent execution within that thread. One thread can have many runs. Each time the user sends a message and the agent responds, that is a new run, and the thread accumulates events across all of its runs.
+
+### How the pieces fit together
+
+From a developer's perspective, threads involve three things:
+
+| What you use | What it does |
+|-------------|-------------|
+| `useThreads` hook | Lists, renames, archives, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
+| `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
+| `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
+
+You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
+
+To wire these pieces into a custom chat UI, follow [Headless Threads](/headless-threads).
+
+### Auto-naming
+
+When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously, so it doesn't block thread creation or the agent's response. The generated name appears in `useThreads` via the realtime sync.
+
+Auto-naming is enabled by default. Disable it with `generateThreadNames: false` on the runtime. Users can always override the generated name via `renameThread()`.
+
+### Archive vs. delete
+
+Threads support two removal operations with different semantics:
+
+- **Archive** is a soft delete. The thread remains stored but disappears from the default list. Show archived threads by passing `includeArchived: true` to `useThreads`. Threads can also be unarchived, which restores them to the active list.
+- **Delete** is permanent and irreversible. The thread and its history are removed entirely.
+
+Neither operation has a built-in confirmation dialog, so your application should implement its own if needed.
+
+## How it works
+
+The client-side steps (minting a `threadId`, hydrating history on load, and switching or starting threads) live in [Thread & History Lifecycle](/threads-lifecycle). This section covers what the platform does underneath: persisting runs, replaying them, and keeping every connected client in sync.
+
+### Persistence and replay
+
+As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread on the Enterprise Intelligence Platform. It stores the raw event stream rather than a snapshot of the final message list, so a returning client can be restored to the exact state it left, and can fetch only the events it missed rather than reloading the whole history.
+
+When a client opens an existing thread, the platform checks whether a run is in progress:
+
+- **No active run.** The platform returns the historical events only, and the client replays them to reconstruct the conversation.
+- **Active run.** The platform returns the historical events *plus* opens a WebSocket connection. The client replays the history, then receives live events as they stream in.
+
+In either case the transition from replayed history to live updates is seamless. If a tool call from a previous thread completes while the client is switching away, its result is discarded rather than inserted into the new thread, so stale output never leaks between conversations.
+
+### Realtime sync
+
+The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
+
+### Future runs and native persistence
+
+Importing history is a one-time adoption step. Afterward, future conversations
+that run through CopilotKit are persisted to Enterprise Intelligence. When the
+agent also keeps a durable LangGraph checkpointer or LangGraph Platform
+deployment wired, the same runs continue through LangGraph's native persistence.
+An ADK agent behaves similarly when it remains connected to a durable session
+service that retains its sessions.
+
+That coordinated future persistence lets teams retain native framework storage
+and analytics while adding the Rich Threads experience for users. It is not a
+general replication link between databases: `useThreads` operations such as
+rename, archive, and delete change the Enterprise Intelligence thread and do not
+mutate records in LangGraph, ADK, or another native store.
+
+### Pessimistic updates
+
+Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model: the client waits for the server to confirm via WebSocket before updating the thread list. This means:
+
+- The thread list doesn't change until the server confirms the operation.
+- If the server rejects the mutation, the UI never shows an incorrect state.
+- The returned promise resolves only after server confirmation, or rejects on failure.
+
+## Error handling
+
+### Mutation failures
+
+All mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return promises that reject with an `Error` if the server cannot complete the operation. Common causes:
+
+- **Network failure.** The client can't reach the runtime.
+- **Thread not found.** Another client deleted the thread before your mutation arrived.
+- **Authorization failure.** The user doesn't have permission to modify the thread.
+- **Timeout.** The server didn't respond within 15 seconds.
+
+The `error` field on `useThreads` always reflects the most recent error. It resets to `null` on the next successful operation.
+
+### WebSocket disconnection
+
+If the WebSocket connection drops (network change, server restart, laptop sleep):
+
+- **Thread list.** `useThreads` stops receiving realtime updates, so the list becomes stale until the connection is re-established. Reconnection is automatic with exponential backoff.
+- **Active conversation.** If `CopilotChat` loses its WebSocket mid-run, the agent's output may be interrupted. Reloading the page, or switching away and back to the thread, triggers the reconnection flow, which replays any missed events.
+
+### Thread locked
+
+If a thread already has an active run and another client tries to start a new run on the same thread, the request is rejected with a **409 Conflict**. This prevents two agent runs from interleaving events on the same thread. The existing run must complete or be stopped before a new one can begin.
+
+The runtime acquires a Redis-backed lock on the thread for the duration of each run. You can tune this behavior on the runtime:
+
+| Option | Default | Max | Description |
+|--------|---------|-----|-------------|
+| `lockTtlSeconds` | `20` | `3600` (1 hour) | How long the lock is held before it expires automatically. |
+| `lockHeartbeatIntervalSeconds` | `15` | `3000` (50 min) | How often the runtime renews the lock during a run. The heartbeat always runs; you only need to adjust the interval. |
+| `lockKeyPrefix` | — | — | Custom Redis key prefix for the thread lock. Useful when multiple apps share a Redis instance. |
+
+If a run completes normally, the lock is released immediately. The TTL is a safety net for cases where the runtime crashes without releasing the lock.
+
+## Design decisions
+
+### Why event replay instead of message snapshots?
+
+Threads store the raw event stream rather than a snapshot of the final message list. This enables:
+
+- **Partial replay.** When reconnecting, the client only fetches events it missed rather than reloading the entire history.
+- **Faithful reproduction.** Streaming tokens, tool calls, and state changes replay exactly as they originally occurred.
+
+The trade-off is that replay is more complex than loading a message array. The platform handles this complexity so your application doesn't have to.
+
+### When threads are the wrong tool
+
+- **Ephemeral interactions.** If your users don't need conversation history (e.g., a one-shot Q&A widget), threads add unnecessary complexity. Use `CopilotChat` without a `threadId`.
+- **Client-only state.** If you need local-only chat history without server persistence, manage messages in React state or localStorage instead.
+
+## Next steps
+
+- **Client lifecycle:** [Thread & History Lifecycle](/threads-lifecycle) — how a `threadId` is minted, hydrated, and switched on the client
+- **Overview:** [Rich Threads](/threads) — understand the feature and choose an implementation path
+- **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI
+- **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types

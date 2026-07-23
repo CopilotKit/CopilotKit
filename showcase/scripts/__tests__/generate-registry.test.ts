@@ -1,20 +1,44 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import {
+  FileSnapshotRestorer,
+  acquireGeneratedDataLock,
+  execOptsFor,
+  withGeneratedDataLock,
+} from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
-// `generate-registry.ts` writes to showcase/shell/src/data/registry.json AND
-// showcase/shell/src/data/constraints.json. Without this, every test run
-// leaks regenerated JSON into the working tree. Snapshot in beforeAll;
-// restore after each test and at the end of the suite. Assumes vitest's
-// `fileParallelism: false` config.
+// `generate-registry.ts` multi-emits registry.json + catalog.json into
+// EVERY shell's src/data plus the shell-only constraints.json. Without
+// this, every test run leaks regenerated JSON into the working tree —
+// catalog.json drifts on every run (its metadata carries a generated_at
+// timestamp), so the full write set must be snapshotted, not just the
+// shell registry/constraints pair. Snapshot in beforeAll; restore after
+// each test and at the end of the suite. These paths overlap with the
+// catalog and integration-smoke suites, so each generator mutation window
+// holds the generated-data lock.
+const SHOWCASE_ROOT = path.resolve(SCRIPTS_DIR, "..");
 const DATA_FILES = [
   path.join(SHELL_DATA_DIR, "registry.json"),
+  path.join(SHELL_DATA_DIR, "catalog.json"),
   path.join(SHELL_DATA_DIR, "constraints.json"),
+  ...["shell-docs", "shell-dojo", "shell-dashboard"].flatMap((pkg) => [
+    path.join(SHOWCASE_ROOT, pkg, "src", "data", "registry.json"),
+    path.join(SHOWCASE_ROOT, pkg, "src", "data", "catalog.json"),
+  ]),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+let releaseGeneratedDataLock: (() => void) | undefined;
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
@@ -27,20 +51,50 @@ function runGenerator(): string {
   return out.toString();
 }
 
-beforeAll(() => {
-  // Generate the data files (they're gitignored, so they may not exist).
-  runGenerator();
-  dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `generate-registry.test.ts: data snapshot is empty. Expected generated` +
-        ` files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
-    );
+beforeAll(() =>
+  withGeneratedDataLock(() => {
+    // Generate the data files (they're gitignored, so they may not exist).
+    // Running the DEFAULT generator before snapshotting also heals any
+    // drift a previously crashed run left behind — the baseline is always
+    // fresh default output, never leaked override artifacts (SU7-F3).
+    runGenerator();
+    dataRestorer.snapshot();
+    // Every file in the write set must have been captured — a missing
+    // entry means the generator's outputs and DATA_FILES have drifted
+    // apart, and the un-snapshotted file would leak mutations into the
+    // working tree with no restore (SU7-F3).
+    const missing = DATA_FILES.filter((p) => !dataRestorer.snapshotMap.has(p));
+    if (missing.length > 0) {
+      throw new Error(
+        `generate-registry.test.ts: snapshot is missing generated files —` +
+          ` DATA_FILES has drifted from the generator's write set:\n` +
+          missing.map((p) => `  ${p}`).join("\n"),
+      );
+    }
+  }),
+);
+
+beforeEach(() => {
+  const release = acquireGeneratedDataLock();
+  try {
+    dataRestorer.restore();
+    releaseGeneratedDataLock = release;
+  } catch (err) {
+    release();
+    throw err;
   }
 });
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
+
+afterEach(() => {
+  try {
+    dataRestorer.restore();
+  } finally {
+    releaseGeneratedDataLock?.();
+    releaseGeneratedDataLock = undefined;
+  }
+});
+
+afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 // The generator uses __dirname-relative paths, so we test it via the actual
 // script against the real showcase directory, using the existing
@@ -68,9 +122,23 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    // 38 base + hitl + hitl-in-chat-booking = 40.
-    expect(langgraph.features.length).toBe(40);
-    expect(langgraph.demos.length).toBe(40);
+
+    // Derive the expected counts from the manifest the generator reads, rather
+    // than pinning magic numbers — the generator copies `features`/`demos`
+    // straight through, so this can't rot when the wired-feature set changes
+    // (e.g. the interrupt-pill quarantine that moved gen-ui-interrupt /
+    // interrupt-headless from `features:` to `not_supported_features:`).
+    const manifestPath = path.resolve(
+      SCRIPTS_DIR,
+      "..",
+      "integrations",
+      "langgraph-python",
+      "manifest.yaml",
+    );
+    const yaml = await import("yaml");
+    const manifest = yaml.parse(fs.readFileSync(manifestPath, "utf-8"));
+    expect(langgraph.features.length).toBe(manifest.features.length);
+    expect(langgraph.demos.length).toBe(manifest.demos.length);
   });
 
   it("sorts integrations by sort_order", () => {
@@ -115,7 +183,7 @@ describe("Registry Generator", () => {
     const manifestPath = path.resolve(
       SCRIPTS_DIR,
       "..",
-      "packages",
+      "integrations",
       "langgraph-python",
       "manifest.yaml",
     );

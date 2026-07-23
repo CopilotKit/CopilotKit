@@ -15,15 +15,69 @@ from langchain_core.tools import tool
 # ---------------------------------------------------------------------------
 
 _INVOICES = [
-    {"number": "INV-2026-001", "client": "Acme Corp", "amount": 45000, "status": "paid", "due": "2026-03-31"},
-    {"number": "INV-2026-002", "client": "Globex Industries", "amount": 28500, "status": "pending", "due": "2026-04-10"},
-    {"number": "INV-2026-003", "client": "Initech LLC", "amount": 67200, "status": "overdue", "due": "2026-03-15"},
-    {"number": "INV-2026-004", "client": "Massive Dynamic", "amount": 18750, "status": "paid", "due": "2026-04-05"},
-    {"number": "INV-2026-005", "client": "Umbrella Corp", "amount": 93400, "status": "pending", "due": "2026-04-20"},
-    {"number": "INV-2026-006", "client": "Wayne Enterprises", "amount": 124000, "status": "draft", "due": "2026-04-28"},
-    {"number": "INV-2026-007", "client": "Stark Industries", "amount": 56300, "status": "paid", "due": "2026-03-20"},
-    {"number": "INV-2026-008", "client": "Soylent Industries", "amount": 34500, "status": "overdue", "due": "2026-03-01"},
-    {"number": "INV-2026-009", "client": "Cyberdyne Systems", "amount": 51800, "status": "overdue", "due": "2026-03-10"},
+    {
+        "number": "INV-2026-001",
+        "client": "Acme Corp",
+        "amount": 45000,
+        "status": "paid",
+        "due": "2026-03-31",
+    },
+    {
+        "number": "INV-2026-002",
+        "client": "Globex Industries",
+        "amount": 28500,
+        "status": "pending",
+        "due": "2026-04-10",
+    },
+    {
+        "number": "INV-2026-003",
+        "client": "Initech LLC",
+        "amount": 67200,
+        "status": "overdue",
+        "due": "2026-03-15",
+    },
+    {
+        "number": "INV-2026-004",
+        "client": "Massive Dynamic",
+        "amount": 18750,
+        "status": "paid",
+        "due": "2026-04-05",
+    },
+    {
+        "number": "INV-2026-005",
+        "client": "Umbrella Corp",
+        "amount": 93400,
+        "status": "pending",
+        "due": "2026-04-20",
+    },
+    {
+        "number": "INV-2026-006",
+        "client": "Wayne Enterprises",
+        "amount": 124000,
+        "status": "draft",
+        "due": "2026-04-28",
+    },
+    {
+        "number": "INV-2026-007",
+        "client": "Stark Industries",
+        "amount": 56300,
+        "status": "paid",
+        "due": "2026-03-20",
+    },
+    {
+        "number": "INV-2026-008",
+        "client": "Soylent Industries",
+        "amount": 34500,
+        "status": "overdue",
+        "due": "2026-03-01",
+    },
+    {
+        "number": "INV-2026-009",
+        "client": "Cyberdyne Systems",
+        "amount": 51800,
+        "status": "overdue",
+        "due": "2026-03-10",
+    },
 ]
 
 _ACCOUNTS = [
@@ -31,8 +85,18 @@ _ACCOUNTS = [
     {"code": "1100", "name": "Accounts Receivable", "type": "asset", "balance": 542500},
     {"code": "1200", "name": "Inventory", "type": "asset", "balance": 312400},
     {"code": "1500", "name": "Fixed Assets", "type": "asset", "balance": 890000},
-    {"code": "2000", "name": "Accounts Payable", "type": "liability", "balance": 234500},
-    {"code": "2100", "name": "Short-term Loans", "type": "liability", "balance": 150000},
+    {
+        "code": "2000",
+        "name": "Accounts Payable",
+        "type": "liability",
+        "balance": 234500,
+    },
+    {
+        "code": "2100",
+        "name": "Short-term Loans",
+        "type": "liability",
+        "balance": 150000,
+    },
     {"code": "2500", "name": "Long-term Debt", "type": "liability", "balance": 520000},
     {"code": "3000", "name": "Owner's Equity", "type": "equity", "balance": 1850000},
     {"code": "3100", "name": "Retained Earnings", "type": "equity", "balance": 642100},
@@ -42,46 +106,258 @@ _ACCOUNTS = [
 ]
 
 _TRANSACTIONS = [
-    {"date": "2026-03-31", "desc": "Acme Corp - Invoice Payment", "amount": 45000, "type": "credit", "category": "Revenue"},
-    {"date": "2026-03-30", "desc": "AWS Infrastructure", "amount": 8420, "type": "debit", "category": "Infrastructure"},
-    {"date": "2026-03-29", "desc": "Payroll - March Cycle", "amount": 48500, "type": "debit", "category": "Payroll"},
-    {"date": "2026-03-28", "desc": "Stark Industries - Payment", "amount": 56300, "type": "credit", "category": "Revenue"},
-    {"date": "2026-03-27", "desc": "Office Supplies", "amount": 2340, "type": "debit", "category": "Operations"},
-    {"date": "2026-03-26", "desc": "Google Ads Campaign", "amount": 12500, "type": "debit", "category": "Marketing"},
-    {"date": "2026-03-25", "desc": "Massive Dynamic - Payment", "amount": 18750, "type": "credit", "category": "Revenue"},
-    {"date": "2026-03-24", "desc": "Software Licenses Renewal", "amount": 5600, "type": "debit", "category": "Infrastructure"},
-    {"date": "2026-03-23", "desc": "Insurance Premium Q2", "amount": 15000, "type": "debit", "category": "Operations"},
-    {"date": "2026-03-22", "desc": "Contractor Payment - Design", "amount": 7800, "type": "debit", "category": "Operations"},
-    {"date": "2026-03-20", "desc": "Cyberdyne Systems - Partial Payment", "amount": 15000, "type": "credit", "category": "Revenue"},
-    {"date": "2026-03-18", "desc": "Facebook Ads - Q1 Campaign", "amount": 18500, "type": "debit", "category": "Marketing"},
-    {"date": "2026-03-15", "desc": "Payroll - March Cycle 1", "amount": 48500, "type": "debit", "category": "Payroll"},
-    {"date": "2026-03-12", "desc": "Conference Sponsorship - SaaStr", "amount": 22000, "type": "debit", "category": "Marketing"},
-    {"date": "2026-03-08", "desc": "Soylent Industries - Partial Payment", "amount": 10000, "type": "credit", "category": "Revenue"},
+    {
+        "date": "2026-03-31",
+        "desc": "Acme Corp - Invoice Payment",
+        "amount": 45000,
+        "type": "credit",
+        "category": "Revenue",
+    },
+    {
+        "date": "2026-03-30",
+        "desc": "AWS Infrastructure",
+        "amount": 8420,
+        "type": "debit",
+        "category": "Infrastructure",
+    },
+    {
+        "date": "2026-03-29",
+        "desc": "Payroll - March Cycle",
+        "amount": 48500,
+        "type": "debit",
+        "category": "Payroll",
+    },
+    {
+        "date": "2026-03-28",
+        "desc": "Stark Industries - Payment",
+        "amount": 56300,
+        "type": "credit",
+        "category": "Revenue",
+    },
+    {
+        "date": "2026-03-27",
+        "desc": "Office Supplies",
+        "amount": 2340,
+        "type": "debit",
+        "category": "Operations",
+    },
+    {
+        "date": "2026-03-26",
+        "desc": "Google Ads Campaign",
+        "amount": 12500,
+        "type": "debit",
+        "category": "Marketing",
+    },
+    {
+        "date": "2026-03-25",
+        "desc": "Massive Dynamic - Payment",
+        "amount": 18750,
+        "type": "credit",
+        "category": "Revenue",
+    },
+    {
+        "date": "2026-03-24",
+        "desc": "Software Licenses Renewal",
+        "amount": 5600,
+        "type": "debit",
+        "category": "Infrastructure",
+    },
+    {
+        "date": "2026-03-23",
+        "desc": "Insurance Premium Q2",
+        "amount": 15000,
+        "type": "debit",
+        "category": "Operations",
+    },
+    {
+        "date": "2026-03-22",
+        "desc": "Contractor Payment - Design",
+        "amount": 7800,
+        "type": "debit",
+        "category": "Operations",
+    },
+    {
+        "date": "2026-03-20",
+        "desc": "Cyberdyne Systems - Partial Payment",
+        "amount": 15000,
+        "type": "credit",
+        "category": "Revenue",
+    },
+    {
+        "date": "2026-03-18",
+        "desc": "Facebook Ads - Q1 Campaign",
+        "amount": 18500,
+        "type": "debit",
+        "category": "Marketing",
+    },
+    {
+        "date": "2026-03-15",
+        "desc": "Payroll - March Cycle 1",
+        "amount": 48500,
+        "type": "debit",
+        "category": "Payroll",
+    },
+    {
+        "date": "2026-03-12",
+        "desc": "Conference Sponsorship - SaaStr",
+        "amount": 22000,
+        "type": "debit",
+        "category": "Marketing",
+    },
+    {
+        "date": "2026-03-08",
+        "desc": "Soylent Industries - Partial Payment",
+        "amount": 10000,
+        "type": "credit",
+        "category": "Revenue",
+    },
 ]
 
 _INVENTORY = [
-    {"sku": "HW-SRV-001", "name": "Dell PowerEdge R750", "qty": 12, "reorder": 5, "cost": 8500, "status": "in-stock"},
-    {"sku": "HW-LAP-001", "name": "MacBook Pro 16\"", "qty": 3, "reorder": 10, "cost": 2499, "status": "low-stock"},
-    {"sku": "HW-MON-001", "name": "LG UltraFine 5K", "qty": 28, "reorder": 15, "cost": 1299, "status": "in-stock"},
-    {"sku": "SW-LIC-001", "name": "Microsoft 365 E5", "qty": 150, "reorder": 50, "cost": 57, "status": "in-stock"},
-    {"sku": "HW-NET-001", "name": "Cisco Catalyst 9300", "qty": 0, "reorder": 3, "cost": 4200, "status": "out-of-stock"},
-    {"sku": "HW-LAP-002", "name": "ThinkPad X1 Carbon", "qty": 8, "reorder": 10, "cost": 1849, "status": "low-stock"},
-    {"sku": "HW-STO-001", "name": "Synology DS1621+", "qty": 6, "reorder": 3, "cost": 1099, "status": "in-stock"},
-    {"sku": "SW-SEC-001", "name": "CrowdStrike Falcon", "qty": 200, "reorder": 100, "cost": 25, "status": "in-stock"},
+    {
+        "sku": "HW-SRV-001",
+        "name": "Dell PowerEdge R750",
+        "qty": 12,
+        "reorder": 5,
+        "cost": 8500,
+        "status": "in-stock",
+    },
+    {
+        "sku": "HW-LAP-001",
+        "name": 'MacBook Pro 16"',
+        "qty": 3,
+        "reorder": 10,
+        "cost": 2499,
+        "status": "low-stock",
+    },
+    {
+        "sku": "HW-MON-001",
+        "name": "LG UltraFine 5K",
+        "qty": 28,
+        "reorder": 15,
+        "cost": 1299,
+        "status": "in-stock",
+    },
+    {
+        "sku": "SW-LIC-001",
+        "name": "Microsoft 365 E5",
+        "qty": 150,
+        "reorder": 50,
+        "cost": 57,
+        "status": "in-stock",
+    },
+    {
+        "sku": "HW-NET-001",
+        "name": "Cisco Catalyst 9300",
+        "qty": 0,
+        "reorder": 3,
+        "cost": 4200,
+        "status": "out-of-stock",
+    },
+    {
+        "sku": "HW-LAP-002",
+        "name": "ThinkPad X1 Carbon",
+        "qty": 8,
+        "reorder": 10,
+        "cost": 1849,
+        "status": "low-stock",
+    },
+    {
+        "sku": "HW-STO-001",
+        "name": "Synology DS1621+",
+        "qty": 6,
+        "reorder": 3,
+        "cost": 1099,
+        "status": "in-stock",
+    },
+    {
+        "sku": "SW-SEC-001",
+        "name": "CrowdStrike Falcon",
+        "qty": 200,
+        "reorder": 100,
+        "cost": 25,
+        "status": "in-stock",
+    },
 ]
 
 _EMPLOYEES = [
-    {"name": "Sarah Chen", "role": "CFO", "dept": "Finance", "salary": 195000, "status": "active"},
-    {"name": "Marcus Williams", "role": "VP Engineering", "dept": "Engineering", "salary": 185000, "status": "active"},
-    {"name": "Priya Patel", "role": "Head of Product", "dept": "Product", "salary": 172000, "status": "active"},
-    {"name": "James Rodriguez", "role": "Senior Developer", "dept": "Engineering", "salary": 145000, "status": "active"},
-    {"name": "Emily Thompson", "role": "HR Director", "dept": "Human Resources", "salary": 158000, "status": "active"},
-    {"name": "David Kim", "role": "Financial Analyst", "dept": "Finance", "salary": 95000, "status": "on-leave"},
-    {"name": "Lisa Nakamura", "role": "Marketing Manager", "dept": "Marketing", "salary": 118000, "status": "active"},
-    {"name": "Robert Chen", "role": "DevOps Engineer", "dept": "Engineering", "salary": 135000, "status": "active"},
-    {"name": "Ana Martinez", "role": "UX Designer", "dept": "Product", "salary": 112000, "status": "active"},
-    {"name": "Tom Walsh", "role": "Sales Director", "dept": "Sales", "salary": 165000, "status": "active"},
-    {"name": "Jordan Blake", "role": "Marketing Coordinator", "dept": "Marketing", "salary": 72000, "status": "active"},
+    {
+        "name": "Sarah Chen",
+        "role": "CFO",
+        "dept": "Finance",
+        "salary": 195000,
+        "status": "active",
+    },
+    {
+        "name": "Marcus Williams",
+        "role": "VP Engineering",
+        "dept": "Engineering",
+        "salary": 185000,
+        "status": "active",
+    },
+    {
+        "name": "Priya Patel",
+        "role": "Head of Product",
+        "dept": "Product",
+        "salary": 172000,
+        "status": "active",
+    },
+    {
+        "name": "James Rodriguez",
+        "role": "Senior Developer",
+        "dept": "Engineering",
+        "salary": 145000,
+        "status": "active",
+    },
+    {
+        "name": "Emily Thompson",
+        "role": "HR Director",
+        "dept": "Human Resources",
+        "salary": 158000,
+        "status": "active",
+    },
+    {
+        "name": "David Kim",
+        "role": "Financial Analyst",
+        "dept": "Finance",
+        "salary": 95000,
+        "status": "on-leave",
+    },
+    {
+        "name": "Lisa Nakamura",
+        "role": "Marketing Manager",
+        "dept": "Marketing",
+        "salary": 118000,
+        "status": "active",
+    },
+    {
+        "name": "Robert Chen",
+        "role": "DevOps Engineer",
+        "dept": "Engineering",
+        "salary": 135000,
+        "status": "active",
+    },
+    {
+        "name": "Ana Martinez",
+        "role": "UX Designer",
+        "dept": "Product",
+        "salary": 112000,
+        "status": "active",
+    },
+    {
+        "name": "Tom Walsh",
+        "role": "Sales Director",
+        "dept": "Sales",
+        "salary": 165000,
+        "status": "active",
+    },
+    {
+        "name": "Jordan Blake",
+        "role": "Marketing Coordinator",
+        "dept": "Marketing",
+        "salary": 72000,
+        "status": "active",
+    },
 ]
 
 # Quarterly financials (8 quarters: FY2024 Q1 – FY2025 Q4)
@@ -98,14 +374,62 @@ _QUARTERLY_REVENUE = [
 
 # Cash flow components (quarterly)
 _CASH_FLOW = [
-    {"quarter": "Q1 2024", "operating": 95000, "investing": -45000, "financing": -20000, "net": 30000},
-    {"quarter": "Q2 2024", "operating": 110000, "investing": -30000, "financing": -25000, "net": 55000},
-    {"quarter": "Q3 2024", "operating": 135000, "investing": -55000, "financing": -15000, "net": 65000},
-    {"quarter": "Q4 2024", "operating": 158000, "investing": -40000, "financing": -30000, "net": 88000},
-    {"quarter": "Q1 2025", "operating": 170000, "investing": -60000, "financing": -20000, "net": 90000},
-    {"quarter": "Q2 2025", "operating": 210000, "investing": -35000, "financing": -25000, "net": 150000},
-    {"quarter": "Q3 2025", "operating": 285000, "investing": -70000, "financing": -50000, "net": 165000},
-    {"quarter": "Q4 2025", "operating": 340000, "investing": -45000, "financing": -30000, "net": 265000},
+    {
+        "quarter": "Q1 2024",
+        "operating": 95000,
+        "investing": -45000,
+        "financing": -20000,
+        "net": 30000,
+    },
+    {
+        "quarter": "Q2 2024",
+        "operating": 110000,
+        "investing": -30000,
+        "financing": -25000,
+        "net": 55000,
+    },
+    {
+        "quarter": "Q3 2024",
+        "operating": 135000,
+        "investing": -55000,
+        "financing": -15000,
+        "net": 65000,
+    },
+    {
+        "quarter": "Q4 2024",
+        "operating": 158000,
+        "investing": -40000,
+        "financing": -30000,
+        "net": 88000,
+    },
+    {
+        "quarter": "Q1 2025",
+        "operating": 170000,
+        "investing": -60000,
+        "financing": -20000,
+        "net": 90000,
+    },
+    {
+        "quarter": "Q2 2025",
+        "operating": 210000,
+        "investing": -35000,
+        "financing": -25000,
+        "net": 150000,
+    },
+    {
+        "quarter": "Q3 2025",
+        "operating": 285000,
+        "investing": -70000,
+        "financing": -50000,
+        "net": 165000,
+    },
+    {
+        "quarter": "Q4 2025",
+        "operating": 340000,
+        "investing": -45000,
+        "financing": -30000,
+        "net": 265000,
+    },
 ]
 
 # AR aging
@@ -130,24 +454,121 @@ _BUDGET_VS_ACTUAL = [
 
 # Monthly expense by category (current fiscal year)
 _MONTHLY_EXPENSES = [
-    {"month": "Jan", "payroll": 48000, "operations": 23000, "marketing": 12000, "infrastructure": 15000, "rnd": 14000, "other": 7000},
-    {"month": "Feb", "payroll": 48000, "operations": 23000, "marketing": 28000, "infrastructure": 15000, "rnd": 14000, "other": 7000},
-    {"month": "Mar", "payroll": 49000, "operations": 24000, "marketing": 35000, "infrastructure": 16000, "rnd": 14000, "other": 7000},
-    {"month": "Apr", "payroll": 48000, "operations": 23000, "marketing": 22000, "infrastructure": 15000, "rnd": 14000, "other": 7000},
-    {"month": "May", "payroll": 48000, "operations": 22000, "marketing": 18000, "infrastructure": 15000, "rnd": 14000, "other": 6000},
-    {"month": "Jun", "payroll": 48000, "operations": 23000, "marketing": 20000, "infrastructure": 16000, "rnd": 14000, "other": 7000},
-    {"month": "Jul", "payroll": 49000, "operations": 24000, "marketing": 21000, "infrastructure": 16000, "rnd": 14000, "other": 7000},
-    {"month": "Aug", "payroll": 48000, "operations": 23000, "marketing": 18000, "infrastructure": 15000, "rnd": 14000, "other": 7000},
-    {"month": "Sep", "payroll": 49000, "operations": 24000, "marketing": 20000, "infrastructure": 16000, "rnd": 14000, "other": 7000},
-    {"month": "Oct", "payroll": 48000, "operations": 23000, "marketing": 17000, "infrastructure": 15000, "rnd": 14000, "other": 6000},
-    {"month": "Nov", "payroll": 49000, "operations": 23000, "marketing": 15000, "infrastructure": 16000, "rnd": 14000, "other": 7000},
-    {"month": "Dec", "payroll": 48000, "operations": 22000, "marketing": 12000, "infrastructure": 15000, "rnd": 14000, "other": 7000},
+    {
+        "month": "Jan",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 12000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Feb",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 28000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Mar",
+        "payroll": 49000,
+        "operations": 24000,
+        "marketing": 35000,
+        "infrastructure": 16000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Apr",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 22000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "May",
+        "payroll": 48000,
+        "operations": 22000,
+        "marketing": 18000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 6000,
+    },
+    {
+        "month": "Jun",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 20000,
+        "infrastructure": 16000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Jul",
+        "payroll": 49000,
+        "operations": 24000,
+        "marketing": 21000,
+        "infrastructure": 16000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Aug",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 18000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Sep",
+        "payroll": 49000,
+        "operations": 24000,
+        "marketing": 20000,
+        "infrastructure": 16000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Oct",
+        "payroll": 48000,
+        "operations": 23000,
+        "marketing": 17000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 6000,
+    },
+    {
+        "month": "Nov",
+        "payroll": 49000,
+        "operations": 23000,
+        "marketing": 15000,
+        "infrastructure": 16000,
+        "rnd": 14000,
+        "other": 7000,
+    },
+    {
+        "month": "Dec",
+        "payroll": 48000,
+        "operations": 22000,
+        "marketing": 12000,
+        "infrastructure": 15000,
+        "rnd": 14000,
+        "other": 7000,
+    },
 ]
 
 
 # ---------------------------------------------------------------------------
 # Invoice tools
 # ---------------------------------------------------------------------------
+
 
 @tool
 def query_invoices(status: str | None = None) -> str:
@@ -166,6 +587,7 @@ def query_invoices(status: str | None = None) -> str:
 # Account tools
 # ---------------------------------------------------------------------------
 
+
 @tool
 def query_accounts(account_type: str | None = None) -> str:
     """Query the chart of accounts. Optionally filter by type (asset, liability, equity, revenue, expense)."""
@@ -183,7 +605,7 @@ def query_transactions(limit: int = 10) -> str:
     """Query recent financial transactions from the ledger."""
     txns = _TRANSACTIONS[:limit]
     return f"Recent transactions ({len(txns)}):\n" + "\n".join(
-        f"  - {t['date']} | {t['desc']} | {'+'if t['type']=='credit' else '-'}${t['amount']:,.0f} | {t['category']}"
+        f"  - {t['date']} | {t['desc']} | {'+' if t['type'] == 'credit' else '-'}${t['amount']:,.0f} | {t['category']}"
         for t in txns
     )
 
@@ -192,6 +614,7 @@ def query_transactions(limit: int = 10) -> str:
 # Inventory tools
 # ---------------------------------------------------------------------------
 
+
 @tool
 def query_inventory(status: str | None = None) -> str:
     """Query inventory items. Optionally filter by status (in-stock, low-stock, out-of-stock)."""
@@ -199,15 +622,19 @@ def query_inventory(status: str | None = None) -> str:
     if status:
         items = [i for i in items if i["status"] == status]
     total_value = sum(i["qty"] * i["cost"] for i in items)
-    return f"Inventory ({len(items)} items, total value: ${total_value:,.0f}):\n" + "\n".join(
-        f"  - [{i['sku']}] {i['name']} | Qty: {i['qty']} (reorder: {i['reorder']}) | ${i['cost']:,.0f}/unit | {i['status']}"
-        for i in items
+    return (
+        f"Inventory ({len(items)} items, total value: ${total_value:,.0f}):\n"
+        + "\n".join(
+            f"  - [{i['sku']}] {i['name']} | Qty: {i['qty']} (reorder: {i['reorder']}) | ${i['cost']:,.0f}/unit | {i['status']}"
+            for i in items
+        )
     )
 
 
 # ---------------------------------------------------------------------------
 # HR tools
 # ---------------------------------------------------------------------------
+
 
 @tool
 def query_employees(department: str | None = None) -> str:
@@ -216,15 +643,19 @@ def query_employees(department: str | None = None) -> str:
     if department:
         employees = [e for e in employees if e["dept"].lower() == department.lower()]
     total_payroll = sum(e["salary"] for e in employees if e["status"] == "active")
-    return f"Employees ({len(employees)}, active payroll: ${total_payroll:,.0f}/yr):\n" + "\n".join(
-        f"  - {e['name']} | {e['role']} | {e['dept']} | ${e['salary']:,.0f}/yr | {e['status']}"
-        for e in employees
+    return (
+        f"Employees ({len(employees)}, active payroll: ${total_payroll:,.0f}/yr):\n"
+        + "\n".join(
+            f"  - {e['name']} | {e['role']} | {e['dept']} | ${e['salary']:,.0f}/yr | {e['status']}"
+            for e in employees
+        )
     )
 
 
 # ---------------------------------------------------------------------------
 # Analytics tools (data-driven)
 # ---------------------------------------------------------------------------
+
 
 @tool
 def generate_financial_report(report_type: str = "summary") -> str:
@@ -277,15 +708,15 @@ def generate_financial_report(report_type: str = "summary") -> str:
         return f"""CASH FLOW STATEMENT — Q4 2025
 
 OPERATING ACTIVITIES
-  Net Cash from Operations      ${latest['operating']:>12,.0f}
+  Net Cash from Operations      ${latest["operating"]:>12,.0f}
 
 INVESTING ACTIVITIES
-  Net Cash from Investing       ${latest['investing']:>12,.0f}
+  Net Cash from Investing       ${latest["investing"]:>12,.0f}
 
 FINANCING ACTIVITIES
-  Net Cash from Financing       ${latest['financing']:>12,.0f}
+  Net Cash from Financing       ${latest["financing"]:>12,.0f}
 
-NET CHANGE IN CASH              ${latest['net']:>12,.0f}
+NET CHANGE IN CASH              ${latest["net"]:>12,.0f}
 """
 
     else:
@@ -296,21 +727,23 @@ NET CHANGE IN CASH              ${latest['net']:>12,.0f}
         expenses = sum(a["balance"] for a in _ACCOUNTS if a["type"] == "expense")
         net_profit = rev - expenses
         overdue = [i for i in _INVOICES if i["status"] == "overdue"]
-        low_stock = [i for i in _INVENTORY if i["status"] in ("low-stock", "out-of-stock")]
+        low_stock = [
+            i for i in _INVENTORY if i["status"] in ("low-stock", "out-of-stock")
+        ]
 
         return f"""FINANCIAL SUMMARY — March 2026
 
 Key Metrics:
   • Revenue: ${rev:,.0f}
-  • Net Profit: ${net_profit:,.0f} ({net_profit/rev*100:.1f}% margin)
+  • Net Profit: ${net_profit:,.0f} ({net_profit / rev * 100:.1f}% margin)
   • Cash Position: ${cash:,.0f}
   • Accounts Receivable: ${ar:,.0f}
   • Total Debt: ${debt:,.0f}
 
 Highlights:
-  {'⚠️' if overdue else '✅'} {len(overdue)} overdue invoice(s) totaling ${sum(i['amount'] for i in overdue):,.0f}
-  {'⚠️' if low_stock else '✅'} {len(low_stock)} inventory item(s) below reorder level
-  ✅ Active payroll: ${sum(e['salary'] for e in _EMPLOYEES if e['status'] == 'active'):,.0f}/yr
+  {"⚠️" if overdue else "✅"} {len(overdue)} overdue invoice(s) totaling ${sum(i["amount"] for i in overdue):,.0f}
+  {"⚠️" if low_stock else "✅"} {len(low_stock)} inventory item(s) below reorder level
+  ✅ Active payroll: ${sum(e["salary"] for e in _EMPLOYEES if e["status"] == "active"):,.0f}/yr
 """
 
 
@@ -333,17 +766,21 @@ def analyze_cash_flow(months: int = 3) -> str:
     avg_net = sum(q["net"] for q in recent) / len(recent)
     first_net, last_net = recent[0]["net"], recent[-1]["net"]
     trend_pct = ((last_net - first_net) / abs(first_net) * 100) if first_net else 0
-    trend = "Improving" if trend_pct > 5 else "Declining" if trend_pct < -5 else "Stable"
+    trend = (
+        "Improving" if trend_pct > 5 else "Declining" if trend_pct < -5 else "Stable"
+    )
 
     cash_balance = next(a["balance"] for a in _ACCOUNTS if a["code"] == "1000")
-    avg_monthly_burn = sum(a["balance"] for a in _ACCOUNTS if a["type"] == "expense") / 12
+    avg_monthly_burn = (
+        sum(a["balance"] for a in _ACCOUNTS if a["type"] == "expense") / 12
+    )
     runway = cash_balance / avg_monthly_burn if avg_monthly_burn else float("inf")
 
     lines.append(f"\nSummary:")
     lines.append(f"  • Average quarterly net cash flow: ${avg_net:,.0f}")
     lines.append(f"  • Trend: {trend} ({trend_pct:+.0f}% over period)")
     lines.append(f"  • Cash runway at current burn: {runway:.1f} months")
-    lines.append(f"  • AR collection rate: {_AR_AGING['collectionRate']*100:.0f}%")
+    lines.append(f"  • AR collection rate: {_AR_AGING['collectionRate'] * 100:.0f}%")
 
     return "\n".join(lines)
 
@@ -364,7 +801,7 @@ def forecast_revenue(quarters: int = 4) -> str:
     if len(growth_rates) > 1:
         mean = avg_growth
         variance = sum((r - mean) ** 2 for r in growth_rates) / len(growth_rates)
-        volatility = variance ** 0.5
+        volatility = variance**0.5
     else:
         volatility = 0.1
 
@@ -378,31 +815,47 @@ def forecast_revenue(quarters: int = 4) -> str:
         confidence = "High" if i == 0 else "Medium" if i < 3 else "Low"
         if volatility > 0.08:
             confidence = "Medium" if i == 0 else "Low"
-        projections.append({"quarter": quarter_labels[i], "projected": current, "confidence": confidence})
+        projections.append(
+            {
+                "quarter": quarter_labels[i],
+                "projected": current,
+                "confidence": confidence,
+            }
+        )
 
     total = sum(p["projected"] for p in projections)
     fy2025_total = sum(q["revenue"] for q in _QUARTERLY_REVENUE[-4:])
     yoy_change = ((total - fy2025_total) / fy2025_total * 100) if fy2025_total else 0
 
     lines = [f"REVENUE FORECAST — Next {quarters} Quarters\n"]
-    lines.append(f"Methodology: Average QoQ growth rate of {avg_growth*100:.1f}% "
-                 f"computed from last 4 quarters (volatility: {volatility*100:.1f}%)\n")
+    lines.append(
+        f"Methodology: Average QoQ growth rate of {avg_growth * 100:.1f}% "
+        f"computed from last 4 quarters (volatility: {volatility * 100:.1f}%)\n"
+    )
     lines.append("Quarter     | Projected   | Confidence")
     lines.append("------------|-------------|----------")
     for p in projections:
-        lines.append(f"{p['quarter']:12s}| ${p['projected']:>9,.0f} | {p['confidence']}")
+        lines.append(
+            f"{p['quarter']:12s}| ${p['projected']:>9,.0f} | {p['confidence']}"
+        )
 
     lines.append(f"\nProjected Total: ${total:,.0f} ({yoy_change:+.1f}% vs FY2025)")
     lines.append(f"\nKey Assumptions:")
-    lines.append(f"  • Based on {avg_growth*100:.1f}% average QoQ growth from recent quarters")
+    lines.append(
+        f"  • Based on {avg_growth * 100:.1f}% average QoQ growth from recent quarters"
+    )
     lines.append(f"  • Last quarter revenue: ${last_rev:,.0f}")
-    lines.append(f"  • Pipeline includes Umbrella Corp ($93K) and Wayne Enterprises ($124K)")
+    lines.append(
+        f"  • Pipeline includes Umbrella Corp ($93K) and Wayne Enterprises ($124K)"
+    )
 
     overdue = [i for i in _INVOICES if i["status"] == "overdue"]
     if overdue:
         lines.append(f"\nRisks:")
         for inv in overdue:
-            lines.append(f"  ⚠️ {inv['client']} has ${inv['amount']:,.0f} overdue — churn risk")
+            lines.append(
+                f"  ⚠️ {inv['client']} has ${inv['amount']:,.0f} overdue — churn risk"
+            )
 
     return "\n".join(lines)
 
@@ -410,6 +863,7 @@ def forecast_revenue(quarters: int = 4) -> str:
 # ---------------------------------------------------------------------------
 # Data query tools (return raw data for projections agent)
 # ---------------------------------------------------------------------------
+
 
 @tool
 def query_quarterly_financials(last_n: int = 8) -> str:
@@ -449,7 +903,10 @@ def query_monthly_expenses(category: str | None = None) -> str:
         cat = category.lower().replace("&", "").replace(" ", "")
         if cat == "rd":
             cat = "rnd"
-        data = [{"month": row["month"], category: row.get(cat, 0)} for row in _MONTHLY_EXPENSES]
+        data = [
+            {"month": row["month"], category: row.get(cat, 0)}
+            for row in _MONTHLY_EXPENSES
+        ]
     else:
         data = _MONTHLY_EXPENSES
     return json.dumps(data, indent=2)
@@ -458,6 +915,7 @@ def query_monthly_expenses(category: str | None = None) -> str:
 # ---------------------------------------------------------------------------
 # Projection tools (compute forecasts from historical data)
 # ---------------------------------------------------------------------------
+
 
 def _compute_growth_rates(values: list[float]) -> list[float]:
     """Compute period-over-period growth rates."""
@@ -468,8 +926,9 @@ def _compute_growth_rates(values: list[float]) -> list[float]:
     return rates
 
 
-def _project_forward(last_value: float, avg_growth: float, periods: int,
-                     optimistic_mult: float = 1.0) -> list[float]:
+def _project_forward(
+    last_value: float, avg_growth: float, periods: int, optimistic_mult: float = 1.0
+) -> list[float]:
     """Project values forward using compound growth."""
     result = []
     current = last_value
@@ -495,50 +954,84 @@ def compute_revenue_forecast(quarters: int = 4, method: str = "linear") -> str:
 
     if method == "seasonal" and len(data) >= 8:
         # Use YoY growth for corresponding quarters
-        quarter_labels = ["Q2 2026", "Q3 2026", "Q4 2026", "Q1 2027",
-                          "Q2 2027", "Q3 2027", "Q4 2027", "Q1 2028"]
+        quarter_labels = [
+            "Q2 2026",
+            "Q3 2026",
+            "Q4 2026",
+            "Q1 2027",
+            "Q2 2027",
+            "Q3 2027",
+            "Q4 2027",
+            "Q1 2028",
+        ]
         projections = []
         for i in range(min(quarters, len(quarter_labels))):
             # Find the same quarter from last year
             hist_idx = (i + 1) % 4 + 4  # index into FY2025 quarters
-            base_idx = hist_idx - 4      # same quarter from FY2024
-            yoy_growth = (data[hist_idx]["revenue"] - data[base_idx]["revenue"]) / data[base_idx]["revenue"]
+            base_idx = hist_idx - 4  # same quarter from FY2024
+            yoy_growth = (data[hist_idx]["revenue"] - data[base_idx]["revenue"]) / data[
+                base_idx
+            ]["revenue"]
             projected_rev = int(data[hist_idx]["revenue"] * (1 + yoy_growth))
             projected_exp = int(data[hist_idx]["expenses"] * (1 + yoy_growth * 0.7))
-            projections.append({
-                "quarter": quarter_labels[i],
-                "revenue": projected_rev,
-                "expenses": projected_exp,
-                "profit": projected_rev - projected_exp,
-                "yoy_growth_pct": round(yoy_growth * 100, 1),
-            })
+            projections.append(
+                {
+                    "quarter": quarter_labels[i],
+                    "revenue": projected_rev,
+                    "expenses": projected_exp,
+                    "profit": projected_rev - projected_exp,
+                    "yoy_growth_pct": round(yoy_growth * 100, 1),
+                }
+            )
     else:
         # Linear: average QoQ growth
         growth_rates = _compute_growth_rates(revenues)
-        avg_growth = sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+        avg_growth = (
+            sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+        )
         exp_growth_rates = _compute_growth_rates(expenses)
-        avg_exp_growth = sum(exp_growth_rates[-4:]) / min(4, len(exp_growth_rates)) if exp_growth_rates else 0
+        avg_exp_growth = (
+            sum(exp_growth_rates[-4:]) / min(4, len(exp_growth_rates))
+            if exp_growth_rates
+            else 0
+        )
 
-        quarter_labels = ["Q2 2026", "Q3 2026", "Q4 2026", "Q1 2027",
-                          "Q2 2027", "Q3 2027", "Q4 2027", "Q1 2028"]
-        projected_rev = _project_forward(revenues[-1], avg_growth, min(quarters, len(quarter_labels)))
-        projected_exp = _project_forward(expenses[-1], avg_exp_growth, min(quarters, len(quarter_labels)))
+        quarter_labels = [
+            "Q2 2026",
+            "Q3 2026",
+            "Q4 2026",
+            "Q1 2027",
+            "Q2 2027",
+            "Q3 2027",
+            "Q4 2027",
+            "Q1 2028",
+        ]
+        projected_rev = _project_forward(
+            revenues[-1], avg_growth, min(quarters, len(quarter_labels))
+        )
+        projected_exp = _project_forward(
+            expenses[-1], avg_exp_growth, min(quarters, len(quarter_labels))
+        )
 
         projections = []
         for i in range(min(quarters, len(quarter_labels))):
-            projections.append({
-                "quarter": quarter_labels[i],
-                "revenue": projected_rev[i],
-                "expenses": projected_exp[i],
-                "profit": projected_rev[i] - projected_exp[i],
-                "qoq_growth_pct": round(avg_growth * 100, 1),
-            })
+            projections.append(
+                {
+                    "quarter": quarter_labels[i],
+                    "revenue": projected_rev[i],
+                    "expenses": projected_exp[i],
+                    "profit": projected_rev[i] - projected_exp[i],
+                    "qoq_growth_pct": round(avg_growth * 100, 1),
+                }
+            )
 
     # Confidence metrics
     recent_growth = _compute_growth_rates(revenues[-4:])
     if len(recent_growth) > 1:
         mean_g = sum(recent_growth) / len(recent_growth)
-        std_g = (sum((r - mean_g) ** 2 for r in recent_growth) / len(recent_growth)) ** 0.5
+        std_g = (
+            sum((r - mean_g) ** 2 for r in recent_growth) / len(recent_growth)
+        ) ** 0.5
     else:
         mean_g = recent_growth[0] if recent_growth else 0
         std_g = 0
@@ -578,13 +1071,15 @@ def compute_cash_flow_forecast(quarters: int = 4) -> str:
         inv = round(avg_inv * (1 + 0.05 * i))  # slight increase in investment
         fin = round(avg_fin)
         net = proj_op[i] + inv + fin
-        projections.append({
-            "quarter": quarter_labels[i],
-            "operating": proj_op[i],
-            "investing": inv,
-            "financing": fin,
-            "net": net,
-        })
+        projections.append(
+            {
+                "quarter": quarter_labels[i],
+                "operating": proj_op[i],
+                "investing": inv,
+                "financing": fin,
+                "net": net,
+            }
+        )
 
     cash_balance = next(a["balance"] for a in _ACCOUNTS if a["code"] == "1000")
     cumulative = cash_balance
@@ -620,15 +1115,21 @@ def run_scenario_analysis(metric: str = "revenue", quarters: int = 4) -> str:
     elif metric == "cash_flow":
         values = [q["net"] for q in _CASH_FLOW]
     else:
-        return json.dumps({"error": f"Unknown metric: {metric}. Use revenue, profit, or cash_flow."})
+        return json.dumps(
+            {"error": f"Unknown metric: {metric}. Use revenue, profit, or cash_flow."}
+        )
 
     growth_rates = _compute_growth_rates(values)
-    avg_growth = sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+    avg_growth = (
+        sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+    )
     last_val = values[-1]
 
     scenarios = {}
     for name, mult in [("optimistic", 1.5), ("base", 1.0), ("conservative", 0.5)]:
-        projected = _project_forward(last_val, avg_growth, quarters, optimistic_mult=mult)
+        projected = _project_forward(
+            last_val, avg_growth, quarters, optimistic_mult=mult
+        )
         scenarios[name] = [
             {"quarter": quarter_labels[i], "value": projected[i]}
             for i in range(quarters)
@@ -672,12 +1173,14 @@ def compute_trend_analysis(metric: str = "revenue") -> str:
     # QoQ detail
     qoq = []
     for i in range(1, len(values)):
-        qoq.append({
-            "from": labels[i - 1],
-            "to": labels[i],
-            "value": values[i],
-            "growth_pct": round(growth_rates[i - 1] * 100, 1),
-        })
+        qoq.append(
+            {
+                "from": labels[i - 1],
+                "to": labels[i],
+                "value": values[i],
+                "growth_pct": round(growth_rates[i - 1] * 100, 1),
+            }
+        )
 
     # YoY comparisons (Q1 vs Q1, etc.)
     yoy = []
@@ -686,15 +1189,19 @@ def compute_trend_analysis(metric: str = "revenue") -> str:
             prev_yr = values[i]
             curr_yr = values[i + 4]
             change = ((curr_yr - prev_yr) / abs(prev_yr) * 100) if prev_yr else 0
-            yoy.append({
-                "quarter_pair": f"{labels[i]} → {labels[i+4]}",
-                "previous": prev_yr,
-                "current": curr_yr,
-                "yoy_change_pct": round(change, 1),
-            })
+            yoy.append(
+                {
+                    "quarter_pair": f"{labels[i]} → {labels[i + 4]}",
+                    "previous": prev_yr,
+                    "current": curr_yr,
+                    "yoy_change_pct": round(change, 1),
+                }
+            )
 
     avg_growth = sum(growth_rates) / len(growth_rates) if growth_rates else 0
-    recent_avg = sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+    recent_avg = (
+        sum(growth_rates[-4:]) / min(4, len(growth_rates)) if growth_rates else 0
+    )
     accelerating = recent_avg > avg_growth
 
     result = {

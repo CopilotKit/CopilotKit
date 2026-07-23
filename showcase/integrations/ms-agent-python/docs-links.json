@@ -1,0 +1,41 @@
+{
+  "framework": "ms-agent-python",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/quickstart",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/state-rendering",
+      "shell_docs_path": "/generative-ui/state-rendering"
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/in-app-agent-write",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/predictive-state-updates",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework",
+      "shell_docs_path": "/multi-agent/subagents"
+    },
+    "auth": {
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/auth",
+      "shell_docs_path": "/auth"
+    }
+  }
+}

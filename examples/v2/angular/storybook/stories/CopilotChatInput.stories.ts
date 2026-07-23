@@ -1,14 +1,38 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { fn } from "@storybook/test";
 import {
+  Component,
+  EventEmitter,
+  Injectable,
+  Input,
+  Output,
+  signal,
+} from "@angular/core";
+import { fn } from "storybook/test";
+import {
+  ChatState,
   CopilotChatInput,
   provideCopilotChatLabels,
-  type ToolsMenuItem,
+  provideCopilotKit,
 } from "@copilotkit/angular";
+import type { ToolsMenuItem } from "@copilotkit/angular";
 import { CustomSendButtonComponent } from "../components/custom-send-button.component";
+
+@Injectable()
+class StoryChatState extends ChatState {
+  readonly inputValue = signal<string>("");
+
+  submitInput(value: string): void {
+    const trimmed = value.trim();
+    if (!trimmed) return;
+    this.inputValue.set("");
+  }
+
+  changeInput(value: string): void {
+    this.inputValue.set(value);
+  }
+}
 
 // Additional custom button components for slot demonstrations
 @Component({
@@ -18,7 +42,7 @@ import { CustomSendButtonComponent } from "../components/custom-send-button.comp
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-blue-500 text-white hover:bg-blue-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-blue-500 cpk:text-white cpk:hover:bg-blue-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
       aria-label="Send message"
     >
       ✈️
@@ -43,7 +67,7 @@ class AirplaneSendButtonComponent {
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-green-500 text-white hover:bg-green-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-green-500 cpk:text-white cpk:hover:bg-green-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
       aria-label="Send message"
     >
       🚀
@@ -75,6 +99,8 @@ const meta: Meta<CopilotChatInput> = {
         RocketSendButtonComponent,
       ],
       providers: [
+        provideCopilotKit({}),
+        { provide: ChatState, useClass: StoryChatState },
         provideCopilotChatLabels({
           chatInputPlaceholder: "Type a message...",
           chatInputToolbarToolsButtonLabel: "Tools",
@@ -564,9 +590,9 @@ import { CopilotChatInput } from '@copilotkit/angular';
     <button
       [disabled]="disabled"
       (click)="handleClick()"
-      class="rounded-full w-10 h-10 bg-purple-500 text-white hover:bg-purple-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-purple-500 cpk:text-white cpk:hover:bg-purple-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed"
       aria-label="Send message">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 mx-auto">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="cpk:w-5 cpk:h-5 cpk:mx-auto">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
       </svg>
     </button>
@@ -630,7 +656,7 @@ export const WithAdditionalToolbarItems: Story = {
     template: `
       <ng-template #additionalItems>
         <button
-          class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-2"
+          class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center cpk:ml-2"
           (click)="onCustomAction()"
           title="Custom Action"
           style="height: 32px; width: 32px; padding: 0; border-radius: 6px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; margin-left: 8px; border: none; cursor: pointer;"
@@ -640,7 +666,7 @@ export const WithAdditionalToolbarItems: Story = {
           ⭐
         </button>
         <button
-          class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-1"
+          class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center cpk:ml-1"
           (click)="onAnotherAction()"
           title="Another Custom Action"
           style="height: 32px; width: 32px; padding: 0; border-radius: 6px; background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; margin-left: 4px; border: none; cursor: pointer;"
@@ -695,13 +721,13 @@ import { CopilotChatInput } from '@copilotkit/angular';
   template: \`
     <ng-template #additionalItems>
       <button
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-2"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center cpk:ml-2"
         (click)="onCustomAction()"
         title="Custom Action">
         ⭐
       </button>
       <button
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center ml-1"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center cpk:ml-1"
         (click)="onAnotherAction()"
         title="Another Custom Action">
         🔖
@@ -1028,7 +1054,7 @@ export const SlotTemplateFullControl: Story = {
               <button 
                 (click)="send()" 
                 [disabled]="disabled"
-                class="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 transition-all">
+                class="cpk:px-4 cpk:py-2 cpk:bg-gradient-to-r cpk:from-blue-500 cpk:to-purple-600 cpk:text-white cpk:rounded-lg cpk:hover:from-blue-600 cpk:hover:to-purple-700 cpk:disabled:opacity-50 cpk:transition-all">
                 Send 🎯
               </button>
             </ng-template>
@@ -1066,7 +1092,7 @@ import { CopilotChatInput } from '@copilotkit/angular';
         <button 
           (click)="send()" 
           [disabled]="disabled"
-          class="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 transition-all">
+          class="cpk:px-4 cpk:py-2 cpk:bg-gradient-to-r cpk:from-blue-500 cpk:to-purple-600 cpk:text-white cpk:rounded-lg cpk:hover:from-blue-600 cpk:hover:to-purple-700 cpk:disabled:opacity-50 cpk:transition-all">
           Send 🎯
         </button>
       </ng-template>
@@ -1122,7 +1148,7 @@ export const SlotInlineButton: Story = {
               <button 
                 [disabled]="disabled" 
                 (click)="send()"
-                class="rounded-full w-10 h-10 bg-blue-500 text-white hover:bg-blue-600 transition-colors mr-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                class="cpk:rounded-full cpk:w-10 cpk:h-10 cpk:bg-blue-500 cpk:text-white cpk:hover:bg-blue-600 cpk:transition-colors cpk:mr-2 cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed">
                 ✈️
               </button>
             </ng-template>

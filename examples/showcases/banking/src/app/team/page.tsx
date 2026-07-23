@@ -11,58 +11,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuthContext } from "@/components/auth-context";
-import { ExpenseRole, MemberRole } from "@/app/api/v1/data";
-import { useEffect, useReducer, useState } from "react";
+import type { ExpenseRole } from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
+import { useEffect, useReducer } from "react";
 import { TeamPageOperations } from "@/components/copilot-context";
 import { useSearchParams } from "next/navigation";
-import { useCopilotReadable, useHumanInTheLoop } from "@copilotkit/react-core";
+import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import type { DialogState } from "@/components/add-or-edit-member-dialog";
 import {
   AddOrEditMemberDialog,
   defaultDialogState,
-  DialogState,
 } from "@/components/add-or-edit-member-dialog";
 import { RemoveMemberConfirmationDialog } from "@/components/remove-member-dialog";
+import { ApprovalButtons } from "@/components/approval-buttons";
 
-function ApprovalButtons({
-  onApprove,
-  onDeny,
-  approveLabel = "Approve",
-  denyLabel = "Deny",
-}: {
-  onApprove: () => Promise<void> | void;
-  onDeny: () => void;
-  approveLabel?: string;
-  denyLabel?: string;
-}) {
-  const [responded, setResponded] = useState(false);
-
-  if (responded) {
-    return <p className="text-sm text-gray-500 italic">Response submitted.</p>;
-  }
-
-  return (
-    <div className="flex gap-2">
-      <button
-        className="flex-1 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-        onClick={async () => {
-          setResponded(true);
-          await onApprove();
-        }}
-      >
-        {approveLabel}
-      </button>
-      <button
-        className="flex-1 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-        onClick={() => {
-          setResponded(true);
-          onDeny();
-        }}
-      >
-        {denyLabel}
-      </button>
-    </div>
-  );
-}
+const dialogStateReducer = (
+  state: DialogState,
+  payload: Partial<DialogState>,
+): DialogState => ({
+  ...state,
+  ...payload,
+});
 
 export default function Team() {
   const { currentUser } = useAuthContext();
@@ -76,9 +46,9 @@ export default function Team() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") as TeamPageOperations | null;
 
-  useCopilotReadable({
+  useAgentContext({
     description: "The available users of the system.",
-    value: team,
+    value: JSON.stringify(team),
   });
 
   useHumanInTheLoop({
@@ -86,29 +56,32 @@ export default function Team() {
     name: "removeMember",
     description:
       "Remove a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description:
+    parameters: z.object({
+      id: z
+        .string()
+        .describe(
           "The ID of the member to remove (provided by copilot, ask questions to figure out the member)",
-        required: true,
-      },
-    ],
+        ),
+    }),
     render: ({ args, respond, status }) => {
       const { id } = args;
-      if (status === "inProgress") return <div>Loading...</div>;
+      if (status === "inProgress")
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       const member = team.find((m) => m.id === id);
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <h3 className="font-semibold text-lg">Remove Team Member</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
+              <span className="text-ink-muted">Member:</span>{" "}
               {member?.name ?? id}
             </p>
             <p>
-              <span className="text-gray-500">Role:</span> {member?.role}
+              <span className="text-ink-muted">Role:</span> {member?.role}
             </p>
           </div>
           <ApprovalButtons
@@ -132,38 +105,33 @@ export default function Team() {
     name: "changeMemberRole",
     description:
       "Change the role of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description: "The ID of the member to change the role of",
-        required: true,
-      },
-      {
-        name: "role",
-        type: "string",
-        description: "The new role of the member",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      id: z.string().describe("The ID of the member to change the role of"),
+      role: z.string().describe("The new role of the member"),
+    }),
     render: ({ args, respond, status }) => {
       const { id, role } = args;
-      if (status === "inProgress") return <div>Loading...</div>;
+      if (status === "inProgress")
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       const member = team.find((m) => m.id === id);
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <h3 className="font-semibold text-lg">Change Member Role</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
+              <span className="text-ink-muted">Member:</span>{" "}
               {member?.name ?? id}
             </p>
             <p>
-              <span className="text-gray-500">Current Role:</span>{" "}
+              <span className="text-ink-muted">Current Role:</span>{" "}
               {member?.role}
             </p>
             <p>
-              <span className="text-gray-500">New Role:</span> {role}
+              <span className="text-ink-muted">New Role:</span> {role}
             </p>
           </div>
           <ApprovalButtons
@@ -187,38 +155,33 @@ export default function Team() {
     name: "changeMemberTeam",
     description:
       "Change the team of a team member. Do NOT ask for confirmation - just call this action immediately. The approval UI will handle user confirmation.",
-    parameters: [
-      {
-        name: "id",
-        type: "string",
-        description: "The ID of the member to change the team of",
-        required: true,
-      },
-      {
-        name: "team",
-        type: "string",
-        description: "The new team of the member",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      id: z.string().describe("The ID of the member to change the team of"),
+      team: z.string().describe("The new team of the member"),
+    }),
     render: ({ args, respond, status }) => {
       const { id, team: newTeam } = args;
-      if (status === "inProgress") return <div>Loading...</div>;
+      if (status === "inProgress")
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            Loading…
+          </div>
+        );
       const member = team.find((m) => m.id === id);
       return (
-        <div className="rounded-lg border bg-white p-4 shadow-sm space-y-4">
+        <div className="space-y-4 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
           <h3 className="font-semibold text-lg">Change Member Team</h3>
           <div className="text-sm space-y-1">
             <p>
-              <span className="text-gray-500">Member:</span>{" "}
+              <span className="text-ink-muted">Member:</span>{" "}
               {member?.name ?? id}
             </p>
             <p>
-              <span className="text-gray-500">Current Team:</span>{" "}
+              <span className="text-ink-muted">Current Team:</span>{" "}
               {member?.team}
             </p>
             <p>
-              <span className="text-gray-500">New Team:</span> {newTeam}
+              <span className="text-ink-muted">New Team:</span> {newTeam}
             </p>
           </div>
           <ApprovalButtons
@@ -237,13 +200,8 @@ export default function Team() {
     },
   });
 
-  const [dialogState, dispatchDialogState] = useReducer<
-    React.Reducer<DialogState, Partial<DialogState>>
-  >(
-    (state: DialogState, payload: Partial<DialogState>) => ({
-      ...state,
-      ...payload,
-    }),
+  const [dialogState, dispatchDialogState] = useReducer(
+    dialogStateReducer,
     defaultDialogState,
   );
 
@@ -267,9 +225,16 @@ export default function Team() {
   }, [operation]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Team Management</h2>
+    <div className="mx-auto max-w-7xl space-y-6 px-2 pb-4 md:px-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-ink">
+            Team Management
+          </h2>
+          <p className="text-sm text-ink-muted">
+            Invite teammates and manage roles &amp; departments.
+          </p>
+        </div>
         <Button
           onClick={() =>
             dispatchDialogState({ dialogOpen: true, action: "add" })
@@ -278,19 +243,19 @@ export default function Team() {
           <UserPlus className="mr-2 h-4 w-4" /> Invite Team Member
         </Button>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
         {team.map((member) => (
-          <Card key={member.id}>
+          <Card key={member.id} className="p-2">
             <CardHeader>
-              <CardTitle>{member.name}</CardTitle>
+              <CardTitle className="text-ink">{member.name}</CardTitle>
               <CardDescription>{member.email}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span>Role:</span>
-                  <span className="font-semibold">{member.role}</span>
-                </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-muted">Role</span>
+                <span className="inline-flex items-center rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-indigo dark:text-brand-violet">
+                  {member.role}
+                </span>
               </div>
             </CardContent>
             {currentUser.role === MemberRole.Admin ? (

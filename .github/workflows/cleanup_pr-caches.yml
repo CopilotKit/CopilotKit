@@ -4,9 +4,16 @@ on:
     types:
       - closed
 
+permissions:
+  contents: read
+
 jobs:
   pr-caches:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Needed to delete repository actions caches via `gh cache delete`
+      actions: write
     steps:
       - name: Cleanup
         run: |

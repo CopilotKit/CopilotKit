@@ -1,12 +1,13 @@
-import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import type { Message, RunAgentInput } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
 import { logger } from "@copilotkit/shared";
 import { randomUUID } from "node:crypto";
-import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
+import type { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import {
   cloneAgentForRequest,
   configureAgentForRequest,
 } from "../shared/agent-utils";
-import { ThreadSummary } from "../../intelligence-platform";
+import type { ThreadSummary } from "../../intelligence-platform";
 import { isHandlerResponse } from "../shared/json-response";
 
 const THREAD_NAME_SYSTEM_PROMPT = [
@@ -131,20 +132,15 @@ async function runTitleGenerationAttempt(params: {
   agent.setMessages(messages);
   agent.setState({});
   agent.threadId = randomUUID();
+  // Messages and state are picked up from the agent itself (set above);
+  // RunAgentParameters no longer accepts them directly.
   const { newMessages } = await agent.runAgent({
-    messages,
-    state: {},
     tools: [],
     context: [],
     forwardedProps: {},
   });
 
-  const lastMessage = newMessages.at(-1);
-  const titleContent = lastMessage
-    ? stringifyMessageContent(lastMessage.content)
-    : "";
-
-  return normalizeGeneratedTitle(titleContent);
+  return selectGeneratedTitleFromMessages(newMessages);
 }
 
 function buildThreadTitlePrompt(
@@ -203,13 +199,19 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
     .replace(/\s*```$/, "")
     .trim();
 
+  const jsonLike = isJsonLike(candidate);
+
   try {
     const parsed = JSON.parse(candidate) as { title?: unknown };
     if (typeof parsed.title === "string") {
       candidate = parsed.title;
+    } else if (jsonLike) {
+      return null;
     }
   } catch {
-    // Fall back to using the raw text.
+    if (jsonLike) {
+      return null;
+    }
   }
 
   candidate = candidate
@@ -234,12 +236,38 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
   return candidate;
 }
 
+function selectGeneratedTitleFromMessages(messages: Message[]): string | null {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const message = messages[index];
+    if (message.role !== "assistant" || typeof message.content !== "string") {
+      continue;
+    }
+
+    const title = normalizeGeneratedTitle(message.content);
+    if (title) {
+      return title;
+    }
+  }
+
+  return null;
+}
+
+function isJsonLike(candidate: string): boolean {
+  return (
+    (candidate.startsWith("{") && candidate.endsWith("}")) ||
+    (candidate.startsWith("[") && candidate.endsWith("]"))
+  );
+}
+
 function hasThreadName(name: string | null | undefined): boolean {
   return typeof name === "string" && name.trim().length > 0;
 }
 
 /** @internal Exported for testing only. */
 export const ɵnormalizeGeneratedTitle = normalizeGeneratedTitle;
+/** @internal Exported for testing only. */
+export const ɵselectGeneratedTitleFromMessages =
+  selectGeneratedTitleFromMessages;
 /** @internal Exported for testing only. */
 export const ɵbuildThreadTitlePrompt = buildThreadTitlePrompt;
 /** @internal Exported for testing only. */
