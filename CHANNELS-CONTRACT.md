@@ -74,6 +74,7 @@ The runner captures canonical history + emits the single outer terminal ONLY whe
 through the controller — i.e. `runAgentLoop` must become DRIVER-AGNOSTIC.
 
 **Options:**
+
 - **A (recommended): inject a run-driver into `runAgentLoop`.** Default driver = today's direct
   `agent.runAgent(input,{subscriber})` (Model-1, unchanged/green). Runner supplies a driver =
   `controller.runAgent({agent,input})` + attaches the adapter renderer via `agent.subscribe(renderer.subscriber)`.
@@ -85,6 +86,7 @@ through the controller — i.e. `runAgentLoop` must become DRIVER-AGNOSTIC.
   side subscriber — changes how `execute` captures events (loses the single-terminal guarantee). Riskier.
 
 **OPEN QUESTIONS for the Intel session (you own canonical-history + effect-drain + Tasks 5/6):**
+
 1. Does Option A's driver = `controller.runAgent` satisfy your canonical-history + one-outer-terminal +
    effect-drain/sequence-counter requirements for the PRODUCTION managed delivery? Or does the production
    runTurn need more from the loop (e.g. per-effect ack, cancellation threading) that the driver seam must expose?
