@@ -22,6 +22,7 @@ export function StackedBar(props: StackedBarProps): ReactElement {
     style,
     labelClassName,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const totals = data.map((d) => d.values.reduce((a, b) => a + b, 0));
   const max = Math.max(1, ...totals);
   return h(
@@ -79,7 +80,7 @@ export function StackedBar(props: StackedBarProps): ReactElement {
             {
               style: {
                 width: "100%",
-                height: `${(totals[i]! / max) * 100}%`,
+                height: `${Math.max(0, (totals[i]! / max) * 100)}%`,
                 display: "flex",
                 flexDirection: "column-reverse",
                 borderRadius: 4,
@@ -90,8 +91,8 @@ export function StackedBar(props: StackedBarProps): ReactElement {
               h("div", {
                 key: s,
                 style: {
-                  height: `${totals[i]! > 0 ? (v / totals[i]!) * 100 : 0}%`,
-                  backgroundColor: colors[s % colors.length],
+                  height: `${totals[i]! > 0 ? Math.max(0, (v / totals[i]!) * 100) : 0}%`,
+                  backgroundColor: palette[s % palette.length],
                 },
               }),
             ),

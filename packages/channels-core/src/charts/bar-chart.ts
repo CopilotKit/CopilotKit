@@ -17,7 +17,10 @@ export function BarChart(props: BarChartProps): ReactElement {
     style,
     labelClassName,
   } = props;
-  const max = Math.max(1, ...data.map((d) => d.value));
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
+  const vals = data.map((d) => d.value);
+  const max = vals.length ? Math.max(...vals) : 1;
+  const safeMax = max > 0 ? max : 1;
   return h(
     "div",
     {
@@ -71,8 +74,8 @@ export function BarChart(props: BarChartProps): ReactElement {
           h("div", {
             style: {
               width: "100%",
-              height: `${(d.value / max) * 100}%`,
-              backgroundColor: colors[i % colors.length],
+              height: `${Math.max(0, (d.value / safeMax) * 100)}%`,
+              backgroundColor: palette[i % palette.length],
               borderRadius: 4,
             },
           }),
