@@ -14,7 +14,7 @@ interface MessageLike {
   channelId: string;
   guildId?: string | null;
   mentions: { has(id: string): boolean; users?: { has(id: string): boolean } };
-  channel: { isDMBased(): boolean };
+  channel: { isDMBased(): boolean; isThread?(): boolean };
 }
 
 interface ChatInputLike {
@@ -76,24 +76,52 @@ export interface ListenerConfig {
   commandPending?: PendingInteractions;
 }
 
-/** Wire Gateway events to normalized turns/commands. Mirrors attachSlackListener. */
+/**
+ * Wire Gateway events to normalized turns/commands. Mirrors attachSlackListener.
+ * Every emitted turn carries a normalized `conversationKind` + `mentioned`
+ * (plan §2), so the engine's product-driven response policy
+ * (`decideChannelResponse`, channels-core) decides ignore / run-handler /
+ * auto-run.
+ *
+ * Triggers (every real user message becomes a turn — the engine decides what
+ * happens next):
+ *   1. DM to the bot                 → `conversationKind: "direct_message"`.
+ *   2. @-mention in a channel/thread  → `mentioned: true`.
+ *   3. Plain guild channel/thread chatter (not a mention) → `conversationKind:
+ *      "channel"`/`"thread"`, `mentioned: false`. §2 (ratified): forward it and
+ *      let the engine's response policy decide, rather than dropping it here.
+ *
+ * Filters out only: the bot's own messages and other bots' messages (loop guard).
+ */
 export function attachDiscordListener(cfg: ListenerConfig): void {
   const { client, botUserId, onTurn, onCommand, onReaction, commandPending } =
     cfg;
 
   client.on("messageCreate", (msg: MessageLike) => {
     const botId = typeof botUserId === "function" ? botUserId() : botUserId;
-    if (!shouldAnswer(msg, botId)) return;
+    if (!isRealUserMessage(msg, botId)) return;
     const replyTarget = {
       channelId: msg.channelId,
       ...(msg.guildId ? { guildId: msg.guildId } : {}),
     };
+    const isDM = msg.channel.isDMBased();
+    // Only a DIRECT user mention counts (mirrors the pre-gut gate): `mentions.has()`
+    // also returns true for role mentions and @everyone/@here that happen to
+    // include the bot, so narrow to the explicit user-mention set.
+    const mentioned = !isDM && (msg.mentions.users?.has?.(botId) ?? false);
+    const conversationKind: IncomingTurn["conversationKind"] = isDM
+      ? "direct_message"
+      : msg.channel.isThread?.()
+        ? "thread"
+        : "channel";
     void Promise.resolve(
       onTurn({
         conversationKey: msg.channelId,
         replyTarget,
         userText: stripMention(msg.content, botId),
         senderUserId: msg.author.id,
+        conversationKind,
+        mentioned,
       }),
     ).catch((e) => console.error("[bot-discord] onTurn handler failed:", e));
   });
@@ -176,15 +204,11 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
   }
 }
 
-/** Answer @-mentions and DMs; skip our own messages and other bots. */
-function shouldAnswer(msg: MessageLike, botUserId: string): boolean {
+/** Loop guard: skip our own messages and other bots' messages. Every other real user message is forwarded (§2). */
+function isRealUserMessage(msg: MessageLike, botUserId: string): boolean {
   if (msg.author.id === botUserId) return false;
   if (msg.author.bot) return false;
-  if (msg.channel.isDMBased()) return true;
-  // Only answer a DIRECT user mention. discord.js `mentions.has()` also returns
-  // true for role mentions and @everyone/@here that happen to include the bot,
-  // so narrow to the explicit user-mention set.
-  return msg.mentions.users?.has?.(botUserId) ?? false;
+  return true;
 }
 
 /** Drop a leading <@botId> / <@!botId> mention from the message text. */

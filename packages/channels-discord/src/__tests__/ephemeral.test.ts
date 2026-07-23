@@ -1,25 +1,19 @@
 // packages/channels-discord/src/__tests__/ephemeral.test.ts
-import { describe, it, expect, vi } from "vitest";
+import { it, expect } from "vitest";
 import { DiscordAdapter } from "../adapter.js";
+import { FakeDiscordConnector } from "../testing/fake-discord-connector.js";
 
 function makeAdapter() {
-  const send = vi.fn().mockResolvedValue({ id: "dm1" });
-  const client = {
-    users: {
-      fetch: vi.fn().mockResolvedValue({
-        createDM: vi.fn().mockResolvedValue({ id: "dm-channel-1", send }),
-      }),
-    },
-  };
-  const adapter = new DiscordAdapter(
-    { botToken: "t", appId: "app" },
-    { client: client as any },
-  );
-  return { adapter, send, client };
+  const adapter = new DiscordAdapter({});
+  const connector = new FakeDiscordConnector({
+    sendDM: { id: "dm1", channelId: "dm-channel-1" },
+  });
+  adapter.ɵbindConnector(connector);
+  return { adapter, connector };
 }
 
 it("DM-falls-back when fallbackToDM=true (usedFallback=true)", async () => {
-  const { adapter, send } = makeAdapter();
+  const { adapter, connector } = makeAdapter();
   const res = await adapter.postEphemeral!(
     { channelId: "C1" },
     { id: "U1" },
@@ -27,11 +21,11 @@ it("DM-falls-back when fallbackToDM=true (usedFallback=true)", async () => {
     { fallbackToDM: true },
   );
   expect(res).toMatchObject({ ok: true, usedFallback: true });
-  expect(send).toHaveBeenCalled();
+  expect(connector.calls.some((c) => c.op === "sendDM")).toBe(true);
 });
 
 it("returns null when fallbackToDM=false and no live interaction", async () => {
-  const { adapter } = makeAdapter();
+  const { adapter, connector } = makeAdapter();
   const res = await adapter.postEphemeral!(
     { channelId: "C1" },
     { id: "U1" },
@@ -39,4 +33,5 @@ it("returns null when fallbackToDM=false and no live interaction", async () => {
     { fallbackToDM: false },
   );
   expect(res).toBeNull();
+  expect(connector.calls).toHaveLength(0);
 });

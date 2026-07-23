@@ -1,7 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { emoji } from "@copilotkit/channels-ui";
 import { decodeReaction } from "../interaction.js";
 import { DiscordAdapter } from "../adapter.js";
+import { FakeDiscordConnector } from "../testing/fake-discord-connector.js";
 
 it("decodes a unicode reaction add", () => {
   const evt = decodeReaction(
@@ -37,74 +38,65 @@ it("encodes a custom emoji as name:id passthrough", () => {
 
 describe("addReaction / removeReaction egress", () => {
   function makeAdapter() {
-    const botId = "BOT1";
-    const react = vi.fn().mockResolvedValue(undefined);
-    const removeUser = vi.fn().mockResolvedValue(undefined);
-    const msg = {
-      react,
-      reactions: {
-        cache: new Map([
-          ["👍", { users: { remove: removeUser } }],
-          ["custom", { users: { remove: removeUser } }],
-          // Discord keys hearts by the BARE codepoint (no trailing U+FE0F).
-          ["❤", { users: { remove: removeUser } }],
-        ]),
-      },
-    };
-    const client = {
-      user: { id: botId },
-      channels: {
-        fetch: vi.fn().mockResolvedValue({
-          id: "C1",
-          send: vi.fn(),
-          messages: {
-            fetch: vi.fn().mockResolvedValue(msg),
-          },
-        }),
-      },
-    };
-    const adapter = new DiscordAdapter(
-      { botToken: "t", appId: "app" },
-      { client: client as any },
-    );
-    return { adapter, react, removeUser, botId, msg };
+    const adapter = new DiscordAdapter({});
+    const connector = new FakeDiscordConnector();
+    adapter.ɵbindConnector(connector);
+    return { adapter, connector };
   }
 
   const target = { channelId: "C1" };
   const messageRef = { id: "M1", channelId: "C1" };
 
-  it("addReaction resolves thumbs_up to 👍 and calls msg.react", async () => {
-    const { adapter, react } = makeAdapter();
+  it("addReaction resolves thumbs_up to 👍 and calls the connector", async () => {
+    const { adapter, connector } = makeAdapter();
     const res = await adapter.addReaction!(target, messageRef, "thumbs_up");
     expect(res).toEqual({ ok: true });
-    expect(react).toHaveBeenCalledWith("👍");
+    expect(connector.calls[0]).toMatchObject({
+      op: "addReaction",
+      args: { channelId: "C1", messageId: "M1", emoji: "👍" },
+    });
   });
 
   it("addReaction passes unknown emoji through raw", async () => {
-    const { adapter, react } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const res = await adapter.addReaction!(
       target,
       messageRef,
       "some_custom_emoji" as any,
     );
     expect(res).toEqual({ ok: true });
-    expect(react).toHaveBeenCalledWith("some_custom_emoji");
+    expect((connector.calls[0]!.args as { emoji: string }).emoji).toBe(
+      "some_custom_emoji",
+    );
   });
 
-  it("removeReaction removes the bot's own id via reactions.cache.get(token)?.users.remove", async () => {
-    const { adapter, removeUser, botId } = makeAdapter();
+  it("removeReaction routes to the connector with the resolved channel/message/emoji", async () => {
+    const { adapter, connector } = makeAdapter();
     const res = await adapter.removeReaction!(target, messageRef, "thumbs_up");
     expect(res).toEqual({ ok: true });
-    expect(removeUser).toHaveBeenCalledWith(botId);
+    expect(connector.calls[0]).toMatchObject({
+      op: "removeReaction",
+      args: { channelId: "C1", messageId: "M1", emoji: "👍" },
+    });
   });
 
-  it("removeReaction finds a reaction cached under the bare (VS16-stripped) codepoint", async () => {
-    // `emoji.heart` resolves to the qualified "❤️" (U+2764 U+FE0F), but Discord
-    // keys the cache by the bare "❤" (U+2764). A VS16-tolerant lookup must still
-    // find the reaction and remove the bot's own id.
-    const { adapter, removeUser, botId } = makeAdapter();
+  it("removeReaction resolves emoji.heart to its Discord-ready token", async () => {
+    const { adapter, connector } = makeAdapter();
     const res = await adapter.removeReaction!(target, messageRef, emoji.heart);
     expect(res).toEqual({ ok: true });
-    expect(removeUser).toHaveBeenCalledWith(botId);
+    expect(connector.calls[0]!.op).toBe("removeReaction");
+  });
+
+  it("falls back to the target channel when the reacted ref has no channelId", async () => {
+    const { adapter, connector } = makeAdapter();
+    const res = await adapter.addReaction!(
+      target,
+      { id: "M1" } as any, // no channelId — parity with the bot-ui example payload
+      "eyes",
+    );
+    expect(res).toEqual({ ok: true });
+    expect((connector.calls[0]!.args as { channelId: string }).channelId).toBe(
+      "C1",
+    );
   });
 });

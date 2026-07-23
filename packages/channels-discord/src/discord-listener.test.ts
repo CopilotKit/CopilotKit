@@ -39,7 +39,7 @@ function message(over: Record<string, unknown>) {
 }
 
 describe("attachDiscordListener", () => {
-  it("emits a turn when the bot is mentioned", () => {
+  it("emits a turn when the bot is mentioned, tagged mentioned:true / conversationKind:channel", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({
@@ -63,11 +63,16 @@ describe("attachDiscordListener", () => {
         conversationKey: "c1",
         replyTarget: { channelId: "c1", guildId: "g1" },
         senderUserId: "u1",
+        conversationKind: "channel",
+        mentioned: true,
       }),
     );
   });
 
-  it("does not answer a role / @everyone mention that only matches via mentions.has", () => {
+  it("forwards an untagged guild message too (§2): conversationKind:channel, mentioned:false", () => {
+    // A role mention / @everyone / plain chatter is NOT a direct user mention,
+    // but §2 (ratified) forwards it anyway — the engine's response policy
+    // decides ignore/handler/auto_run, rather than the listener dropping it.
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({
@@ -76,8 +81,6 @@ describe("attachDiscordListener", () => {
       onTurn,
       onCommand: vi.fn(),
     });
-    // `mentions.has` is true (e.g. a role mention the bot belongs to), but the
-    // bot is not a direct user mention, so we must NOT answer.
     client.emit(
       "messageCreate",
       message({
@@ -85,10 +88,37 @@ describe("attachDiscordListener", () => {
         content: "<@&role-1> ping everyone",
       }),
     );
-    expect(onTurn).not.toHaveBeenCalled();
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKey: "c1",
+        conversationKind: "channel",
+        mentioned: false,
+      }),
+    );
   });
 
-  it("emits a turn for a DM even without a mention", () => {
+  it("tags a thread message conversationKind:thread when the channel reports isThread()", () => {
+    const client = fakeClient();
+    const onTurn = vi.fn();
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn,
+      onCommand: vi.fn(),
+    });
+    client.emit(
+      "messageCreate",
+      message({
+        channel: { isDMBased: () => false, isThread: () => true },
+        content: "carry on",
+      }),
+    );
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationKind: "thread", mentioned: false }),
+    );
+  });
+
+  it("emits a turn for a DM even without a mention, tagged conversationKind:direct_message", () => {
     const client = fakeClient();
     const onTurn = vi.fn();
     attachDiscordListener({
@@ -102,6 +132,12 @@ describe("attachDiscordListener", () => {
       message({ channel: { isDMBased: () => true }, guildId: null }),
     );
     expect(onTurn).toHaveBeenCalledTimes(1);
+    expect(onTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversationKind: "direct_message",
+        mentioned: false,
+      }),
+    );
   });
 
   it("ignores the bot's own messages", () => {

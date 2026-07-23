@@ -3,6 +3,26 @@
 export { discord, DiscordAdapter } from "./adapter.js";
 export type { DiscordAdapterOptions } from "./adapter.js";
 
+export {
+  WebClientDiscordConnector,
+  DISCORD_DEFAULT_INTENTS,
+  DISCORD_DEFAULT_PARTIALS,
+} from "./discord-connector.js";
+export type {
+  DiscordConnector,
+  DiscordConnectorMessage,
+  DiscordIngressConfig,
+  DiscordIngressConnection,
+  DiscordSendPayload,
+  WebClientDiscordConnectorOptions,
+} from "./discord-connector.js";
+
+export { FakeDiscordConnector } from "./testing/fake-discord-connector.js";
+export type {
+  DiscordConnectorCall,
+  FakeDiscordConnectorResults,
+} from "./testing/fake-discord-connector.js";
+
 export { DiscordConversationStore } from "./conversation-store.js";
 
 export { attachDiscordListener } from "./discord-listener.js";

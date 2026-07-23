@@ -3,7 +3,7 @@ import { GatewayIntentBits, Partials } from "discord.js";
 import {
   DISCORD_DEFAULT_INTENTS,
   DISCORD_DEFAULT_PARTIALS,
-} from "../adapter.js";
+} from "../discord-connector.js";
 
 it("requests the reaction intent and partials", () => {
   expect(DISCORD_DEFAULT_INTENTS).toContain(
