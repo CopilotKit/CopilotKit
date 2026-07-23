@@ -575,18 +575,12 @@ export class SlackAdapter implements PlatformAdapter {
 
   /**
    * Build the {@link NativeStreamTransport} (chat.startStream/appendStream/
-   * stopStream) for a thread target. `onFirstTs` records the first streamed
-   * message's ts/channel for the returned MessageRef. Native channel streams
-   * pass `recipient_user_id` (the turn sender) + `recipient_team_id`.
+   * stopStream) for a thread target, driven by the given connector. `onFirstTs`
+   * records the first streamed message's ts/channel for the returned MessageRef.
+   * Native channel streams pass `recipient_user_id` (the turn sender) +
+   * `recipient_team_id`. The managed Connector Outbox / a custom runner supply
+   * their own connector here (see {@link makeEgress}).
    */
-  private nativeTransport(
-    t: ReplyTarget,
-    onFirstTs: (ts: string, channel?: string) => void,
-  ): NativeStreamTransport {
-    return this.nativeTransportVia(this.connector, t, onFirstTs);
-  }
-
-  /** `nativeTransport`'s connector-parameterized body (see {@link postVia}). */
   private nativeTransportVia(
     connector: SlackConnector,
     t: ReplyTarget,
@@ -651,15 +645,11 @@ export class SlackAdapter implements PlatformAdapter {
 
   /**
    * The credentialed {@link SlackRenderTransport} the run renderer calls
-   * (setStatus / postMessage / update), wrapping this adapter's `WebClient`.
-   * Extracted so `createRunRenderer` stays Bolt-free and the managed Connector
-   * Outbox can drive the identical renderer with its own sender.
+   * (setStatus / postMessage / update), driven by the given connector. Keeps
+   * `createRunRenderer` Bolt-free so the managed Connector Outbox / a custom
+   * runner can drive the identical renderer with their own sender (see
+   * {@link makeEgress}).
    */
-  private renderTransport(): SlackRenderTransport {
-    return this.renderTransportVia(this.connector);
-  }
-
-  /** `renderTransport`'s connector-parameterized body (see {@link postVia}). */
   private renderTransportVia(connector: SlackConnector): SlackRenderTransport {
     return {
       setStatus: async (a) => {
