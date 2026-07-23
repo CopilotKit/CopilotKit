@@ -21,6 +21,11 @@ export const DEFAULT_CHART_COLORS: readonly string[] = [
   "#06b6d4",
 ];
 
+/** Coerce a chart value to a finite number (non-finite → 0) so one bad datum can't poison a scale. */
+export function finiteOr0(n: number): number {
+  return Number.isFinite(n) ? n : 0;
+}
+
 /**
  * Styling knobs shared by every chart component. Not every field is honored
  * by every chart: BarChart/StackedBar fill their container and ignore both
@@ -36,7 +41,7 @@ export interface ChartStyleProps {
   style?: CSSProperties;
   width?: number;
   height?: number;
-  colors?: string[];
+  colors?: readonly string[];
   gridColor?: string;
   labelClassName?: string;
   showGrid?: boolean;

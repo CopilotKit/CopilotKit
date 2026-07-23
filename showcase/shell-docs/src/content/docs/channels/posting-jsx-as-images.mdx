@@ -30,7 +30,7 @@ icon: "lucide/Component"
     await thread.post(<MrrCard value="$48,200" delta={12} />);
     ```
 
-    This works whether `<MrrCard/>` is posted from an ordinary app file or referenced inside a channels-pragma file — the engine calls the component once, looks at what comes back, and routes accordingly. A component that throws (e.g. one that calls a hook) is treated as native rather than crashing the classifier.
+    This works whether `<MrrCard/>` is posted from an ordinary app file or referenced inside a channels-pragma file — the engine calls the component, looks at what comes back, and routes accordingly. A component that throws (e.g. one that calls a hook) is treated as native rather than crashing the classifier. Classification may invoke the component an extra time (peek, then bind on the native path), so components passed to `post()` must be pure / side-effect-free.
 
     <Callout type="info" title="One post, one route">
       A single `post()` call is either native IR or one image — you can't mix native components and image output in the same message. Call `post()` twice if you need both.

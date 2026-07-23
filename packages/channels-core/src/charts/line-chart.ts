@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS } from "./types.js";
+import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
 import type { ChartDatum, ChartStyleProps } from "./types.js";
 
 export interface LineChartProps extends ChartStyleProps {
@@ -25,14 +25,14 @@ export function LineChart(props: LineChartProps): ReactElement {
   const pad = { l: 8, r: 8, t: title ? 28 : 8, b: 24 };
   const plotW = width - pad.l - pad.r;
   const plotH = height - pad.t - pad.b;
-  const vals = data.map((d) => d.value);
+  const vals = data.map((d) => finiteOr0(d.value));
   const max = vals.length ? Math.max(...vals) : 1;
   const min = vals.length ? Math.min(0, ...vals) : 0;
   const span = max - min || 1;
   const step = data.length > 1 ? plotW / (data.length - 1) : 0;
   const x = (i: number) => pad.l + i * step;
   const y = (v: number) => pad.t + plotH - ((v - min) / span) * plotH;
-  const points = data.map((d, i) => `${x(i)},${y(d.value)}`).join(" ");
+  const points = vals.map((v, i) => `${x(i)},${y(v)}`).join(" ");
   const grid = showGrid
     ? [0, 0.25, 0.5, 0.75, 1].map((f, i) =>
         h("line", {
@@ -73,11 +73,11 @@ export function LineChart(props: LineChartProps): ReactElement {
       strokeWidth: 2,
       style: { fill: "none", stroke: palette[0] },
     }),
-    ...data.map((d, i) =>
+    ...vals.map((v, i) =>
       h("circle", {
         key: `p${i}`,
         cx: x(i),
-        cy: y(d.value),
+        cy: y(v),
         r: 3,
         style: { fill: palette[0] },
       }),
