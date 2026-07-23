@@ -6,7 +6,7 @@ export interface RenderConfig {
   fonts?: ReadonlyArray<RenderFont>;
   /** Compiled CSS strings (e.g. your Tailwind/global.css). Resolves class selectors, `var()`, oklch. */
   stylesheets?: string[];
-  /** Default image width in px (canvas). */
+  /** Default image width in px (canvas). Omit to use the default (720). */
   width?: number;
   /** Default image height in px (canvas). Omit to use the default (480). */
   height?: number;
