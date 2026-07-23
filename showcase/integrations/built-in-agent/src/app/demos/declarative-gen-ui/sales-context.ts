@@ -6,11 +6,10 @@ import { useAgentContext } from "@copilotkit/react-core/v2";
 // context entries into its system instruction.
 //
 // DUPLICATION NOTICE: This file is intentionally byte-duplicated across
-// 5 integrations — built-in-agent, google-adk, langgraph-python, strands,
-// and strands-typescript — per the showcase's per-integration parity
-// convention (no cross-integration imports). All 5 copies MUST be kept
-// byte-for-byte identical — verify with `diff` after any edit, and update
-// every copy in the same commit.
+// the langgraph-python and google-adk integrations, per the showcase's
+// per-integration parity convention (no cross-integration imports). The
+// two copies MUST be kept byte-for-byte identical — verify with `diff`
+// after any edit, and update BOTH files in the same commit.
 //
 // TODO(OSS-136): Extract this dataset + composition rules into a shared
 // showcase module so both integrations import a single source of truth
