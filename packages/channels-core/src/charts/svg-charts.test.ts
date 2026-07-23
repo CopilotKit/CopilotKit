@@ -6,6 +6,23 @@ import { Scatter } from "./scatter.js";
 import { DEFAULT_CHART_COLORS } from "./types.js";
 import { resolveArbitraryElement } from "../render/detect.js";
 
+interface ElementLike {
+  type: unknown;
+  props: { children: unknown };
+}
+const findAllByType = (el: ElementLike, type: string): ElementLike[] => {
+  const children = ([] as unknown[]).concat(
+    el.props?.children as unknown,
+  ) as ElementLike[];
+  const matches: ElementLike[] = [];
+  for (const child of children) {
+    if (!child || typeof child !== "object") continue;
+    if (child.type === type) matches.push(child);
+    matches.push(...findAllByType(child, type));
+  }
+  return matches;
+};
+
 describe("svg charts", () => {
   it("LineChart returns a React element", () => {
     const el = LineChart({
@@ -18,28 +35,11 @@ describe("svg charts", () => {
     expect(resolveArbitraryElement(el)).toBeTruthy();
   });
   it("PieChart returns a React element and handles a single slice", () => {
-    interface PieElement {
-      type: unknown;
-      props: { children: unknown };
-    }
-    const findByType = (el: PieElement, type: string): PieElement[] => {
-      const children = ([] as unknown[]).concat(
-        el.props?.children as unknown,
-      ) as PieElement[];
-      const matches: PieElement[] = [];
-      for (const child of children) {
-        if (!child || typeof child !== "object") continue;
-        if (child.type === type) matches.push(child);
-        matches.push(...findByType(child, type));
-      }
-      return matches;
-    };
-
     const single = PieChart({ data: [{ label: "only", value: 5 }] });
     expect(isValidElement(single)).toBe(true);
-    expect(findByType(single as unknown as PieElement, "circle").length).toBe(
-      1,
-    );
+    expect(
+      findAllByType(single as unknown as ElementLike, "circle").length,
+    ).toBe(1);
 
     const twoSlice = PieChart({
       data: [
@@ -48,9 +48,9 @@ describe("svg charts", () => {
       ],
     });
     expect(isValidElement(twoSlice)).toBe(true);
-    expect(findByType(twoSlice as unknown as PieElement, "path").length).toBe(
-      2,
-    );
+    expect(
+      findAllByType(twoSlice as unknown as ElementLike, "path").length,
+    ).toBe(2);
   });
   it("Scatter returns a React element", () => {
     const el = Scatter({
@@ -62,23 +62,6 @@ describe("svg charts", () => {
     expect(isValidElement(el)).toBe(true);
     expect(resolveArbitraryElement(el)).toBeTruthy();
   });
-
-  interface ElementLike {
-    type: unknown;
-    props: { children: unknown };
-  }
-  const findAllByType = (el: ElementLike, type: string): ElementLike[] => {
-    const children = ([] as unknown[]).concat(
-      el.props?.children as unknown,
-    ) as ElementLike[];
-    const matches: ElementLike[] = [];
-    for (const child of children) {
-      if (!child || typeof child !== "object") continue;
-      if (child.type === type) matches.push(child);
-      matches.push(...findAllByType(child, type));
-    }
-    return matches;
-  };
 
   it("PieChart with no data renders an empty svg (no circle/path marks)", () => {
     const el = PieChart({ data: [] });
