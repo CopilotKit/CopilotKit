@@ -81,6 +81,16 @@ const textNode = (value: string): ChannelNode[] => [
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
 /**
+ * User-visible reply posted when a run terminates with a `run_error` on the
+ * HTTP-fallback render path (no Connector Outbox). Intentionally generic: the
+ * raw error message may carry internal detail (stack fragments, upstream URLs),
+ * so it is logged via `config.log` for operators rather than shown to the end
+ * user in the channel.
+ */
+const RUN_ERROR_POST_TEXT =
+  "⚠️ The agent ran into an error and couldn't finish responding. Please try again.";
+
+/**
  * Supported configuration for the Intelligence-delivered Channels adapter.
  * Exposed to consumers through `@copilotkit/channels/intelligence`.
  */
@@ -349,6 +359,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
     await this.source?.stop();
   }
 
+  /**
+   * Process one inbound delivery: run the turn, then ack/nack it. The turn and
+   * the ack are two DISTINCT phases with distinct failure semantics — a failed
+   * turn nacks (so the transport redelivers), but a failed ack must NOT, because
+   * the Channel path reprocesses redeliveries (`skipIngressDedup = true`), so
+   * nacking an already-processed turn would rerun it end to end (duplicate agent
+   * run / duplicate posts). Conflating the two (ack inside the turn's `try`) is
+   * the OSS-491 Finding-2 bug this split fixes.
+   */
   private async dispatch(env: ChannelIngressEnvelope): Promise<void> {
     // Reset the per-turn sequence so egress ids are deterministic across
     // redelivery (same turn id -> same op id sequence). Assumes the
@@ -356,9 +375,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
     this.seq.set(env.turnId, 0);
+    let turnProcessed = false;
     try {
       await this.dispatchTo(env);
-      await this.requireSource().ack(env.deliveryId);
+      turnProcessed = true;
     } catch (err) {
       await this.requireSource().nack(
         env.deliveryId,
@@ -369,6 +389,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
       this.seq.delete(env.turnId);
+    }
+    if (!turnProcessed) return;
+    // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
+    // turn failure and must never nack (that would redeliver and rerun the whole
+    // turn). Log it and move on — the lease simply lapses and the transport may
+    // redeliver, but we never actively re-enqueue a completed turn.
+    try {
+      await this.requireSource().ack(env.deliveryId);
+    } catch (ackErr) {
+      this.opts.config?.log?.(
+        `intelligence ack failed for delivery ${env.deliveryId} after a successful turn; not nacking (turn already processed)`,
+        ackErr,
+      );
     }
   }
 
@@ -720,6 +753,22 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const acc = new Map<string, string>();
     const order: string[] = [];
     let interrupted = false;
+    // Flush any message that never received a text_end (interrupt / run_error
+    // path) so buffered partial output still reaches the channel, then reset the
+    // buffers. Shared by `finalize` and `run_error`.
+    const flushPending = async (): Promise<void> => {
+      for (const id of order) {
+        const txt = acc.get(id) ?? "";
+        if (txt.length > 0) {
+          await emit({
+            kind: "post",
+            ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
+          });
+        }
+      }
+      acc.clear();
+      order.length = 0;
+    };
     return {
       push: async (frame: RenderFrame): Promise<RenderAccepted> => {
         const e = frame.event;
@@ -738,22 +787,34 @@ export class IntelligenceAdapter implements PlatformAdapter {
           await emit({ kind: "post", ir: e.content });
         } else if (e.kind === "update") {
           await emit({ kind: "update", ref: e.ref, ir: e.content });
+        } else if (e.kind === "run_error") {
+          // On the realtime path this branch never runs (renderSinkFor returns
+          // the injected renderSink, and the Connector Outbox renders run_error
+          // live). Here, on the HTTP-fallback path, there is no Outbox: without
+          // this branch the error would be dropped, the run would resolve, and
+          // dispatch() would ack a text-less turn as success — the bot goes
+          // silent on every error with nothing logged (OSS-491 Finding 1).
+          //
+          // Surface it loudly: log the raw error for operators, flush any
+          // buffered partial text, then post a generic user-visible error. We
+          // post + log + ack (NOT nack): a run_error is frequently a
+          // deterministic agent failure (model error, tool crash), and the
+          // Channel path reprocesses redeliveries (skipIngressDedup), so nacking
+          // would livelock (redeliver → same failure → nack, forever). A genuine
+          // transient failure of the error POST itself still nacks, because
+          // `emit` throws on egress failure → the push chain rejects → drain()
+          // rejects → the delivery is nacked and retried.
+          this.opts.config?.log?.(
+            "intelligence run_error on HTTP-fallback render path",
+            e.message,
+          );
+          await flushPending();
+          await emit({ kind: "post", ir: textNode(RUN_ERROR_POST_TEXT) });
         } else if (e.kind === "finalize") {
-          // Flush any message that never received a text_end (interrupt path).
-          for (const id of order) {
-            const txt = acc.get(id) ?? "";
-            if (txt.length > 0) {
-              await emit({
-                kind: "post",
-                ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
-              });
-            }
-          }
-          acc.clear();
-          order.length = 0;
+          await flushPending();
         }
-        // run_started / tool_start / tool_end / run_error: no provider-visible
-        // effect in the plain-text fallback (the Outbox renders those live).
+        // run_started / tool_start / tool_end: no provider-visible effect in the
+        // plain-text fallback (the realtime Outbox renders those live).
         return {
           idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
           acceptance: "accepted",
@@ -880,6 +941,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
       },
       onRunErrorEvent({ event }) {
         if (aborted) return;
+        // Ensure a run_started precedes the error frame even when the run fails
+        // before any text/tool event — parity with the text/tool handlers, so
+        // the frame stream is always a well-formed run lifecycle (OSS-491).
+        ensureRunStarted();
         enqueue({
           kind: "run_error",
           message: event.message ?? "unknown error",

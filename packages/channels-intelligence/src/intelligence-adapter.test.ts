@@ -11,6 +11,7 @@ import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
+  InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
@@ -339,6 +340,142 @@ describe("intelligenceAdapter — run renderer", () => {
 
     expect(egress.ops).toHaveLength(1);
     expect(egress.ops[0]!.op.kind).toBe("post");
+  });
+});
+
+describe("intelligenceAdapter — HTTP-fallback run_error (OSS-491)", () => {
+  const target = {
+    route: { r: 1 },
+    turnId: "t1",
+    deliveryId: "d1",
+  } as unknown as ReplyTarget;
+
+  type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
+
+  it("surfaces a text-less run_error as a user-visible error post and logs it (fallback path)", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    // Fallback path: no renderSink wired, so the ad-hoc plain-text sink runs and
+    // (before the fix) drops run_error — the run resolves and dispatch() acks a
+    // text-less turn as success (bot goes silent, nothing logged).
+    const adapter = intelligenceAdapter({
+      source,
+      egress,
+      config: { log: (msg, meta) => logs.push({ msg, meta }) },
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // An agent-side failure (model error / tool crash) with no accompanying text.
+    sub.onRunErrorEvent?.({ event: { message: "model exploded" } });
+    await renderer.finish?.();
+
+    // (b) A user-visible error post is emitted rather than the turn completing
+    // silently. We post + log + ack (not nack): a run_error is frequently a
+    // deterministic agent failure and the Channel path reprocesses redeliveries
+    // (skipIngressDedup), so nacking would livelock.
+    expect(egress.ops).toHaveLength(1);
+    expect(egress.ops[0]!.op.kind).toBe("post");
+    const op = egress.ops[0]!.op as unknown as {
+      kind: string;
+      ir: { props: { value: string } }[];
+    };
+    expect(op.ir[0]!.props.value).toMatch(/error/i);
+    // (a) And the underlying error is logged so a dropped error is never invisible.
+    expect(logs.some((l) => /run_error/i.test(l.msg))).toBe(true);
+    expect(logs.some((l) => l.meta === "model exploded")).toBe(true);
+  });
+
+  it("emits run_started before a run_error that precedes any text or tool event", async () => {
+    const source = new InMemoryDeliverySource();
+    const renderSink = new InMemoryRenderEventSink();
+    // Realtime path: render frames are observable directly on the sink.
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // Error before any text/tool event: it must still be preceded by run_started
+    // so the frame stream is a well-formed run lifecycle.
+    sub.onRunErrorEvent?.({ event: { message: "boom" } });
+    await renderer.finish?.();
+
+    const kinds = renderSink.frames.map((f) => f.event.kind);
+    expect(kinds[0]).toBe("run_started");
+    expect(kinds).toContain("run_error");
+    expect(kinds.indexOf("run_started")).toBeLessThan(
+      kinds.indexOf("run_error"),
+    );
+  });
+
+  it("renders run_error live on the realtime path (no user-visible error post) — unchanged", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({ source, egress, renderSink });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "partial" },
+    });
+    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    sub.onRunErrorEvent?.({ event: { message: "later boom" } });
+    await renderer.finish?.();
+
+    // The realtime path forwards run_error to the render sink (the Connector
+    // Outbox renders it live) — it is NOT converted into an egress error post…
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "text_delta",
+      "text_end",
+      "run_error",
+      "finalize",
+    ]);
+    // …and the fallback error-post path never runs on the realtime path.
+    expect(egress.ops).toEqual([]);
+  });
+});
+
+describe("intelligenceAdapter — ack failure isolation (OSS-491)", () => {
+  it("does not nack or rerun a completed turn when ack() throws; logs the ack failure", async () => {
+    // A source whose ack() network call fails but whose turn processed fine.
+    class AckFailingSource extends InMemoryDeliverySource {
+      override async ack(): Promise<void> {
+        throw new Error("ack network down");
+      }
+    }
+    const source = new AckFailingSource();
+    const egress = new InMemoryEgressSink();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress,
+          config: { log: (msg, meta) => logs.push({ msg, meta }) },
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    let dispatchCount = 0;
+    bot.onMessage(async () => {
+      dispatchCount++;
+    });
+    await bot.start();
+    await source.deliver(envelope({ deliveryId: "d9" }));
+
+    // The turn processed exactly once…
+    expect(dispatchCount).toBe(1);
+    // …and a failed ack must NOT be conflated with a turn failure: no nack
+    // (which, with skipIngressDedup, would redeliver and rerun the whole turn).
+    expect(source.nacked).toEqual([]);
+    // The ack failure is logged, not silently swallowed.
+    expect(logs.some((l) => /ack/i.test(l.msg))).toBe(true);
   });
 });
 
