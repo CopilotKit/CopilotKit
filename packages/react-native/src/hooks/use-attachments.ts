@@ -10,8 +10,26 @@ import type {
   AttachmentUploadResult,
   AttachmentUploadErrorReason,
 } from "@copilotkit/shared";
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+
+// `expo-document-picker` and `expo-file-system` are *optional* peer dependencies
+// (see package.json `peerDependenciesMeta`). They are imported lazily, inside the
+// callbacks that actually need them, so that consumers who never use attachments
+// -- including bare React Native apps without Expo installed -- can import the
+// rest of the package (CopilotKitProvider, useAgent, CopilotChat, ...) without
+// pulling Expo into their bundle or crashing at startup on the missing native
+// `expo-modules-core`.
+//
+// The specifiers are kept out of static analysis (built via a template literal)
+// so that Metro does not try to resolve the modules at bundle time when they are
+// not installed; resolution happens only when an attachment API is actually used.
+const DOCUMENT_PICKER_MODULE = "expo-document-picker";
+const FILE_SYSTEM_MODULE = "expo-file-system";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const loadDocumentPicker = (): Promise<any> =>
+  import(`${DOCUMENT_PICKER_MODULE}`);
+const loadFileSystem = (): Promise<any> => import(`${FILE_SYSTEM_MODULE}`);
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
 // Types
@@ -181,7 +199,8 @@ export function useAttachments({
             source = uploadSource;
             uploadMetadata = meta;
           } else {
-            // Default: read file as base64 via expo-file-system
+            // Default: read file as base64 via expo-file-system (loaded lazily)
+            const FileSystem = await loadFileSystem();
             const base64 = await FileSystem.readAsStringAsync(file.uri, {
               encoding: FileSystem.EncodingType.Base64,
             });
@@ -231,6 +250,9 @@ export function useAttachments({
       .filter(Boolean);
 
     try {
+      // expo-document-picker is loaded lazily so the module is only required
+      // when the picker is actually opened.
+      const DocumentPicker = await loadDocumentPicker();
       const result = await DocumentPicker.getDocumentAsync({
         type: typeArray.length > 0 ? typeArray : ["*/*"],
         copyToCacheDirectory: true,
@@ -239,12 +261,19 @@ export function useAttachments({
 
       if (result.canceled || !result.assets?.length) return;
 
-      const nativeFiles: NativeFileInput[] = result.assets.map((asset) => ({
-        uri: asset.uri,
-        name: asset.name ?? "unknown",
-        size: asset.size ?? 0,
-        mimeType: asset.mimeType ?? "application/octet-stream",
-      }));
+      const nativeFiles: NativeFileInput[] = result.assets.map(
+        (asset: {
+          uri: string;
+          name?: string | null;
+          size?: number | null;
+          mimeType?: string | null;
+        }) => ({
+          uri: asset.uri,
+          name: asset.name ?? "unknown",
+          size: asset.size ?? 0,
+          mimeType: asset.mimeType ?? "application/octet-stream",
+        }),
+      );
 
       await processFiles(nativeFiles);
     } catch (error) {
