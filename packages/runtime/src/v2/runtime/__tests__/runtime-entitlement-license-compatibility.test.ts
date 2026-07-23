@@ -4,7 +4,7 @@ import type {
 } from "@copilotkit/shared";
 import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseStatus } from "@copilotkit/license-verifier";
-import { expect, test, vi } from "vitest";
+import { afterAll, beforeAll, expect, test, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotKitIntelligence } from "../intelligence-platform";
@@ -12,6 +12,20 @@ import {
   findForbiddenPublicKeyPaths,
   RUNTIME_ENTITLEMENT_CONTRACT_CASES,
 } from "./runtime-entitlement-test-utils";
+
+const originalLicenseToken = process.env.COPILOTKIT_LICENSE_TOKEN;
+
+beforeAll(() => {
+  delete process.env.COPILOTKIT_LICENSE_TOKEN;
+});
+
+afterAll(() => {
+  if (originalLicenseToken === undefined) {
+    delete process.env.COPILOTKIT_LICENSE_TOKEN;
+  } else {
+    process.env.COPILOTKIT_LICENSE_TOKEN = originalLicenseToken;
+  }
+});
 
 test("normalizes the current flat managed entitlement transport through /info", async () => {
   const fetchMock = vi.fn().mockResolvedValue(
