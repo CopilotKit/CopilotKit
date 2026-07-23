@@ -2381,6 +2381,12 @@ importers:
       '@copilotkit/channels-whatsapp':
         specifier: workspace:*
         version: link:../channels-whatsapp
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      takumi-js:
+        specifier: '*'
+        version: 2.4.1(csstype@3.2.3)(react@19.2.3)
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -24950,7 +24956,7 @@ packages:
   vite-hot-client@2.2.0:
     resolution: {integrity: sha512-76Zs9zrHbH7M7wqeyooGQKdX+yg0pQ0xuQ1PbFp4z5a0Lzn2e5IPFoCswnmqZ4GiwqB4Jo3WcDAMO9jARTJl8w==}
     peerDependencies:
-      vite: 7.3.2
+      vite: '>=6.4.2'
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}

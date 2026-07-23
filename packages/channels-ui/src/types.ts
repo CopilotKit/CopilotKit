@@ -204,7 +204,9 @@ export type MessageReactionHandler = (
 
 /**
  * A React element (or React-element-shaped object) recognized structurally by
- * its `$$typeof` brand. Channel-core routes these to the image path.
+ * its `$$typeof` brand (see `resolveArbitraryElement` in
+ * @copilotkit/channels-core render/detect). Channel-core routes these to the
+ * image path.
  */
 export interface ReactElementLike {
   $$typeof: symbol;

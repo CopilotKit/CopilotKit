@@ -121,9 +121,17 @@
     "vitest": "^4.1.3"
   },
   "peerDependencies": {
+    "react": ">=18",
+    "takumi-js": "*",
     "vitest": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "takumi-js": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }
