@@ -7,6 +7,20 @@ export type {
   ConversationKey,
 } from "./types.js";
 
+export { CloudAdapterTeamsConnector } from "./teams-connector.js";
+export type {
+  TeamsConnector,
+  CloudAdapterTeamsConnectorOptions,
+  TeamsIngressConfig,
+  TeamsIngressConnection,
+  TeamsActivityPayload,
+  TeamsOutboundFile,
+  TeamsSendTarget,
+} from "./teams-connector.js";
+
+export { classifyConversation, wasBotMentioned } from "./ingress-normalize.js";
+export type { TeamsConversationSignals } from "./ingress-normalize.js";
+
 export { TeamsConversationStore } from "./conversation-store.js";
 
 export { createRunRenderer } from "./event-renderer.js";

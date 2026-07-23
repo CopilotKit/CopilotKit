@@ -1,245 +1,220 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ActivityTypes } from "@microsoft/agents-activity";
-import type { TurnContext } from "@microsoft/agents-hosting";
-import { TeamsAdapter } from "./adapter.js";
+import { describe, it, expect } from "vitest";
+import { TeamsAdapter, teams } from "./adapter.js";
+import { FakeTeamsConnector } from "./testing/fake-teams-connector.js";
 
 /**
- * Regression coverage for the card-interaction auth fix.
- *
- * Adaptive Card `Action.Submit` clicks used to be handled on the inbound turn
- * context, whose connector client the M365 SDK builds with an anonymous
- * identity, so editing the card in place (`updateActivity`) was rejected 401
- * on real Teams. Credentialed interactions must instead run on the same
- * app-id-authenticated proactive (`continueConversation`) context as ordinary
- * replies. In the anonymous local Playground (no app id) the inbound context is
- * the only one available and is used directly.
+ * `TeamsAdapter` is credential-free: it holds no `CloudAdapter`, no HTTP
+ * listener, and no `clientId`/`clientSecret`/`tenantId`. Every credentialed
+ * operation (ingress ownership, sends, proactive re-entry, Graph reads) now
+ * lives behind a runner-injected `TeamsConnector` (see `teams-connector.ts`
+ * and `teams-connector.test.ts` for the connector's own ingress/interaction/
+ * file-collection/typing coverage, and `make-egress.test.ts` for the
+ * declarative `makeEgress` entry point). This file covers the adapter's own
+ * responsibilities: the connector-binding contract, pure rendering/decoding,
+ * and the thin `PlatformAdapter` methods delegating to the bound connector.
  */
-function cardClickContext(): TurnContext {
-  const activity = {
-    type: ActivityTypes.Message,
-    value: { ckActionId: "ck:abc123", value: { confirmed: true } },
-    conversation: { id: "conv-1" },
-    from: { id: "user-1", name: "Tester" },
-    replyToId: "card-activity-1",
-    getConversationReference: () => ({
-      conversation: { id: "conv-1" },
-      serviceUrl: "https://smba.example/",
-    }),
-  };
-  return { activity } as unknown as TurnContext;
-}
 
-function mockSink() {
-  return {
-    onTurn: vi.fn().mockResolvedValue(undefined),
-    onCommand: vi.fn().mockResolvedValue(undefined),
-    onInteraction: vi.fn().mockResolvedValue(undefined),
-  };
-}
-
-const flush = () => new Promise((r) => setTimeout(r, 0));
-
-describe("TeamsAdapter card interactions", () => {
-  let prevClientId: string | undefined;
-  beforeEach(() => {
-    prevClientId = process.env.clientId;
-    delete process.env.clientId;
-  });
-  afterEach(() => {
-    if (prevClientId !== undefined) process.env.clientId = prevClientId;
-  });
-
-  it("routes the interaction through the authenticated proactive context when credentialed", async () => {
-    const adapter = new TeamsAdapter({ clientId: "app-123" });
-    const proactiveCtx = { id: "proactive" } as unknown as TurnContext;
-    const continueConversation = vi.fn(
-      async (
-        _appId: string,
-        _ref: unknown,
-        cb: (c: TurnContext) => unknown,
-      ) => {
-        await cb(proactiveCtx);
-      },
+describe("TeamsAdapter connector binding", () => {
+  it("throws a clear error when start() runs unbound", async () => {
+    const adapter = teams({});
+    await expect(adapter.start({} as never)).rejects.toThrow(
+      /Teams channel has no connector.*ChannelRunner.*TeamsConnector/s,
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (adapter as any).cloud = { continueConversation };
-    const sink = mockSink();
-    const inbound = cardClickContext();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (adapter as any).handleActivity(inbound, sink);
-    await flush(); // the interaction runs on a detached proactive context
-
-    expect(continueConversation).toHaveBeenCalledWith(
-      "app-123",
-      expect.anything(),
-      expect.any(Function),
-    );
-    expect(sink.onInteraction).toHaveBeenCalledTimes(1);
-    const evt = sink.onInteraction.mock.calls[0]![0];
-    expect(evt.id).toBe("ck:abc123");
-    expect(evt.value).toEqual({ confirmed: true });
-    // The reply/edit context must be the proactive one, NOT the (anonymous)
-    // inbound click context. That was the 401 bug.
-    expect(evt.replyTarget.context).toBe(proactiveCtx);
-    expect(evt.messageRef.context).toBe(proactiveCtx);
-    expect(evt.messageRef.id).toBe("card-activity-1");
   });
 
-  it("uses the inbound context for interactions in anonymous mode (no app id)", async () => {
-    const adapter = new TeamsAdapter({});
-    const continueConversation = vi.fn();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (adapter as any).cloud = { continueConversation };
-    const sink = mockSink();
-    const inbound = cardClickContext();
+  it("throws when an egress method runs unbound", async () => {
+    const adapter = teams({});
+    await expect(
+      adapter.post({ conversationKey: "c", reference: {} }, []),
+    ).rejects.toThrow(/Teams channel has no connector/);
+  });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (adapter as any).handleActivity(inbound, sink);
-    await flush();
+  it("stop() on a never-started/unbound adapter is a harmless no-op", async () => {
+    const adapter = teams({});
+    await expect(adapter.stop()).resolves.toBeUndefined();
+  });
 
-    expect(continueConversation).not.toHaveBeenCalled();
-    expect(sink.onInteraction).toHaveBeenCalledTimes(1);
-    const evt = sink.onInteraction.mock.calls[0]![0];
-    expect(evt.replyTarget.context).toBe(inbound);
-    expect(evt.messageRef.context).toBe(inbound);
+  it("start() delegates ingress ownership entirely to the bound connector", async () => {
+    const adapter = teams({ files: { maxFiles: 2 } });
+    const connector = new FakeTeamsConnector();
+    adapter.ɵbindConnector(connector);
+    const sink = { onTurn: async () => {} } as never;
+
+    await adapter.start(sink);
+
+    expect(connector.ingressConfig?.sink).toBe(sink);
+    expect(connector.ingressConfig?.files).toEqual({ maxFiles: 2 });
+    expect(typeof connector.ingressConfig?.recordUser).toBe("function");
+  });
+
+  it("stop() delegates to the bound connector's stopIngress", async () => {
+    const adapter = teams({});
+    const connector = new FakeTeamsConnector();
+    adapter.ɵbindConnector(connector);
+
+    await adapter.stop();
+
+    expect(connector.ingressStopped).toBe(true);
   });
 });
 
-/** A plain inbound message activity carrying optional file attachments. */
-function messageContext(
-  text: string,
-  attachments?: Array<Record<string, unknown>>,
-): TurnContext {
-  const activity = {
-    type: ActivityTypes.Message,
-    text,
-    attachments,
-    conversation: { id: "conv-1" },
-    from: { id: "user-1", name: "Sam" },
-    removeRecipientMention: () => text,
-    getConversationReference: () => ({
-      conversation: { id: "conv-1" },
-      serviceUrl: "https://smba.example/",
-    }),
-  };
-  return { activity } as unknown as TurnContext;
-}
-
-describe("TeamsAdapter inbound files", () => {
-  const prevClientId = process.env.clientId;
-  beforeEach(() => delete process.env.clientId);
-  afterEach(() => {
-    if (prevClientId !== undefined) process.env.clientId = prevClientId;
-  });
-
-  it("delivers an uploaded CSV to the agent as a content part on the turn", async () => {
+describe("TeamsAdapter egress delegation (own bound connector)", () => {
+  function setup() {
     const adapter = new TeamsAdapter({});
-    const sink = mockSink();
-    const csv = Buffer.from("month,sev1\nJan,3\nFeb,5\n").toString("base64");
-    const ctx = messageContext("chart this", [
+    const connector = new FakeTeamsConnector();
+    adapter.ɵbindConnector(connector);
+    return { adapter, connector };
+  }
+
+  const target = { conversationKey: "conv-1", reference: {} };
+
+  it("post() routes through the bound connector's sendActivity", async () => {
+    const { adapter, connector } = setup();
+
+    const ref = await adapter.post(target, [
       {
-        contentType: "text/csv",
-        name: "incidents.csv",
-        contentUrl: `data:text/csv;base64,${csv}`,
+        type: "section",
+        props: { children: [{ type: "text", props: { value: "hi" } }] },
       },
     ]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (adapter as any).handleActivity(ctx, sink);
-    await flush();
-
-    expect(sink.onTurn).toHaveBeenCalledTimes(1);
-    const turn = sink.onTurn.mock.calls[0]![0];
-    expect(turn.userText).toBe("chart this");
-    expect(turn.contentParts).toBeDefined();
-    // Leads with the user's text, then the decoded CSV as a text part.
-    expect(turn.contentParts[0]).toEqual({ type: "text", text: "chart this" });
-    const csvPart = turn.contentParts[1] as { type: string; text: string };
-    expect(csvPart.type).toBe("text");
-    expect(csvPart.text).toContain("month,sev1");
+    expect(connector.calls[0]!.op).toBe("sendActivity");
+    expect((ref as { id: string }).id).toBe("fake-activity-1");
   });
 
-  it("leaves contentParts undefined when there are no attachments", async () => {
-    const adapter = new TeamsAdapter({});
-    const sink = mockSink();
-    const ctx = messageContext("hi");
+  it("update() is a no-op when the ref carries no id", async () => {
+    const { adapter, connector } = setup();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (adapter as any).handleActivity(ctx, sink);
-    await flush();
+    await adapter.update({ id: "" }, []);
 
-    const turn = sink.onTurn.mock.calls[0]![0];
-    expect(turn.contentParts).toBeUndefined();
+    expect(connector.calls).toHaveLength(0);
   });
-});
 
-describe("TeamsAdapter.postFile", () => {
-  it("sends a PNG as an inline image attachment via a data: URI", async () => {
-    const adapter = new TeamsAdapter({});
-    const sendActivity = vi.fn().mockResolvedValue({ id: "msg-9" });
-    const target = {
-      conversationKey: "conv-1",
-      reference: {},
-      context: { sendActivity } as unknown as TurnContext,
-    };
+  it("delete() routes through the bound connector's deleteActivity", async () => {
+    const { adapter, connector } = setup();
 
-    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    await adapter.delete({ id: "act-1", conversationKey: "conv-1" });
+
+    expect(connector.calls[0]!.op).toBe("deleteActivity");
+  });
+
+  it("postFile() routes through the bound connector's sendFile and reports {ok:true}", async () => {
+    const { adapter, connector } = setup();
+
     const res = await adapter.postFile(target, {
-      bytes,
+      bytes: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
       filename: "chart.png",
       title: "Chart",
       altText: "Sev counts",
     });
 
-    expect(res).toEqual({ ok: true, fileId: "msg-9" });
-    const sent = sendActivity.mock.calls[0]![0];
-    const attachment = sent.attachments[0];
-    expect(attachment.contentType).toBe("image/png");
-    expect(attachment.contentUrl).toBe(
-      `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
-    );
-    expect(attachment.name).toBe("Sev counts");
+    expect(res).toEqual({ ok: true, fileId: "fake-file-1" });
+    expect(connector.calls[0]!.op).toBe("sendFile");
   });
 
-  it("returns an error result when there is no context to send on", async () => {
-    const adapter = new TeamsAdapter({});
-    const res = await adapter.postFile(
-      { conversationKey: "conv-1", reference: {} },
-      { bytes: new Uint8Array([1]), filename: "x.png" },
-    );
-    expect(res.ok).toBe(false);
-    expect(res.error).toBeDefined();
+  it("postFile() reports {ok:false, error} when the connector's sendFile throws", async () => {
+    const { adapter, connector } = setup();
+    connector.results.throwing = { sendFile: new Error("no context") };
+
+    const res = await adapter.postFile(target, {
+      bytes: new Uint8Array([1]),
+      filename: "x.png",
+    });
+
+    expect(res).toEqual({ ok: false, error: "no context" });
+  });
+
+  it("stream() drives the bound connector's sendActivity/updateActivity", async () => {
+    const { adapter, connector } = setup();
+    async function* chunks() {
+      yield "hello";
+    }
+
+    await adapter.stream(target, chunks());
+
+    expect(connector.calls.map((c) => c.op)).toContain("sendActivity");
+  });
+
+  it("createRunRenderer() drives the bound connector's sendActivity", async () => {
+    const { adapter, connector } = setup();
+    const renderer = adapter.createRunRenderer(target);
+
+    await renderer.subscriber.onTextMessageStartEvent!({
+      event: { messageId: "m1" },
+    } as never);
+    renderer.subscriber.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "hi" },
+    } as never);
+    await renderer.subscriber.onTextMessageEndEvent!({
+      event: { messageId: "m1" },
+    } as never);
+
+    expect(connector.calls.map((c) => c.op)).toContain("sendActivity");
   });
 });
 
-describe("TeamsAdapter typing heartbeat", () => {
-  it("sends typing immediately, repeats on a timer, and stops when cleared", () => {
-    vi.useFakeTimers();
-    try {
-      const adapter = new TeamsAdapter({});
-      const sendActivity = vi.fn().mockResolvedValue({ id: "t" });
-      const target = {
-        conversationKey: "c",
-        reference: {},
-        context: { sendActivity } as unknown as TurnContext,
-      };
+describe("TeamsAdapter rendering / decoding (pure, no connector needed)", () => {
+  it("render() collapses a text-only tree to plain text", () => {
+    const adapter = new TeamsAdapter({});
+    const payload = adapter.render([
+      { type: "text", props: { value: "hello" } },
+    ]);
+    expect(payload).toEqual({ text: expect.stringContaining("hello") });
+  });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stop = (adapter as any).startTypingHeartbeat(target) as () => void;
-      expect(sendActivity).toHaveBeenCalledTimes(1); // immediate
+  it("render() renders structured UI as an Adaptive Card", () => {
+    const adapter = new TeamsAdapter({});
+    const payload = adapter.render([
+      {
+        type: "header",
+        props: { children: [{ type: "text", props: { value: "hi" } }] },
+      },
+    ]);
+    expect("card" in payload).toBe(true);
+  });
 
-      vi.advanceTimersByTime(3500 * 2);
-      expect(sendActivity).toHaveBeenCalledTimes(3); // two more ticks
+  it("decodeInteraction() decodes an Adaptive Card Action.Submit activity", () => {
+    const adapter = new TeamsAdapter({});
+    const evt = adapter.decodeInteraction({
+      value: { ckActionId: "ck:1", value: { x: 1 } },
+      conversation: { id: "conv-1" },
+      from: { id: "user-1", name: "Sam" },
+      replyToId: "act-1",
+      getConversationReference: () => ({ conversation: { id: "conv-1" } }),
+    });
+    expect(evt?.id).toBe("ck:1");
+    expect(evt?.value).toEqual({ x: 1 });
+  });
 
-      stop();
-      vi.advanceTimersByTime(3500 * 3);
-      expect(sendActivity).toHaveBeenCalledTimes(3); // none after stop
+  it("decodeInteraction() returns undefined for an ordinary chat activity", () => {
+    const adapter = new TeamsAdapter({});
+    const evt = adapter.decodeInteraction({
+      conversation: { id: "conv-1" },
+    });
+    expect(evt).toBeUndefined();
+  });
 
-      // It sends a typing activity, not text.
-      expect(sendActivity.mock.calls[0]![0].type).toBe("typing");
-    } finally {
-      vi.useRealTimers();
-    }
+  it("lookupUser() is not wired (returns undefined) — no connector needed", async () => {
+    const adapter = new TeamsAdapter({});
+    await expect(adapter.lookupUser({ query: "ana" })).resolves.toBeUndefined();
+  });
+});
+
+describe("TeamsAdapter conversation transcript (in-memory, no connector needed)", () => {
+  it("getMessages() reads back what the store recorded via recordUser/recordAssistant", async () => {
+    const adapter = new TeamsAdapter({});
+    adapter.conversationStore; // touch to ensure lazy init doesn't throw
+    (
+      adapter as unknown as {
+        store: { recordUser: (k: string, c: string) => void };
+      }
+    ).store.recordUser("conv-1", "hi");
+
+    const msgs = await adapter.getMessages({
+      conversationKey: "conv-1",
+      reference: {},
+    });
+
+    expect(msgs).toEqual([{ text: "hi", isBot: false }]);
   });
 });

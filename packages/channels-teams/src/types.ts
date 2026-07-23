@@ -25,22 +25,17 @@ export interface TeamsReplyTarget {
   context?: TurnContext;
 }
 
+/**
+ * Teams adapter config — CREDENTIAL-FREE. The adapter builds nothing from
+ * `clientId`/`clientSecret`/`tenantId`; those now live only on
+ * {@link CloudAdapterTeamsConnectorOptions} (see `teams-connector.ts`) — a
+ * runner constructs that connector and injects it via
+ * `TeamsAdapter.ɵbindConnector` before `start()`/any egress call. Running the
+ * adapter unbound throws (see the `connector` getter on `TeamsAdapter`) —
+ * that's the intended "you need a custom ChannelRunner" signpost for running
+ * Channels without CopilotKit Intelligence.
+ */
 export interface TeamsAdapterOptions {
-  /**
-   * Port for the bot's `POST /api/messages` endpoint. Defaults to `3978`, the
-   * endpoint the M365 Agents Playground connects to.
-   */
-  port?: number;
-  /**
-   * Microsoft app (client) id. Omit for anonymous local development with the
-   * M365 Agents Playground; required to talk to real Teams via Azure Bot
-   * Service. Falls back to the `clientId` env var.
-   */
-  clientId?: string;
-  /** Microsoft client secret. Omit for anonymous local dev. Falls back to `clientSecret`. */
-  clientSecret?: string;
-  /** Microsoft tenant (directory) id. Omit for multi-tenant / anonymous. Falls back to `tenantId`. */
-  tenantId?: string;
   /**
    * Custom-event names treated as interrupts by the run renderer (captured for
    * an `onInterrupt` handler). Defaults to `on_interrupt`, the name
