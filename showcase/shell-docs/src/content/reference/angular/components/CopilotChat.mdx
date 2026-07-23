@@ -1,13 +1,13 @@
 ---
 title: "CopilotChat"
-description: "Angular standalone component that wires an agent to the chat UI, the @copilotkit/angular equivalent of React's CopilotChat"
+description: "Angular standalone component that wires an agent to a complete chat UI"
 ---
 
 ## Overview
 
 `CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore), subscribes to that agent's messages and running state, manages suggestions, tracks the input value, handles audio transcription, wires file attachments, and clears the input after each message is sent.
 
-This is the Angular equivalent of React's `<CopilotChat>`. Where React composes the agent wiring in the component, Angular `CopilotChat` extends the internal `ChatState` and provides itself as the `ChatState` for the view and input beneath it. You usually only need to point it at an agent.
+`CopilotChat` extends `ChatState` and provides itself to the view and input beneath it. You usually only need to point it at an agent.
 
 For the layout without the agent wiring, use [`CopilotChatView`](/reference/angular/components/CopilotChatView) directly.
 
@@ -50,6 +50,42 @@ Remember to import the stylesheet once in your global styles:
 
 <PropertyReference name="inputComponent" type="Type<any>">
   A custom Angular component class to render in place of the default [`CopilotChatInput`](/reference/angular/components/CopilotChatInput). Forwarded to the underlying [`CopilotChatView`](/reference/angular/components/CopilotChatView).
+</PropertyReference>
+
+<PropertyReference name="assistantMessageComponent" type="Type<any>">
+  Component class used for assistant messages.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageTemplate" type="TemplateRef<any>">
+  Template used for assistant messages. Takes precedence over `assistantMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageClass" type="string">
+  CSS classes forwarded to the assistant-message slot.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageComponent" type="Type<any>">
+  Component class used for reasoning messages.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageTemplate" type="TemplateRef<any>">
+  Template used for reasoning messages. Takes precedence over `reasoningMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageClass" type="string">
+  CSS classes forwarded to the reasoning-message slot.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenComponent" type="Type<any>">
+  Component rendered after the message list and before the streaming cursor.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenTemplate" type="TemplateRef<any>">
+  Template rendered after the message list. Takes precedence over `messageViewChildrenComponent`.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenClass" type="string">
+  CSS classes forwarded to the message-list children slot.
 </PropertyReference>
 
 ## Outputs

@@ -8,6 +8,23 @@ export const FRONTEND_PAGE_IDS = FRONTEND_OPTIONS.filter(
   (option) => option.id !== "react",
 ).map((option) => option.id) as FrontendPageId[];
 
+export const ANGULAR_GUIDE_PAGES = [
+  { title: "Chat UI and customization", slug: "guides/chat-ui" },
+  {
+    title: "Frontend tools and generative UI",
+    slug: "guides/frontend-tools-generative-ui",
+  },
+  {
+    title: "Human-in-the-loop and interrupts",
+    slug: "guides/human-in-the-loop",
+  },
+  { title: "Shared state and agent context", slug: "guides/shared-state" },
+  {
+    title: "Threads, memory, attachments, and headless UI",
+    slug: "guides/threads-memory-attachments-headless",
+  },
+] as const;
+
 export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
@@ -16,6 +33,7 @@ export const FRONTEND_GUIDANCE_CONTENT_SLUG = "frontends/using-these-docs";
 export const FRONTEND_DOCS_STATUS_CONTENT_SLUG = "frontends/docs-status";
 
 export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
+  if (id === "angular") return "frontends/angular/docs-status";
   return isFrontendEarlyAccess(id)
     ? FRONTEND_GUIDANCE_CONTENT_SLUG
     : FRONTEND_DOCS_STATUS_CONTENT_SLUG;
@@ -29,10 +47,20 @@ export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
   return `/${id}/using-these-docs`;
 }
 
+/** Collapse legacy frontend guide slugs to the public canonical path. */
+export function getFrontendCanonicalSlug(
+  id: FrontendPageId,
+  slugPath: string,
+): string {
+  return id === "angular" && slugPath === "docs-status"
+    ? "using-these-docs"
+    : slugPath;
+}
+
 const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
-  angular: "reference",
+  angular: "reference/angular",
   slack: "reference/channels",
   teams: "reference",
 } satisfies Record<FrontendPageId, string>;
@@ -45,6 +73,37 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
+  const authoredGuides: NavNode[] =
+    id === "angular"
+      ? [
+          { type: "page", title: "Feature examples", slug: "features" },
+          { type: "section", title: "Guides", icon: "lucide/BookOpen" },
+          ...ANGULAR_GUIDE_PAGES.map(
+            (guide): NavNode => ({
+              type: "page",
+              title: guide.title,
+              slug: guide.slug,
+            }),
+          ),
+        ]
+      : [];
+  const upcomingGuides: NavNode[] =
+    id === "angular"
+      ? []
+      : [
+          {
+            type: "section",
+            title: frontendName,
+            icon: "lucide/RefreshCw",
+            variant: "frontend-docs-upcoming",
+            quickstartHref: `/${id}`,
+            referenceHref: `/${getFrontendReferenceSlug(id)}`,
+            frontendDocsStatus: isFrontendEarlyAccess(id)
+              ? "early-access"
+              : "feature-complete",
+          },
+        ];
+
   return [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Quickstart", slug: "" },
@@ -53,22 +112,13 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       title: getFrontendGuidanceTitle(id),
       slug: "using-these-docs",
     },
+    ...authoredGuides,
     {
       type: "page",
       title: "Reference docs",
       slug: getFrontendReferenceSlug(id),
       href: `/${getFrontendReferenceSlug(id)}`,
     },
-    {
-      type: "section",
-      title: frontendName,
-      icon: "lucide/RefreshCw",
-      variant: "frontend-docs-upcoming",
-      quickstartHref: `/${id}`,
-      referenceHref: `/${getFrontendReferenceSlug(id)}`,
-      frontendDocsStatus: isFrontendEarlyAccess(id)
-        ? "early-access"
-        : "feature-complete",
-    },
+    ...upcomingGuides,
   ];
 }
