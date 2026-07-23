@@ -23,6 +23,9 @@ import type {
   UserQuery,
   EphemeralResult,
   NativePayload,
+  ChannelEgress,
+  ProviderEffect,
+  EffectResultFor,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -190,10 +193,93 @@ export class SlackAdapter implements PlatformAdapter {
    * than being built once) so tests that swap `adapter.client` for a fake
    * keep working unchanged; `connectorOverride` lets tests substitute a
    * `FakeSlackConnector` entirely. Token removal (routing through a
-   * runner-supplied connector instead) is a later unit.
+   * runner-supplied connector instead) is a later unit. The per-access
+   * allocation is a DELIBERATE throwaway — `WebClientSlackConnector` is a
+   * stateless facade over the stable `this.client`, so re-wrapping it is
+   * free, not an oversight.
    */
   private get connector(): SlackConnector {
     return this.connectorOverride ?? new WebClientSlackConnector(this.client);
+  }
+
+  /**
+   * The declarative egress entry point (Channel Runner plan §2, design D2:
+   * "adapter owns the effect→native mapping"): renders IR via the adapter's
+   * own `render()`/Block Kit logic and routes every op to a RUNNER-supplied
+   * `connector` instead of this adapter's internal one — driving the exact
+   * same native Slack calls the `PlatformAdapter` methods below build, just
+   * against a different credentialed sender (e.g. the Intelligence Connector
+   * Outbox). Every op here is a thin call into the SAME `*Via(connector, …)`
+   * helper the `PlatformAdapter` method (via `this.connector`) also calls —
+   * one egress implementation, two entry points.
+   */
+  makeEgress(connector: SlackConnector): ChannelEgress {
+    return {
+      send: async <E extends ProviderEffect>(
+        effect: E,
+      ): Promise<EffectResultFor<E>> => {
+        switch (effect.op) {
+          case "post":
+            return (await this.postVia(
+              connector,
+              effect.target,
+              effect.ir,
+            )) as EffectResultFor<E>;
+          case "update":
+            await this.updateVia(connector, effect.ref, effect.ir);
+            return effect.ref as EffectResultFor<E>;
+          case "delete":
+            await this.deleteVia(connector, effect.ref);
+            return undefined as EffectResultFor<E>;
+          case "react":
+            return (await (effect.add
+              ? this.addReactionVia(
+                  connector,
+                  effect.target,
+                  effect.ref,
+                  effect.emoji,
+                )
+              : this.removeReactionVia(
+                  connector,
+                  effect.target,
+                  effect.ref,
+                  effect.emoji,
+                ))) as EffectResultFor<E>;
+          case "ephemeral":
+            return (await this.postEphemeralVia(
+              connector,
+              effect.target,
+              effect.user,
+              effect.ir,
+              { fallbackToDM: effect.fallbackToDM },
+            )) as EffectResultFor<E>;
+          case "file":
+            return (await this.postFileVia(
+              connector,
+              effect.target,
+              effect.file,
+            )) as EffectResultFor<E>;
+          case "suggested":
+            return (await this.setSuggestedPromptsVia(
+              connector,
+              effect.target,
+              effect.prompts,
+              effect.title !== undefined ? { title: effect.title } : undefined,
+            )) as EffectResultFor<E>;
+          case "title":
+            return (await this.setThreadTitleVia(
+              connector,
+              effect.target,
+              effect.title,
+            )) as EffectResultFor<E>;
+        }
+      },
+      stream: (target, chunks) => this.streamVia(connector, target, chunks),
+      createRunRenderer: (target) =>
+        this.createRunRendererVia(connector, target),
+      getMessages: (target) => this.getMessagesVia(connector, target),
+      lookupUser: (q) => this.lookupUserVia(connector, q),
+    };
   }
 
   async start(sink: IngressSink): Promise<void> {
@@ -340,6 +426,20 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
+    return this.postVia(this.connector, target, ir);
+  }
+
+  /**
+   * `post`'s connector-parameterized body. Shared by the `PlatformAdapter`
+   * method (via `this.connector`) and `makeEgress` (via an injected
+   * connector) so there is exactly one implementation of the effect→native
+   * mapping.
+   */
+  private async postVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const { blocks, accent } = renderSlackMessage(ir);
     const summary = fallbackText(ir);
@@ -362,11 +462,20 @@ export class SlackAdapter implements PlatformAdapter {
     const args: ChatPostMessageArguments = accent
       ? { ...base, attachments: [{ color: accent, blocks }] }
       : { ...base, blocks };
-    const res = await this.connector.postMessage(args);
+    const res = await connector.postMessage(args);
     return { id: res.ts as string, channel: t.channel, ts: res.ts };
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    return this.updateVia(this.connector, ref, ir);
+  }
+
+  /** `update`'s connector-parameterized body (see {@link postVia}). */
+  private async updateVia(
+    connector: SlackConnector,
+    ref: MessageRef,
+    ir: ChannelNode[],
+  ): Promise<void> {
     const channel = channelOf(ref);
     const { blocks, accent } = renderSlackMessage(ir);
     const summary = fallbackText(ir);
@@ -385,10 +494,19 @@ export class SlackAdapter implements PlatformAdapter {
           text: summary,
           blocks,
         };
-    await this.connector.updateMessage(args);
+    await connector.updateMessage(args);
   }
 
   async stream(
+    target: BotReplyTarget,
+    chunks: AsyncIterable<string>,
+  ): Promise<MessageRef> {
+    return this.streamVia(this.connector, target, chunks);
+  }
+
+  /** `stream`'s connector-parameterized body (see {@link postVia}). */
+  private async streamVia(
+    connector: SlackConnector,
     target: BotReplyTarget,
     chunks: AsyncIterable<string>,
   ): Promise<MessageRef> {
@@ -400,7 +518,7 @@ export class SlackAdapter implements PlatformAdapter {
     const makeLegacy = (): TextStream =>
       new ChunkedMessageStream({
         postPlaceholder: async (text) => {
-          const posted = await this.connector.postMessage({
+          const posted = await connector.postMessage({
             channel: t.channel,
             thread_ts: t.threadTs,
             text,
@@ -415,7 +533,7 @@ export class SlackAdapter implements PlatformAdapter {
           return posted.ts;
         },
         updateAt: async (ts, text) => {
-          await this.connector.updateMessage({ channel: t.channel, ts, text });
+          await connector.updateMessage({ channel: t.channel, ts, text });
         },
         transform: (s) => markdownToMrkdwn(autoCloseOpenMarkdown(s)),
       });
@@ -430,7 +548,7 @@ export class SlackAdapter implements PlatformAdapter {
     let sink: TextStream;
     if (useNative) {
       sink = new NativeMessageStream({
-        transport: this.nativeTransport(t, (ts, ch) => {
+        transport: this.nativeTransportVia(connector, t, (ts, ch) => {
           if (!firstTs) {
             firstTs = ts;
             channel = ch ?? t.channel;
@@ -465,6 +583,15 @@ export class SlackAdapter implements PlatformAdapter {
     t: ReplyTarget,
     onFirstTs: (ts: string, channel?: string) => void,
   ): NativeStreamTransport {
+    return this.nativeTransportVia(this.connector, t, onFirstTs);
+  }
+
+  /** `nativeTransport`'s connector-parameterized body (see {@link postVia}). */
+  private nativeTransportVia(
+    connector: SlackConnector,
+    t: ReplyTarget,
+    onFirstTs: (ts: string, channel?: string) => void,
+  ): NativeStreamTransport {
     const threadTs = t.threadTs;
     if (!threadTs) {
       // Native streaming is only wired up where a thread exists (Slack requires
@@ -488,7 +615,7 @@ export class SlackAdapter implements PlatformAdapter {
             ? { recipient_team_id: this.teamId }
             : {}),
         };
-        const res = await this.connector.startStream(args);
+        const res = await connector.startStream(args);
         if (!res.ts) throw new Error("startStream returned no ts");
         onFirstTs(res.ts, res.channel);
         return res.ts;
@@ -499,7 +626,7 @@ export class SlackAdapter implements PlatformAdapter {
           ts,
           markdown_text: markdownText,
         };
-        await this.connector.appendStream(args);
+        await connector.appendStream(args);
       },
       appendChunks: async (ts, chunks: AnyChunk[]) => {
         const args: ChatAppendStreamArguments = {
@@ -507,7 +634,7 @@ export class SlackAdapter implements PlatformAdapter {
           ts,
           chunks,
         };
-        await this.connector.appendStream(args);
+        await connector.appendStream(args);
       },
       stopStream: async (ts, finalBlocks?: KnownBlock[]) => {
         const args: ChatStopStreamArguments = {
@@ -517,7 +644,7 @@ export class SlackAdapter implements PlatformAdapter {
             ? { blocks: finalBlocks }
             : {}),
         };
-        await this.connector.stopStream(args);
+        await connector.stopStream(args);
       },
     };
   }
@@ -529,18 +656,21 @@ export class SlackAdapter implements PlatformAdapter {
    * Outbox can drive the identical renderer with its own sender.
    */
   private renderTransport(): SlackRenderTransport {
+    return this.renderTransportVia(this.connector);
+  }
+
+  /** `renderTransport`'s connector-parameterized body (see {@link postVia}). */
+  private renderTransportVia(connector: SlackConnector): SlackRenderTransport {
     return {
       setStatus: async (a) => {
-        await this.connector.setStatus(a);
+        await connector.setStatus(a);
       },
       postMessage: async (a) => {
-        const res = await this.connector.postMessage(
-          a as ChatPostMessageArguments,
-        );
+        const res = await connector.postMessage(a as ChatPostMessageArguments);
         return { ts: res.ts };
       },
       updateMessage: async (a) => {
-        await this.connector.updateMessage(a as ChatUpdateArguments);
+        await connector.updateMessage(a as ChatUpdateArguments);
       },
     };
   }
@@ -591,7 +721,15 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
-    await this.connector.deleteMessage({ channel: channelOf(ref), ts: ref.id });
+    return this.deleteVia(this.connector, ref);
+  }
+
+  /** `delete`'s connector-parameterized body (see {@link postVia}). */
+  private async deleteVia(
+    connector: SlackConnector,
+    ref: MessageRef,
+  ): Promise<void> {
+    await connector.deleteMessage({ channel: channelOf(ref), ts: ref.id });
   }
 
   /**
@@ -609,6 +747,14 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   createRunRenderer(target: BotReplyTarget): RunRenderer {
+    return this.createRunRendererVia(this.connector, target);
+  }
+
+  /** `createRunRenderer`'s connector-parameterized body (see {@link postVia}). */
+  private createRunRendererVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+  ): RunRenderer {
     const t = target as ReplyTarget;
     const assistantOpts: SlackAssistantOptions | undefined =
       this.opts.assistant === false ? undefined : (this.opts.assistant ?? {});
@@ -631,14 +777,14 @@ export class SlackAdapter implements PlatformAdapter {
       !!t.threadTs &&
       this.nativeStreamingOk;
     return createRunRenderer({
-      transport: this.renderTransport(),
+      transport: this.renderTransportVia(connector),
       target: t,
       interruptEventNames: this.opts.interruptEventNames,
       showToolStatus: this.opts.showToolStatus,
       status,
       nativeStreaming: useNative
         ? {
-            transport: this.nativeTransport(t, () => {}),
+            transport: this.nativeTransportVia(connector, t, () => {}),
             onStartFailure: () => {
               this.nativeStreamingOk = false;
             },
@@ -668,6 +814,16 @@ export class SlackAdapter implements PlatformAdapter {
     prompts: ReadonlyArray<{ title: string; message: string }>,
     opts?: { title?: string },
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.setSuggestedPromptsVia(this.connector, target, prompts, opts);
+  }
+
+  /** `setSuggestedPrompts`'s connector-parameterized body (see {@link postVia}). */
+  private async setSuggestedPromptsVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }> {
     const t = target as ReplyTarget;
     if (!this.isPaneTarget(t)) {
       return {
@@ -676,7 +832,7 @@ export class SlackAdapter implements PlatformAdapter {
       };
     }
     try {
-      await this.connector.setSuggestedPrompts({
+      await connector.setSuggestedPrompts({
         channel_id: t.channel,
         thread_ts: t.threadTs,
         prompts: prompts.map((p) => ({
@@ -699,6 +855,15 @@ export class SlackAdapter implements PlatformAdapter {
     target: BotReplyTarget,
     title: string,
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.setThreadTitleVia(this.connector, target, title);
+  }
+
+  /** `setThreadTitle`'s connector-parameterized body (see {@link postVia}). */
+  private async setThreadTitleVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    title: string,
+  ): Promise<{ ok: boolean; error?: string }> {
     const t = target as ReplyTarget;
     if (!this.isPaneTarget(t)) {
       return {
@@ -707,7 +872,7 @@ export class SlackAdapter implements PlatformAdapter {
       };
     }
     try {
-      await this.connector.setThreadTitle({
+      await connector.setThreadTitle({
         channel_id: t.channel,
         thread_ts: t.threadTs,
         title,
@@ -723,12 +888,20 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+    return this.lookupUserVia(this.connector, q);
+  }
+
+  /** `lookupUser`'s connector-parameterized body (see {@link postVia}). */
+  private async lookupUserVia(
+    connector: SlackConnector,
+    q: UserQuery,
+  ): Promise<PlatformUser | undefined> {
     const query = q.query.trim().toLowerCase();
     if (!query) return undefined;
     try {
       let cursor: string | undefined;
       do {
-        const r = await this.connector.listUsers({ cursor, limit: 200 });
+        const r = await connector.listUsers({ cursor, limit: 200 });
         for (const m of r.members ?? []) {
           if (!m.id || m.deleted || m.is_bot) continue;
           const candidates = [
@@ -762,11 +935,26 @@ export class SlackAdapter implements PlatformAdapter {
    * Tolerates lookup failure by falling back to a bare `{ id }`.
    */
   async resolveUser(userId: string): Promise<PlatformUser> {
+    return this.resolveUserVia(this.connector, userId);
+  }
+
+  /**
+   * `resolveUser`'s connector-parameterized body (see {@link postVia}).
+   * `getMessagesVia` calls this with its own injected connector (rather than
+   * `resolveUser`/`this.connector`) so history reads via `makeEgress` never
+   * fall through to the adapter's internal connector for user enrichment.
+   * The id→PlatformUser cache is shared across connectors — it's keyed only
+   * by Slack user id, which is connector-independent.
+   */
+  private async resolveUserVia(
+    connector: SlackConnector,
+    userId: string,
+  ): Promise<PlatformUser> {
     const cached = this.userCache.get(userId);
     if (cached) return cached;
     let user: PlatformUser = { id: userId };
     try {
-      const r = await this.connector.getUserInfo({ user: userId });
+      const r = await connector.getUserInfo({ user: userId });
       const u = r.user;
       if (u?.id) {
         user = {
@@ -818,6 +1006,14 @@ export class SlackAdapter implements PlatformAdapter {
    * Capped defensively to the last 100 messages.
    */
   async getMessages(target: BotReplyTarget): Promise<ThreadMessage[]> {
+    return this.getMessagesVia(this.connector, target);
+  }
+
+  /** `getMessages`'s connector-parameterized body (see {@link postVia}). */
+  private async getMessagesVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+  ): Promise<ThreadMessage[]> {
     const t = target as ReplyTarget;
     const threadTs = t.threadTs;
     if (!threadTs) return [];
@@ -829,7 +1025,7 @@ export class SlackAdapter implements PlatformAdapter {
       subtype?: string;
     }> = [];
     try {
-      const r = await this.connector.getReplies({
+      const r = await connector.getReplies({
         channel: t.channel,
         ts: threadTs,
         limit: 100,
@@ -847,13 +1043,27 @@ export class SlackAdapter implements PlatformAdapter {
         text: m.text ?? "",
         ts: m.ts,
         isBot: Boolean(m.bot_id),
-        user: m.user ? await this.resolveUser(m.user) : undefined,
+        user: m.user ? await this.resolveUserVia(connector, m.user) : undefined,
       });
     }
     return out;
   }
 
   async postFile(
+    target: BotReplyTarget,
+    file: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+    return this.postFileVia(this.connector, target, file);
+  }
+
+  /** `postFile`'s connector-parameterized body (see {@link postVia}). */
+  private async postFileVia(
+    connector: SlackConnector,
     target: BotReplyTarget,
     {
       bytes,
@@ -880,9 +1090,7 @@ export class SlackAdapter implements PlatformAdapter {
         alt_text: altText,
       };
       if (t.threadTs) args.thread_ts = t.threadTs;
-      await this.connector.uploadFile(
-        args as unknown as FilesUploadV2Arguments,
-      );
+      await connector.uploadFile(args as unknown as FilesUploadV2Arguments);
       return { ok: true };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
@@ -894,12 +1102,22 @@ export class SlackAdapter implements PlatformAdapter {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.addReactionVia(this.connector, target, messageRef, emoji);
+  }
+
+  /** `addReaction`'s connector-parameterized body (see {@link postVia}). */
+  private async addReactionVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
     const name = toPlatformEmoji(emoji, "slack") ?? emoji;
     const channel =
       (messageRef as { channel?: string }).channel ??
       (target as ReplyTarget).channel;
     try {
-      await this.connector.addReaction({
+      await connector.addReaction({
         channel,
         timestamp: messageRef.id,
         name,
@@ -915,12 +1133,22 @@ export class SlackAdapter implements PlatformAdapter {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.removeReactionVia(this.connector, target, messageRef, emoji);
+  }
+
+  /** `removeReaction`'s connector-parameterized body (see {@link postVia}). */
+  private async removeReactionVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
     const name = toPlatformEmoji(emoji, "slack") ?? emoji;
     const channel =
       (messageRef as { channel?: string }).channel ??
       (target as ReplyTarget).channel;
     try {
-      await this.connector.removeReaction({
+      await connector.removeReaction({
         channel,
         timestamp: messageRef.id,
         name,
@@ -940,6 +1168,17 @@ export class SlackAdapter implements PlatformAdapter {
     target: BotReplyTarget,
     user: PlatformUser | string,
     ir: ChannelNode[],
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    return this.postEphemeralVia(this.connector, target, user, ir, opts);
+  }
+
+  /** `postEphemeral`'s connector-parameterized body (see {@link postVia}). */
+  private async postEphemeralVia(
+    connector: SlackConnector,
+    target: BotReplyTarget,
+    user: PlatformUser | string,
+    ir: ChannelNode[],
     _opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     const t = target as ReplyTarget;
@@ -947,7 +1186,7 @@ export class SlackAdapter implements PlatformAdapter {
     const { blocks } = renderSlackMessage(ir);
     const text = fallbackText(ir);
     try {
-      const res = await this.connector.postEphemeral({
+      const res = await connector.postEphemeral({
         channel: t.channel,
         user: userId,
         ...(t.threadTs ? { thread_ts: t.threadTs } : {}),

@@ -91,6 +91,12 @@ export type {
   SlackConnectorHistoryMessage,
 } from "./slack-connector.js";
 
+export { FakeSlackConnector } from "./testing/fake-slack-connector.js";
+export type {
+  SlackConnectorCall,
+  FakeSlackConnectorResults,
+} from "./testing/fake-slack-connector.js";
+
 export { createRunRenderer } from "./event-renderer.js";
 export type { SlackRenderTransport } from "./render/transport.js";
 
