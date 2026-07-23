@@ -3,13 +3,20 @@
  * turns them into AG-UI multimodal message content the agent's model can
  * read — images, audio, video, and PDFs as their respective binary parts,
  * and text/CSV/JSON as decoded `text` parts — downloading each from its
- * (private) `url_private` with the bot token.
+ * (private) `url_private` via the caller-supplied credentialed downloader
+ * (backed by `SlackConnector.downloadFile` — this module never sees a bot
+ * token itself).
  *
  * The bridge is transport-only: it delivers the bytes/text to the agent and
  * lets the app decide what to do with them. Anything it can't represent is
  * skipped with a short note so the agent knows a file was dropped and why.
  */
-import type { WebClient } from "@slack/web-api";
+import type { SlackConnectorDownloadResult } from "./slack-connector.js";
+
+/** Downloads a (private) Slack file URL — `SlackConnector.downloadFile` bound to its connector. */
+export type FileDownloader = (
+  url: string,
+) => Promise<SlackConnectorDownloadResult>;
 
 /** The subset of a Slack file object we use. */
 export interface SlackFileRef {
@@ -94,7 +101,7 @@ function mediaPartType(
  */
 export async function buildFileContentParts(
   files: SlackFileRef[],
-  botToken: string,
+  downloadFile: FileDownloader,
   config: FileDeliveryConfig = {},
 ): Promise<{ parts: AgentContentPart[]; notes: string[] }> {
   const maxBytes = config.maxBytesPerFile ?? DEFAULTS.maxBytesPerFile;
@@ -133,14 +140,12 @@ export async function buildFileContentParts(
 
     let bytes: Buffer;
     try {
-      const res = await fetch(f.url_private, {
-        headers: { Authorization: `Bearer ${botToken}` },
-      });
-      if (!res.ok) {
+      const res = await downloadFile(f.url_private);
+      if (!res.ok || !res.bytes) {
         notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);
         continue;
       }
-      bytes = Buffer.from(await res.arrayBuffer());
+      bytes = res.bytes;
     } catch (err) {
       notes.push(`skipped "${label}": ${(err as Error).message}`);
       continue;

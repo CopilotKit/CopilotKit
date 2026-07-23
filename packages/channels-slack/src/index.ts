@@ -75,6 +75,7 @@ export type {
   SlackFileRef,
   AgentContentPart,
   FileDeliveryConfig,
+  FileDownloader,
 } from "./download-files.js";
 
 export { lookupSlackUserTool, defaultSlackTools } from "./built-in-tools.js";
@@ -88,9 +89,11 @@ export type {
   SlackConnectorMember,
   SlackConnectorUserDetail,
   SlackConnectorHistoryMessage,
+  SlackConnectorDownloadResult,
   SlackIngressConfig,
   SlackIngressConnection,
   SlackIngressLogLevel,
+  WebClientSlackConnectorOptions,
 } from "./slack-connector.js";
 
 export { FakeSlackConnector } from "./testing/fake-slack-connector.js";

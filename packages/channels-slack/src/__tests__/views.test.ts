@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { decodeViewSubmission, decodeViewClosed } from "../interaction.js";
 import { SlackAdapter } from "../adapter.js";
+import { FakeSlackConnector } from "../testing/fake-slack-connector.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
 describe("decodeViewSubmission", () => {
@@ -130,28 +131,23 @@ describe("SlackAdapter.openModal", () => {
   ];
 
   function makeAdapter() {
-    const adapter = new SlackAdapter({
-      botToken: "xoxb-test",
-      appToken: "xapp-test",
-    });
-    const open = vi.fn().mockResolvedValue({ ok: true });
-    // Replace the WebClient with a stub exposing only views.open.
-    (
-      adapter as unknown as { client: { views: { open: typeof open } } }
-    ).client = { views: { open } } as never;
-    return { adapter, open };
+    const adapter = new SlackAdapter({});
+    const connector = new FakeSlackConnector();
+    adapter.ɵbindConnector(connector);
+    return { adapter, connector };
   }
 
   it("stamps a __cpk envelope carrying the target channel/threadTs into private_metadata", async () => {
-    const { adapter, open } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const res = await adapter.openModal(
       { channel: "C123", threadTs: "1700.5" } as never,
       "trigger-1",
       modalIr,
     );
     expect(res.ok).toBe(true);
-    expect(open).toHaveBeenCalledTimes(1);
-    const arg = open.mock.calls[0]![0] as {
+    expect(connector.calls).toHaveLength(1);
+    expect(connector.calls[0]!.op).toBe("openModal");
+    const arg = connector.calls[0]!.args as {
       view: { private_metadata: string };
     };
     const envelope = JSON.parse(arg.view.private_metadata);
@@ -159,7 +155,7 @@ describe("SlackAdapter.openModal", () => {
   });
 
   it("preserves an author-set private_metadata under pm", async () => {
-    const { adapter, open } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const irWithMeta: ChannelNode[] = [
       {
         type: "modal",
@@ -176,7 +172,7 @@ describe("SlackAdapter.openModal", () => {
       "trigger-1",
       irWithMeta,
     );
-    const arg = open.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       view: { private_metadata: string };
     };
     const envelope = JSON.parse(arg.view.private_metadata);

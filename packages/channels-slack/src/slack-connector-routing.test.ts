@@ -1,22 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { SlackAdapter } from "./adapter.js";
 import { FakeSlackConnector } from "./testing/fake-slack-connector.js";
-import type { SlackConnector } from "./slack-connector.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { AssistantHandle } from "./assistant.js";
 
 /**
- * Task T3s-1: every credentialed egress operation `SlackAdapter` performs
- * must route through its `SlackConnector` (built internally from tokens) with
- * the right op + args — proven here by injecting a `FakeSlackConnector`
- * directly (bypassing any WebClient-shaped fake entirely).
+ * Task T3s-1 (T3s-4a: adapter is now credential-free): every credentialed
+ * egress operation `SlackAdapter` performs must route through a
+ * runner-INJECTED `SlackConnector` with the right op + args — proven here by
+ * binding a `FakeSlackConnector` via `ɵbindConnector` (bypassing any
+ * WebClient-shaped fake, or the adapter building its own connector, entirely).
  */
 function makeAdapter() {
-  const adapter = new SlackAdapter({ botToken: "x", appToken: "y" });
+  const adapter = new SlackAdapter({});
   const connector = new FakeSlackConnector();
-  (
-    adapter as unknown as { connectorOverride: SlackConnector }
-  ).connectorOverride = connector;
+  adapter.ɵbindConnector(connector);
   return { adapter, connector };
 }
 

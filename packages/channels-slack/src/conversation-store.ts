@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
-import type { WebClient } from "@slack/web-api";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 import { DM_SCOPE } from "./types.js";
-import {
-  buildFileContentParts,
-  type AgentContentPart,
-  type FileDeliveryConfig,
-  type SlackFileRef,
+import { buildFileContentParts } from "./download-files.js";
+import type {
+  AgentContentPart,
+  FileDeliveryConfig,
+  SlackFileRef,
 } from "./download-files.js";
+import type { SlackConnector } from "./slack-connector.js";
 
 /**
  * One ongoing Slack conversation with the bot. Built fresh per turn from
@@ -23,9 +23,13 @@ export interface AgentSession {
 
 /**
  * Backed entirely by Slack: every turn pulls the current thread (or DM)
- * history via the Web API, translates it into the AG-UI message shape,
- * and hands a fresh HttpAgent to the turn-runner. Bridge restarts are
- * automatically robust because the bridge holds no state to lose.
+ * history via the connector's Web API pass-throughs, translates it into the
+ * AG-UI message shape, and hands a fresh HttpAgent to the turn-runner. Bridge
+ * restarts are automatically robust because the bridge holds no state to
+ * lose. Every credentialed read (history + inbound file download) goes
+ * through the injected {@link SlackConnector} — this store never sees a bot
+ * token itself (Task 3/T3s-4a: the adapter that owns this store holds no
+ * credentials either).
  *
  * The only in-memory state is a participation cache — a `Set` of thread
  * keys the bot has already replied to. It's a pure performance hint
@@ -34,23 +38,19 @@ export interface AgentSession {
  * Slack lookup that already produces the answer.
  */
 export class SlackConversationStore {
-  private readonly client: WebClient;
+  private readonly connector: SlackConnector;
   private readonly botUserId: string;
-  /** Bot token used to download uploaded files from their `url_private`. */
-  private readonly botToken: string;
   private readonly filesConfig: FileDeliveryConfig;
   /** Stable threadIds → conversation keys ("channelId::scope"). */
   private readonly participated = new Set<string>();
 
   constructor(args: {
-    client: WebClient;
+    connector: SlackConnector;
     botUserId: string;
-    botToken: string;
     files?: FileDeliveryConfig;
   }) {
-    this.client = args.client;
+    this.connector = args.connector;
     this.botUserId = args.botUserId;
-    this.botToken = args.botToken;
     this.filesConfig = args.files ?? {};
   }
 
@@ -92,7 +92,7 @@ export class SlackConversationStore {
     // listener-level DM gate as authoritative; DMs always go through.
     if (key.scope === DM_SCOPE) return false;
     try {
-      const r = await this.client.conversations.replies({
+      const r = await this.connector.getReplies({
         channel: key.channelId,
         ts: key.scope,
         limit: 200,
@@ -141,14 +141,19 @@ export class SlackConversationStore {
   private async fetchHistory(key: ConversationKey): Promise<AgentMessage[]> {
     try {
       if (key.scope === DM_SCOPE) {
-        const r = await this.client.conversations.history({
+        const r = await this.connector.getHistory({
           channel: key.channelId,
           limit: 100,
         });
-        const slackMsgs = ((r.messages ?? []) as RawSlackMsg[]).reverse(); // oldest first
+        // Slack returns history newest-first; walk it back-to-front rather
+        // than calling `.reverse()`/`.toReversed()` (the latter needs an
+        // es2023 lib target this package doesn't set).
+        const raw = (r.messages ?? []) as RawSlackMsg[];
+        const slackMsgs: RawSlackMsg[] = [];
+        for (let i = raw.length - 1; i >= 0; i--) slackMsgs.push(raw[i]!);
         return this.translate(slackMsgs);
       }
-      const r = await this.client.conversations.replies({
+      const r = await this.connector.getReplies({
         channel: key.channelId,
         ts: key.scope,
         limit: 200,
@@ -198,7 +203,7 @@ export class SlackConversationStore {
       if (hasFiles) {
         const { parts, notes } = await buildFileContentParts(
           m.files as SlackFileRef[],
-          this.botToken,
+          (url) => this.connector.downloadFile(url),
           this.filesConfig,
         );
         const content: AgentContentPart[] = [];

@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SlackAdapter } from "./adapter.js";
 import { FakeSlackConnector } from "./testing/fake-slack-connector.js";
-import type { SlackConnector } from "./slack-connector.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { AssistantHandle } from "./assistant.js";
 
@@ -9,18 +8,16 @@ import type { AssistantHandle } from "./assistant.js";
  * Task T3s-2: `SlackAdapter.makeEgress(connector)` is a SECOND entry point
  * onto the SAME effect→native mapping the `PlatformAdapter` methods use (see
  * slack-connector-routing.test.ts) — routed through a RUNNER-supplied
- * connector instead of the adapter's own `this.connector`. Every test here
- * injects a connector distinct from the adapter's own (`connectorOverride`)
- * and asserts calls land ONLY on the injected one.
+ * connector instead of the adapter's own bound one. Every test here injects a
+ * connector distinct from the adapter's own bound connector (via
+ * `ɵbindConnector`) and asserts calls land ONLY on the injected one.
  */
 function makeAdapter() {
-  const adapter = new SlackAdapter({ botToken: "x", appToken: "y" });
-  // The adapter's OWN connector — must receive ZERO calls when driving
+  const adapter = new SlackAdapter({});
+  // The adapter's OWN bound connector — must receive ZERO calls when driving
   // effects through `makeEgress`'s injected connector instead.
   const ownConnector = new FakeSlackConnector();
-  (
-    adapter as unknown as { connectorOverride: SlackConnector }
-  ).connectorOverride = ownConnector;
+  adapter.ɵbindConnector(ownConnector);
   const injected = new FakeSlackConnector();
   return { adapter, ownConnector, injected };
 }

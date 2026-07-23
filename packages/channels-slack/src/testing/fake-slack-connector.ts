@@ -12,6 +12,7 @@ import type {
   UsersListArguments,
   UsersInfoArguments,
   ConversationsRepliesArguments,
+  ConversationsHistoryArguments,
   FilesUploadV2Arguments,
   ReactionsAddArguments,
   ReactionsRemoveArguments,
@@ -22,6 +23,7 @@ import type {
   SlackConnectorMember,
   SlackConnectorUserDetail,
   SlackConnectorHistoryMessage,
+  SlackConnectorDownloadResult,
   SlackIngressConfig,
   SlackIngressConnection,
 } from "../slack-connector.js";
@@ -43,7 +45,9 @@ export type SlackConnectorCall =
   | { op: "listUsers"; args: UsersListArguments }
   | { op: "getUserInfo"; args: UsersInfoArguments }
   | { op: "getReplies"; args: ConversationsRepliesArguments }
+  | { op: "getHistory"; args: ConversationsHistoryArguments }
   | { op: "uploadFile"; args: FilesUploadV2Arguments }
+  | { op: "downloadFile"; args: { url: string } }
   | { op: "addReaction"; args: ReactionsAddArguments }
   | { op: "removeReaction"; args: ReactionsRemoveArguments }
   | { op: "postEphemeral"; args: ChatPostEphemeralArguments }
@@ -63,7 +67,9 @@ export interface FakeSlackConnectorResults {
   };
   getUserInfo?: { user?: SlackConnectorUserDetail };
   getReplies?: { messages?: SlackConnectorHistoryMessage[] };
+  getHistory?: { messages?: SlackConnectorHistoryMessage[] };
   postEphemeral?: { message_ts?: string };
+  downloadFile?: SlackConnectorDownloadResult;
   /** Ops (by name) that should reject instead of resolving, with the given error. */
   throwing?: Partial<Record<SlackConnectorCall["op"], Error>>;
 }
@@ -177,9 +183,23 @@ export class FakeSlackConnector implements SlackConnector {
     return this.results.getReplies ?? {};
   }
 
+  async getHistory(
+    args: ConversationsHistoryArguments,
+  ): Promise<{ messages?: SlackConnectorHistoryMessage[] }> {
+    this.calls.push({ op: "getHistory", args });
+    this.throwIfConfigured("getHistory");
+    return this.results.getHistory ?? {};
+  }
+
   async uploadFile(args: FilesUploadV2Arguments): Promise<void> {
     this.calls.push({ op: "uploadFile", args });
     this.throwIfConfigured("uploadFile");
+  }
+
+  async downloadFile(url: string): Promise<SlackConnectorDownloadResult> {
+    this.calls.push({ op: "downloadFile", args: { url } });
+    this.throwIfConfigured("downloadFile");
+    return this.results.downloadFile ?? { ok: true, bytes: Buffer.alloc(0) };
   }
 
   async addReaction(args: ReactionsAddArguments): Promise<void> {

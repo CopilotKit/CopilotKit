@@ -40,27 +40,22 @@ vi.mock("@slack/bolt", () => ({
 }));
 
 import { SlackAdapter } from "./adapter.js";
+import { WebClientSlackConnector } from "./slack-connector.js";
+import { FakeSlackConnector } from "./testing/fake-slack-connector.js";
 
 /**
- * Build an adapter with a mock Slack client injected. Constructing the
- * adapter is side-effect-free — it only wraps a `WebClient`; the Bolt `App`
- * lives in the connector and isn't touched until `start()` — but we never
- * call `start()` here — every test drives the pure-ish egress and decode
- * methods against a fake `client`.
+ * Build a credential-free adapter with a `FakeSlackConnector` bound via
+ * `ɵbindConnector` (Task 3/T3s-4a: the adapter builds nothing from tokens —
+ * every egress method routes through the bound connector). Constructing the
+ * adapter is side-effect-free; we never call `start()` here — every test
+ * drives the pure-ish egress and decode methods against the fake directly.
  */
 function makeAdapter() {
-  const chat = {
-    postMessage: vi.fn(async (_arg: Record<string, unknown>) => ({
-      ts: "200.5",
-      channel: "C1",
-    })),
-    update: vi.fn(async (_arg: Record<string, unknown>) => ({})),
-    delete: vi.fn(async (_arg: Record<string, unknown>) => ({})),
-  };
-  const adapter = new SlackAdapter({ botToken: "x", appToken: "y" });
-  (adapter as unknown as { client: unknown }).client = { chat };
+  const adapter = new SlackAdapter({});
+  const connector = new FakeSlackConnector();
+  adapter.ɵbindConnector(connector);
   (adapter as unknown as { botUserId: string }).botUserId = "UBOT";
-  return { adapter, chat };
+  return { adapter, connector };
 }
 
 const section = (text: string): ChannelNode => ({
@@ -70,13 +65,16 @@ const section = (text: string): ChannelNode => ({
 
 describe("SlackAdapter.post", () => {
   it("posts blocks + fallback text to the target channel/thread and returns a MessageRef", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
+    connector.results.postMessage = { ts: "200.5", channel: "C1" };
     const ref = await adapter.post({ channel: "C1", threadTs: "100.0" }, [
       section("hi"),
     ]);
 
-    expect(chat.postMessage).toHaveBeenCalledTimes(1);
-    const arg = chat.postMessage.mock.calls[0]![0] as {
+    expect(connector.calls.filter((c) => c.op === "postMessage")).toHaveLength(
+      1,
+    );
+    const arg = connector.calls[0]!.args as {
       channel: string;
       thread_ts?: string;
       blocks: Array<{ type: string }>;
@@ -94,7 +92,7 @@ describe("SlackAdapter.post", () => {
   });
 
   it("renders a <Message accent> as a colored attachment with a short top-level text and NO fallback on the attachment", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
@@ -109,7 +107,7 @@ describe("SlackAdapter.post", () => {
       },
     ]);
 
-    const arg = chat.postMessage.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       text?: unknown;
       blocks?: unknown;
       attachments?: Array<{
@@ -135,14 +133,14 @@ describe("SlackAdapter.post", () => {
   });
 
   it("defaults fallback text to … when the IR has no text", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     await adapter.post({ channel: "C1" }, [{ type: "divider", props: {} }]);
-    const arg = chat.postMessage.mock.calls[0]![0] as { text: string };
+    const arg = connector.calls[0]!.args as { text: string };
     expect(arg.text).toBe("…");
   });
 
   it("uses the header as the short fallback summary — not a dump of the whole card", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
@@ -160,7 +158,7 @@ describe("SlackAdapter.post", () => {
         },
       },
     ]);
-    const arg = chat.postMessage.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       text?: string;
     };
     // The short summary is the header only — it must NOT concatenate the row text.
@@ -171,18 +169,19 @@ describe("SlackAdapter.post", () => {
 
 describe("SlackAdapter.update / delete use the stashed channel", () => {
   it("update edits the message at ref.id on its channel", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     await adapter.update({ id: "200.5", channel: "C1" }, [section("edited")]);
-    const arg = chat.update.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       channel: string;
       ts: string;
     };
+    expect(connector.calls[0]!.op).toBe("updateMessage");
     expect(arg.channel).toBe("C1");
     expect(arg.ts).toBe("200.5");
   });
 
   it("update of an accent card sets a short top-level text and attachments with NO fallback", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     const header = (text: string): ChannelNode => ({
       type: "header",
       props: { children: [{ type: "text", props: { value: text } }] },
@@ -193,7 +192,7 @@ describe("SlackAdapter.update / delete use the stashed channel", () => {
         props: { accent: "#EB5757", children: [header("Updated")] },
       },
     ]);
-    const arg = chat.update.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       text?: unknown;
       blocks?: unknown;
       attachments?: Array<{ color: string; fallback?: unknown }>;
@@ -205,12 +204,13 @@ describe("SlackAdapter.update / delete use the stashed channel", () => {
   });
 
   it("delete removes the message at ref.id on its channel", async () => {
-    const { adapter, chat } = makeAdapter();
+    const { adapter, connector } = makeAdapter();
     await adapter.delete({ id: "200.5", channel: "C1" });
-    const arg = chat.delete.mock.calls[0]![0] as {
+    const arg = connector.calls[0]!.args as {
       channel: string;
       ts: string;
     };
+    expect(connector.calls[0]!.op).toBe("deleteMessage");
     expect(arg.channel).toBe("C1");
     expect(arg.ts).toBe("200.5");
   });
@@ -234,20 +234,16 @@ describe("SlackAdapter.decodeInteraction", () => {
 
 describe("SlackAdapter.getMessages", () => {
   it("maps conversations.replies to ThreadMessage[] (text/ts/isBot/resolved user)", async () => {
-    const { adapter } = makeAdapter();
-    const replies = vi.fn(async (_arg: { channel: string; ts: string }) => ({
+    const { adapter, connector } = makeAdapter();
+    connector.results.getReplies = {
       messages: [
         { ts: "100.0", text: "hello", user: "U1" },
         { ts: "100.1", text: "bot reply", bot_id: "B1" },
         { ts: "100.2", text: "joined", subtype: "channel_join", user: "U9" },
       ],
-    }));
-    const info = vi.fn(async (_arg: { user: string }) => ({
+    };
+    connector.results.getUserInfo = {
       user: { id: "U1", name: "ana", real_name: "Ana Smith" },
-    }));
-    (adapter as unknown as { client: unknown }).client = {
-      conversations: { replies },
-      users: { info },
     };
 
     const msgs = await adapter.getMessages({
@@ -255,8 +251,9 @@ describe("SlackAdapter.getMessages", () => {
       threadTs: "100.0",
     });
 
-    expect(replies).toHaveBeenCalledTimes(1);
-    const arg = replies.mock.calls[0]![0] as { channel: string; ts: string };
+    const repliesCalls = connector.calls.filter((c) => c.op === "getReplies");
+    expect(repliesCalls).toHaveLength(1);
+    const arg = repliesCalls[0]!.args as { channel: string; ts: string };
     expect(arg.channel).toBe("C1");
     expect(arg.ts).toBe("100.0");
 
@@ -274,25 +271,15 @@ describe("SlackAdapter.getMessages", () => {
   });
 
   it("returns [] for a flat target with no threadTs (nothing to fetch)", async () => {
-    const { adapter } = makeAdapter();
-    const replies = vi.fn();
-    (adapter as unknown as { client: unknown }).client = {
-      conversations: { replies },
-    };
+    const { adapter, connector } = makeAdapter();
     const msgs = await adapter.getMessages({ channel: "C1" });
     expect(msgs).toEqual([]);
-    expect(replies).not.toHaveBeenCalled();
+    expect(connector.calls).toHaveLength(0);
   });
 
   it("returns [] when conversations.replies throws", async () => {
-    const { adapter } = makeAdapter();
-    (adapter as unknown as { client: unknown }).client = {
-      conversations: {
-        replies: vi.fn(async () => {
-          throw new Error("rate_limited");
-        }),
-      },
-    };
+    const { adapter, connector } = makeAdapter();
+    connector.results.throwing = { getReplies: new Error("rate_limited") };
     const msgs = await adapter.getMessages({
       channel: "C1",
       threadTs: "100.0",
@@ -303,13 +290,7 @@ describe("SlackAdapter.getMessages", () => {
 
 describe("SlackAdapter.postFile", () => {
   it("uploads via files.uploadV2 with channel_id/thread_ts/file and returns ok", async () => {
-    const { adapter } = makeAdapter();
-    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
-      ok: true,
-    }));
-    (adapter as unknown as { client: { files: unknown } }).client = {
-      files: { uploadV2 },
-    };
+    const { adapter, connector } = makeAdapter();
 
     const res = await adapter.postFile(
       { channel: "C1", threadTs: "100.0" },
@@ -322,8 +303,9 @@ describe("SlackAdapter.postFile", () => {
     );
 
     expect(res).toEqual({ ok: true });
-    expect(uploadV2).toHaveBeenCalledTimes(1);
-    const arg = uploadV2.mock.calls[0]![0] as {
+    const uploadCalls = connector.calls.filter((c) => c.op === "uploadFile");
+    expect(uploadCalls).toHaveLength(1);
+    const arg = uploadCalls[0]!.args as {
       channel_id: string;
       thread_ts?: string;
       filename: string;
@@ -340,31 +322,20 @@ describe("SlackAdapter.postFile", () => {
   });
 
   it("omits thread_ts when the target has none", async () => {
-    const { adapter } = makeAdapter();
-    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
-      ok: true,
-    }));
-    (adapter as unknown as { client: { files: unknown } }).client = {
-      files: { uploadV2 },
-    };
+    const { adapter, connector } = makeAdapter();
 
     await adapter.postFile(
       { channel: "C1" },
       { bytes: new Uint8Array([1]), filename: "x.png" },
     );
 
-    const arg = uploadV2.mock.calls[0]![0] as { thread_ts?: string };
+    const arg = connector.calls[0]!.args as { thread_ts?: string };
     expect(arg.thread_ts).toBeUndefined();
   });
 
   it("returns ok:false with the error message when uploadV2 throws", async () => {
-    const { adapter } = makeAdapter();
-    const uploadV2 = vi.fn(async () => {
-      throw new Error("upload_failed");
-    });
-    (adapter as unknown as { client: { files: unknown } }).client = {
-      files: { uploadV2 },
-    };
+    const { adapter, connector } = makeAdapter();
+    connector.results.throwing = { uploadFile: new Error("upload_failed") };
 
     const res = await adapter.postFile(
       { channel: "C1" },
@@ -388,17 +359,14 @@ describe("SlackAdapter.capabilities / ackDeadlineMs", () => {
 
 describe("SlackAdapter.resolveUser", () => {
   it("resolves a sender id to a richer PlatformUser (name + email) and caches it", async () => {
-    const { adapter } = makeAdapter();
-    const info = vi.fn(async (_arg: { user: string }) => ({
+    const { adapter, connector } = makeAdapter();
+    connector.results.getUserInfo = {
       user: {
         id: "U1",
         name: "ana",
         real_name: "Ana Smith",
         profile: { real_name: "Ana Smith", email: "ana@example.com" },
       },
-    }));
-    (adapter as unknown as { client: { users: unknown } }).client = {
-      users: { info },
     };
 
     const u = await adapter.resolveUser("U1");
@@ -411,32 +379,44 @@ describe("SlackAdapter.resolveUser", () => {
     // Second call is served from cache (no extra users.info call).
     const u2 = await adapter.resolveUser("U1");
     expect(u2).toEqual(u);
-    expect(info).toHaveBeenCalledTimes(1);
+    expect(connector.calls.filter((c) => c.op === "getUserInfo")).toHaveLength(
+      1,
+    );
   });
 
   it("falls back to a bare { id } when users.info fails", async () => {
-    const { adapter } = makeAdapter();
-    const info = vi.fn(async () => {
-      throw new Error("not_found");
-    });
-    (adapter as unknown as { client: { users: unknown } }).client = {
-      users: { info },
-    };
+    const { adapter, connector } = makeAdapter();
+    connector.results.throwing = { getUserInfo: new Error("not_found") };
 
     const u = await adapter.resolveUser("U2");
     expect(u).toEqual({ id: "U2" });
   });
 });
 
+/**
+ * Build a credential-free adapter bound to a REAL `WebClientSlackConnector`
+ * (the credential-owning connector a runner would construct) whose internal
+ * `WebClient` is patched with a fake `auth.test` — used by the ingress tests
+ * below, which exercise the full `adapter.start()` → `connector.startIngress()`
+ * → `attachSlackListener` path against the mocked `@slack/bolt` `App` (see the
+ * `vi.mock("@slack/bolt", …)` above), not the `FakeSlackConnector`.
+ */
+function makeIngressAdapter() {
+  const adapter = new SlackAdapter({});
+  const connector = new WebClientSlackConnector({
+    botToken: "x",
+    appToken: "y",
+  });
+  (connector as unknown as { client: { auth: unknown } }).client = {
+    auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
+  };
+  adapter.ɵbindConnector(connector);
+  return { adapter, connector };
+}
+
 describe("SlackAdapter action wiring", () => {
   it("decodes a captured block_actions body and forwards to sink.onInteraction", async () => {
-    const { adapter } = makeAdapter();
-
-    // auth.test is awaited by the connector's startIngress.
-    (adapter as unknown as { client: { auth: unknown } }).client = {
-      ...(adapter as unknown as { client: object }).client,
-      auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
-    } as never;
+    const { adapter } = makeIngressAdapter();
 
     const received: InteractionEvent[] = [];
     const sink: IngressSink = {
@@ -478,11 +458,7 @@ describe("SlackAdapter ingress → sink.onTurn (T3s-3a review follow-up)", () =>
     // attachSlackListener → sink.onTurn path actually forwards
     // conversationKind/mentioned end to end, not just the listener's own
     // IncomingTurn shape (already covered by response-policy-wiring.test.ts).
-    const { adapter } = makeAdapter();
-    (adapter as unknown as { client: { auth: unknown } }).client = {
-      ...(adapter as unknown as { client: object }).client,
-      auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
-    } as never;
+    const { adapter } = makeIngressAdapter();
 
     const received: Array<{ conversationKind?: string; mentioned?: boolean }> =
       [];

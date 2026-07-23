@@ -25,6 +25,7 @@ import type {
 } from "@copilotkit/channels";
 import {
   slack,
+  WebClientSlackConnector,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
@@ -80,43 +81,53 @@ async function main() {
   const context: ContextEntry[] = [...appContext];
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
-    adapters.push(
-      slack({
+    // The Slack adapter is credential-free (Task 3/T3s-4a): `slack(...)` only
+    // configures product/rendering behavior. Credentials now live on a
+    // `WebClientSlackConnector`, which OWNS the bot/app tokens and builds its
+    // own `WebClient` (egress) + Bolt `App` (ingress) — a runner injects it
+    // via `ɵbindConnector` before `createChannel(...).start()` calls
+    // `adapter.start()`. This inline bind is the transitional self-hosted
+    // wiring; a future `createTestChannelRunner`-style helper may fold it in.
+    const slackAdapter = slack({
+      // Don't surface tool-call progress in the UI (no task_update timeline,
+      // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
+      // only the display is hidden.
+      showToolStatus: false,
+      // Kite keeps DMs conversational and responds to explicit app mentions
+      // in channels/threads. Plain channel/thread messages are forwarded to
+      // the engine too (plan §2), which stays quiet on them unless Kite is
+      // explicitly @-mentioned (a prior reply in a thread does not lift
+      // that requirement) — there's no adapter-level toggle for this
+      // anymore.
+      respondTo: {
+        directMessages: true,
+        appMentions: { reply: "thread" },
+      },
+      // Assistant-pane behavior is ON by default; this just customizes it.
+      // The greeting + chips show when a user opens the pane (matching the
+      // app manifest's `assistant_view`); native streaming + status need no
+      // config. Pass `assistant: false` / `streaming: "legacy"` to opt out.
+      assistant: {
+        greeting: "Hi! I can triage issues, search docs, and more.",
+        suggestedPrompts: [
+          {
+            title: "Triage my open issues",
+            message: "Triage my open issues",
+          },
+          {
+            title: "What shipped this week?",
+            message: "Summarize what shipped this week",
+          },
+        ],
+      },
+    });
+    slackAdapter.ɵbindConnector(
+      new WebClientSlackConnector({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
-        // Don't surface tool-call progress in the UI (no task_update timeline,
-        // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
-        // only the display is hidden.
-        showToolStatus: false,
-        // Kite keeps DMs conversational and responds to explicit app mentions
-        // in channels/threads. Plain channel/thread messages are forwarded to
-        // the engine too (plan §2), which stays quiet on them unless Kite is
-        // explicitly @-mentioned (a prior reply in a thread does not lift
-        // that requirement) — there's no adapter-level toggle for this
-        // anymore.
-        respondTo: {
-          directMessages: true,
-          appMentions: { reply: "thread" },
-        },
-        // Assistant-pane behavior is ON by default; this just customizes it.
-        // The greeting + chips show when a user opens the pane (matching the
-        // app manifest's `assistant_view`); native streaming + status need no
-        // config. Pass `assistant: false` / `streaming: "legacy"` to opt out.
-        assistant: {
-          greeting: "Hi! I can triage issues, search docs, and more.",
-          suggestedPrompts: [
-            {
-              title: "Triage my open issues",
-              message: "Triage my open issues",
-            },
-            {
-              title: "What shipped this week?",
-              message: "Summarize what shipped this week",
-            },
-          ],
-        },
       }),
     );
+    adapters.push(slackAdapter);
     tools.push(...defaultSlackTools);
     context.push(...defaultSlackContext);
   }

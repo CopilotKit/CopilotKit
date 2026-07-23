@@ -18,7 +18,8 @@
  * channel — from the Intelligence config + the channel `name`, so the developer
  * supplies NONE of them):
  *
- *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })   // index.ts
+ *   native:   createChannel({ adapters: [slack({ ... }) ] })                   // index.ts
+ *             (+ slackAdapter.ɵbindConnector(new WebClientSlackConnector({ botToken, appToken })))
  *   managed:  new CopilotRuntime({ intelligence, identifyUser, channels })     // this file
  *             + createCopilotNodeListener({ runtime })
  *

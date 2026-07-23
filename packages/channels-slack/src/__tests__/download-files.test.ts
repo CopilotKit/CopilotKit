@@ -1,26 +1,27 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
+import { describe, it, expect } from "vitest";
+import { buildFileContentParts } from "../download-files.js";
+import type { SlackFileRef, FileDownloader } from "../download-files.js";
+import type { SlackConnectorDownloadResult } from "../slack-connector.js";
 
-function fakeFetch(
+/**
+ * A `FileDownloader` (the `SlackConnector.downloadFile` shape) backed by a
+ * url→result map — standing in for a real connector's credentialed fetch
+ * without a bot token or global `fetch` stub in sight (Task 3/T3s-4a: the
+ * bearer-token download moved behind the connector).
+ */
+function fakeDownloader(
   bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,
-) {
-  return vi.fn(async (url: string) => {
+): FileDownloader {
+  return async (url: string): Promise<SlackConnectorDownloadResult> => {
     const e = bodyByUrl[url];
-    if (!e) return { ok: false, status: 404 } as never;
+    if (!e) return { ok: false, status: 404 };
     return {
       ok: e.ok ?? true,
       status: e.status ?? 200,
-      arrayBuffer: async () =>
-        (e.bytes ?? Buffer.from("")).buffer.slice(
-          (e.bytes ?? Buffer.from("")).byteOffset,
-          (e.bytes ?? Buffer.from("")).byteOffset +
-            (e.bytes ?? Buffer.from("")).byteLength,
-        ),
-    } as never;
-  });
+      bytes: e.bytes ?? Buffer.from(""),
+    };
+  };
 }
-
-afterEach(() => vi.unstubAllGlobals());
 
 const img: SlackFileRef = {
   name: "shot.png",
@@ -36,8 +37,10 @@ const csv: SlackFileRef = {
 describe("buildFileContentParts", () => {
   it("turns an image into a base64 image part", async () => {
     const bytes = Buffer.from([1, 2, 3, 4]);
-    vi.stubGlobal("fetch", fakeFetch({ [img.url_private!]: { bytes } }));
-    const { parts, notes } = await buildFileContentParts([img], "xoxb-tok");
+    const { parts, notes } = await buildFileContentParts(
+      [img],
+      fakeDownloader({ [img.url_private!]: { bytes } }),
+    );
     expect(notes).toEqual([]);
     expect(parts).toHaveLength(1);
     expect(parts[0]).toMatchObject({
@@ -52,8 +55,10 @@ describe("buildFileContentParts", () => {
 
   it("decodes a text/csv file into a text part", async () => {
     const bytes = Buffer.from("a,b\n1,2\n", "utf8");
-    vi.stubGlobal("fetch", fakeFetch({ [csv.url_private!]: { bytes } }));
-    const { parts } = await buildFileContentParts([csv], "tok");
+    const { parts } = await buildFileContentParts(
+      [csv],
+      fakeDownloader({ [csv.url_private!]: { bytes } }),
+    );
     expect(parts[0]?.type).toBe("text");
     expect((parts[0] as { text: string }).text).toContain("data.csv");
     expect((parts[0] as { text: string }).text).toContain("a,b");
@@ -61,10 +66,11 @@ describe("buildFileContentParts", () => {
 
   it("truncates large text files", async () => {
     const bytes = Buffer.from("x".repeat(5000), "utf8");
-    vi.stubGlobal("fetch", fakeFetch({ [csv.url_private!]: { bytes } }));
-    const { parts } = await buildFileContentParts([csv], "tok", {
-      maxTextBytes: 100,
-    });
+    const { parts } = await buildFileContentParts(
+      [csv],
+      fakeDownloader({ [csv.url_private!]: { bytes } }),
+      { maxTextBytes: 100 },
+    );
     const text = (parts[0] as { text: string }).text;
     expect(text).toContain("truncated");
     expect(text.length).toBeLessThan(400);
@@ -77,8 +83,10 @@ describe("buildFileContentParts", () => {
       mimetype: "application/pdf",
       url_private: "https://files.slack.com/report.pdf",
     };
-    vi.stubGlobal("fetch", fakeFetch({ [pdf.url_private!]: { bytes } }));
-    const { parts, notes } = await buildFileContentParts([pdf], "tok");
+    const { parts, notes } = await buildFileContentParts(
+      [pdf],
+      fakeDownloader({ [pdf.url_private!]: { bytes } }),
+    );
     expect(notes).toEqual([]);
     expect(parts[0]).toMatchObject({
       type: "document",
@@ -102,8 +110,10 @@ describe("buildFileContentParts", () => {
         mimetype,
         url_private: `https://files.slack.com/${name}`,
       };
-      vi.stubGlobal("fetch", fakeFetch({ [file.url_private!]: { bytes } }));
-      const { parts, notes } = await buildFileContentParts([file], "tok");
+      const { parts, notes } = await buildFileContentParts(
+        [file],
+        fakeDownloader({ [file.url_private!]: { bytes } }),
+      );
       expect(notes).toEqual([]);
       expect(parts[0]).toMatchObject({
         type: expected,
@@ -122,30 +132,34 @@ describe("buildFileContentParts", () => {
       mimetype: "application/zip",
       url_private: "u",
     };
-    vi.stubGlobal("fetch", fakeFetch({}));
-    const { parts, notes } = await buildFileContentParts([zip], "tok");
+    const { parts, notes } = await buildFileContentParts(
+      [zip],
+      fakeDownloader({}),
+    );
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("unsupported");
   });
 
   it("skips files over the size cap (by reported size) without downloading", async () => {
     const big: SlackFileRef = { ...img, size: 99_999_999 };
-    const fetchSpy = fakeFetch({});
-    vi.stubGlobal("fetch", fetchSpy);
-    const { parts, notes } = await buildFileContentParts([big], "tok", {
+    let called = false;
+    const downloadFile: FileDownloader = async (url) => {
+      called = true;
+      return fakeDownloader({})(url);
+    };
+    const { parts, notes } = await buildFileContentParts([big], downloadFile, {
       maxBytesPerFile: 10,
     });
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("exceeds");
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(called).toBe(false);
   });
 
   it("skips on a failed download with a note", async () => {
-    vi.stubGlobal(
-      "fetch",
-      fakeFetch({ [img.url_private!]: { ok: false, status: 403 } }),
+    const { parts, notes } = await buildFileContentParts(
+      [img],
+      fakeDownloader({ [img.url_private!]: { ok: false, status: 403 } }),
     );
-    const { parts, notes } = await buildFileContentParts([img], "tok");
     expect(parts).toEqual([]);
     expect(notes[0]).toContain("403");
   });
@@ -155,17 +169,15 @@ describe("buildFileContentParts", () => {
       ...csv,
       url_private: `u${i}`,
     }));
-    vi.stubGlobal(
-      "fetch",
-      fakeFetch(
+    const { parts, notes } = await buildFileContentParts(
+      files,
+      fakeDownloader(
         Object.fromEntries(
           files.map((f) => [f.url_private!, { bytes: Buffer.from("x") }]),
         ),
       ),
+      { maxFiles: 3 },
     );
-    const { parts, notes } = await buildFileContentParts(files, "tok", {
-      maxFiles: 3,
-    });
     expect(parts).toHaveLength(3);
     expect(notes.some((n) => n.includes("first 3 of 8"))).toBe(true);
   });

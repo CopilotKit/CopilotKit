@@ -1,6 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { SlackConversationStore } from "../conversation-store.js";
 import { DM_SCOPE } from "../types.js";
+import { FakeSlackConnector } from "../testing/fake-slack-connector.js";
 
 const BOT = "UBOT0001";
 const ATAI = "UATAI001";
@@ -13,26 +14,25 @@ interface RawMsg {
   subtype?: string;
 }
 
-function makeFakeClient(opts: {
+/**
+ * A `FakeSlackConnector` preloaded with canned `getReplies`/`getHistory`
+ * results (and an optional `getReplies` failure) — the store's ONLY source of
+ * Slack data now that it takes a connector instead of a raw `WebClient` +
+ * bot token (Task 3/T3s-4a).
+ */
+function makeFakeConnector(opts: {
   replies?: RawMsg[];
   history?: RawMsg[];
   throwOnReplies?: boolean;
 }) {
-  const client = {
-    conversations: {
-      replies: vi.fn(
-        async (_args: { channel: string; ts: string; limit?: number }) => {
-          if (opts.throwOnReplies) throw new Error("api down");
-          return { ok: true, messages: opts.replies ?? [] };
-        },
-      ),
-      history: vi.fn(async (_args: { channel: string; limit?: number }) => ({
-        ok: true,
-        messages: opts.history ?? [],
-      })),
-    },
-  };
-  return client;
+  const connector = new FakeSlackConnector({
+    getReplies: { messages: opts.replies ?? [] },
+    getHistory: { messages: opts.history ?? [] },
+    throwing: opts.throwOnReplies
+      ? { getReplies: new Error("api down") }
+      : undefined,
+  });
+  return connector;
 }
 
 function makeAgent() {
@@ -48,11 +48,10 @@ function makeAgent() {
 
 describe("SlackConversationStore", () => {
   it("mints a unique threadId per turn under a stable conversation prefix", async () => {
-    const client = makeFakeClient({ replies: [] });
+    const connector = makeFakeConnector({ replies: [] });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s1 = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -75,7 +74,7 @@ describe("SlackConversationStore", () => {
   });
 
   it("populates agent.messages from the thread history fetched via Slack", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [
         { ts: "100.0", user: ATAI, text: `<@${BOT}> hello` },
         { ts: "100.5", user: BOT, text: "Hi back!" },
@@ -83,9 +82,8 @@ describe("SlackConversationStore", () => {
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -105,7 +103,7 @@ describe("SlackConversationStore", () => {
   });
 
   it("folds consecutive bot messages into one assistant turn (chunked replies)", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [
         { ts: "100.0", user: ATAI, text: `<@${BOT}> long question` },
         { ts: "100.5", user: BOT, text: "First chunk of the answer." },
@@ -114,9 +112,8 @@ describe("SlackConversationStore", () => {
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -136,7 +133,7 @@ describe("SlackConversationStore", () => {
   });
 
   it("skips status messages and the thinking placeholder", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [
         { ts: "100.0", user: ATAI, text: `<@${BOT}> please search` },
         { ts: "100.5", user: BOT, text: "_thinking…_" },
@@ -146,9 +143,8 @@ describe("SlackConversationStore", () => {
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -165,7 +161,7 @@ describe("SlackConversationStore", () => {
   });
 
   it("ignores subtyped messages (edits, joins, etc.)", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [
         { ts: "100.0", user: ATAI, text: "<@" + BOT + "> hi" },
         { ts: "100.1", subtype: "channel_join", text: "joined" },
@@ -173,9 +169,8 @@ describe("SlackConversationStore", () => {
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -192,7 +187,7 @@ describe("SlackConversationStore", () => {
 
   it("DM scope uses conversations.history (chronological after reverse) instead of replies", async () => {
     // Slack returns history newest-first; the store reverses it.
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       history: [
         { ts: "200.0", user: ATAI, text: "third" },
         { ts: "100.0", user: BOT, text: "second" },
@@ -200,9 +195,8 @@ describe("SlackConversationStore", () => {
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     const s = await store.getOrCreate(
       { channelId: "D1", scope: DM_SCOPE },
@@ -218,45 +212,41 @@ describe("SlackConversationStore", () => {
   });
 
   it("has() returns true after the bot has replied; uses Slack lookup on cache miss", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [
         { ts: "100.0", user: ATAI, text: "<@" + BOT + "> hi" },
         { ts: "100.5", user: BOT, text: "Hello!" },
       ],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     // Fresh store, no in-process cache — must hit Slack to discover ownership.
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(true);
     // Second call should be cached (no extra Slack call).
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(true);
-    expect(
-      (client.conversations.replies as ReturnType<typeof vi.fn>).mock.calls
-        .length,
-    ).toBe(1);
+    expect(connector.calls.filter((c) => c.op === "getReplies")).toHaveLength(
+      1,
+    );
   });
 
   it("has() returns false for threads we've never replied in", async () => {
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [{ ts: "100.0", user: ATAI, text: "hey everyone" }],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
 
   it("has() returns false gracefully when Slack API fails", async () => {
-    const client = makeFakeClient({ throwOnReplies: true });
+    const connector = makeFakeConnector({ throwOnReplies: true });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     expect(await store.has({ channelId: "C1", scope: "100.0" })).toBe(false);
   });
@@ -264,13 +254,12 @@ describe("SlackConversationStore", () => {
   it("getOrCreate marks the conversation as owned even when Slack history doesn't yet include the bot's reply", async () => {
     // After an @mention, the bot will reply within seconds. A follow-up
     // arriving before the bot's reply lands shouldn't be silently dropped.
-    const client = makeFakeClient({
+    const connector = makeFakeConnector({
       replies: [{ ts: "100.0", user: ATAI, text: "<@" + BOT + "> hi" }],
     });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     await store.getOrCreate(
       { channelId: "C1", scope: "100.0" },
@@ -283,11 +272,10 @@ describe("SlackConversationStore", () => {
   });
 
   it("save() is a no-op (Slack is the source of truth)", () => {
-    const client = makeFakeClient({ replies: [] });
+    const connector = makeFakeConnector({ replies: [] });
     const store = new SlackConversationStore({
-      client: client as never,
+      connector,
       botUserId: BOT,
-      botToken: "xoxb-test",
     });
     expect(() =>
       store.save({ channelId: "C1", scope: "100.0" }, {} as never),

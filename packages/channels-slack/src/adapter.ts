@@ -1,5 +1,3 @@
-import { LogLevel } from "@slack/bolt";
-import { WebClient } from "@slack/web-api";
 import type {
   ChatStartStreamArguments,
   ChatAppendStreamArguments,
@@ -35,11 +33,7 @@ import type {
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { SlackConversationStore } from "./conversation-store.js";
-import { WebClientSlackConnector } from "./slack-connector.js";
-import type {
-  SlackConnector,
-  SlackIngressLogLevel,
-} from "./slack-connector.js";
+import type { SlackConnector } from "./slack-connector.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction } from "./interaction.js";
 import {
@@ -65,19 +59,18 @@ import type {
   SlackRespondToOptions,
 } from "./types.js";
 
+/**
+ * Slack adapter config — CREDENTIAL-FREE (Task 3/T3s-4a). The adapter builds
+ * nothing from tokens; it only renders and decides. Every credential
+ * (`botToken`/`appToken`/`signingSecret`/`socketMode`/`port`/`logLevel`) now
+ * lives on {@link WebClientSlackConnectorOptions} instead — a runner
+ * constructs that connector and injects it via `SlackAdapter.ɵbindConnector`
+ * before `start()`/any egress call. Running the adapter unbound throws (see
+ * the `connector` getter below) — that's the intended "you need a custom
+ * ChannelRunner" signpost for running Channels without CopilotKit
+ * Intelligence.
+ */
 export interface SlackAdapterOptions {
-  /** Slack bot token (xoxb-…). */
-  botToken: string;
-  /** Slack app-level token (xapp-…) used for Socket Mode. */
-  appToken: string;
-  /** Signing secret; required when not using Socket Mode. */
-  signingSecret?: string;
-  /** Use Socket Mode (default true). HTTP mode requires `signingSecret`. */
-  socketMode?: boolean;
-  /** HTTP port for non-socket mode (ignored under Socket Mode). */
-  port?: number;
-  /** Bolt log level. */
-  logLevel?: LogLevel;
   /** Custom-event names treated as interrupts by the run renderer. */
   interruptEventNames?: ReadonlySet<string>;
   /** Surface `:wrench:`/`:white_check_mark:` tool-status rows. Default true. */
@@ -116,24 +109,22 @@ export class SlackAdapter implements PlatformAdapter {
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
 
-  client: WebClient;
   /**
-   * Test-only injection point: when set, {@link connector} returns this
-   * instead of wrapping `this.client`. Lets tests drive `SlackAdapter`'s
-   * egress methods against a `FakeSlackConnector` directly (proving the
-   * adapter→connector routing) without a WebClient-shaped fake underneath.
-   * Production code never sets this — the adapter always wraps its own
-   * `WebClient`.
+   * The runner-injected {@link SlackConnector} — set exactly once, via
+   * {@link ɵbindConnector}, before `start()`/any egress call. The adapter
+   * holds NO credentials and builds nothing from tokens; every credentialed
+   * operation routes through this connector. `undefined` until bound — the
+   * `connector` getter throws a clear error if anything runs unbound.
    */
-  private connectorOverride: SlackConnector | undefined;
-  /**
-   * The connector instance `start()` handed ingress ownership to — kept
-   * distinct from the throwaway `connector` getter (below) so `stop()` tears
-   * down the SAME live Bolt `App`/socket `start()` built, not a fresh wrapper.
-   */
-  private ingressConnector: SlackConnector | undefined;
+  private boundConnector: SlackConnector | undefined;
   botUserId = "";
-  private readonly store: SlackConversationStore;
+  /**
+   * Lazily built on first access (after `ɵbindConnector` — and, in practice,
+   * after `start()` has resolved `botUserId` for turns dispatched from ingress)
+   * and cached for the adapter's lifetime so its participation cache survives
+   * across turns.
+   */
+  private storeCache: SlackConversationStore | undefined;
   private sink: IngressSink | undefined;
   /** Per-id cache for sender-profile resolution (repeat turns are cheap). */
   private readonly userCache = new Map<string, PlatformUser>();
@@ -167,34 +158,54 @@ export class SlackAdapter implements PlatformAdapter {
       supportsSuggestedPrompts: assistantEnabled,
       supportsThreadTitle: assistantEnabled,
     };
-    // The Bolt `App`/socket now lives in the connector (Task 3b) — start()
-    // hands it ownership. Construction here only needs a plain credentialed
-    // `WebClient` for egress, equivalent to what `App.client` used to expose
-    // (same token, same `logLevel`-only clientOptions; no custom `agent`/
-    // `logger` was ever passed, so this is a faithful stand-in).
-    this.client = new WebClient(opts.botToken, {
-      logLevel: opts.logLevel ?? LogLevel.INFO,
-    });
-    this.store = new SlackConversationStore({
-      client: this.client,
-      botUserId: "",
-      botToken: opts.botToken,
-    });
+    // Credential-free construction (Task 3/T3s-4a): nothing token-shaped is
+    // built here. The Bolt `App`/socket AND the egress `WebClient` now both
+    // live inside a runner-injected `SlackConnector` (see `ɵbindConnector`).
+  }
+
+  /**
+   * @internal Connector-injection seam. A runner (a custom `ChannelRunner`, or
+   * the managed Connector Outbox's own binding path) calls this with a
+   * credential-owning `SlackConnector` — typically a `new
+   * WebClientSlackConnector({ botToken, appToken, … })` — BEFORE `start()` or
+   * any egress method runs. Every `PlatformAdapter` method this class
+   * implements delegates to the bound connector; there is no adapter-owned
+   * fallback. Marked with the ɵ prefix (Angular-style internal-API marker) to
+   * signal this is plumbing for a runner, not a user-facing option.
+   */
+  ɵbindConnector(connector: SlackConnector): void {
+    this.boundConnector = connector;
   }
 
   /**
    * The credentialed {@link SlackConnector} every egress method routes
-   * through. Freshly wraps the CURRENT `this.client` on every access (rather
-   * than being built once) so tests that swap `adapter.client` for a fake
-   * keep working unchanged; `connectorOverride` lets tests substitute a
-   * `FakeSlackConnector` entirely. Token removal (routing through a
-   * runner-supplied connector instead) is a later unit. The per-access
-   * allocation is a DELIBERATE throwaway — `WebClientSlackConnector` is a
-   * stateless facade over the stable `this.client`, so re-wrapping it is
-   * free, not an oversight.
+   * through — the one bound via {@link ɵbindConnector}. Throws if the
+   * adapter is run unbound: running Channels without CopilotKit Intelligence
+   * requires a custom `ChannelRunner` that supplies a connector (see docs).
+   * That failure is deliberate — the "you need a custom ChannelRunner"
+   * signpost the plan calls for, rather than a silent no-op or a
+   * adapter-built fallback connector.
    */
   private get connector(): SlackConnector {
-    return this.connectorOverride ?? new WebClientSlackConnector(this.client);
+    if (!this.boundConnector) {
+      throw new Error(
+        "Slack channel has no connector: running Channels without CopilotKit " +
+          "Intelligence requires a custom ChannelRunner that supplies a " +
+          "SlackConnector (see docs).",
+      );
+    }
+    return this.boundConnector;
+  }
+
+  /** The `SlackConversationStore`, built once (lazily) from the bound connector. */
+  private get store(): SlackConversationStore {
+    if (!this.storeCache) {
+      this.storeCache = new SlackConversationStore({
+        connector: this.connector, // throws if unbound — same fail-loud contract as egress
+        botUserId: this.botUserId,
+      });
+    }
+    return this.storeCache;
   }
 
   /**
@@ -279,28 +290,22 @@ export class SlackAdapter implements PlatformAdapter {
 
   /**
    * Delegates ALL ingress ownership to `this.connector` (Task 3b, plan §2
-   * D3): the Bolt `App`/socket, `app.init()`/`auth.test()`, and every raw
-   * event subscription (slash commands, app_mention/message, block_actions,
-   * reaction_added/removed, view submit/close, the assistant-pane
-   * middleware) now live in `WebClientSlackConnector.startIngress` — this
-   * method only resolves the ADAPTER-side config (still Bolt-free: tokens,
-   * resolved `respondTo`, the `resolveUser`/`handleFeedbackClick` callbacks
+   * D3; Task 3/T3s-4a dropped every credential from this call — the bound
+   * connector uses its OWN tokens): the Bolt `App`/socket, `app.init()`/
+   * `auth.test()`, and every raw event subscription (slash commands,
+   * app_mention/message, block_actions, reaction_added/removed, view
+   * submit/close, the assistant-pane middleware) live in the connector's
+   * `startIngress` — this method only resolves the ADAPTER-side config
+   * (resolved `respondTo`, the `resolveUser`/`handleFeedbackClick` callbacks
    * whose decision logic stays here) and applies the connection facts the
-   * connector hands back. Token removal + relocating this method off the
-   * adapter entirely is a later unit (T3s-4 / A1).
+   * connector hands back. Throws (via the `connector` getter) if no
+   * connector has been bound via `ɵbindConnector`.
    */
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
 
-    const connector = this.connector;
-    this.ingressConnector = connector;
+    const connector = this.connector; // throws if unbound
     const conn = await connector.startIngress({
-      botToken: this.opts.botToken,
-      appToken: this.opts.appToken,
-      signingSecret: this.opts.signingSecret,
-      socketMode: this.opts.socketMode,
-      port: this.opts.port,
-      logLevel: this.opts.logLevel as SlackIngressLogLevel | undefined,
       sink,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       assistant: this.opts.assistant,
@@ -310,12 +315,13 @@ export class SlackAdapter implements PlatformAdapter {
 
     this.botUserId = conn.botUserId;
     this.teamId = conn.teamId;
-    (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
     this.assistantHandle = conn.assistantHandle;
   }
 
   async stop(): Promise<void> {
-    await this.ingressConnector?.stopIngress();
+    // Lenient (not the throwing `connector` getter): stopping an adapter that
+    // was never bound/started is a harmless no-op, not a signpost-worthy error.
+    await this.boundConnector?.stopIngress();
   }
 
   render(ir: ChannelNode[]) {

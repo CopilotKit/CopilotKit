@@ -1,6 +1,6 @@
 import { App, LogLevel } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import type {
-  WebClient,
   ChatPostMessageArguments,
   ChatUpdateArguments,
   ChatDeleteArguments,
@@ -14,6 +14,7 @@ import type {
   UsersListArguments,
   UsersInfoArguments,
   ConversationsRepliesArguments,
+  ConversationsHistoryArguments,
   FilesUploadV2Arguments,
   ReactionsAddArguments,
   ReactionsRemoveArguments,
@@ -53,13 +54,23 @@ export interface SlackConnectorUserDetail {
   profile?: { real_name?: string; display_name?: string; email?: string };
 }
 
-/** A history message row from `conversations.replies`, as consumed by `SlackAdapter.getMessages`. */
+/** A history message row from `conversations.replies`/`conversations.history`, as consumed by `SlackAdapter.getMessages` and `SlackConversationStore`. */
 export interface SlackConnectorHistoryMessage {
   text?: string;
   ts?: string;
   user?: string;
   bot_id?: string;
   subtype?: string;
+  files?: unknown[];
+}
+
+/** The result of a credentialed private-file download (backs `SlackConversationStore`'s inbound-file handling). */
+export interface SlackConnectorDownloadResult {
+  ok: boolean;
+  /** HTTP status, set on both success and failure. */
+  status?: number;
+  /** The downloaded bytes; only set when `ok`. */
+  bytes?: Buffer;
 }
 
 /**
@@ -72,28 +83,17 @@ export type SlackIngressLogLevel = "debug" | "info" | "warn" | "error";
 
 /**
  * Everything the adapter hands the connector to start OWNING the live Slack
- * connection (Task 3b, plan §2 D3). Tokens/App-construction config stay
- * adapter-supplied this unit (see `WebClientSlackConnector.startIngress`'s
- * doc — token *removal* from the adapter is a later unit); `resolveUser` and
- * `handleFeedbackClick` are callbacks so their DECISION logic (the sender
- * cache, the feedback-row routing) stays adapter-side even though the
- * connector is what invokes them per raw event. Deliberately carries no
- * `WebClient`/`App` — only serializable config + sink + callbacks — so a
- * managed Connector Outbox's ingress (webhook-based, no Bolt/socket) could
- * conceivably implement the same `startIngress`/`stopIngress` shape.
+ * connection (Task 3b, plan §2 D3; Task 3/T3s-4a dropped every credential
+ * field — the connector now owns its OWN `botToken`/`appToken`/etc., supplied
+ * at construction). Only serializable, non-credential config + the sink +
+ * callbacks cross this port: `resolveUser` and `handleFeedbackClick` are
+ * callbacks so their DECISION logic (the sender cache, the feedback-row
+ * routing) stays adapter-side even though the connector is what invokes them
+ * per raw event. A managed Connector Outbox's ingress (webhook-based, no
+ * Bolt/socket) could conceivably implement the same `startIngress`/
+ * `stopIngress` shape against this same config.
  */
 export interface SlackIngressConfig {
-  /** Slack bot token (xoxb-…). */
-  botToken: string;
-  /** Slack app-level token (xapp-…) used for Socket Mode. */
-  appToken: string;
-  /** Signing secret; required when not using Socket Mode. */
-  signingSecret?: string;
-  /** Use Socket Mode (default true). HTTP mode requires `signingSecret`. */
-  socketMode?: boolean;
-  /** HTTP port for non-socket mode (ignored under Socket Mode). */
-  port?: number;
-  logLevel?: SlackIngressLogLevel;
   /** Where every normalized turn/command/interaction/reaction/modal event lands. */
   sink: IngressSink;
   /** Resolved response-routing policy for Slack ingress. */
@@ -124,82 +124,95 @@ export interface SlackIngressConnection {
 }
 
 /**
- * Every credentialed Slack egress operation `SlackAdapter` performs, behind a
- * port whose method signatures carry only serializable data (channel/ts/
- * text/blocks/etc.) — never a `WebClient` instance or a token. That's the
- * whole point: the managed Connector Outbox implements this SAME interface
- * with its own credentialed sender, and a custom runner can supply another.
+ * Every credentialed Slack operation `SlackAdapter`/`SlackConversationStore`
+ * perform, behind a port whose method signatures carry only serializable data
+ * (channel/ts/text/blocks/etc.) — never a `WebClient` instance or a token.
+ * That's the whole point: the managed Connector Outbox implements this SAME
+ * interface with its own credentialed sender, and a custom runner can supply
+ * another. The adapter holds NO credentials of its own — every method here is
+ * reached only through a connector a runner INJECTS via
+ * `SlackAdapter.ɵbindConnector` (see adapter.ts); calling any adapter egress
+ * method or `start()` before that throws.
  *
  * Subsumes the two transports the adapter already injected — the run
  * renderer's {@link SlackRenderTransport} (render/transport.ts: setStatus/
  * postMessage/updateMessage) and the {@link NativeStreamTransport}
  * (native-stream.ts: startStream/appendStream/stopStream) — plus every other
- * `this.client.*` call `SlackAdapter`'s egress methods used to make inline
- * (delete/reactions/ephemeral/file/suggestedPrompts/title/history/lookup/
- * modal). Argument shapes reuse `@slack/web-api`'s plain `*Arguments`
- * interfaces: already bounded, serializable data, so this is a pass-through
- * of what the adapter already builds — only the *sender* moves behind the
- * port. Native-vs-legacy transport choice (the `nativeStreamingOk` /
- * `nativeTaskChunksOk` health flags) stays adapter-side; the connector only
- * executes whichever call the adapter decides to make.
+ * credentialed Slack call `SlackAdapter`'s egress methods and
+ * `SlackConversationStore`'s session-history reconstruction make (delete/
+ * reactions/ephemeral/file/suggestedPrompts/title/history/lookup/modal/inbound
+ * file download). Argument shapes reuse `@slack/web-api`'s plain `*Arguments`
+ * interfaces: already bounded, serializable data, so this is a pass-through of
+ * what the adapter already builds — only the *sender* (and now the
+ * *credentials*) move behind the port.
  */
 export interface SlackConnector {
-  /** `chat.postMessage` — post a message (post ~341, legacy stream placeholder ~379, render transport ~513). */
+  /** `chat.postMessage` — post a message. */
   postMessage(
     args: ChatPostMessageArguments,
   ): Promise<{ ts?: string; channel?: string }>;
-  /** `chat.update` — edit an existing message (update ~364, legacy stream ~394, render transport ~519). */
+  /** `chat.update` — edit an existing message. */
   updateMessage(args: ChatUpdateArguments): Promise<void>;
-  /** `chat.delete` (~570). */
+  /** `chat.delete`. */
   deleteMessage(args: ChatDeleteArguments): Promise<void>;
-  /** `assistant.threads.setStatus` — the render transport's "is thinking…" indicator (~510). */
+  /** `assistant.threads.setStatus` — the render transport's "is thinking…" indicator. */
   setStatus(args: AssistantThreadsSetStatusArguments): Promise<void>;
 
-  /** `chat.startStream` — begin a native streamed message (~467). */
+  /** `chat.startStream` — begin a native streamed message. */
   startStream(
     args: ChatStartStreamArguments,
   ): Promise<{ ts?: string; channel?: string }>;
-  /** `chat.appendStream` — append text or structured chunks to a streamed message (~478/486). */
+  /** `chat.appendStream` — append text or structured chunks to a streamed message. */
   appendStream(args: ChatAppendStreamArguments): Promise<void>;
-  /** `chat.stopStream` — finalize a native streamed message (~496). */
+  /** `chat.stopStream` — finalize a native streamed message. */
   stopStream(args: ChatStopStreamArguments): Promise<void>;
 
-  /** `assistant.threads.setSuggestedPrompts` — pane-only prompt chips (~655). */
+  /** `assistant.threads.setSuggestedPrompts` — pane-only prompt chips. */
   setSuggestedPrompts(
     args: AssistantThreadsSetSuggestedPromptsArguments,
   ): Promise<void>;
-  /** `assistant.threads.setTitle` — pane-only thread title (~686). */
+  /** `assistant.threads.setTitle` — pane-only thread title. */
   setThreadTitle(args: AssistantThreadsSetTitleArguments): Promise<void>;
 
-  /** `users.list` — paged workspace member listing, backs `lookupUser` (~707). */
+  /** `users.list` — paged workspace member listing, backs `lookupUser`. */
   listUsers(args: UsersListArguments): Promise<{
     members?: SlackConnectorMember[];
     response_metadata?: { next_cursor?: string };
   }>;
-  /** `users.info` — backs `resolveUser` (~755). */
+  /** `users.info` — backs `resolveUser`. */
   getUserInfo(
     args: UsersInfoArguments,
   ): Promise<{ user?: SlackConnectorUserDetail }>;
 
-  /** `conversations.replies` — backs `getMessages` (~829). */
+  /** `conversations.replies` — backs `getMessages` and thread-scoped session history. */
   getReplies(
     args: ConversationsRepliesArguments,
   ): Promise<{ messages?: SlackConnectorHistoryMessage[] }>;
+  /** `conversations.history` — backs DM-scoped session history reconstruction. */
+  getHistory(
+    args: ConversationsHistoryArguments,
+  ): Promise<{ messages?: SlackConnectorHistoryMessage[] }>;
 
-  /** `files.uploadV2` — backs `postFile` (~888). */
+  /** `files.uploadV2` — backs `postFile`. */
   uploadFile(args: FilesUploadV2Arguments): Promise<void>;
+  /**
+   * Download a (private) Slack file URL using the connector's own bot token —
+   * backs `SlackConversationStore`'s inbound-file handling. Never returns the
+   * bearer token itself; only the downloaded bytes/status cross the port.
+   */
+  downloadFile(url: string): Promise<SlackConnectorDownloadResult>;
 
-  /** `reactions.add` (~907). */
+  /** `reactions.add`. */
   addReaction(args: ReactionsAddArguments): Promise<void>;
-  /** `reactions.remove` (~928). */
+  /** `reactions.remove`. */
   removeReaction(args: ReactionsRemoveArguments): Promise<void>;
 
-  /** `chat.postEphemeral` — backs `postEphemeral` (~955). */
+  /** `chat.postEphemeral` — backs `postEphemeral`. */
   postEphemeral(
     args: ChatPostEphemeralArguments,
   ): Promise<{ message_ts?: string }>;
 
-  /** `views.open` — backs `openModal` (~1006). */
+  /** `views.open` — backs `openModal`. */
   openModal(args: ViewsOpenArguments): Promise<void>;
 
   /**
@@ -216,18 +229,54 @@ export interface SlackConnector {
   stopIngress(): Promise<void>;
 }
 
+/** Constructor config for {@link WebClientSlackConnector} — everything Slack-credential-shaped now lives HERE, not on the adapter. */
+export interface WebClientSlackConnectorOptions {
+  /** Slack bot token (xoxb-…). */
+  botToken: string;
+  /** Slack app-level token (xapp-…) used for Socket Mode. */
+  appToken: string;
+  /** Signing secret; required when not using Socket Mode. */
+  signingSecret?: string;
+  /** Use Socket Mode (default true). HTTP mode requires `signingSecret`. */
+  socketMode?: boolean;
+  /** HTTP port for non-socket mode (ignored under Socket Mode). */
+  port?: number;
+  /** Bolt log level; also applied to the egress `WebClient`. */
+  logLevel?: SlackIngressLogLevel;
+}
+
 /**
- * The transitional / custom-runner / local-dev {@link SlackConnector}: wraps a
- * `WebClient` (built from `botToken`/`appToken`) and holds the exact
- * credentialed calls `SlackAdapter`'s egress methods used to make inline
- * before this port existed. The Intelligence Connector Outbox supplies its
- * own implementation of this same interface.
+ * The default {@link SlackConnector}: CREDENTIAL-OWNING (Task 3/T3s-4a) —
+ * constructed with `botToken`/`appToken`/etc. and building BOTH its own
+ * `WebClient` (egress) and its own Bolt `App` (ingress, on {@link startIngress})
+ * internally. Nothing token-shaped ever crosses back out to the adapter. A
+ * runner (custom `ChannelRunner`, or the managed Connector Outbox's own
+ * implementation of this interface) constructs one of these — or an
+ * equivalent — and injects it via `SlackAdapter.ɵbindConnector`.
  */
 export class WebClientSlackConnector implements SlackConnector {
+  private readonly client: WebClient;
+  private readonly botToken: string;
+  private readonly appToken: string;
+  private readonly signingSecret: string | undefined;
+  private readonly socketMode: boolean;
+  private readonly port: number | undefined;
+  private readonly logLevel: LogLevel;
   /** The live Bolt `App`, set by {@link startIngress}; undefined until then. */
   private app: App | undefined;
 
-  constructor(private readonly client: WebClient) {}
+  constructor(opts: WebClientSlackConnectorOptions) {
+    this.botToken = opts.botToken;
+    this.appToken = opts.appToken;
+    this.signingSecret = opts.signingSecret;
+    this.socketMode = opts.socketMode ?? true;
+    this.port = opts.port;
+    this.logLevel = (opts.logLevel as LogLevel | undefined) ?? LogLevel.INFO;
+    // Equivalent to what `App.client` used to expose (same token, same
+    // `logLevel`-only clientOptions; no custom `agent`/`logger` was ever
+    // passed elsewhere, so this is a faithful stand-in).
+    this.client = new WebClient(this.botToken, { logLevel: this.logLevel });
+  }
 
   async postMessage(
     args: ChatPostMessageArguments,
@@ -302,8 +351,29 @@ export class WebClientSlackConnector implements SlackConnector {
     return r;
   }
 
+  async getHistory(
+    args: ConversationsHistoryArguments,
+  ): Promise<{ messages?: SlackConnectorHistoryMessage[] }> {
+    const r = (await this.client.conversations.history(args)) as {
+      messages?: SlackConnectorHistoryMessage[];
+    };
+    return r;
+  }
+
   async uploadFile(args: FilesUploadV2Arguments): Promise<void> {
     await this.client.files.uploadV2(args);
+  }
+
+  async downloadFile(url: string): Promise<SlackConnectorDownloadResult> {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${this.botToken}` },
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    return {
+      ok: true,
+      status: res.status,
+      bytes: Buffer.from(await res.arrayBuffer()),
+    };
   }
 
   async addReaction(args: ReactionsAddArguments): Promise<void> {
@@ -329,11 +399,11 @@ export class WebClientSlackConnector implements SlackConnector {
     config: SlackIngressConfig,
   ): Promise<SlackIngressConnection> {
     const app = new App({
-      token: config.botToken,
-      appToken: config.appToken,
-      signingSecret: config.signingSecret,
-      socketMode: config.socketMode ?? true,
-      logLevel: (config.logLevel as LogLevel | undefined) ?? LogLevel.INFO,
+      token: this.botToken,
+      appToken: this.appToken,
+      signingSecret: this.signingSecret,
+      socketMode: this.socketMode,
+      logLevel: this.logLevel,
       // Without this, Bolt's constructor fires a background auth.test that
       // can't be awaited or error-handled (and phones home from unit tests).
       // We own initialization below: app.init(), then our own awaited
@@ -476,7 +546,7 @@ export class WebClientSlackConnector implements SlackConnector {
     );
 
     // Socket Mode ignores the port; HTTP mode binds it.
-    await app.start(config.port ?? 0);
+    await app.start(this.port ?? 0);
 
     return { botUserId, teamId, assistantHandle };
   }

@@ -134,12 +134,18 @@ function makeSink() {
 describe("adapter reaction ingress loop guard", () => {
   async function startWithFakes() {
     const { SlackAdapter } = await import("../adapter.js");
+    const { WebClientSlackConnector } = await import("../slack-connector.js");
     // Disable the assistant middleware so start() takes the simplest listener path.
-    const adapter = new SlackAdapter({
+    const adapter = new SlackAdapter({ assistant: false });
+    // A REAL WebClientSlackConnector (the credential-owning connector a
+    // runner would construct) — its internal `client` is patched so
+    // `startIngress`'s `auth.test()`/reaction-user enrichment resolve without
+    // a live Slack API, while the mocked `@slack/bolt` `App` above still
+    // drives the real ingress wiring (attachSlackListener, loop guard, etc.).
+    const connector = new WebClientSlackConnector({
       botToken: "xoxb",
       appToken: "xapp",
       signingSecret: "s",
-      assistant: false,
     });
     const usersInfo = vi.fn().mockResolvedValue({
       user: {
@@ -149,7 +155,7 @@ describe("adapter reaction ingress loop guard", () => {
         profile: { email: "human@example.com" },
       },
     });
-    (adapter as unknown as { client: unknown }).client = {
+    (connector as unknown as { client: unknown }).client = {
       auth: {
         test: vi
           .fn()
@@ -157,6 +163,7 @@ describe("adapter reaction ingress loop guard", () => {
       },
       users: { info: usersInfo },
     };
+    adapter.ɵbindConnector(connector);
     const sink = makeSink();
     await adapter.start(sink as never);
     return { sink, usersInfo };
@@ -217,22 +224,19 @@ describe("adapter reaction ingress loop guard", () => {
 describe("adapter reaction egress", () => {
   it("calls reactions.add with the resolved Slack shortcode", async () => {
     const { SlackAdapter } = await import("../adapter.js");
-    const adapter = new SlackAdapter({
-      botToken: "xoxb",
-      appToken: "xapp",
-      signingSecret: "s",
-    });
-    const add = vi.fn().mockResolvedValue({ ok: true });
-    (adapter as unknown as { client: unknown }).client = {
-      reactions: { add, remove: vi.fn().mockResolvedValue({ ok: true }) },
-    };
+    const { FakeSlackConnector } =
+      await import("../testing/fake-slack-connector.js");
+    const adapter = new SlackAdapter({});
+    const connector = new FakeSlackConnector();
+    adapter.ɵbindConnector(connector);
     const res = await adapter.addReaction!(
       { channel: "C1" },
       { id: "1.2", channel: "C1" },
       "thumbs_up",
     );
     expect(res).toEqual({ ok: true });
-    expect(add).toHaveBeenCalledWith({
+    expect(connector.calls[0]!.op).toBe("addReaction");
+    expect(connector.calls[0]!.args).toEqual({
       channel: "C1",
       timestamp: "1.2",
       name: "+1",
