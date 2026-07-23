@@ -31,19 +31,23 @@ function resolveLicenseStatus(
 
 /**
  * Map the structured entitlement authority onto the legacy status consumed by
- * older Core, React, and Angular thread surfaces. A ready active entitlement is
- * authoritative; otherwise, preserve the legacy self-hosted license fallback.
- * A retryable lookup without that fallback remains unknown until it resolves.
+ * older Core, React, and Angular thread surfaces. A ready managed entitlement
+ * is authoritative in both directions. Otherwise, preserve the legacy
+ * self-hosted license fallback. A retryable lookup without that fallback
+ * remains unknown until it resolves.
  */
 function resolveCompatibilityLicenseStatus(
   runtime: CopilotRuntimeLike,
   runtimeEntitlements: RuntimeEntitlementResponse | undefined,
 ): RuntimeLicenseStatus {
-  if (
-    runtimeEntitlements?.status === "ready" &&
-    runtimeEntitlements.entitlement.active
-  ) {
-    return "valid";
+  if (runtimeEntitlements?.status === "ready") {
+    if (runtimeEntitlements.entitlement.source === "managedOrgSubscription") {
+      return runtimeEntitlements.entitlement.active ? "valid" : "none";
+    }
+
+    if (runtimeEntitlements.entitlement.active) {
+      return "valid";
+    }
   }
 
   const legacyLicenseStatus = resolveLicenseStatus(runtime);

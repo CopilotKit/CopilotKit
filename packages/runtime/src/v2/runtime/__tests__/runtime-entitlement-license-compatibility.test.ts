@@ -195,6 +195,54 @@ test.each([
   },
 );
 
+test.each([
+  {
+    label: "valid",
+    legacyLicenseStatus: {
+      valid: true,
+      license: null,
+      error: null,
+      warningSeverity: "none",
+    },
+  },
+  {
+    label: "expiring",
+    legacyLicenseStatus: {
+      valid: true,
+      license: null,
+      error: null,
+      warningSeverity: "warning",
+    },
+  },
+] satisfies ReadonlyArray<{
+  label: string;
+  legacyLicenseStatus: LicenseStatus;
+}>)(
+  "maps an inactive managed entitlement over the $label legacy status",
+  async ({ legacyLicenseStatus }) => {
+    const runtimeEntitlements: RuntimeEntitlementResponse = {
+      status: "ready",
+      entitlement: {
+        active: false,
+        source: "managedOrgSubscription",
+        features: {},
+        limits: {},
+      },
+    };
+    const { runtime } = setup(runtimeEntitlements, legacyLicenseStatus);
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: new Request("https://runtime.example/info"),
+    });
+    const body: RuntimeInfo = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.licenseStatus).toBe("none");
+    expect(body.runtimeEntitlements).toEqual(runtimeEntitlements);
+  },
+);
+
 const nonActiveEntitlementCases: ReadonlyArray<{
   expectedStatus: RuntimeInfo["licenseStatus"];
   label: string;
