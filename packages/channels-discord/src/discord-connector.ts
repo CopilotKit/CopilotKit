@@ -182,8 +182,10 @@ export interface DiscordConnector {
    * `login()`, resolve our own identity on `ready`, and subscribe to every raw
    * Discord event (messageCreate, interactionCreate — commands/components/
    * modals —, message reactions), normalizing each via the adapter's pure
-   * decode functions before forwarding to `config.sink`. Resolves once login
-   * has been initiated (mirrors the pre-gut adapter: `ready` fires later).
+   * decode functions before forwarding to `config.sink`. Resolves once the
+   * gateway `ready` event fires after a successful `login()`; rejects (and
+   * tears down the half-open connection) if `ready` doesn't arrive within
+   * `readyTimeoutMs`.
    */
   startIngress(config: DiscordIngressConfig): Promise<DiscordIngressConnection>;
   /** Stop the live connection started by {@link startIngress}. */
@@ -202,6 +204,15 @@ export interface WebClientDiscordConnectorOptions {
   intents?: readonly GatewayIntentBits[];
   /** Client partials. Defaults to {@link DISCORD_DEFAULT_PARTIALS}. */
   partials?: readonly (typeof Partials)[keyof typeof Partials][];
+  /**
+   * How long to wait for the gateway `ready` event after a successful
+   * `login()` before giving up and tearing down the connection. A rare
+   * gateway stall (or a bad intents/token combo that doesn't reject
+   * `login()` itself) can otherwise leave `startIngress` hanging forever,
+   * which — via `create-channel`'s `Promise.allSettled` — would block the
+   * ENTIRE multi-adapter channel from finishing startup. Defaults to 30s.
+   */
+  readyTimeoutMs?: number;
 }
 
 /** A discord.js channel/thread surface — only the members the connector calls. */
@@ -254,6 +265,7 @@ export class WebClientDiscordConnector implements DiscordConnector {
   private readonly botToken: string;
   private readonly appId: string;
   private readonly guildId: string | undefined;
+  private readonly readyTimeoutMs: number;
   private botUserId = "";
   private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
@@ -266,6 +278,7 @@ export class WebClientDiscordConnector implements DiscordConnector {
     this.botToken = opts.botToken;
     this.appId = opts.appId;
     this.guildId = opts.guildId;
+    this.readyTimeoutMs = opts.readyTimeoutMs ?? 30_000;
     this.client = new Client({
       intents: [...(opts.intents ?? DISCORD_DEFAULT_INTENTS)],
       partials: [...(opts.partials ?? DISCORD_DEFAULT_PARTIALS)],
@@ -416,9 +429,14 @@ export class WebClientDiscordConnector implements DiscordConnector {
 
   registerCommands(commands: readonly CommandSpec[]): void {
     this.pendingCommands = commands;
-    // `ready` may have already fired (start() resolves before the gateway READY
-    // event, and the engine calls registerCommands AFTER start()). If so, the
-    // once("ready") publish already ran with an empty list — publish now.
+    // In the normal path `ready` has already fired by the time the engine
+    // calls `registerCommands` — `startIngress`/`start()` now resolves AFTER
+    // the gateway `ready` event, not before. This guard exists for the
+    // custom-runner path: a caller that constructs the connector and calls
+    // `registerCommands` before `startIngress` has resolved (or ever
+    // resolves) still needs its list stashed and, once `ready` does fire,
+    // published — the once("ready") handler's own `publishCommands` call
+    // covers that case; this one covers `ready` having ALREADY fired.
     if (this.isReady) void this.publishCommands();
   }
 
@@ -595,7 +613,36 @@ export class WebClientDiscordConnector implements DiscordConnector {
     });
 
     await this.client.login(this.botToken);
-    await ready;
+
+    // `login()` can succeed while the gateway `ready` event never fires (a
+    // rare gateway stall, or an intents/token combo that doesn't reject
+    // `login()` itself). Bound the wait so a stalled Discord start can't hang
+    // `startIngress` forever — which, via `create-channel`'s
+    // `Promise.allSettled`, would otherwise block the ENTIRE multi-adapter
+    // channel from finishing startup, not just Discord.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const readyTimeout = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => {
+        reject(
+          new Error(
+            `Discord gateway did not become ready within ${this.readyTimeoutMs}ms of a successful login() — check the bot's intents/token`,
+          ),
+        );
+      }, this.readyTimeoutMs);
+    });
+
+    try {
+      await Promise.race([ready, readyTimeout]);
+    } catch (err) {
+      // Tear down the half-open connection so we don't leak the socket; the
+      // rejection propagates so `create-channel`'s `allSettled` degrades ONLY
+      // this adapter.
+      await this.client.destroy().catch(() => {});
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+
     return { botUserId: this.botUserId };
   }
 

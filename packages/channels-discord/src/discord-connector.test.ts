@@ -272,6 +272,30 @@ describe("WebClientDiscordConnector.startIngress", () => {
     const res = await connector.openModal("no-such-trigger", { fake: "modal" });
     expect(res.ok).toBe(false);
   });
+
+  it("rejects with a timeout error and destroys the client if `ready` never fires within readyTimeoutMs", async () => {
+    createdClients.length = 0;
+    const connector = new WebClientDiscordConnector({
+      botToken: "t",
+      appId: "app",
+      readyTimeoutMs: 20,
+    });
+    const client = createdClients[0]!;
+    const destroySpy = vi.spyOn(client, "destroy");
+
+    const started = connector.startIngress({
+      sink: sink(),
+      resolveUser: async (id) => ({ id }),
+    });
+    // Deliberately never emit "ready" — login() "succeeds" (FakeClient.login
+    // always resolves) but the gateway never reports ready, mirroring the
+    // rare gateway-stall/intents edge that doesn't reject login().
+
+    await expect(started).rejects.toThrow(
+      /Discord gateway did not become ready within 20ms of a successful login/,
+    );
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("WebClientDiscordConnector egress ops", () => {
