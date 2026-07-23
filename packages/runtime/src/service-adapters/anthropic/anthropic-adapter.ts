@@ -358,7 +358,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     try {
       const createParams = {
         system: cachedSystemPrompt,
-        model: this.model,
+        model: model,
         messages: cachedMessages,
         max_tokens: forwardedParameters?.maxTokens || 4096,
         ...(forwardedParameters?.temperature
@@ -522,7 +522,9 @@ class FilterThinkingTextBuffer {
         return "";
       }
     }
-    return text;
+    const result = this.buffer;
+    this.buffer = "";
+    return result;
   }
 
   reset() {
