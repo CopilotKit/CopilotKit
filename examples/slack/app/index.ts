@@ -190,7 +190,7 @@ async function main() {
     // routes there); locally it defaults to 3000. Fail loud on a malformed
     // PORT rather than letting `Number("abc")` → NaN reach `server.listen()`.
     const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-    if (!Number.isInteger(port) || port < 0) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       console.error(
         `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
       );
@@ -376,6 +376,9 @@ async function main() {
   // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
   // only owns the Channel lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+  if (!Number.isInteger(channelPort) || channelPort < 1 || channelPort > 65535) {
+    throw new Error(`Invalid CHANNELS_PORT: "${process.env.CHANNELS_PORT}"`);
+  }
   const listener = createCopilotNodeListener({
     runtime: channelRuntime,
     basePath: "/api/copilotkit",
