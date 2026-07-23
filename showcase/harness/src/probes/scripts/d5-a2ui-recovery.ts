@@ -109,6 +109,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Lay out a KPI panel that never passes validation so I can reveal the fallback.",
   },
+  mastra: {
+    heal: "Draft the Vantage quarterly revenue tile and mend a botched opening attempt.",
+    exhaust:
+      "Draft a Vantage board that flunks every validation sweep so I can preview the fallback.",
+  },
   strands: {
     heal: "Assemble a quarterly performance board and recover from a malformed first draft.",
     exhaust:

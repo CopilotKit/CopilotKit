@@ -131,7 +131,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 920 cells (46 features x 20 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 980 cells (50 features x 20 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -145,24 +145,27 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 47 features × 20 integrations = 940 cells. The catalog emits cells
+    // 50 features × 20 integrations = 1000 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
-    // shape-stable. The 47 includes 2 byoc legacy IDs (`byoc-hashbrown`,
+    // shape-stable. The 50 includes 2 byoc legacy IDs (`byoc-hashbrown`,
     // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
-    // that langgraph-python uses for the visible URL slugs, and the
+    // that langgraph-python uses for the visible URL slugs, the
     // `a2ui-recovery` feature (wired for google-adk + langgraph-{python,
-    // fastapi,typescript} + strands{,-typescript}; unshipped elsewhere).
-    expect(integrated.length).toBe(940);
+    // fastapi,typescript} + strands{,-typescript}; unshipped elsewhere),
+    // and the 3 Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`; unshipped for every other
+    // integration).
+    expect(integrated.length).toBe(1000);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(940);
+    expect(catalog.cells.length).toBe(1000);
     // total_cells excludes docs-only features (currently 1 feature x 20 integrations = 20)
-    expect(catalog.metadata.total_cells).toBe(920);
+    expect(catalog.metadata.total_cells).toBe(980);
     expect(catalog.metadata.docs_only).toBe(20);
   });
 
-  it("LGP has 47 cells: 37 wired + 1 stub + 7 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -184,7 +187,10 @@ describe("Catalog Generator", () => {
     // is now WIRED for LGP (the recovery demo shipped across langgraph +
     // strands), so it no longer counts toward unshipped.
     // Dashboard's "Show deprecated" toggle hides deprecated rows by default.
-    expect(lgpCells.length).toBe(47);
+    // +3 unshipped for the Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`) that LGP does not declare,
+    // taking unshipped 7 -> 10 and the LGP cell total 47 -> 50.
+    expect(lgpCells.length).toBe(50);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
@@ -199,7 +205,7 @@ describe("Catalog Generator", () => {
     // unshipped drops 8 -> 7.
     expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(7);
+    expect(unshipped.length).toBe(10);
     expect(unsupported.length).toBe(2);
   });
 
@@ -263,7 +269,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(920);
+    expect(catalog.metadata.total_cells).toBe(980);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(

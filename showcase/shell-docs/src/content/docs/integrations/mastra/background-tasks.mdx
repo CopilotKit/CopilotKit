@@ -1,0 +1,255 @@
+---
+title: Background Tasks
+icon: "lucide/Clock"
+description: Dispatch long-running work to Mastra's BackgroundTaskManager and surface it as a live activity card in the chat.
+---
+
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
+
+## What is this?
+
+Mastra's [background tasks](https://mastra.ai/docs/agents/background-tasks) let a tool run
+outside the agentic loop instead of blocking it. When a tool is flagged
+`background: { enabled: true }`, Mastra dispatches it to its `BackgroundTaskManager`, emits a
+`background-task-started` lifecycle chunk, and returns a placeholder result so the conversation
+keeps flowing.
+
+`MastraAgent` (the AG-UI adapter) maps that lifecycle to an AG-UI **activity event** (activity
+type `mastra-background-task`) and **suppresses the normal tool pill** — so the work surfaces
+only as a live "working" card, never as an orphan tool call. CopilotKit's `renderActivityMessages`
+paints that card inline in the transcript.
+
+## When should I use this?
+
+Background tasks fit any work that is too slow to hold the chat hostage:
+
+- **Deep research / long lookups** — kick off a multi-step investigation and let the user keep chatting
+- **Report or artifact generation** — build something in the background and surface progress
+- **Batch or fan-out work** — dispatch several jobs without serializing the conversation
+
+<Callout type="info">
+  Completion is delivered **out of band**. On the dispatching turn Mastra emits only the
+  `started` lifecycle plus a placeholder result, so within that turn the card stays in the
+  "working" state; the finished result is delivered on a later turn (or retrieved from the task
+  manager). See [Completion is out of band](#completion-is-out-of-band) below.
+</Callout>
+
+## Implementation
+
+<Steps>
+<Step>
+  ### Run and connect your agent
+  <RunAndConnect components={props.components} />
+</Step>
+
+<Step>
+  ### Define a backgroundable tool
+
+  Flag the tool with `background: { enabled: true }`. Mastra dispatches it to the
+  `BackgroundTaskManager` instead of running it inline.
+
+  ```typescript title="src/mastra/tools/background-research.ts"
+  import { createTool } from "@mastra/core/tools";
+  import { z } from "zod";
+
+  export const runDeepResearchTool = createTool({
+    id: "run_deep_research",
+    description:
+      "Kick off a long-running deep-research task on a topic. This runs in " +
+      "the background while the conversation continues.",
+    inputSchema: z.object({
+      topic: z.string().describe("The topic to research in depth."),
+    }),
+    background: { enabled: true }, // [!code highlight]
+    execute: async ({ topic }) => {
+      // Runs when the background worker executes the task.
+      return JSON.stringify({
+        topic,
+        summary: `Deep research on "${topic}" completed.`,
+      });
+    },
+  });
+  ```
+</Step>
+
+<Step>
+  ### Enable the BackgroundTaskManager on the Mastra instance
+
+  Backgroundable tools only dispatch when the manager is enabled on the instance. A configured
+  `storage` is also required so tasks can be tracked.
+
+  ```typescript title="src/mastra/index.ts"
+  import { Mastra } from "@mastra/core/mastra";
+  import { LibSQLStore } from "@mastra/libsql";
+  import { backgroundAgentsAgent } from "./agents";
+
+  export const mastra = new Mastra({
+    agents: { backgroundAgentsAgent },
+    storage: new LibSQLStore({ id: "mastra-storage", url: ":memory:" }),
+    backgroundTasks: { enabled: true }, // [!code highlight]
+  });
+  ```
+</Step>
+
+<Step>
+  ### Add the tool to your agent
+
+  ```typescript title="src/mastra/agents/index.ts"
+  import { Agent } from "@mastra/core/agent";
+  import { openai } from "@ai-sdk/openai";
+  import { runDeepResearchTool } from "@/mastra/tools/background-research"; // [!code highlight]
+
+  export const backgroundAgentsAgent = new Agent({
+    id: "background-agents",
+    name: "Background Agents Agent",
+    tools: { runDeepResearchTool }, // [!code highlight]
+    model: openai("gpt-4.1"),
+    instructions:
+      "You are a research assistant that dispatches long-running work to the " +
+      "background. When the user asks you to research a topic, call the " +
+      "run_deep_research tool ONCE, then send a short message saying the work " +
+      "is running in the background.",
+  });
+  ```
+</Step>
+
+<Step>
+  ### Render the activity card in your frontend
+
+  Write an activity renderer for the `mastra-background-task` activity type, then register it on
+  `<CopilotKit>` via `renderActivityMessages`. The standard `<CopilotChat />` renders activity
+  messages inline — no custom message list needed.
+
+  ```tsx title="ui/app/activity-card.tsx"
+  import { z } from "zod";
+  import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
+
+  const contentSchema = z
+    .object({ status: z.string().optional(), args: z.record(z.unknown()).optional() })
+    .passthrough();
+
+  export const backgroundTaskActivityRenderer: ReactActivityMessageRenderer<
+    z.infer<typeof contentSchema>
+  > = {
+    activityType: "mastra-background-task", // [!code highlight]
+    content: contentSchema,
+    render: ({ content }) => {
+      const working = content.status !== "completed" && content.status !== "failed";
+      const topic = (content.args?.topic as string | undefined) ?? "task";
+      return (
+        <div data-status={content.status ?? "running"}>
+          <strong>Deep research</strong> — {topic}
+          <span>{working ? "Working…" : content.status}</span>
+        </div>
+      );
+    },
+  };
+  ```
+
+  ```tsx title="ui/app/page.tsx"
+  import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+  import { backgroundTaskActivityRenderer } from "./activity-card";
+
+  export default function Page() {
+    return (
+      <CopilotKit
+        runtimeUrl="/api/copilotkit"
+        agent="background-agents"
+        renderActivityMessages={[backgroundTaskActivityRenderer]} // [!code highlight]
+      >
+        <CopilotChat />
+      </CopilotKit>
+    );
+  }
+  ```
+</Step>
+
+<Step>
+  ### Give it a try!
+
+  Ask the agent to research something.
+
+  ```
+  Kick off deep research on the current landscape of AI agent frameworks.
+  ```
+
+  The agent calls `run_deep_research`, Mastra dispatches it in the background, and a live
+  "working" activity card appears inline — with no blocking tool pill — while the conversation
+  stays responsive.
+</Step>
+</Steps>
+
+## Completion is out of band
+
+By design, the dispatching run's stream carries only the `started` lifecycle plus a placeholder
+result — the tool's `execute` has not finished by the time the stream closes. So within that turn
+the card stays "working"; the finished result is delivered out of band.
+
+Mastra exposes `untilIdle: true` (via `getLocalAgents`) to hold the run open and pipe the manager
+pubsub chunks — including `background-task-completed` — into the same stream so the card could flip
+to "Completed" in-turn. That only works when a **background worker actually executes the dispatched
+task before the idle window closes**. In a single-process app with no such worker the task is never
+executed within the run, so no completion chunk is produced and `untilIdle` only holds the stream
+open with no benefit. When you run a deployment with a real background worker, enable `untilIdle`
+and the adapter's lifecycle mapping (`running` → `completed`/`failed`/`cancelled`) flips the card
+automatically. Otherwise, retrieve results out of band via the task manager
+(`backgroundTaskManager.stream()` / `getTask(taskId)`).
+
+## Observational Memory as background activity
+
+If your agent uses Mastra's [Observational Memory](https://mastra.ai/docs/memory/observational-memory),
+you can surface its observation/buffering/activation cycles the same way — as a live activity card
+instead of invisible background work. This is opt-in and OFF by default.
+
+Two switches, both required:
+
+1. **The agent's `Memory` must have Observational Memory enabled** (that's what makes Mastra stream
+   the OM lifecycle in the first place):
+
+   ```typescript title="src/mastra/agents/index.ts"
+   memory: new Memory({
+     storage,
+     options: {
+       observationalMemory: {
+         scope: "thread",
+         observation: { messageTokens: 600, bufferTokens: 300 },
+         model: openai("gpt-4.1"),
+       },
+     },
+   }),
+   ```
+
+2. **The adapter must be told to forward it** — pass `observationalMemory: true` (or an array of
+   agent ids) to `getLocalAgents`:
+
+   ```typescript title="app/api/copilotkit/route.ts"
+   const localAgents = getLocalAgents({
+     mastra,
+     observationalMemory: true, // [!code highlight]
+   });
+   ```
+
+With both on, `MastraAgent` maps the OM lifecycle to AG-UI activity events under activity type
+`mastra-observational-memory`. Render them exactly like the background-task card — register a
+renderer for that activity type:
+
+```tsx title="app/page.tsx"
+const observationalMemoryActivityRenderer = {
+  activityType: "mastra-observational-memory", // [!code highlight]
+  render: ({ content }) => <OMActivityCard content={content} />,
+};
+
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  renderActivityMessages={[observationalMemoryActivityRenderer]} // [!code highlight]
+>
+```
+
+The activity content carries the cycle (`cycleId`, `phase: "observation" | "buffering" | "activation"`,
+`status`, token counts) and advances in place as the cycle progresses, so one card tracks each OM
+cycle from start to completion.
+
+<Callout type="info">
+  OM cycles trigger on **unobserved message-token size**, not turn count — short chats may never
+  trip one. If you're testing the card, drive a few sizable messages.
+</Callout>

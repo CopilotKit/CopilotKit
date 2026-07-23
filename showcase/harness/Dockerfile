@@ -72,6 +72,13 @@ ENV QA_REPO_ROOT=/app
 # dist/probes/drivers/pin-drift.js, five `..` segments overshoot /app
 # and land at /. Override so the driver finds showcase/scripts/fail-baseline.json.
 ENV PIN_DRIFT_REPO_ROOT=/app
+# /api/matrix read-model: catalog-flatten's SHOWCASE_ROOT walk-up
+# (`../../../..` from dist/shared/catalog) lands at / here — the runtime
+# stage copies harness/dist → /app/dist, dropping the `harness/` segment the
+# walk-up assumes. Override so loadFeatureRegistry reads
+# /app/showcase/shared/feature-registry.json and findManifests reads
+# /app/showcase/integrations/<slug>/manifest.yaml (both copied below).
+ENV SHOWCASE_ROOT=/app/showcase
 # Playwright cache lives outside /home/node so `chown` below doesn't
 # have to recurse over the ~300MB chromium tree on every build. Setting
 # PLAYWRIGHT_BROWSERS_PATH at this stage pins the install target; the
@@ -110,6 +117,13 @@ COPY --from=build /repo/showcase/scripts/fail-baseline.json ./showcase/scripts/f
 # keep the runtime image lean. The qa/ subdirectories are also needed
 # since the driver file-stats qa/<featureId>.md per demo.
 COPY --from=build /repo/showcase/integrations ./showcase/integrations
+# /api/matrix read-model: the route reads the committed
+# shared/feature-registry.json (via loadFeatureRegistry) to enumerate catalog
+# cells. Only the build stage staged showcase/shared (for generate-registry.ts),
+# so without this the runtime image lacks the file and /api/matrix degrades to
+# matrix_unavailable. Paired with SHOWCASE_ROOT=/app/showcase above so the file
+# resolves at /app/showcase/shared/feature-registry.json.
+COPY --from=build /repo/showcase/shared ./showcase/shared
 # e2e-smoke probe: the driver's default demos resolver reads
 # `/app/data/registry.json` to look up each Railway service slug's demo
 # list (`tool-rendering` gates the L4 tool-rendering check). The registry

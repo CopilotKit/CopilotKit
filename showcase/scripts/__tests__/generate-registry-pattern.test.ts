@@ -108,6 +108,43 @@ function makeHarness(
     );
   }
 
+  // generate-registry.ts imports the catalog cross-join/flatten logic from
+  // ../harness/src/shared/catalog/catalog-flatten.js (the fold lives in the
+  // harness so the harness build can own it; the script runs under tsx and
+  // imports it cross-package). Stage that single file at the exact relative
+  // path the generator resolves — it imports only node builtins + js-yaml, so
+  // no further harness source is needed for module resolution. The harness
+  // package.json (`"type": "module"`) MUST be staged too: without it the
+  // nearest-package-scope for catalog-flatten.ts is CJS and its named exports
+  // (generateCatalog, MissingReferenceIntegrationError) fail to bind.
+  const harnessDir = path.join(root, "harness");
+  const catalogDir = path.join(harnessDir, "src", "shared", "catalog");
+  fs.mkdirSync(catalogDir, { recursive: true });
+  fs.copyFileSync(
+    path.join(SHOWCASE_ROOT, "harness", "package.json"),
+    path.join(harnessDir, "package.json"),
+  );
+  fs.copyFileSync(
+    path.join(
+      SHOWCASE_ROOT,
+      "harness",
+      "src",
+      "shared",
+      "catalog",
+      "catalog-flatten.ts",
+    ),
+    path.join(catalogDir, "catalog-flatten.ts"),
+  );
+  // Under ESM scope, catalog-flatten's `import yaml from "js-yaml"` is resolved
+  // by walking up from the harness tree (NOT the scripts tree), so js-yaml must
+  // be reachable via a node_modules on that chain — symlink the real scripts
+  // node_modules (which declares js-yaml + its argparse dep) at harness/.
+  fs.symlinkSync(
+    path.join(SCRIPTS_DIR, "node_modules"),
+    path.join(harnessDir, "node_modules"),
+    "dir",
+  );
+
   fs.mkdirSync(path.join(root, "integrations"), { recursive: true });
   for (const slug of integrations) {
     const dir = path.join(root, "integrations", slug);

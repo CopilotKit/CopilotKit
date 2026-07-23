@@ -139,11 +139,13 @@ function makeCtx(overrides?: Partial<CellContext>): CellContext {
 function makeCatalogCell(overrides?: Partial<CatalogCell>): CatalogCell {
   return {
     id: "next/chat-text",
+    manifestation: "integrated",
     integration: "next",
     integration_name: "Next.js",
     feature: "chat-text",
     feature_name: "Chat Text",
     status: "wired",
+    parity_tier: "at_parity",
     max_depth: 3,
     category: "chat-ui",
     category_name: "Chat & UI",

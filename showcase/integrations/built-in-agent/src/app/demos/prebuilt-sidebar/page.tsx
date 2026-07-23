@@ -1,11 +1,8 @@
 "use client";
 
 import React from "react";
-import {
-  CopilotKitProvider,
-  CopilotSidebar,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { usePrebuiltSidebarSuggestions } from "./suggestions";
 
 // Outer layer — provider + main content + sidebar.
 export default function PrebuiltSidebarDemo() {
@@ -39,9 +36,6 @@ function MainContent() {
 }
 
 function Suggestions() {
-  useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi!" }],
-    available: "always",
-  });
+  usePrebuiltSidebarSuggestions();
   return null;
 }
