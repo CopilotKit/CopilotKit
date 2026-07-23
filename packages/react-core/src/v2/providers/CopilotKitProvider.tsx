@@ -25,6 +25,7 @@ import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
   LicenseContextValue,
   DebugConfig,
+  RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
@@ -304,6 +305,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
+  >(undefined);
+  const [runtimeEntitlements, setRuntimeEntitlements] = useState<
+    RuntimeEntitlementResponse | undefined
   >(undefined);
 
   useEffect(() => {
@@ -614,7 +618,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // past the `/info` resolution. If that happens, the settled values would be
   // lost forever. To close the race we read the CURRENT values immediately, so a
   // status that already resolved is captured whether or not we caught its event.
-  // This MUST mirror the subscriber below (all three values), otherwise a missed
+  // This MUST mirror the subscriber below (all four values), otherwise a missed
   // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
   // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
@@ -622,6 +626,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
       setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
       setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      setRuntimeEntitlements(copilotkit.runtimeEntitlements);
     };
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: syncRuntimeInfo,
@@ -840,10 +845,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
-  // License context — driven by server-reported status via /info endpoint
+  // License context — driven by server-reported authority via /info endpoint
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(runtimeLicenseStatus),
-    [runtimeLicenseStatus],
+    () => createLicenseContextValue(runtimeLicenseStatus, runtimeEntitlements),
+    [runtimeEntitlements, runtimeLicenseStatus],
   );
 
   return (

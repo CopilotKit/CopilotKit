@@ -19,10 +19,10 @@ vi.mock("../../../hooks/use-threads", () => ({
 }));
 
 /**
- * Set up an active managed entitlement and an inert thread store for the
- * provider-to-drawer integration path.
+ * Set up an active managed entitlement with the requested thread grant and an
+ * inert thread store for the provider-to-drawer integration path.
  */
-function setupManagedEntitlementDrawerTest() {
+function setupManagedEntitlementDrawerTest(threadsEnabled: boolean) {
   const runtimeInfo = {
     version: "1.0.0",
     agents: {},
@@ -35,7 +35,7 @@ function setupManagedEntitlementDrawerTest() {
         active: true,
         source: "managedOrgSubscription",
         planCode: "pro",
-        features: { threads: true },
+        features: { threads: threadsEnabled },
         limits: {},
       },
     },
@@ -75,8 +75,8 @@ function setupManagedEntitlementDrawerTest() {
   };
 }
 
-test("managed entitlements load the drawer without a license token or warning", async () => {
-  const { dispose } = setupManagedEntitlementDrawerTest();
+test("managed entitlements keep the drawer locked when threads are denied", async () => {
+  const { dispose } = setupManagedEntitlementDrawerTest(false);
 
   try {
     render(
@@ -88,7 +88,39 @@ test("managed entitlements load the drawer without a license token or warning", 
     );
 
     await waitFor(() => {
-      expect(useThreadsMock).toHaveBeenCalledWith(
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false }),
+      );
+      const drawer = document.querySelector(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      ) as CopilotKitThreadsDrawerElement | null;
+      expect(drawer?.licensed).toBe(false);
+    });
+
+    expect(
+      screen.queryByText(
+        /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
+      ),
+    ).toBeNull();
+  } finally {
+    dispose();
+  }
+});
+
+test("managed entitlements load the drawer when threads are granted", async () => {
+  const { dispose } = setupManagedEntitlementDrawerTest(true);
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
         expect.objectContaining({ enabled: true }),
       );
       const drawer = document.querySelector(

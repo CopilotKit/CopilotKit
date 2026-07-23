@@ -33,7 +33,10 @@ export type {
 } from "@copilotkit/license-verifier";
 
 import type { LicensePayload } from "@copilotkit/license-verifier";
-import type { RuntimeLicenseStatus } from "./utils/types";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "./utils/types";
 
 // LicenseContextValue was dropped from license-verifier's public API in
 // 0.3.0, so it is defined here. The context shape is owned by this package
@@ -48,36 +51,45 @@ export interface LicenseContextValue {
   status: RuntimeLicenseStatus | null;
   /** The license payload if available. Always null on the client; the payload stays server-side. */
   license: LicensePayload | null;
-  /** Whether a specific feature is licensed. Returns true if no licensing is active (no token). */
+  /** Whether a feature is licensed. Ready active grants override legacy status behavior. */
   checkFeature: (feature: string) => boolean;
   /** Get a numeric feature limit. Returns null if not applicable. */
   getLimit: (feature: string) => number | null;
 }
 
 /**
- * Client-safe license context factory, driven by the license status the
+ * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
  *
- * Features are enabled unless the runtime definitively reports the license
- * as "expired" or "invalid". A null/"none"/"unknown" status fails open
- * (unlicensed = unrestricted, with branding), and "expiring" keeps features
- * on while the provider surfaces a warning banner. Per-feature data is not
- * in /info yet, so checkFeature is uniform across features and getLimit has
- * no limits to report. This is inlined here to avoid importing the full
+ * A ready, active structured entitlement is authoritative for feature grants
+ * and limits. Older runtimes that report only a status retain the legacy
+ * behavior: features are enabled unless the status is "expired" or "invalid",
+ * and no limits are reported. This is inlined here to avoid importing the full
  * license-verifier bundle (which depends on Node's `crypto`) into browser
  * bundles.
  */
 export function createLicenseContextValue(
   status: RuntimeLicenseStatus | null | undefined,
+  runtimeEntitlements?: RuntimeEntitlementResponse,
 ): LicenseContextValue {
   const resolvedStatus = status ?? null;
   const featuresEnabled =
     resolvedStatus !== "expired" && resolvedStatus !== "invalid";
+  const activeEntitlement =
+    runtimeEntitlements?.status === "ready" &&
+    runtimeEntitlements.entitlement.active
+      ? runtimeEntitlements.entitlement
+      : null;
+
   return {
     status: resolvedStatus,
     license: null,
-    checkFeature: () => featuresEnabled,
-    getLimit: () => null,
+    checkFeature: (feature) =>
+      activeEntitlement
+        ? (activeEntitlement.features[feature] ?? false)
+        : featuresEnabled,
+    getLimit: (feature) =>
+      activeEntitlement ? (activeEntitlement.limits[feature] ?? null) : null,
   };
 }
 
