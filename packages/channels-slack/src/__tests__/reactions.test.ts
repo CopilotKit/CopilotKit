@@ -88,30 +88,36 @@ describe("decodeReaction", () => {
 const BOT_USER_ID = "UBOT0001";
 
 /**
- * A permissive fake Bolt app that records the `reaction_added`/`reaction_removed`
- * handlers registered during `start()` and no-ops every other registration
- * (message/event/action/view/command) the adapter and its sub-listeners attach.
+ * A permissive fake Bolt `App` that records the `reaction_added`/
+ * `reaction_removed` handlers registered during `startIngress()` and no-ops
+ * every other registration (message/event/action/view/command/assistant) the
+ * connector and its sub-listeners attach. Mocked at the `@slack/bolt` module
+ * level (not via a field swap on the adapter) — `App` construction now lives
+ * inside `WebClientSlackConnector.startIngress` (Task 3b), not on the adapter.
  */
-function makeFakeApp() {
-  const handlers: Record<string, (args: { event: unknown }) => unknown> = {};
-  const app = {
-    init: vi.fn().mockResolvedValue(undefined),
-    start: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn().mockResolvedValue(undefined),
+const reactionHandlers: Record<string, (args: { event: unknown }) => unknown> =
+  {};
+
+vi.mock("@slack/bolt", () => ({
+  App: class {
+    init = vi.fn().mockResolvedValue(undefined);
+    start = vi.fn().mockResolvedValue(undefined);
+    stop = vi.fn().mockResolvedValue(undefined);
     event(name: string, handler: (args: { event: unknown }) => unknown) {
-      handlers[name] = handler;
-    },
-    message() {},
-    action() {},
-    view() {},
-    command() {},
-    assistant() {},
-    use() {},
-  };
-  return {
-    app,
-    fireReaction: (name: string, event: unknown) => handlers[name]?.({ event }),
-  };
+      reactionHandlers[name] = handler;
+    }
+    message() {}
+    action() {}
+    view() {}
+    command() {}
+    assistant() {}
+    use() {}
+  },
+  LogLevel: { ERROR: "error", WARN: "warn", INFO: "info", DEBUG: "debug" },
+}));
+
+function fireReaction(name: string, event: unknown) {
+  return reactionHandlers[name]?.({ event });
 }
 
 function makeSink() {
@@ -135,8 +141,6 @@ describe("adapter reaction ingress loop guard", () => {
       signingSecret: "s",
       assistant: false,
     });
-    const { app, fireReaction } = makeFakeApp();
-    (adapter as unknown as { app: unknown }).app = app;
     const usersInfo = vi.fn().mockResolvedValue({
       user: {
         id: "UHUMAN",

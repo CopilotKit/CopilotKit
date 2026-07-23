@@ -1,6 +1,6 @@
-import { App, LogLevel } from "@slack/bolt";
+import { LogLevel } from "@slack/bolt";
+import { WebClient } from "@slack/web-api";
 import type {
-  WebClient,
   ChatStartStreamArguments,
   ChatAppendStreamArguments,
   ChatStopStreamArguments,
@@ -36,16 +36,12 @@ import type {
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { SlackConversationStore } from "./conversation-store.js";
 import { WebClientSlackConnector } from "./slack-connector.js";
-import type { SlackConnector } from "./slack-connector.js";
-import { attachSlackListener } from "./slack-listener.js";
+import type {
+  SlackConnector,
+  SlackIngressLogLevel,
+} from "./slack-connector.js";
 import { createRunRenderer } from "./event-renderer.js";
-import {
-  decodeInteraction,
-  decodeReaction,
-  decodeViewSubmission,
-  decodeViewClosed,
-  conversationKeyOf,
-} from "./interaction.js";
+import { decodeInteraction } from "./interaction.js";
 import {
   renderBlockKit,
   renderSlackMessage,
@@ -57,7 +53,6 @@ import type { SlackRenderTransport } from "./render/transport.js";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { NativeMessageStream } from "./native-stream.js";
 import type { TextStream, NativeStreamTransport } from "./native-stream.js";
-import { attachAssistant } from "./assistant.js";
 import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
@@ -121,7 +116,6 @@ export class SlackAdapter implements PlatformAdapter {
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
 
-  readonly app: App;
   client: WebClient;
   /**
    * Test-only injection point: when set, {@link connector} returns this
@@ -132,6 +126,12 @@ export class SlackAdapter implements PlatformAdapter {
    * `WebClient`.
    */
   private connectorOverride: SlackConnector | undefined;
+  /**
+   * The connector instance `start()` handed ingress ownership to — kept
+   * distinct from the throwaway `connector` getter (below) so `stop()` tears
+   * down the SAME live Bolt `App`/socket `start()` built, not a fresh wrapper.
+   */
+  private ingressConnector: SlackConnector | undefined;
   botUserId = "";
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
@@ -167,19 +167,14 @@ export class SlackAdapter implements PlatformAdapter {
       supportsSuggestedPrompts: assistantEnabled,
       supportsThreadTitle: assistantEnabled,
     };
-    this.app = new App({
-      token: opts.botToken,
-      appToken: opts.appToken,
-      signingSecret: opts.signingSecret,
-      socketMode: opts.socketMode ?? true,
+    // The Bolt `App`/socket now lives in the connector (Task 3b) — start()
+    // hands it ownership. Construction here only needs a plain credentialed
+    // `WebClient` for egress, equivalent to what `App.client` used to expose
+    // (same token, same `logLevel`-only clientOptions; no custom `agent`/
+    // `logger` was ever passed, so this is a faithful stand-in).
+    this.client = new WebClient(opts.botToken, {
       logLevel: opts.logLevel ?? LogLevel.INFO,
-      // Without this, Bolt's constructor fires a background auth.test that
-      // can't be awaited or error-handled (and phones home from unit tests).
-      // start() owns initialization: app.init() below, then our own awaited
-      // auth.test — construction stays side-effect-free.
-      deferInitialization: true,
     });
-    this.client = this.app.client;
     this.store = new SlackConversationStore({
       client: this.client,
       botUserId: "",
@@ -282,146 +277,45 @@ export class SlackAdapter implements PlatformAdapter {
     };
   }
 
+  /**
+   * Delegates ALL ingress ownership to `this.connector` (Task 3b, plan §2
+   * D3): the Bolt `App`/socket, `app.init()`/`auth.test()`, and every raw
+   * event subscription (slash commands, app_mention/message, block_actions,
+   * reaction_added/removed, view submit/close, the assistant-pane
+   * middleware) now live in `WebClientSlackConnector.startIngress` — this
+   * method only resolves the ADAPTER-side config (still Bolt-free: tokens,
+   * resolved `respondTo`, the `resolveUser`/`handleFeedbackClick` callbacks
+   * whose decision logic stays here) and applies the connection facts the
+   * connector hands back. Token removal + relocating this method off the
+   * adapter entirely is a later unit (T3s-4 / A1).
+   */
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
 
-    // Deferred from the constructor (see above); Bolt requires init() before
-    // app.start(), and doing it here surfaces auth/config errors to the caller.
-    await this.app.init();
-
-    // Resolve our own bot user id before attaching the listener so the loop
-    // guard (skip our own posts) is in place from the first event.
-    const auth = await this.client.auth.test();
-    this.botUserId = auth.user_id as string;
-    this.teamId = auth.team_id as string | undefined;
-    (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
-
-    // Attach the assistant-pane middleware FIRST (when enabled) so its
-    // `isAssistantThread` predicate is available to the message listener's
-    // no-double-delivery guard below.
-    if (this.opts.assistant !== false) {
-      this.assistantHandle = attachAssistant({
-        app: this.app,
-        sink,
-        opts: this.opts.assistant ?? {},
-        resolveUser: (id) => this.resolveUser(id),
-      });
-    }
-
-    attachSlackListener({
-      app: this.app,
-      botUserId: this.botUserId,
+    const connector = this.connector;
+    this.ingressConnector = connector;
+    const conn = await connector.startIngress({
+      botToken: this.opts.botToken,
+      appToken: this.opts.appToken,
+      signingSecret: this.opts.signingSecret,
+      socketMode: this.opts.socketMode,
+      port: this.opts.port,
+      logLevel: this.opts.logLevel as SlackIngressLogLevel | undefined,
+      sink,
       respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
-      isAssistantThread: this.assistantHandle?.isAssistantThread,
-      onTurn: async (turn) => {
-        await sink.onTurn({
-          conversationKey: conversationKeyOf(turn.conversation),
-          // Carry the sender id so native channel streams can pass
-          // `recipient_user_id` to chat.startStream.
-          replyTarget: {
-            ...turn.replyTarget,
-            recipientUserId: turn.senderUserId,
-          },
-          userText: turn.userText,
-          user: turn.senderUserId
-            ? await this.resolveUser(turn.senderUserId)
-            : undefined,
-          // Stable per-delivery id for inbound dedup (Events API event_id, or a
-          // fallback derived by the listener); undefined when unavailable.
-          eventId: turn.eventId,
-          platform: "slack",
-          // Normalized conversation surface kind + tag signal (plan §2) — the
-          // engine's product-driven response policy governs from here.
-          conversationKind: turn.conversationKind,
-          mentioned: turn.mentioned,
-        });
-      },
-      onCommand: async (cmd) => {
-        await sink.onCommand({
-          command: cmd.command,
-          text: cmd.text,
-          // Slack delivers args as free text only; structured `rawOptions`
-          // are a Discord-style capability, so they're left unset here.
-          conversationKey: conversationKeyOf(cmd.conversation),
-          replyTarget: cmd.replyTarget,
-          user: cmd.senderUserId
-            ? await this.resolveUser(cmd.senderUserId)
-            : undefined,
-          // Stable per-invocation id for inbound dedup (command:user:trigger_id).
-          eventId: cmd.eventId,
-          platform: "slack",
-          triggerId: cmd.triggerId,
-        });
-      },
+      assistant: this.opts.assistant,
+      resolveUser: (id) => this.resolveUser(id),
+      handleFeedbackClick: (raw) => this.handleFeedbackClick(raw),
     });
 
-    // Every block_actions click → decode to an opaque-id InteractionEvent and
-    // hand to the sink. The matching `ck:` action either resolves an awaiting
-    // HITL picker or dispatches via the ActionRegistry; unrelated clicks decode
-    // to events the bot harmlessly ignores.
-    this.app.action(/.*/, async ({ ack, body }) => {
-      await ack();
-      // Native feedback-row clicks are handled adapter-locally and never reach
-      // the engine's interaction dispatch (which would swallow the unknown id).
-      if (this.handleFeedbackClick(body)) return;
-      const evt = this.decodeInteraction(body);
-      if (evt) await sink.onInteraction(evt);
-    });
-
-    this.app.event("reaction_added", async ({ event }) => {
-      // Loop guard: Slack delivers reaction events for the bot's OWN reactions
-      // (e.g. our addReaction egress), which would echo back as phantom user
-      // reactions. Skip them, like every other ingress path guards botUserId.
-      if (event.user === this.botUserId) return;
-      const evt = decodeReaction(event, true);
-      if (!evt) return;
-      // Enrich the reactor to parity with onTurn/onCommand so per-user
-      // attribution (e.g. senderContext(evt.user) → filter by email) works
-      // for reaction-triggered runs, not just mentions and commands.
-      if (event.user) evt.user = await this.resolveUser(event.user);
-      await sink.onReaction(evt);
-    });
-    this.app.event("reaction_removed", async ({ event }) => {
-      if (event.user === this.botUserId) return;
-      const evt = decodeReaction(event, false);
-      if (!evt) return;
-      if (event.user) evt.user = await this.resolveUser(event.user);
-      await sink.onReaction(evt);
-    });
-
-    // Modal submit: route to the engine and ack. When the handler returns
-    // per-field errors, ack with `response_action: "errors"` (keeps the modal
-    // open with inline messages); otherwise a plain ack closes the modal.
-    // A catch-all `/.*/` callback_id constraint defaults to `view_submission`.
-    this.app.view(/.*/, async ({ ack, body, view }) => {
-      const user = body.user?.id
-        ? { id: body.user.id, name: body.user.name }
-        : undefined;
-      const result = await sink.onModalSubmit(decodeViewSubmission(view, user));
-      if (result?.errors) {
-        await ack({ response_action: "errors", errors: result.errors });
-      } else {
-        await ack();
-      }
-    });
-    // Modal dismissed (only delivered when the view set `notify_on_close`).
-    this.app.view(
-      { type: "view_closed", callback_id: /.*/ },
-      async ({ ack, body, view }) => {
-        const user = body.user?.id
-          ? { id: body.user.id, name: body.user.name }
-          : undefined;
-        await sink.onModalClose(decodeViewClosed(view, user));
-        await ack();
-      },
-    );
-
-    // Socket Mode ignores the port; HTTP mode binds it.
-    await this.app.start(this.opts.port ?? 0);
+    this.botUserId = conn.botUserId;
+    this.teamId = conn.teamId;
+    (this.store as unknown as { botUserId: string }).botUserId = this.botUserId;
+    this.assistantHandle = conn.assistantHandle;
   }
 
   async stop(): Promise<void> {
-    await this.app.stop();
+    await this.ingressConnector?.stopIngress();
   }
 
   render(ir: ChannelNode[]) {

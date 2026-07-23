@@ -88,6 +88,9 @@ export type {
   SlackConnectorMember,
   SlackConnectorUserDetail,
   SlackConnectorHistoryMessage,
+  SlackIngressConfig,
+  SlackIngressConnection,
+  SlackIngressLogLevel,
 } from "./slack-connector.js";
 
 export { FakeSlackConnector } from "./testing/fake-slack-connector.js";

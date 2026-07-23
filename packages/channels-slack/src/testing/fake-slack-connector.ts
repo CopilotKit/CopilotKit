@@ -22,6 +22,8 @@ import type {
   SlackConnectorMember,
   SlackConnectorUserDetail,
   SlackConnectorHistoryMessage,
+  SlackIngressConfig,
+  SlackIngressConnection,
 } from "../slack-connector.js";
 
 /** One recorded call to a {@link FakeSlackConnector} op, in call order. */
@@ -75,6 +77,10 @@ export interface FakeSlackConnectorResults {
 export class FakeSlackConnector implements SlackConnector {
   readonly calls: SlackConnectorCall[] = [];
   private seq = 0;
+  /** Set by {@link startIngress}; readable so a test can assert on the config it was handed. */
+  ingressConfig: SlackIngressConfig | undefined;
+  /** True once {@link stopIngress} has been called. */
+  ingressStopped = false;
 
   constructor(readonly results: FakeSlackConnectorResults = {}) {}
 
@@ -199,5 +205,22 @@ export class FakeSlackConnector implements SlackConnector {
   async openModal(args: ViewsOpenArguments): Promise<void> {
     this.calls.push({ op: "openModal", args });
     this.throwIfConfigured("openModal");
+  }
+
+  /**
+   * No real Bolt socket here — records the config it was handed (so a test
+   * can assert on `respondTo`/`assistant`/callbacks) and resolves with a
+   * canned connection. Never fires any handler on its own; a test drives
+   * ingress behavior against `WebClientSlackConnector` directly instead.
+   */
+  async startIngress(
+    config: SlackIngressConfig,
+  ): Promise<SlackIngressConnection> {
+    this.ingressConfig = config;
+    return { botUserId: "UFAKEBOT", teamId: "TFAKE" };
+  }
+
+  async stopIngress(): Promise<void> {
+    this.ingressStopped = true;
   }
 }

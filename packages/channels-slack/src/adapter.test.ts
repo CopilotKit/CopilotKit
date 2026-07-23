@@ -1,13 +1,52 @@
 import { describe, it, expect, vi } from "vitest";
-import { SlackAdapter } from "./adapter.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { InteractionEvent, IngressSink } from "@copilotkit/channels-core";
 
 /**
- * Build an adapter with a mock Slack client injected. Constructing the real
- * Bolt `App` is side-effect-free (Socket Mode doesn't connect until `start()`),
- * but we never call `start()` here — every test drives the pure-ish egress and
- * decode methods against a fake `client`.
+ * Capture the `action` handler `WebClientSlackConnector.startIngress` would
+ * register on the real Bolt `App`, without starting a real socket. `App`
+ * construction lives inside the connector now (Task 3b), not on the adapter,
+ * so this is mocked at the `@slack/bolt` module level rather than via a field
+ * swap on the adapter.
+ */
+let actionHandler:
+  | ((args: { ack: () => Promise<void>; body: unknown }) => Promise<void>)
+  | undefined;
+/** Captures the `app_mention` handler `attachSlackListener` registers via `app.event`. */
+let mentionHandler:
+  | ((args: { event: Record<string, unknown>; client: object }) => unknown)
+  | undefined;
+
+vi.mock("@slack/bolt", () => ({
+  App: class {
+    init = vi.fn().mockResolvedValue(undefined);
+    start = vi.fn().mockResolvedValue(undefined);
+    stop = vi.fn().mockResolvedValue(undefined);
+    action(_matcher: unknown, handler: typeof actionHandler) {
+      actionHandler = handler;
+    }
+    event(name: string, handler: typeof mentionHandler) {
+      if (name === "app_mention") mentionHandler = handler;
+    }
+    command() {}
+    message() {}
+    assistant() {}
+    view() {}
+  },
+  // `attachAssistant` (default-on) constructs one; a no-op stub is enough
+  // since this test doesn't exercise pane behavior.
+  Assistant: class {},
+  LogLevel: { ERROR: "error", WARN: "warn", INFO: "info", DEBUG: "debug" },
+}));
+
+import { SlackAdapter } from "./adapter.js";
+
+/**
+ * Build an adapter with a mock Slack client injected. Constructing the
+ * adapter is side-effect-free — it only wraps a `WebClient`; the Bolt `App`
+ * lives in the connector and isn't touched until `start()` — but we never
+ * call `start()` here — every test drives the pure-ish egress and decode
+ * methods against a fake `client`.
  */
 function makeAdapter() {
   const chat = {
@@ -393,32 +432,11 @@ describe("SlackAdapter action wiring", () => {
   it("decodes a captured block_actions body and forwards to sink.onInteraction", async () => {
     const { adapter } = makeAdapter();
 
-    // Capture the handler Bolt would register, without starting sockets.
-    let actionHandler:
-      | ((args: { ack: () => Promise<void>; body: unknown }) => Promise<void>)
-      | undefined;
-    const app = {
-      action: vi.fn((_matcher: unknown, handler: typeof actionHandler) => {
-        actionHandler = handler;
-      }),
-      init: vi.fn(async () => {}),
-      start: vi.fn(async () => {}),
-    };
-    (adapter as unknown as { app: unknown }).app = app;
-    // auth.test is awaited in start(); attachSlackListener reads app.event etc.
+    // auth.test is awaited by the connector's startIngress.
     (adapter as unknown as { client: { auth: unknown } }).client = {
       ...(adapter as unknown as { client: object }).client,
       auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
     } as never;
-    // attachSlackListener calls app.command/event/message and (default-on)
-    // attachAssistant calls app.assistant — stub them.
-    Object.assign(app, {
-      command: vi.fn(),
-      event: vi.fn(),
-      message: vi.fn(),
-      assistant: vi.fn(),
-      view: vi.fn(),
-    });
 
     const received: InteractionEvent[] = [];
     const sink: IngressSink = {
@@ -450,5 +468,52 @@ describe("SlackAdapter action wiring", () => {
     expect(received).toHaveLength(1);
     expect(received[0]!.id).toBe("ck:z");
     expect(received[0]!.conversationKey).toBe("C1::100.0");
+  });
+});
+
+describe("SlackAdapter ingress → sink.onTurn (T3s-3a review follow-up)", () => {
+  it("carries conversationKind/mentioned from a raw Slack event through the adapter's normalization to what the sink receives", async () => {
+    // Proves the §2 signals aren't just tsc-covered (as they were before this
+    // test): the FULL adapter.start() → connector.startIngress() →
+    // attachSlackListener → sink.onTurn path actually forwards
+    // conversationKind/mentioned end to end, not just the listener's own
+    // IncomingTurn shape (already covered by response-policy-wiring.test.ts).
+    const { adapter } = makeAdapter();
+    (adapter as unknown as { client: { auth: unknown } }).client = {
+      ...(adapter as unknown as { client: object }).client,
+      auth: { test: vi.fn(async () => ({ user_id: "UBOT" })) },
+    } as never;
+
+    const received: Array<{ conversationKind?: string; mentioned?: boolean }> =
+      [];
+    const sink: IngressSink = {
+      onTurn: (turn) => {
+        received.push(turn);
+      },
+      onInteraction: vi.fn(),
+      onCommand: vi.fn(),
+      onThreadStarted: vi.fn(),
+      onReaction: vi.fn(),
+      onModalSubmit: vi.fn(async () => {}),
+      onModalClose: vi.fn(),
+    };
+    await adapter.start(sink);
+
+    expect(mentionHandler).toBeDefined();
+    await mentionHandler!({
+      event: {
+        type: "app_mention",
+        channel: "C1",
+        ts: "100.0",
+        text: "<@UBOT> hello",
+      },
+      client: {},
+    });
+
+    expect(received).toHaveLength(1);
+    // A top-level @mention: conversationKind "channel" (no thread_ts of its
+    // own to continue), and always tagged.
+    expect(received[0]!.conversationKind).toBe("channel");
+    expect(received[0]!.mentioned).toBe(true);
   });
 });
