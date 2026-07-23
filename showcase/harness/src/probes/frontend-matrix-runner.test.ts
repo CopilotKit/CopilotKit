@@ -5,6 +5,7 @@ import {
   buildMeasuredShardPlan,
   createFrontendMatrixArtifact,
   executeFrontendMatrixShard,
+  mergeFrontendMatrixShardArtifacts,
   percentile,
 } from "./frontend-matrix-runner.js";
 import type { FrontendCellExecutor } from "./frontend-matrix-runner.js";
@@ -213,6 +214,90 @@ describe("frontend matrix CI runner", () => {
     expect(artifact.summary.failed).toBe(0);
     expect(artifact.summary.p95CellDurationMs).toBe(3);
     expect(percentile([10, 20, 30, 40], 0.95)).toBe(40);
+  });
+
+  it("merges isolated frontend phases into one logical shard", () => {
+    const createPhase = (
+      cell: FrontendMatrixCell,
+      startedAt: string,
+      finishedAt: string,
+    ) =>
+      createFrontendMatrixArtifact({
+        sourceCommit: "abc123",
+        containerImageRevision: "sha256:image",
+        fixtureRevision: "fixture123",
+        featureContractRevision: "contract123",
+        shardIndex: 1,
+        shardCount: 4,
+        startedAt,
+        finishedAt,
+        results: [
+          {
+            cell,
+            status: "passed",
+            durationMs: 10,
+            probes: cell.featureTypes.map((featureType, index) => ({
+              featureType,
+              status: "passed",
+              durationMs: 10,
+              testId: `phase-${cell.frontend}-${index}`,
+            })),
+          },
+        ],
+      });
+
+    const react = PAIRED_CELLS.find(
+      (cell) => cell.frontend === "react" && cell.feature === "beautiful-chat",
+    )!;
+    const angular = PAIRED_CELLS.find(
+      (cell) =>
+        cell.frontend === "angular" && cell.feature === "beautiful-chat",
+    )!;
+    const merged = mergeFrontendMatrixShardArtifacts([
+      createPhase(
+        react,
+        "2026-07-23T01:00:00.000Z",
+        "2026-07-23T01:01:00.000Z",
+      ),
+      createPhase(
+        angular,
+        "2026-07-23T01:02:00.000Z",
+        "2026-07-23T01:03:00.000Z",
+      ),
+    ]);
+
+    expect(merged.startedAt).toBe("2026-07-23T01:00:00.000Z");
+    expect(merged.finishedAt).toBe("2026-07-23T01:03:00.000Z");
+    expect(merged.summary).toMatchObject({ total: 2, passed: 2, failed: 0 });
+    expect(merged.cells.map((cell) => cell.frontend)).toEqual([
+      "react",
+      "angular",
+    ]);
+  });
+
+  it("rejects overlapping frontend phase evidence", () => {
+    const phase = createFrontendMatrixArtifact({
+      sourceCommit: "abc123",
+      containerImageRevision: "sha256:image",
+      fixtureRevision: "fixture123",
+      featureContractRevision: "contract123",
+      shardIndex: 0,
+      shardCount: 1,
+      startedAt: "2026-07-23T01:00:00.000Z",
+      finishedAt: "2026-07-23T01:01:00.000Z",
+      results: [
+        {
+          cell: CELLS[0]!,
+          status: "passed",
+          durationMs: 10,
+          probes: [],
+        },
+      ],
+    });
+
+    expect(() => mergeFrontendMatrixShardArtifacts([phase, phase])).toThrow(
+      /duplicate frontend phase cell/i,
+    );
   });
 
   it("removes page content, runtime URLs, and diagnostics from CI evidence", () => {

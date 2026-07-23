@@ -224,38 +224,81 @@ jobs:
           echo "One or more integration containers did not become ready" >&2
           exit 1
 
-      - name: Run four isolated Chromium shards
+      - name: Run isolated Chromium phases with fresh fixture state
         env:
           INTEGRATION: ${{ matrix.integration }}
           SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
         run: |
           IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
-          pids=()
-          for shard in 0 1 2 3; do
-            port=$((10000 + shard))
-            (
-              pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
-                --plan "$RUNNER_TEMP/angular-audit-plan.json" \
-                --shard-index "$shard" \
-                --integration "$INTEGRATION" \
-                --integration-base-url "http://127.0.0.1:$port" \
-                --source-commit "$SOURCE_SHA" \
-                --container-image-revision "$IMAGE_REVISION" \
-                --fixture-revision "$SOURCE_SHA" \
-                --feature-contract-revision "$SOURCE_SHA" \
-                --concurrency 1 \
-                --output "$RUNNER_TEMP/angular-audit-$INTEGRATION-$shard.json"
-            ) > "$RUNNER_TEMP/browser-shard-$shard.log" 2>&1 &
-            pids+=("$!")
-          done
           status=0
-          for pid in "${pids[@]}"; do
-            if ! wait "$pid"; then
-              status=1
-            fi
-          done
+
+          run_frontend_phase() {
+            frontend="$1"
+            mkdir -p "$RUNNER_TEMP/angular-audit-phases"
+            pids=()
+            for shard in 0 1 2 3; do
+              port=$((10000 + shard))
+              (
+                pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+                  --plan "$RUNNER_TEMP/angular-audit-plan.json" \
+                  --shard-index "$shard" \
+                  --frontend "$frontend" \
+                  --integration "$INTEGRATION" \
+                  --integration-base-url "http://127.0.0.1:$port" \
+                  --source-commit "$SOURCE_SHA" \
+                  --container-image-revision "$IMAGE_REVISION" \
+                  --fixture-revision "$SOURCE_SHA" \
+                  --feature-contract-revision "$SOURCE_SHA" \
+                  --concurrency 1 \
+                  --output "$RUNNER_TEMP/angular-audit-phases/$frontend-$shard.json"
+              ) > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1 &
+              pids+=("$!")
+            done
+            for pid in "${pids[@]}"; do
+              if ! wait "$pid"; then
+                status=1
+              fi
+            done
+            for shard in 0 1 2 3; do
+              sed -n '1,240p' "$RUNNER_TEMP/browser-$frontend-shard-$shard.log"
+            done
+          }
+
+          start_fixture_sidecar() {
+            showcase/scripts/node_modules/.bin/llmock \
+              --port 4010 \
+              --host 0.0.0.0 \
+              --metrics \
+              --fixtures showcase/aimock/shared \
+              --fixtures showcase/aimock/d4 \
+              --fixtures showcase/aimock/d5-recorded \
+              --fixtures showcase/aimock/d6 \
+              --validate-on-load \
+              > "$RUNNER_TEMP/aimock-angular.log" 2>&1 &
+            echo "$!" > "$RUNNER_TEMP/aimock.pid"
+            for _ in $(seq 1 30); do
+              if curl --fail --silent --max-time 2 http://127.0.0.1:4010/__aimock/health > /dev/null; then
+                return 0
+              fi
+              sleep 1
+            done
+            echo "Reset fixture sidecar did not become ready" >&2
+            return 1
+          }
+
+          run_frontend_phase react
+          fixture_pid=$(cat "$RUNNER_TEMP/aimock.pid")
+          kill "$fixture_pid"
+          wait "$fixture_pid" 2>/dev/null || true
+          if ! start_fixture_sidecar; then
+            exit 1
+          fi
+          run_frontend_phase angular
+
           for shard in 0 1 2 3; do
-            sed -n '1,240p' "$RUNNER_TEMP/browser-shard-$shard.log"
+            pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts merge-shard \
+              --inputs "$RUNNER_TEMP/angular-audit-phases/react-$shard.json,$RUNNER_TEMP/angular-audit-phases/angular-$shard.json" \
+              --output "$RUNNER_TEMP/angular-audit-$INTEGRATION-$shard.json"
           done
           exit "$status"
 

@@ -31,6 +31,7 @@ import {
   buildMeasuredShardPlan,
   createFrontendMatrixArtifact,
   executeFrontendMatrixShard,
+  mergeFrontendMatrixShardArtifacts,
 } from "../probes/frontend-matrix-runner.js";
 import type {
   FrontendMatrixArtifact,
@@ -275,9 +276,17 @@ function createProgram(): Command {
     .option("--concurrency <n>", "parallel isolated cells", positiveInteger, 4)
     .action(async (options) => {
       const shardIndex = Number(options.shardIndex);
-      const matrix = await loadMatrix(options.catalog, options);
+      const matrix = await loadMatrix(options.catalog, {
+        integration: options.integration,
+        features: options.features,
+      });
       const plan = await readJson<MeasuredShardPlan>(options.plan);
-      const cells = selectFrontendMatrixShard(matrix, plan, shardIndex);
+      const plannedCells = selectFrontendMatrixShard(matrix, plan, shardIndex);
+      const cells = options.frontend
+        ? plannedCells.filter(
+            (cell) => cell.frontend === (options.frontend as RunnableFrontend),
+          )
+        : plannedCells;
       const integrationBaseUrl = new URL(
         options.integrationBaseUrl,
       ).href.replace(/\/$/, "");
@@ -324,6 +333,29 @@ function createProgram(): Command {
       } finally {
         await browser.close();
       }
+    });
+
+  program
+    .command("merge-shard")
+    .description(
+      "Merge independently executed frontend phases for one logical shard",
+    )
+    .requiredOption(
+      "--inputs <files>",
+      "comma-separated frontend phase artifacts",
+      commaSeparatedValues,
+    )
+    .requiredOption("--output <file>")
+    .action(async (options) => {
+      const artifacts = await Promise.all(
+        (options.inputs as string[]).map((file) =>
+          readJson<FrontendMatrixArtifact>(file),
+        ),
+      );
+      await writeJson(
+        options.output,
+        mergeFrontendMatrixShardArtifacts(artifacts),
+      );
     });
 
   program

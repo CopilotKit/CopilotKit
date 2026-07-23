@@ -342,6 +342,75 @@ export interface FrontendMatrixArtifact {
   cells: FrontendMatrixArtifactCell[];
 }
 
+/**
+ * Recombine independently executed frontend phases for one logical shard.
+ *
+ * Stateful mock providers can receive nested SDK requests that do not carry
+ * the browser test id. Running React and Angular against separately reset
+ * fixture state prevents the first framework from consuming the second
+ * framework's sequence, while this merge preserves the original one-artifact
+ * per-shard completeness contract.
+ */
+export function mergeFrontendMatrixShardArtifacts(
+  artifacts: readonly FrontendMatrixArtifact[],
+): FrontendMatrixArtifact {
+  const first = artifacts[0];
+  if (!first) throw new Error("no frontend phase artifacts to merge");
+
+  const cells: FrontendMatrixArtifactCell[] = [];
+  const cellIds = new Set<string>();
+  let startedAt = Date.parse(first.startedAt);
+  let finishedAt = Date.parse(first.finishedAt);
+
+  for (const artifact of artifacts) {
+    if (
+      artifact.schemaVersion !== first.schemaVersion ||
+      artifact.sourceCommit !== first.sourceCommit ||
+      artifact.containerImageRevision !== first.containerImageRevision ||
+      artifact.fixtureRevision !== first.fixtureRevision ||
+      artifact.featureContractRevision !== first.featureContractRevision ||
+      artifact.shard.index !== first.shard.index ||
+      artifact.shard.count !== first.shard.count
+    ) {
+      throw new Error("frontend phase artifact identity mismatch");
+    }
+    const artifactStartedAt = Date.parse(artifact.startedAt);
+    const artifactFinishedAt = Date.parse(artifact.finishedAt);
+    if (
+      !Number.isFinite(artifactStartedAt) ||
+      !Number.isFinite(artifactFinishedAt) ||
+      artifactFinishedAt < artifactStartedAt
+    ) {
+      throw new Error("frontend phase artifact has invalid timestamps");
+    }
+    startedAt = Math.min(startedAt, artifactStartedAt);
+    finishedAt = Math.max(finishedAt, artifactFinishedAt);
+    for (const cell of artifact.cells) {
+      if (cellIds.has(cell.cellId)) {
+        throw new Error(`duplicate frontend phase cell ${cell.cellId}`);
+      }
+      cellIds.add(cell.cellId);
+      cells.push(cell);
+    }
+  }
+
+  return {
+    ...first,
+    startedAt: new Date(startedAt).toISOString(),
+    finishedAt: new Date(finishedAt).toISOString(),
+    summary: {
+      total: cells.length,
+      passed: cells.filter((cell) => cell.status === "passed").length,
+      failed: cells.filter((cell) => cell.status === "failed").length,
+      p95CellDurationMs: percentile(
+        cells.map((cell) => cell.durationMs),
+        0.95,
+      ),
+    },
+    cells,
+  };
+}
+
 /** Shape the stable, frontend-aware JSON contract uploaded by each CI shard. */
 export function createFrontendMatrixArtifact(
   input: FrontendMatrixArtifactInput,
