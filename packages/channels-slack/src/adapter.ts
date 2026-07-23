@@ -1142,7 +1142,7 @@ export class SlackAdapter implements PlatformAdapter {
 }
 
 /** Construct a Slack `PlatformAdapter`. */
-export function slack(opts: SlackAdapterOptions): SlackAdapter {
+export function slack(opts: SlackAdapterOptions = {}): SlackAdapter {
   return new SlackAdapter(opts);
 }
 
