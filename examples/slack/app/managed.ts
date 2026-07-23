@@ -170,6 +170,15 @@ async function main() {
     basePath: "/api/copilotkit",
   });
   const port = Number(process.env.PORT ?? 8300);
+  // Fail loud on a malformed PORT rather than letting `Number("abc")` → NaN
+  // (or an out-of-range value) reach `server.listen()` and silently bind a
+  // random/wrong port that still comes up "healthy".
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    console.error(
+      `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
+    );
+    process.exit(1);
+  }
   createServer(listener).listen(port, () => {
     console.log(
       `[channel] started managed Channel "${channelName}" (listener on :${port})`,

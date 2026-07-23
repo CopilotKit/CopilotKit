@@ -153,7 +153,7 @@ async function main() {
     // routes there); locally it defaults to 3000. Fail loud on a malformed
     // PORT rather than letting `Number("abc")` → NaN reach `server.listen()`.
     const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-    if (!Number.isInteger(port) || port < 0) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       console.error(
         `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
       );
@@ -278,11 +278,24 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
-    await bot.stop();
-    process.exit(0);
+    let exitCode = 0;
+    try {
+      await bot.stop();
+    } catch (err) {
+      console.error("[channel] error stopping channel", err);
+      exitCode = 1;
+    }
+    process.exit(exitCode);
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  // A failed shutdown must not vanish — log it and exit nonzero.
+  const runShutdown = (signal: string): void => {
+    shutdown(signal).catch((err: unknown) => {
+      console.error(`[channel] fatal during ${signal} shutdown`, err);
+      process.exit(1);
+    });
+  };
+  process.on("SIGINT", () => runShutdown("SIGINT"));
+  process.on("SIGTERM", () => runShutdown("SIGTERM"));
 }
 
 // Fail loud, not silent: surface any stray async error (e.g. a throw deep in an
