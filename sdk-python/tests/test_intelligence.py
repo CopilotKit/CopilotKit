@@ -29,6 +29,8 @@ BAD = "77777777-7777-4777-8777-777777777777"
 VERSION_ONE = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 VERSION_TWO = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 from copilotkit.intelligence import (
+    _ERROR_CATEGORIES,
+    _ERROR_CODES,
     AsyncCopilotKitIntelligence,
     CopilotKitIntelligence,
     IntelligenceAccessDeniedError,
@@ -51,6 +53,31 @@ def golden_registry_fixture():
         / "packages/intelligence/conformance/registry-sdk-v1.json"
     )
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def canonical_error_vocabulary():
+    path = (
+        Path(__file__).parents[2]
+        / "packages/intelligence/conformance/learning-platform-v1.json"
+    )
+    corpus = json.loads(path.read_text(encoding="utf-8"))
+    properties = corpus["schemas"]["LearningPlatformErrorResponseV1"]["properties"][
+        "error"
+    ]["properties"]
+    return properties["code"]["enum"], properties["category"]["enum"]
+
+
+def canonical_error_response(code, category):
+    return {
+        "error": {
+            "code": code,
+            "message": "Canonical Learning Platform error.",
+            "category": category,
+            "retryable": True,
+        },
+        "requestId": "request-canonical",
+        "traceId": "trace-canonical",
+    }
 
 
 def golden_client(tmp_path, transport):
@@ -303,6 +330,67 @@ def test_shared_golden_noncanonical_errors_fail_loudly(tmp_path, scenario_name):
         sdk.skills.get(golden["identity"]["learningContainerId"])
 
     assert raised.value.code == golden["expectations"]["nonCanonicalErrorCode"]
+    assert raised.value.category == "dependency"
+
+
+def test_embedded_error_allowlists_equal_the_canonical_conformance_enums():
+    codes, categories = canonical_error_vocabulary()
+
+    assert _ERROR_CODES == frozenset(codes)
+    assert _ERROR_CATEGORIES == frozenset(categories)
+
+
+def test_every_canonical_error_code_and_category_round_trips(tmp_path):
+    codes, categories = canonical_error_vocabulary()
+
+    for code in codes:
+        sdk = client(
+            tmp_path,
+            QueueTransport(
+                response(canonical_error_response(code, "dependency"), status=500)
+            ),
+        )
+        with pytest.raises(IntelligenceError) as raised:
+            sdk.skills.get(CONTAINER)
+        assert raised.value.code == code
+        assert raised.value.category == "dependency"
+
+    for category in categories:
+        sdk = client(
+            tmp_path,
+            QueueTransport(
+                response(
+                    canonical_error_response("LEARNING_JOB_LAUNCH_FAILED", category),
+                    status=500,
+                )
+            ),
+        )
+        with pytest.raises(IntelligenceError) as raised:
+            sdk.skills.get(CONTAINER)
+        assert raised.value.code == "LEARNING_JOB_LAUNCH_FAILED"
+        assert raised.value.category == category
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        "LEARNING_CANDIDATE_STALE_PARENT",
+        "LEARNING_CANDIDATE_SUBJECT_MISMATCH",
+        "LEARNING_CANDIDATE_GATES_INCOMPLETE",
+    ],
+)
+def test_obsolete_error_aliases_fail_closed_as_noncanonical(tmp_path, code):
+    sdk = client(
+        tmp_path,
+        QueueTransport(
+            response(canonical_error_response(code, "conflict"), status=500)
+        ),
+    )
+
+    with pytest.raises(IntelligenceError) as raised:
+        sdk.skills.get(CONTAINER)
+
+    assert raised.value.code == "LEARNING_REGISTRY_UNRECOVERABLE"
     assert raised.value.category == "dependency"
 
 

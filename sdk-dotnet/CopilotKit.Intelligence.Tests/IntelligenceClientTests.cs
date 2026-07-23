@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Net;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -121,6 +122,56 @@ public sealed class IntelligenceClientTests : IDisposable
         var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
 
         Assert.Equal(golden["expectations"]!["nonCanonicalErrorCode"]!.GetValue<string>(), error.Code);
+        Assert.Equal("dependency", error.Category);
+    }
+
+    [Fact]
+    public void EmbeddedErrorAllowlistsEqualCanonicalConformanceEnums()
+    {
+        var vocabulary = CanonicalErrorVocabulary();
+
+        Assert.Equal(vocabulary.Codes.ToHashSet(StringComparer.Ordinal), EmbeddedAllowlist("CanonicalErrorCodes"));
+        Assert.Equal(vocabulary.Categories.ToHashSet(StringComparer.Ordinal), EmbeddedAllowlist("CanonicalErrorCategories"));
+    }
+
+    [Fact]
+    public async Task EveryCanonicalErrorCodeAndCategoryRoundTrips()
+    {
+        var vocabulary = CanonicalErrorVocabulary();
+        Directory.CreateDirectory(Path.Combine(
+            _cacheRoot,
+            "v1",
+            Sha(Encoding.UTF8.GetBytes("project-a")),
+            ContainerId));
+
+        foreach (var code in vocabulary.Codes)
+        {
+            using var client = Client(new QueueHandler(CanonicalError(code, "dependency")));
+            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+            Assert.Equal(code, error.Code);
+            Assert.Equal("dependency", error.Category);
+        }
+
+        foreach (var category in vocabulary.Categories)
+        {
+            using var client = Client(new QueueHandler(CanonicalError("LEARNING_JOB_LAUNCH_FAILED", category)));
+            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+            Assert.Equal("LEARNING_JOB_LAUNCH_FAILED", error.Code);
+            Assert.Equal(category, error.Category);
+        }
+    }
+
+    [Theory]
+    [InlineData("LEARNING_CANDIDATE_STALE_PARENT")]
+    [InlineData("LEARNING_CANDIDATE_SUBJECT_MISMATCH")]
+    [InlineData("LEARNING_CANDIDATE_GATES_INCOMPLETE")]
+    public async Task ObsoleteErrorAliasesFailClosedAsNoncanonical(string code)
+    {
+        using var client = Client(new QueueHandler(CanonicalError(code, "conflict")));
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+
+        Assert.Equal(IntelligenceErrorCodes.RegistryUnrecoverable, error.Code);
         Assert.Equal("dependency", error.Category);
     }
 
@@ -359,6 +410,39 @@ public sealed class IntelligenceClientTests : IDisposable
             "../../../../../packages/intelligence/conformance/registry-sdk-v1.json"));
         return JsonNode.Parse(File.ReadAllText(path))!.AsObject();
     }
+
+    private static (string[] Codes, string[] Categories) CanonicalErrorVocabulary()
+    {
+        var path = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "../../../../../packages/intelligence/conformance/learning-platform-v1.json"));
+        var corpus = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+        var properties = corpus["schemas"]!["LearningPlatformErrorResponseV1"]!["properties"]!["error"]!["properties"]!;
+        return (
+            properties["code"]!["enum"]!.AsArray().Select(value => value!.GetValue<string>()).ToArray(),
+            properties["category"]!["enum"]!.AsArray().Select(value => value!.GetValue<string>()).ToArray());
+    }
+
+    private static HashSet<string> EmbeddedAllowlist(string fieldName)
+    {
+        var field = typeof(IntelligenceClient).GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+        return Assert.IsType<HashSet<string>>(field.GetValue(null));
+    }
+
+    private static HttpResponseMessage CanonicalError(string code, string category) =>
+        Json(new JsonObject
+        {
+            ["error"] = new JsonObject
+            {
+                ["code"] = code,
+                ["message"] = "Canonical Learning Platform error.",
+                ["category"] = category,
+                ["retryable"] = true,
+            },
+            ["requestId"] = "request-canonical",
+            ["traceId"] = "trace-canonical",
+        }, HttpStatusCode.InternalServerError);
 
     private static HttpResponseMessage Json(JsonNode value, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(value.ToJsonString(), Encoding.UTF8, "application/json") };
