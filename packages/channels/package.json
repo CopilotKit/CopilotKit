@@ -52,6 +52,10 @@
       "types": "./dist/ui.d.ts",
       "import": "./dist/ui.js"
     },
+    "./charts": {
+      "types": "./dist/charts.d.ts",
+      "import": "./dist/charts.js"
+    },
     "./slack": {
       "types": "./dist/slack.d.ts",
       "import": "./dist/slack.js"
