@@ -27,6 +27,43 @@ except ImportError:
     from langchain_core.messages import BaseMessage
 
 
+def should_emit_tool_call(
+    tool_call_names: Dict[str, str],
+    emit_tool_calls: Union[bool, str, List[str]],
+    event,
+) -> bool:
+    """Check if a tool call event should be emitted based on the emit_tool_calls config.
+
+    Extracted as a module-level function so it can be tested directly without
+    needing to instantiate LangGraphAGUIAgent (which requires ag_ui_langgraph).
+
+    Args:
+        tool_call_names: Mapping of tool_call_id -> tool_call_name for id-based lookups.
+        emit_tool_calls: The filtering config — True/False, a single tool name, or a list of names.
+        event: The AG-UI event object (has optional tool_call_name/tool_call_id attributes).
+    """
+    if isinstance(emit_tool_calls, bool):
+        return emit_tool_calls
+
+    # Use getattr with None default — hasattr returns True even when the
+    # attribute exists but is None, which would skip the id-lookup fallback.
+    tool_call_name = getattr(event, 'tool_call_name', None)
+    if tool_call_name is None:
+        tool_call_id = getattr(event, 'tool_call_id', None)
+        if tool_call_id is not None:
+            tool_call_name = tool_call_names.get(tool_call_id)
+
+    if tool_call_name is None:
+        return True
+
+    if isinstance(emit_tool_calls, str):
+        return emit_tool_calls == tool_call_name
+    if isinstance(emit_tool_calls, list):
+        return tool_call_name in emit_tool_calls
+
+    return True
+
+
 class CustomEventNames(Enum):
     """Custom event names for CopilotKit"""
 
@@ -68,6 +105,15 @@ class LangGraphAGUIAgent(LangGraphAgent):
     ):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        self._tool_call_names: Dict[str, str] = {}
+
+    def _should_emit_tool_call(
+        self,
+        emit_tool_calls: Union[bool, str, List[str]],
+        event,
+    ) -> bool:
+        """Delegate to the module-level function with instance state."""
+        return should_emit_tool_call(self._tool_call_names, emit_tool_calls, event)
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -226,6 +272,13 @@ class LangGraphAGUIAgent(LangGraphAgent):
                 EventType.TOOL_CALL_END,
             ]
 
+            # Track tool call names for filtering by name
+            if event.type == EventType.TOOL_CALL_START:
+                tc_id = getattr(event, 'tool_call_id', None)
+                tc_name = getattr(event, 'tool_call_name', None)
+                if tc_id and tc_name:
+                    self._tool_call_names[tc_id] = tc_name
+
             # Handle both dict and object cases for raw_event
             # See: https://github.com/CopilotKit/CopilotKit/issues/2066
             metadata = (
@@ -235,8 +288,16 @@ class LangGraphAGUIAgent(LangGraphAgent):
             ) or {}
 
             if "copilotkit:emit-tool-calls" in metadata:
-                if metadata["copilotkit:emit-tool-calls"] is False and is_tool_event:
+                emit_tool_calls = metadata["copilotkit:emit-tool-calls"]
+                if is_tool_event and not self._should_emit_tool_call(emit_tool_calls, event):
                     return None  # Don't dispatch this event
+
+            # Clean up tracked names after filtering to prevent memory leak.
+            # Must happen AFTER the filter so TOOL_CALL_END can still resolve its name.
+            if event.type == EventType.TOOL_CALL_END:
+                tc_id = getattr(event, 'tool_call_id', None)
+                if tc_id:
+                    self._tool_call_names.pop(tc_id, None)
 
             if "copilotkit:emit-messages" in metadata:
                 if metadata["copilotkit:emit-messages"] is False and is_message_event:
