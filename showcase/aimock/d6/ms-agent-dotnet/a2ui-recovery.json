@@ -1,0 +1,64 @@
+{
+ "_meta": {
+  "description": "D6 fixtures for ms-agent-dotnet / a2ui-recovery (A2UI error recovery)",
+  "sourceScript": "d5-a2ui-recovery.ts",
+  "_note": "ms-agent-dotnet's RecoveryAgent (agent/RecoveryAgent.cs) is a raw-SSE MapPost endpoint, NOT a MapAGUI-mounted ChatClientAgent. It does NOT emit an outer generate_a2ui tool call and its narration text is hard-coded in C# (WriteNarrationAsync) — so the ONLY calls that reach aimock are the inner secondary render calls made by A2uiSecondaryToolCaller, whose tool name is `_design_a2ui_surface` (NOT render_a2ui like the Python slugs). RecoveryAgent forwards the FULL pill prompt verbatim as the inner call's user_content (ExtractLastUserText -> A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync), re-sending the SAME content each attempt so aimock advances sequenceIndex (0 invalid -> 1 valid) to drive the heal retry. NO `context` match field: the recovery pills' prompts are GLOBALLY unique across every slug, so userMessage alone disambiguates (mirrors the langgraph-python reference; a real browser does not send x-aimock-context). Validation (RecoveryAgent.ValidateComponents): a surface is INVALID when a component's static `child`/`children` string references an id that is not defined (dangling_child_reference) or when no `root` component exists; it is VALID when a `root` exists and every static child reference resolves. HEAL: attempt 1 (seq 0) invalid (root -> missing child) -> retry -> attempt 2 (seq 1) valid (Column + two Metric tiles) -> paints declarative-metric x2. EXHAUST: invalid on every attempt (no valid seq) -> recovery exhausts -> a2ui_recovery_exhausted `failed` card.",
+  "created": "2026-07-23",
+  "copiedFrom": "langgraph-python"
+ },
+ "fixtures": [
+  {
+   "_comment": "HEAL pill - inner _design_a2ui_surface attempt 1 (sequenceIndex 0): structurally INVALID (root's children reference a missing child id) -> RecoveryAgent.ValidateComponents returns dangling_child_reference and the validate->retry loop rejects it and retries.",
+   "match": {
+    "userMessage": "Generate the Vantage .NET quarterly revenue board and self-heal a malformed first render.",
+    "toolName": "_design_a2ui_surface",
+    "sequenceIndex": 0
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_msdotnet_recover_heal_bad",
+      "name": "_design_a2ui_surface",
+      "arguments": "{\"surfaceId\":\"recovery-surface\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"missing-metric\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - inner _design_a2ui_surface attempt 2 (sequenceIndex 1): VALID surface (root Column + two Metric tiles, all child ids defined) -> validation passes -> recovery succeeds and paints (declarative-metric x2).",
+   "match": {
+    "userMessage": "Generate the Vantage .NET quarterly revenue board and self-heal a malformed first render.",
+    "toolName": "_design_a2ui_surface",
+    "sequenceIndex": 1
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_msdotnet_recover_heal_good",
+      "name": "_design_a2ui_surface",
+      "arguments": "{\"surfaceId\":\"recovery-surface\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - inner _design_a2ui_surface: structurally INVALID on every attempt (root references an id that is never defined) -> validation fails on all MaxAttempts (3) -> recovery exhausts to the a2ui_recovery_exhausted `failed` card. No sequenceIndex so it matches every attempt of this prompt.",
+   "match": {
+    "userMessage": "Generate a .NET board that fails every validation pass so I can preview the recovery fallback.",
+    "toolName": "_design_a2ui_surface"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_msdotnet_recover_exhaust_design",
+      "name": "_design_a2ui_surface",
+      "arguments": "{\"surfaceId\":\"recovery-surface-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"never-defined\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  }
+ ]
+}

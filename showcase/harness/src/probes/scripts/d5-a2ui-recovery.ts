@@ -114,6 +114,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Draft a Vantage board that flunks every validation sweep so I can preview the fallback.",
   },
+  "ms-agent-dotnet": {
+    heal: "Generate the Vantage .NET quarterly revenue board and self-heal a malformed first render.",
+    exhaust:
+      "Generate a .NET board that fails every validation pass so I can preview the recovery fallback.",
+  },
   strands: {
     heal: "Assemble a quarterly performance board and recover from a malformed first draft.",
     exhaust:
