@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted } from "vue";
+import { computed, onBeforeUnmount, onMounted } from "vue";
 
 // Total reserved vertical space for the fixed license banner: banner height
 // (~36px) + bottom offset (8px) + visual gap above the chat input (~8px).
@@ -19,17 +19,15 @@ const props = withDefaults(
     featureName?: string;
     expiryDate?: string;
     graceRemaining?: number;
+    onDismiss?: () => void;
   }>(),
   {
     featureName: undefined,
     expiryDate: undefined,
     graceRemaining: undefined,
+    onDismiss: undefined,
   },
 );
-
-const emit = defineEmits<{
-  dismiss: [];
-}>();
 
 interface BannerSpec {
   severity: "info" | "warning" | "critical";
@@ -130,16 +128,6 @@ const containerStyle = computed(() => ({
   ...severityStyle.value,
 }));
 
-const instance = getCurrentInstance();
-const hasDismissListener = computed(() => {
-  const vnodeProps = (instance?.vnode.props ?? {}) as Record<string, unknown>;
-  return typeof vnodeProps.onDismiss === "function";
-});
-
-function handleDismiss() {
-  emit("dismiss");
-}
-
 // Publish the banner's reserved bottom offset so the chat input can lift
 // itself above it via padding-bottom: var(--copilotkit-license-banner-offset).
 onMounted(() => {
@@ -179,7 +167,7 @@ onBeforeUnmount(() => {
         {{ spec.actionLabel }}
       </a>
       <button
-        v-if="hasDismissListener"
+        v-if="props.onDismiss"
         :style="{
           background: 'none',
           border: 'none',
@@ -187,7 +175,7 @@ onBeforeUnmount(() => {
           color: 'inherit',
           fontSize: '16px',
         }"
-        @click="handleDismiss"
+        @click="props.onDismiss"
       >
         ×
       </button>
