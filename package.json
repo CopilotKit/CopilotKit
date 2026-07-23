@@ -39,7 +39,8 @@
     "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
-    "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
+    "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color",
+    "eval:skill:setup": "tsx skill-evals/copilotkit-setup/lift/run.ts"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.207",

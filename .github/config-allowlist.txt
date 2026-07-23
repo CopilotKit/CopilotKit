@@ -119,3 +119,5 @@ showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts
 showcase/shell/next.config.ts
+skill-evals/copilotkit-setup/workspace/vite-react/src/vite-env.d.ts
+skill-evals/copilotkit-setup/workspace/vite-react/vite.config.ts
