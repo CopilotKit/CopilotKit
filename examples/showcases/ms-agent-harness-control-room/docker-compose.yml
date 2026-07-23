@@ -1,0 +1,17 @@
+services:
+  agent:
+    container_name: ms-agent-harness-control-room-agent
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # OpenAI direct API key. Required — Harness's chat client is built on
+      # OpenAI's Responses API (/v1/responses), so the key must speak gpt-5.x.
+      # Set OPENAI_API_KEY in .env at the example root.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required - set it in .env or your shell}
+      # Optional: override the chat model. Default mirrors Wesley's Harness samples.
+      # Other valid choices on a 5-tier key: gpt-5, gpt-5-mini, gpt-5.1, gpt-5.4.
+      OPENAI_MODEL_ID: ${OPENAI_MODEL_ID:-gpt-5.4}
+      ASPNETCORE_ENVIRONMENT: Development

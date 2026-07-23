@@ -1,0 +1,18 @@
+# Docker build context is the example root; keep the image small and reproducible.
+node_modules/
+.next/
+.turbo/
+out/
+build/
+dist/
+.control-room-fixture/
+agent/bin/
+agent/obj/
+.vs/
+.vscode/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
