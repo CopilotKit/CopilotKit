@@ -106,8 +106,9 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       // Return cached provisional if available (keeps reference stable)
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        // Update headers on the cached agent in case they changed
+        // Update request settings on the cached agent in case they changed
         copilotkit.applyHeadersToAgent(cached);
+        cached.credentials = copilotkit.credentials;
         return { agent: cached, isReady: false };
       }
 
@@ -115,6 +116,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
@@ -135,12 +137,14 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
         copilotkit.applyHeadersToAgent(cached);
+        cached.credentials = copilotkit.credentials;
         return { agent: cached, isReady: false };
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       copilotkit.applyHeadersToAgent(provisional);
@@ -167,6 +171,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
+    copilotkit.credentials,
     JSON.stringify(copilotkit.headers),
   ]);
 
