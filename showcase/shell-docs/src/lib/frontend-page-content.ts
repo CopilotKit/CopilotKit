@@ -25,6 +25,59 @@ export const ANGULAR_GUIDE_PAGES = [
   },
 ] as const;
 
+/**
+ * React's root IA names frontend-specific capabilities more granularly than
+ * the Angular task guides. Keep selector changes useful without copying the
+ * React page tree: each React-only topic lands on the Angular-native guide
+ * that owns the same job.
+ */
+export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
+  "concepts/which-hook": "features",
+  "prebuilt-components": "guides/chat-ui",
+  "prebuilt-components/chat": "guides/chat-ui",
+  "prebuilt-components/sidebar": "guides/chat-ui",
+  "prebuilt-components/popup": "guides/chat-ui",
+  "prebuilt-components/chat-controls": "guides/chat-ui",
+  "custom-look-and-feel/css": "guides/chat-ui",
+  "custom-look-and-feel/slots": "guides/chat-ui",
+  "custom-look-and-feel/reasoning-messages": "guides/chat-ui",
+  "multimodal-attachments": "guides/chat-ui",
+  voice: "guides/chat-ui",
+  "generative-ui/reasoning": "guides/frontend-tools-generative-ui",
+  "generative-ui/tool-based": "guides/frontend-tools-generative-ui",
+  "generative-ui/tool-rendering": "guides/frontend-tools-generative-ui",
+  "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
+  "generative-ui/your-components/display-only":
+    "guides/frontend-tools-generative-ui",
+  "generative-ui/your-components/interactive":
+    "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui": "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui/index": "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui/dynamic-schema": "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui/fixed-schema": "guides/frontend-tools-generative-ui",
+  "generative-ui/mcp-apps": "guides/frontend-tools-generative-ui",
+  "frontend-tools": "guides/frontend-tools-generative-ui",
+  "human-in-the-loop": "guides/human-in-the-loop",
+  "human-in-the-loop/index": "guides/human-in-the-loop",
+  "human-in-the-loop/useInterrupt": "guides/human-in-the-loop",
+  "human-in-the-loop/headless": "guides/human-in-the-loop",
+  "shared-state": "guides/shared-state",
+  "shared-state/rendering-in-app": "guides/shared-state",
+  "shared-state/streaming": "guides/shared-state",
+  "shared-state/agent-readonly": "guides/shared-state",
+  "agent-app-context": "guides/shared-state",
+  threads: "guides/threads-memory-attachments-headless",
+  "prebuilt-components/copilot-threads-drawer":
+    "guides/threads-memory-attachments-headless",
+  "headless-threads": "guides/threads-memory-attachments-headless",
+  "threads-lifecycle": "guides/threads-memory-attachments-headless",
+  "threads-import": "guides/threads-memory-attachments-headless",
+  "premium/threads-explained": "guides/threads-memory-attachments-headless",
+  "custom-look-and-feel/headless-ui":
+    "guides/threads-memory-attachments-headless",
+  "programmatic-control": "guides/threads-memory-attachments-headless",
+};
+
 export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
@@ -52,9 +105,9 @@ export function getFrontendCanonicalSlug(
   id: FrontendPageId,
   slugPath: string,
 ): string {
-  return id === "angular" && slugPath === "docs-status"
-    ? "using-these-docs"
-    : slugPath;
+  if (id !== "angular") return slugPath;
+  if (slugPath === "docs-status") return "using-these-docs";
+  return ANGULAR_DOC_REDIRECTS[slugPath] ?? slugPath;
 }
 
 const FRONTEND_REFERENCE_SLUGS = {
