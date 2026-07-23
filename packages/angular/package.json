@@ -19,6 +19,12 @@
         "default": "./dist/fesm2022/copilotkit-angular.mjs"
       }
     },
+    "./mcp-apps": {
+      "import": {
+        "types": "./dist/types/copilotkit-angular-mcp-apps.d.ts",
+        "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
+      }
+    },
     "./styles.css": "./dist/styles.css"
   },
   "publishConfig": {
@@ -51,6 +57,7 @@
     "rxjs": "^7.8.1",
     "tailwind-merge": "^2.6.0",
     "tslib": "^2.6.0",
+    "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
@@ -65,6 +72,8 @@
     "@angular/platform-browser-dynamic": "^21.2.15",
     "@copilotkit/typescript-config": "workspace:*",
     "@lucide/build-icons": "^1.1.0",
+    "@modelcontextprotocol/ext-apps": "^1.5.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
@@ -84,13 +93,22 @@
     "tw-animate-css": "^1.3.5",
     "typescript": "5.9.3",
     "vite": "^7.1.4",
-    "vitest": "^3.2.4",
-    "zod": "^3.22.4"
+    "vitest": "^3.2.4"
   },
   "peerDependencies": {
     "@angular/cdk": "^19.0.0 || ^20.0.0 || ^21.0.0",
     "@angular/common": "^19.0.0 || ^20.0.0 || ^21.0.0",
     "@angular/core": "^19.0.0 || ^20.0.0 || ^21.0.0",
+    "@modelcontextprotocol/ext-apps": "^1.5.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/ext-apps": {
+      "optional": true
+    },
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    }
   }
 }
