@@ -114,4 +114,21 @@ describe("box-model charts", () => {
     expect(nanBarHeight).toBe("0%");
     expect(parseFloat(finiteBarHeight)).toBeGreaterThan(0);
   });
+
+  it("Meter clamps a non-finite (NaN) value's inner bar to 0% width", () => {
+    interface MeterElement {
+      props: { children: unknown };
+    }
+    const innerBarWidth = (el: MeterElement): unknown => {
+      const children = el.props.children as unknown[];
+      const barOuter = children.at(-1) as MeterElement;
+      const barInner = barOuter.props.children as {
+        props: { style: { width: string } };
+      };
+      return barInner.props.style.width;
+    };
+    const el = Meter({ value: NaN });
+    expect(isValidElement(el)).toBe(true);
+    expect(innerBarWidth(el as unknown as MeterElement)).toBe("0%");
+  });
 });

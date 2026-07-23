@@ -148,6 +148,13 @@ export class Thread implements ThreadInterface {
     node: unknown,
     opts?: PostImageOptions,
   ): Promise<MessageRef> {
+    // Fail fast BEFORE the (expensive) render if the surface can't upload files
+    // at all — no point rasterizing a PNG we could never post.
+    if (!this.deps.adapter.postFile) {
+      throw new Error(
+        `post(image): ${this.platform} does not support file upload`,
+      );
+    }
     const g = this.deps.render ?? {};
     const cfg: ResolvedRenderConfig = {
       fonts: opts?.fonts ?? g.fonts ?? [],

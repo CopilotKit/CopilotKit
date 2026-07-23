@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
+import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
 import type { ChartDatum, ChartStyleProps } from "./types.js";
 
 export interface BarChartProps extends ChartStyleProps {
@@ -19,7 +19,7 @@ export function BarChart(props: BarChartProps): ReactElement {
   } = props;
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const vals = data.map((d) => finiteOr0(d.value));
-  const max = vals.length ? Math.max(...vals) : 1;
+  const { max } = extent(vals);
   const safeMax = max > 0 ? max : 1;
   return h(
     "div",
