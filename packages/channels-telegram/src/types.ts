@@ -59,19 +59,17 @@ export interface TelegramPayload {
   photos?: { url: string; caption?: string }[];
 }
 
-/** Options accepted by the Telegram adapter constructor. */
+/**
+ * Options accepted by the Telegram adapter constructor — CREDENTIAL-FREE. The
+ * adapter builds nothing from a bot token; it only renders and decides. Every
+ * credential/transport concern (`token`/`mode`/`webhook`) now lives on
+ * {@link GrammyTelegramConnectorOptions} instead — a runner constructs that
+ * connector and injects it via `TelegramAdapter.ɵbindConnector` before
+ * `start()`/any egress call. Running the adapter unbound throws — that's the
+ * intended "you need a custom ChannelRunner" signpost for running Channels
+ * without CopilotKit Intelligence.
+ */
 export interface TelegramAdapterOptions {
-  /** Bot token from @BotFather. */
-  token: string;
-  /** How to receive updates. Defaults to "polling" (long-polling); "webhook" and "auto" are opt-in. */
-  mode?: "polling" | "webhook" | "auto";
-  /** Webhook configuration (required when mode is "webhook" or "auto" with a domain). */
-  webhook?: {
-    domain: string;
-    path?: string;
-    port?: number;
-    secretToken?: string;
-  };
   /** AG-UI event names that should interrupt the running agent. */
   interruptEventNames?: ReadonlySet<string>;
   /** Surface "using <tool>…" status messages while the agent runs. */

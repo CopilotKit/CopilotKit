@@ -2,12 +2,15 @@
  * Inbound file transport. Telegram messages can carry file attachments; this
  * turns them into AG-UI multimodal message content the agent's model can
  * read — images, audio, video, and documents as their respective binary parts —
- * downloading each from the Telegram Bot API file endpoint.
+ * via a connector-supplied `downloadFile` callback (the credentialed
+ * fetch-from-Telegram lives behind {@link TelegramConnector.downloadFile};
+ * no token ever reaches this module).
  *
  * The bridge is transport-only: it delivers the bytes to the agent and lets
  * the app decide what to do with them. Anything it can't represent is skipped
  * with a short note so the agent knows a file was dropped and why.
  */
+import type { TelegramDownloadResult } from "./telegram-connector.js";
 
 /** The subset of a Telegram file object we use. */
 export interface TelegramFileRef {
@@ -39,12 +42,6 @@ export interface FileDeliveryConfig {
   maxBytesPerFile?: number;
   /** Process at most this many files per message. Default 5. */
   maxFiles?: number;
-}
-
-/** Redact all occurrences of `token` from `msg` so the bot secret never leaks into notes. */
-function redactToken(msg: string, token: string): string {
-  if (!token) return msg;
-  return msg.split(token).join("<redacted>");
 }
 
 const DEFAULTS = {
@@ -102,15 +99,17 @@ function isTextLike(mime: string, fileName?: string): boolean {
  * the parts plus human-readable `notes` for anything skipped (appended to the
  * message as a text part by the caller).
  *
- * @param files      List of Telegram file references to process.
- * @param token      Telegram bot token used to build the download URL.
- * @param getFilePath  Resolves a fileId to a Telegram file path (e.g. via getFile API).
- * @param config     Optional delivery configuration.
+ * @param files        List of Telegram file references to process.
+ * @param downloadFile Connector-owned download (resolves fileId → bytes using
+ *                     the connector's own bot token; never exposes the token).
+ * @param config       Optional delivery configuration.
  */
 export async function buildFileContentParts(
   files: TelegramFileRef[],
-  token: string,
-  getFilePath: (fileId: string) => Promise<string>,
+  downloadFile: (
+    fileId: string,
+    opts?: { maxBytesHint?: number },
+  ) => Promise<TelegramDownloadResult>,
   config: FileDeliveryConfig = {},
 ): Promise<{ parts: AgentContentPart[]; notes: string[] }> {
   const maxBytes = config.maxBytesPerFile ?? DEFAULTS.maxBytesPerFile;
@@ -136,47 +135,20 @@ export async function buildFileContentParts(
       continue;
     }
 
-    let filePath: string;
-    try {
-      filePath = await getFilePath(f.fileId);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      notes.push(
-        `skipped "${label}": could not resolve file path — ${redactToken(msg, token)}`,
-      );
+    const result = await downloadFile(f.fileId, { maxBytesHint: maxBytes });
+    if (!result.ok || !result.bytes) {
+      const reason =
+        result.error ??
+        (result.status
+          ? `download failed (HTTP ${result.status})`
+          : "download failed");
+      notes.push(`skipped "${label}": ${reason}`);
       continue;
     }
+    const bytes = result.bytes;
 
-    const url = `https://api.telegram.org/file/bot${token}/${filePath}`;
-    let bytes: Buffer;
-    try {
-      const res = await fetch(url);
-      if (!res.ok) {
-        notes.push(`skipped "${label}": download failed (HTTP ${res.status})`);
-        continue;
-      }
-
-      // Pre-check Content-Length to avoid buffering oversized responses entirely
-      // into memory (memory-DoS guard for cases where f.size is absent, e.g. photos).
-      const contentLength = res.headers.get("content-length");
-      if (contentLength !== null) {
-        const declared = parseInt(contentLength, 10);
-        if (!isNaN(declared) && declared > maxBytes) {
-          notes.push(
-            `skipped "${label}": Content-Length ${declared} bytes too large (cap is ${maxBytes} bytes)`,
-          );
-          continue;
-        }
-      }
-
-      bytes = Buffer.from(await res.arrayBuffer());
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      notes.push(`skipped "${label}": ${redactToken(msg, token)}`);
-      continue;
-    }
-
-    // Backstop: reject if actual body exceeds cap (covers responses without Content-Length).
+    // Backstop: reject if the actual body exceeds cap (covers a connector
+    // that couldn't pre-check via Content-Length).
     if (bytes.byteLength > maxBytes) {
       notes.push(
         `skipped "${label}": ${bytes.byteLength} bytes too large (cap is ${maxBytes} bytes)`,

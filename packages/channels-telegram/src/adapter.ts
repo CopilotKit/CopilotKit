@@ -1,4 +1,3 @@
-import { Bot, InputFile } from "grammy";
 import type { InlineKeyboardButton } from "grammy/types";
 import type {
   PlatformAdapter,
@@ -12,6 +11,9 @@ import type {
   PlatformUser,
   UserQuery,
   CommandSpec,
+  ChannelEgress,
+  ProviderEffect,
+  EffectResultFor,
 } from "@copilotkit/channels-core";
 import type {
   ChannelNode,
@@ -21,7 +23,6 @@ import type {
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { TelegramConversationStore } from "./conversation-store.js";
-import { attachTelegramListener } from "./listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction, conversationKeyOf } from "./interaction.js";
 import { renderTelegram } from "./render/telegram.js";
@@ -29,6 +30,12 @@ import { ChunkedEditStream } from "./chunked-edit-stream.js";
 import { telegramHtml } from "./telegram-html.js";
 import { withTelegramFormatFallback, stripHtml } from "./format-fallback.js";
 import { DM_SCOPE } from "./types.js";
+import type {
+  TelegramConnector,
+  TelegramReplyMarkup,
+  TelegramSentMessage,
+} from "./telegram-connector.js";
+import { TELEGRAM_ALLOWED_UPDATES } from "./telegram-connector.js";
 import type {
   ConversationKey,
   ReplyTarget,
@@ -38,33 +45,21 @@ import type {
   TelegramPayload,
 } from "./types.js";
 
-/**
- * Update types that the Telegram adapter subscribes to. Includes
- * `message_reaction` so the bot receives emoji-reaction events.
- *
- * In **group** chats the bot must be an administrator to receive
- * `message_reaction` updates; private chats and channels work without
- * additional permissions.
- *
- * For **webhook** deployments pass this list to `setWebhook`:
- * ```ts
- * await bot.api.setWebhook(url, { allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] });
- * ```
- * Long-polling (`start()`) passes it automatically.
- */
-export const TELEGRAM_ALLOWED_UPDATES = [
-  "message",
-  "edited_message",
-  "callback_query",
-  "message_reaction",
-] as const;
+export { TELEGRAM_ALLOWED_UPDATES };
 
 /**
- * Telegram `PlatformAdapter`: ingress via grammY (long-polling or webhook),
- * egress via the package's HTML renderer + chunked-edit streaming.
+ * Telegram `PlatformAdapter`: ingress via grammY (long-polling or webhook,
+ * OWNED by the bound {@link TelegramConnector}), egress via the package's HTML
+ * renderer + chunked-edit streaming.
  *
- * Construction is side-effect-free — the grammY {@link Bot} is created but no
- * network call is made until {@link start} (which owns `getMe` + ingress).
+ * CREDENTIAL-FREE: the adapter builds nothing from a bot token; it only
+ * renders and normalizes. Every credentialed Telegram operation routes
+ * through a runner-INJECTED {@link TelegramConnector} (see
+ * {@link TelegramAdapter.ɵbindConnector}) — typically a
+ * `new GrammyTelegramConnector({ token, mode, webhook })`. Running the
+ * adapter unbound throws (see the `connector` getter) — that's the intended
+ * "you need a custom ChannelRunner" signpost for running Channels without
+ * CopilotKit Intelligence.
  */
 export class TelegramAdapter implements PlatformAdapter {
   readonly platform = "telegram";
@@ -79,18 +74,56 @@ export class TelegramAdapter implements PlatformAdapter {
   };
   readonly ackDeadlineMs = 3000;
 
-  /** Public/assignable so tests can inject a fake (`adapter.bot = fake`). */
-  bot: Bot;
+  /**
+   * The runner-injected {@link TelegramConnector} — set exactly once, via
+   * {@link ɵbindConnector}, before `start()`/any egress call. The adapter
+   * holds NO credentials and builds nothing from a bot token; every
+   * credentialed operation routes through this connector. `undefined` until
+   * bound — the `connector` getter throws a clear error if anything runs
+   * unbound.
+   */
+  private boundConnector: TelegramConnector | undefined;
   botUsername = "";
   botUserId = 0;
+  /** Credential-free conversation store (in-memory; never holds a token). */
   private readonly store = new TelegramConversationStore();
-  /** In webhook mode, the Node HTTP server standing up the webhook endpoint. */
-  private webhookServer?: import("node:http").Server;
 
   constructor(private readonly opts: TelegramAdapterOptions) {
-    // SIDE-EFFECT-FREE: the grammY Bot constructor performs no network I/O.
-    // start() owns getMe() + ingress.
-    this.bot = new Bot(opts.token);
+    // Credential-free construction: nothing token-shaped is built here. The
+    // grammY Bot/socket AND the egress client both live inside a
+    // runner-injected TelegramConnector (see ɵbindConnector).
+  }
+
+  /**
+   * @internal Connector-injection seam. A runner (a custom `ChannelRunner`, or
+   * the managed Connector Outbox's own binding path) calls this with a
+   * credential-owning `TelegramConnector` — typically a
+   * `new GrammyTelegramConnector({ token, mode, webhook })` — BEFORE
+   * `start()` or any egress method runs. Every `PlatformAdapter` method this
+   * class implements delegates to the bound connector; there is no
+   * adapter-owned fallback. Marked with the ɵ prefix (Angular-style
+   * internal-API marker) to signal this is plumbing for a runner, not a
+   * user-facing option.
+   */
+  ɵbindConnector(connector: TelegramConnector): void {
+    this.boundConnector = connector;
+  }
+
+  /**
+   * The credentialed {@link TelegramConnector} every egress method routes
+   * through — the one bound via {@link ɵbindConnector}. Throws if the
+   * adapter is run unbound: running Channels without CopilotKit Intelligence
+   * requires a custom `ChannelRunner` that supplies a connector (see docs).
+   */
+  private get connector(): TelegramConnector {
+    if (!this.boundConnector) {
+      throw new Error(
+        "Telegram channel has no connector: running Channels without " +
+          "CopilotKit Intelligence requires a custom ChannelRunner that " +
+          "supplies a TelegramConnector (see docs).",
+      );
+    }
+    return this.boundConnector;
   }
 
   /** Greeting text to post on conversation start (wired by the example's onThreadStarted). */
@@ -103,152 +136,108 @@ export class TelegramAdapter implements PlatformAdapter {
     return this.opts.suggestedPrompts;
   }
 
-  async start(sink: IngressSink): Promise<void> {
-    const me = await this.bot.api.getMe();
-    this.botUsername = me.username;
-    this.botUserId = me.id;
-
-    // Resilience boundary. Without a registered error handler, grammy rethrows
-    // any uncaught error from update processing, which stops the polling runner;
-    // because start() has already returned, the event loop then drains and the
-    // process exits silently (code 0). Catching here logs the error and KEEPS
-    // the bot polling, and lets grammy advance the offset so a failing update is
-    // consumed rather than re-delivered forever (the "poison pill" loop).
-    this.bot.catch((err) => {
-      const updateId = err.ctx?.update?.update_id;
-      console.error(
-        `[bot-telegram] error handling update${
-          updateId !== undefined ? ` ${updateId}` : ""
-        }:`,
-        err.error,
-      );
-    });
-
-    attachTelegramListener({
-      bot: this.bot,
-      store: this.store,
-      botUsername: this.botUsername,
-      botUserId: this.botUserId,
-      sink,
-      botToken: this.opts.token,
-      getFilePath: async (fileId) =>
-        (await this.bot.api.getFile(fileId)).file_path ?? "",
-    });
-
-    const mode = this.resolveMode();
-    if (mode === "webhook") {
-      await this.startWebhook();
-    } else {
-      // Long-polling: bot.start() resolves only when the bot is stopped, so we
-      // fire it (don't await to completion) and let it run in the background.
-      // Surface a startup rejection (e.g. 409 "terminated by other getUpdates
-      // request" or a revoked token) instead of swallowing it silently.
-      this.bot
-        .start({ allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] })
-        .catch((err) =>
-          console.error("[telegram] long-polling failed to start:", err),
-        );
-    }
-  }
-
-  /** Resolve the effective ingress mode, expanding "auto" by environment. */
-  private resolveMode(): "polling" | "webhook" {
-    const mode = this.opts.mode ?? "polling";
-    if (mode === "polling") return "polling";
-    if (mode === "webhook") return "webhook";
-    // "auto": prefer webhook in serverless environments, else long-poll. But
-    // only choose webhook when a domain is actually configured — otherwise
-    // startWebhook() would throw, contradicting "auto"'s documented fallback to
-    // polling. (Explicit mode: "webhook" without a domain still throws, since
-    // that is a real misconfiguration.)
-    const serverless =
-      process.env.VERCEL ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.NETLIFY;
-    return serverless && this.opts.webhook?.domain ? "webhook" : "polling";
+  /**
+   * The declarative egress entry point (Channel Runner plan §2, design D2:
+   * "adapter owns the effect→native mapping"): renders IR via the adapter's
+   * own `render()`/HTML logic and routes every op to a RUNNER-supplied
+   * `connector` instead of this adapter's internal one — driving the exact
+   * same native Telegram calls the `PlatformAdapter` methods below build,
+   * just against a different credentialed sender (e.g. the Intelligence
+   * Connector Outbox). Every op here is a thin call into the SAME
+   * `*Via(connector, …)` helper the `PlatformAdapter` method (via
+   * `this.connector`) also calls — one egress implementation, two entry
+   * points.
+   */
+  makeEgress(connector: TelegramConnector): ChannelEgress {
+    return {
+      send: async <E extends ProviderEffect>(
+        effect: E,
+      ): Promise<EffectResultFor<E>> => {
+        switch (effect.op) {
+          case "post":
+            return (await this.postVia(
+              connector,
+              effect.target,
+              effect.ir,
+            )) as EffectResultFor<E>;
+          case "update":
+            await this.updateVia(connector, effect.ref, effect.ir);
+            return effect.ref as EffectResultFor<E>;
+          case "delete":
+            await this.deleteVia(connector, effect.ref);
+            return undefined as EffectResultFor<E>;
+          case "react":
+            return (await (effect.add
+              ? this.addReactionVia(
+                  connector,
+                  effect.target,
+                  effect.ref,
+                  effect.emoji,
+                )
+              : this.removeReactionVia(
+                  connector,
+                  effect.target,
+                  effect.ref,
+                  effect.emoji,
+                ))) as EffectResultFor<E>;
+          case "ephemeral":
+            return (await this.postEphemeralVia(
+              connector,
+              effect.target,
+              effect.user,
+              effect.ir,
+              { fallbackToDM: effect.fallbackToDM },
+            )) as EffectResultFor<E>;
+          case "file":
+            return (await this.postFileVia(
+              connector,
+              effect.target,
+              effect.file,
+            )) as EffectResultFor<E>;
+          case "suggested":
+            return {
+              ok: false,
+              error: "telegram does not support suggested prompts",
+            } as EffectResultFor<E>;
+          case "title":
+            return (await this.setThreadTitleVia(
+              connector,
+              effect.target,
+              effect.title,
+            )) as EffectResultFor<E>;
+        }
+      },
+      stream: (target, chunks) => this.streamVia(connector, target, chunks),
+      createRunRenderer: (target) =>
+        this.createRunRendererVia(connector, target),
+      getMessages: (target) => this.getMessages(target),
+      lookupUser: (q) => this.lookupUserVia(connector, q),
+    };
   }
 
   /**
-   * Register the webhook with Telegram and stand up a minimal Node HTTP server
-   * that feeds updates to grammY via {@link webhookCallback}. Requires
-   * `opts.webhook.domain`.
+   * Delegates ALL ingress ownership to `this.connector`: the grammY `Bot`,
+   * `getMe()`, the resilience boundary, every raw event subscription
+   * (text/media/callback_query/message_reaction/`/start`, including the
+   * mention-stripping/loop-guard — resolved from the connector's OWN
+   * `getMe()` inside `startIngress`), and long-polling vs webhook startup
+   * all live in the connector's `startIngress` — this method only hands over
+   * the sink and the adapter's own (credential-free) conversation store,
+   * then records the connection facts (`botUserId`/`botUsername`) for the
+   * adapter's own bookkeeping. Throws (via the `connector` getter) if no
+   * connector has been bound via `ɵbindConnector`.
    */
-  private async startWebhook(): Promise<void> {
-    const webhook = this.opts.webhook;
-    if (!webhook?.domain) {
-      throw new Error("Telegram webhook mode requires opts.webhook.domain");
-    }
-    const normalizedPath = webhook.path
-      ? webhook.path.startsWith("/")
-        ? webhook.path
-        : `/${webhook.path}`
-      : "/telegram";
-    const url = `${webhook.domain.replace(/\/$/, "")}${normalizedPath}`;
-    await this.bot.api.setWebhook(
-      url,
-      webhook.secretToken ? { secret_token: webhook.secretToken } : undefined,
-    );
-    const { webhookCallback } = await import("grammy");
-    const { createServer } = await import("node:http");
-    const handler = webhookCallback(
-      this.bot,
-      "http",
-      webhook.secretToken ? { secretToken: webhook.secretToken } : undefined,
-    );
-    const server = createServer((req, res) => {
-      if (req.url && req.url.split("?")[0] === normalizedPath) {
-        void (handler as (req: unknown, res: unknown) => Promise<void>)(
-          req,
-          res,
-        );
-      } else {
-        res.statusCode = 404;
-        res.end();
-      }
-    });
-    this.webhookServer = server;
-    // Telegram only delivers webhook updates to ports 443/80/88/8443, so an
-    // ephemeral port (0) would be unreachable. Default to 8443.
-    const port = webhook.port ?? 8443;
-    // Surface bind failures (EADDRINUSE/EACCES) clearly: without an "error"
-    // listener the emitted error becomes an uncaught exception that crashes the
-    // process with a cryptic stack. Reject the start promise on the first
-    // listen error so callers can handle it.
-    await new Promise<void>((resolve, reject) => {
-      let settled = false;
-      server.on("error", (err) => {
-        console.error(`[telegram] webhook server error (port ${port}):`, err);
-        if (!settled) {
-          settled = true;
-          reject(err);
-        }
-      });
-      server.listen(port, () => {
-        console.log(`[telegram] webhook server listening on port ${port}`);
-        if (!settled) {
-          settled = true;
-          resolve();
-        }
-      });
-    });
+  async start(sink: IngressSink): Promise<void> {
+    const connector = this.connector; // throws if unbound
+    const conn = await connector.startIngress({ sink, store: this.store });
+    this.botUserId = conn.botUserId;
+    this.botUsername = conn.botUsername;
   }
 
   async stop(): Promise<void> {
-    // Tear down the webhook server + registration before stopping the bot, so a
-    // stop/restart cleanly rebinds the socket instead of leaking it.
-    // Order: deleteWebhook first (so Telegram stops sending), then close the
-    // local HTTP server (no more refused-socket errors on in-flight POSTs), then
-    // stop the bot. The old reverse order (close server → deleteWebhook) left a
-    // window where Telegram kept POSTing to an already-closed socket.
-    if (this.webhookServer) {
-      const server = this.webhookServer;
-      this.webhookServer = undefined;
-      await this.bot.api
-        .deleteWebhook()
-        .catch((e) => console.error("[telegram] deleteWebhook failed:", e));
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-    await this.bot.stop();
+    // Lenient (not the throwing `connector` getter): stopping an adapter that
+    // was never bound/started is a harmless no-op, not a signpost-worthy error.
+    await this.boundConnector?.stopIngress();
   }
 
   render(ir: ChannelNode[]): TelegramPayload {
@@ -256,71 +245,74 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
+    return this.postVia(this.connector, target, ir);
+  }
+
+  /**
+   * `post`'s connector-parameterized body. Shared by the `PlatformAdapter`
+   * method (via `this.connector`) and `makeEgress` (via an injected
+   * connector) so there is exactly one implementation of the effect→native
+   * mapping.
+   */
+  private async postVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
+    ir: ChannelNode[],
+  ): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const p = renderTelegram(ir);
     const replyMarkup = this.toReplyMarkup(p.inlineKeyboard);
     const photos = p.photos ?? [];
     const hasText = p.text.trim().length > 0;
 
-    let chatId: number | string;
-    let messageId: number;
+    let sent: TelegramSentMessage;
 
     if (hasText) {
       // Text (with optional photos riding along as separate messages). The
       // returned ref references the text message.
-      const sent = await withTelegramFormatFallback(
+      sent = await withTelegramFormatFallback(
         (o) =>
-          this.bot.api.sendMessage(t.chatId, o.text, {
-            ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-            ...(t.messageThreadId !== undefined
-              ? { message_thread_id: t.messageThreadId }
-              : {}),
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-            ...(t.replyToMessageId !== undefined
-              ? {
-                  reply_parameters: { message_id: t.replyToMessageId },
-                }
-              : {}),
+          connector.sendMessage({
+            chatId: t.chatId,
+            text: o.text,
+            parseMode: o.parseMode,
+            messageThreadId: t.messageThreadId,
+            replyMarkup,
+            replyToMessageId: t.replyToMessageId,
           }),
         p.text,
       );
       // Photos ride along as separate messages.
       for (const photo of photos) {
-        await this.bot.api.sendPhoto(t.chatId, photo.url, {
-          ...(photo.caption ? { caption: photo.caption } : {}),
-          ...(t.messageThreadId !== undefined
-            ? { message_thread_id: t.messageThreadId }
-            : {}),
+        await connector.sendPhoto({
+          chatId: t.chatId,
+          url: photo.url,
+          caption: photo.caption,
+          messageThreadId: t.messageThreadId,
         });
       }
-      chatId = sent.chat.id;
-      messageId = sent.message_id;
     } else if (photos.length > 0) {
       // Image-only render: skip the empty sendMessage (Telegram rejects an
       // empty text body with a "message text is empty" error that the format
       // fallback does NOT catch) and post the photo(s) instead. The first
       // photo carries the inline keyboard and reply-to; the ref references it.
       const [first, ...rest] = photos;
-      const sent = await this.bot.api.sendPhoto(t.chatId, first!.url, {
-        ...(first!.caption ? { caption: first!.caption } : {}),
-        ...(t.messageThreadId !== undefined
-          ? { message_thread_id: t.messageThreadId }
-          : {}),
-        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        ...(t.replyToMessageId !== undefined
-          ? { reply_parameters: { message_id: t.replyToMessageId } }
-          : {}),
+      sent = await connector.sendPhoto({
+        chatId: t.chatId,
+        url: first!.url,
+        caption: first!.caption,
+        messageThreadId: t.messageThreadId,
+        replyMarkup,
+        replyToMessageId: t.replyToMessageId,
       });
       for (const photo of rest) {
-        await this.bot.api.sendPhoto(t.chatId, photo.url, {
-          ...(photo.caption ? { caption: photo.caption } : {}),
-          ...(t.messageThreadId !== undefined
-            ? { message_thread_id: t.messageThreadId }
-            : {}),
+        await connector.sendPhoto({
+          chatId: t.chatId,
+          url: photo.url,
+          caption: photo.caption,
+          messageThreadId: t.messageThreadId,
         });
       }
-      chatId = sent.chat.id;
-      messageId = sent.message_id;
     } else {
       // Nothing to post (no text, no photos). Return a harmless empty ref —
       // update()/delete() guard against a 0 messageId, so nothing is edited.
@@ -328,9 +320,9 @@ export class TelegramAdapter implements PlatformAdapter {
     }
 
     const ref: TelegramMessageRef = {
-      id: `${chatId}:${messageId}`,
-      chatId,
-      messageId,
+      id: `${sent.chatId}:${sent.messageId}`,
+      chatId: sent.chatId,
+      messageId: sent.messageId,
     };
 
     // Record the outbound message for lightweight within-session context.
@@ -341,7 +333,7 @@ export class TelegramAdapter implements PlatformAdapter {
     if (plainText.trim()) {
       this.store.recordMessage(this.conversationKeyForTarget(t), {
         text: plainText,
-        ts: String(messageId),
+        ts: String(sent.messageId),
         isBot: true,
       });
     }
@@ -350,6 +342,15 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async update(ref: MessageRef, ir: ChannelNode[]): Promise<void> {
+    return this.updateVia(this.connector, ref, ir);
+  }
+
+  /** `update`'s connector-parameterized body (see {@link postVia}). */
+  private async updateVia(
+    connector: TelegramConnector,
+    ref: MessageRef,
+    ir: ChannelNode[],
+  ): Promise<void> {
     const r = ref as TelegramMessageRef;
     // Guard against a bogus ref (e.g. the empty ref returned by stream() when
     // no chunk was posted): a message id of 0/undefined can never be edited.
@@ -364,9 +365,12 @@ export class TelegramAdapter implements PlatformAdapter {
     try {
       await withTelegramFormatFallback(
         (o) =>
-          this.bot.api.editMessageText(r.chatId, r.messageId, o.text, {
-            ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-            ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+          connector.editMessageText({
+            chatId: r.chatId,
+            messageId: r.messageId,
+            text: o.text,
+            parseMode: o.parseMode,
+            replyMarkup,
           }),
         p.text,
       );
@@ -387,6 +391,15 @@ export class TelegramAdapter implements PlatformAdapter {
     target: BotReplyTarget,
     chunks: AsyncIterable<string>,
   ): Promise<MessageRef> {
+    return this.streamVia(this.connector, target, chunks);
+  }
+
+  /** `stream`'s connector-parameterized body (see {@link postVia}). */
+  private async streamVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
+    chunks: AsyncIterable<string>,
+  ): Promise<MessageRef> {
     const t = target as ReplyTarget;
     let firstRef: TelegramMessageRef | undefined;
 
@@ -396,34 +409,34 @@ export class TelegramAdapter implements PlatformAdapter {
         // degrades to plain text instead of failing the send.
         const sent = await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.sendMessage(t.chatId, o.text, {
-              ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-              ...(t.messageThreadId !== undefined
-                ? { message_thread_id: t.messageThreadId }
-                : {}),
+            connector.sendMessage({
+              chatId: t.chatId,
+              text: o.text,
+              parseMode: o.parseMode,
+              messageThreadId: t.messageThreadId,
             }),
           text,
         );
         if (!firstRef) {
           firstRef = {
-            id: `${sent.chat.id}:${sent.message_id}`,
-            chatId: sent.chat.id,
-            messageId: sent.message_id,
+            id: `${sent.chatId}:${sent.messageId}`,
+            chatId: sent.chatId,
+            messageId: sent.messageId,
           };
         }
-        return sent.message_id;
+        return sent.messageId;
       },
       editAt: async (messageId, text) => {
         // Wrap in the format fallback so a chunk that splits an HTML tag
         // degrades to plain text instead of failing the edit.
         await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.editMessageText(
-              t.chatId,
+            connector.editMessageText({
+              chatId: t.chatId,
               messageId,
-              o.text,
-              o.parseMode ? { parse_mode: o.parseMode } : {},
-            ),
+              text: o.text,
+              parseMode: o.parseMode,
+            }),
           text,
         );
       },
@@ -448,14 +461,30 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
+    return this.deleteVia(this.connector, ref);
+  }
+
+  /** `delete`'s connector-parameterized body (see {@link postVia}). */
+  private async deleteVia(
+    connector: TelegramConnector,
+    ref: MessageRef,
+  ): Promise<void> {
     const r = ref as TelegramMessageRef;
     // Guard against a bogus ref (e.g. the empty ref returned by stream() when
     // no chunk was posted): a message id of 0/undefined can never be deleted.
     if (!r || !r.messageId) return;
-    await this.bot.api.deleteMessage(r.chatId, r.messageId);
+    await connector.deleteMessage({ chatId: r.chatId, messageId: r.messageId });
   }
 
   createRunRenderer(target: BotReplyTarget): RunRenderer {
+    return this.createRunRendererVia(this.connector, target);
+  }
+
+  /** `createRunRenderer`'s connector-parameterized body (see {@link postVia}). */
+  private createRunRendererVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
+  ): RunRenderer {
     const t = target as ReplyTarget;
     return createRunRenderer({
       postPlaceholder: async (text) => {
@@ -463,38 +492,36 @@ export class TelegramAdapter implements PlatformAdapter {
         // degrades to plain text instead of failing the send (mirrors stream()).
         const sent = await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.sendMessage(t.chatId, o.text, {
-              ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-              ...(t.messageThreadId !== undefined
-                ? { message_thread_id: t.messageThreadId }
-                : {}),
+            connector.sendMessage({
+              chatId: t.chatId,
+              text: o.text,
+              parseMode: o.parseMode,
+              messageThreadId: t.messageThreadId,
             }),
           text,
         );
-        return sent.message_id;
+        return sent.messageId;
       },
       editAt: async (messageId, text) => {
         // Wrap in the format fallback so a chunk that splits an HTML tag
         // degrades to plain text instead of failing the edit (mirrors stream()).
         await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.editMessageText(
-              t.chatId,
+            connector.editMessageText({
+              chatId: t.chatId,
               messageId,
-              o.text,
-              o.parseMode ? { parse_mode: o.parseMode } : {},
-            ),
+              text: o.text,
+              parseMode: o.parseMode,
+            }),
           text,
         );
       },
       setTyping: async () => {
-        await this.bot.api.sendChatAction(
-          t.chatId,
-          "typing",
-          t.messageThreadId !== undefined
-            ? { message_thread_id: t.messageThreadId }
-            : {},
-        );
+        await connector.sendChatAction({
+          chatId: t.chatId,
+          action: "typing",
+          messageThreadId: t.messageThreadId,
+        });
       },
       ...(this.opts.interruptEventNames
         ? { interruptEventNames: this.opts.interruptEventNames }
@@ -510,23 +537,23 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async lookupUser(q: UserQuery): Promise<PlatformUser | undefined> {
+    return this.lookupUserVia(this.connector, q);
+  }
+
+  /** `lookupUser`'s connector-parameterized body (see {@link postVia}). */
+  private async lookupUserVia(
+    connector: TelegramConnector,
+    q: UserQuery,
+  ): Promise<PlatformUser | undefined> {
     const query = q.query.trim();
     if (!query.startsWith("@")) return undefined;
-    try {
-      const chat = (await this.bot.api.getChat(query)) as {
-        id: number | string;
-        title?: string;
-        first_name?: string;
-        username?: string;
-      };
-      return {
-        id: String(chat.id),
-        name: chat.title ?? chat.first_name,
-        handle: chat.username,
-      };
-    } catch {
-      return undefined;
-    }
+    const chat = await connector.getChat(query);
+    if (!chat) return undefined;
+    return {
+      id: String(chat.id),
+      name: chat.title ?? chat.first_name,
+      handle: chat.username,
+    };
   }
 
   get conversationStore(): ConversationStore {
@@ -540,6 +567,20 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async postFile(
     target: BotReplyTarget,
+    file: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+    return this.postFileVia(this.connector, target, file);
+  }
+
+  /** `postFile`'s connector-parameterized body (see {@link postVia}). */
+  private async postFileVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
     {
       bytes,
       filename,
@@ -552,20 +593,27 @@ export class TelegramAdapter implements PlatformAdapter {
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     const t = target as ReplyTarget;
     try {
-      const result = await this.bot.api.sendDocument(
-        t.chatId,
-        new InputFile(Buffer.from(bytes), filename),
-        t.messageThreadId !== undefined
-          ? { message_thread_id: t.messageThreadId }
-          : {},
-      );
-      return { ok: true, fileId: result.document?.file_id };
+      const result = await connector.sendDocument({
+        chatId: t.chatId,
+        bytes: Buffer.from(bytes),
+        filename,
+        messageThreadId: t.messageThreadId,
+      });
+      return { ok: true, fileId: result.fileId };
     } catch (e) {
       return { ok: false, error: String(e) };
     }
   }
 
   async registerCommands(specs: readonly CommandSpec[]): Promise<void> {
+    return this.registerCommandsVia(this.connector, specs);
+  }
+
+  /** `registerCommands`'s connector-parameterized body (see {@link postVia}). */
+  private async registerCommandsVia(
+    connector: TelegramConnector,
+    specs: readonly CommandSpec[],
+  ): Promise<void> {
     // Telegram restricts command names to 1–32 chars of [a-z0-9_] (no hyphens,
     // unlike Slack/Discord) and rejects the WHOLE setMyCommands call with
     // 400 BOT_COMMAND_INVALID if any name violates that. Convert hyphens to
@@ -591,10 +639,19 @@ export class TelegramAdapter implements PlatformAdapter {
     }
     // An empty array would clear all commands — skip the call entirely instead.
     if (valid.length === 0) return;
-    await this.bot.api.setMyCommands(valid);
+    await connector.setMyCommands(valid);
   }
 
   async setThreadTitle(
+    target: BotReplyTarget,
+    title: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return this.setThreadTitleVia(this.connector, target, title);
+  }
+
+  /** `setThreadTitle`'s connector-parameterized body (see {@link postVia}). */
+  private async setThreadTitleVia(
+    connector: TelegramConnector,
     target: BotReplyTarget,
     title: string,
   ): Promise<{ ok: boolean; error?: string }> {
@@ -603,7 +660,9 @@ export class TelegramAdapter implements PlatformAdapter {
       return { ok: false, error: "no forum topic" };
     }
     try {
-      await this.bot.api.editForumTopic(t.chatId, t.messageThreadId, {
+      await connector.editForumTopic({
+        chatId: t.chatId,
+        messageThreadId: t.messageThreadId,
         name: title,
       });
       return { ok: true };
@@ -617,19 +676,26 @@ export class TelegramAdapter implements PlatformAdapter {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
+    return this.addReactionVia(this.connector, target, messageRef, emoji);
+  }
+
+  /** `addReaction`'s connector-parameterized body (see {@link postVia}). */
+  private async addReactionVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
     const r = messageRef as TelegramMessageRef;
     const chatId = r.chatId ?? (target as ReplyTarget).chatId;
     const messageId = Number(r.messageId ?? r.id);
     const token = toPlatformEmoji(emoji, "telegram") ?? emoji;
     try {
-      // grammy types ReactionTypeEmoji.emoji as a strict union of allowed emoji;
-      // cast via unknown since we accept any EmojiValue passthrough.
-      await this.bot.api.setMessageReaction(chatId, messageId, [
-        {
-          type: "emoji",
-          emoji: token,
-        } as unknown as import("grammy/types").ReactionType,
-      ]);
+      await connector.setMessageReaction({
+        chatId,
+        messageId,
+        reactions: [{ type: "emoji", emoji: token }],
+      });
       return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -639,6 +705,16 @@ export class TelegramAdapter implements PlatformAdapter {
   async removeReaction(
     target: BotReplyTarget,
     messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return this.removeReactionVia(this.connector, target, messageRef, emoji);
+  }
+
+  /** `removeReaction`'s connector-parameterized body (see {@link postVia}). */
+  private async removeReactionVia(
+    connector: TelegramConnector,
+    target: BotReplyTarget,
+    messageRef: MessageRef,
     _emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
     const r = messageRef as TelegramMessageRef;
@@ -646,7 +722,7 @@ export class TelegramAdapter implements PlatformAdapter {
     const messageId = Number(r.messageId ?? r.id);
     try {
       // Telegram clears the bot's reactions by setting an empty list.
-      await this.bot.api.setMessageReaction(chatId, messageId, []);
+      await connector.setMessageReaction({ chatId, messageId, reactions: [] });
       return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -654,6 +730,17 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async postEphemeral(
+    target: BotReplyTarget,
+    user: PlatformUser | string,
+    ir: ChannelNode[],
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    return this.postEphemeralVia(this.connector, target, user, ir, opts);
+  }
+
+  /** `postEphemeral`'s connector-parameterized body (see {@link postVia}). */
+  private async postEphemeralVia(
+    connector: TelegramConnector,
     _target: BotReplyTarget,
     user: PlatformUser | string,
     ir: ChannelNode[],
@@ -664,21 +751,19 @@ export class TelegramAdapter implements PlatformAdapter {
     const payload = renderTelegram(ir);
     const replyMarkup = this.toReplyMarkup(payload.inlineKeyboard);
     try {
-      const sent = await this.bot.api.sendMessage(
-        String(userId),
-        payload.text,
-        {
-          ...(payload.parseMode ? { parse_mode: payload.parseMode } : {}),
-          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-        },
-      );
+      const sent = await connector.sendMessage({
+        chatId: String(userId),
+        text: payload.text,
+        parseMode: payload.parseMode,
+        replyMarkup,
+      });
       return {
         ok: true,
         usedFallback: true,
         ref: {
-          id: `${sent.chat.id}:${sent.message_id}`,
-          chatId: sent.chat.id,
-          messageId: sent.message_id,
+          id: `${sent.chatId}:${sent.messageId}`,
+          chatId: sent.chatId,
+          messageId: sent.messageId,
         },
       };
     } catch (err) {
@@ -716,10 +801,10 @@ export class TelegramAdapter implements PlatformAdapter {
     return conversationKeyOf(key);
   }
 
-  /** Map the renderer's inline keyboard to grammY's `reply_markup` shape. */
+  /** Map the renderer's inline keyboard to the connector's `reply_markup` shape. */
   private toReplyMarkup(
     keyboard: TelegramInlineButton[][] | undefined,
-  ): { inline_keyboard: InlineKeyboardButton[][] } | undefined {
+  ): TelegramReplyMarkup | undefined {
     if (!keyboard || keyboard.length === 0) return undefined;
     return {
       inline_keyboard: keyboard.map((row) =>
@@ -735,7 +820,7 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 }
 
-/** Construct a Telegram `PlatformAdapter`. */
-export function telegram(opts: TelegramAdapterOptions): TelegramAdapter {
+/** Construct a Telegram `PlatformAdapter` — CREDENTIAL-FREE. Bind a `TelegramConnector` via `ɵbindConnector` before `start()`. */
+export function telegram(opts: TelegramAdapterOptions = {}): TelegramAdapter {
   return new TelegramAdapter(opts);
 }

@@ -1,14 +1,18 @@
 // packages/channels-telegram/src/__tests__/ephemeral.test.ts
-import { it, expect, vi } from "vitest";
+import { it, expect } from "vitest";
 import { TelegramAdapter } from "../adapter.js";
+import { FakeTelegramConnector } from "../testing/fake-telegram-connector.js";
+
+/** A credential-free adapter with a `FakeTelegramConnector` bound via `ɵbindConnector`. */
+function setup() {
+  const a = new TelegramAdapter({});
+  const connector = new FakeTelegramConnector();
+  a.ɵbindConnector(connector);
+  return { a, connector };
+}
 
 it("DMs the user when fallbackToDM=true", async () => {
-  const a = new TelegramAdapter({ token: "t" });
-  const sendMessage = vi
-    .fn()
-    .mockResolvedValue({ message_id: 5, chat: { id: 1 } });
-  // @ts-expect-error inject stub api
-  a.bot = { api: { sendMessage } };
+  const { a, connector } = setup();
   const res = await a.postEphemeral!(
     { chatId: 99 },
     { id: "1" },
@@ -16,15 +20,13 @@ it("DMs the user when fallbackToDM=true", async () => {
     { fallbackToDM: true },
   );
   expect(res).toMatchObject({ ok: true, usedFallback: true });
-  expect(sendMessage).toHaveBeenCalledWith(
-    "1",
-    expect.any(String),
-    expect.any(Object),
-  );
+  expect(connector.calls[0]!.op).toBe("sendMessage");
+  const args = connector.calls[0]!.args as { chatId: unknown; text: string };
+  expect(args.chatId).toBe("1");
 });
 
 it("returns null when fallbackToDM=false", async () => {
-  const a = new TelegramAdapter({ token: "t" });
+  const { a, connector } = setup();
   const res = await a.postEphemeral!(
     { chatId: 99 },
     { id: "1" },
@@ -32,4 +34,5 @@ it("returns null when fallbackToDM=false", async () => {
     { fallbackToDM: false },
   );
   expect(res).toBeNull();
+  expect(connector.calls).toHaveLength(0);
 });

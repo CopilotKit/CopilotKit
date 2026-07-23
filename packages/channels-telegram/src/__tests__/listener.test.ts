@@ -35,8 +35,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -63,8 +62,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     const mk = (text: string) => ({
       message: {
@@ -99,8 +97,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -122,8 +119,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     const ctx: any = {
       update: {
@@ -154,8 +150,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -178,8 +173,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -204,8 +198,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -233,8 +226,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["command:start"]({
       chat: { id: 9, type: "private" },
@@ -258,8 +250,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["command:start"]({
       chat: { id: 9, type: "group" },
@@ -283,8 +274,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -313,8 +303,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -344,8 +333,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     const ctx: any = {
       update: {
@@ -378,8 +366,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     // callback_query has data but NO message → decodeInteraction returns undefined
     const ctx: any = {
@@ -410,8 +397,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -437,8 +423,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     const text = "/triage do it";
     await bot.handlers["message:text"]({
@@ -476,8 +461,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "photos/f1.jpg",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:photo"]({
       chat: { id: 9, type: "group" },
@@ -512,8 +496,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "photos/f1.jpg",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:photo"]({
       chat: { id: 9, type: "group" },
@@ -540,8 +523,7 @@ describe("attachTelegramListener", () => {
       botUsername: "mybot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -566,8 +548,7 @@ describe("attachTelegramListener", () => {
       botUsername: "mybot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -592,8 +573,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -622,8 +602,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -653,8 +632,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -680,8 +658,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     const mk = (message_id: number) => ({
       message: {
@@ -712,8 +689,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     // The message:text bot_command branch must return early for /start.
     await bot.handlers["message:text"]({
@@ -748,8 +724,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {
@@ -777,8 +752,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message_reaction"]({
       update: {
@@ -803,8 +777,7 @@ describe("attachTelegramListener", () => {
       botUsername: "cpk_bot",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message_reaction"]({
       update: {
@@ -831,8 +804,7 @@ describe("attachTelegramListener", () => {
       botUsername: "",
       botUserId: 1,
       sink: s,
-      botToken: "tok",
-      getFilePath: async () => "x",
+      downloadFile: async () => ({ ok: true, bytes: Buffer.from("stub") }),
     });
     await bot.handlers["message:text"]({
       message: {

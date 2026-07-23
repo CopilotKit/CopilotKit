@@ -1,4 +1,26 @@
-export { telegram, TelegramAdapter } from "./adapter.js";
+export {
+  telegram,
+  TelegramAdapter,
+  TELEGRAM_ALLOWED_UPDATES,
+} from "./adapter.js";
+
+export { GrammyTelegramConnector } from "./telegram-connector.js";
+export type {
+  TelegramConnector,
+  GrammyTelegramConnectorOptions,
+  TelegramIngressConfig,
+  TelegramIngressConnection,
+  TelegramSentMessage,
+  TelegramConnectorChat,
+  TelegramDownloadResult,
+  TelegramReplyMarkup,
+} from "./telegram-connector.js";
+
+export { FakeTelegramConnector } from "./testing/fake-telegram-connector.js";
+export type {
+  FakeTelegramConnectorResults,
+  TelegramConnectorCall,
+} from "./testing/fake-telegram-connector.js";
 
 export { createRunRenderer } from "./event-renderer.js";
 export type { CreateRunRendererArgs } from "./event-renderer.js";

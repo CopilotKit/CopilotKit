@@ -10,6 +10,7 @@ import {
 } from "./interaction.js";
 import { buildFileContentParts } from "./download-files.js";
 import type { AgentContentPart, TelegramFileRef } from "./download-files.js";
+import type { TelegramDownloadResult } from "./telegram-connector.js";
 
 /** Escape special regex characters in a string so it can be used in a RegExp. */
 function escapeRegExp(s: string): string {
@@ -22,10 +23,15 @@ export interface ListenerConfig {
   botUsername: string;
   botUserId: number;
   sink: IngressSink;
-  /** Telegram bot token, used to download inbound files. */
-  botToken: string;
-  /** Resolve a Telegram fileId to its file path (e.g. via the getFile API). */
-  getFilePath: (fileId: string) => Promise<string>;
+  /**
+   * Connector-owned inbound-file download (resolves a Telegram fileId to its
+   * bytes using the connector's own bot token; never exposes the token
+   * itself to the listener).
+   */
+  downloadFile: (
+    fileId: string,
+    opts?: { maxBytesHint?: number },
+  ) => Promise<TelegramDownloadResult>;
 }
 
 /** The media-bearing fields the listener knows how to turn into file refs. */
@@ -102,8 +108,7 @@ function fileRefsFromMessage(m: TgMediaFields): TelegramFileRef[] {
 }
 
 export function attachTelegramListener(config: ListenerConfig): void {
-  const { bot, botUsername, botUserId, sink, store, botToken, getFilePath } =
-    config;
+  const { bot, botUsername, botUserId, sink, store, downloadFile } = config;
 
   /**
    * When the inbound message is a Telegram *reply*, fold the referenced
@@ -133,8 +138,7 @@ export function attachTelegramListener(config: ListenerConfig): void {
     if (refs.length) {
       const { parts: fileParts, notes } = await buildFileContentParts(
         refs,
-        botToken,
-        getFilePath,
+        downloadFile,
       );
       parts.push(...fileParts);
       if (notes.length) {
@@ -307,8 +311,7 @@ export function attachTelegramListener(config: ListenerConfig): void {
 
     const { parts, notes } = await buildFileContentParts(
       fileRefs,
-      botToken,
-      getFilePath,
+      downloadFile,
     );
 
     await handleTurn(ctx, msg, caption, (strippedCaption) => [

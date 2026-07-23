@@ -3,7 +3,7 @@ import { it, expect } from "vitest";
 import { TelegramAdapter, TELEGRAM_ALLOWED_UPDATES } from "../adapter.js";
 
 it("advertises reactions but not modals/native-ephemeral", () => {
-  const a = new TelegramAdapter({ token: "t" });
+  const a = new TelegramAdapter({});
   expect(a.capabilities.supportsReactions).toBe(true);
   expect(a.capabilities.supportsModals).toBe(false);
   expect(a.capabilities.supportsEphemeral).toBe(false);

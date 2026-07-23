@@ -1,104 +1,88 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import { buildFileContentParts } from "../download-files.js";
+import type { TelegramDownloadResult } from "../telegram-connector.js";
+
+/** A `downloadFile` stub resolving to canned bytes. */
+function stubDownload(
+  bytes: string,
+): (fileId: string) => Promise<TelegramDownloadResult> {
+  return async () => ({ ok: true, bytes: Buffer.from(bytes) });
+}
 
 describe("buildFileContentParts", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        headers: { get: (_name: string) => null },
-        arrayBuffer: async () => new TextEncoder().encode("PNGDATA").buffer,
-      })) as any,
-    );
-  });
   it("downloads an image as a base64 data part", async () => {
     const { parts } = await buildFileContentParts(
       [{ fileId: "f1", mimeType: "image/png" }],
-      "tok",
-      async () => "photos/f1.png",
+      stubDownload("PNGDATA"),
     );
     expect(parts[0]).toMatchObject({
       type: "image",
       source: { type: "data", mimeType: "image/png" },
     });
   });
-  it("notes files over the size cap", async () => {
+
+  it("notes files over the size cap (known size, no download attempted)", async () => {
     const { parts, notes } = await buildFileContentParts(
       [{ fileId: "big", mimeType: "image/png", size: 99_000_000 }],
-      "tok",
-      async () => "x",
+      async () => {
+        throw new Error("must not be called — size cap should short-circuit");
+      },
       { maxBytesPerFile: 10 },
     );
     expect(parts).toHaveLength(0);
     expect(notes.join(" ")).toMatch(/too large|skipped/i);
   });
 
-  it("redacts the bot token from fetch error notes", async () => {
-    const SECRET_TOKEN = "1234567890:AABBCCDDEEFF";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        throw new Error(
-          `fetch failed: connect ECONNREFUSED https://api.telegram.org/file/bot${SECRET_TOKEN}/photos/f1.png`,
-        );
-      }) as any,
+  it("notes files whose downloaded bytes exceed the cap (size unknown up front)", async () => {
+    const { parts, notes } = await buildFileContentParts(
+      // No `size` field — simulates a photo ref where Telegram omits size.
+      [{ fileId: "bigphoto", mimeType: "image/jpeg" }],
+      async () => ({ ok: true, bytes: Buffer.from("x".repeat(20)) }),
+      { maxBytesPerFile: 10 },
     );
+    expect(parts).toHaveLength(0);
+    expect(notes.join(" ")).toMatch(/too large|skipped/i);
+  });
+
+  it("notes a connector download failure (status)", async () => {
     const { parts, notes } = await buildFileContentParts(
       [{ fileId: "f1", mimeType: "image/png" }],
-      SECRET_TOKEN,
-      async () => "photos/f1.png",
+      async () => ({ ok: false, status: 404 }),
+    );
+    expect(parts).toHaveLength(0);
+    expect(notes.join(" ")).toMatch(/download failed.*404|skipped/i);
+  });
+
+  it("notes a connector download failure (error message, already redacted upstream)", async () => {
+    const { parts, notes } = await buildFileContentParts(
+      [{ fileId: "f1", mimeType: "image/png" }],
+      async () => ({ ok: false, error: "connect ECONNREFUSED <redacted>" }),
     );
     expect(parts).toHaveLength(0);
     const noteText = notes.join(" ");
-    expect(noteText).not.toContain(SECRET_TOKEN);
     expect(noteText).toContain("<redacted>");
   });
 
-  it("handles non-Error fetch rejections without crashing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        // eslint-disable-next-line @typescript-eslint/only-throw-error
-        throw "plain string error";
-      }) as any,
+  it("decodes a text-like file inline instead of as a binary part", async () => {
+    const { parts } = await buildFileContentParts(
+      [{ fileId: "f1", mimeType: "text/csv", fileName: "data.csv" }],
+      stubDownload("a,b\n1,2"),
     );
-    const { parts, notes } = await buildFileContentParts(
-      [{ fileId: "f2", mimeType: "image/png" }],
-      "tok",
-      async () => "photos/f2.png",
-    );
-    expect(parts).toHaveLength(0);
-    expect(notes.join(" ")).toMatch(/skipped/i);
+    expect(parts[0]).toMatchObject({ type: "text" });
+    expect((parts[0] as { text: string }).text).toContain("a,b");
   });
 
-  it("skips via Content-Length before buffering when header exceeds cap", async () => {
-    const arrayBuffer = vi.fn(
-      async () => new TextEncoder().encode("PNGDATA").buffer,
-    );
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        headers: {
-          get: (name: string) =>
-            name === "content-length" ? "99000000" : null,
-        },
-        arrayBuffer,
-      })) as any,
-    );
-
+  it("caps the number of files processed and notes the overflow", async () => {
+    const files = Array.from({ length: 8 }, (_, i) => ({
+      fileId: `f${i}`,
+      mimeType: "image/png",
+    }));
     const { parts, notes } = await buildFileContentParts(
-      // No `size` field — simulates a photo ref where Telegram omits size
-      [{ fileId: "bigphoto", mimeType: "image/jpeg" }],
-      "tok",
-      async () => "photos/bigphoto.jpg",
-      { maxBytesPerFile: 10 },
+      files,
+      stubDownload("X"),
+      { maxFiles: 3 },
     );
-
-    expect(parts).toHaveLength(0);
-    expect(notes.join(" ")).toMatch(/too large|skipped/i);
-    // The body must NOT have been read — the pre-check should have aborted
-    expect(arrayBuffer).not.toHaveBeenCalled();
+    expect(parts).toHaveLength(3);
+    expect(notes.join(" ")).toMatch(/only the first 3 of 8/);
   });
 });
