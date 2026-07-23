@@ -209,14 +209,16 @@ test.each([
       Promise.reject(new Error("dependency details must stay private")),
   },
 ] as const)(
-  "preserves an invalid legacy license when entitlement lookup $outcome",
-  async ({ lookup }) => {
+  "resolves managed authority and legacy fallback when entitlement lookup $outcome",
+  async ({ lookup, outcome }) => {
     const { data, response } = await requestRuntimeInfoWithLookup(lookup, {
       licenseToken: INVALID_LEGACY_LICENSE_TOKEN,
     });
 
     expect(response.status).toBe(200);
-    expect(data.licenseStatus).toBe("invalid");
+    expect(data.licenseStatus).toBe(
+      outcome === "succeeds" ? "valid" : "invalid",
+    );
   },
 );
 
@@ -237,7 +239,7 @@ test("keeps `/info` successful when Runtime entitlement lookup fails", async () 
       retryable: true,
     },
   });
-  expect(data.licenseStatus).toBe("none");
+  expect(data.licenseStatus).toBe("unknown");
   expect(findForbiddenPublicKeyPaths(data)).toEqual([]);
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });

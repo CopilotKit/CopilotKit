@@ -84,7 +84,7 @@ test.each([
   label: string;
   legacyLicenseStatus: LicenseStatus;
 }>)(
-  "keeps the $label legacy status when managed entitlements are active",
+  "maps an active managed entitlement over the $label legacy status",
   async ({ legacyLicenseStatus }) => {
     const { runtime } = setup(
       {
@@ -106,15 +106,18 @@ test.each([
     const body: RuntimeInfo = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.licenseStatus).toBe(
-      legacyLicenseStatus.error === "expired" ? "expired" : "invalid",
-    );
+    expect(body.licenseStatus).toBe("valid");
   },
 );
 
-test.each([
+const nonActiveEntitlementCases: ReadonlyArray<{
+  expectedStatus: RuntimeInfo["licenseStatus"];
+  label: string;
+  runtimeEntitlements: RuntimeEntitlementResponse;
+}> = [
   {
     label: "inactive",
+    expectedStatus: "none",
     runtimeEntitlements: {
       status: "ready",
       entitlement: {
@@ -123,10 +126,11 @@ test.each([
         features: {},
         limits: {},
       },
-    } as RuntimeEntitlementResponse,
+    },
   },
   {
     label: "unavailable",
+    expectedStatus: "unknown",
     runtimeEntitlements: {
       status: "unavailable",
       error: {
@@ -134,18 +138,13 @@ test.each([
         message: "Runtime entitlement lookup failed",
         retryable: true,
       },
-    } as RuntimeEntitlementResponse,
+    },
   },
-] satisfies ReadonlyArray<{
-  label: string;
-  runtimeEntitlements: RuntimeEntitlementResponse;
-}>)(
-  "does not grant the compatibility license for a $label entitlement result",
-  async ({
-    runtimeEntitlements,
-  }: {
-    runtimeEntitlements: RuntimeEntitlementResponse;
-  }) => {
+];
+
+test.each(nonActiveEntitlementCases)(
+  "maps a $label entitlement result to the $expectedStatus compatibility status",
+  async ({ expectedStatus, runtimeEntitlements }) => {
     const { runtime } = setup(runtimeEntitlements);
 
     const response = await handleGetRuntimeInfo({
@@ -155,7 +154,6 @@ test.each([
     const body: RuntimeInfo = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.licenseStatus).not.toBe("valid");
-    expect(body.licenseStatus).not.toBe("expiring");
+    expect(body.licenseStatus).toBe(expectedStatus);
   },
 );
