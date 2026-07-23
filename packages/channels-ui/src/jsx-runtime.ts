@@ -32,8 +32,9 @@ export namespace JSX {
    * `BarChart`, which returns a real `ReactElement`) authored directly as JSX
    * under this pragma. Those are intentionally unbranded: `thread.post` peeks
    * at their output at runtime and routes them to the image path (see
-   * `isArbitraryJsx`) — this only widens what the *type checker* accepts as a
-   * valid tag, matching that runtime behavior.
+   * `resolveArbitraryElement` in @copilotkit/channels-core render/detect) —
+   * this only widens what the *type checker* accepts as a valid tag, matching
+   * that runtime behavior.
    */
   export type ElementType = string | symbol | ((props: never) => unknown);
   /** Tells TypeScript which prop receives nested children. */
