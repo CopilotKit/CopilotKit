@@ -18,6 +18,7 @@ import {
   skillSetProjectionEntryV1Schema,
   skillSetProjectionV1Schema,
   threadAssignmentPatchV1Schema,
+  workflowThreadV1Schema,
 } from "./contracts.js";
 import { learningContractJsonSchemas } from "./schema-registry.js";
 
@@ -943,6 +944,145 @@ describe("parent V1 contract schemas", () => {
       status: "unknown",
       output: { hits: 2 },
     });
+  });
+
+  test.each([
+    {
+      name: "duplicate source-event IDs",
+      value: {
+        ...snapshot,
+        sourceEvents: [
+          ...snapshot.sourceEvents,
+          { ...snapshot.sourceEvents[0], sequence: 3 },
+        ],
+      },
+    },
+    {
+      name: "duplicate message IDs",
+      value: {
+        ...snapshot,
+        messages: [
+          ...snapshot.messages,
+          {
+            ...snapshot.messages[0],
+            toolCalls: [],
+            toolResults: [],
+          },
+        ],
+      },
+    },
+    {
+      name: "duplicate retained-event IDs",
+      value: {
+        ...snapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              eventId: "event_custom",
+              type: "CUSTOM",
+              timestamp: NOW,
+              payload: {},
+            },
+            {
+              eventId: "event_custom",
+              type: "CUSTOM",
+              timestamp: NOW,
+              payload: { repeated: true },
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "duplicate tool-call IDs",
+      value: {
+        ...snapshot,
+        messages: [
+          {
+            ...snapshot.messages[0],
+            toolCalls: [
+              ...snapshot.messages[0].toolCalls,
+              { id: "call_1", name: "duplicate", argsText: "{}" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      name: "message event IDs outside the source-event manifest",
+      value: {
+        ...snapshot,
+        messages: [{ ...snapshot.messages[0], eventIds: ["event_missing"] }],
+      },
+    },
+    {
+      name: "a tool-result name that differs from its call",
+      value: {
+        ...snapshot,
+        messages: [
+          {
+            ...snapshot.messages[0],
+            toolResults: [
+              { ...snapshot.messages[0].toolResults[0], name: "lookup" },
+            ],
+          },
+        ],
+      },
+    },
+  ])("rejects snapshots with $name", ({ value }) => {
+    expect(runSnapshotV1Schema.safeParse(value).success).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "duplicate message IDs",
+      value: {
+        ...workflowInput.threads[0],
+        messages: [
+          ...workflowInput.threads[0].messages,
+          {
+            ...workflowInput.threads[0].messages[0],
+            toolCalls: [],
+            toolResults: [],
+          },
+        ],
+      },
+    },
+    {
+      name: "duplicate tool-call IDs",
+      value: {
+        ...workflowInput.threads[0],
+        messages: [
+          {
+            ...workflowInput.threads[0].messages[0],
+            toolCalls: [
+              ...workflowInput.threads[0].messages[0].toolCalls,
+              { id: "call_1", name: "duplicate", argsText: "{}" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      name: "a tool-result name that differs from its call",
+      value: {
+        ...workflowInput.threads[0],
+        messages: [
+          {
+            ...workflowInput.threads[0].messages[0],
+            toolResults: [
+              {
+                ...workflowInput.threads[0].messages[0].toolResults[0],
+                name: "lookup",
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ])("rejects workflow threads with $name", ({ value }) => {
+    expect(workflowThreadV1Schema.safeParse(value).success).toBe(false);
   });
 
   test("rejects snapshots whose hashes or integer planning bounds are invalid", () => {

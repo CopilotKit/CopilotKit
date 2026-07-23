@@ -137,8 +137,20 @@ const finishedSnapshot = {
       sha256: SHA_A,
     },
     {
-      eventId: "event_terminal",
+      eventId: "event_result",
       sequence: 2,
+      type: "TOOL_CALL_RESULT",
+      sha256: SHA_B,
+    },
+    {
+      eventId: "event_custom",
+      sequence: 3,
+      type: "CUSTOM",
+      sha256: SHA_A,
+    },
+    {
+      eventId: "event_terminal",
+      sequence: 4,
       type: "RUN_FINISHED",
       sha256: SHA_B,
     },
@@ -166,6 +178,14 @@ const finishedSnapshot = {
   containerSequence: 1,
 } as const;
 
+function retainedEvidenceEvents(count: number) {
+  const event = finishedSnapshot.retainedEvidence.events[0];
+  return Array.from({ length: count }, (_, index) => ({
+    ...event,
+    eventId: `${event.eventId}_${index}`,
+  }));
+}
+
 const workflowInput = {
   schemaVersion: 1,
   threads: [
@@ -190,10 +210,11 @@ function failedSnapshot() {
     ...finishedSnapshot,
     terminalType: "RUN_ERROR",
     terminalError,
-    sourceEvents: [
-      finishedSnapshot.sourceEvents[0],
-      { ...finishedSnapshot.sourceEvents[1], type: "RUN_ERROR" },
-    ],
+    sourceEvents: finishedSnapshot.sourceEvents.map((event) =>
+      event.eventId === finishedSnapshot.terminalEventId
+        ? { ...event, type: "RUN_ERROR" }
+        : event,
+    ),
   } as const;
 }
 
@@ -431,7 +452,7 @@ describe("canonical snapshot evidence contracts", () => {
         ...finishedSnapshot,
         retainedEvidence: {
           schemaVersion: 1,
-          events: Array.from({ length: 4_096 }, () => event),
+          events: retainedEvidenceEvents(4_096),
         },
       }).success,
     ).toBe(true);
@@ -440,7 +461,7 @@ describe("canonical snapshot evidence contracts", () => {
         ...finishedSnapshot,
         retainedEvidence: {
           schemaVersion: 1,
-          events: Array.from({ length: 4_097 }, () => event),
+          events: retainedEvidenceEvents(4_097),
         },
       }).success,
     ).toBe(false);
@@ -615,7 +636,7 @@ describe("canonical snapshot evidence contracts", () => {
         ...finishedSnapshot,
         retainedEvidence: {
           schemaVersion: 1,
-          events: Array.from({ length: 4_096 }, () => retainedEvidenceEvent),
+          events: retainedEvidenceEvents(4_096),
         },
       }),
     ).toBe(true);
@@ -653,10 +674,7 @@ describe("canonical snapshot evidence contracts", () => {
         ...finishedSnapshot,
         retainedEvidence: {
           schemaVersion: 1,
-          events: Array.from(
-            { length: 4_097 },
-            () => finishedSnapshot.retainedEvidence.events[0],
-          ),
+          events: retainedEvidenceEvents(4_097),
         },
       }),
     ).toBe(false);

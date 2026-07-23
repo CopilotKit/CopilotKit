@@ -202,8 +202,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(274);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(274);
+    expect(corpus.cases).toHaveLength(284);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(284);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -642,6 +642,12 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "normalized-activity-requires-activity-type",
         "normalized-tool-message-requires-result",
         "run-snapshot-rejects-unknown-tool-result-reference",
+        "run-snapshot-rejects-duplicate-source-event-ids",
+        "run-snapshot-rejects-duplicate-message-ids",
+        "run-snapshot-rejects-duplicate-retained-event-ids",
+        "run-snapshot-rejects-duplicate-tool-call-ids",
+        "run-snapshot-rejects-message-event-outside-manifest",
+        "run-snapshot-rejects-mismatched-tool-result-name",
         "run-error-requires-terminal-error",
         "run-finished-forbids-terminal-error",
         "run-snapshot-accepts-omitted-retained-evidence",
@@ -661,6 +667,10 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "run-snapshot-rejects-attachment-entry-boundary-plus-one",
         "workflow-thread-requires-terminal-error-projection",
         "workflow-thread-requires-attachment-projection",
+        "workflow-thread-rejects-duplicate-message-ids",
+        "workflow-thread-rejects-duplicate-tool-call-ids",
+        "workflow-thread-rejects-unknown-tool-result-reference",
+        "workflow-thread-rejects-mismatched-tool-result-name",
       ]),
     );
   });

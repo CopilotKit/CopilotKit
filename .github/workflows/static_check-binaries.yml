@@ -79,6 +79,7 @@ jobs:
                 pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
                 assets/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
+                packages/intelligence/conformance/learning-platform-v1.json) continue ;;
                 showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac
               SIZE=$(wc -c < "$file" | tr -d ' ')

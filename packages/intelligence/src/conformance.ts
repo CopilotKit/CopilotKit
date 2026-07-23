@@ -70,7 +70,7 @@ const toolResultMessage = {
   content: "done",
   toolCalls: [],
   toolResults: [toolResult],
-  eventIds: ["event_1"],
+  eventIds: ["event_2"],
   timestamp: NOW,
 };
 const activityMessage = {
@@ -81,7 +81,7 @@ const activityMessage = {
   content: null,
   toolCalls: [],
   toolResults: [],
-  eventIds: ["event_1"],
+  eventIds: ["event_3"],
   timestamp: NOW,
 };
 const sourceEvent = {
@@ -90,7 +90,39 @@ const sourceEvent = {
   type: "TEXT_MESSAGE_END",
   sha256: SHA_A,
 };
-const terminalSourceEvent = { ...sourceEvent, type: "RUN_ERROR" };
+const toolResultSourceEvent = {
+  eventId: "event_2",
+  sequence: 2,
+  type: "TOOL_CALL_RESULT",
+  sha256: SHA_B,
+};
+const activitySourceEvent = {
+  eventId: "event_3",
+  sequence: 3,
+  type: "ACTIVITY_SNAPSHOT",
+  sha256: SHA_A,
+};
+const retainedEvidenceSourceEvent = {
+  eventId: "event_custom",
+  sequence: 4,
+  type: "CUSTOM",
+  sha256: SHA_B,
+};
+const terminalSourceEvent = {
+  eventId: "event_terminal",
+  sequence: 5,
+  type: "RUN_ERROR",
+  sha256: SHA_A,
+};
+function snapshotSourceEvents(terminalType: string = terminalSourceEvent.type) {
+  return [
+    sourceEvent,
+    toolResultSourceEvent,
+    activitySourceEvent,
+    retainedEvidenceSourceEvent,
+    { ...terminalSourceEvent, type: terminalType },
+  ];
+}
 const attachment = {
   schemaVersion: 1,
   provider: "s3",
@@ -590,7 +622,7 @@ const canonicalValidValues: Record<
     threadId: "thread_1",
     agentRunId: "agent_run_1",
     externalRunId: "external_run_1",
-    terminalEventId: "event_1",
+    terminalEventId: "event_terminal",
     terminalType: "RUN_ERROR",
     terminalStatus: null,
     terminalError,
@@ -598,7 +630,7 @@ const canonicalValidValues: Record<
     terminalAt: NOW,
     capturedAt: NOW,
     assignmentRevision: 0,
-    sourceEvents: [terminalSourceEvent],
+    sourceEvents: snapshotSourceEvents(),
     messages: [assistantCallMessage, toolResultMessage, activityMessage],
     retainedEvidence,
     stateChanges: [],
@@ -1171,6 +1203,90 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "run-snapshot-rejects-duplicate-source-event-ids",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        sourceEvents: [
+          ...(canonicalSnapshot.sourceEvents as JsonValue[]),
+          { ...sourceEvent, sequence: 6 },
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-duplicate-message-ids",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          ...(canonicalSnapshot.messages as JsonValue[]),
+          { ...assistantCallMessage, toolCalls: [] },
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-duplicate-retained-event-ids",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            retainedEvidenceEvent,
+            { ...retainedEvidenceEvent, payload: { repeated: true } },
+          ],
+        },
+      },
+    },
+    {
+      name: "run-snapshot-rejects-duplicate-tool-call-ids",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          {
+            ...assistantCallMessage,
+            toolCalls: [toolCall, { ...toolCall, name: "duplicate-search" }],
+          },
+          toolResultMessage,
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-message-event-outside-manifest",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          { ...assistantCallMessage, eventIds: ["event_missing"] },
+          toolResultMessage,
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-mismatched-tool-result-name",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [{ ...toolResult, name: "lookup" }],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
       name: "run-error-requires-terminal-error",
       schema: "RunSnapshotV1",
       valid: false,
@@ -1178,7 +1294,6 @@ function buildCases(): LearningPlatformConformanceCase[] {
         ...canonicalSnapshot,
         terminalType: "RUN_ERROR",
         terminalError: null,
-        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_ERROR" }],
       },
     },
     {
@@ -1188,7 +1303,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: {
         ...canonicalSnapshot,
         terminalType: "RUN_FINISHED",
-        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_FINISHED" }],
+        sourceEvents: snapshotSourceEvents("RUN_FINISHED"),
       },
     },
     {
@@ -1318,6 +1433,66 @@ function buildCases(): LearningPlatformConformanceCase[] {
       schema: "WorkflowThreadV1",
       valid: false,
       value: withoutJsonProperty(canonicalWorkflowThread, "attachments"),
+    },
+    {
+      name: "workflow-thread-rejects-duplicate-message-ids",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          ...(canonicalWorkflowThread.messages as JsonValue[]),
+          { ...assistantCallMessage, toolCalls: [] },
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-duplicate-tool-call-ids",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          {
+            ...assistantCallMessage,
+            toolCalls: [toolCall, { ...toolCall, name: "duplicate-search" }],
+          },
+          toolResultMessage,
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-unknown-tool-result-reference",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [{ ...toolResult, toolCallId: "missing" }],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-mismatched-tool-result-name",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [{ ...toolResult, name: "lookup" }],
+          },
+          activityMessage,
+        ],
+      },
     },
   );
 
@@ -2332,7 +2507,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
-        sourceEvents: [sourceEvent],
+        sourceEvents: snapshotSourceEvents(sourceEvent.type),
       },
     },
     {
@@ -2341,7 +2516,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
-        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_FINISHED" }],
+        sourceEvents: snapshotSourceEvents("RUN_FINISHED"),
       },
     },
     {
@@ -2351,11 +2526,11 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: {
         ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
         sourceEvents: [
-          terminalSourceEvent,
+          ...snapshotSourceEvents(),
           {
             ...terminalSourceEvent,
-            eventId: "event_2",
-            sequence: 2,
+            eventId: "event_later_terminal",
+            sequence: 6,
             type: "RUN_ERROR",
             sha256: SHA_B,
           },

@@ -370,6 +370,68 @@ const retainedEvidenceV1Schema = z
     }
   });
 
+type MessageIdentityIssue = {
+  readonly path: (number | string)[];
+  readonly message: string;
+};
+
+function messageIdentityIssues(
+  messages: readonly NormalizedMessageV1[],
+): MessageIdentityIssue[] {
+  const issues: MessageIdentityIssue[] = [];
+  const messagesById = new Map<string, number>();
+  const toolCallsById = new Map<string, { readonly name: string }>();
+  const duplicateToolCallIds = new Set<string>();
+
+  messages.forEach((message, messageIndex) => {
+    if (messagesById.has(message.messageId)) {
+      issues.push({
+        path: ["messages", messageIndex, "messageId"],
+        message: `Duplicate messageId ${message.messageId}.`,
+      });
+    } else {
+      messagesById.set(message.messageId, messageIndex);
+    }
+
+    message.toolCalls.forEach((toolCall, toolCallIndex) => {
+      if (toolCallsById.has(toolCall.id)) {
+        duplicateToolCallIds.add(toolCall.id);
+        issues.push({
+          path: ["messages", messageIndex, "toolCalls", toolCallIndex, "id"],
+          message: `Duplicate tool-call ID ${toolCall.id}.`,
+        });
+      } else {
+        toolCallsById.set(toolCall.id, { name: toolCall.name });
+      }
+    });
+  });
+
+  messages.forEach((message, messageIndex) => {
+    message.toolResults.forEach((result, resultIndex) => {
+      const call = toolCallsById.get(result.toolCallId);
+      if (call === undefined || duplicateToolCallIds.has(result.toolCallId)) {
+        issues.push({
+          path: [
+            "messages",
+            messageIndex,
+            "toolResults",
+            resultIndex,
+            "toolCallId",
+          ],
+          message: `Tool result must reference exactly one call: ${result.toolCallId}.`,
+        });
+      } else if (result.name !== undefined && result.name !== call.name) {
+        issues.push({
+          path: ["messages", messageIndex, "toolResults", resultIndex, "name"],
+          message: `Tool result name ${result.name} does not match call name ${call.name}.`,
+        });
+      }
+    });
+  });
+
+  return issues;
+}
+
 /** Complete immutable first-terminal-event snapshot. */
 export const runSnapshotV1Schema = z
   .looseObject({
@@ -414,39 +476,62 @@ export const runSnapshotV1Schema = z
           "RUN_ERROR requires terminal error evidence; RUN_FINISHED forbids it.",
       });
     }
-    const knownToolCallIds = new Set(
-      snapshot.messages.flatMap((message) =>
-        message.toolCalls.map((toolCall) => toolCall.id),
-      ),
-    );
+    for (const issue of messageIdentityIssues(snapshot.messages)) {
+      context.addIssue({ code: "custom", ...issue });
+    }
+
+    const sourceEventsById = new Map<
+      string,
+      (typeof snapshot.sourceEvents)[number]
+    >();
+    snapshot.sourceEvents.forEach((event, eventIndex) => {
+      if (sourceEventsById.has(event.eventId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["sourceEvents", eventIndex, "eventId"],
+          message: `Duplicate source-event ID ${event.eventId}.`,
+        });
+      } else {
+        sourceEventsById.set(event.eventId, event);
+      }
+    });
     snapshot.messages.forEach((message, messageIndex) => {
-      message.toolResults.forEach((result, resultIndex) => {
-        if (!knownToolCallIds.has(result.toolCallId)) {
+      message.eventIds.forEach((eventId, eventIndex) => {
+        if (!sourceEventsById.has(eventId)) {
           context.addIssue({
             code: "custom",
-            path: [
-              "messages",
-              messageIndex,
-              "toolResults",
-              resultIndex,
-              "toolCallId",
-            ],
-            message: `Unknown toolCallId ${result.toolCallId}.`,
+            path: ["messages", messageIndex, "eventIds", eventIndex],
+            message: `Unknown source-event ID ${eventId}.`,
           });
         }
       });
     });
-    const referencedTerminalEvents = snapshot.sourceEvents.filter(
-      ({ eventId }) => eventId === snapshot.terminalEventId,
+    const retainedEventsById = new Map<
+      string,
+      NonNullable<typeof snapshot.retainedEvidence>["events"][number]
+    >();
+    snapshot.retainedEvidence?.events.forEach((event, eventIndex) => {
+      if (retainedEventsById.has(event.eventId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["retainedEvidence", "events", eventIndex, "eventId"],
+          message: `Duplicate retained-event ID ${event.eventId}.`,
+        });
+      } else {
+        retainedEventsById.set(event.eventId, event);
+      }
+    });
+
+    const referencedTerminalEvent = sourceEventsById.get(
+      snapshot.terminalEventId,
     );
-    if (referencedTerminalEvents.length !== 1) {
+    if (referencedTerminalEvent === undefined) {
       context.addIssue({
         code: "custom",
         path: ["sourceEvents"],
         message: "Source events must contain exactly one terminal event",
       });
     }
-    const referencedTerminalEvent = referencedTerminalEvents[0];
     if (
       referencedTerminalEvent !== undefined &&
       referencedTerminalEvent.type !== snapshot.terminalType
@@ -1098,28 +1183,9 @@ export const workflowThreadV1Schema = z
     attachments: attachmentReferencesV1Schema,
   })
   .superRefine((thread, context) => {
-    const knownToolCallIds = new Set(
-      thread.messages.flatMap((message) =>
-        message.toolCalls.map((toolCall) => toolCall.id),
-      ),
-    );
-    thread.messages.forEach((message, messageIndex) => {
-      message.toolResults.forEach((result, resultIndex) => {
-        if (!knownToolCallIds.has(result.toolCallId)) {
-          context.addIssue({
-            code: "custom",
-            path: [
-              "messages",
-              messageIndex,
-              "toolResults",
-              resultIndex,
-              "toolCallId",
-            ],
-            message: `Unknown toolCallId ${result.toolCallId}.`,
-          });
-        }
-      });
-    });
+    for (const issue of messageIdentityIssues(thread.messages)) {
+      context.addIssue({ code: "custom", ...issue });
+    }
   });
 
 export const frozenAvailableSkillV1Schema = z.looseObject({
@@ -2262,6 +2328,27 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
       RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxKeyUtf8Bytes,
   },
   {
+    operation: "unique",
+    values: "/sourceEvents/*/eventId",
+  },
+  {
+    operation: "unique",
+    values: "/messages/*/messageId",
+  },
+  {
+    operation: "unique",
+    values: "/retainedEvidence/events/*/eventId",
+  },
+  {
+    operation: "unique",
+    values: "/messages/*/toolCalls/*/id",
+  },
+  {
+    operation: "references",
+    values: "/messages/*/eventIds/*",
+    targets: "/sourceEvents/*/eventId",
+  },
+  {
     operation: "lookup-equal",
     collection: "/sourceEvents/*",
     key: "/eventId",
@@ -2294,12 +2381,38 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
     values: "/messages/*/toolResults/*/toolCallId",
     targets: "/messages/*/toolCalls/*/id",
   },
+  {
+    operation: "lookup-references",
+    sources: "/messages/*/toolResults/*",
+    reference: "/toolCallId",
+    values: "/name",
+    collection: "/messages/*/toolCalls/*",
+    key: "/id",
+    targets: "/name",
+  },
 ]);
 registerLearningContractPortableAssertions(workflowThreadV1Schema, [
+  {
+    operation: "unique",
+    values: "/messages/*/messageId",
+  },
+  {
+    operation: "unique",
+    values: "/messages/*/toolCalls/*/id",
+  },
   {
     operation: "references",
     values: "/messages/*/toolResults/*/toolCallId",
     targets: "/messages/*/toolCalls/*/id",
+  },
+  {
+    operation: "lookup-references",
+    sources: "/messages/*/toolResults/*",
+    reference: "/toolCallId",
+    values: "/name",
+    collection: "/messages/*/toolCalls/*",
+    key: "/id",
+    targets: "/name",
   },
 ]);
 registerLearningContractPortableAssertions(
