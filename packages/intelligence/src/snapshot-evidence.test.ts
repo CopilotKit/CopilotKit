@@ -25,6 +25,49 @@ function deeplyNestedArray(depth: number): unknown {
   return value;
 }
 
+function withSerializedUtf8Bytes<T extends Record<string, unknown>>(
+  value: T,
+  targetBytes: number,
+): T & { extension: string } {
+  const empty = { ...value, extension: "" };
+  const paddingBytes = targetBytes - Buffer.byteLength(JSON.stringify(empty));
+  if (paddingBytes < 0) {
+    throw new Error(`Cannot fit fixture in ${targetBytes} bytes`);
+  }
+  return { ...value, extension: "a".repeat(paddingBytes) };
+}
+
+function payloadWithSerializedUtf8Bytes(targetBytes: number) {
+  let entryCount = 1;
+  let entries = Array.from({ length: entryCount }, (_, index) => [
+    `k${index}`,
+    "",
+  ]);
+  while (
+    targetBytes -
+      Buffer.byteLength(JSON.stringify(Object.fromEntries(entries))) >
+    entryCount * 16_384
+  ) {
+    entryCount += 1;
+    entries = Array.from({ length: entryCount }, (_, index) => [
+      `k${index}`,
+      "",
+    ]);
+  }
+  let remaining =
+    targetBytes -
+    Buffer.byteLength(JSON.stringify(Object.fromEntries(entries)));
+  for (const entry of entries) {
+    const length = Math.min(16_384, remaining);
+    entry[1] = "a".repeat(length);
+    remaining -= length;
+  }
+  if (remaining !== 0) {
+    throw new Error(`Unable to build ${targetBytes}-byte payload`);
+  }
+  return Object.fromEntries(entries);
+}
+
 const attachment = {
   schemaVersion: 1,
   provider: "s3",
@@ -301,6 +344,108 @@ describe("canonical snapshot evidence contracts", () => {
     ).toBe(false);
   });
 
+  test("preserves additive retained-evidence container and event fields", () => {
+    const result = runSnapshotV1Schema.safeParse({
+      ...finishedSnapshot,
+      retainedEvidence: {
+        ...finishedSnapshot.retainedEvidence,
+        encoding: "sanitized-json-v2",
+        events: [
+          {
+            ...finishedSnapshot.retainedEvidence.events[0],
+            producerVersion: "runtime:v2",
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.retainedEvidence).toMatchObject({
+        encoding: "sanitized-json-v2",
+        events: [{ producerVersion: "runtime:v2" }],
+      });
+    }
+  });
+
+  test("enforces retained-evidence entry count, entry, aggregate, and payload boundaries", () => {
+    const event = finishedSnapshot.retainedEvidence.events[0];
+    const atPayloadBoundary = {
+      ...event,
+      payload: payloadWithSerializedUtf8Bytes(32_768),
+    };
+    const overPayloadBoundary = {
+      ...event,
+      payload: payloadWithSerializedUtf8Bytes(32_769),
+    };
+    const atEntryBoundary = withSerializedUtf8Bytes(event, 65_536);
+    const overEntryBoundary = withSerializedUtf8Bytes(event, 65_537);
+    const retainedEvidence = finishedSnapshot.retainedEvidence;
+    const atAggregateBoundary = withSerializedUtf8Bytes(
+      retainedEvidence,
+      8_388_608,
+    );
+    const overAggregateBoundary = withSerializedUtf8Bytes(
+      retainedEvidence,
+      8_388_609,
+    );
+
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: { schemaVersion: 1, events: [atPayloadBoundary] },
+      }).success,
+    ).toBe(true);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: { schemaVersion: 1, events: [overPayloadBoundary] },
+      }).success,
+    ).toBe(false);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: { schemaVersion: 1, events: [atEntryBoundary] },
+      }).success,
+    ).toBe(true);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: { schemaVersion: 1, events: [overEntryBoundary] },
+      }).success,
+    ).toBe(false);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: atAggregateBoundary,
+      }).success,
+    ).toBe(true);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: overAggregateBoundary,
+      }).success,
+    ).toBe(false);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: Array.from({ length: 4_096 }, () => event),
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      runSnapshotV1Schema.safeParse({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: Array.from({ length: 4_097 }, () => event),
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   test("requires activity type, activity metadata objects, and tool results", () => {
     expect(
       runSnapshotV1Schema.safeParse({
@@ -428,6 +573,93 @@ describe("canonical snapshot evidence contracts", () => {
       }),
     ).toBe(false);
     expect(validateSnapshot(finishedSnapshot)).toBe(true);
+    const retainedEvidenceEvent = finishedSnapshot.retainedEvidence.events[0];
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [withSerializedUtf8Bytes(retainedEvidenceEvent, 65_536)],
+        },
+      }),
+    ).toBe(true);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [withSerializedUtf8Bytes(retainedEvidenceEvent, 65_537)],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: withSerializedUtf8Bytes(
+          finishedSnapshot.retainedEvidence,
+          8_388_608,
+        ),
+      }),
+    ).toBe(true);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: withSerializedUtf8Bytes(
+          finishedSnapshot.retainedEvidence,
+          8_388_609,
+        ),
+      }),
+    ).toBe(false);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: Array.from({ length: 4_096 }, () => retainedEvidenceEvent),
+        },
+      }),
+    ).toBe(true);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          ...finishedSnapshot.retainedEvidence,
+          encoding: "sanitized-json-v2",
+          events: [
+            {
+              ...finishedSnapshot.retainedEvidence.events[0],
+              producerVersion: "runtime:v2",
+            },
+          ],
+        },
+      }),
+    ).toBe(true);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...finishedSnapshot.retainedEvidence.events[0],
+              payload: payloadWithSerializedUtf8Bytes(32_769),
+            },
+          ],
+        },
+      }),
+    ).toBe(false);
+    expect(
+      validateSnapshot({
+        ...finishedSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: Array.from(
+            { length: 4_097 },
+            () => finishedSnapshot.retainedEvidence.events[0],
+          ),
+        },
+      }),
+    ).toBe(false);
     expect(
       validateSnapshot({
         ...failedSnapshot(),

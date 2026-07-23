@@ -5,7 +5,11 @@ import type {
 } from "./snapshot-evidence-bounds.js";
 import {
   ATTACHMENT_METADATA_BOUNDS_V1,
+  RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1,
+  RETAINED_EVIDENCE_ENTRY_BOUNDS_V1,
+  RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1,
   RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1,
+  RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1,
   RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1,
   TERMINAL_ERROR_DETAILS_BOUNDS_V1,
   isInlineAttachmentPayloadKey,
@@ -101,6 +105,62 @@ describe("snapshot evidence limits", () => {
       maxArrayItems: 64,
       maxStringBytes: 4_096,
       maxKeyBytes: 256,
+    });
+  });
+
+  test("publishes the exact retained evidence limits", () => {
+    expect(RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1).toEqual({
+      maxEntries: 4_096,
+      aggregateMaxUtf8Bytes: 8_388_608,
+      aggregateMaxDepth: 11,
+      aggregateMaxNodes: 1_048_576,
+      aggregateMaxObjectProperties: 256,
+      aggregateMaxArrayItems: 4_096,
+      aggregateMaxStringUtf8Bytes: 8_388_608,
+      aggregateMaxKeyUtf8Bytes: 1_024,
+      entryMaxUtf8Bytes: 65_536,
+      entryMaxDepth: 9,
+      entryMaxNodes: 1_024,
+      entryMaxObjectProperties: 256,
+      entryMaxArrayItems: 256,
+      entryMaxStringUtf8Bytes: 65_536,
+      entryMaxKeyUtf8Bytes: 1_024,
+      eventIdMaxUtf8Bytes: 1_024,
+      typeMaxUtf8Bytes: 256,
+      payloadMaxUtf8Bytes: 32_768,
+      payloadMaxDepth: 8,
+      payloadMaxNodes: 512,
+      payloadMaxObjectProperties: 128,
+      payloadMaxArrayItems: 256,
+      payloadMaxStringUtf8Bytes: 16_384,
+      payloadMaxKeyUtf8Bytes: 512,
+    });
+    expect(RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1).toEqual({
+      maxSerializedBytes: 8_388_608,
+      maxDepth: 11,
+      maxNodes: 1_048_576,
+      maxObjectProperties: 256,
+      maxArrayItems: 4_096,
+      maxStringBytes: 8_388_608,
+      maxKeyBytes: 1_024,
+    });
+    expect(RETAINED_EVIDENCE_ENTRY_BOUNDS_V1).toEqual({
+      maxSerializedBytes: 65_536,
+      maxDepth: 9,
+      maxNodes: 1_024,
+      maxObjectProperties: 256,
+      maxArrayItems: 256,
+      maxStringBytes: 65_536,
+      maxKeyBytes: 1_024,
+    });
+    expect(RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1).toEqual({
+      maxSerializedBytes: 32_768,
+      maxDepth: 8,
+      maxNodes: 512,
+      maxObjectProperties: 128,
+      maxArrayItems: 256,
+      maxStringBytes: 16_384,
+      maxKeyBytes: 512,
     });
   });
 });

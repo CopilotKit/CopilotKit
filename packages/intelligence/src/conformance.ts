@@ -1133,6 +1133,92 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: withoutJsonProperty(canonicalSnapshot, "retainedEvidence"),
     },
     {
+      name: "run-snapshot-accepts-additive-retained-evidence-fields",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          encoding: "sanitized-json-v2",
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              producerVersion: "runtime:v2",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "retained-evidence-event-id-accepts-exact-utf8-boundary",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              eventId: "é".repeat(512),
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "retained-evidence-event-id-rejects-utf8-boundary-plus-one",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              eventId: "é".repeat(513),
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "retained-evidence-payload-accepts-exact-serialized-boundary",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              payload: jsonObjectWithSerializedUtf8Bytes(32_768, 16_384),
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "retained-evidence-payload-rejects-serialized-boundary-plus-one",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              payload: jsonObjectWithSerializedUtf8Bytes(32_769, 16_384),
+            },
+          ],
+        },
+      },
+    },
+    {
       name: "run-snapshot-rejects-untyped-attachment-payload",
       schema: "RunSnapshotV1",
       valid: false,

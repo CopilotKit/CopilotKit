@@ -6,9 +6,13 @@ import {
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
   INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
   RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1,
+  RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1,
   RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1,
   utf8ByteLength,
   validateAttachmentMetadataV1,
+  validateRetainedEvidenceAggregateV1,
+  validateRetainedEvidenceEntryV1,
+  validateRetainedEvidencePayloadV1,
   validateTerminalErrorDetailsV1,
 } from "./snapshot-evidence-bounds.js";
 
@@ -322,17 +326,49 @@ export type SourceEventManifestEntryV1 = z.infer<
   typeof sourceEventManifestEntryV1Schema
 >;
 
-const retainedEvidenceEventV1Schema = z.strictObject({
-  eventId: nonEmptyStringSchema,
-  type: nonEmptyStringSchema,
-  timestamp: timestampSchema,
-  payload: jsonObjectSchema,
-});
+const retainedEvidencePayloadV1Schema = boundedJsonObjectSchema(
+  validateRetainedEvidencePayloadV1,
+);
 
-const retainedEvidenceV1Schema = z.strictObject({
-  schemaVersion: z.literal(1),
-  events: z.array(retainedEvidenceEventV1Schema),
-});
+const retainedEvidenceEventV1Schema = z
+  .looseObject({
+    eventId: boundedSnapshotEvidenceStringSchema(
+      "Retained evidence event ID",
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.eventIdMaxUtf8Bytes,
+    ),
+    type: boundedSnapshotEvidenceStringSchema(
+      "Retained evidence event type",
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.typeMaxUtf8Bytes,
+    ),
+    timestamp: timestampSchema,
+    payload: retainedEvidencePayloadV1Schema,
+  })
+  .superRefine((event, context) => {
+    for (const issue of validateRetainedEvidenceEntryV1(event)) {
+      context.addIssue({
+        code: "custom",
+        path: [...issue.path],
+        message: issue.message,
+      });
+    }
+  });
+
+const retainedEvidenceV1Schema = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    events: z
+      .array(retainedEvidenceEventV1Schema)
+      .max(RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.maxEntries),
+  })
+  .superRefine((retainedEvidence, context) => {
+    for (const issue of validateRetainedEvidenceAggregateV1(retainedEvidence)) {
+      context.addIssue({
+        code: "custom",
+        path: [...issue.path],
+        message: issue.message,
+      });
+    }
+  });
 
 /** Complete immutable first-terminal-event snapshot. */
 export const runSnapshotV1Schema = z
@@ -2162,6 +2198,69 @@ registerLearningContractPortableAssertions(terminalErrorV1Schema, [
   },
 ]);
 registerLearningContractPortableAssertions(runSnapshotV1Schema, [
+  {
+    operation: "count",
+    values: "/retainedEvidence/events/*",
+    maximum: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.maxEntries,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/retainedEvidence/events/*/eventId",
+    maximum: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.eventIdMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/retainedEvidence/events/*/type",
+    maximum: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.typeMaxUtf8Bytes,
+  },
+  {
+    operation: "bounded-json",
+    values: "/retainedEvidence",
+    serializedMaximum:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxUtf8Bytes,
+    maximumDepth: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxDepth,
+    maximumNodes: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxNodes,
+    maximumObjectProperties:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxObjectProperties,
+    maximumArrayItems:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxArrayItems,
+    maximumStringUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxStringUtf8Bytes,
+    maximumKeyUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.aggregateMaxKeyUtf8Bytes,
+  },
+  {
+    operation: "bounded-json",
+    values: "/retainedEvidence/events/*",
+    serializedMaximum:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxUtf8Bytes,
+    maximumDepth: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxDepth,
+    maximumNodes: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxNodes,
+    maximumObjectProperties:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxObjectProperties,
+    maximumArrayItems:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxArrayItems,
+    maximumStringUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxStringUtf8Bytes,
+    maximumKeyUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.entryMaxKeyUtf8Bytes,
+  },
+  {
+    operation: "bounded-json",
+    values: "/retainedEvidence/events/*/payload",
+    serializedMaximum:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxUtf8Bytes,
+    maximumDepth: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxDepth,
+    maximumNodes: RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxNodes,
+    maximumObjectProperties:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxObjectProperties,
+    maximumArrayItems:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxArrayItems,
+    maximumStringUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxStringUtf8Bytes,
+    maximumKeyUtf8Bytes:
+      RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1.payloadMaxKeyUtf8Bytes,
+  },
   {
     operation: "lookup-equal",
     collection: "/sourceEvents/*",

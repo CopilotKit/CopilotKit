@@ -45,6 +45,36 @@ export const TERMINAL_ERROR_DETAILS_BOUNDS_V1 = {
   maxKeyBytes: 256,
 } as const satisfies JsonTreeBoundsV1;
 
+export const RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1 = {
+  maxSerializedBytes: 32_768,
+  maxDepth: 8,
+  maxNodes: 512,
+  maxObjectProperties: 128,
+  maxArrayItems: 256,
+  maxStringBytes: 16_384,
+  maxKeyBytes: 512,
+} as const satisfies JsonTreeBoundsV1;
+
+export const RETAINED_EVIDENCE_ENTRY_BOUNDS_V1 = {
+  maxSerializedBytes: 65_536,
+  maxDepth: 9,
+  maxNodes: 1_024,
+  maxObjectProperties: 256,
+  maxArrayItems: 256,
+  maxStringBytes: 65_536,
+  maxKeyBytes: 1_024,
+} as const satisfies JsonTreeBoundsV1;
+
+export const RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1 = {
+  maxSerializedBytes: 8_388_608,
+  maxDepth: 11,
+  maxNodes: 1_048_576,
+  maxObjectProperties: 256,
+  maxArrayItems: 4_096,
+  maxStringBytes: 8_388_608,
+  maxKeyBytes: 1_024,
+} as const satisfies JsonTreeBoundsV1;
+
 export const RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1 = {
   maxEntries: 32,
   providerMaxUtf8Bytes: 64,
@@ -78,6 +108,38 @@ export const RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1 = {
   detailsMaxArrayItems: TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxArrayItems,
   detailsMaxStringUtf8Bytes: TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxStringBytes,
   detailsMaxKeyUtf8Bytes: TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxKeyBytes,
+} as const;
+
+export const RUN_SNAPSHOT_RETAINED_EVIDENCE_LIMITS_V1 = {
+  maxEntries: 4_096,
+  aggregateMaxUtf8Bytes:
+    RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxSerializedBytes,
+  aggregateMaxDepth: RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxDepth,
+  aggregateMaxNodes: RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxNodes,
+  aggregateMaxObjectProperties:
+    RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxObjectProperties,
+  aggregateMaxArrayItems: RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxArrayItems,
+  aggregateMaxStringUtf8Bytes:
+    RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxStringBytes,
+  aggregateMaxKeyUtf8Bytes: RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1.maxKeyBytes,
+  entryMaxUtf8Bytes: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxSerializedBytes,
+  entryMaxDepth: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxDepth,
+  entryMaxNodes: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxNodes,
+  entryMaxObjectProperties:
+    RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxObjectProperties,
+  entryMaxArrayItems: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxArrayItems,
+  entryMaxStringUtf8Bytes: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxStringBytes,
+  entryMaxKeyUtf8Bytes: RETAINED_EVIDENCE_ENTRY_BOUNDS_V1.maxKeyBytes,
+  eventIdMaxUtf8Bytes: 1_024,
+  typeMaxUtf8Bytes: 256,
+  payloadMaxUtf8Bytes: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxSerializedBytes,
+  payloadMaxDepth: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxDepth,
+  payloadMaxNodes: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxNodes,
+  payloadMaxObjectProperties:
+    RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxObjectProperties,
+  payloadMaxArrayItems: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxArrayItems,
+  payloadMaxStringUtf8Bytes: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxStringBytes,
+  payloadMaxKeyUtf8Bytes: RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1.maxKeyBytes,
 } as const;
 
 export function utf8ByteLength(value: string): number {
@@ -527,6 +589,24 @@ export function validateTerminalErrorDetailsV1(
   return validateJsonTreeBoundsV1(value, TERMINAL_ERROR_DETAILS_BOUNDS_V1).map(
     (issue) => contextualizeTreeIssue(issue, "terminal_error_details"),
   );
+}
+
+export function validateRetainedEvidencePayloadV1(
+  value: unknown,
+): readonly JsonTreeBoundsIssueV1[] {
+  return validateJsonTreeBoundsV1(value, RETAINED_EVIDENCE_PAYLOAD_BOUNDS_V1);
+}
+
+export function validateRetainedEvidenceEntryV1(
+  value: unknown,
+): readonly JsonTreeBoundsIssueV1[] {
+  return validateJsonTreeBoundsV1(value, RETAINED_EVIDENCE_ENTRY_BOUNDS_V1);
+}
+
+export function validateRetainedEvidenceAggregateV1(
+  value: unknown,
+): readonly JsonTreeBoundsIssueV1[] {
+  return validateJsonTreeBoundsV1(value, RETAINED_EVIDENCE_AGGREGATE_BOUNDS_V1);
 }
 
 function createIssue(

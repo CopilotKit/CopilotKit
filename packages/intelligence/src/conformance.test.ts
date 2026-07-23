@@ -164,8 +164,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(267);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(267);
+    expect(corpus.cases).toHaveLength(272);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(272);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -500,6 +500,11 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "run-error-requires-terminal-error",
         "run-finished-forbids-terminal-error",
         "run-snapshot-accepts-omitted-retained-evidence",
+        "run-snapshot-accepts-additive-retained-evidence-fields",
+        "retained-evidence-event-id-accepts-exact-utf8-boundary",
+        "retained-evidence-event-id-rejects-utf8-boundary-plus-one",
+        "retained-evidence-payload-accepts-exact-serialized-boundary",
+        "retained-evidence-payload-rejects-serialized-boundary-plus-one",
         "run-snapshot-rejects-untyped-retained-evidence-event",
         "attachment-metadata-rejects-bare-payload",
         "attachment-metadata-rejects-spaced-base64",
