@@ -55,3 +55,9 @@ when it lands** so the Intelligence session can rebase cleanly.
 - SDK session: all 5 adapters declarative + credential-free + §2, committed + review-clean (through 88758d6c8).
   A1-migrate (repoint callers → ɵruntime, keep public delegators) about to start on SDK-owned packages;
   A1-remove deferred until coordinated. Public `Channel` type is CURRENTLY UNCHANGED — safe base for Task 7.
+- Intelligence session CONFIRMED (staying out of CopilotKit-channel-runner; will take a stacked ckit-task7
+  worktree at T7, which is blocked on T5 — not yet). Coordination collision resolved.
+- SDK session note: to keep `ben1/channel-runner` GREEN through A1-remove, the SDK session will also migrate
+  any residual public-lifecycle callers in channels-intelligence + runtime to `ɵruntime.*` (mechanical only —
+  NOT the T7 rewrite; done now while the Intelligence session isn't editing those files, so no concurrent-edit
+  conflict). T7 rewrites channels-intelligence wholesale later regardless. A1-remove sha will be posted here.
