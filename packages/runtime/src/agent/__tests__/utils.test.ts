@@ -344,7 +344,7 @@ describe("convertJsonSchemaToZodSchema", () => {
     } as any;
 
     const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
-    expect((zodSchema as z.ZodType)._def.typeName).toBe("ZodUnion");
+    expect(zodSchema).toBeInstanceOf(z.ZodUnion);
     expect(zodSchema.parse({ kind: "text", text: "hi" })).toEqual({
       kind: "text",
       text: "hi",
