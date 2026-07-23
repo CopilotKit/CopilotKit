@@ -25,6 +25,8 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { StateStore } from "./state/state-store.js";
 import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
+import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
+import type { PostImageOptions } from "@copilotkit/channels-ui";
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
@@ -63,6 +65,16 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
+  render?: RenderConfig;
+  /**
+   * Test seam: override the image renderer. Defaults to a lazy import of the
+   * Takumi render module, so `takumi-js` loads only when an image is posted.
+   */
+  renderImage?: (
+    node: unknown,
+    cfg: ResolvedRenderConfig,
+  ) => Promise<Uint8Array>;
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */

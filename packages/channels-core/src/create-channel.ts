@@ -21,6 +21,7 @@ import { normalizeCommandName, toCommandSpec } from "./commands.js";
 import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
+import type { RenderConfig } from "./render/config.js";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   InteractionContext,
@@ -242,6 +243,8 @@ export interface CreateChannelOptions<
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
   store?: StoreConfig<TStateSchema>;
+  /** Image-render config (fonts + compiled CSS) for posting arbitrary JSX as images. */
+  render?: RenderConfig;
 }
 
 export interface Channel<TState = unknown> {
@@ -459,6 +462,7 @@ export function createChannel<
       userKey: extras?.userKey,
       message: extras?.message,
       telemetry,
+      render: opts.render,
     };
     return new Thread(deps);
   }
