@@ -1,5 +1,12 @@
 const SETTLE_FAILURE_REASONS = new Set([
+  "sse-missing",
+  "dom-missing",
   "text-unstable",
+  "done-signal-missing",
+  "surface-missing",
+  // Retain the historical categories while older callers and artifacts
+  // still exist. The five entries above are the current runner's exact
+  // TurnNotCompleteError reasons.
   "surface-not-ready",
   "no-assistant-message",
   "run-still-active",

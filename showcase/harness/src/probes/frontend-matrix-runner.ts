@@ -12,6 +12,8 @@ export interface FrontendProbeResult {
   durationMs: number;
   testId: string;
   errorClass?: string;
+  /** Bounded, privacy-safe classifier; never raw provider or page content. */
+  failureReason?: string;
   error?: string;
   diagnostics?: Record<string, unknown>;
 }
@@ -247,6 +249,7 @@ export interface FrontendMatrixArtifactProbe {
   durationMs: number;
   testId: string;
   errorClass?: string;
+  failureReason?: string;
 }
 
 export interface FrontendMatrixArtifactCell {
@@ -298,6 +301,9 @@ export function createFrontendMatrixArtifact(
           ...(probe.errorClass === undefined
             ? {}
             : { errorClass: probe.errorClass }),
+          ...(probe.failureReason === undefined
+            ? {}
+            : { failureReason: probe.failureReason }),
         }),
       );
       return {

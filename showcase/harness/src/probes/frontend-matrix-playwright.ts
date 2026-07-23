@@ -297,6 +297,7 @@ export function createPlaywrightProbeExecutor(
             durationMs: Date.now() - startedAt,
             testId: input.testId,
             errorClass: "conversation-error",
+            failureReason: failureSummary,
             error: `conversation failed on turn ${conversation.failure_turn} (${failureSummary})`,
             diagnostics: {
               frontend: input.cell.frontend,

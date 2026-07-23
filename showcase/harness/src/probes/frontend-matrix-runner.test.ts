@@ -186,6 +186,7 @@ describe("frontend matrix CI runner", () => {
               durationMs: 500,
               testId: "fm-private",
               errorClass: "assertion",
+              failureReason: "settle-dom-missing",
               error: "tool payload",
               diagnostics: { fixture: "private fixture content" },
             },
@@ -214,6 +215,7 @@ describe("frontend matrix CI runner", () => {
           durationMs: 500,
           testId: "fm-private",
           errorClass: "assertion",
+          failureReason: "settle-dom-missing",
         },
       ],
     });
