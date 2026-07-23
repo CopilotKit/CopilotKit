@@ -111,6 +111,11 @@ export async function handleWebhookValue(
         userText,
         user,
         platform: "whatsapp",
+        // WhatsApp Cloud API is 1:1/DM-only (plan §2): every turn is already
+        // directly addressed, so the engine's response policy auto-runs it
+        // without requiring an onMention/onMessage handler.
+        conversationKind: "direct_message",
+        mentioned: false,
       });
       continue;
     }
@@ -149,6 +154,9 @@ export async function handleWebhookValue(
         userText: caption,
         user,
         platform: "whatsapp",
+        // See the text-turn branch above: WhatsApp is DM-only (plan §2).
+        conversationKind: "direct_message",
+        mentioned: false,
       });
       continue;
     }

@@ -17,23 +17,18 @@ export interface WhatsAppMessageRef {
   [k: string]: unknown;
 }
 
+/**
+ * WhatsApp adapter config — CREDENTIAL-FREE. The adapter builds nothing from
+ * tokens; it only renders and normalizes. Every credential (`accessToken`/
+ * `phoneNumberId`/`appSecret`/`verifyToken`/`port`/`path`/`apiVersion`/
+ * `graphBaseUrl`) now lives on `WebClientWhatsAppConnectorOptions` instead — a
+ * runner constructs that connector and injects it via
+ * `WhatsAppAdapter.ɵbindConnector` before `start()`/any egress call. Running
+ * the adapter unbound throws — that's the intended "you need a custom
+ * ChannelRunner" signpost for running Channels without CopilotKit
+ * Intelligence.
+ */
 export interface WhatsAppAdapterOptions {
-  /** Cloud API access token (Bearer). */
-  accessToken: string;
-  /** Business phone-number id that sends messages. */
-  phoneNumberId: string;
-  /** App secret used to validate X-Hub-Signature-256 on inbound POSTs. */
-  appSecret: string;
-  /** Token echoed during the GET verification handshake (hub.verify_token). */
-  verifyToken: string;
-  /** HTTP server port (default 3000). */
-  port?: number;
-  /** Webhook path (default "/webhook"). */
-  path?: string;
-  /** Graph API version (default "v21.0"). */
-  apiVersion?: string;
-  /** Graph API base origin (default "https://graph.facebook.com"). Overridable for tests. */
-  graphBaseUrl?: string;
   /** Custom-event names treated as interrupts by the run renderer. */
   interruptEventNames?: ReadonlySet<string>;
   /** Prefix for leading-keyword command matching (default "/"). */

@@ -21,6 +21,19 @@ export { createRunRenderer } from "./event-renderer.js";
 export { WhatsAppClient } from "./client.js";
 export type { DownloadedMedia } from "./client.js";
 
+export { WebClientWhatsAppConnector } from "./whatsapp-connector.js";
+export type {
+  WhatsAppConnector,
+  WhatsAppIngressConfig,
+  WebClientWhatsAppConnectorOptions,
+} from "./whatsapp-connector.js";
+
+export { FakeWhatsAppConnector } from "./testing/fake-whatsapp-connector.js";
+export type {
+  WhatsAppConnectorCall,
+  FakeWhatsAppConnectorResults,
+} from "./testing/fake-whatsapp-connector.js";
+
 export { buildFileContentParts } from "./download-files.js";
 export type { AgentContentPart, FileDeliveryConfig } from "./download-files.js";
 

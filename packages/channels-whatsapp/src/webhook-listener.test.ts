@@ -41,6 +41,10 @@ describe("handleWebhookValue", () => {
         platform: "whatsapp",
         user: { id: "111", name: "Ada" },
         replyTarget: { to: "111", phoneNumberId: "PNID" },
+        // §2: WhatsApp is DM-only, so every turn is already directly
+        // addressed — the engine auto-runs it without needing a handler.
+        conversationKind: "direct_message",
+        mentioned: false,
       }),
     );
     expect(await history.read("whatsapp:111")).toHaveLength(1);
@@ -191,6 +195,8 @@ describe("handleWebhookValue", () => {
         conversationKey: "whatsapp:111",
         userText: "look",
         platform: "whatsapp",
+        conversationKind: "direct_message",
+        mentioned: false,
       }),
     );
     const stored = await history.read("whatsapp:111");
