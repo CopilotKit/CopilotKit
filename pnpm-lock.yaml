@@ -2419,6 +2419,9 @@ importers:
       react:
         specifier: 19.2.3
         version: 19.2.3
+      takumi-js:
+        specifier: ^2.4.1
+        version: 2.4.1(csstype@3.2.3)(react@19.2.3)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -12716,6 +12719,88 @@ packages:
     resolution: {integrity: sha512-mEiF5HO1QqCLXoNEfXVA1Tzo+cYsrqV7w9Juj2wdUFyW07JRenqMG225MvPwr3ZD9N1bFQj46X7r33iHxLUW0w==}
     peerDependencies:
       vite: '>=6.4.2'
+
+  '@takumi-rs/core-darwin-arm64@2.4.1':
+    resolution: {integrity: sha512-8Caa7tIU6OY0uww6hh8LFJfAy6zsf2+bDNUcqkkWAAEkxPSLgUNdRxRZPTVNAqpYXE70LxO+D7xhmbOvx3jw4g==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@takumi-rs/core-darwin-x64@2.4.1':
+    resolution: {integrity: sha512-24rySftJ5Jldn2BhtGr4Z15flQfD+y4qPEh5OkuQ65Wput4n7AwXbYMjx57Su1jn2kSgePjLVOO+DaRs3MPz9A==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@takumi-rs/core-linux-arm64-gnu@2.4.1':
+    resolution: {integrity: sha512-YuzyFk4NsNlrYORBSevLwX7LDsmnmQRIYFyAtfpcVv+YZw4vkEyvekU04nlh8dd7hjJaOY25KY68l+y5FAQkqA==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@takumi-rs/core-linux-arm64-musl@2.4.1':
+    resolution: {integrity: sha512-w+dor/U/zQffPXhoOrgViUy0pjHZUjkjyXojdGHe9z2i2/NMsAaONdUNASE/ZjWaehrDs2bWPdJ+cgxYFwbKGg==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@takumi-rs/core-linux-x64-gnu@2.4.1':
+    resolution: {integrity: sha512-6zFsEkSMOhXJxkktT0v/OnE/CPDAI+DxE3QHsj5L4VJa9yYA4MrxB+yiop2aXS63ZbnRdS5GlqUft/tkxZWs9w==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@takumi-rs/core-linux-x64-musl@2.4.1':
+    resolution: {integrity: sha512-95wuhp/gM1NwJ47CGEW89Np9/Qt1gMkpmyYACjtpX9jMS9iTA5uAeU1Ur+ouGEa+SRp6wf5v5HEBmVMO9TfCBQ==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@takumi-rs/core-win32-arm64-msvc@2.4.1':
+    resolution: {integrity: sha512-I8k6g4BDY48Q4C6L6CQL9M7lfpijtegKk1AtD0i41SaRpWLkGcEmxjH8iYym3X3LYEL/GX6J9iQZaoG9J8saZg==}
+    engines: {node: '>=18'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@takumi-rs/core-win32-x64-msvc@2.4.1':
+    resolution: {integrity: sha512-ugGBq7pbGr0Tqm+egrgDcGglsJXsiFdE3w33iI4+ImXcuoaV+19oSPZZqP5Vr44/+lp3rcEJ29vlufUmljBB3g==}
+    engines: {node: '>=18'}
+    cpu: [x64]
+    os: [win32]
+
+  '@takumi-rs/core@2.4.1':
+    resolution: {integrity: sha512-eAFDIg9HRLU1ciCd2HPfZ3MPREF3MAkTHMzZ3570fcYI9Y/qLdPE77oo6CgBPxisp7pccxC1ub3/MxvpL6r6Pg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      csstype: '*'
+    peerDependenciesMeta:
+      csstype:
+        optional: true
+
+  '@takumi-rs/helpers@2.4.1':
+    resolution: {integrity: sha512-gpm1exkspnPNcPp9lnII204hTC7i0bu0ksyqC01aMF4eSw6u1OxnlKEDVUTGm1dFBFecfHaPZBbi+O8SAypXpw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      preact: ^10.0.0
+      react: 19.2.3
+    peerDependenciesMeta:
+      preact:
+        optional: true
+      react:
+        optional: true
+
+  '@takumi-rs/wasm@2.4.1':
+    resolution: {integrity: sha512-VhJtfCCRs+vxGCAFEkeu3/UI0VpToX6ys7KfeNBUTtVb9SGtkxBFxXixwmorALW0kzUuRkLHUl2HpylvlKk7Xg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      csstype: '*'
+    peerDependenciesMeta:
+      csstype:
+        optional: true
 
   '@tanstack/ai-client@0.7.5':
     resolution: {integrity: sha512-GaHbebljFNn58L3oGEI8+ZGhavwY1YFXo+MxkL6qpK0YwYJOQ5A4dJz57roiD0uCZt9k10VMdKgwgAdWyW5JRQ==}
@@ -23762,6 +23847,10 @@ packages:
 
   tailwindcss@4.2.2:
     resolution: {integrity: sha512-KWBIxs1Xb6NoLdMVqhbhgwZf2PGBpPEiwOqgI4pFIYbNTfBXiKYyWoTsXgBQ9WFg/OlhnvHaY+AEpW7wSmFo2Q==}
+
+  takumi-js@2.4.1:
+    resolution: {integrity: sha512-8+iPvoxWp7ur962zvsb+kNK80HlnMjYGYjf6+oNIfcN8n91or3Zct48KlOmpdsWkK1ZWSWvxS1BqL1TcJigrbg==}
+    engines: {node: '>=18'}
 
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
@@ -38466,6 +38555,60 @@ snapshots:
       '@tailwindcss/oxide': 4.2.2
       tailwindcss: 4.2.2
       vite: 7.3.2(@types/node@25.6.0)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+
+  '@takumi-rs/core-darwin-arm64@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-darwin-x64@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-linux-arm64-gnu@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-linux-arm64-musl@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-linux-x64-gnu@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-linux-x64-musl@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-win32-arm64-msvc@2.4.1':
+    optional: true
+
+  '@takumi-rs/core-win32-x64-msvc@2.4.1':
+    optional: true
+
+  '@takumi-rs/core@2.4.1(csstype@3.2.3)(react@19.2.3)':
+    dependencies:
+      '@takumi-rs/helpers': 2.4.1(react@19.2.3)
+    optionalDependencies:
+      '@takumi-rs/core-darwin-arm64': 2.4.1
+      '@takumi-rs/core-darwin-x64': 2.4.1
+      '@takumi-rs/core-linux-arm64-gnu': 2.4.1
+      '@takumi-rs/core-linux-arm64-musl': 2.4.1
+      '@takumi-rs/core-linux-x64-gnu': 2.4.1
+      '@takumi-rs/core-linux-x64-musl': 2.4.1
+      '@takumi-rs/core-win32-arm64-msvc': 2.4.1
+      '@takumi-rs/core-win32-x64-msvc': 2.4.1
+      csstype: 3.2.3
+    transitivePeerDependencies:
+      - preact
+      - react
+
+  '@takumi-rs/helpers@2.4.1(react@19.2.3)':
+    optionalDependencies:
+      react: 19.2.3
+
+  '@takumi-rs/wasm@2.4.1(csstype@3.2.3)(react@19.2.3)':
+    dependencies:
+      '@takumi-rs/helpers': 2.4.1(react@19.2.3)
+    optionalDependencies:
+      csstype: 3.2.3
+    transitivePeerDependencies:
+      - preact
+      - react
 
   '@tanstack/ai-client@0.7.5':
     dependencies:
@@ -53674,6 +53817,16 @@ snapshots:
   tailwindcss@4.1.18: {}
 
   tailwindcss@4.2.2: {}
+
+  takumi-js@2.4.1(csstype@3.2.3)(react@19.2.3):
+    dependencies:
+      '@takumi-rs/core': 2.4.1(csstype@3.2.3)(react@19.2.3)
+      '@takumi-rs/helpers': 2.4.1(react@19.2.3)
+      '@takumi-rs/wasm': 2.4.1(csstype@3.2.3)(react@19.2.3)
+    transitivePeerDependencies:
+      - csstype
+      - preact
+      - react
 
   tapable@2.3.0: {}
 
