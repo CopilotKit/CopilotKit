@@ -5,7 +5,9 @@ icon: "lucide/ShieldCheck"
 doc_type: how-to
 ---
 
-Authentication has two boundaries:
+## What authentication protects
+
+CopilotKit authentication covers two boundaries:
 
 1. Your Angular app sends its current session token to Copilot Runtime.
 2. Copilot Runtime validates that token before a run starts and forwards only
@@ -112,7 +114,7 @@ to override a backend token.
 - Configure CORS for the deployed Angular origin.
 - Log authorization failures without logging bearer tokens.
 
-## Related
+## Next steps
 
 - [Copilot Runtime](/backend/copilot-runtime)
 - [Runtime HTTP endpoints](/backend/runtime-endpoints)
