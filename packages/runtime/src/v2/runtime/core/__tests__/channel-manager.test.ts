@@ -571,7 +571,7 @@ describe("ChannelManager", () => {
     expect(engine).not.toHaveBeenCalled();
   });
 
-  it("skips managed activation for a direct-adapter channel but records it unmanaged; the managed one reflects its real state", async () => {
+  it("starts a direct-adapter channel via its own transport seam (not the managed engine) and reflects online; the managed one reflects its real state", async () => {
     const log = vi.fn();
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const managed = createChannel({ name: "support" });
@@ -579,6 +579,11 @@ describe("ChannelManager", () => {
       name: "sales",
       adapters: [new FakeAdapter({ platform: "slack" })],
     });
+    // The manager now DRIVES a direct channel through its own transport seam —
+    // spy on it so the managed engine and this seam can be told apart.
+    const directStart = vi
+      .spyOn(direct.ɵruntime, "start")
+      .mockResolvedValue(undefined);
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
@@ -588,16 +593,17 @@ describe("ChannelManager", () => {
     });
     mgr.activate();
 
+    // The managed engine runs only for the managed channel; the direct channel
+    // is started through `channel.ɵruntime.start()` instead.
     expect(engine).toHaveBeenCalledTimes(1);
+    expect(directStart).toHaveBeenCalledTimes(1);
 
     await expect(mgr.ready()).resolves.toBeUndefined();
-    // The direct channel is surfaced as `unmanaged` (never omitted, never
-    // `online`); the managed channel reflects its real activated state; and
-    // `overall` folds over the managed channel only, so a healthy managed
-    // channel beside an unmanaged one still reads `online`.
+    // Both channels read `online`: the managed one via activation, the direct one
+    // once its own transport is up. `overall` now folds over BOTH.
     expect(mgr.status().channels).toEqual({
       support: "online",
-      sales: "unmanaged",
+      sales: "online",
     });
     expect(mgr.status().overall).toBe("online");
 
@@ -608,17 +614,20 @@ describe("ChannelManager", () => {
           typeof msg === "string" &&
           msg.includes("sales") &&
           msg.includes("direct adapter") &&
-          msg.includes("unmanaged"),
+          msg.includes("ɵruntime.start()"),
       ),
     ).toBe(true);
   });
 
-  it("reports a lone direct-adapter channel as unmanaged (not online), keeps it in status, and ready() still resolves", async () => {
+  it("starts a lone direct-adapter channel and reads online (not empty/false-healthy); ready() resolves", async () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const direct = createChannel({
       name: "sales",
       adapters: [new FakeAdapter({ platform: "slack" })],
     });
+    const directStart = vi
+      .spyOn(direct.ɵruntime, "start")
+      .mockResolvedValue(undefined);
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
@@ -627,23 +636,32 @@ describe("ChannelManager", () => {
     });
     mgr.activate();
 
+    // The managed engine is never called for a direct channel; its own transport
+    // seam is used instead.
     expect(engine).not.toHaveBeenCalled();
-    // A runtime whose only channel is direct must NOT read healthy: overall is
-    // `unmanaged`, and the channel is present in status (never an empty map).
-    expect(mgr.status().overall).toBe("unmanaged");
-    expect(mgr.status().channels).toEqual({ sales: "unmanaged" });
-    // ready() may resolve (nothing on the managed path to wait for) but that
-    // resolution implies no health — the truthfulness lives in status().
+    expect(directStart).toHaveBeenCalledTimes(1);
+    // Before its start settles the channel reads `connecting` — present in status
+    // (never an empty map), never false-healthy.
+    expect(mgr.status().channels).toEqual({ sales: "connecting" });
+    expect(mgr.status().overall).toBe("connecting");
+
     await expect(mgr.ready()).resolves.toBeUndefined();
+    // Once the direct transport is up, the lone direct channel reads `online`.
+    expect(mgr.status().channels).toEqual({ sales: "online" });
+    expect(mgr.status().overall).toBe("online");
   });
 
-  it("leaves an unmanaged channel unmanaged through stop() — the manager never owned its lifecycle", async () => {
+  it("stops a direct-adapter channel through its own transport seam on stop()", async () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const managed = createChannel({ name: "support" });
     const direct = createChannel({
       name: "sales",
       adapters: [new FakeAdapter({ platform: "slack" })],
     });
+    vi.spyOn(direct.ɵruntime, "start").mockResolvedValue(undefined);
+    const directStop = vi
+      .spyOn(direct.ɵruntime, "stop")
+      .mockResolvedValue(undefined);
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
@@ -653,13 +671,43 @@ describe("ChannelManager", () => {
     await mgr.ready();
     await mgr.stop();
 
-    // The managed channel is torn down to `stopped`; the direct one stays
-    // `unmanaged` (the manager cannot stop what it never started), so overall
-    // folds to `stopped` over the managed channel.
+    // Both channels are torn down: the managed handle via handle.stop(), the
+    // direct one via channel.ɵruntime.stop(). `overall` folds to `stopped`.
+    expect(directStop).toHaveBeenCalledTimes(1);
     expect(mgr.status().channels).toEqual({
       support: "stopped",
-      sales: "unmanaged",
+      sales: "stopped",
     });
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("drives a direct channel's REAL transport end-to-end: the adapter starts on ready() and stops on stop()", async () => {
+    // No ɵruntime spy — exercise the REAL create-channel start/stop seam with a
+    // FakeAdapter, so the spy-based tests above can't hide a broken real path.
+    // (Channel telemetry is disabled under VITEST, so start() makes no network
+    // call.)
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const adapter = new FakeAdapter({ platform: "slack" });
+    const adapterStop = vi.spyOn(adapter, "stop");
+    const direct = createChannel({ name: "sales", adapters: [adapter] });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+    await mgr.ready();
+
+    // The manager started the direct channel's own transport, which started the
+    // developer's adapter.
+    expect(adapter.started).toBe(true);
+    expect(mgr.status().channels).toEqual({ sales: "online" });
+
+    await mgr.stop();
+
+    // Teardown routed through channel.ɵruntime.stop() reached the adapter.
+    expect(adapterStop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels).toEqual({ sales: "stopped" });
     expect(mgr.status().overall).toBe("stopped");
   });
 
