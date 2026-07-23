@@ -106,4 +106,15 @@ describe("Thread.post image routing", () => {
       thread.update({ id: "m1" }, createElement("div", null) as never),
     ).rejects.toThrow(/image.*update|update.*image/i);
   });
+
+  it("throws on arbitrary JSX passed to awaitChoice()", async () => {
+    const adapter = new FakeAdapter();
+    const thread = makeThread(
+      adapter,
+      vi.fn(async () => new Uint8Array()),
+    );
+    await expect(
+      thread.awaitChoice(createElement("div", null) as never),
+    ).rejects.toThrow(/awaitChoice.*arbitrary JSX/i);
+  });
 });

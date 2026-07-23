@@ -43,6 +43,15 @@ describe("resolveArbitraryElement", () => {
     );
   });
 
+  it("routes native when an unbranded fn node peeks out to a branded channel element", () => {
+    expect(
+      resolveArbitraryElement({
+        type: () => createElement(Message as never, {}),
+        props: {},
+      }),
+    ).toBeNull();
+  });
+
   it("returns null when the fn throws while peeking (e.g. uses React hooks)", () => {
     const HooksComponent = () => {
       throw new Error("hooks");

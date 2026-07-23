@@ -346,6 +346,11 @@ export class Thread implements ThreadInterface {
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
   async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+    if (resolveArbitraryElement(ui)) {
+      throw new Error(
+        "thread.awaitChoice does not support arbitrary JSX — it needs interactive channel components (e.g. Button/Select). Use thread.post to send an image.",
+      );
+    }
     const p = new Promise<T>((resolve) =>
       this.deps.registerWaiter(
         this.deps.conversationKey,
