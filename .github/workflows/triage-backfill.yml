@@ -30,7 +30,14 @@ jobs:
           persist-credentials: false # only reads scripts/triage/analyze.js; no git ops
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
-          # zizmor: ignore[secrets-outside-env] single read-only classification key; a dedicated GH Environment adds setup friction with marginal benefit here
+          # Model provider — set ONE (Azure preferred so runs draw on shared credits; Anthropic is the fallback).
+          # Non-secret Azure config lives in repo "Variables"; only the API keys are secrets.
+          # zizmor: ignore[secrets-outside-env] read-only inference key; dedicated GH Environment adds friction w/ marginal benefit here
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+          # zizmor: ignore[secrets-outside-env] read-only inference key (fallback provider)
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           # Inputs via env (not inlined into the script) to avoid template-injection.
           DRY_RUN: ${{ inputs.dry_run }}
@@ -41,7 +48,7 @@ jobs:
             const { owner, repo } = context.repo;
             const dryRun = process.env.DRY_RUN === "true";
             const max = Number(process.env.MAX_ISSUES) || 50;
-            if (!process.env.ANTHROPIC_API_KEY) { core.warning("ANTHROPIC_API_KEY not set — nothing to do."); return; }
+            if (!analyzeIssue.providerConfigured()) { core.warning("No model provider configured (set Azure or Anthropic secrets) — nothing to do."); return; }
             const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
             const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });

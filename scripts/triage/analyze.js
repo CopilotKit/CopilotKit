@@ -1,12 +1,63 @@
 // scripts/triage/analyze.js
 // Shared issue-analysis used by triage-on-open + triage-backfill (single source of truth).
-// Does ONE GitHub search + ONE combined Anthropic call; returns proposals only —
+// Does ONE GitHub search + ONE combined model call; returns proposals only —
 // no labels/comments are applied here (the caller applies per its policy).
-// No npm deps: uses the passed `github` octokit + global fetch. Needs ANTHROPIC_API_KEY in env.
+//
+// Provider-agnostic (no npm deps; global fetch + the passed `github` octokit):
+//   • Azure OpenAI / Foundry (preferred): AZURE_OPENAI_API_KEY (secret) plus
+//     AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_DEPLOYMENT (repo Variables);
+//     AZURE_OPENAI_API_VERSION optional (default below).
+//   • Anthropic (fallback): ANTHROPIC_API_KEY (secret); ANTHROPIC_MODEL optional.
+// Selection: TRIAGE_PROVIDER ("azure"|"anthropic") forces it; otherwise inferred
+// from whichever credentials are present (Azure wins when both are set).
 
-const MODEL = "claude-haiku-4-5-20251001";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+const AZURE_API_VERSION = process.env.AZURE_OPENAI_API_VERSION || "2024-10-21";
 
+function provider() {
+  const explicit = (process.env.TRIAGE_PROVIDER || "").toLowerCase();
+  if (explicit === "azure" || explicit === "anthropic") return explicit;
+  if (
+    process.env.AZURE_OPENAI_API_KEY &&
+    process.env.AZURE_OPENAI_ENDPOINT &&
+    process.env.AZURE_OPENAI_DEPLOYMENT
+  )
+    return "azure";
+  if (process.env.ANTHROPIC_API_KEY) return "anthropic";
+  return null;
+}
+
+function extractJson(text) {
+  try {
+    return JSON.parse((text || "").match(/\{[\s\S]*\}/)?.[0] ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+// ONE model call. Both providers get the same prompt and return JSON as text,
+// which we extract uniformly — keeps the whole Foundry catalog (GPT/Llama/…) in play.
 async function ask(prompt, maxTokens) {
+  if (provider() === "azure") {
+    const base = process.env.AZURE_OPENAI_ENDPOINT.replace(/\/+$/, "");
+    const url = `${base}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=${AZURE_API_VERSION}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "api-key": process.env.AZURE_OPENAI_API_KEY,
+      },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 0,
+      }),
+    });
+    if (!res.ok) throw new Error(`Azure OpenAI ${res.status}`);
+    const data = await res.json();
+    return extractJson(data.choices?.[0]?.message?.content);
+  }
+
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -15,22 +66,17 @@ async function ask(prompt, maxTokens) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: ANTHROPIC_MODEL,
       max_tokens: maxTokens,
       messages: [{ role: "user", content: prompt }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}`);
   const data = await res.json();
-  const text = data.content?.[0]?.text || "{}";
-  try {
-    return JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
-  } catch {
-    return {};
-  }
+  return extractJson(data.content?.[0]?.text);
 }
 
-// Cheap spam / low-signal gate — avoids spending an LLM call on obvious junk (cost guard).
+// Cheap spam / low-signal gate — avoids spending a model call on obvious junk (cost guard).
 function lowSignal(issue) {
   const labels = (issue.labels || []).map((l) => l.name || l);
   if (labels.some((n) => n === "spam" || n === "invalid"))
@@ -49,7 +95,7 @@ module.exports = async function analyzeIssue({
   issue,
   labelList,
 }) {
-  if (!process.env.ANTHROPIC_API_KEY) return { skipped: "no-api-key" };
+  if (!provider()) return { skipped: "no-model-provider" };
   const skip = lowSignal(issue);
   if (skip) return { skipped: skip };
 
@@ -101,3 +147,6 @@ module.exports = async function analyzeIssue({
     candidates: candidates.map((c) => c.number),
   };
 };
+
+// Lets callers (e.g. the backfill early-guard) check config without making a call.
+module.exports.providerConfigured = () => provider() !== null;

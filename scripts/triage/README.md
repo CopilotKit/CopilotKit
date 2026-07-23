@@ -16,9 +16,14 @@ and backfill workflows call it, so policy and safety controls live in one place.
 
 ## Setup
 
-1. **`ANTHROPIC_API_KEY`** repo secret — required only by the two LLM workflows.
-   Without it they clean-skip (log and exit, no failures). `triage-stale` needs
-   nothing. Recommend a workspace-scoped key with a monthly spend cap.
+1. **Model provider** — the two LLM workflows need ONE provider; with none they
+   clean-skip (log and exit, no failures). `triage-stale` needs nothing.
+   - **Azure OpenAI / Foundry (preferred — draws on shared credits):** secret
+     `AZURE_OPENAI_API_KEY`; repo **Variables** `AZURE_OPENAI_ENDPOINT` and
+     `AZURE_OPENAI_DEPLOYMENT` (optional `AZURE_OPENAI_API_VERSION`, default `2024-10-21`).
+   - **Anthropic (fallback):** secret `ANTHROPIC_API_KEY` (optional `ANTHROPIC_MODEL`).
+   - Force one with the `TRIAGE_PROVIDER` variable (`azure` | `anthropic`); otherwise
+     it's inferred from whichever credentials are present (Azure wins if both are set).
 2. **Curate the label allow-list.** The classifier may apply _only_ the labels in
    `APPLYABLE` (top of `triage-on-open.yml` / `triage-backfill.yml`). It's
    default-deny and currently holds the repo's real content labels only —
