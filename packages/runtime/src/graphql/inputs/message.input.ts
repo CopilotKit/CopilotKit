@@ -29,7 +29,7 @@ export class ActionExecutionMessageInput {
     nullable: true,
     deprecationReason: "This field will be removed in a future version",
   })
-  scope?: String;
+  scope?: string;
 }
 
 @InputType()
@@ -76,11 +76,14 @@ export class AgentStateMessageInput {
 
 @InputType()
 export class ImageMessageInput {
-  @Field(() => String)
-  format: string;
+  @Field(() => String, { nullable: true })
+  format?: string;
 
-  @Field(() => String)
-  bytes: string;
+  @Field(() => String, { nullable: true })
+  bytes?: string;
+
+  @Field(() => String, { nullable: true })
+  url?: string;
 
   @Field(() => String, { nullable: true })
   parentMessageId?: string;

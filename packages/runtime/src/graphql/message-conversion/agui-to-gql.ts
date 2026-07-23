@@ -30,14 +30,15 @@ function hasImageProperty(
     return false;
   }
 
-  const image: { format?: string; bytes?: string } | undefined =
-    "image" in message ? message.image : undefined;
+  const image: { format?: string; bytes?: string; url?: string } | undefined =
+    "image" in message ? (message as any).image : undefined;
   if (image === undefined) {
     return false;
   }
 
-  const isMalformed = image.format === undefined || image.bytes === undefined;
-  if (isMalformed) {
+  const hasBase64 = image.format !== undefined && image.bytes !== undefined;
+  const hasUrl = image.url !== undefined;
+  if (!hasBase64 && !hasUrl) {
     return false;
   }
 
@@ -384,8 +385,9 @@ export function aguiMessageWithImageToGQLMessage(
 
   return new gql.ImageMessage({
     id: message.id,
-    format: message.image.format,
-    bytes: message.image.bytes,
+    format: (message.image as any).format,
+    bytes: (message.image as any).bytes,
+    url: (message.image as any).url,
     role: roleValue,
   });
 }

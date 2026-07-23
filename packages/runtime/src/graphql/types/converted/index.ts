@@ -135,7 +135,7 @@ export class ResultMessage extends Message implements ResultMessageInput {
         return { result: JSON.stringify(parsed) };
       }
       return { result };
-    } catch (e) {
+    } catch {
       return { result };
     }
   }
@@ -176,8 +176,9 @@ export class AgentStateMessage
 
 export class ImageMessage extends Message implements ImageMessageInput {
   type: MessageType = "ImageMessage";
-  format: string;
-  bytes: string;
+  format?: string;
+  bytes?: string;
+  url?: string;
   role: MessageRole;
   parentMessageId?: string;
 }

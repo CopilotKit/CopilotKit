@@ -1,6 +1,6 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { Message } from "../../graphql/types/converted";
+import type { Anthropic } from "@anthropic-ai/sdk";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { Message } from "../../graphql/types/converted";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -161,6 +161,21 @@ export function convertMessageToAnthropicMessage(
       };
     }
   } else if (message.isImageMessage()) {
+    if (message.url) {
+      return {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "url",
+              url: message.url,
+            },
+          },
+        ],
+      };
+    }
+
     let mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif";
     switch (message.format) {
       case "jpeg":
