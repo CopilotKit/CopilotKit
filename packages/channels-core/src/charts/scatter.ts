@@ -18,8 +18,10 @@ export function Scatter(props: ScatterProps): ReactElement {
     colors = DEFAULT_CHART_COLORS,
     width = 360,
     height = 240,
+    title,
     className,
     style,
+    labelClassName,
     gridColor = "#e5e7eb",
     showGrid = true,
   } = props;
@@ -49,17 +51,39 @@ export function Scatter(props: ScatterProps): ReactElement {
       )
     : [];
   return h(
-    "svg",
+    "div",
     {
-      width,
-      height,
-      viewBox: `0 0 ${width} ${height}`,
       className,
-      style: { backgroundColor: "#ffffff", ...style },
+      style: { display: "flex", flexDirection: "column", gap: 8, ...style },
     },
-    ...grid,
-    ...points.map((p, i) =>
-      h("circle", { key: i, cx: px(p.x), cy: py(p.y), r: 4, fill: colors[0] }),
+    title
+      ? h(
+          "div",
+          {
+            className: labelClassName,
+            style: { fontSize: 16, fontWeight: 600 },
+          },
+          title,
+        )
+      : null,
+    h(
+      "svg",
+      {
+        width,
+        height,
+        viewBox: `0 0 ${width} ${height}`,
+        style: { backgroundColor: "#ffffff" },
+      },
+      ...grid,
+      ...points.map((p, i) =>
+        h("circle", {
+          key: i,
+          cx: px(p.x),
+          cy: py(p.y),
+          r: 4,
+          fill: colors[0],
+        }),
+      ),
     ),
   );
 }

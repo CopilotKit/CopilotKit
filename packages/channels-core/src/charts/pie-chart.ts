@@ -28,26 +28,45 @@ export function PieChart(props: PieChartProps): ReactElement {
     colors = DEFAULT_CHART_COLORS,
     width = 240,
     height = 240,
+    title,
     className,
     style,
+    labelClassName,
   } = props;
   const cx = width / 2;
   const cy = height / 2;
   const r = Math.min(width, height) / 2 - 8;
   const total = data.reduce((a, d) => a + d.value, 0) || 1;
   let a = -Math.PI / 2;
+  const titleEl = title
+    ? h(
+        "div",
+        {
+          className: labelClassName,
+          style: { fontSize: 16, fontWeight: 600 },
+        },
+        title,
+      )
+    : null;
   // A single full slice can't be drawn as an arc (start==end); draw a full circle.
   if (data.length === 1) {
     return h(
-      "svg",
+      "div",
       {
-        width,
-        height,
-        viewBox: `0 0 ${width} ${height}`,
         className,
-        style: { backgroundColor: "#ffffff", ...style },
+        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
       },
-      h("circle", { cx, cy, r, fill: colors[0] }),
+      titleEl,
+      h(
+        "svg",
+        {
+          width,
+          height,
+          viewBox: `0 0 ${width} ${height}`,
+          style: { backgroundColor: "#ffffff" },
+        },
+        h("circle", { cx, cy, r, fill: colors[0] }),
+      ),
     );
   }
   const slices = data.map((d, i) => {
@@ -60,14 +79,21 @@ export function PieChart(props: PieChartProps): ReactElement {
     });
   });
   return h(
-    "svg",
+    "div",
     {
-      width,
-      height,
-      viewBox: `0 0 ${width} ${height}`,
       className,
-      style: { backgroundColor: "#ffffff", ...style },
+      style: { display: "flex", flexDirection: "column", gap: 8, ...style },
     },
-    ...slices,
+    titleEl,
+    h(
+      "svg",
+      {
+        width,
+        height,
+        viewBox: `0 0 ${width} ${height}`,
+        style: { backgroundColor: "#ffffff" },
+      },
+      ...slices,
+    ),
   );
 }
