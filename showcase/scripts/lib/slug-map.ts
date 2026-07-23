@@ -301,7 +301,7 @@ const ENTRIES: readonly SlugEntry[] = [
   {
     slug: "strands",
     bornInShowcase: false,
-    examples: ["strands-python"],
+    examples: ["strands-python", "strands-typescript"],
     fallback: true,
   },
 ];

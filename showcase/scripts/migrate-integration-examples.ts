@@ -37,6 +37,7 @@ const SLUG_MAP: Record<string, string> = {
   "ms-agent-framework-dotnet": "maf-dotnet",
   "ms-agent-framework-python": "maf-python",
   "strands-python": "aws-strands",
+  "strands-typescript": "aws-strands",
   "agent-spec": "agent-spec-langgraph",
   "a2a-a2ui": "a2a",
   "a2a-middleware": "a2a",
