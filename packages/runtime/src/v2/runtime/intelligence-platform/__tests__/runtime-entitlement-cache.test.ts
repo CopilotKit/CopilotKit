@@ -12,6 +12,14 @@ const ACTIVE_ENTITLEMENTS = {
   },
 } as const satisfies RuntimeEntitlementResponse;
 
+const ACTIVE_ENTITLEMENTS_TRANSPORT = {
+  organizationId: "org-private",
+  active: true,
+  source: "managedOrgSubscription",
+  features: { threads: true },
+  limits: {},
+} as const;
+
 const INACTIVE_ENTITLEMENTS = {
   status: "ready",
   entitlement: {
@@ -22,10 +30,18 @@ const INACTIVE_ENTITLEMENTS = {
   },
 } as const satisfies RuntimeEntitlementResponse;
 
+const INACTIVE_ENTITLEMENTS_TRANSPORT = {
+  organizationId: "org-private",
+  active: false,
+  source: "managedOrgSubscription",
+  features: {},
+  limits: {},
+} as const;
+
 /** Install a private fetch mock and return an entitlement client plus cleanup. */
 function setup() {
   const fetchMock = vi.fn(() =>
-    Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS)),
+    Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS_TRANSPORT)),
   );
   vi.stubGlobal("fetch", fetchMock);
   const client = new CopilotKitIntelligence({
@@ -85,7 +101,7 @@ test("uses a shorter negative TTL for inactive Runtime entitlements", async () =
   vi.setSystemTime(new Date("2026-07-22T00:00:00.000Z"));
   const { client, fetchMock, teardown } = setup();
   fetchMock.mockImplementation(() =>
-    Promise.resolve(Response.json(INACTIVE_ENTITLEMENTS)),
+    Promise.resolve(Response.json(INACTIVE_ENTITLEMENTS_TRANSPORT)),
   );
 
   try {
@@ -112,7 +128,7 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
   fetchMock
     .mockRejectedValueOnce(new Error("temporary dependency failure"))
     .mockImplementation(() =>
-      Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS)),
+      Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS_TRANSPORT)),
     );
 
   try {
@@ -150,7 +166,7 @@ test("serves an expired deny result when its refresh fails", async () => {
   const { client, fetchMock, teardown } = setup();
   fetchMock
     .mockImplementationOnce(() =>
-      Promise.resolve(Response.json(INACTIVE_ENTITLEMENTS)),
+      Promise.resolve(Response.json(INACTIVE_ENTITLEMENTS_TRANSPORT)),
     )
     .mockRejectedValueOnce(new Error("temporary dependency failure"));
 

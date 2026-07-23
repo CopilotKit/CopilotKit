@@ -8,6 +8,91 @@ import { expect, test, vi } from "vitest";
 import { CopilotRuntime } from "../core/runtime";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotKitIntelligence } from "../intelligence-platform";
+import {
+  findForbiddenPublicKeyPaths,
+  RUNTIME_ENTITLEMENT_CONTRACT_CASES,
+} from "./runtime-entitlement-test-utils";
+
+test("normalizes the current flat managed entitlement transport through /info", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        organizationId: "org-private",
+        source: "managedOrgSubscription",
+        active: true,
+        features: { threads: true },
+        limits: { seats: 25 },
+        planCode: "pro",
+        entitlementSource: "stripe",
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    ),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: "test-api-key",
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+    });
+    const runtime = new CopilotRuntime({
+      agents: {},
+      intelligence,
+      identifyUser: () => ({ id: "user-1", name: "Test User" }),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: new Request("https://runtime.example/info"),
+    });
+    const body: RuntimeInfo = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.licenseStatus).toBe("valid");
+    expect(body.runtimeEntitlements).toEqual({
+      status: "ready",
+      entitlement: {
+        source: "managedOrgSubscription",
+        active: true,
+        features: { threads: true },
+        limits: { seats: 25 },
+        planCode: "pro",
+        entitlementSource: "stripe",
+      },
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+test.each(RUNTIME_ENTITLEMENT_CONTRACT_CASES)(
+  "preserves the exact public $label entitlement union through /info",
+  async ({ response: runtimeEntitlements, topLevelKeys, detailKeys }) => {
+    const { runtime } = setup(runtimeEntitlements);
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: new Request("https://runtime.example/info"),
+    });
+    const body: RuntimeInfo = await response.json();
+
+    expect(body.runtimeEntitlements).toEqual(runtimeEntitlements);
+    expect(Object.keys(body.runtimeEntitlements ?? {}).sort()).toEqual(
+      [...topLevelKeys].sort(),
+    );
+    const detail =
+      body.runtimeEntitlements?.entitlement ??
+      body.runtimeEntitlements?.error ??
+      {};
+    expect(Object.keys(detail).sort()).toEqual([...detailKeys].sort());
+    expect(findForbiddenPublicKeyPaths(body.runtimeEntitlements)).toEqual([]);
+  },
+);
 
 /** Build an Intelligence runtime whose entitlement authority is deterministic. */
 function setup(

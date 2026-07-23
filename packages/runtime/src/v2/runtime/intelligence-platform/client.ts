@@ -22,8 +22,9 @@ function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
   return response.status === "ready" && response.entitlement.active;
 }
 
-const runtimeEntitlementSchema = z
+const runtimeEntitlementTransportSchema = z
   .object({
+    organizationId: z.string(),
     active: z.boolean(),
     source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
     features: z.record(z.string(), z.boolean()),
@@ -33,36 +34,31 @@ const runtimeEntitlementSchema = z
   })
   .strict();
 
-const runtimeEntitlementErrorSchema = z
-  .object({
-    code: z.string(),
-    message: z.string(),
-    retryable: z.boolean(),
-    requestId: z.string().optional(),
-    traceId: z.string().optional(),
-  })
-  .strict();
-
-const runtimeEntitlementResponseSchema = z.union([
-  z
-    .object({
-      status: z.literal("ready"),
-      entitlement: runtimeEntitlementSchema,
-    })
-    .strict(),
-  z
-    .object({
-      status: z.enum(["degraded", "misconfigured", "unavailable"]),
-      error: runtimeEntitlementErrorSchema,
-    })
-    .strict(),
-]);
-
-/** Validate and narrow an unknown Runtime entitlement response. */
-function isRuntimeEntitlementResponse(
+/** Validate and normalize the private App API transport into the public union. */
+function normalizeRuntimeEntitlementTransport(
   value: unknown,
-): value is RuntimeEntitlementResponse {
-  return runtimeEntitlementResponseSchema.safeParse(value).success;
+): RuntimeEntitlementResponse | undefined {
+  const parsed = runtimeEntitlementTransportSchema.safeParse(value);
+  if (!parsed.success) {
+    return undefined;
+  }
+
+  const transport = parsed.data;
+  return {
+    status: "ready",
+    entitlement: {
+      active: transport.active,
+      source: transport.source,
+      features: transport.features,
+      limits: transport.limits,
+      ...(transport.planCode !== undefined
+        ? { planCode: transport.planCode }
+        : {}),
+      ...(transport.entitlementSource !== undefined
+        ? { entitlementSource: transport.entitlementSource }
+        : {}),
+    },
+  };
 }
 
 /**
@@ -583,8 +579,9 @@ export class CopilotKitIntelligence {
    * Calls share one in-flight request and cache grants for 30 seconds or
    * denials for 5 seconds. Failed refreshes never reuse a stale grant. The
    * network request is bounded, never retried, and strictly validates the
-   * public response union before returning it. Validation and timeout failures
-   * use stable messages that do not expose rejected upstream payloads.
+   * private App API transport before normalizing it to the public response
+   * union. Validation and timeout failures use stable messages that do not
+   * expose rejected upstream payloads.
    *
    * @returns The validated Runtime entitlement response.
    * @throws {@link PlatformRequestError} for non-OK, malformed, network, or
@@ -688,14 +685,15 @@ export class CopilotKitIntelligence {
         );
       }
 
-      if (!isRuntimeEntitlementResponse(payload)) {
+      const normalized = normalizeRuntimeEntitlementTransport(payload);
+      if (!normalized) {
         throw new PlatformRequestError(
           "Runtime entitlement response was malformed",
           502,
         );
       }
 
-      return payload;
+      return normalized;
     } catch (error) {
       if (error instanceof PlatformRequestError) {
         throw error;

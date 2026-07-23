@@ -3,13 +3,33 @@ import { CopilotKitIntelligence, PlatformRequestError } from "../client";
 import {
   findForbiddenPublicKeyPaths,
   READY_RUNTIME_ENTITLEMENTS,
-  RUNTIME_ENTITLEMENT_CONTRACT_CASES,
-  UNAVAILABLE_RUNTIME_ENTITLEMENTS,
 } from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+const ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT = {
+  organizationId: "org-private",
+  source: "managedOrgSubscription",
+  active: true,
+  features: { threads: true },
+  limits: { seats: 25 },
+  planCode: "pro",
+  entitlementSource: "stripe",
+} as const;
+
+const NORMALIZED_ACTIVE_MANAGED_RUNTIME_ENTITLEMENT = {
+  status: "ready",
+  entitlement: {
+    source: "managedOrgSubscription",
+    active: true,
+    features: { threads: true },
+    limits: { seats: 25 },
+    planCode: "pro",
+    entitlementSource: "stripe",
+  },
+} as const;
 
 /** Build a real JSON response for the shared platform fetch mock. */
 function jsonResponse(body: unknown, status = 200) {
@@ -77,13 +97,15 @@ async function expectRuntimeEntitlementValidationError(
   return error;
 }
 
-test("getRuntimeEntitlements requests the exact App API endpoint with the project key", async () => {
+test("getRuntimeEntitlements normalizes the current flat managed App API response", async () => {
   const client = runtimeEntitlementsClient();
-  fetchMock.mockReturnValue(jsonResponse(READY_RUNTIME_ENTITLEMENTS));
+  fetchMock.mockReturnValue(
+    jsonResponse(ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT),
+  );
 
   const result = await client.getRuntimeEntitlements();
 
-  expect(result).toEqual(READY_RUNTIME_ENTITLEMENTS);
+  expect(result).toEqual(NORMALIZED_ACTIVE_MANAGED_RUNTIME_ENTITLEMENT);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(fetchMock).toHaveBeenCalledWith(
     "https://api.example.com/api/entitlements/runtime",
@@ -96,28 +118,32 @@ test("getRuntimeEntitlements requests the exact App API endpoint with the projec
   );
 });
 
-test.each(RUNTIME_ENTITLEMENT_CONTRACT_CASES)(
-  "getRuntimeEntitlements preserves the exact $label response union shape",
-  async ({ response, topLevelKeys, detailKeys }) => {
-    const client = runtimeEntitlementsClient();
-    fetchMock.mockReturnValue(jsonResponse(response));
+test("getRuntimeEntitlements normalizes an inactive self-hosted App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  fetchMock.mockReturnValue(
+    jsonResponse({
+      organizationId: "org-private",
+      source: "selfHostedDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    }),
+  );
 
-    const result = await client.getRuntimeEntitlements();
+  const result = await client.getRuntimeEntitlements();
 
-    expect(result).toEqual(response);
-    expect(Object.keys(result).sort()).toEqual([...topLevelKeys].sort());
-    if (result.entitlement !== undefined) {
-      expect(Object.keys(result.entitlement).sort()).toEqual(
-        [...detailKeys].sort(),
-      );
-    }
-    if (result.error !== undefined) {
-      expect(Object.keys(result.error).sort()).toEqual([...detailKeys].sort());
-    }
-    expect(findForbiddenPublicKeyPaths(result)).toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  },
-);
+  expect(result).toEqual({
+    status: "ready",
+    entitlement: {
+      source: "selfHostedDeploymentLicense",
+      active: false,
+      features: {},
+      limits: {},
+    },
+  });
+  expect(findForbiddenPublicKeyPaths(result)).toEqual([]);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
 
 test("recursive forbidden-key control detects identity and credential leaks", () => {
   const leakedProjection = {
@@ -176,30 +202,10 @@ const UNKNOWN_FIELD_PRIVATE_VALUE = "private-runtime-entitlement-value";
 
 test.each([
   {
-    label: "top-level response",
+    label: "flat transport",
     response: {
-      ...READY_RUNTIME_ENTITLEMENTS,
+      ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
       unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
-    },
-  },
-  {
-    label: "ready entitlement detail",
-    response: {
-      ...READY_RUNTIME_ENTITLEMENTS,
-      entitlement: {
-        ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
-      },
-    },
-  },
-  {
-    label: "error detail",
-    response: {
-      ...UNAVAILABLE_RUNTIME_ENTITLEMENTS,
-      error: {
-        ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
-        unexpected: UNKNOWN_FIELD_PRIVATE_VALUE,
-      },
     },
   },
 ])(
@@ -213,152 +219,37 @@ test.each([
   },
 );
 
-const BRANCH_COHERENCE_PRIVATE_VALUE =
-  "private-runtime-entitlement-branch-value";
-const ERROR_RUNTIME_ENTITLEMENT_STATUSES = [
-  "degraded",
-  "misconfigured",
-  "unavailable",
-] as const;
-const PRIVATE_READY_ENTITLEMENT = {
-  ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-  planCode: BRANCH_COHERENCE_PRIVATE_VALUE,
-} as const;
-const PRIVATE_RUNTIME_ENTITLEMENT_ERROR = {
-  ...UNAVAILABLE_RUNTIME_ENTITLEMENTS.error,
-  message: BRANCH_COHERENCE_PRIVATE_VALUE,
-} as const;
-
-interface InvalidRuntimeEntitlementBranchCase {
-  readonly label: string;
-  readonly response: {
-    readonly status:
-      | "ready"
-      | (typeof ERROR_RUNTIME_ENTITLEMENT_STATUSES)[number];
-    readonly entitlement?: typeof PRIVATE_READY_ENTITLEMENT;
-    readonly error?: typeof PRIVATE_RUNTIME_ENTITLEMENT_ERROR;
-  };
-}
-
-const INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES = [
-  {
-    label: "ready without entitlement",
-    response: { status: "ready" },
-  },
-  {
-    label: "ready with only an error branch",
-    response: { status: "ready", error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR },
-  },
-  {
-    label: "ready with both branches",
-    response: {
-      status: "ready",
-      entitlement: PRIVATE_READY_ENTITLEMENT,
-      error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
-    },
-  },
-  ...ERROR_RUNTIME_ENTITLEMENT_STATUSES.flatMap(
-    (status): readonly InvalidRuntimeEntitlementBranchCase[] => [
-      {
-        label: `${status} without error`,
-        response: { status },
-      },
-      {
-        label: `${status} with only an entitlement branch`,
-        response: { status, entitlement: PRIVATE_READY_ENTITLEMENT },
-      },
-      {
-        label: `${status} with both branches`,
-        response: {
-          status,
-          entitlement: PRIVATE_READY_ENTITLEMENT,
-          error: PRIVATE_RUNTIME_ENTITLEMENT_ERROR,
-        },
-      },
-    ],
-  ),
-] as const satisfies readonly InvalidRuntimeEntitlementBranchCase[];
-
-test.each(INVALID_RUNTIME_ENTITLEMENT_BRANCH_CASES)(
-  "getRuntimeEntitlements rejects branch-incoherent $label without leaking values",
-  async ({ response }) => {
-    const error = await expectRuntimeEntitlementValidationError(
-      jsonResponse(response),
-    );
-
-    expect(error.message).not.toContain(BRANCH_COHERENCE_PRIVATE_VALUE);
-  },
-);
-
 test.each([
   ["non-JSON", () => textResponse("not json")],
   [
-    "off-contract",
+    "wrong active type",
     () =>
       jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        entitlement: {
-          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-          active: "yes",
-        },
+        ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
+        active: "yes",
       }),
   ],
   [
-    "unknown top-level organizationId",
+    "missing organizationId",
     () =>
       jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        organizationId: "org-forbidden",
+        source: "managedOrgSubscription",
+        active: true,
+        features: { threads: true },
+        limits: {},
       }),
   ],
   [
-    "unknown top-level telemetryId",
+    "unknown source enum",
     () =>
       jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        telemetryId: "telemetry-forbidden",
+        ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
+        source: "managed",
       }),
   ],
   [
-    "unknown top-level licenseToken",
-    () =>
-      jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        licenseToken: "license-forbidden",
-      }),
-  ],
-  [
-    "unknown nested organizationId",
-    () =>
-      jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        entitlement: {
-          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-          organizationId: "org-forbidden",
-        },
-      }),
-  ],
-  [
-    "unknown nested telemetryId",
-    () =>
-      jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        entitlement: {
-          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-          telemetryId: "telemetry-forbidden",
-        },
-      }),
-  ],
-  [
-    "unknown nested licenseToken",
-    () =>
-      jsonResponse({
-        ...READY_RUNTIME_ENTITLEMENTS,
-        entitlement: {
-          ...READY_RUNTIME_ENTITLEMENTS.entitlement,
-          licenseToken: "license-forbidden",
-        },
-      }),
+    "public ready union used as the private transport",
+    () => jsonResponse(READY_RUNTIME_ENTITLEMENTS),
   ],
 ])(
   "getRuntimeEntitlements rejects %s successful body with a typed validation error",
