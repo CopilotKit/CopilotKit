@@ -6,7 +6,7 @@
  * The agent searches Notion via MCP and passes the pages it wants to
  * surface; the Slack formatting lives here.
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
+ * Authored with the `@copilotkit/channels-ui` JSX vocabulary.
  */
 import { z } from "zod";
 import {
@@ -15,8 +15,8 @@ import {
   Header,
   Message,
   Section,
-  type BotNode,
-} from "@copilotkit/bot-ui";
+} from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({
@@ -45,8 +45,8 @@ export type PageListProps = z.infer<typeof pageListSchema>;
 type Page = z.infer<typeof pageSchema>;
 
 /** Render a list of Notion pages as a Block Kit card. */
-export function PageList({ heading, pages }: PageListProps): BotNode {
-  const rows: BotNode[] = [];
+export function PageList({ heading, pages }: PageListProps): ChannelNode {
+  const rows: ChannelNode[] = [];
   pages.forEach((page: Page, i: number) => {
     const titleLink = page.url
       ? `[**${page.title}**](${page.url})`
@@ -55,13 +55,13 @@ export function PageList({ heading, pages }: PageListProps): BotNode {
     const meta = [
       page.snippet,
       page.edited
-        ? `:clock3: edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
+        ? `🕒 edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
         : null,
     ]
       .filter(Boolean)
       .join("\n");
 
-    rows.push(<Section>{`:page_facing_up:  ${titleLink}`}</Section>);
+    rows.push(<Section>{`📄  ${titleLink}`}</Section>);
     if (meta) rows.push(<Context>{meta}</Context>);
     if (i < pages.length - 1) rows.push(<Divider />);
   });

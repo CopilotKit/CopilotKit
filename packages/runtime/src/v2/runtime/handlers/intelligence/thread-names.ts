@@ -132,9 +132,9 @@ async function runTitleGenerationAttempt(params: {
   agent.setMessages(messages);
   agent.setState({});
   agent.threadId = randomUUID();
+  // Messages and state are picked up from the agent itself (set above);
+  // RunAgentParameters no longer accepts them directly.
   const { newMessages } = await agent.runAgent({
-    messages,
-    state: {},
     tools: [],
     context: [],
     forwardedProps: {},

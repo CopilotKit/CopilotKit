@@ -7,7 +7,7 @@
  * Use it for one issue — when the user asks about a specific issue, or
  * right after creating one (it doubles as the "filed!" confirmation).
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary; the Block Kit
+ * Authored with the `@copilotkit/channels-ui` JSX vocabulary; the Block Kit
  * shapes are produced by `renderSlackMessage(renderToIR(<IssueCard .../>))`.
  */
 import { z } from "zod";
@@ -19,14 +19,9 @@ import {
   Header,
   Message,
   Section,
-  type BotNode,
-} from "@copilotkit/bot-ui";
-import {
-  accentForIssue,
-  priorityShortcode,
-  stateShortcode,
-  stateUnicode,
-} from "./_status.js";
+} from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
+import { accentForIssue, priorityGlyph, stateGlyph } from "./_status.js";
 
 export const issueCardSchema = z.object({
   identifier: z.string().describe("Issue identifier, e.g. 'CPK-1234'."),
@@ -56,12 +51,12 @@ export const issueCardSchema = z.object({
 export type IssueCardProps = z.infer<typeof issueCardSchema>;
 
 /** Render ONE Linear issue as a rich Block Kit card. */
-export function IssueCard(issue: IssueCardProps): BotNode {
+export function IssueCard(issue: IssueCardProps): ChannelNode {
   const titleText = issue.url
     ? `[**${issue.title}**](${issue.url})`
     : `**${issue.title}**`;
 
-  const prio = priorityShortcode(issue.priority);
+  const prio = priorityGlyph(issue.priority);
 
   const description = issue.description
     ? issue.description.length > 600
@@ -70,21 +65,19 @@ export function IssueCard(issue: IssueCardProps): BotNode {
     : undefined;
 
   const footer: string[] = [];
-  if (issue.labels?.length) footer.push(`:label: ${issue.labels.join("  ")}`);
+  if (issue.labels?.length) footer.push(`🏷️ ${issue.labels.join("  ")}`);
   if (issue.url) footer.push(`[Open in Linear →](${issue.url})`);
   const footerText = footer.length ? footer.join("   ·   ") : undefined;
 
   return (
     <Message accent={accentForIssue(issue)}>
       <Header>
-        {`${issue.justCreated ? "✅ " : `${stateUnicode(issue.state)} `}${issue.identifier}`}
+        {`${issue.justCreated ? "✅ " : `${stateGlyph(issue.state)} `}${issue.identifier}`}
       </Header>
       <Section>{titleText}</Section>
-      {issue.justCreated ? (
-        <Context>{":sparkles: Filed in Linear"}</Context>
-      ) : null}
+      {issue.justCreated ? <Context>{"✨ Filed in Linear"}</Context> : null}
       <Fields>
-        <Field>{`**Status**\n${stateShortcode(issue.state)} ${issue.state ?? "—"}`}</Field>
+        <Field>{`**Status**\n${stateGlyph(issue.state)} ${issue.state ?? "—"}`}</Field>
         <Field>{`**Assignee**\n${issue.assignee ?? "_unassigned_"}`}</Field>
         {issue.priority ? (
           <Field>{`**Priority**\n${prio ? `${prio} ` : ""}${issue.priority}`}</Field>

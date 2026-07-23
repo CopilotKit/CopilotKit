@@ -1,37 +1,36 @@
 "use client";
 
-// Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
+// Headless Interrupt cell (OSS-383) — native `useInterrupt` in headless mode.
 //
-// Layout: chat on the right, empty app surface on the left. The user
-// triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
-// and we render a time-picker popup IN THE APP SURFACE (left pane) —
-// not inside the chat. Picking a slot resolves the interrupt, the
-// popup vanishes, and the agent confirms back in chat.
+// Layout: chat on the right, app surface on the left. The user triggers the
+// agent from a chat suggestion. When the backend `schedule_meeting` tool
+// `suspend()`s, the @ag-ui/mastra bridge surfaces an AG-UI interrupt;
+// `useInterrupt({ renderInChat: false })` returns the picker element which we
+// place IN THE APP SURFACE (left pane) rather than inside the chat. Picking a
+// slot `resolve(...)`s the interrupt, resuming the Mastra run, and the agent
+// confirms back in chat.
+//
+// `useInterrupt` handles both the standard `RUN_FINISHED` interrupt-outcome and
+// the legacy `on_interrupt` custom event, and drives the correct spec `resume`
+// on CopilotKit ≥1.61.2 — so this cell no longer hand-rolls the resume plumbing.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useAgent,
   useConfigureSuggestions,
-  useCopilotKit,
+  useInterrupt,
 } from "@copilotkit/react-core/v2";
 import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
 import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
-const INTERRUPT_EVENT_NAME = "on_interrupt";
-
-type InterruptPayload = {
+// Shape the backend `schedule_meeting` tool suspends with, wrapped by the
+// @ag-ui/mastra bridge under `mastra_suspend`.
+type SuspendPayload = {
   topic?: string;
   attendee?: string;
   slots?: TimeSlot[];
-};
-
-type InterruptEvent = {
-  name: string;
-  value: InterruptPayload;
 };
 
 export default function InterruptHeadlessDemo() {
@@ -43,8 +42,6 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
-  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
-
   useConfigureSuggestions({
     suggestions: [
       {
@@ -59,100 +56,52 @@ function Layout() {
     available: "always",
   });
 
+  // Headless: the hook RETURNS the interrupt element (or null) instead of
+  // publishing it into the chat, so we can place it in the app surface.
+  const interruptEl = useInterrupt({
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ event, resolve }) => {
+      // Mastra wraps the suspend value as `{ type: "mastra_suspend",
+      // suspendPayload, ... }`, JSON-stringified — parse then read
+      // `suspendPayload` (not the raw wrapper).
+      const raw = event.value ?? {};
+      const parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+        suspendPayload?: SuspendPayload;
+      } & SuspendPayload;
+      const payload: SuspendPayload = parsed.suspendPayload ?? parsed;
+      return (
+        <TimeSlotPopup
+          payload={payload}
+          onPick={(slot) =>
+            setTimeout(
+              () =>
+                resolve({ chosen_time: slot.iso, chosen_label: slot.label }),
+              500,
+            )
+          }
+          onCancel={() => setTimeout(() => resolve({ cancelled: true }), 500)}
+        />
+      );
+    },
+  });
+
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface pending={pending} resolve={resolve} />
+      <AppSurface interruptEl={interruptEl} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
   );
 }
-
-function useHeadlessInterrupt(agentId: string): {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
-} {
-  const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId });
-  const [pending, setPending] = useState<InterruptEvent | null>(null);
-  const pendingRef = useRef<InterruptEvent | null>(null);
-  pendingRef.current = pending;
-
-  useEffect(() => {
-    let local: InterruptEvent | null = null;
-    const sub = agent.subscribe({
-      onCustomEvent: ({ event }) => {
-        if (event.name === INTERRUPT_EVENT_NAME) {
-          // The AG-UI adapter JSON-stringifies interrupt values, so
-          // parse when the value arrives as a string.
-          const raw = event.value ?? {};
-          local = {
-            name: event.name,
-            value: (typeof raw === "string"
-              ? JSON.parse(raw)
-              : raw) as InterruptPayload,
-          };
-        }
-      },
-      onRunStartedEvent: () => {
-        local = null;
-        setPending(null);
-      },
-      onRunFinalized: () => {
-        if (local) {
-          setPending(local);
-          local = null;
-        }
-      },
-      onRunFailed: () => {
-        local = null;
-        setPending(null);
-      },
-    });
-    return () => sub.unsubscribe();
-  }, [agent]);
-
-  const resolve = useMemo(
-    () => async (response: unknown) => {
-      const snapshot = pendingRef.current;
-      try {
-        return await copilotkit.runAgent({
-          agent,
-          forwardedProps: {
-            command: {
-              resume: response,
-              interruptEvent: snapshot?.value,
-            },
-          },
-        });
-      } catch (err) {
-        // Catastrophic rejection (network error, auth failure, validation
-        // reject) may fire before the run starts, so onRunFailed never runs.
-        // Clear pending here so the popup unmounts. Symmetric with the
-        // framework resolve catch + onRunFailed handler — all write null,
-        // no race. Caller still sees the rethrow.
-        console.error(
-          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
-          err,
-        );
-        setPending(null);
-        throw err;
-      }
-    },
-    [agent, copilotkit],
-  );
-
-  return { pending, resolve };
-}
 // @endregion[headless-useinterrupt-primitives]
 
-type AppSurfaceProps = {
-  pending: InterruptEvent | null;
-  resolve: (response: unknown) => Promise<unknown>;
-};
-
-function AppSurface({ pending, resolve }: AppSurfaceProps) {
+function AppSurface({
+  interruptEl,
+}: {
+  interruptEl: React.ReactElement | null;
+}) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -166,17 +115,7 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {pending ? (
-          <TimeSlotPopup
-            payload={pending.value}
-            onPick={(slot) =>
-              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-            }
-            onCancel={() => resolve({ cancelled: true })}
-          />
-        ) : (
-          <EmptyState />
-        )}
+        {interruptEl ?? <EmptyState />}
       </div>
     </div>
   );
@@ -216,16 +155,14 @@ function EmptyState() {
 }
 
 type TimeSlotPopupProps = {
-  payload: InterruptPayload;
+  payload: SuspendPayload;
   onPick: (slot: TimeSlot) => void;
   onCancel: () => void;
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
-  // Prefer the slots from the interrupt payload — the backend
-  // (`interrupt_agent.py:_candidate_slots`) generates them relative to "now"
-  // so the picker always shows future times. Fall back to a fresh
-  // local-time generator only if the backend didn't supply any.
+  // Prefer the backend-supplied slots (generated relative to "now" so they
+  // never rot); fall back to a fresh local generator only if absent.
   const slots =
     payload.slots && payload.slots.length > 0
       ? payload.slots

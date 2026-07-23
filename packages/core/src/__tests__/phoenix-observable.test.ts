@@ -80,7 +80,7 @@ describe("phoenix observable utilities", () => {
     subscription.unsubscribe();
 
     expect(channel!.left).toBe(true);
-    expect(phoenix.sockets[0].disconnected).toBe(true);
+    expect(phoenix.sockets[0]!.disconnected).toBe(true);
   });
 
   it("removes channel event listeners on unsubscribe", () => {
@@ -95,7 +95,7 @@ describe("phoenix observable utilities", () => {
 
     const payloads: string[] = [];
     const channelSubscription = channel$.subscribe();
-    const channel = phoenix.sockets[0].channels[0];
+    const channel = phoenix.sockets[0]!.channels[0]!;
     channel.triggerJoin("ok");
 
     const eventSubscription = ɵobservePhoenixEvent$<{ value: string }>(
@@ -128,13 +128,13 @@ describe("phoenix observable utilities", () => {
       socket: firstSocket,
       signals$: new Subject(),
     });
-    const firstChannel = firstSocket.channels[0];
+    const firstChannel = firstSocket.channels[0]!;
 
     socketSessions$.next({
       socket: secondSocket,
       signals$: new Subject(),
     });
-    const secondChannel = secondSocket.channels[0];
+    const secondChannel = secondSocket.channels[0]!;
 
     expect(firstChannel.left).toBe(true);
     expect(secondChannel.left).toBe(false);
@@ -150,7 +150,7 @@ describe("phoenix observable utilities", () => {
       url: "ws://localhost:4000/client",
     });
 
-    let error: Error | null = null;
+    let error = null as Error | null;
     const subscription = ɵobservePhoenixSocketHealth$(
       ɵobservePhoenixSocketSignals$(socket$),
       2,
@@ -160,7 +160,7 @@ describe("phoenix observable utilities", () => {
       },
     });
 
-    const socket = phoenix.sockets[0];
+    const socket = phoenix.sockets[0]!;
     socket.triggerError(new Error("first"));
     socket.triggerOpen();
     socket.triggerError(new Error("second"));

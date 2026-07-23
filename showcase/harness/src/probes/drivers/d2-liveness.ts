@@ -3,8 +3,8 @@ import { deriveHealthUrl } from "../liveness.js";
 import {
   resolveShape,
   showcaseShapeSchema,
-  type ShowcaseServiceShape,
 } from "../discovery/railway-services.js";
+import type { ShowcaseServiceShape } from "../discovery/railway-services.js";
 import { sanitizeErrorDesc } from "./sanitize.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";

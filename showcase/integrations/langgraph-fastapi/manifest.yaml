@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-fastapi
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 12
 generative_ui:
   - constrained-explicit
@@ -45,6 +45,7 @@ features:
   - gen-ui-agent
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - a2ui-recovery
   - mcp-apps
   - gen-ui-tool-based
   - shared-state-read-write
@@ -72,6 +73,7 @@ features:
   - open-gen-ui-advanced
 a2ui_pattern: schema-loading
 interrupt_pattern: native
+thread_persistence_pattern: langgraph
 agent_config_pattern: shared-state
 auth_pattern: langgraph
 demos:
@@ -393,6 +395,18 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: a2ui-recovery
+    name: A2UI Error Recovery
+    description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via get_a2ui_tools (injectA2UITool=false); reuses the declarative-gen-ui catalog.
+    tags:
+      - generative-ui
+    route: /demos/a2ui-recovery
+    animated_preview_url:
+    highlight:
+      - src/agents/src/recovery_agent.py
+      - src/app/demos/a2ui-recovery/page.tsx
+      - src/app/demos/a2ui-recovery/suggestions.ts
+      - src/app/api/copilotkit-a2ui-recovery/route.ts
   - id: mcp-apps
     name: MCP Apps
     description: MCP server-driven UI via activity renderers

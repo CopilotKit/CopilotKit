@@ -135,7 +135,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"KPI dashboard\"}",
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"KPI dashboard\"}], \"contextEntries\": []}",
             "id": "call_d5_a2ui_dynamic_kpi_001"
           }
         ]
@@ -177,7 +177,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"pie chart of sales by region\"}",
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"pie chart of sales by region\"}], \"contextEntries\": []}",
             "id": "call_d5_a2ui_dynamic_pie_001"
           }
         ]
@@ -219,7 +219,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"bar chart of quarterly revenue\"}",
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"bar chart of quarterly revenue\"}], \"contextEntries\": []}",
             "id": "call_d5_a2ui_dynamic_bar_001"
           }
         ]
@@ -261,7 +261,7 @@
         "toolCalls": [
           {
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"status report on system health\"}",
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"status report on system health\"}], \"contextEntries\": []}",
             "id": "call_d5_a2ui_dynamic_status_001"
           }
         ]
@@ -287,8 +287,7 @@
       "_comment": "render_a2ui \u2014 KPI dashboard pill (Google-ADK secondary tool name). Card has a single `child` slot (per myDefinitions.Card.props.child: string), so we wrap the three Metrics in a basic-catalog Column to satisfy the multi-child layout.",
       "match": {
         "userMessage": "KPI dashboard",
-        "toolName": "render_a2ui",
-        "context": "mastra"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -347,8 +346,7 @@
       "_comment": "render_a2ui \u2014 pie-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
       "match": {
         "userMessage": "pie chart of sales by region",
-        "toolName": "render_a2ui",
-        "context": "mastra"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -393,8 +391,7 @@
       "_comment": "render_a2ui \u2014 bar-chart pill (Google-ADK). Flat {id, component, ...props} shape.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
-        "toolName": "render_a2ui",
-        "context": "mastra"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -439,8 +436,7 @@
       "_comment": "render_a2ui \u2014 status-report pill (Google-ADK). Card has single `child` slot, so wrap the three StatusBadges in a basic-catalog Column.",
       "match": {
         "userMessage": "status report on system health",
-        "toolName": "render_a2ui",
-        "context": "mastra"
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [

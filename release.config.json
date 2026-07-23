@@ -17,25 +17,31 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
       "sharedVersion": true
     },
     "angular": {
-      "packages": ["@copilotkitnext/angular"],
-      "versionSource": "@copilotkitnext/angular",
+      "packages": ["@copilotkit/angular"],
+      "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
-    "bot": {
-      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
-      "versionSource": "@copilotkit/bot",
+    "channels": {
+      "packages": [
+        "@copilotkit/channels-ui",
+        "@copilotkit/channels-core",
+        "@copilotkit/channels-slack",
+        "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
+        "@copilotkit/channels-telegram",
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
+      ],
+      "versionSource": "@copilotkit/channels",
       "sharedVersion": true
-    },
-    "bot-slack": {
-      "packages": ["@copilotkit/bot-slack"],
-      "versionSource": "@copilotkit/bot-slack",
-      "sharedVersion": false
     }
   }
 }

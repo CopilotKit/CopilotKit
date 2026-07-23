@@ -2,11 +2,12 @@ import React, { useEffect, useState } from "react";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
-import { ReactHumanInTheLoop } from "../../types";
+import type { ReactHumanInTheLoop } from "../../types";
 import { ToolCallStatus } from "@copilotkit/core";
+import { useCopilotKit } from "../../context";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
-import { AssistantMessage, Message } from "@ag-ui/core";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import {
   MockStepwiseAgent,
   MockReconnectableAgent,
@@ -704,6 +705,173 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       });
     });
   });
+
+  describe("HITL attribution (toolCallId + agentId)", () => {
+    it("exposes toolCallId and the registered agentId to the render props", async () => {
+      const agent = new MockStepwiseAgent();
+      let renderedToolCallId: string | undefined;
+      let renderedAgentId: string | undefined;
+
+      const AttributionHITLComponent: React.FC = () => {
+        const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+          name: "scopedApprovalTool",
+          description: "Scoped approval",
+          agentId: "research-agent",
+          parameters: z.object({ action: z.string() }),
+          render: ({ toolCallId, agentId, status, args }) => {
+            renderedToolCallId = toolCallId;
+            renderedAgentId = agentId;
+            return (
+              <div data-testid="attr-hitl">
+                <div data-testid="attr-tool-call-id">{toolCallId}</div>
+                <div data-testid="attr-agent-id">{agentId ?? "none"}</div>
+                <div data-testid="attr-status">{status}</div>
+                <div data-testid="attr-action">{args.action ?? ""}</div>
+              </div>
+            );
+          },
+        };
+
+        useHumanInTheLoop(hitlTool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <AttributionHITLComponent />
+            <div style={{ height: 400 }}>
+              <CopilotChat welcomeScreen={false} />
+            </div>
+          </>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Need approval" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Need approval")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "scopedApprovalTool",
+          parentMessageId: messageId,
+          delta: JSON.stringify({ action: "delete" }),
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("attr-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("attr-agent-id").textContent).toBe(
+          "research-agent",
+        );
+      });
+
+      // The same attribution must reach the render callback directly so apps
+      // can correlate/resume the interrupt against the right (sub)agent.
+      expect(renderedToolCallId).toBe(toolCallId);
+      expect(renderedAgentId).toBe("research-agent");
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+    });
+
+    it("leaves agentId undefined for an unscoped HITL tool", async () => {
+      const agent = new MockStepwiseAgent();
+
+      const UnscopedHITLComponent: React.FC = () => {
+        const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+          name: "unscopedApprovalTool",
+          description: "Unscoped approval",
+          parameters: z.object({ action: z.string() }),
+          render: ({ toolCallId, agentId, status, args }) => (
+            <div data-testid="unscoped-hitl">
+              <div data-testid="unscoped-tool-call-id">{toolCallId}</div>
+              <div data-testid="unscoped-agent-id">{agentId ?? "none"}</div>
+              <div data-testid="unscoped-status">{status}</div>
+              <div data-testid="unscoped-action">{args.action ?? ""}</div>
+            </div>
+          ),
+        };
+
+        useHumanInTheLoop(hitlTool);
+        return null;
+      };
+
+      renderWithCopilotKit({
+        agent,
+        children: (
+          <>
+            <UnscopedHITLComponent />
+            <div style={{ height: 400 }}>
+              <CopilotChat welcomeScreen={false} />
+            </div>
+          </>
+        ),
+      });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Need approval" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Need approval")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      const toolCallId = testId("tc");
+
+      agent.emit(runStartedEvent());
+      agent.emit(
+        toolCallChunkEvent({
+          toolCallId,
+          toolCallName: "unscopedApprovalTool",
+          parentMessageId: messageId,
+          delta: JSON.stringify({ action: "archive" }),
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
+        expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("unscoped-agent-id").textContent).toBe(
+          "none",
+        );
+      });
+
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // Attribution must survive the status transition: toolCallId stays the
+      // same and agentId stays undefined once the tool reaches Executing.
+      await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.Executing,
+        );
+        expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("unscoped-agent-id").textContent).toBe(
+          "none",
+        );
+      });
+    });
+  });
 });
 
 describe("HITL Thread Reconnection Bug", () => {
@@ -817,16 +985,14 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // After reconnection, status should be 'executing' with respond available
-    // The tool handler is re-invoked for pending HITL tools that were never responded to.
+    // Passive /connect replay hydrates the historical tool call and its args.
+    // Core-level coverage asserts that passive replay does not re-invoke local
+    // frontend handlers for replayed assistant tool calls.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(
-        ToolCallStatus.Executing,
+      expect(screen.getByTestId("hitl-status").textContent).toMatch(
+        /^(executing|inProgress)$/,
       );
     });
-
-    // respond button should be present so user can interact
-    expect(screen.getByTestId("hitl-respond")).toBeDefined();
   });
 
   it("should handle tool call after connect (fresh run)", async () => {
@@ -1257,5 +1423,109 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // The respond button should be present (status is executing)
     expect(screen.getByTestId("remount-respond")).toBeDefined();
+  });
+});
+
+describe("HITL Run Abort", () => {
+  it("rejects the pending HITL promise with an error tool result when the run is aborted", async () => {
+    // Reproduces #5554: when a run is aborted (stopAgent/abortRun) while a HITL
+    // tool is waiting on the user (Executing) and respond() was never called,
+    // the handler must reject so core records an explicit error tool result —
+    // not silently resolve to an empty string (silent state corruption).
+
+    const agent = new MockStepwiseAgent();
+    const toolExecutionEnds: Array<{ result: string; error?: string }> = [];
+
+    const AbortHITLComponent: React.FC = () => {
+      const { copilotkit } = useCopilotKit();
+
+      useEffect(() => {
+        const subscription = copilotkit.subscribe({
+          onToolExecutionEnd: ({ result, error }) => {
+            toolExecutionEnds.push({ result, error });
+          },
+        });
+        return () => subscription.unsubscribe();
+      }, [copilotkit]);
+
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "abortApprovalTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="abort-hitl">
+            <div data-testid="abort-status">{status}</div>
+            <div data-testid="abort-action">{args.action ?? ""}</div>
+            {respond && <button data-testid="abort-respond">Respond</button>}
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <AbortHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "abortApprovalTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+    });
+
+    // Finish the run so the HITL handler starts executing (Executing state).
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    // Abort the run WITHOUT responding. This fires the AbortSignal that core
+    // passes to the tool handler.
+    act(() => {
+      agent.abortRun();
+    });
+
+    // The handler must settle with an explicit error tool result.
+    await waitFor(() => {
+      expect(toolExecutionEnds.length).toBeGreaterThan(0);
+      const last = toolExecutionEnds[toolExecutionEnds.length - 1];
+      expect(last.error).toBeDefined();
+      expect(last.error).not.toBe("");
+    });
   });
 });

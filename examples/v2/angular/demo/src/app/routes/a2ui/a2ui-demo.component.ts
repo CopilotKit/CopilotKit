@@ -11,8 +11,8 @@ import {
   connectAgentContext,
   provideCopilotChatLabels,
   registerFrontendTool,
-} from "@copilotkitnext/angular";
-import type { AttachmentsConfig } from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
+import type { AttachmentsConfig } from "@copilotkit/angular";
 import { A2UIDemoInputComponent } from "./a2ui-demo-input.component";
 import { z } from "zod";
 import { bindA2UIDemoThemeHandler } from "./a2ui-demo-sandbox-functions";

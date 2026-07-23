@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool } from "../index";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import {
   mockStreamTextResponse,
@@ -257,15 +258,15 @@ describe("Config Tools Server-Side Execution", () => {
       const passedExecute = callArgs.tools.getWeather.execute;
 
       // Manually invoke it to verify it works correctly
-      const result = await passedExecute({
-        city: "New York",
-        units: "fahrenheit",
-      });
+      const result = await passedExecute(
+        { city: "New York", units: "fahrenheit" },
+        { toolCallId: "tool-call-1", messages: [] },
+      );
 
-      expect(executeFn).toHaveBeenCalledWith({
-        city: "New York",
-        units: "fahrenheit",
-      });
+      expect(executeFn).toHaveBeenCalledWith(
+        { city: "New York", units: "fahrenheit" },
+        { toolCallId: "tool-call-1", messages: [] },
+      );
       expect(result).toEqual({ weather: "sunny", temp: 72 });
     });
 
@@ -302,7 +303,9 @@ describe("Config Tools Server-Side Execution", () => {
       const callArgs = vi.mocked(streamText).mock.calls[0][0];
       const passedExecute = callArgs.tools.failingTool.execute;
 
-      await expect(passedExecute({})).rejects.toThrow("API unavailable");
+      await expect(
+        passedExecute({}, { toolCallId: "tool-call-1", messages: [] }),
+      ).rejects.toThrow("API unavailable");
     });
   });
 

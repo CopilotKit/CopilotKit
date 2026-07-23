@@ -65,20 +65,10 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
+      "_comment": "tool-rendering pill: Weather in SF — 1st leg: emit get_weather. sequenceIndex:0 gates it to the first match (stopStreamingAfterResult removed; Strands UUID tool ids defeat toolCallId follow-ups). Bare narration below catches the 2nd leg.",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "toolCallId": "call_tr_weather_sf_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "San Francisco is currently 68°F and sunny with light winds."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -89,6 +79,16 @@
             "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Weather in SF — 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "strands"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
       }
     },
     {
@@ -222,20 +222,10 @@
       }
     },
     {
-      "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
+      "_comment": "tool-rendering pill: Weather in Tokyo — 1st leg: emit get_weather (+reasoning, no content). sequenceIndex:0 gates it to the first match (stopStreamingAfterResult removed; Strands UUID tool ids defeat toolCallId follow-ups). Bare narration below catches the 2nd leg.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "toolCallId": "call_d5_get_weather_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "Tokyo is 22°C and partly cloudy."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "weather in Tokyo",
-        "toolName": "get_weather",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -246,38 +236,17 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
-        "content": "Looking up the weather in Tokyo for you."
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions."
       }
     },
     {
-      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
+      "_comment": "tool-rendering pill: Weather in Tokyo — 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
       "match": {
         "userMessage": "weather in Tokyo",
-        "toolName": "get-weather",
         "context": "strands"
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_weather_001",
-            "name": "get-weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
-          }
-        ],
-        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
-        "content": "Looking up the weather in Tokyo for you."
-      }
-    },
-    {
-      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
-      "match": {
-        "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
-        "context": "strands"
-      },
-      "response": {
-        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+        "content": "Tokyo is 22°C and partly cloudy."
       }
     },
     {

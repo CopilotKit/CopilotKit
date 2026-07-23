@@ -22,6 +22,10 @@ import { NewLookAndFeelPreview } from "@/components/react/component-previews/new
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
+import {
+  DocsTrackedCopy,
+  DocsTrackedLink,
+} from "@/components/react/docs-conversion";
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
@@ -29,6 +33,7 @@ import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -106,9 +111,6 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
@@ -150,7 +152,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
     "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -262,6 +266,8 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  DocsTrackedCopy,
+  DocsTrackedLink,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -397,16 +403,6 @@ export const docsComponents = {
   Tip: ({ children }: { children: React.ReactNode }) => (
     <Callout type="info">{children}</Callout>
   ),
-  ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
-    <>
-      <Callout type="info">
-        <strong>Early access:</strong> Threads and the Enterprise Intelligence
-        Platform are in early access. APIs may change before general
-        availability.
-      </Callout>
-      {children}
-    </>
-  ),
   Steps: DocsSteps,
   Step: DocsStep,
   CardGroup: Cards,
@@ -433,6 +429,7 @@ export const docsComponents = {
   // pattern as <Snippet>.
   WhenFrameworkHas,
   AgentCoreCommandTabs,
+  AngularFeatureCatalog,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -604,8 +601,6 @@ export const docsComponents = {
   StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
-  Observability: stubWithPartial("Observability"),
-  ObservabilityConnectors: stubWithPartial("ObservabilityConnectors"),
   Inspector: stubWithPartial("Inspector"),
   DefaultToolRendering: stubWithPartial("DefaultToolRendering"),
   DisplayOnly: stubWithPartial("DisplayOnly"),

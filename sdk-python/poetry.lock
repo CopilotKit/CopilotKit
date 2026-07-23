@@ -2,30 +2,30 @@
 
 [[package]]
 name = "ag-ui-a2ui-toolkit"
-version = "0.0.3"
+version = "0.0.4"
 description = "Framework-agnostic helpers for building A2UI subagent tools — op builders, prompt assembly, history walkers, and request/envelope orchestration shared across framework adapters."
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_a2ui_toolkit-0.0.3-py3-none-any.whl", hash = "sha256:e0354bd361c09f342fbe671cf870cbd19fdcb1b27e7a5bb2d8a392a4f00c2ba9"},
-    {file = "ag_ui_a2ui_toolkit-0.0.3.tar.gz", hash = "sha256:468f25473ac00d098878da54c0069b7fa27dc63b4c1ff61315d4349a324c2fb7"},
+    {file = "ag_ui_a2ui_toolkit-0.0.4-py3-none-any.whl", hash = "sha256:236fc511e1ec2399bcda0c14a109b3fb0a0c3e3988c18ef1918745b1c1535e30"},
+    {file = "ag_ui_a2ui_toolkit-0.0.4.tar.gz", hash = "sha256:172e2724e53df8173685a3fb896a6e5175eea06e1dc166c715db110ba4beba76"},
 ]
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.41"
+version = "0.0.42"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.15,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.41-py3-none-any.whl", hash = "sha256:ff5f4c3d03305ff51329543ff61bd686a3e0b5c3c4ea071b3575f328d13936ae"},
-    {file = "ag_ui_langgraph-0.0.41.tar.gz", hash = "sha256:3ea1fcb49b147d9532b0a90f2a5554d6ffd0d9365590fa2557ba16a881aeeb7a"},
+    {file = "ag_ui_langgraph-0.0.42-py3-none-any.whl", hash = "sha256:4fd19f0da6d0e16d727ec89e99b692916cbba2b0302f96aba2497043cbfec5db"},
+    {file = "ag_ui_langgraph-0.0.42.tar.gz", hash = "sha256:5384647b9b7b098189530c59b26741581dd009c8dfda907fbfaa9bafa8d21249"},
 ]
 
 [package.dependencies]
-ag-ui-a2ui-toolkit = ">=0.0.3"
+ag-ui-a2ui-toolkit = ">=0.0.4"
 ag-ui-protocol = ">=0.1.15"
 fastapi = {version = ">=0.115.12", optional = true, markers = "extra == \"fastapi\""}
 langchain = ">=1.2.0"
@@ -5642,4 +5642,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.15"
-content-hash = "5fc9ecbf95de1d25040712c2675d39dfedc8a099be1e425390c03014e8c97d58"
+content-hash = "5d1af465655fc26c4bfdd9c81edc0760c838e8328ce5ba7c860b18640488d8a4"

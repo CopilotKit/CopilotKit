@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     data-copilotkit
-    class="cpk:relative cpk:h-full"
+    class="cpk:@container cpk:relative cpk:h-full"
     data-testid="copilot-chat-view"
     v-bind="$attrs"
     @dragover="handleDragOver"
@@ -590,7 +590,7 @@ onBeforeUnmount(() => {
           @scroll="handleScroll"
         >
           <div
-            class="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            class="cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
           >
             <div
               ref="scrollContentRef"
@@ -618,7 +618,7 @@ onBeforeUnmount(() => {
                 </slot>
                 <div
                   v-if="hasSuggestions"
-                  class="cpk:mt-4 cpk:pl-0 cpk:pr-4 cpk:sm:px-0"
+                  class="cpk:mt-4 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0"
                 >
                   <slot
                     name="suggestion-view"

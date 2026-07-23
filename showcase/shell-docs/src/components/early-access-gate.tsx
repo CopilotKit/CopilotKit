@@ -13,20 +13,9 @@
 
 import React, { useEffect, useId, useState } from "react";
 import Image from "next/image";
-import { Lock, Slack, Users } from "lucide-react";
+import { Lock } from "lucide-react";
 import { getEarlyAccessGate } from "@/lib/early-access";
 import type { EarlyAccessGateConfig } from "@/lib/early-access";
-
-// Icon shown in the card header tile, per gate id. Kept here (not in
-// the config module) so the server-importable config stays free of
-// client-only component values.
-const GATE_ICONS: Record<
-  string,
-  React.ComponentType<{ className?: string }>
-> = {
-  slack: Slack,
-  teams: Users,
-};
 
 const UNLOCKED_VALUE = "unlocked";
 
@@ -57,19 +46,13 @@ export function EarlyAccessGate({
 }) {
   const config = getEarlyAccessGate(gate);
   if (!config) return <>{children}</>;
-  return (
-    <GateShell gate={gate} config={config}>
-      {children}
-    </GateShell>
-  );
+  return <GateShell config={config}>{children}</GateShell>;
 }
 
 function GateShell({
-  gate,
   config,
   children,
 }: {
-  gate: string;
   config: EarlyAccessGateConfig;
   children: React.ReactNode;
 }) {
@@ -106,7 +89,6 @@ function GateShell({
               the card's max-height) tracks the visible content area. */}
           <div className="sticky top-0 flex h-[calc(100svh-var(--fd-nav-height,64px)-var(--fd-banner-height,0px))] items-center justify-center px-4 sm:px-6">
             <UnlockCard
-              gate={gate}
               config={config}
               onUnlock={() => {
                 persistUnlocked(config.storageKey);
@@ -121,11 +103,9 @@ function GateShell({
 }
 
 function UnlockCard({
-  gate,
   config,
   onUnlock,
 }: {
-  gate: string;
   config: EarlyAccessGateConfig;
   onUnlock: () => void;
 }) {
@@ -134,7 +114,6 @@ function UnlockCard({
   const errorId = useId();
   const [value, setValue] = useState("");
   const [error, setError] = useState(false);
-  const Icon = GATE_ICONS[gate] ?? Lock;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -155,7 +134,7 @@ function UnlockCard({
           className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--accent-dim)] text-[var(--text)]"
           aria-hidden="true"
         >
-          <Icon className="size-[26px]" />
+          <Lock className="size-[26px]" />
         </div>
         <div className="min-w-0">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">

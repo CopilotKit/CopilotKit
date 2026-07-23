@@ -32,6 +32,7 @@ from ag_ui.core import (
     TextMessageStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 
 # Extended-thinking budget for the native reasoning channel. Anthropic
 # requires max_tokens > budget_tokens when thinking is enabled.
@@ -177,8 +178,9 @@ async def run_reasoning_agent(
     # the fixture's `reasoning` field regardless of the model name.
     reasoning_model = os.getenv(
         "ANTHROPIC_REASONING_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6"),
     )
+    reasoning_model = normalize_claude_model(reasoning_model)
 
     try:
         async with client.messages.stream(

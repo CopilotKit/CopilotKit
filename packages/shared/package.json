@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/shared",
-  "version": "1.60.2",
+  "version": "1.63.1",
   "private": false,
   "keywords": [
     "ai",
@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",
-    "@copilotkit/license-verifier": "~0.4.2",
+    "@copilotkit/license-verifier": "~0.5.0",
     "@segment/analytics-node": "^2.1.2",
     "@standard-schema/spec": "^1.0.0",
     "chalk": "4.1.2",

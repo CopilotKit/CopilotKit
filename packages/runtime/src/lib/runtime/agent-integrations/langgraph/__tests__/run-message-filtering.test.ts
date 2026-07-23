@@ -22,7 +22,7 @@ import { LangGraphAgent } from "../agent";
 function createAgent() {
   return new LangGraphAgent({
     graphId: "test-graph",
-    url: "http://localhost:8000",
+    deploymentUrl: "http://localhost:8000",
   });
 }
 

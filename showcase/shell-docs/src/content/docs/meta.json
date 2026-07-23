@@ -4,12 +4,25 @@
     "---Get Started---",
     "index",
     "quickstart",
+    "cli",
     "build-with-agents",
     "---Concepts---",
     "...concepts",
     "...agentic-protocols",
     "---Build Chat UIs---",
     "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "premium/threads-explained"
+      ]
+    },
     "custom-look-and-feel",
     "multimodal-attachments",
     "voice",
@@ -39,18 +52,14 @@
     "inspector",
     "vs-code-extension",
     "---Intelligence Platform---",
-    "premium/intelligence-platform",
-    "premium/threads-explained",
-    "premium/observability",
+    "premium/overview",
+    "premium/managed-intelligence-platform",
     "premium/self-hosting",
-    "threads",
+    "premium/intelligence-platform",
+    "---Channels---",
+    "channels",
     "---Deploy---",
     "...deploy",
-    "---Platforms---",
-    "slack",
-    "microsoft-teams",
-    "react-native",
-    "vue",
     "---Other---",
     "...(other)",
     {
@@ -62,8 +71,7 @@
         "troubleshooting/inspector-dev-console",
         "troubleshooting/debug-mode",
         "troubleshooting/event-inspector",
-        "troubleshooting/hook-explorer",
-        "troubleshooting/observability-connectors"
+        "troubleshooting/hook-explorer"
       ]
     },
     {

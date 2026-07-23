@@ -51,6 +51,15 @@ export const DIMENSIONS = [
   "image_drift",
   "e2e_smoke",
   "pin_drift",
+  // CROSS-ENV pin-drift (U6/U11, spec §7.3). The `pin_drift_cross_env`
+  // driver reads BOTH prod (pinned) and staging (floating) running digests
+  // and asserts prod is RUNNING the digest it was LAST PROMOTED to AND that
+  // the digest is still present in GHCR — distinct from `image_drift`
+  // (one env vs GHCR `:latest`) and `pin_drift` (the validate-pins ratchet).
+  // The Ops surface routes PROD services here and STAGING to `image_drift`
+  // (see probes/ops-drift-routing.ts). Closed-enum slot so its YAML
+  // (`config/probes/cross-env-pin-drift.yml`) and rule keys validate at load.
+  "pin_drift_cross_env",
   "version_drift",
   "redirect_decommission",
   "deploy",

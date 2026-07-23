@@ -39,10 +39,9 @@ canonical example.
 
 <FrameworkSetup concept="subagents-setup" />
 
-Each sub-agent is a full `create_agent(...)` call with its own model,
-its own system prompt, and (optionally) its own tools. They don't share
-memory or tools with the supervisor; the supervisor only ever sees
-what the sub-agent returns.
+Each sub-agent is an isolated agent call with its own model, system
+prompt, and optional tools. They don't share memory or tools with the
+supervisor; the supervisor only ever sees what the sub-agent returns.
 
 <Snippet region="subagent-setup" title="backend/agent.py — three sub-agents" />
 
@@ -53,14 +52,14 @@ wrong.
 
 ## Exposing sub-agents as tools
 
-The supervisor delegates by calling tools. Each tool is a thin wrapper
-around `sub_agent.invoke(...)` that:
+The supervisor delegates by calling tools. Each delegation tool is a thin
+wrapper around a specialized agent call that:
 
-1. Runs the sub-agent synchronously on the supplied `task` string.
+1. Runs the sub-agent on the supplied `task` string.
 2. Records the delegation into a `delegations` slot in shared agent
    state (so the UI can render a live log).
-3. Returns the sub-agent's final message as a `ToolMessage`, which the
-   supervisor sees as a normal tool result on its next turn.
+3. Returns the sub-agent's final message as the tool result, which the
+   supervisor sees on its next turn.
 
 <Snippet region="supervisor-delegation-tools" title="backend/agent.py — supervisor tools" />
 

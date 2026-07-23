@@ -1,6 +1,7 @@
 {
   "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
   "dest": "dist",
+  "assets": ["README.md", "API.md"],
   "lib": {
     "entryFile": "src/index.ts"
   },
@@ -10,11 +11,11 @@
     "@copilotkit/a2ui-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@copilotkit/web-components",
     "@jetbrains/websandbox",
     "rxjs",
     "zod",
     "zod-to-json-schema",
-    "lucide-angular",
     "highlight.js",
     "katex",
     "marked",

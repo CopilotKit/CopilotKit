@@ -10,7 +10,7 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import matter from "gray-matter";
-import { Slack, MessageCircle } from "lucide-react";
+import { BookOpen, Slack, MessageCircle } from "lucide-react";
 import type * as PageTree from "fumadocs-core/page-tree";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
 import { resolveWithinDir, safeExistsSync } from "@/lib/safe-fs";
@@ -30,8 +30,10 @@ export const REFERENCE_VERSIONS = [
   "v2",
   "v1",
   "react-native",
+  "vue",
+  "angular",
   "core",
-  "bot",
+  "channels",
 ] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
@@ -39,9 +41,12 @@ export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 const ROOT_VERSION: ReferenceVersion = "v2";
 
 export const REFERENCE_CATEGORIES = [
+  "Guides",
   "Components",
   "Hooks",
   "Functions",
+  "Services",
+  "Directives",
   "Classes",
   "Types",
   "Enums",
@@ -55,6 +60,8 @@ type ReferenceSubdir =
   | "components"
   | "hooks"
   | "functions"
+  | "services"
+  | "directives"
   | "classes"
   | "types"
   | "enums"
@@ -66,14 +73,24 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v2: ["components", "hooks"],
   v1: ["components", "hooks", "classes", "sdk"],
   "react-native": ["components", "hooks"],
+  vue: ["components", "hooks"],
+  angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
-  bot: ["components", "functions", "classes", "types", "slack", "discord"],
+  channels: ["components", "functions", "classes", "types", "slack", "discord"],
+};
+
+const VERSION_TOP_LEVEL_PAGES: Partial<
+  Record<ReferenceVersion, readonly string[]>
+> = {
+  angular: ["public-api", "production-lifecycle"],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   components: "Components",
   hooks: "Hooks",
   functions: "Functions",
+  services: "Services",
+  directives: "Directives",
   classes: "Classes",
   types: "Types",
   enums: "Enums",
@@ -261,48 +278,95 @@ export function loadReferenceItems(
 export function loadReferenceVersionItems(
   version: ReferenceVersion,
 ): ReferenceItem[] {
-  return VERSION_SUBDIRS[version].flatMap((subdir) =>
-    loadReferenceItems(version, subdir),
+  const topLevelItems = (VERSION_TOP_LEVEL_PAGES[version] ?? []).flatMap(
+    (pageSlug): ReferenceItem[] => {
+      const resolved = resolveReferencePage([version, pageSlug]);
+      if (!resolved) return [];
+
+      let data: Record<string, unknown>;
+      try {
+        ({ data } = matter(resolved.raw));
+      } catch (err) {
+        console.error(
+          `[reference-items] Failed to parse frontmatter in ${resolved.filePath}:`,
+          err,
+        );
+        return [];
+      }
+
+      return [
+        {
+          slug: pageSlug,
+          title:
+            typeof data.title === "string" && data.title.length > 0
+              ? data.title
+              : fallbackTitle(pageSlug),
+          description:
+            typeof data.description === "string" ? data.description : undefined,
+          category: "Guides",
+          version,
+          url: referenceHref(version, pageSlug),
+        },
+      ];
+    },
   );
+
+  return [
+    ...topLevelItems,
+    ...VERSION_SUBDIRS[version].flatMap((subdir) =>
+      loadReferenceItems(version, subdir),
+    ),
+  ];
 }
 
 function itemToPage(item: ReferenceItem): PageTree.Item {
   return { type: "page", name: item.title, url: item.url };
 }
 
-// Package separators carry the package's mark. Mirror page-tree-bridge:
-// merge icon + label into the separator's `name` (fumadocs renders
-// `[item.icon, item.name]` as a keyless child array, so the split
-// `icon` prop triggers React's key warning).
+function withInlineIcon(icon: React.ReactNode, label: string): React.ReactNode {
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.isValidElement(icon)
+      ? React.cloneElement(icon, { key: "icon" })
+      : icon,
+    React.createElement("span", { key: "label" }, label),
+  );
+}
+
+function referenceRootName(): React.ReactNode {
+  return withInlineIcon(
+    React.createElement(BookOpen, { size: 16 }),
+    "Reference",
+  );
+}
+
+// Package separators carry the package's mark. Merge icon + label into
+// the separator's `name` (fumadocs renders `[item.icon, item.name]` as
+// a keyless child array, so the split `icon` prop triggers React's key
+// warning).
 function packageSeparator(
   icon: React.ReactNode,
   label: string,
 ): PageTree.Separator {
   return {
     type: "separator",
-    name: React.createElement(
-      React.Fragment,
-      null,
-      React.isValidElement(icon)
-        ? React.cloneElement(icon, { key: "icon" })
-        : icon,
-      React.createElement("span", { key: "label" }, label),
-    ),
+    name: withInlineIcon(icon, label),
   };
 }
 
 /**
- * The Bots tab groups the sidebar by package, not by category: a
- * `@copilotkit/bot` section with collapsed kind-folders (Components /
- * Functions / Classes / Types), then a flat `@copilotkit/bot-slack`
+ * The Channels tab groups the sidebar by package, not by category: a
+ * `@copilotkit/channels` section with collapsed kind-folders (Components /
+ * Functions / Classes / Types), then a flat `@copilotkit/channels-slack`
  * section listing the adapter's own exports (the `slack/` subdir).
  */
-function buildBotPageTree(): PageTree.Root {
+function buildChannelsPageTree(): PageTree.Root {
   const kindFolder = (
     name: string,
     subdir: ReferenceSubdir,
   ): PageTree.Folder[] => {
-    const items = loadReferenceItems("bot", subdir);
+    const items = loadReferenceItems("channels", subdir);
     if (items.length === 0) return [];
     return [
       {
@@ -324,14 +388,16 @@ function buildBotPageTree(): PageTree.Root {
     "slack/defaultSlackContext",
     "slack/SanitizingHttpAgent",
   ];
-  const slackItems = [...loadReferenceItems("bot", "slack")].sort((a, b) => {
-    const ai = SLACK_ORDER.indexOf(a.slug);
-    const bi = SLACK_ORDER.indexOf(b.slug);
-    return (
-      (ai === -1 ? SLACK_ORDER.length : ai) -
-      (bi === -1 ? SLACK_ORDER.length : bi)
-    );
-  });
+  const slackItems = [...loadReferenceItems("channels", "slack")].sort(
+    (a, b) => {
+      const ai = SLACK_ORDER.indexOf(a.slug);
+      const bi = SLACK_ORDER.indexOf(b.slug);
+      return (
+        (ai === -1 ? SLACK_ORDER.length : ai) -
+        (bi === -1 ? SLACK_ORDER.length : bi)
+      );
+    },
+  );
 
   const slackCoreFolder: PageTree.Folder[] =
     slackItems.length === 0
@@ -354,7 +420,7 @@ function buildBotPageTree(): PageTree.Root {
     "discord/defaultDiscordContext",
     "discord/DISCORD_LIMITS",
   ];
-  const discordItems = [...loadReferenceItems("bot", "discord")].sort(
+  const discordItems = [...loadReferenceItems("channels", "discord")].sort(
     (a, b) => {
       const ai = DISCORD_ORDER.indexOf(a.slug);
       const bi = DISCORD_ORDER.indexOf(b.slug);
@@ -378,21 +444,24 @@ function buildBotPageTree(): PageTree.Root {
         ];
 
   return {
-    name: "Reference",
+    name: referenceRootName(),
     children: [
-      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/bot"),
+      packageSeparator(
+        React.createElement(CopilotKitMark),
+        "@copilotkit/channels",
+      ),
       ...kindFolder("Components", "components"),
       ...kindFolder("Functions", "functions"),
       ...kindFolder("Classes", "classes"),
       ...kindFolder("Types", "types"),
       packageSeparator(
         React.createElement(Slack, { size: 16 }),
-        "@copilotkit/bot-slack",
+        "@copilotkit/channels-slack",
       ),
       ...slackCoreFolder,
       packageSeparator(
         React.createElement(MessageCircle, { size: 16 }),
-        "@copilotkit/bot-discord",
+        "@copilotkit/channels-discord",
       ),
       ...discordCoreFolder,
     ],
@@ -402,10 +471,10 @@ function buildBotPageTree(): PageTree.Root {
 export function buildReferencePageTree(
   version: ReferenceVersion,
 ): PageTree.Root {
-  if (version === "bot") return buildBotPageTree();
+  if (version === "channels") return buildChannelsPageTree();
   const allItems = loadReferenceVersionItems(version);
   return {
-    name: "Reference",
+    name: referenceRootName(),
     children: REFERENCE_CATEGORIES.flatMap((category) => {
       const categoryItems = allItems.filter(
         (item) => item.category === category,

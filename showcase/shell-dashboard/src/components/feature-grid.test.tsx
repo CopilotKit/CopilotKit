@@ -7,13 +7,13 @@
  * separately — the cell model incorporates all relevant signals.
  */
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { LiveIndicator, computeColumnTally, FeatureGrid } from "./feature-grid";
 import type { CellContext, CellRenderer } from "./feature-grid";
 import { OverlayColumnHeader } from "./overlay-column-header";
 import type { Overlay } from "@/lib/overlay-types";
 import { urlsFor } from "./cell-pieces";
-import { getIntegrations } from "@/lib/registry";
+import { getIntegrations, getFeatures } from "@/lib/registry";
 import { starterIsSupported, STARTER_LEVELS } from "@/lib/live-status";
 import type { Integration, Feature } from "@/lib/registry";
 import type {
@@ -198,14 +198,21 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("counts by chipColor — green D3 only (no D5/D6) → gray chip", () => {
+  it("counts by chipColor — green D3+D4, D5 unmapped (ceiling 4) → gray chip", () => {
     const live: LiveStatusMap = new Map();
-    // f1: D3=green but D5/D6 absent → chipColor=gray (D6-ceiling algorithm)
+    // f1/f2 are NOT D5-mapped features, so their structural ceiling is 4 and no
+    // D5 rung exists. To genuinely exercise the ceiling-4 "no complete top rung
+    // → gray" branch, the ladder must be GREEN and CONTIGUOUS through D4 (D3 e2e
+    // + D4 chat) — otherwise a missing D4 (chat) grays the cell at the gap (I1)
+    // BEFORE the ceiling-4 branch is ever evaluated, and the test would not
+    // cover the mechanism it names. `chat:i1` is slug-scoped, so it supplies the
+    // green D4 rung for both f1 and f2.
     live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
-    // f2: D3=green but D5/D6 absent → chipColor=gray
     live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
+    live.set("chat:i1", row("chat:i1", "chat", "green"));
     const t = computeColumnTally(integration, features, live);
-    // D6-ceiling: D3-only green with no D5/D6 → gray → not counted
+    // ceiling-4 branch: D3+D4 green, D5 unmapped → no complete top rung → gray
+    // → not counted. (A green D4 ceiling is NOT a complete verification level.)
     expect(t).toEqual({
       green: 0,
       amber: 0,
@@ -232,15 +239,16 @@ describe("computeColumnTally", () => {
     });
   });
 
-  it("health row alone does not contribute to tally", () => {
+  it("a red health (D1) row gates every cell in the column red (§F liveness gate)", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    // No D3 rows → all cells gray → nothing counted
+    // §F: a present fresh-red D1 (slug-scoped health) gates the cell → red.
+    // The service is down, so every feature cell in the column reds.
     expect(t).toEqual({
       green: 0,
       amber: 0,
-      red: 0,
+      red: 2,
       unknown: false,
       loading: false,
     });
@@ -596,5 +604,98 @@ describe("OverlayColumnHeader — loading / offline rendering (§5.3)", () => {
       />,
     );
     expect(container.querySelector("[data-stale='true']")).toBeNull();
+  });
+});
+
+describe("FeatureGrid — Show unique filter", () => {
+  const integrations = getIntegrations();
+  const features = getFeatures();
+
+  // "framework supports a demo" === the integration ships one (isWired).
+  const frameworkCount = (featureId: string) =>
+    integrations.filter((i) => i.demos.some((d) => d.id === featureId)).length;
+
+  const uniqueFeatures = features.filter((f) => frameworkCount(f.id) < 2);
+  // A feature shipped by ≥2 frameworks and not deprecated — visible by default.
+  const commonFeature = features.find(
+    (f) => frameworkCount(f.id) >= 2 && f.deprecated !== true,
+  );
+  // A "unique" feature (≤1 framework) that is NOT deprecated, so only the
+  // unique filter — not the deprecated filter — governs its visibility.
+  const uniqueNonDeprecated = uniqueFeatures.find((f) => f.deprecated !== true);
+
+  const renderGrid = () =>
+    render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={() => null}
+        liveStatus={new Map() as LiveStatusMap}
+        connection="live"
+        shellUrl="https://showcase.staging.copilotkit.ai"
+      />,
+    );
+
+  it("registry sanity: there is a common feature and a non-deprecated unique feature to assert on", () => {
+    expect(commonFeature, "need a common non-deprecated feature").toBeDefined();
+    expect(
+      uniqueNonDeprecated,
+      "need a non-deprecated unique feature (e.g. a2ui-recovery)",
+    ).toBeDefined();
+  });
+
+  it("hides non-common demo rows by default and shows common ones", () => {
+    const { queryByTestId } = renderGrid();
+    expect(
+      queryByTestId(`feature-row-${commonFeature!.id}`),
+      "common feature row must be visible by default",
+    ).not.toBeNull();
+    expect(
+      queryByTestId(`feature-row-${uniqueNonDeprecated!.id}`),
+      "unique feature row must be hidden by default",
+    ).toBeNull();
+  });
+
+  it("labels the toggle with the count of unique (frameworkCount < 2) features", () => {
+    const { getByTestId } = renderGrid();
+    const toggle = getByTestId("show-unique-toggle");
+    expect(toggle.textContent).toContain("Show unique");
+    expect(toggle.textContent).toContain(`(${uniqueFeatures.length})`);
+  });
+
+  it("reveals the unique rows when the toggle is checked", () => {
+    const { getByTestId, queryByTestId } = renderGrid();
+    const checkbox = getByTestId("show-unique-toggle").querySelector("input")!;
+    fireEvent.click(checkbox);
+    expect(
+      queryByTestId(`feature-row-${uniqueNonDeprecated!.id}`),
+      "unique feature row must appear after enabling Show unique",
+    ).not.toBeNull();
+  });
+
+  it("shows the exact distinct hidden-row count in the subtitle by default", () => {
+    const { container } = renderGrid();
+    // Distinct hidden = features hidden by EITHER filter (deprecated OR unique),
+    // deduped — not the sum of the two overlapping category counts.
+    const distinctHidden = features.filter(
+      (f) => f.deprecated === true || frameworkCount(f.id) < 2,
+    ).length;
+    expect(distinctHidden).toBeGreaterThan(0);
+    expect(container.textContent).toContain(`(${distinctHidden} hidden)`);
+  });
+
+  it("drops the hidden-count note once both filters are enabled", () => {
+    const { getByTestId, container } = renderGrid();
+    fireEvent.click(getByTestId("show-unique-toggle").querySelector("input")!);
+    fireEvent.click(
+      getByTestId("show-deprecated-toggle").querySelector("input")!,
+    );
+    expect(container.textContent).not.toMatch(/\(\d+ hidden\)/);
+  });
+
+  it("tooltip wording is accurate for the <2 definition (not 'only one framework')", () => {
+    const { getByTestId } = renderGrid();
+    const title = getByTestId("show-unique-toggle").getAttribute("title") ?? "";
+    expect(title).toContain("fewer than two frameworks");
+    expect(title).not.toContain("only one framework");
   });
 });

@@ -1,0 +1,188 @@
+---
+title: Frontend tools and generative UI
+description: Let an agent run browser code and render typed, protocol-driven, or sandboxed UI in Angular.
+icon: "lucide/Wrench"
+doc_type: how-to
+---
+
+Frontend tools let an agent call code inside the user's browser. Add a renderer
+to the same registration when the tool should show progress or a result in
+chat.
+
+## Register a browser tool
+
+Call `registerFrontendTool` from an Angular injection context. The registration
+is removed when that injector is destroyed.
+
+```ts title="src/app/todo-board.component.ts"
+import { Component, signal } from "@angular/core";
+import { registerFrontendTool } from "@copilotkit/angular";
+import { z } from "zod";
+
+@Component({
+  selector: "app-todo-board",
+  template: `
+    <ul>
+      @for (todo of todos(); track todo) {
+        <li>{{ todo }}</li>
+      }
+    </ul>
+  `,
+})
+export class TodoBoardComponent {
+  readonly todos = signal<string[]>([]);
+
+  constructor() {
+    registerFrontendTool({
+      name: "addTodo",
+      description: "Add an item to the user's todo list",
+      parameters: z.object({
+        text: z.string().describe("The todo text"),
+      }),
+      handler: async ({ text }) => {
+        this.todos.update((todos) => [...todos, text]);
+        return { added: text };
+      },
+    });
+  }
+}
+```
+
+The schema advertises the input shape and supplies TypeScript inference.
+Runtime arguments arrive as parsed JSON; validate inside the handler when the
+action needs a hard trust boundary. The handler receives the calling agent,
+the raw tool call, and an optional abort signal as its second argument.
+
+## Render a tool result
+
+A renderer is a standalone component with a required `toolCall` signal input.
+Its status moves through `"in-progress"`, `"executing"`, and `"complete"`.
+
+```ts title="src/app/weather-card.component.ts"
+import { Component, input } from "@angular/core";
+import {
+  type AngularToolCall,
+  type ToolRenderer,
+} from "@copilotkit/angular";
+
+type WeatherArgs = { city: string };
+
+@Component({
+  selector: "app-weather-card",
+  template: `
+    @let call = toolCall();
+    @if (call.status === "complete") {
+      <article>
+        <strong>{{ call.args.city }}</strong>
+        <p>{{ call.result }}</p>
+      </article>
+    } @else {
+      <p>Loading weather for {{ call.args.city ?? "…" }}</p>
+    }
+  `,
+})
+export class WeatherCardComponent implements ToolRenderer<WeatherArgs> {
+  readonly toolCall = input.required<AngularToolCall<WeatherArgs>>();
+}
+```
+
+Pass the class as `component` when the tool runs in the browser:
+
+```ts
+registerFrontendTool({
+  name: "getWeather",
+  description: "Get the current weather for a city",
+  parameters: z.object({ city: z.string() }),
+  component: WeatherCardComponent,
+  handler: async ({ city }, { signal }) => {
+    const response = await fetch(`/api/weather?city=${encodeURIComponent(city)}`, {
+      signal,
+    });
+    return response.text();
+  },
+});
+```
+
+Use `registerRenderToolCall` instead when the tool runs on the server and the
+browser only renders its call:
+
+```ts
+registerRenderToolCall({
+  name: "getWeather",
+  args: z.object({ city: z.string() }),
+  component: WeatherCardComponent,
+});
+```
+
+## Choose a generative UI path
+
+| Path | Best fit | Angular setup |
+| --- | --- | --- |
+| Your components | Known data shapes and application actions | `registerFrontendTool` or `registerRenderToolCall` with a component |
+| A2UI | A server emits A2UI operations or snapshots | Runtime capability turns on the built-in renderer; an optional `a2ui` config supplies a catalog or theme |
+| Open Generative UI | The agent produces streamed HTML, CSS, and script expressions | Set `openGenerativeUI` in `provideCopilotKit` |
+| MCP Apps | An MCP server returns an interactive app resource | Add `provideMCPApps()` from `@copilotkit/angular/mcp-apps` |
+
+### Open Generative UI
+
+An `openGenerativeUI` object opts the frontend into the built-in sandboxed
+renderer. Expose narrow host functions when generated UI must ask the
+application to act.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import {
+  provideCopilotKit,
+  type SandboxFunction,
+} from "@copilotkit/angular";
+import { z } from "zod";
+
+const setDashboardFilter: SandboxFunction<{ filter: string }> = {
+  name: "setDashboardFilter",
+  description: "Set the active dashboard filter",
+  parameters: z.object({ filter: z.string() }),
+  handler: async ({ filter }) => {
+    sessionStorage.setItem("dashboard-filter", filter);
+    return { applied: filter };
+  },
+};
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+      openGenerativeUI: {
+        sandboxFunctions: [setDashboardFilter],
+      },
+    }),
+  ],
+};
+```
+
+Generated code runs in a sandboxed iframe without same-origin access. It calls
+only the host functions you list in `sandboxFunctions`.
+
+### MCP Apps
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { provideMCPApps } from "@copilotkit/angular/mcp-apps";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideMCPApps(),
+  ],
+};
+```
+
+MCP resource and tool requests travel through the selected AG-UI agent. The
+browser provider does not take a server URL.
+
+## Next steps
+
+- [registerFrontendTool API](/reference/angular/functions/registerFrontendTool)
+- [registerRenderToolCall API](/reference/angular/functions/registerRenderToolCall)
+- [Activity renderers](/reference/angular/functions/registerRenderActivityMessage)
+- [Runnable tool and generative UI examples](/angular/features#frontend-tools)

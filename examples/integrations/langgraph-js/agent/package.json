@@ -11,7 +11,7 @@
     "dev": "langgraphjs dev --port 8123 --no-browser"
   },
   "dependencies": {
-    "@copilotkit/sdk-js": "1.60.1",
+    "@copilotkit/sdk-js": "1.62.3",
     "@langchain/core": "1.1.49",
     "@langchain/langgraph": "1.3.0",
     "@langchain/openai": "1.4.4",

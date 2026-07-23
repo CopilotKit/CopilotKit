@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-harness-dotnet / byoc",
+    "sourceFile": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — Q4 Sales Dashboard. The BYOC demo renders structured JSON output via a user-supplied component (metric cards + charts). The hasToolResult:false gate fires on the initial user prompt; the response includes a generate_a2ui tool call that produces the structured payload the renderer materializes.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "ms-agent-harness-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_a2ui_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"metric-card\",\"title\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"type\":\"metric-card\",\"title\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"type\":\"pie-chart\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":45},{\"label\":\"SMB\",\"value\":30},{\"label\":\"Consumer\",\"value\":25}]},{\"type\":\"bar-chart\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":720000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":870000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after generate_a2ui tool result",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "toolCallId": "call_d6_byoc_a2ui_001",
+        "context": "ms-agent-harness-dotnet"
+      },
+      "response": {
+        "content": "Here is your Q4 sales dashboard with total revenue, customer metrics, a pie chart of revenue by segment, and a bar chart of monthly revenue."
+      }
+    }
+  ]
+}

@@ -9,18 +9,16 @@ import {
   useHumanInTheLoop,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
+import styles from "./page.module.css";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/microsoft-agent-framework/frontend-actions
   useFrontendTool({
@@ -38,24 +36,22 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <div className={`${styles.layout} threadsLayout`}>
-      {/* In-flow threads drawer on the LEFT, themed light in globals.css to
-          match the CopilotSidebar chat aesthetic. */}
-      <ThreadsPanelGate>
-        <ThreadsDrawer
-          agentId="default"
-          threadId={threadId}
-          onThreadChange={setThreadId}
-        />
-      </ThreadsPanelGate>
-      <div className={styles.mainPanel}>
-        {/*
-          Share the active threadId with the chat + demo content via one
-          CopilotChatConfigurationProvider. `useAgent()` falls back to the
-          provider's threadId when called without an explicit one, so selecting
-          a thread in the drawer drives the same per-thread agent clone.
-        */}
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — selecting a row sets the active thread, "+ New" resets to a
+      fresh thread — with no host thread-state. The proverbs/weather/moon content
+      and the CopilotSidebar read the same active thread from the provider (the
+      content's `useAgent()` falls back to it). A *controlled* provider would
+      block "+ New" from resetting, so uncontrolled-inside-provider is required.
+      `.threadsLayout` (globals.css) pins the light theme vars the drawer +
+      sidebar inherit; the SDK drawer follows them by token inheritance.
+    */
+    <CopilotChatConfigurationProvider agentId="default">
+      <div className={`${styles.layout} threadsLayout`}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId="default" />
+        <div className={styles.mainPanel}>
           <main
             style={
               {
@@ -73,9 +69,9 @@ export default function CopilotKitPage() {
               }}
             />
           </main>
-        </CopilotChatConfigurationProvider>
+        </div>
       </div>
-    </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 

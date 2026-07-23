@@ -895,7 +895,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       const inFlight = new Promise<void>((resolve) => {
         resolveInFlight = resolve;
       });
-      consumerAgent.activeRunCompletionPromise = inFlight;
+      consumerAgent.setActiveRunCompletionPromise(inFlight);
 
       addMessageSpy.mockClear();
 
@@ -1389,7 +1389,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       const inFlight = new Promise<void>((resolve) => {
         resolveInFlight = resolve;
       });
-      agent.activeRunCompletionPromise = inFlight;
+      agent.setActiveRunCompletionPromise(inFlight);
 
       addMessageSpy.mockClear();
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import * as v from "valibot";
 import { toStandardJsonSchema } from "@valibot/to-json-schema";
 import { type } from "arktype";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
 import {
   defineTool,
   convertToolDefinitionsToVercelAITools,
@@ -11,6 +12,9 @@ import {
 import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
+
+const arktype = <Out>(def: Record<string, string>) =>
+  (type as unknown as (d: unknown) => StandardSchemaV1<unknown, Out>)(def);
 
 // Mock the ai module — keep jsonSchema real for non-Zod path
 vi.mock("ai", async () => {
@@ -85,7 +89,7 @@ describe("Standard Schema support in agent tools", () => {
       const tool = defineTool({
         name: "arktypeTool",
         description: "A tool with ArkType schema",
-        parameters: type({
+        parameters: arktype<{ query: string; limit: number }>({
           query: "string",
           limit: "number",
         }),
@@ -141,7 +145,7 @@ describe("Standard Schema support in agent tools", () => {
         defineTool({
           name: "arktypeTool",
           description: "ArkType test",
-          parameters: type({ name: "string" }),
+          parameters: arktype<{ name: string }>({ name: "string" }),
           execute: async () => ({}),
         }),
       ];
@@ -171,7 +175,7 @@ describe("Standard Schema support in agent tools", () => {
         defineTool({
           name: "arktypeTool",
           description: "ArkType",
-          parameters: type({ c: "string" }),
+          parameters: arktype<{ c: string }>({ c: "string" }),
           execute: async () => ({}),
         }),
       ];
@@ -232,7 +236,7 @@ describe("Standard Schema support in agent tools", () => {
       const arktypeTool = defineTool({
         name: "searchArktype",
         description: "Search with ArkType schema",
-        parameters: type({ query: "string" }),
+        parameters: arktype<{ query: string }>({ query: "string" }),
         execute: executeFn,
       });
 
@@ -280,7 +284,7 @@ describe("Standard Schema support in agent tools", () => {
           defineTool({
             name: "arktypeTool",
             description: "ArkType",
-            parameters: type({ c: "string" }),
+            parameters: arktype<{ c: string }>({ c: "string" }),
             execute: async () => ({}),
           }),
         ],

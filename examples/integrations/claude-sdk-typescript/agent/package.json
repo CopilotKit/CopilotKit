@@ -1,0 +1,26 @@
+{
+  "name": "claude-sdk-typescript-starter-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Agent SDK integration server for AG-UI",
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ag-ui/claude-agent-sdk": "0.0.3",
+    "@ag-ui/core": "0.0.57",
+    "@ag-ui/encoder": "0.0.57",
+    "@anthropic-ai/claude-agent-sdk": "0.2.141",
+    "@anthropic-ai/sdk": "0.57.0",
+    "dotenv": "^16.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

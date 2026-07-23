@@ -142,6 +142,25 @@ def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
     return model
 
 
+def get_a2ui_model(model: str = DEFAULT_MODEL) -> Gemini:
+    """Return a concrete ``Gemini`` BaseLlm for the A2UI sub-agent.
+
+    The middleware's ``get_a2ui_tool({"model": ...})`` invokes the model
+    directly (forced ``render_a2ui`` call), so it needs a model *object*, not
+    the bare string ``get_model`` may return for ``LlmAgent.model=``. This
+    mirrors ``get_model``'s aimock-proxy wiring (base_url + x-header hook) so
+    the sub-agent's Gemini calls route through the same proxy as the primary
+    agent and match the same aimock fixtures. (The auto-inject path got this
+    object for free from the agent's ``canonical_model``; backend-owned wiring
+    must resolve it explicitly.)
+    """
+    resolved = get_model(model)
+    if isinstance(resolved, Gemini):
+        return resolved
+    # No proxy: build a plain Gemini against the default endpoint.
+    return Gemini(model=model)
+
+
 def build_simple_chat_agent(
     *,
     name: str,

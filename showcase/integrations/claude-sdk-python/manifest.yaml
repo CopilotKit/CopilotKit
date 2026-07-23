@@ -11,7 +11,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/claude-sdk-python
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: hidden
+docs_mode: generated
 sort_order: 70
 generative_ui:
   - constrained-explicit
@@ -22,7 +22,6 @@ interaction_modalities:
   - embedded
   - chat
 not_supported_features:
-  - shared-state-streaming
   # QUARANTINED pending a @copilotkit/react-core release. gen-ui-interrupt /
   # interrupt-headless fail turn-2 on a useInterrupt/useHeadlessInterrupt
   # RESUME-PATH hook bug in @copilotkit/react-core/v2: backend resumes + streams
@@ -32,47 +31,44 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
-  - reasoning-default-render
-  - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 features:
+  - beautiful-chat
   - cli-start
   - agentic-chat
-  - tool-rendering
-  - tool-rendering-default-catchall
-  - tool-rendering-custom-catchall
-  - gen-ui-agent
-  - shared-state-read-write
-  - subagents
-  - readonly-state-agent-context
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
   - chat-customization-css
   - headless-simple
   - headless-complete
-  - hitl
-  - hitl-in-app
-  - frontend-tools
-  - frontend-tools-async
-  - open-gen-ui
-  - open-gen-ui-advanced
-  - byoc-json-render
-  - byoc-hashbrown
-  - multimodal
-  - voice
-  - agent-config
-  - auth
   - reasoning-custom
   - reasoning-default
-  - mcp-apps
-  - beautiful-chat
+  - frontend-tools
+  - frontend-tools-async
   - gen-ui-tool-based
   - hitl-in-chat
-  - hitl-in-chat-booking
+  - hitl-in-app
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - mcp-apps
+  - gen-ui-agent
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
+  - tool-rendering
+  - tool-rendering-reasoning-chain
   - shared-state-read
+  - shared-state-read-write
+  - shared-state-streaming
+  - readonly-state-agent-context
+  - subagents
+  - multimodal
+  - auth
+  - declarative-hashbrown
+  - declarative-json-render
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - voice
+  - agent-config
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
 
@@ -99,6 +95,10 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/tool-rendering/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -113,6 +113,10 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
@@ -125,6 +129,18 @@ demos:
       - src/app/demos/shared-state-read-write/page.tsx
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: shared-state-read
+    name: Shared State (Read)
+    description: Agent reads frontend-provided state as context
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/shared-state-read/page.tsx
+      - src/app/demos/shared-state-read/recipe-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
@@ -170,7 +186,7 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/chat-slots/page.tsx
-      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
       - src/app/api/copilotkit/route.ts
   - id: chat-customization-css
     name: Chat Customization (CSS)
@@ -205,8 +221,8 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/headless-complete/page.tsx
-      - src/app/demos/headless-complete/message-list.tsx
-      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/chat/message-list.tsx
+      - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
@@ -230,17 +246,6 @@ demos:
       - src/agents/frontend_tools_async.py
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl
-    name: In-Chat Human in the Loop
-    description: User approves agent actions before execution
-    tags:
-      - interactivity
-    route: /demos/hitl
-    animated_preview_url:
-    highlight:
-      - src/app/demos/hitl/agent.py
-      - src/app/demos/hitl/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-app
     name: In-App Human in the Loop (Frontend Tools + async HITL)
@@ -312,32 +317,32 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
-  - id: byoc-json-render
-    name: "BYOC: json-render"
-    description: Agent emits a JSON spec; `@json-render/react` renders it against a Zod catalog of MetricCard, BarChart, PieChart
+  - id: declarative-json-render
+    name: "Declarative UI: json-render"
+    description: Declarative generative UI via @json-render/react — Claude emits a flat element-tree spec the renderer consumes
     tags:
       - generative-ui
-    route: /demos/byoc-json-render
+    route: /demos/declarative-json-render
     animated_preview_url:
     highlight:
       - src/agents/byoc_json_render_agent.py
-      - src/app/demos/byoc-json-render/page.tsx
-      - src/app/demos/byoc-json-render/json-render-renderer.tsx
-      - src/app/demos/byoc-json-render/registry.tsx
-      - src/app/demos/byoc-json-render/catalog.ts
-      - src/app/api/copilotkit-byoc-json-render/route.ts
-  - id: byoc-hashbrown
-    name: "BYOC: Hashbrown"
-    description: Streaming structured output via `@hashbrownai/react` — agent emits a catalog-constrained JSON envelope that renders progressively
+      - src/app/demos/declarative-json-render/page.tsx
+      - src/app/demos/declarative-json-render/json-render-renderer.tsx
+      - src/app/demos/declarative-json-render/registry.tsx
+      - src/app/demos/declarative-json-render/catalog.ts
+      - src/app/api/copilotkit-declarative-json-render/route.ts
+  - id: declarative-hashbrown
+    name: "Declarative UI: Hashbrown"
+    description: Declarative streaming UI via @hashbrownai/react useJsonParser — Claude emits a catalog-constrained UI envelope
     tags:
       - generative-ui
-    route: /demos/byoc-hashbrown
+    route: /demos/declarative-hashbrown
     animated_preview_url:
     highlight:
       - src/agents/byoc_hashbrown_agent.py
-      - src/app/demos/byoc-hashbrown/page.tsx
-      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
-      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+      - src/app/demos/declarative-hashbrown/page.tsx
+      - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-declarative-hashbrown/route.ts
   - id: multimodal
     name: Multimodal Attachments
     description: Image + PDF attachments routed through Claude's native vision + pypdf text flattening
@@ -469,18 +474,6 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat-booking
-    name: In-Chat HITL (Booking)
-    description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
-    tags:
-      - interactivity
-    route: /demos/hitl-in-chat
-    animated_preview_url:
-    highlight:
-      - src/agents/hitl_in_chat_agent.py
-      - src/app/demos/hitl-in-chat/page.tsx
-      - src/app/demos/hitl-in-chat/time-picker-card.tsx
-      - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: In-Chat HITL (useInterrupt — low-level primitive)
     description: Interactive time-picker component rendered inline in the chat via useFrontendTool with an async handler — the Promise resolves only when the user picks a slot or cancels
@@ -491,7 +484,7 @@ demos:
     highlight:
       - src/agents/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
-      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)

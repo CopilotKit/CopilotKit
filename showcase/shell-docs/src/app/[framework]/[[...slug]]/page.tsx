@@ -37,6 +37,20 @@ import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pag
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { frameworkOverviews } from "@/data/frameworks";
 import { docsComponents } from "@/lib/mdx-registry";
+import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import {
+  getFrontendGuidanceContentSlug,
+  getFrontendContentSlug,
+  getFrontendCanonicalSlug,
+  getFrontendQuickstartNavTree,
+} from "@/lib/frontend-page-content";
+import type { FrontendPageId } from "@/lib/frontend-page-content";
+import {
+  frontendPathForBackend,
+  getFrontendOption,
+  isFrontendId,
+  parseFrontendRoutePath,
+} from "@/lib/frontend-options";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
@@ -70,33 +84,116 @@ function hasDocsOnlyFrameworkContent(framework: string): boolean {
   );
 }
 
-// Per-framework self-canonical: /<framework>/<slug> declares itself
-// canonical (NOT the bare /<slug>) so search engines index each
-// framework variant at its own URL. When the URL's first segment
-// doesn't match a registered integration, the route falls through to
-// UnscopedDocsPage but the canonical still points at the same URL —
-// the page's identity is defined by its URL, not the resolution
-// strategy used to render it.
-//
-// Title and description come from the resolved MDX frontmatter (with
-// the same per-framework override resolution the page render uses) so
-// every variant emits its own social card and SEO description rather
-// than inheriting the layout's generic site-wide values.
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ framework: string; slug?: string[] }>;
-}): Promise<Metadata> {
-  const { framework, slug } = await params;
-  const slugTail = slug && slug.length > 0 ? `/${slug.join("/")}` : "";
-  const canonicalPath = `/${framework}${slugTail}`;
+function isFrontendPageId(value: string): value is FrontendPageId {
+  return isFrontendId(value) && value !== "react";
+}
+
+function frontendRoutePath(
+  frontend: FrontendPageId,
+  slugPath: string,
+  activeBackendFramework: string | null = null,
+): string {
+  return frontendPathForBackend(frontend, slugPath, activeBackendFramework);
+}
+
+function isFrontendGuidanceSlug(slugPath: string): boolean {
+  return slugPath === "using-these-docs";
+}
+
+function isFrontendRootSlug(slugPath: string): boolean {
+  return !slugPath || slugPath === "quickstart";
+}
+
+function reactRootPath(slugPath: string): string {
+  return frontendPathForBackend("react", slugPath);
+}
+
+function scopedRoutePath(slugHrefPrefix: string, slugPath: string): string {
+  const prefix = slugHrefPrefix.replace(/\/+$/, "");
+  const normalizedSlugPath = slugPath.split("/").filter(Boolean).join("/");
+  if (!normalizedSlugPath) return prefix || "/";
+  return `${prefix}/${normalizedSlugPath}`;
+}
+
+function legacyFrontendPathRedirect(
+  activeBackendFramework: string,
+  slugPath: string,
+): string | null {
+  const [frontendsSegment, frontend, ...tail] = slugPath
+    .split("/")
+    .filter(Boolean);
+  if (frontendsSegment !== "frontends" || !isFrontendId(frontend)) {
+    return null;
+  }
+
+  return frontendPathForBackend(
+    frontend,
+    tail.join("/"),
+    activeBackendFramework,
+  );
+}
+
+function frontendMetadata(
+  frontend: FrontendPageId,
+  slugPath: string,
+  activeBackendFramework: string | null = null,
+): Metadata {
+  if (!slugPath || slugPath === "quickstart") {
+    const contentSlug = getFrontendContentSlug(frontend);
+    const doc = loadDoc(contentSlug);
+    const option = getFrontendOption(frontend);
+
+    return buildDocMetadata({
+      title: `${doc?.fm.title ?? option.name} quickstart`,
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(frontend, "", activeBackendFramework),
+    });
+  }
+
+  if (slugPath === "using-these-docs") {
+    const doc = loadDoc(getFrontendGuidanceContentSlug(frontend));
+    const option = getFrontendOption(frontend);
+
+    return buildDocMetadata({
+      title: `${option.name}: ${doc?.fm.title ?? "using these docs"}`,
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(
+        frontend,
+        slugPath,
+        activeBackendFramework,
+      ),
+    });
+  }
+
+  const resolution = resolveFrontendDocPage(frontend, slugPath);
+  const doc =
+    resolution.status === "found" ? loadDoc(resolution.contentSlugPath) : null;
+
+  return buildDocMetadata({
+    title: doc?.fm.title ?? slugPath,
+    description: doc?.fm.description,
+    canonicalPath:
+      resolution.status === "found"
+        ? frontendRoutePath(
+            frontend,
+            resolution.slugPath,
+            activeBackendFramework,
+          )
+        : frontendRoutePath(frontend, slugPath, activeBackendFramework),
+  });
+}
+
+function frameworkMetadata(
+  framework: string,
+  slugPath: string,
+  canonicalPath = slugPath ? `/${framework}/${slugPath}` : `/${framework}`,
+): Metadata {
   // Try to read frontmatter for the resolved page. Mirror the page's
   // own content-resolution order (authored vs generated, per-framework
   // override vs root) cheaply: best-effort only; if nothing resolves,
   // the helper falls back to the framework slug as a humanised title.
   let title: string | undefined;
   let description: string | undefined;
-  const slugPath = slug?.join("/") ?? "";
   const integration = getIntegration(framework);
   const isDocsOnlyFramework =
     !integration && hasDocsOnlyFrameworkContent(framework);
@@ -104,7 +201,10 @@ export async function generateMetadata({
     // Root-surface URL. The BIA-authored page wins when one exists —
     // mirror UnscopedDocsPage's resolution so the metadata matches the
     // content the route serves.
-    const unscopedPath = [framework, ...(slug ?? [])].join("/");
+    const unscopedPath = [
+      framework,
+      ...slugPath.split("/").filter(Boolean),
+    ].join("/");
     const doc =
       loadDoc(
         `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedPath}`,
@@ -133,6 +233,7 @@ export async function generateMetadata({
       framework;
     description = indexDoc?.fm.description ?? overview?.subheader;
   }
+
   // Per-page OG route lives at /og/<slug>/og.png — see
   // src/app/og/[...slug]/route.tsx. Each framework variant gets its own
   // image because the slug is framework-scoped.
@@ -143,6 +244,86 @@ export async function generateMetadata({
     canonicalPath,
     ogPath,
   });
+}
+
+// Per-framework self-canonical: /<framework>/<slug> declares itself
+// canonical (NOT the bare /<slug>) so search engines index each
+// framework variant at its own URL. When the URL's first segment
+// doesn't match a registered integration, the route falls through to
+// UnscopedDocsPage but the canonical still points at the same URL —
+// the page's identity is defined by its URL, not the resolution
+// strategy used to render it.
+//
+// Title and description come from the resolved MDX frontmatter (with
+// the same per-framework override resolution the page render uses) so
+// every variant emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ framework: string; slug?: string[] }>;
+}): Promise<Metadata> {
+  const { framework, slug } = await params;
+  const slugPath = slug?.join("/") ?? "";
+
+  if (framework === "react") {
+    const canonicalPath = reactRootPath(slugPath);
+    const doc = slugPath
+      ? (loadDoc(`integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${slugPath}`) ??
+        loadDoc(slugPath))
+      : null;
+
+    return buildDocMetadata({
+      title: doc?.fm.title ?? (slugPath || "CopilotKit docs"),
+      description: doc?.fm.description,
+      canonicalPath,
+      ogPath: `/og${canonicalPath}/og.png`,
+    });
+  }
+
+  if (isFrontendPageId(framework)) {
+    const frontendRoute = parseFrontendRoutePath(
+      `/${[framework, ...(slug ?? [])].join("/")}`,
+      getIntegrations().map((integration) => integration.slug),
+    );
+    const activeBackendFramework =
+      frontendRoute?.backend === ROOT_FRAMEWORK
+        ? null
+        : (frontendRoute?.backend ?? null);
+    const activeFrontendSlugPath = frontendRoute?.slugPath ?? slugPath;
+    if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    if (isFrontendRootSlug(activeFrontendSlugPath)) {
+      return frontendMetadata(framework, "", activeBackendFramework);
+    }
+
+    if (activeBackendFramework) {
+      const slugHrefPrefix = frontendRoutePath(
+        framework,
+        "",
+        activeBackendFramework,
+      );
+      return frameworkMetadata(
+        activeBackendFramework,
+        activeFrontendSlugPath,
+        scopedRoutePath(slugHrefPrefix, activeFrontendSlugPath),
+      );
+    }
+
+    return frontendMetadata(
+      framework,
+      activeFrontendSlugPath,
+      activeBackendFramework,
+    );
+  }
+
+  return frameworkMetadata(framework, slugPath);
 }
 
 export async function generateStaticParams() {
@@ -196,6 +377,116 @@ export default async function FrameworkScopedDocsPage({
     notFound();
   }
 
+  const frontendSlugPath = slug?.join("/") ?? "";
+  if (framework === "frontends") {
+    const [frontend, ...tail] = slug ?? [];
+    if (isFrontendId(frontend)) {
+      redirect(frontendPathForBackend(frontend, tail.join("/")));
+    }
+
+    redirect(frontendSlugPath ? `/${frontendSlugPath}` : "/");
+  }
+
+  if (framework === "react") {
+    redirect(reactRootPath(frontendSlugPath));
+  }
+
+  let scopedFramework = framework;
+  let scopedSlug = slug;
+  let scopedSlugHrefPrefix: string | null = null;
+  let activeFrontendPage: FrontendPageId | null = null;
+
+  if (isFrontendPageId(framework)) {
+    activeFrontendPage = framework;
+    const frontendRoute = parseFrontendRoutePath(
+      `/${[framework, ...(slug ?? [])].join("/")}`,
+      getIntegrations().map((integration) => integration.slug),
+    );
+    const activeBackendFramework = frontendRoute?.backend ?? null;
+    const requestedFrontendSlugPath =
+      frontendRoute?.slugPath ?? frontendSlugPath;
+    const activeFrontendSlugPath = getFrontendCanonicalSlug(
+      framework,
+      requestedFrontendSlugPath,
+    );
+
+    if (activeFrontendSlugPath !== requestedFrontendSlugPath) {
+      redirect(
+        frontendRoutePath(
+          framework,
+          activeFrontendSlugPath,
+          activeBackendFramework,
+        ),
+      );
+    }
+
+    if (activeBackendFramework === ROOT_FRAMEWORK) {
+      redirect(frontendRoutePath(framework, activeFrontendSlugPath));
+    }
+
+    if (
+      activeBackendFramework &&
+      getDocsMode(activeBackendFramework) === "hidden"
+    ) {
+      notFound();
+    }
+
+    if (!activeFrontendSlugPath) {
+      return (
+        <FrontendQuickstartDocsPage
+          frontend={framework}
+          activeBackendFramework={activeBackendFramework}
+        />
+      );
+    }
+
+    if (activeFrontendSlugPath === "quickstart") {
+      redirect(frontendRoutePath(framework, "", activeBackendFramework));
+    }
+
+    if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
+      return (
+        <FrontendGuidanceDocsPage
+          frontend={framework}
+          activeBackendFramework={activeBackendFramework}
+        />
+      );
+    }
+
+    if (activeBackendFramework && framework !== "angular") {
+      scopedFramework = activeBackendFramework;
+      scopedSlug = activeFrontendSlugPath
+        ? activeFrontendSlugPath.split("/").filter(Boolean)
+        : undefined;
+      scopedSlugHrefPrefix = frontendRoutePath(
+        framework,
+        "",
+        activeBackendFramework,
+      );
+    } else {
+      const resolution = resolveFrontendDocPage(
+        framework,
+        activeFrontendSlugPath,
+      );
+      if (resolution.status === "not-found") notFound();
+
+      return (
+        <DocsPageView
+          slugPath={resolution.slugPath}
+          contentSlugPath={resolution.contentSlugPath}
+          slugHrefPrefix={frontendRoutePath(
+            framework,
+            "",
+            activeBackendFramework,
+          )}
+          frameworkOverride={activeBackendFramework}
+          navTree={getFrontendQuickstartNavTree(framework)}
+          sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
+        />
+      );
+    }
+  }
+
   // Validate the framework slug against the registry.
   // If not a registered integration, treat the URL as an unscoped doc path.
   // This is necessary because Next.js routes /quickstart here (dynamic segment
@@ -206,11 +497,11 @@ export default async function FrameworkScopedDocsPage({
   // but no demo package in `showcase/integrations/`, so they're absent from
   // the registry. Recognize them by slug so the framework-root page (Tier 1
   // FrameworkOverview / Tier 2 MDX index) can still render.
-  const integration = getIntegration(framework);
+  const integration = getIntegration(scopedFramework);
   const isDocsOnlyFramework =
-    !integration && hasDocsOnlyFrameworkContent(framework);
+    !integration && hasDocsOnlyFrameworkContent(scopedFramework);
   if (!integration && !isDocsOnlyFramework) {
-    const unscopedPath = [framework, ...(slug ?? [])].join("/");
+    const unscopedPath = [scopedFramework, ...(scopedSlug ?? [])].join("/");
     return <UnscopedDocsPage slugPath={unscopedPath} />;
   }
 
@@ -219,11 +510,16 @@ export default async function FrameworkScopedDocsPage({
   // 404 is the right answer; the unscoped fallback above would still
   // show the user the agnostic docs under their framework slug, which
   // misleadingly implies the framework has docs.
-  if (integration && getDocsMode(framework) === "hidden") {
+  if (integration && getDocsMode(scopedFramework) === "hidden") {
     notFound();
   }
 
-  const slugPath = slug?.join("/") ?? "";
+  const slugPath = scopedSlug?.join("/") ?? "";
+  const frontendRedirect = legacyFrontendPathRedirect(
+    scopedFramework,
+    slugPath,
+  );
+  if (frontendRedirect) redirect(frontendRedirect);
 
   // No slug → framework landing page. Three-tier resolution:
   //   1. Data-driven `FrameworkOverview` when a record exists in
@@ -234,7 +530,13 @@ export default async function FrameworkScopedDocsPage({
   //      have either a data record OR an index.mdx after Phase 2; a
   //      missing entry is an authoring error worth surfacing.
   if (!slugPath) {
-    return <FrameworkRootPage framework={framework} />;
+    return (
+      <FrameworkRootPage
+        framework={scopedFramework}
+        preferIndexMdx={Boolean(scopedSlugHrefPrefix)}
+        slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
+      />
+    );
   }
 
   // `/<framework>/unselected/<path>` is incoherent — a framework IS
@@ -243,7 +545,11 @@ export default async function FrameworkScopedDocsPage({
   // same underlying content, just with Snippets resolved against the
   // selected framework's cells).
   if (slugPath.startsWith("unselected/")) {
-    redirect(`/${framework}/${slugPath.slice("unselected/".length)}`);
+    redirect(
+      `${scopedSlugHrefPrefix ?? `/${scopedFramework}`}/${slugPath.slice(
+        "unselected/".length,
+      )}`,
+    );
   }
 
   // Content resolution:
@@ -265,12 +571,12 @@ export default async function FrameworkScopedDocsPage({
   // python → `microsoft-agent-framework/`, plus legacy renames for
   // google-adk → `adk/` and strands → `aws-strands/`. Resolve the URL
   // slug to its docs folder before touching disk.
-  const docsFolder = getDocsFolder(framework);
-  const docsMode = getDocsMode(framework);
+  const docsFolder = getDocsFolder(scopedFramework);
+  const docsMode = getDocsMode(scopedFramework);
   const frameworkName =
     integration?.name ??
-    frameworkOverviews[framework]?.frameworkName ??
-    framework;
+    frameworkOverviews[scopedFramework]?.frameworkName ??
+    scopedFramework;
 
   let contentSlugPath: string = slugPath;
   let doc: ReturnType<typeof loadDoc> = null;
@@ -292,11 +598,14 @@ export default async function FrameworkScopedDocsPage({
     if (doc) contentSlugPath = frameworkPath;
     if (!doc) doc = loadDoc(slugPath);
   } else {
-    // `/quickstart` at the root is a routing shim — it exists only so
-    // the sidebar's Quickstart entry has a backing page. Real quickstart
-    // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
-    // so for framework-scoped URLs the override always wins over the shim.
-    if (slugPath === "quickstart") {
+    // A few root pages are shared nav shims/overviews whose framework-scoped
+    // URLs should render the per-framework MDX when it exists.
+    //
+    // - `/quickstart` at the root is a routing shim; real quickstart content
+    //   lives per-framework.
+    // - `/threads-import` is a cross-source overview at the root, but ADK and
+    //   LangGraph have source-specific import guides at the same framework URL.
+    if (slugPath === "quickstart" || slugPath === "threads-import") {
       const overridePath = `integrations/${docsFolder}/${slugPath}`;
       doc = loadDoc(overridePath);
       if (doc) contentSlugPath = overridePath;
@@ -317,7 +626,7 @@ export default async function FrameworkScopedDocsPage({
   const navTree: NavNode[] =
     docsMode === "authored"
       ? buildFrameworkOnlyNav(docsFolder)
-      : buildFrameworkNav(docsFolder, frameworkName, framework);
+      : buildFrameworkNav(docsFolder, frameworkName, scopedFramework);
 
   if (!doc) {
     // No root MDX and no override for this framework. If the topic
@@ -339,7 +648,9 @@ export default async function FrameworkScopedDocsPage({
           availableIn={availableIn}
           navTree={navTree}
           frameworkName={frameworkName}
-          frameworkSlug={framework}
+          frameworkSlug={scopedFramework}
+          slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
+          activeFrontendPage={activeFrontendPage}
         />
       );
     }
@@ -352,7 +663,7 @@ export default async function FrameworkScopedDocsPage({
   const missingCell =
     integration &&
     doc.fm.defaultCell &&
-    !frameworkHasCellFor(framework, doc.fm.defaultCell);
+    !frameworkHasCellFor(scopedFramework, doc.fm.defaultCell);
   const alternativeFrameworks = doc.fm.defaultCell
     ? findFrameworksWithCell(
         doc.fm.defaultCell,
@@ -377,7 +688,9 @@ export default async function FrameworkScopedDocsPage({
               const alt = getIntegration(altSlug);
               if (!alt) return null;
               const name = alt.name;
-              const href = `/${altSlug}/${slugPath}`;
+              const href = activeFrontendPage
+                ? frontendRoutePath(activeFrontendPage, slugPath, altSlug)
+                : `/${altSlug}/${slugPath}`;
               return (
                 <React.Fragment key={altSlug}>
                   {i > 0 && ", "}
@@ -401,12 +714,69 @@ export default async function FrameworkScopedDocsPage({
     <DocsPageView
       slugPath={slugPath}
       contentSlugPath={contentSlugPath}
-      slugHrefPrefix={`/${framework}`}
-      frameworkOverride={framework}
-      navTree={navTree}
+      slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
+      frameworkOverride={scopedFramework}
+      navTree={
+        activeFrontendPage
+          ? getFrontendQuickstartNavTree(activeFrontendPage)
+          : navTree
+      }
       bannerSlot={banner}
+      sidebarBannerSlot={
+        activeFrontendPage ? (
+          <FrontendSidebarBanner frontend={activeFrontendPage} />
+        ) : undefined
+      }
     />
   );
+}
+
+function FrontendQuickstartDocsPage({
+  frontend,
+  activeBackendFramework,
+}: {
+  frontend: FrontendPageId;
+  activeBackendFramework?: string | null;
+}) {
+  const contentSlug = getFrontendContentSlug(frontend);
+  if (!loadDoc(contentSlug)) notFound();
+
+  return (
+    <DocsPageView
+      slugPath=""
+      contentSlugPath={contentSlug}
+      slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
+      frameworkOverride={activeBackendFramework}
+      navTree={getFrontendQuickstartNavTree(frontend)}
+      sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
+    />
+  );
+}
+
+function FrontendGuidanceDocsPage({
+  frontend,
+  activeBackendFramework,
+}: {
+  frontend: FrontendPageId;
+  activeBackendFramework?: string | null;
+}) {
+  const contentSlug = getFrontendGuidanceContentSlug(frontend);
+  if (!loadDoc(contentSlug)) notFound();
+
+  return (
+    <DocsPageView
+      slugPath="using-these-docs"
+      contentSlugPath={contentSlug}
+      slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
+      frameworkOverride={activeBackendFramework}
+      navTree={getFrontendQuickstartNavTree(frontend)}
+      sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
+    />
+  );
+}
+
+function FrontendSidebarBanner(_props: { frontend: FrontendPageId }) {
+  return <SidebarFrameworkSelector />;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +804,15 @@ const FRAMEWORK_OVERVIEW_MDX_DIR = path.join(
   "src/content/framework-overviews",
 );
 
-async function FrameworkRootPage({ framework }: { framework: string }) {
+async function FrameworkRootPage({
+  framework,
+  preferIndexMdx = false,
+  slugHrefPrefix = `/${framework}`,
+}: {
+  framework: string;
+  preferIndexMdx?: boolean;
+  slugHrefPrefix?: string;
+}) {
   // Some frameworks are docs-only — they have a `frameworkOverviews`
   // entry and an `integrations/<slug>/` content folder, but no demo
   // package in `showcase/integrations/`, so `getIntegration()` returns
@@ -459,6 +837,21 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
     docsMode === "authored"
       ? buildFrameworkOnlyNav(docsFolder)
       : buildFrameworkNav(docsFolder, integrationName, framework);
+
+  const indexContentPath = `integrations/${docsFolder}/index`;
+  const indexDoc = loadDoc(indexContentPath);
+
+  if (preferIndexMdx && indexDoc) {
+    return (
+      <DocsPageView
+        slugPath=""
+        contentSlugPath={indexContentPath}
+        slugHrefPrefix={slugHrefPrefix}
+        frameworkOverride={framework}
+        navTree={navTree}
+      />
+    );
+  }
 
   // Tier 1: data-driven FrameworkOverview. ONLY for `generated` mode —
   // `authored` frameworks skip straight to Tier 2 so their ported
@@ -552,7 +945,7 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
       }
     }
     return (
-      <FrameworkRootShell framework={framework} navTree={navTree}>
+      <FrameworkRootShell navTree={navTree} slugHrefPrefix={slugHrefPrefix}>
         <FrameworkOverview
           data={overview}
           currentFramework={framework}
@@ -568,13 +961,12 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
   // `slugPath=""` keeps active-link logic pointing at the framework
   // root (the new `"index"`→`""` rewrite in buildFrameworkOverridesNav
   // matches this).
-  const indexContentPath = `integrations/${docsFolder}/index`;
-  if (loadDoc(indexContentPath)) {
+  if (indexDoc) {
     return (
       <DocsPageView
         slugPath=""
         contentSlugPath={indexContentPath}
-        slugHrefPrefix={`/${framework}`}
+        slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
         navTree={navTree}
       />
@@ -591,17 +983,15 @@ async function FrameworkRootPage({ framework }: { framework: string }) {
  * `DocsPageView` directly.
  */
 function FrameworkRootShell({
-  framework,
   navTree,
+  slugHrefPrefix,
   children,
 }: {
-  framework: string;
   navTree: NavNode[];
+  slugHrefPrefix: string;
   children: React.ReactNode;
 }) {
-  // slugHrefPrefix is `/<framework>` so every sidebar link resolves
-  // inside the framework scope.
-  const pageTree = navTreeToPageTree(navTree, `/${framework}`);
+  const pageTree = navTreeToPageTree(navTree, slugHrefPrefix);
   return (
     <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <DocsPage
@@ -635,17 +1025,33 @@ function NotAvailableForFrameworkPage({
   navTree,
   frameworkName,
   frameworkSlug,
+  slugHrefPrefix = `/${frameworkSlug}`,
+  activeFrontendPage = null,
 }: {
   slugPath: string;
   availableIn: string[];
   navTree: NavNode[];
   frameworkName: string;
   frameworkSlug: string;
+  slugHrefPrefix?: string;
+  activeFrontendPage?: FrontendPageId | null;
 }) {
   const title = humanizeSlug(slugPath);
-  const pageTree = navTreeToPageTree(navTree, `/${frameworkSlug}`);
+  const sidebarNavTree = activeFrontendPage
+    ? getFrontendQuickstartNavTree(activeFrontendPage)
+    : navTree;
+  const pageTree = navTreeToPageTree(sidebarNavTree, slugHrefPrefix);
   return (
-    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        activeFrontendPage ? (
+          <FrontendSidebarBanner frontend={activeFrontendPage} />
+        ) : (
+          <SidebarFrameworkSelector />
+        )
+      }
+    >
       <DocsPage
         toc={[]}
         tableOfContent={{ enabled: false }}
@@ -672,10 +1078,13 @@ function NotAvailableForFrameworkPage({
               {availableIn.map((slug) => {
                 const alt = getIntegration(slug);
                 if (!alt) return null;
+                const href = activeFrontendPage
+                  ? frontendRoutePath(activeFrontendPage, slugPath, slug)
+                  : `/${slug}/${slugPath}`;
                 return (
                   <li key={slug}>
                     <Link
-                      href={`/${slug}/${slugPath}`}
+                      href={href}
                       className="text-sm text-[var(--accent)] hover:underline"
                     >
                       {alt.name}
@@ -688,7 +1097,7 @@ function NotAvailableForFrameworkPage({
           <p className="text-[13px] text-[var(--text-muted)]">
             Or return to{" "}
             <Link
-              href={`/${frameworkSlug}`}
+              href={slugHrefPrefix}
               className="text-[var(--accent)] hover:underline"
             >
               the {frameworkName} docs

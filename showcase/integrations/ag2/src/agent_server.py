@@ -20,6 +20,14 @@ ContextVariables-backed state slot.
 # reach them. ``load_dotenv()`` is idempotent so the redundant call
 # inside each agent module is harmless — but the FIRST call must happen
 # here, before the agent imports below.
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# and has no dependency on ``.env``, so it is safe to run before ``load_dotenv``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -36,6 +44,7 @@ from starlette.responses import JSONResponse
 # per-call, but other integrations construct at module-import time;
 # keeping the patch at the top of agent_server.py is the consistent
 # placement across all Python showcase integrations and is harmless here.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
@@ -116,6 +125,16 @@ app.add_middleware(HealthMiddleware)
 # ``install_httpx_hook(...)`` call lives next to each LLM client
 # construction site (see ``agents/agent.py``).
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added here so
+# it wraps the Health + HeaderForwarding BaseHTTPMiddleware layers but stays
+# INSIDE the outer raw-ASGI RequestUserMessage + CORS layers (CORS remains the
+# absolute outermost so preflight is handled first). Gated behind
+# ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
+# fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # R2-A3: Capture the latest user message from each inbound RunAgentInput POST
 # into a per-request ContextVar so tool handlers (e.g. generate_a2ui) can read

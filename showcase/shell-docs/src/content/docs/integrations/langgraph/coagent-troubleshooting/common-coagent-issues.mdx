@@ -262,6 +262,7 @@ persisted at the end of a node.
          <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
+                from langchain_core.runnables import RunnableConfig
                 from copilotkit.langgraph import copilotkit_customize_config
 
                 async def chat_node(state: AgentState, config: RunnableConfig):
@@ -299,6 +300,7 @@ persisted at the end of a node.
         <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python
+                from langchain_core.runnables import RunnableConfig
                 from copilotkit.langgraph import copilotkit_customize_config
 
                 async def chat_node(state: AgentState, config: RunnableConfig):

@@ -203,7 +203,7 @@ describe("roundtrip message conversion", () => {
     );
 
     // User image message
-    const aguiUserImageMsg: agui.Message = {
+    const aguiUserImageMsg = {
       id: "img-user-1",
       role: "user",
       image: {
@@ -211,7 +211,7 @@ describe("roundtrip message conversion", () => {
         bytes: "userbase64data",
       },
       content: "", // required for type
-    };
+    } as agui.Message;
     const gqlUserMsgs = aguiToGQL(aguiUserImageMsg);
     const aguiUserMsgs2 = gqlToAGUI(gqlUserMsgs);
     expect(aguiUserMsgs2[0].id).toBe(aguiUserImageMsg.id);

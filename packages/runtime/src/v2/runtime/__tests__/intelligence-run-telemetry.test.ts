@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleRunAgent } from "../handlers/handle-run";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { telemetry } from "../telemetry";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { CopilotRuntime } from "../core/runtime";
 
 // --- Minimal helpers (mirroring handle-run.test.ts's intelligence block) ---
@@ -76,6 +77,7 @@ function makeIntelligenceRuntime(
     transcriptionService: undefined,
     beforeRequestMiddleware: undefined,
     afterRequestMiddleware: undefined,
+    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
     runner,
     mode: "intelligence",
     generateThreadNames: false,

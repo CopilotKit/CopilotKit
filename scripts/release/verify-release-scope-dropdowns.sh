@@ -219,7 +219,7 @@ check_notify_case() {
     in_case && /^[[:space:]]*#/ { next }
     # Arm-shaped lines only: the entire line before the closing ")" must be
     # pattern characters — extended to allow space and surrounding quotes so
-    # we accept legal forms like `"angular")` and `bot | bot-slack)`. We use a
+    # we accept legal forms like `"angular")` and `channels | channels-slack)`. We use a
     # negated class that still excludes `=`, `$`, `(`, `:`, `/` (and `)` since
     # `)` is the terminator) so body lines like `FOO=$(cmd)` or
     # `path: /tmp/foo)` cannot match.
@@ -231,7 +231,7 @@ check_notify_case() {
       if (line == "*") next
       # Alternation: a|b|c — split on `|` and emit each pattern. Strip
       # surrounding whitespace and surrounding quotes (single or double) from
-      # each alternative so `"angular"` and `bot | bot-slack` both yield the
+      # each alternative so `"angular"` and `channels | channels-slack` both yield the
       # bare scope name. The '"'"' pattern is how a single quote is embedded
       # inside a single-quoted shell heredoc (see line ~95 above).
       n = split(line, arr, "|")

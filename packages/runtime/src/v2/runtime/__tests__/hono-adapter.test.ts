@@ -6,6 +6,7 @@ import {
   createCopilotEndpointSingleRoute,
 } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
 describe("Hono adapter with hooks", () => {
   const createMockAgent = () => {
@@ -16,7 +17,7 @@ describe("Hono adapter with hooks", () => {
     return agent as AbstractAgent;
   };
 
-  const createMockRuntime = (opts?: Partial<CopilotRuntime>) =>
+  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) =>
     new CopilotRuntime({
       agents: {
         default: createMockAgent(),
@@ -29,7 +30,7 @@ describe("Hono adapter with hooks", () => {
   describe("createCopilotEndpoint", () => {
     const createEndpoint = (
       hooks?: Parameters<typeof createCopilotEndpoint>[0]["hooks"],
-      runtimeOpts?: Partial<CopilotRuntime>,
+      runtimeOpts?: Partial<CopilotSseRuntimeOptions>,
     ) => {
       const runtime = createMockRuntime(runtimeOpts);
       const endpoint = createCopilotEndpoint({

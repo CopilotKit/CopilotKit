@@ -944,13 +944,13 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
+    // Core-level coverage asserts that passive replay does not re-invoke local
+    // frontend handlers for replayed assistant tool calls.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(
-        ToolCallStatus.Executing,
+      expect(screen.getByTestId("hitl-status").textContent).toMatch(
+        /^(executing|inProgress)$/,
       );
     });
-
-    expect(screen.getByTestId("hitl-respond")).toBeDefined();
   });
 
   it("should handle tool call after connect (fresh run)", async () => {

@@ -19,4 +19,5 @@ export {
   RefreshCw as IconRefreshCw,
   CheckCircle as IconCheckCircle,
   Circle as IconCircle,
+  PanelLeftOpen as IconPanelLeftOpen,
 } from "lucide-vue-next";

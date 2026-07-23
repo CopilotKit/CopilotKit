@@ -4,7 +4,7 @@ import { BuiltInAgent } from "../index";
 describe("BuiltInAgent.getCapabilities", () => {
   it("should return default inferred capabilities", async () => {
     const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-5.5",
     });
 
     const capabilities = await agent.getCapabilities();
@@ -17,12 +17,15 @@ describe("BuiltInAgent.getCapabilities", () => {
       transport: {
         streaming: true,
       },
+      humanInTheLoop: {
+        interrupts: true,
+      },
     });
   });
 
   it("should merge explicit overrides with inferred defaults", async () => {
     const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-5.5",
       capabilities: {
         reasoning: {
           supported: true,
@@ -45,6 +48,9 @@ describe("BuiltInAgent.getCapabilities", () => {
       transport: {
         streaming: true,
       },
+      humanInTheLoop: {
+        interrupts: true,
+      },
       reasoning: {
         supported: true,
         streaming: true,
@@ -58,7 +64,7 @@ describe("BuiltInAgent.getCapabilities", () => {
 
   it("should allow overrides to replace entire categories", async () => {
     const agent = new BuiltInAgent({
-      model: "openai/gpt-4o",
+      model: "openai/gpt-5.5",
       capabilities: {
         tools: {
           supported: true,

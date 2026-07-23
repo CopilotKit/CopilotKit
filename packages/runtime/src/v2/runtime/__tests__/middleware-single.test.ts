@@ -3,9 +3,10 @@ import type { AbstractAgent } from "@ag-ui/client";
 
 import { createCopilotEndpointSingleRoute } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 import { logger } from "@copilotkit/shared";
 
-const dummyRuntime = (opts: Partial<CopilotRuntime> = {}) => {
+const dummyRuntime = (opts: Partial<CopilotSseRuntimeOptions> = {}) => {
   const runtime = new CopilotRuntime({
     agents: { agent: {} as unknown as AbstractAgent },
     ...opts,

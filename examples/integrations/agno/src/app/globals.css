@@ -1,25 +1,23 @@
 @import "tailwindcss";
 
 /*
- * Threads panel theme — bespoke match to agno's CopilotKit chat (CopilotSidebar).
+ * Threads panel theme — match to agno's CopilotKit chat (CopilotSidebar).
  *
  * The CopilotKit v2 chat renders LIGHT regardless of OS dark mode (neutral
  * zinc/gray surfaces on white, ~1rem bubble radius, system-ui sans). To read as
- * native to that chat, the threads panel is FORCED light: we drop agno's old
- * `prefers-color-scheme: dark` override of --background/--foreground so the
- * panel never goes dark while the chat beside it stays light. agno's own demo
- * content sets all of its colors locally (text-white, bg-white/20, the indigo
- * themeColor backdrop), so it is unaffected by this.
+ * native to that chat, the SDK <CopilotThreadsDrawer> is held light by token
+ * inheritance: we drop agno's old `prefers-color-scheme: dark` override of
+ * --background/--foreground so the panel never goes dark while the chat beside
+ * it stays light. agno's own demo content sets all of its colors locally
+ * (text-white, bg-white/20, the indigo themeColor backdrop), so it is
+ * unaffected by this.
  *
  * Tokens are defined at :root (not a wrapper) so the drawer's delete-confirm
  * dialog — which renders through a React portal to <body>, outside the panel —
- * still resolves the same surfaces. This follows threads-drawer/THEME.md, which
- * sanctions defining the contract tokens on :root. The drawer + locked-state are
- * BASE components driven entirely by these tokens — do not edit the drawer files.
- *
- * The indigo accent (#6366f1) is agno's own app accent, tying the panel to the
- * surrounding product; the neutral zinc surfaces/borders/muted text mirror the
- * chat's light chrome.
+ * still resolves the same surfaces. The SDK drawer is driven entirely by these
+ * tokens; the indigo accent (#6366f1) is agno's own app accent, tying the panel
+ * to the surrounding product; the neutral zinc surfaces/borders/muted text
+ * mirror the chat's light chrome.
  */
 :root {
   /* Neutral surfaces — match the chat's white/zinc light palette */
@@ -53,6 +51,17 @@
   /* Match the chat's system-ui sans stack */
   --font-body:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* The CopilotKit v2 chat (CopilotSidebar) stays LIGHT regardless of the OS color
+   scheme, so the threads layout is held light too — otherwise the SDK drawer
+   would clash with the sidebar it sits beside. The confirm dialog renders in a
+   portal on <body>, so re-pin there as well. Values mirror the V2 light theme
+   (oklch(0.145 0 0) / oklch(1 0 0)). */
+.threadsLayout,
+body > [role="presentation"] {
+  --foreground: oklch(0.145 0 0);
+  --background: oklch(1 0 0);
 }
 
 body {

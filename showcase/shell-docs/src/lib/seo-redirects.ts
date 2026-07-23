@@ -103,6 +103,7 @@ const CANONICAL_FRAMEWORKS = [
   "ag2",
   "llamaindex",
   "strands",
+  "strands-typescript",
   "ms-agent-python",
   "ms-agent-dotnet",
   "claude-sdk-python",
@@ -688,6 +689,39 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   },
 ];
 
+const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "FE-frontends",
+    source: "/frontends",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react",
+    source: "/frontends/react",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react-wild",
+    source: "/frontends/react/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-frontends-wild",
+    source: "/frontends/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-teams",
+    source: "/microsoft-teams",
+    destination: "/teams",
+  },
+  {
+    id: "FE-teams-wild",
+    source: "/microsoft-teams/:path*",
+    destination: "/teams/:path*",
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Legacy `/integrations/<fw>/*` URL surface — the upstream Fumadocs
 // site rewrote /<fw>/<path> → /integrations/<fw>/<path> internally,
@@ -915,6 +949,28 @@ const FOLDER_INDEX: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Retired Intelligence Platform pages.
+// ---------------------------------------------------------------------------
+
+const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "INTEL-observability-root",
+    source: "/premium/observability",
+    destination: "/premium/overview",
+  },
+  {
+    id: "INTEL-observability-connectors",
+    source: "/troubleshooting/observability-connectors",
+    destination: "/premium/overview",
+  },
+  ...CANONICAL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-observability×${framework}`,
+    source: `/${framework}/premium/observability`,
+    destination: destinationPath(framework, "premium/overview"),
+  })),
+];
+
+// ---------------------------------------------------------------------------
 // Slug-rename catch-alls — bare /{old-slug}/* → /{new-slug}/*
 // Covers upstream URLs that hit a renamed framework root or any
 // subpath that isn't already matched by the more specific entries
@@ -1032,12 +1088,14 @@ export const seoRedirects: RedirectEntry[] = [
   ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
   ...MOVED_ROOT_REDIRECTS,
+  ...FRONTEND_PLATFORM_REDIRECTS,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
+  ...RETIRED_INTELLIGENCE_REDIRECTS,
   ...FOLDER_INDEX,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),

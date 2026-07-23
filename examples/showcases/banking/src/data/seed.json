@@ -42,32 +42,11 @@
       "team": "Executive"
     },
     {
-      "id": "1a2b3c4d5e",
-      "name": "Priya Raman",
-      "email": "priya@northwind.example",
-      "role": "Admin",
-      "team": "Marketing"
-    },
-    {
       "id": "2b3c4d5e6f",
       "name": "Maya Chen",
       "email": "maya@northwind.example",
       "role": "Assistant",
       "team": "Executive"
-    },
-    {
-      "id": "3b3b5f6d1b",
-      "name": "Daniel Okafor",
-      "email": "daniel@northwind.example",
-      "role": "Member",
-      "team": "Marketing"
-    },
-    {
-      "id": "7g5h2j1k4l",
-      "name": "Lucas Martins",
-      "email": "lucas@northwind.example",
-      "role": "Member",
-      "team": "Engineering"
     }
   ],
   "transactions": [
@@ -83,7 +62,7 @@
     {
       "id": "t-2",
       "title": "AWS",
-      "amount": -10000,
+      "amount": -15000,
       "date": "2026-05-20",
       "policyId": "9a8b7c6d5e",
       "cardId": "fA5b7c6d5e",
@@ -92,7 +71,7 @@
     {
       "id": "t-3",
       "title": "Microsoft 365",
-      "amount": -1000,
+      "amount": -10000,
       "date": "2026-05-12",
       "policyId": "8r5c3m4n5o",
       "cardId": "5tf3rmlcyg3",
@@ -112,5 +91,6 @@
       },
       "status": "approved"
     }
-  ]
+  ],
+  "exceptions": []
 }

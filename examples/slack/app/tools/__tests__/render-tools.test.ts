@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+import { renderToIR } from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 
 // Mock the local renderers so no headless browser is launched.
 const renderChart = vi.fn(async () => Buffer.from("CHARTPNG"));
@@ -11,7 +11,7 @@ vi.mock("../../render/diagram.js", () => ({ renderDiagram }));
 const { renderChartTool } = await import("../render-chart.js");
 const { renderDiagramTool } = await import("../render-diagram.js");
 
-/** The ctx a BotTool handler receives. */
+/** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof renderChartTool.handler>[1];
 
 function makeCtx() {
@@ -59,7 +59,7 @@ describe("render_chart tool", () => {
     // The caption card was posted after the upload.
     expect(posts).toHaveLength(1);
     const { blocks } = renderSlackMessage(renderToIR(posts[0] as never));
-    expect(JSON.stringify(blocks)).toContain(":bar_chart:");
+    expect(JSON.stringify(blocks)).toContain("📊");
     expect(JSON.stringify(blocks)).toContain("Revenue Q2");
   });
 
@@ -97,7 +97,7 @@ describe("render_diagram tool", () => {
     expect(out).toBe("Rendered and posted the diagram image to the thread.");
     expect(posts).toHaveLength(1);
     const { blocks } = renderSlackMessage(renderToIR(posts[0] as never));
-    expect(JSON.stringify(blocks)).toContain(":triangular_ruler:");
+    expect(JSON.stringify(blocks)).toContain("📐");
     expect(JSON.stringify(blocks)).toContain("Flow");
   });
 

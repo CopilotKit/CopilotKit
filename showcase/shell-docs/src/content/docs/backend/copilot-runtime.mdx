@@ -102,7 +102,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 ### Enterprise Intelligence Platform
 
-[Observability](/premium/observability), the [inspector](/inspector), and other Enterprise Intelligence Platform capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging without extra setup.
+[Threads](/threads), the [inspector](/inspector), and other Enterprise Intelligence Platform capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
 ## Built-in middleware
 
@@ -152,6 +152,59 @@ const runtime = new CopilotRuntime({
 
 Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
 
+## Forwarding request headers to your agent
+
+When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (the `/run` path that actually dispatches the agent). This is how a token set on `<CopilotKit headers={...}>` reaches a self-hosted agent — see [Authentication](/auth).
+
+By default the runtime forwards `authorization` and any `x-*` header, **minus** a built-in denylist of infrastructure, proxy, and platform headers that no legitimate agent integration needs forwarded from the edge. The denylist strips, among others:
+
+- **Proxy / topology:** `x-forwarded-*`, `x-real-ip`
+- **Cloud / CDN tracing:** `x-amzn-trace-id`, `x-amz-*` (AWS), `x-azure-*`, `x-fastly-*`, `x-cloud-trace-context`, `x-cache`, `x-served-by`
+- **Platform-injected:** `x-vercel-*`, `x-middleware-*` (Next.js)
+- **CopilotKit platform:** `x-copilotcloud-*`, including `x-copilotcloud-public-api-key`
+
+Everything else still forwards: `authorization`, and any custom application header like `x-tenant-id`, `x-api-key`, or `x-user-id`.
+
+<Callout type="warn" title="Upgrade note: x-request-id is now stripped">
+Earlier runtime versions forwarded `x-request-id`. It is now stripped by default because it is predominantly a proxy-assigned trace id. If your agent relies on receiving your own `x-request-id`, re-enable it with `forwardHeaders: { allow: [...] }` or `useDefaultDenylist: false` (below).
+</Callout>
+
+### Server-configured headers win
+
+Headers you set on an agent (e.g. `new HttpAgent({ headers: { Authorization: "Bearer <service-token>" } })`) take precedence over a forwarded inbound header of the same name, matched case-insensitively. A service-to-service token you configured on the server is never silently overridden by a browser- or edge-injected inbound header ([#5782](https://github.com/CopilotKit/CopilotKit/pull/5782)).
+
+### Configuring the policy
+
+Pass `forwardHeaders` to `CopilotRuntime` to tune what forwards:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  forwardHeaders: {
+    // Strip additional headers on top of the default denylist:
+    deny: ["x-internal-debug"],
+    denyPrefixes: ["x-acme-"],
+  },
+});
+```
+
+The options:
+
+- **`deny`** / **`denyPrefixes`** — extra exact names / name-prefixes to strip. These **always** strip (deny wins), even in allowlist mode, so a security-motivated `deny` can never be defeated by an overlapping `allow`.
+- **`allow`** — switches to **allowlist mode**: only the listed headers forward, and the usual `authorization` / `x-*` eligibility no longer applies. Your `deny` / `denyPrefixes` still subtract from this set.
+- **`useDefaultDenylist`** — defaults to `true`. Set `false` to opt out of the built-in denylist and restore the previous wide-open behavior.
+
+Empty or whitespace-only entries are ignored in every list.
+
+```ts
+// Allowlist mode: forward ONLY these two, nothing else.
+forwardHeaders: { allow: ["authorization", "x-tenant-id"] }
+```
+
+<Callout type="warn" title="Allowlist mode bypasses the default denylist">
+In allowlist mode the built-in denylist does **not** apply — only your `allow` set (minus your own `deny`) forwards. Don't allow-list protected headers such as `x-copilotcloud-public-api-key` or `x-forwarded-*` unless you truly intend to forward them, since the default protection isn't there to catch them.
+</Callout>
+
 ## Connecting to an AG-UI agent directly
 
 CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
@@ -180,7 +233,7 @@ prop instead of `agents__unsafe_dev_only`.
 Key trade-offs:
 
 1. **Authentication is your responsibility.** The runtime's safe defaults do not apply.
-2. **Many ecosystem features won't work.** Runtime-backed middleware, observability, and other capabilities depend on the server-side path.
+2. **Many ecosystem features won't work.** Runtime-backed middleware and other capabilities depend on the server-side path.
 
 ### Comparison
 

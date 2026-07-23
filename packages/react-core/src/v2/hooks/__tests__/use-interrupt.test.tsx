@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useInterrupt } from "../use-interrupt";
 import { useCopilotKit } from "../../context";
 import { useAgent } from "../use-agent";
+import type { Interrupt } from "@ag-ui/client";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -16,11 +17,16 @@ vi.mock("../use-agent", () => ({
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const mockUseAgent = useAgent as ReturnType<typeof vi.fn>;
 
+type RunFinishedParams =
+  | { outcome: "success"; result?: unknown }
+  | { outcome: "interrupt"; interrupts: Interrupt[] };
+
 type SubscriptionHandlers = {
   onCustomEvent?: (payload: {
     event: { name: string; value: unknown };
   }) => void;
   onRunStartedEvent?: () => void;
+  onRunFinishedEvent?: (params: RunFinishedParams) => void;
   onRunFinalized?: () => void;
   onRunFailed?: () => void;
 };
@@ -47,6 +53,8 @@ describe("useInterrupt", () => {
     mockAgent = {
       subscribe: subscribeMock,
       id: "test-agent",
+      pendingInterrupts: [] as Interrupt[],
+      addMessage: vi.fn(),
     };
 
     mockUseCopilotKit.mockReturnValue({
@@ -66,6 +74,7 @@ describe("useInterrupt", () => {
     runAgentMock.mockReset();
   });
 
+  // oxlint-disable-next-line unicorn/consistent-function-scoping
   function Harness({
     enabled,
     handler,
@@ -122,7 +131,7 @@ describe("useInterrupt", () => {
   function ManualHarness({
     enabled,
     handler,
-    render,
+    render: renderFn,
   }: {
     enabled?: (event: { name: string; value: unknown }) => boolean;
     handler?: (props: {
@@ -139,7 +148,7 @@ describe("useInterrupt", () => {
       enabled,
       handler,
       renderInChat: false,
-      render,
+      render: renderFn,
     });
 
     return <div data-testid="manual-container">{element}</div>;
@@ -148,7 +157,7 @@ describe("useInterrupt", () => {
   function ChatHarness({
     enabled,
     handler,
-    render,
+    render: renderFn,
   }: {
     enabled?: (event: { name: string; value: unknown }) => boolean;
     handler?: (props: {
@@ -164,7 +173,7 @@ describe("useInterrupt", () => {
     useInterrupt({
       enabled,
       handler,
-      render,
+      render: renderFn,
     });
 
     return <div data-testid="manual-container" />;
@@ -340,12 +349,14 @@ describe("useInterrupt", () => {
   });
 
   it("accepts thenable handler results (non-native Promise)", async () => {
+    // oxlint-disable unicorn/no-thenable -- intentionally testing thenable (non-native Promise) behavior
     const thenable = {
       then: (resolve: (value: string) => void) => {
         resolve("thenable-ok");
         return { catch: () => undefined };
       },
     };
+    // oxlint-enable unicorn/no-thenable
 
     render(<Harness renderInChat={false} handler={() => thenable} />);
 
@@ -757,5 +768,290 @@ describe("useInterrupt", () => {
     expect(screen.queryByTestId("interrupt")).toBeNull();
 
     errorSpy.mockRestore();
+  });
+
+  describe("AG-UI standard interrupts", () => {
+    const INT: Interrupt = {
+      id: "int-1",
+      reason: "confirmation",
+      message: "Approve?",
+    };
+
+    function StandardHarness({
+      renderSpy,
+    }: {
+      renderSpy: ReturnType<typeof vi.fn>;
+    }) {
+      const element = useInterrupt({
+        renderInChat: false,
+        render: ({ interrupt, interrupts, resolve, cancel }) => {
+          renderSpy({ interrupt, interrupts, resolve, cancel });
+          return (
+            <div>
+              <button
+                data-testid="resolve"
+                onClick={() => resolve({ ok: true })}
+              >
+                resolve
+              </button>
+              <button data-testid="cancel" onClick={() => cancel()}>
+                cancel
+              </button>
+            </div>
+          );
+        },
+      });
+      return <div data-testid="standard-container">{element}</div>;
+    }
+
+    function fireStandardInterrupt(interrupts: Interrupt[]) {
+      (mockAgent as any).pendingInterrupts = interrupts;
+      act(() => {
+        handlers.onRunStartedEvent?.();
+      });
+      act(() => {
+        handlers.onRunFinishedEvent?.({ outcome: "interrupt", interrupts });
+      });
+      act(() => {
+        handlers.onRunFinalized?.();
+      });
+    }
+
+    it("surfaces the primary interrupt and full list from outcome:interrupt", () => {
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([INT]);
+
+      const lastCall = renderSpy.mock.calls.at(-1)![0];
+      expect(lastCall.interrupt).toEqual(INT);
+      expect(lastCall.interrupts).toEqual([INT]);
+    });
+
+    it("resolve() resumes with a resolved ResumeEntry", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([INT]);
+
+      await act(async () => {
+        screen.getByTestId("resolve").click();
+      });
+
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [
+          { interruptId: "int-1", status: "resolved", payload: { ok: true } },
+        ],
+      });
+    });
+
+    it("cancel() resumes with a cancelled ResumeEntry (no payload)", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const renderSpy = vi.fn();
+      render(<StandardHarness renderSpy={renderSpy} />);
+      fireStandardInterrupt([INT]);
+
+      await act(async () => {
+        screen.getByTestId("cancel").click();
+      });
+
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [{ interruptId: "int-1", status: "cancelled" }],
+      });
+    });
+
+    it("persists a tool-result message on resolve so later turns stay well-formed", async () => {
+      // A tool-backed interrupt (carries toolCallId). Resolving it must record
+      // the result as a tool message in the thread — otherwise the next turn
+      // ships a dangling tool call and the model loops on tool-calls.
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const TOOL_INT: Interrupt = {
+        id: "int-1",
+        reason: "tool_approval",
+        toolCallId: "tc-1",
+      };
+      const calls: any[] = [];
+      function ToolHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<ToolHarness />);
+      fireStandardInterrupt([TOOL_INT]);
+
+      const resolve = calls.at(-1)!;
+      await act(async () => {
+        await resolve({ approved: true }, "int-1");
+      });
+
+      expect(mockAgent.addMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          role: "tool",
+          toolCallId: "tc-1",
+          content: JSON.stringify({ approved: true }),
+        }),
+      );
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [
+          {
+            interruptId: "int-1",
+            status: "resolved",
+            payload: { approved: true },
+          },
+        ],
+      });
+    });
+
+    it("does not persist a tool message for a custom interrupt without toolCallId", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const calls: any[] = [];
+      function NoToolHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<NoToolHarness />);
+      fireStandardInterrupt([INT]); // INT has no toolCallId
+
+      await act(async () => {
+        await calls.at(-1)!({ ok: true });
+      });
+
+      expect(mockAgent.addMessage).not.toHaveBeenCalled();
+      expect(runAgentMock).toHaveBeenCalled();
+    });
+
+    it("waits for all interrupts before resuming (multi-interrupt)", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const INT2: Interrupt = { id: "int-2", reason: "confirmation" };
+      const calls: any[] = [];
+      function MultiHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<MultiHarness />);
+      fireStandardInterrupt([INT, INT2]);
+
+      const resolve = calls.at(-1)!;
+      await act(async () => {
+        await resolve({ a: 1 }, "int-1");
+      });
+      expect(runAgentMock).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await resolve({ b: 2 }, "int-2");
+      });
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        resume: [
+          { interruptId: "int-1", status: "resolved", payload: { a: 1 } },
+          { interruptId: "int-2", status: "resolved", payload: { b: 2 } },
+        ],
+      });
+    });
+
+    it("warns when resolve is called without interruptId while multiple interrupts are open", async () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const INT2: Interrupt = { id: "int-2", reason: "confirmation" };
+      const calls: any[] = [];
+      function WarnHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<WarnHarness />);
+      fireStandardInterrupt([INT, INT2]);
+
+      const resolve = calls.at(-1)!;
+      // Call resolve without an interruptId while 2 interrupts are open.
+      await act(async () => {
+        await resolve({ a: 1 });
+      });
+
+      // Warning must have fired.
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("2 interrupts are open"),
+      );
+      // Only primary addressed — runAgent must NOT have been called yet.
+      expect(runAgentMock).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+    });
+
+    it("does not resume an expired interrupt", async () => {
+      const EXPIRED: Interrupt = {
+        id: "int-x",
+        reason: "confirmation",
+        expiresAt: "2000-01-01T00:00:00.000Z",
+      };
+      const calls: any[] = [];
+      function ExpiredHarness() {
+        useInterrupt({
+          render: ({ resolve }) => {
+            calls.push(resolve);
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<ExpiredHarness />);
+      fireStandardInterrupt([EXPIRED]);
+
+      await act(async () => {
+        await calls.at(-1)!({ ok: true });
+      });
+      expect(runAgentMock).not.toHaveBeenCalled();
+    });
+
+    it("legacy on_interrupt path still resumes via forwardedProps.command", async () => {
+      runAgentMock.mockResolvedValue({ result: undefined, newMessages: [] });
+      const calls: any[] = [];
+      function LegacyHarness() {
+        useInterrupt({
+          render: ({ event, resolve }) => {
+            calls.push({ event, resolve });
+            return <></>;
+          },
+        });
+        return null;
+      }
+      render(<LegacyHarness />);
+      act(() => handlers.onRunStartedEvent?.());
+      act(() =>
+        handlers.onCustomEvent?.({
+          event: { name: "on_interrupt", value: "q?" },
+        }),
+      );
+      act(() => handlers.onRunFinalized?.());
+
+      await act(async () => {
+        await calls.at(-1)!.resolve({ approved: true });
+      });
+      expect(runAgentMock).toHaveBeenCalledWith({
+        agent: mockAgent,
+        forwardedProps: {
+          command: { resume: { approved: true }, interruptEvent: "q?" },
+        },
+      });
+    });
   });
 });

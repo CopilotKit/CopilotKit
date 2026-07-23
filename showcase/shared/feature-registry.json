@@ -192,6 +192,14 @@
       "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
     },
     {
+      "id": "a2ui-recovery",
+      "name": "A2UI Error Recovery",
+      "category": "declarative-generative-ui",
+      "description": "Visible A2UI validate-retry recovery loop: an invalid render heals to a valid one, an always-invalid render shows a graceful recovery-exhausted fallback",
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
+    },
+    {
       "id": "mcp-apps",
       "name": "MCP Apps",
       "category": "open-generative-ui",
@@ -366,6 +374,27 @@
       "description": "Multiple agents with visible task delegation",
       "shell_docs_path": "/multi-agent/subagents",
       "og_docs_url": "https://docs.copilotkit.ai/coagents/multi-agent-flows"
+    },
+    {
+      "id": "background-agents",
+      "name": "Background Agents",
+      "category": "multi-agent",
+      "description": "A long-running deep-research tool dispatched as a background task, surfaced inline as a live \"working\" activity card",
+      "shell_docs_path": "/background-tasks"
+    },
+    {
+      "id": "observational-memory",
+      "name": "Observational Memory",
+      "category": "agent-state",
+      "description": "Conversation context is compressed and activated out of band; the background work surfaces inline as activity cards",
+      "shell_docs_path": "/observational-memory"
+    },
+    {
+      "id": "browser-use",
+      "name": "Browser Use",
+      "category": "platform",
+      "description": "The agent drives a real local headless browser to fetch pages and renders the results inline in chat",
+      "shell_docs_path": "/browser-use"
     },
     {
       "id": "auth",

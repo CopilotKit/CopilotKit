@@ -3,6 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SignupLink } from "../signup-link";
 import { OpsPlatformCTA } from "../ops-platform-cta";
+import { DocsTrackedCopy, DocsTrackedLink } from "../docs-conversion";
 
 // These tests exercise the SSR path of "use client" components whose
 // render-time bodies call `new URL(getRuntimeConfig().<url>)`. During
@@ -10,6 +11,12 @@ import { OpsPlatformCTA } from "../ops-platform-cta";
 // URL field there is the empty string, `new URL("")` throws and the
 // whole server-rendered HTML response 500s. The placeholder MUST be a
 // parseable URL.
+
+function hrefFromStaticMarkup(html: string): string {
+  const match = html.match(/href="([^"]+)"/);
+  expect(match).not.toBeNull();
+  return match![1].replaceAll("&amp;", "&");
+}
 
 describe("client component SSR safety (shell-docs)", () => {
   beforeEach(() => {
@@ -32,9 +39,7 @@ describe("client component SSR safety (shell-docs)", () => {
     const html = renderToStaticMarkup(
       <SignupLink surface="test">Sign up</SignupLink>,
     );
-    const match = html.match(/href="([^"]+)"/);
-    expect(match).not.toBeNull();
-    expect(() => new URL(match![1])).not.toThrow();
+    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
   });
 
   it("OpsPlatformCTA SSR-renders without throwing", () => {
@@ -55,8 +60,41 @@ describe("client component SSR safety (shell-docs)", () => {
         surface: "test-surface",
       }),
     );
-    const match = html.match(/href="([^"]+)"/);
-    expect(match).not.toBeNull();
-    expect(() => new URL(match![1])).not.toThrow();
+    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
+  });
+
+  it("OpsPlatformCTA supports a custom href", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(OpsPlatformCTA, {
+        title: "Test",
+        surface: "test-surface",
+        href: "https://copilotkit.ai/talk-to-an-engineer",
+        analyticsEvent: "talk_to_us_clicked",
+      }),
+    );
+    const url = new URL(hrefFromStaticMarkup(html));
+    expect(`${url.origin}${url.pathname}`).toBe(
+      "https://copilotkit.ai/talk-to-an-engineer",
+    );
+    expect(url.searchParams.get("utm_content")).toBe("test-surface");
+  });
+
+  it("DocsTrackedLink preserves its destination and analytics surface", () => {
+    const html = renderToStaticMarkup(
+      <DocsTrackedLink href="/threads-import" surface="test-surface">
+        Synchronize history
+      </DocsTrackedLink>,
+    );
+    expect(hrefFromStaticMarkup(html)).toBe("/threads-import");
+    expect(html).toContain('data-docs-conversion-surface="test-surface"');
+  });
+
+  it("DocsTrackedCopy exposes its analytics surface", () => {
+    const html = renderToStaticMarkup(
+      <DocsTrackedCopy surface="test-copy-surface">
+        <code>npx copilotkit@latest init</code>
+      </DocsTrackedCopy>,
+    );
+    expect(html).toContain('data-docs-copy-surface="test-copy-surface"');
   });
 });

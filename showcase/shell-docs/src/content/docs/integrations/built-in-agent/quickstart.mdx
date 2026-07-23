@@ -17,7 +17,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 <OpsPlatformCTA
   variant="card"
   title="Ship the Built-in Agent to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
   ctaLabel="Create a free account"
   surface="docs_built_in_agent_quickstart"
 />
@@ -36,7 +36,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -48,6 +48,10 @@ Before you begin, you'll need the following:
         npx create-next-app@latest my-copilot-app
         cd my-copilot-app
         ```
+
+        <Callout type="info" title="Already have an app?">
+          Skip this step and install CopilotKit into your existing React or Next.js project. The CopilotKit CLI (`npx copilotkit@latest create`, aliased as `init`) scaffolds a brand-new project in its own directory — it does not add CopilotKit to an app you already have.
+        </Callout>
     </Step>
     <Step>
         ### Install CopilotKit packages

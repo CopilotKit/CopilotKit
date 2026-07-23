@@ -24,13 +24,134 @@ public class AimockHeaderPolicy : PipelinePolicy
     public override void Process(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
         ApplyHeadersAndDiag(message);
-        ProcessNext(message, pipeline, currentIndex);
+        var (backend, ctx, provider, model) = CvdiagLlmContext(message);
+        backend?.EmitLlmCallStart(ctx!, provider, model, EstimatePromptTokens(message));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        string? errorClass = null;
+        try
+        {
+            ProcessNext(message, pipeline, currentIndex);
+        }
+        catch (Exception ex)
+        {
+            errorClass = ex.GetType().Name;
+            throw;
+        }
+        finally
+        {
+            sw.Stop();
+            backend?.EmitLlmCallResponse(ctx!, provider, model, null, sw.ElapsedMilliseconds, errorClass);
+        }
     }
 
     public override async ValueTask ProcessAsync(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
         ApplyHeadersAndDiag(message);
-        await ProcessNextAsync(message, pipeline, currentIndex);
+        var (backend, ctx, provider, model) = CvdiagLlmContext(message);
+        backend?.EmitLlmCallStart(ctx!, provider, model, EstimatePromptTokens(message));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        string? errorClass = null;
+        // Heartbeat: emit backend.llm.call.heartbeat every 10s while the outbound
+        // call is outstanding (spec §3; verbose-tier-and-above). The loop is a
+        // no-op when CVDIAG is off (backend null) — we skip starting it entirely.
+        using var heartbeatCts = new CancellationTokenSource();
+        Task? heartbeat = backend is null ? null : HeartbeatLoop(backend, ctx!, sw, heartbeatCts.Token);
+        try
+        {
+            await ProcessNextAsync(message, pipeline, currentIndex);
+        }
+        catch (Exception ex)
+        {
+            errorClass = ex.GetType().Name;
+            throw;
+        }
+        finally
+        {
+            sw.Stop();
+            heartbeatCts.Cancel();
+            if (heartbeat is not null)
+            {
+                try { await heartbeat; } catch (OperationCanceledException) { /* expected */ }
+            }
+            backend?.EmitLlmCallResponse(ctx!, provider, model, null, sw.ElapsedMilliseconds, errorClass);
+        }
+    }
+
+    private static async Task HeartbeatLoop(CvdiagBackend backend, CvdiagBackend.RequestContext ctx,
+        System.Diagnostics.Stopwatch sw, CancellationToken token)
+    {
+        try
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10), token);
+                backend.EmitLlmCallHeartbeat(ctx, sw.ElapsedMilliseconds);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Outbound call completed; stop heartbeating.
+        }
+    }
+
+    // Resolve the CVDIAG backend + per-request context + outbound provider/model
+    // at LLM-call time. Returns a null backend when CVDIAG is off so callers
+    // skip every emit. The request context is read via the same seeded
+    // IHttpContextAccessor the header forwarding uses.
+    private static (CvdiagBackend? Backend, CvdiagBackend.RequestContext? Ctx, string Provider, string Model)
+        CvdiagLlmContext(PipelineMessage message)
+    {
+        var backend = CvdiagBackend.Instance;
+        if (backend is null || !backend.IsEnabled) return (null, null, "openai", "unknown");
+        var ctx = CvdiagBackend.CurrentRequestContext;
+        if (ctx is null) return (null, null, "openai", "unknown");
+        var host = message.Request.Uri?.Host ?? "";
+        var provider = host.Contains("openai", StringComparison.OrdinalIgnoreCase) ? "openai"
+            : host.Contains("azure", StringComparison.OrdinalIgnoreCase) ? "azure"
+            : "openai";
+        var model = ExtractModel(message) ?? "unknown";
+        return (backend, ctx, provider, model);
+    }
+
+    // Best-effort: pull "model":"..." out of the outbound chat-completions body
+    // without fully parsing it (the body is a BinaryContent we must not consume).
+    private static string? ExtractModel(PipelineMessage message)
+    {
+        try
+        {
+            var content = message.Request.Content;
+            if (content is null) return null;
+            using var ms = new MemoryStream();
+            content.WriteTo(ms, default);
+            var json = System.Text.Encoding.UTF8.GetString(ms.ToArray());
+            var marker = "\"model\":\"";
+            var i = json.IndexOf(marker, StringComparison.Ordinal);
+            if (i < 0) return null;
+            var start = i + marker.Length;
+            var end = json.IndexOf('"', start);
+            return end > start ? json[start..end] : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // Rough prompt-token estimate (~4 chars/token) over the outbound body size.
+    private static int EstimatePromptTokens(PipelineMessage message)
+    {
+        try
+        {
+            var content = message.Request.Content;
+            if (content is null) return 0;
+            using var ms = new MemoryStream();
+            content.WriteTo(ms, default);
+            return (int)(ms.Length / 4);
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     // Forwards the captured x-* headers onto the outbound LLM request and emits

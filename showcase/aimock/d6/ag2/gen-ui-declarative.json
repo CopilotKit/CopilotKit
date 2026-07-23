@@ -1,210 +1,190 @@
 {
-  "_meta": {
-    "description": "D6 fixtures for ag2 / gen-ui-declarative (A2UI Dynamic Schema)",
-    "_note": "Agent uses a two-stage A2UI pattern (src/agents/a2ui_dynamic.py): (1) outer agent has only one tool, `generate_a2ui` (no args). (2) `generate_a2ui` internally invokes a secondary LLM bound to `render_a2ui` with `tool_choice` forced. The inner call's user message is threaded from the OUTER conversation's latest user prompt (see _latest_user_message() in a2ui_dynamic.py) so each pill's inner-call body is byte-distinct. (3) After the tool returns, the outer agent emits a one-sentence narration. Fixtures cover three LLM calls per pill: (a) outer turn 1 → emit generate_a2ui toolcall; (b) inner secondary call (tools=[render_a2ui], tool_choice forced) → emit render_a2ui toolcall with the flat catalog components; (c) outer turn 2 (post tool result) → narration. The inner call is discriminated by `toolName: 'render_a2ui'` (each call carries its bound tools=[render_a2ui]). Inner-call mirrors MUST be ordered BEFORE the outer generate_a2ui fixtures so first-match-wins routes the inner-call traffic to them.",
-    "created": "2026-05-28"
+ "_meta": {
+  "description": "D6 fixtures for ag2 / gen-ui-declarative (A2UI Dynamic Schema)",
+  "_note": "Option A (JS-runtime-injected A2UI). Mirrors langgraph-python gen-ui-declarative.json 1:1 (same 4 sales-context pills, same render_a2ui component trees). ag2 backend is the dedicated a2ui_dynamic.py agent mounted at /declarative-gen-ui (the route points HttpAgent at ${AGENT_URL}/declarative-gen-ui/, injectA2UITool:true default). Two-stage fixture pattern: (1) outer agent emits no-arg generate_a2ui toolcall (matched by userMessage+context=ag2); (2) CopilotKit JS middleware intercepts, drives secondary render_a2ui LLM pass (matched by userMessage+toolName=render_a2ui) and synthesizes the tool result + fires RUN_FINISHED. The outer generate_a2ui handler takes NO arguments.",
+  "created": "2026-06-23",
+  "updated": "2026-07-20"
+ },
+ "fixtures": [
+  {
+   "_comment": "pill sales-dashboard hero — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
+   "match": {
+    "userMessage": "Show me my sales dashboard for this quarter.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_dash_design_001_render",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\",\"trendValue\":\"+8%\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\",\"trendValue\":\"+5%\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
   },
-  "fixtures": [
-    {
-      "_comment": "pill 1 KPI — inner secondary LLM (tools=[render_a2ui], tool_choice forced) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt.",
-      "match": {
-        "userMessage": "Show me a quick KPI dashboard",
-        "toolName": "render_a2ui",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_kpi_design_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\",\"m-mrr\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"8,420\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"},{\"id\":\"m-mrr\",\"component\":\"Metric\",\"label\":\"MRR\",\"value\":\"$98K\",\"trend\":\"up\"}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 2 pie chart — inner secondary LLM emits PieChart catalog component.",
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "toolName": "render_a2ui",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_pie_design_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Regional sales distribution\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia-Pacific\",\"value\":18},{\"label\":\"Other\",\"value\":9}]}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 3 bar chart — inner secondary LLM emits BarChart catalog component.",
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "toolName": "render_a2ui",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_bar_design_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":310000},{\"label\":\"Q3\",\"value\":295000},{\"label\":\"Q4\",\"value\":340000}]}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 4 status report — inner secondary LLM emits StatusBadges grouped in a root Column.",
-      "match": {
-        "userMessage": "status report on system health",
-        "toolName": "render_a2ui",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_status_design_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy (p99 42ms)\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy (replication lag 0.2s)\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded (queue depth 1247)\",\"variant\":\"warning\"}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 1 KPI — outer agent narration after generate_a2ui returns.",
-      "match": {
-        "context": "ag2",
-        "toolCallId": "call_d6_decl_kpi_outer_001"
-      },
-      "response": {
-        "content": "KPI dashboard rendered."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 1 KPI — outer agent emits generate_a2ui (no args).",
-      "match": {
-        "userMessage": "Show me a quick KPI dashboard",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_kpi_outer_001",
-            "name": "generate_a2ui",
-            "arguments": "{}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 2 pie chart — outer agent narration.",
-      "match": {
-        "context": "ag2",
-        "toolCallId": "call_d6_decl_pie_outer_001"
-      },
-      "response": {
-        "content": "Pie chart rendered."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 2 pie chart — outer agent emits generate_a2ui.",
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_pie_outer_001",
-            "name": "generate_a2ui",
-            "arguments": "{}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 3 bar chart — outer agent narration.",
-      "match": {
-        "context": "ag2",
-        "toolCallId": "call_d6_decl_bar_outer_001"
-      },
-      "response": {
-        "content": "Bar chart rendered."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 3 bar chart — outer agent emits generate_a2ui.",
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_bar_outer_001",
-            "name": "generate_a2ui",
-            "arguments": "{}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 4 status report — outer agent narration.",
-      "match": {
-        "context": "ag2",
-        "toolCallId": "call_d6_decl_status_outer_001"
-      },
-      "response": {
-        "content": "System health status rendered."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill 4 status report — outer agent emits generate_a2ui.",
-      "match": {
-        "userMessage": "status report on system health",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_status_outer_001",
-            "name": "generate_a2ui",
-            "arguments": "{}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args). Mirrors LGP gen-ui-declarative.json sales-dashboard outer entry. Closes the production 503 gap where backend hits aimock with tools=[generate_a2ui] for this userMessage (see /tmp/staging-journal-diff.md shape-B).",
-      "match": {
-        "userMessage": "Show me my sales dashboard for this quarter.",
-        "context": "ag2"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_decl_dash_outer_ag2_001",
-            "name": "generate_a2ui",
-            "arguments": "{}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    }
-  ]
+  {
+   "_comment": "pill sales-dashboard hero — outer agent narration after generate_a2ui returns.",
+   "match": {
+    "context": "ag2",
+    "toolCallId": "call_d6_decl_dash_outer_ag2_001"
+   },
+   "response": {
+    "content": "Here's your Q2 sales dashboard."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Show me my sales dashboard for this quarter.",
+    "context": "ag2"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_dash_outer_ag2_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill team-performance — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
+   "match": {
+    "userMessage": "How are our sales reps performing against quota?",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_team_design_001_render",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"rep-quota-performance\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"title\",\"summary\",\"content\"]},{\"id\":\"title\",\"component\":\"Text\",\"text\":\"Sales rep performance vs quota\"},{\"id\":\"summary\",\"component\":\"Text\",\"text\":\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\"},{\"id\":\"content\",\"component\":\"Row\",\"gap\":16,\"children\":[\"table-card\",\"attainment-chart\"]},{\"id\":\"table-card\",\"component\":\"Card\",\"title\":\"Rep attainment table\",\"child\":\"rep-table\"},{\"id\":\"rep-table\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Rep\"},{\"key\":\"attainment\",\"label\":\"Attainment\"},{\"key\":\"pipeline\",\"label\":\"Pipeline\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\",\"pipeline\":\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\",\"pipeline\":\"Above plan\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\",\"pipeline\":\"Near quota\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\",\"pipeline\":\"Below plan\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\",\"pipeline\":\"Furthest from quota\"}]},{\"id\":\"attainment-chart\",\"component\":\"BarChart\",\"title\":\"Quota attainment by rep\",\"description\":\"Q2 quota attainment percentages for all sales reps.\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill team-performance — outer agent narration after generate_a2ui returns.",
+   "match": {
+    "context": "ag2",
+    "toolCallId": "call_d6_decl_team_outer_ag2_001"
+   },
+   "response": {
+    "content": "Here's how the team is tracking against quota."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill team-performance — outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "How are our sales reps performing against quota?",
+    "context": "ag2"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_team_outer_ag2_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill at-risk — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
+   "match": {
+    "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_risk_design_001_render",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"risk-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"metrics-row\",\"accounts-row\"]},{\"id\":\"metrics-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-arr\",\"metric-accounts\",\"metric-biggest\"]},{\"id\":\"metric-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\",\"trendValue\":\"3 accounts\"},{\"id\":\"metric-accounts\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\",\"trend\":\"neutral\",\"trendValue\":\"This quarter\"},{\"id\":\"metric-biggest\",\"component\":\"Metric\",\"label\":\"Biggest exposure\",\"value\":\"Northwind Retail\",\"trend\":\"down\",\"trendValue\":\"$340k renewal\"},{\"id\":\"accounts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"card-northwind\",\"card-cascadia\",\"card-atlas\"]},{\"id\":\"card-northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"subtitle\":\"$340k ARR at stake\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"northwind-badge\",\"northwind-text\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High severity\",\"variant\":\"error\"},{\"id\":\"northwind-text\",\"component\":\"Text\",\"text\":\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\"},{\"id\":\"card-cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"subtitle\":\"$180k ARR at stake\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"cascadia-badge\",\"cascadia-text\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"cascadia-text\",\"component\":\"Text\",\"text\":\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\"},{\"id\":\"card-atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"subtitle\":\"$95k ARR at stake\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"atlas-badge\",\"atlas-text\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"atlas-text\",\"component\":\"Text\",\"text\":\"Legal review is stalled; next action: align procurement and legal on open terms.\"}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill at-risk — outer agent narration after generate_a2ui returns.",
+   "match": {
+    "context": "ag2",
+    "toolCallId": "call_d6_decl_risk_outer_ag2_001"
+   },
+   "response": {
+    "content": "Three accounts need attention this quarter."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill at-risk — outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+    "context": "ag2"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_risk_outer_ag2_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill top-account — JS middleware drives secondary render_a2ui LLM pass; emits flat A2UI component tree.",
+   "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_acct_design_001_render",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"biggest-account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Row\",\"gap\":16,\"children\":[\"account-card\",\"revenue-pie\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"subtitle\":\"Biggest account\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"gap\":8,\"children\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\",\"fact6\",\"fact7\"]},{\"id\":\"fact1\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"fact2\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"fact3\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"fact4\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"fact5\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"fact6\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"Green\"},{\"id\":\"fact7\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 opportunities worth $210k\"},{\"id\":\"revenue-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"description\":\"Meridian Apparel Group revenue mix across product lines.\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill top-account — outer agent narration after generate_a2ui returns.",
+   "match": {
+    "context": "ag2",
+    "toolCallId": "call_d6_decl_acct_outer_ag2_001"
+   },
+   "response": {
+    "content": "Here's the rundown on Meridian Apparel Group."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill top-account — outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "context": "ag2"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_decl_acct_outer_ag2_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  }
+ ]
 }

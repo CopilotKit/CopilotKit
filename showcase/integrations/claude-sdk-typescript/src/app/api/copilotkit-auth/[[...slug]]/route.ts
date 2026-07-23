@@ -21,12 +21,13 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const authDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+const authDemoAgent = createClaudeHttpAgent(`${AGENT_URL}/`);
 
 const agents: Record<string, AbstractAgent> = {
   "auth-demo": authDemoAgent,

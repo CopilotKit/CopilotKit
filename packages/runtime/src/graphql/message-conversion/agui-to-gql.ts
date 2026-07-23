@@ -21,15 +21,22 @@ function isAgentStateMessage(message: agui.Message): boolean {
 }
 
 // Type guard for messages with image property
-function hasImageProperty(message: agui.Message): boolean {
+function hasImageProperty(
+  message: agui.Message,
+): message is agui.Message & { image: agui.ImageData } {
   const canContainImage =
     message.role === "assistant" || message.role === "user";
-  if (!canContainImage || message.image === undefined) {
+  if (!canContainImage) {
     return false;
   }
 
-  const isMalformed =
-    message.image.format === undefined || message.image.bytes === undefined;
+  const image: { format?: string; bytes?: string } | undefined =
+    "image" in message ? message.image : undefined;
+  if (image === undefined) {
+    return false;
+  }
+
+  const isMalformed = image.format === undefined || image.bytes === undefined;
   if (isMalformed) {
     return false;
   }
@@ -232,7 +239,7 @@ export function aguiToolCallToGQLActionExecution(
     // Expected case: arguments is a JSON string
     try {
       argumentsObj = JSON.parse(toolCall.function.arguments);
-    } catch (error) {
+    } catch {
       console.warn(
         `[CopilotKit] Failed to parse tool arguments, falling back to empty object`,
       );
@@ -377,8 +384,8 @@ export function aguiMessageWithImageToGQLMessage(
 
   return new gql.ImageMessage({
     id: message.id,
-    format: message.image!.format,
-    bytes: message.image!.bytes,
+    format: message.image.format,
+    bytes: message.image.bytes,
     role: roleValue,
   });
 }

@@ -1,18 +1,25 @@
 /**
- * `render_table` — render tabular data as a Slack **native Table block**,
+ * `render_table` — render tabular data as a native Table block,
  * posted into the current thread. Use this for "show X as a table": a list of
  * issues with several fields, metrics parsed from an uploaded CSV, side-by-side
  * comparisons — anything where a chart isn't the right shape.
  *
- * Authored as JSX over `@copilotkit/bot-ui`'s `<Table>/<Row>/<Cell>` vocabulary
- * and posted via `thread.post`. If the workspace rejects the native Table block,
- * we fall back to a column-aligned monospace (code-fenced) table via the raw
- * escape hatch so the data always lands — the same look the bridge gives GFM
- * tables in prose.
+ * Authored as JSX over `@copilotkit/channels-ui`'s `<Table>/<Row>/<Cell>` vocabulary
+ * and posted via `thread.post`. If the platform rejects the native Table block,
+ * we fall back to a column-aligned monospace (code-fenced) table posted as a
+ * platform-neutral `<Message>` so the data always lands — the same look the
+ * bridge gives GFM tables in prose.
  */
 import { z } from "zod";
-import { Message, Header, Table, Row, Cell } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import {
+  Message,
+  Header,
+  Section,
+  Table,
+  Row,
+  Cell,
+} from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 
 const schema = z.object({
   title: z
@@ -45,11 +52,11 @@ const schema = z.object({
 
 type Column = z.infer<typeof schema>["columns"][number];
 
-// Slack caps the native Table block at 100 rows (header included) and 20 cols.
+// Cap the native Table block at 100 rows (header included) and 20 cols.
 const MAX_COLUMNS = 20;
 const MAX_DATA_ROWS = 99;
 
-/** Clamp to Slack's limits, recording what was dropped. */
+/** Clamp to platform limits, recording what was dropped. */
 export function clamp(
   columns: Column[],
   rows: string[][],
@@ -88,14 +95,14 @@ export function toMonospaceTable(cols: Column[], dataRows: string[][]): string {
   return "```\n" + [fmt(header), ...body.map(fmt)].join("\n") + "\n```";
 }
 
-export const renderTableTool = defineBotTool({
+export const renderTableTool = defineChannelTool({
   name: "render_table",
   description:
-    "Render tabular data as a table posted to the Slack thread. Pass columns " +
-    "(each with a header and optional alignment) and rows (arrays of cell " +
-    "values in column order). Use for 'show as a table' — issue lists with " +
-    "several fields, metrics from a CSV, comparisons — when a chart isn't the " +
-    "right shape. Max 20 columns and 100 rows.",
+    "Render tabular data as a table posted to the conversation thread. Pass " +
+    "columns (each with a header and optional alignment) and rows (arrays of " +
+    "cell values in column order). Use for 'show as a table' — issue lists " +
+    "with several fields, metrics from a CSV, comparisons — when a chart " +
+    "isn't the right shape. Max 20 columns and 100 rows.",
   parameters: schema,
   async handler({ title, columns, rows }, { thread }) {
     const { cols, dataRows } = clamp(columns, rows);
@@ -119,21 +126,17 @@ export const renderTableTool = defineBotTool({
       await thread.post(table);
       return "Rendered the table for the user.";
     } catch {
-      // Native Table block not accepted (older workspace / unsupported) — post
-      // the same data as a monospace code-fenced table via the raw escape hatch
-      // so it still lands.
+      // Native Table block not accepted (platform unsupported) — post the same
+      // data as a monospace code-fenced table via a platform-neutral <Message>
+      // so it still lands on any adapter.
       const mono = toMonospaceTable(cols, dataRows);
-      await thread.post({
-        raw: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: (title ? `*${title}*\n` : "") + mono,
-            },
-          },
-        ],
-      });
+      const fallback = (
+        <Message>
+          {title ? <Header>{title}</Header> : null}
+          <Section>{mono}</Section>
+        </Message>
+      );
+      await thread.post(fallback);
       return "Rendered the table (monospace fallback) for the user.";
     }
   },

@@ -318,7 +318,9 @@
       "_comment": "beautiful-chat Search Flights pill — narration-only on this family: CST's beautiful-chat runtime proxies to the pass-through `/` mount and registers no search_flights handler anywhere (see the documented limitation in src/app/api/copilotkit-beautiful-chat/route.ts), so emitting a search_flights tool call stalls the run with no result and nothing ever renders. The d5 probe (assertSearchFlights) accepts the United/Delta/$349/$289 literals from either the FlightCard surface OR the assistant narration — serve the narration directly."
     },
     {
+      "_comment": "A2UI fixed-schema/display-flight fallback. Narrowed from bare 'SFO to JFK' because that substring can shadow productized reasoning-chain prompts before their dedicated fixtures load.",
       "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
         "toolCallId": "call_d5_display_flight_001",
         "context": "claude-sdk-typescript"
       },
@@ -327,8 +329,9 @@
       }
     },
     {
+      "_comment": "A2UI fixed-schema/display-flight fallback. Keep this scoped to the flight-card prompt; broad 'SFO to JFK' matchers load before reasoning-chain fixtures and steal chained flight/weather turns.",
       "match": {
-        "userMessage": "SFO to JFK",
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
         "toolName": "display_flight",
         "context": "claude-sdk-typescript"
       },

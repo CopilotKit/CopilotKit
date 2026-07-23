@@ -31,6 +31,13 @@ export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }
 
+export interface ThreadEndpointRuntimeInfo {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+}
+
 export type RuntimeLicenseStatus =
   | "valid"
   | "none"
@@ -54,6 +61,13 @@ export interface RuntimeInfo {
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  threadEndpoints?: ThreadEndpointRuntimeInfo;
+  /**
+   * When true, the runtime exposes POST /agent/:agentId/suggest for stateless
+   * suggestion generation. Absent on older runtimes; clients fall back to a
+   * client-side agent run.
+   */
+  suggestions?: boolean;
   /**
    * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
    * Kept for backward compatibility with older clients.

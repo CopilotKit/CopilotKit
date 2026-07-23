@@ -2,6 +2,8 @@
 // (e.g. `"lucide/Paintbrush"`) read from MDX/meta.json frontmatter;
 // `resolveSidebarIcon` turns it into a React element that the
 // PageTree → Fumadocs sidebar can render directly.
+// Page-level MDX icons must also set `showIcon: true`; section/meta
+// icons are resolved directly by the nav builders.
 //
 // We import only the lucide icons we actually reference so the
 // client bundle doesn't pick up the entire lucide library. When a
@@ -9,8 +11,10 @@
 // below (and to the lucide imports above).
 
 import React from "react";
+import Image from "next/image";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
   Bolt,
@@ -36,6 +40,7 @@ import {
   Globe,
   LayoutDashboard,
   LifeBuoy,
+  Lightbulb,
   ListChecks,
   Map,
   MessageSquare,
@@ -99,6 +104,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Globe": <Globe />,
   "lucide/LayoutDashboard": <LayoutDashboard />,
   "lucide/LifeBuoy": <LifeBuoy />,
+  "lucide/Lightbulb": <Lightbulb />,
   "lucide/ListChecks": <ListChecks />,
   "lucide/Map": <Map />,
   "lucide/MessageSquare": <MessageSquare />,
@@ -139,6 +145,62 @@ const ICONS: Record<string, React.ReactNode> = {
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
   "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/react": <FrontendLogo icon="react" size={16} />,
+  "custom/daytona": (
+    <Image
+      src="/logos/daytona.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 rounded-[3px] object-cover"
+    />
+  ),
+  "custom/arcade": (
+    <Image
+      src="/logos/arcade.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/oracle-agent-spec": (
+    <Image
+      src="/logos/oracle-agent-spec.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/openbox": (
+    <Image
+      src="/logos/openbox.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
+  "custom/google-adk": (
+    <Image
+      src="/logos/google-adk.png"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
 };
 
 export function resolveSidebarIcon(spec: string | undefined): React.ReactNode {

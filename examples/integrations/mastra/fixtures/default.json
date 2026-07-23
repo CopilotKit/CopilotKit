@@ -7,21 +7,75 @@
       }
     },
     {
+      "match": { "toolCallId": "call_get_weather_001" },
+      "response": {
+        "content": "The weather in San Francisco is currently 70°F with clear skies, 45% humidity, and a light breeze at 5 mph. It feels like 72°F. A beautiful day!"
+      }
+    },
+    {
       "match": { "userMessage": "weather" },
       "response": {
         "toolCalls": [
           {
             "name": "get-weather",
-            "arguments": "{\"location\":\"New York\"}",
+            "arguments": "{\"location\":\"San Francisco\"}",
             "id": "call_get_weather_001"
           }
         ]
       }
     },
     {
-      "match": { "toolCallId": "call_get_weather_001" },
+      "match": { "toolCallId": "call_set_theme_color_001" },
       "response": {
-        "content": "The weather in New York is currently 70°F with clear skies, 45% humidity, and a light breeze at 5 mph. It feels like 72°F. A beautiful day!"
+        "content": "Done! I've set the theme color to green. Let me know if you'd like to try a different color."
+      }
+    },
+    {
+      "match": { "userMessage": "theme to green" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "setThemeColor",
+            "arguments": "{\"themeColor\":\"green\"}",
+            "id": "call_set_theme_color_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_go_to_moon_001" },
+      "response": {
+        "content": "🚀 We've made it to the moon! Thanks for confirming the trip. Where would you like to go next?"
+      }
+    },
+    {
+      "match": { "userMessage": "go to the moon" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "go_to_moon",
+            "arguments": "{}",
+            "id": "call_go_to_moon_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "remove 1 random proverb" },
+      "response": {
+        "content": "I've removed one proverb from the list. The remaining proverbs are still saved in the agent's shared state. Want me to add a new one or show you what's left?"
+      }
+    },
+    {
+      "match": { "userMessage": "What are the proverbs" },
+      "response": {
+        "content": "Here are the current proverbs in the list:\n\n1. \"CopilotKit may be new, but it's the best thing since sliced bread.\"\n\nWould you like me to add another proverb or remove one?"
+      }
+    },
+    {
+      "match": { "userMessage": "proverb about AI" },
+      "response": {
+        "content": "I've added a new proverb about AI to the list:\n\n\"An AI that explains itself is worth two that work in silence.\"\n\nIt's now saved in the agent's shared state. Want to add another or review the full list?"
       }
     },
     {

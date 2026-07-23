@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/vue",
-  "version": "1.60.2",
+  "version": "1.63.1",
   "private": false,
   "description": "Vue 3 components and composables for CopilotKit",
   "keywords": [
@@ -63,7 +63,7 @@
   "scripts": {
     "build": "vite build && pnpm build:css && pnpm build:types",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
-    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && cp ./dist/index.d.ts ./dist/index.d.mts && cp ./dist/index.d.ts ./dist/index.d.cts && cp ./dist/v2/index.d.ts ./dist/v2/index.d.mts && cp ./dist/v2/index.d.ts ./dist/v2/index.d.cts",
+    "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');fs.cpSync('./dist/index.d.ts','./dist/index.d.mts');fs.cpSync('./dist/index.d.ts','./dist/index.d.cts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.mts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.cts')\"",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
     "dev": "concurrently \"pnpm dev:css\" \"vite build --watch\"",
     "test": "vitest run",
@@ -74,7 +74,7 @@
     "check-types": "vue-tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --exclude-entrypoints ./styles.css --ignore-rules internal-resolution-error",
-    "clean": "rm -rf dist"
+    "clean": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
     "@a2ui/web_core": "0.9.0",
@@ -82,6 +82,7 @@
     "@ag-ui/core": "0.0.57",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
+    "@copilotkit/web-components": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
     "katex": "^0.16.27",

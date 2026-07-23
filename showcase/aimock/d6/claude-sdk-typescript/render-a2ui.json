@@ -490,6 +490,173 @@
           }
         ]
       }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard render_a2ui context - secondary A2UI design call.",
+      "match": {
+        "userMessage": "total revenue, new customers, conversion rate metrics",
+        "toolName": "render_a2ui",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "sales-dashboard",
+              "catalogId": "copilotkit://app-dashboard-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Column",
+                  "children": [
+                    "metrics-row",
+                    "charts-row"
+                  ],
+                  "gap": 16
+                },
+                {
+                  "id": "metrics-row",
+                  "component": "Row",
+                  "children": [
+                    "card-revenue",
+                    "card-customers",
+                    "card-conversion"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "card-revenue",
+                  "component": "DashboardCard",
+                  "title": "Total Revenue",
+                  "subtitle": "Q4 sales",
+                  "child": "metric-revenue"
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Total Revenue",
+                  "value": "$1.2M",
+                  "trend": "up",
+                  "trendValue": "+18%"
+                },
+                {
+                  "id": "card-customers",
+                  "component": "DashboardCard",
+                  "title": "New Customers",
+                  "subtitle": "This quarter",
+                  "child": "metric-customers"
+                },
+                {
+                  "id": "metric-customers",
+                  "component": "Metric",
+                  "label": "New Customers",
+                  "value": "342",
+                  "trend": "up",
+                  "trendValue": "+11%"
+                },
+                {
+                  "id": "card-conversion",
+                  "component": "DashboardCard",
+                  "title": "Conversion Rate",
+                  "subtitle": "Visitor to signup",
+                  "child": "metric-conversion"
+                },
+                {
+                  "id": "metric-conversion",
+                  "component": "Metric",
+                  "label": "Conversion Rate",
+                  "value": "4.2%",
+                  "trend": "up",
+                  "trendValue": "+0.8%"
+                },
+                {
+                  "id": "charts-row",
+                  "component": "Row",
+                  "children": [
+                    "card-revenue-mix",
+                    "card-monthly-sales"
+                  ],
+                  "gap": 16
+                },
+                {
+                  "id": "card-revenue-mix",
+                  "component": "DashboardCard",
+                  "title": "Revenue by Category",
+                  "subtitle": "Product mix",
+                  "child": "chart-revenue-mix"
+                },
+                {
+                  "id": "chart-revenue-mix",
+                  "component": "PieChart",
+                  "innerRadius": 52,
+                  "data": [
+                    {
+                      "label": "Electronics",
+                      "value": 42000,
+                      "color": "#2563eb"
+                    },
+                    {
+                      "label": "Clothing",
+                      "value": 28000,
+                      "color": "#16a34a"
+                    },
+                    {
+                      "label": "Food",
+                      "value": 18000,
+                      "color": "#f59e0b"
+                    },
+                    {
+                      "label": "Books",
+                      "value": 12000,
+                      "color": "#ef4444"
+                    }
+                  ]
+                },
+                {
+                  "id": "card-monthly-sales",
+                  "component": "DashboardCard",
+                  "title": "Monthly Sales",
+                  "subtitle": "Last six months",
+                  "child": "chart-monthly-sales"
+                },
+                {
+                  "id": "chart-monthly-sales",
+                  "component": "BarChart",
+                  "color": "#2563eb",
+                  "data": [
+                    {
+                      "label": "Jan",
+                      "value": 160000
+                    },
+                    {
+                      "label": "Feb",
+                      "value": 185000
+                    },
+                    {
+                      "label": "Mar",
+                      "value": 210000
+                    },
+                    {
+                      "label": "Apr",
+                      "value": 195000
+                    },
+                    {
+                      "label": "May",
+                      "value": 230000
+                    },
+                    {
+                      "label": "Jun",
+                      "value": 250000
+                    }
+                  ]
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
     }
   ]
 }

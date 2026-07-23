@@ -7,13 +7,13 @@
  * updates the message in place with a green "Acknowledged" card.
  */
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
+import { renderToIR } from "@copilotkit/channels";
 import type {
-  BotNode,
+  ChannelNode,
   InteractionContext,
   ClickHandler,
-} from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+} from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import {
   showIncidentTool,
   showStatusTool,
@@ -43,17 +43,17 @@ function fakeThread() {
 
 /** Depth-first: find the first IR node whose `type` matches and that has the named prop. */
 function findWithProp(
-  nodes: BotNode[],
+  nodes: ChannelNode[],
   type: string,
   prop: string,
-): BotNode | undefined {
+): ChannelNode | undefined {
   for (const node of nodes) {
     if (node.type === type && node.props && prop in node.props) return node;
     const children = node.props?.children;
     const childArr = Array.isArray(children)
-      ? (children as BotNode[])
+      ? (children as ChannelNode[])
       : children && typeof children === "object"
-        ? [children as BotNode]
+        ? [children as ChannelNode]
         : [];
     const found = findWithProp(childArr, type, prop);
     if (found) return found;

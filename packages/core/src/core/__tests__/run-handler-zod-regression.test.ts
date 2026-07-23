@@ -22,7 +22,7 @@ function buildSingleToolSchema(params?: z.ZodTypeAny): Record<string, unknown> {
   runHandler.initialize([
     { name: "test", ...(params ? { parameters: params } : {}) },
   ]);
-  const [tool] = runHandler.buildFrontendTools();
+  const tool = runHandler.buildFrontendTools()[0]!;
   return tool.parameters;
 }
 

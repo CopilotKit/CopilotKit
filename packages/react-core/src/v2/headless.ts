@@ -8,6 +8,9 @@
 // Re-export from context (which is external in this build) so the .d.ts
 // references the same type declaration. This avoids a nominal type mismatch
 // caused by private class members being declared in two separate .d.ts files.
+// The relative "./context" specifier is rewritten to the external package path
+// in the emitted declarations by the tsdown `build:done` hook (a relative
+// extensionless import is invalid in ESM declarations).
 export { CopilotKitCoreReact } from "./context";
 export type { CopilotKitCoreReactConfig } from "./context";
 
@@ -59,6 +62,8 @@ export { defineToolCallRenderer } from "./types/defineToolCallRenderer";
 // Platform-agnostic types
 export type { ReactFrontendTool } from "./types/frontend-tool";
 export type { ReactHumanInTheLoop } from "./types/human-in-the-loop";
+export type { Interrupt, ResumeEntry } from "./types/interrupt";
+export type { ResumeStatus } from "@ag-ui/client";
 
 // Platform-agnostic capability introspection
 export { useCapabilities } from "./hooks/use-capabilities";

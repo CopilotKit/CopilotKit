@@ -60,9 +60,12 @@ describe("CopilotChat Slot System E2E Tests", () => {
   describe("2. Property Passing - chatView Slot", () => {
     describe("chatView slot", () => {
       it("should pass custom props to chatView", () => {
+        const chatViewProps: Partial<
+          React.ComponentProps<typeof CopilotChatView>
+        > & { "data-testid": string } = { "data-testid": "custom-chat-view" };
         render(
           <TestWrapper>
-            <CopilotChat chatView={{ "data-testid": "custom-chat-view" }} />
+            <CopilotChat chatView={chatViewProps} />
           </TestWrapper>,
         );
 

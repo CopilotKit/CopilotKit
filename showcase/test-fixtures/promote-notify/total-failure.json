@@ -15,7 +15,6 @@
     { "service": "docs", "exit": 1, "category": "staging-probe-red" },
     { "service": "dojo", "exit": 1, "category": "staging-probe-red" },
     { "service": "harness", "exit": 1, "category": "staging-probe-red" },
-    { "service": "harness-legacy", "exit": 1, "category": "staging-probe-red" },
     {
       "service": "harness-workers",
       "exit": 1,

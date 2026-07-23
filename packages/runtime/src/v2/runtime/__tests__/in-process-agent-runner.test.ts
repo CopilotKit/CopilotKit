@@ -1,12 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryAgentRunner } from "../runner/in-memory";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  RunAgentInput,
-} from "@ag-ui/client";
-import { firstValueFrom } from "rxjs";
+import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
@@ -16,8 +13,17 @@ const stripTerminalEvents = (events: BaseEvent[]) =>
       event.type !== EventType.RUN_ERROR,
   );
 
-// Mock agent implementations for testing
-class MockAgent extends AbstractAgent {
+const eventId = (event: BaseEvent) => (event as { id?: string }).id;
+
+// Mock agent implementations for testing. The runner drives the agents
+// through runAgent() directly, so the abstract run() is stubbed out.
+abstract class TestAgent extends AbstractAgent {
+  run(_input: RunAgentInput): Observable<BaseEvent> {
+    return EMPTY;
+  }
+}
+
+class MockAgent extends TestAgent {
   private events: BaseEvent[];
   private delay: number;
 
@@ -30,13 +36,14 @@ class MockAgent extends AbstractAgent {
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     for (const event of this.events) {
       if (this.delay > 0) {
         await new Promise((resolve) => setTimeout(resolve, this.delay));
       }
       options.onEvent({ event });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
@@ -44,7 +51,7 @@ class MockAgent extends AbstractAgent {
   }
 }
 
-class DelayedEventAgent extends AbstractAgent {
+class DelayedEventAgent extends TestAgent {
   private eventCount: number;
   private eventDelay: number;
   private prefix: string;
@@ -63,7 +70,7 @@ class DelayedEventAgent extends AbstractAgent {
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     for (let i = 0; i < this.eventCount; i++) {
       await new Promise((resolve) => setTimeout(resolve, this.eventDelay));
       options.onEvent({
@@ -72,9 +79,10 @@ class DelayedEventAgent extends AbstractAgent {
           id: `${this.prefix}-${i}`,
           timestamp: new Date().toISOString(),
           data: { index: i, prefix: this.prefix },
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
@@ -82,7 +90,7 @@ class DelayedEventAgent extends AbstractAgent {
   }
 }
 
-class ErrorThrowingAgent extends AbstractAgent {
+class ErrorThrowingAgent extends TestAgent {
   private throwAfterEvents: number;
   private errorMessage: string;
 
@@ -98,7 +106,7 @@ class ErrorThrowingAgent extends AbstractAgent {
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     for (let i = 0; i < this.throwAfterEvents; i++) {
       options.onEvent({
         event: {
@@ -106,7 +114,7 @@ class ErrorThrowingAgent extends AbstractAgent {
           id: `error-agent-${i}`,
           timestamp: new Date().toISOString(),
           data: { index: i },
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       });
     }
     throw new Error(this.errorMessage);
@@ -117,7 +125,7 @@ class ErrorThrowingAgent extends AbstractAgent {
   }
 }
 
-class StoppableAgent extends AbstractAgent {
+class StoppableAgent extends TestAgent {
   private shouldStop = false;
   private eventDelay: number;
 
@@ -129,7 +137,7 @@ class StoppableAgent extends AbstractAgent {
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     this.shouldStop = false;
     let counter = 0;
 
@@ -140,10 +148,11 @@ class StoppableAgent extends AbstractAgent {
         id: `stoppable-${counter}`,
         timestamp: new Date().toISOString(),
         data: { counter },
-      } as BaseEvent;
+      } as unknown as BaseEvent;
       options.onEvent({ event });
       counter += 1;
     }
+    return { result: undefined, newMessages: [] };
   }
 
   abortRun(): void {
@@ -155,13 +164,13 @@ class StoppableAgent extends AbstractAgent {
   }
 }
 
-class OpenEventsAgent extends AbstractAgent {
+class OpenEventsAgent extends TestAgent {
   private shouldStop = false;
 
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     this.shouldStop = false;
     const messageId = "open-message";
     const toolCallId = "open-tool";
@@ -194,6 +203,7 @@ class OpenEventsAgent extends AbstractAgent {
     while (!this.shouldStop) {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
+    return { result: undefined, newMessages: [] };
   }
 
   abortRun(): void {
@@ -205,7 +215,7 @@ class OpenEventsAgent extends AbstractAgent {
   }
 }
 
-class MultiEventAgent extends AbstractAgent {
+class MultiEventAgent extends TestAgent {
   private runId: string;
 
   constructor(runId: string) {
@@ -216,7 +226,7 @@ class MultiEventAgent extends AbstractAgent {
   async runAgent(
     input: RunAgentInput,
     options: { onEvent: (event: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     // Emit different types of events
     const eventTypes = ["start", "message", "tool_call", "tool_result", "end"];
 
@@ -231,9 +241,10 @@ class MultiEventAgent extends AbstractAgent {
             eventType,
             metadata: { source: "MultiEventAgent" },
           },
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
@@ -257,25 +268,27 @@ describe("InMemoryAgentRunner", () => {
           id: "1",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
         {
           type: "message",
           id: "2",
           timestamp: new Date().toISOString(),
           data: { text: "Hello" },
-        } as BaseEvent,
+        } as unknown as BaseEvent,
         {
           type: "end",
           id: "3",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ];
 
       const agent = new MockAgent(events);
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-1",
       };
@@ -297,19 +310,21 @@ describe("InMemoryAgentRunner", () => {
           id: "past-1",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
         {
           type: "message",
           id: "past-2",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ];
 
       const agent = new MockAgent(events);
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-3",
       };
@@ -338,6 +353,8 @@ describe("InMemoryAgentRunner", () => {
       const input1: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-1",
       };
@@ -350,6 +367,8 @@ describe("InMemoryAgentRunner", () => {
       const input2: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-2",
       };
@@ -362,6 +381,8 @@ describe("InMemoryAgentRunner", () => {
       const input3: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-3",
       };
@@ -377,9 +398,15 @@ describe("InMemoryAgentRunner", () => {
       expect(agentEvents).toHaveLength(15); // 5 events per run × 3 runs
 
       // Verify events from all runs are present
-      const run1Events = agentEvents.filter((e) => e.id?.startsWith("run-1"));
-      const run2Events = agentEvents.filter((e) => e.id?.startsWith("run-2"));
-      const run3Events = agentEvents.filter((e) => e.id?.startsWith("run-3"));
+      const run1Events = agentEvents.filter((e) =>
+        eventId(e)?.startsWith("run-1"),
+      );
+      const run2Events = agentEvents.filter((e) =>
+        eventId(e)?.startsWith("run-2"),
+      );
+      const run3Events = agentEvents.filter((e) =>
+        eventId(e)?.startsWith("run-3"),
+      );
 
       expect(run1Events).toHaveLength(5);
       expect(run2Events).toHaveLength(5);
@@ -387,7 +414,7 @@ describe("InMemoryAgentRunner", () => {
 
       // Verify order preservation
       const runOrder = agentEvents.map(
-        (e) => e.id?.split("-")[0] + "-" + e.id?.split("-")[1],
+        (e) => eventId(e)?.split("-")[0] + "-" + eventId(e)?.split("-")[1],
       );
       expect(runOrder.slice(0, 5).every((id) => id?.startsWith("run-1"))).toBe(
         true,
@@ -408,6 +435,8 @@ describe("InMemoryAgentRunner", () => {
       const input1: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-1",
       };
@@ -435,7 +464,7 @@ describe("InMemoryAgentRunner", () => {
       const firstRunAgentEvents = stripTerminalEvents(allEvents);
       expect(firstRunAgentEvents).toHaveLength(5);
       const firstRunEvents = firstRunAgentEvents.filter((e) =>
-        e.id?.startsWith("first"),
+        eventId(e)?.startsWith("first"),
       );
 
       expect(firstRunEvents).toHaveLength(5);
@@ -445,6 +474,8 @@ describe("InMemoryAgentRunner", () => {
       const input2: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-2",
       };
@@ -474,13 +505,13 @@ describe("InMemoryAgentRunner", () => {
             id: "mock-1",
             timestamp: new Date().toISOString(),
             data: {},
-          } as BaseEvent,
+          } as unknown as BaseEvent,
           {
             type: "mock",
             id: "mock-2",
             timestamp: new Date().toISOString(),
             data: {},
-          } as BaseEvent,
+          } as unknown as BaseEvent,
         ]),
         new MultiEventAgent("multi"),
         new DelayedEventAgent(2, 0, "delayed"),
@@ -490,6 +521,8 @@ describe("InMemoryAgentRunner", () => {
         const input: RunAgentInput = {
           messages: [],
           state: {},
+          tools: [],
+          context: [],
           threadId,
           runId: `run-${i}`,
         };
@@ -520,6 +553,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-concurrent",
       };
@@ -556,6 +591,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-late",
       };
@@ -600,6 +637,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-1",
       };
@@ -619,6 +658,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-error-1",
       };
@@ -630,9 +671,9 @@ describe("InMemoryAgentRunner", () => {
       expect(events.at(-1)?.type).toBe(EventType.RUN_ERROR);
       const preErrorEvents = events.slice(0, -1);
       expect(preErrorEvents).toHaveLength(3);
-      expect(preErrorEvents.every((e) => e.id?.startsWith("error-agent"))).toBe(
-        true,
-      );
+      expect(
+        preErrorEvents.every((e) => eventId(e)?.startsWith("error-agent")),
+      ).toBe(true);
 
       // Should be able to run again after error
       const agent2 = new MockAgent([
@@ -641,12 +682,14 @@ describe("InMemoryAgentRunner", () => {
           id: "recovery-1",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ]);
 
       const input2: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-error-2",
       };
@@ -675,6 +718,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-fail",
       };
@@ -694,12 +739,14 @@ describe("InMemoryAgentRunner", () => {
           id: "after-error",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ]);
 
       const input2: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-fail-2",
       };
@@ -745,13 +792,15 @@ describe("InMemoryAgentRunner", () => {
           id: `bulk-${i}`,
           timestamp: new Date().toISOString(),
           data: { index: i, payload: "x".repeat(100) },
-        } as BaseEvent);
+        } as unknown as BaseEvent);
       }
 
       const agent = new MockAgent(events);
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-large",
       };
@@ -783,6 +832,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-running",
       };
@@ -815,6 +866,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-stop",
       };
@@ -841,6 +894,8 @@ describe("InMemoryAgentRunner", () => {
       const input: RunAgentInput = {
         messages: [],
         state: {},
+        tools: [],
+        context: [],
         threadId,
         runId: "run-open",
       };
@@ -871,7 +926,7 @@ describe("InMemoryAgentRunner", () => {
           id: "t1-event",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ]);
       const agent2 = new MockAgent([
         {
@@ -879,19 +934,33 @@ describe("InMemoryAgentRunner", () => {
           id: "t2-event",
           timestamp: new Date().toISOString(),
           data: {},
-        } as BaseEvent,
+        } as unknown as BaseEvent,
       ]);
 
       // Run on different threads
       const run1 = runner.run({
         threadId: thread1,
         agent: agent1,
-        input: { messages: [], state: {}, threadId: thread1, runId: "run-t1" },
+        input: {
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          threadId: thread1,
+          runId: "run-t1",
+        },
       });
       const run2 = runner.run({
         threadId: thread2,
         agent: agent2,
-        input: { messages: [], state: {}, threadId: thread2, runId: "run-t2" },
+        input: {
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          threadId: thread2,
+          runId: "run-t2",
+        },
       });
 
       await Promise.all([
@@ -929,7 +998,7 @@ describe("InMemoryAgentRunner", () => {
               id: "instant-1",
               timestamp: new Date().toISOString(),
               data: {},
-            } as BaseEvent,
+            } as unknown as BaseEvent,
           ]),
           runId: "run-1",
         },
@@ -941,7 +1010,7 @@ describe("InMemoryAgentRunner", () => {
               id: "instant-2",
               timestamp: new Date().toISOString(),
               data: {},
-            } as BaseEvent,
+            } as unknown as BaseEvent,
           ]),
           runId: "run-3",
         },
@@ -953,6 +1022,8 @@ describe("InMemoryAgentRunner", () => {
         const input: RunAgentInput = {
           messages: [],
           state: {},
+          tools: [],
+          context: [],
           threadId,
           runId,
         };
@@ -984,7 +1055,14 @@ describe("InMemoryAgentRunner", () => {
       const run1 = runner.run({
         threadId,
         agent: agent1,
-        input: { messages: [], state: {}, threadId, runId: "run-1" },
+        input: {
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          threadId,
+          runId: "run-1",
+        },
       });
       await firstValueFrom(run1.pipe(toArray()));
 
@@ -997,7 +1075,7 @@ describe("InMemoryAgentRunner", () => {
       const midAgentEvents = stripTerminalEvents(midEvents);
       expect(midAgentEvents).toHaveLength(5); // Only events from first run
       const firstRunEvents = midAgentEvents.filter((e) =>
-        e.id?.includes("first"),
+        eventId(e)?.includes("first"),
       );
       expect(firstRunEvents).toHaveLength(5);
 
@@ -1006,7 +1084,14 @@ describe("InMemoryAgentRunner", () => {
       const run2 = runner.run({
         threadId,
         agent: agent2,
-        input: { messages: [], state: {}, threadId, runId: "run-2" },
+        input: {
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          threadId,
+          runId: "run-2",
+        },
       });
       await firstValueFrom(run2.pipe(toArray()));
 
@@ -1018,10 +1103,10 @@ describe("InMemoryAgentRunner", () => {
       expect(allAgentEvents).toHaveLength(10); // Events from both runs
 
       const allFirstRunEvents = allAgentEvents.filter((e) =>
-        e.id?.includes("first"),
+        eventId(e)?.includes("first"),
       );
       const allSecondRunEvents = allAgentEvents.filter((e) =>
-        e.id?.includes("second"),
+        eventId(e)?.includes("second"),
       );
       expect(allFirstRunEvents).toHaveLength(5);
       expect(allSecondRunEvents).toHaveLength(5);

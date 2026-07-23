@@ -30,6 +30,8 @@ export const HEADLESS_COMPLETE_SYSTEM_PROMPT =
   "with the location.\n" +
   "  - If the user asks about a stock or ticker (AAPL, TSLA, MSFT, ...), " +
   "call `get_stock_price` with the ticker.\n" +
+  "  - If the user asks for a revenue, sales, or trend chart, call " +
+  "`get_revenue_chart`.\n" +
   "  - If the user asks you to highlight, flag, or mark a short note " +
   "or phrase, call the frontend `highlight_note` tool with the text " +
   "and a color (yellow, pink, green, or blue). Do NOT ask the user " +
@@ -76,6 +78,17 @@ export const HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA: Anthropic.Tool = {
   },
 };
 
+export const HEADLESS_GET_REVENUE_CHART_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "get_revenue_chart",
+  description:
+    "Return a mock six-month revenue trend chart. Use this when the " +
+    "user asks for revenue, sales, or trend charts.",
+  input_schema: {
+    type: "object",
+    properties: {},
+  },
+};
+
 export function getWeatherImpl(location: string): Record<string, unknown> {
   return {
     city: location,
@@ -91,5 +104,20 @@ export function getStockPriceImpl(ticker: string): Record<string, unknown> {
     ticker: ticker.toUpperCase(),
     price_usd: 189.42,
     change_pct: 1.27,
+  };
+}
+
+export function getRevenueChartImpl(): Record<string, unknown> {
+  return {
+    title: "Revenue trend",
+    subtitle: "Last six months, USD thousands",
+    data: [
+      { label: "Jan", value: 42 },
+      { label: "Feb", value: 48 },
+      { label: "Mar", value: 53 },
+      { label: "Apr", value: 57 },
+      { label: "May", value: 63 },
+      { label: "Jun", value: 71 },
+    ],
   };
 }

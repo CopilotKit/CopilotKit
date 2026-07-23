@@ -18,7 +18,8 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import { createElement } from "react";
+import type { ReactNode } from "react";
 
 vi.mock("../lib/ops-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/ops-api")>();
@@ -26,17 +27,17 @@ vi.mock("../lib/ops-api", async (importOriginal) => {
 });
 
 import * as opsApi from "../lib/ops-api";
-import {
-  OpsApiHttpError,
-  type WorkerRunsResponse,
-  type WorkerFamilySummary,
-  type WorkerRunBatch,
+import { OpsApiHttpError } from "../lib/ops-api";
+import type {
+  WorkerRunsResponse,
+  WorkerFamilySummary,
+  WorkerRunBatch,
 } from "../lib/ops-api";
 import {
   EXPECT_WORKER_RUNS_ENDPOINT,
   useWorkerRunsPoll,
-  type WorkerRunsStatus,
 } from "./use-worker-runs";
+import type { WorkerRunsStatus } from "./use-worker-runs";
 import {
   WorkerRunsProvider,
   useWorkerRuns,
@@ -55,8 +56,8 @@ function okBody(): WorkerRunsResponse {
         family: "d5",
         label: "D5 e2e-deep",
         probeKeyPrefix: "d5-single-pill-e2e",
-        schedule: "5,20,35,50 * * * *",
-        periodMs: 900_000,
+        schedule: "*/30 * * * *",
+        periodMs: 1_800_000,
         nextRunAt: null,
         lastRun: null,
         inflight: null,
@@ -298,8 +299,8 @@ function familyEntry(
     family: "d5",
     label: "D5 e2e-deep",
     probeKeyPrefix: "d5-single-pill-e2e",
-    schedule: "5,20,35,50 * * * *",
-    periodMs: 900_000,
+    schedule: "*/30 * * * *",
+    periodMs: 900_000, // predicate-math fixture: kept at 15min so the 2x=1_800_000 boundary assertions below stay valid (not real d5 cadence)
     nextRunAt: null,
     lastRun: null,
     inflight: null,

@@ -57,7 +57,8 @@ type InferRenderProps<T> = T extends StandardSchemaV1
  * ```
  */
 export function useComponent<
-  TSchema extends StandardSchemaV1 | undefined = undefined,
+  TSchema extends StandardSchemaV1<any, Record<string, unknown>> | undefined =
+    undefined,
 >(
   config: {
     name: string;

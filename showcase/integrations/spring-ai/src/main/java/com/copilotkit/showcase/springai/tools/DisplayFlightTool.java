@@ -71,25 +71,31 @@ public class DisplayFlightTool implements Function<DisplayFlightTool.Request, St
     @Override
     public String apply(Request request) {
         try {
-            // The A2UI middleware detects the `a2ui_operations` container in
-            // this tool result and forwards the ops to the frontend renderer.
-            // The frontend catalog resolves component names to the local
-            // React components.
+            // Emit v0.9 nested A2UI operations. The middleware parses
+            // `a2ui_operations` from any TOOL_CALL_RESULT and expects each op
+            // to carry `"version":"v0.9"` with a camelCase operation key
+            // (`createSurface`, `updateComponents`, `updateDataModel`) and the
+            // data nested under `value` (not `data`). This matches the Python
+            // SDK shape in sdk-python/copilotkit/a2ui.py.
             var ops = List.of(
-                    Map.of("type", "create_surface",
-                            "surfaceId", SURFACE_ID,
-                            "catalogId", CATALOG_ID),
-                    Map.of("type", "update_components",
-                            "surfaceId", SURFACE_ID,
-                            "components", FLIGHT_SCHEMA),
-                    Map.of("type", "update_data_model",
-                            "surfaceId", SURFACE_ID,
-                            "data", Map.of(
-                                    "origin", request.origin(),
-                                    "destination", request.destination(),
-                                    "airline", request.airline(),
-                                    "price", request.price()
-                            ))
+                    Map.of("version", "v0.9",
+                            "createSurface", Map.of(
+                                    "surfaceId", SURFACE_ID,
+                                    "catalogId", CATALOG_ID)),
+                    Map.of("version", "v0.9",
+                            "updateComponents", Map.of(
+                                    "surfaceId", SURFACE_ID,
+                                    "components", FLIGHT_SCHEMA)),
+                    Map.of("version", "v0.9",
+                            "updateDataModel", Map.of(
+                                    "surfaceId", SURFACE_ID,
+                                    "path", "/",
+                                    "value", Map.of(
+                                            "origin", request.origin(),
+                                            "destination", request.destination(),
+                                            "airline", request.airline(),
+                                            "price", request.price()
+                                    )))
             );
             return MAPPER.writeValueAsString(Map.of("a2ui_operations", ops));
             // @endregion[backend-render-operations]

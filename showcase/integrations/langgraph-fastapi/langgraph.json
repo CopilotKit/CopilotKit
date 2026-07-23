@@ -17,6 +17,7 @@
     "interrupt_agent": "./src/agents/src/interrupt_agent.py:graph",
     "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph",
     "a2ui_fixed": "./src/agents/src/a2ui_fixed.py:graph",
+    "a2ui_recovery": "./src/agents/src/recovery_agent.py:graph",
     "mcp_apps": "./src/agents/src/mcp_apps_agent.py:graph",
     "frontend_tools": "./src/agents/src/frontend_tools.py:graph",
     "frontend_tools_async": "./src/agents/src/frontend_tools_async.py:graph",

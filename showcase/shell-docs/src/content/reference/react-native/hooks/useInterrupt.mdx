@@ -5,7 +5,7 @@ description: "React hook for handling agent interrupt events and resuming execut
 
 ## Overview
 
-`useInterrupt` listens for agent custom events named `on_interrupt`, captures the latest interrupt payload for a run, and renders interrupt UI once the run finalizes. Your UI can call `resolve(response)` to resume the agent with a resume payload.
+`useInterrupt` handles agent interrupts and resumes execution with user input. It supports the **AG-UI standard interrupt flow** — `RUN_FINISHED` with `outcome.type === "interrupt"` carrying an `interrupts` array — and the legacy custom-event flow (`on_interrupt`). For standard interrupts, your `render`/`handler` receive `interrupt` (the primary one) and `interrupts` (the full open set); call `resolve(payload)` to resume or `cancel()` to cancel.
 
 <Callout type="info">
   Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useInterrupt`](/reference/v2/hooks/useInterrupt); only the import path differs.
@@ -40,8 +40,11 @@ function useInterrupt<
   <PropertyReference name="render" type="(props: InterruptRenderProps<any, TResult | null>) => React.ReactElement" required>
     Render callback for interrupt UI. Called when an interrupt is available. The callback receives:
     - `event`: interrupt event (`{ name, value }`). `value` is `any`; type-narrow in your callback as needed.
+    - `interrupt`: the primary standard `Interrupt` (`{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`), or `null` for legacy interrupts.
+    - `interrupts`: all open standard interrupts (empty array for legacy interrupts).
     - `result`: inferred from `handler` return type, or `null`
-    - `resolve(response)`: resumes the agent with `command.resume = response`
+    - `resolve(payload?, interruptId?)`: for standard interrupts, records `{ status: "resolved", payload }` for the target interrupt (defaults to the primary) and submits once all open interrupts are addressed. For legacy interrupts, resumes immediately via `command.resume = payload`.
+    - `cancel(interruptId?)`: for standard interrupts, records `{ status: "cancelled" }` for the target interrupt and resumes once all are addressed. Not supported for legacy interrupts (dismisses without resuming).
   </PropertyReference>
 
 <PropertyReference
@@ -108,6 +111,33 @@ function ApprovalInterrupt() {
 }
 ```
 
+### AG-UI standard interrupt (approve / cancel)
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useInterrupt } from "@copilotkit/react-native";
+
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ interrupt, resolve, cancel }) => (
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 8 }}>
+        <Text>{interrupt?.message ?? "Approve this action?"}</Text>
+        <View style={{ marginTop: 8, flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity onPress={() => resolve({ approved: true })}>
+            <Text>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => cancel()}>
+            <Text>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    ),
+  });
+
+  return null;
+}
+```
+
 ### Manual placement with async preprocessing
 
 ```tsx
@@ -136,10 +166,12 @@ function SidePanelInterrupt() {
 
 ## Behavior
 
-- Interrupts are collected from agent custom events named `on_interrupt`.
+- Standard interrupts are detected from `RUN_FINISHED` (`outcome.type === "interrupt"`); legacy interrupts from `on_interrupt` custom events.
+- `resolve`/`cancel` accumulate one response per open interrupt; the resume run starts once every open interrupt is addressed.
+- Expired interrupts (past `expiresAt`) are not resumed.
 - Interrupt UI is surfaced when the run finalizes.
 - Starting a new run clears pending interrupt state.
-- `event.value` is `any`; type-narrow in your callbacks as needed.
+- `event.value` is `any`; type-narrow in your callbacks as needed. For standard interrupts, `event.value` is the primary `Interrupt`.
 - `render.result` is inferred from `handler` return type and is always `TResult | null`.
 - If `handler` throws or rejects, `result` is set to `null`.
 

@@ -19,6 +19,39 @@
 # (notify workflow aborts gracefully — we treat that as a non-fatal but
 # distinct exit so callers can assert on it).
 
+# ---------- alert post-and-verify predicate (shared with the workflow) ----------
+# Slack returns HTTP 200 with `{"ok":false,"error":"..."}` on LOGICAL failures
+# (channel_not_found, not_in_channel, ...). A failure-ALERT that is silently
+# dropped pages nobody, so the live workflow MUST surface it. This predicate is
+# the testable core of that surfacing logic: it inspects a captured Slack
+# response and, when the post did NOT succeed, emits a GitHub `::warning::`
+# (matching the workflow's existing `::warning::`/`>&2` idiom) and returns 1.
+#
+# Sourcing this script (e.g. from bats) defines this function without running
+# the dry-run body — see the EXECUTION GUARD just below the function.
+#   $1 = label for the warning (e.g. "thread reply", "#oss-alerts cross-post")
+#   $2 = captured Slack API response body (JSON, or "{}" on transport failure)
+slack_alert_posted_ok() {
+  local label="$1"
+  local resp="$2"
+  local ok
+  ok=$(printf '%s' "$resp" | jq -r '.ok // false' 2>/dev/null || echo false)
+  if [ "$ok" != "true" ]; then
+    local err
+    err=$(printf '%s' "$resp" | jq -r '.error // "unknown"' 2>/dev/null || echo unknown)
+    echo "::warning::Slack ${label} did NOT post (ok=${ok} error=${err}); failure alert may have been dropped" >&2
+    return 1
+  fi
+  return 0
+}
+
+# EXECUTION GUARD: define functions only when sourced. `return` outside a
+# function is legal only in a sourced script (it errors when executed), so the
+# subshell `(return 0 2>/dev/null)` succeeds iff we are being sourced — in which
+# case we `return 0` here and skip the dry-run body below. When executed
+# directly the subshell fails and execution falls through to `set -euo`.
+(return 0 2>/dev/null) && return 0
+
 set -euo pipefail
 
 if [ "${1:-}" = "" ]; then
@@ -69,12 +102,16 @@ fi
 trigger=$(jq -r '.trigger' "$R")
 operator_email=$(jq -r '.operator_email // ""' "$R")
 operator_git_name=$(jq -r '.operator_git_name // ""' "$R")
-elapsed=$(jq -r '.elapsed_seconds // 0' "$R")
+# Coerce to an integer up front: elapsed_seconds may arrive as a float (e.g.
+# 5.2) OR as a JSON STRING (e.g. "5.2"). `floor` on a string raises jq error 5
+# ("number required") which, under `set -euo pipefail`, aborts the whole render
+# step so NO Slack message posts. `tonumber?` parses numeric strings and
+# swallows non-numeric input (-> 0); `floor` then yields the integer Bash
+# `[ -gt ]`/`$(( ))` need.
+elapsed=$(jq -r '(.elapsed_seconds // 0) | tonumber? // 0 | floor' "$R")
 pre_staging=$(jq -r '.pre_staging // "skipped"' "$R")
 abort_reason=$(jq -r '.abort_reason // ""' "$R")
 succeeded_count=$(jq -r '.succeeded | length' "$R")
-# shellcheck disable=SC2034  # retained for parity with workflow (internal logging only)
-failed_count=$(jq -r '.failed | length' "$R")
 
 jq '.failed | sort_by(.service)' "$R" > /tmp/dry-run-failed-sorted.json
 jq '[.[] | select(.category != "truncation-suffix")]' /tmp/dry-run-failed-sorted.json > /tmp/dry-run-failed-render.json
@@ -85,18 +122,49 @@ truncation_more=$(jq -r '[.[] | select(.category == "truncation-suffix") | .serv
 #   succeeded_count    = raw .succeeded length
 #   failed_real_count  = .failed length minus truncation-suffix sentinels
 #                        (rendered to operators on all display lines)
-#   failed_count       = raw .failed length (internal logging only)
 failed_real_count=$(jq 'length' /tmp/dry-run-failed-render.json)
 
 total_count=$((succeeded_count + failed_real_count))
 
+# Comma-separated list of the SUCCEEDED service names, for the ✅ success
+# thread reply AND the ⚠️ partial reply's `Promoted:` line. The runtime blob
+# emits .succeeded[] as {service} objects (see promote-fleet.sh); tolerate bare
+# strings too (hand-written fixtures use them).
+succeeded_csv=$(jq -r '[.succeeded[] | if type == "object" then .service else . end] | join(", ")' "$R")
+
+# Names of every ATTEMPTED service (succeeded + real failures), for the init
+# post. For `service=all` this is the drifted subset resolve-targets selected;
+# for a scoped/single-service dispatch it is exactly what was requested. Either
+# way it is the set we ATTEMPTED — we do not claim the rest was already current.
+# Sorted for a stable, legible list; the truncation-suffix sentinel is excluded
+# via /tmp/dry-run-failed-render.json.
+attempted_csv=$(jq -rs '
+  (.[0] | [.succeeded[] | if type == "object" then .service else . end])
+  + (.[1] | [.[].service])
+  | sort | join(", ")
+' "$R" /tmp/dry-run-failed-render.json)
+
+# GitHub Actions run URL — used by the success message's inline "View run" link.
+# In CI GITHUB_REPOSITORY/GITHUB_RUN_ID are set; in a bare dry-run they may not
+# be, so fall back to a stable placeholder so the rendered shape still matches.
+gha_url="https://github.com/${GITHUB_REPOSITORY:-CopilotKit/CopilotKit}/actions/runs/${GITHUB_RUN_ID:-<run_id>}"
+
+# elapsed is the real wall-clock seconds the dispatcher measured
+# (showcase_promote.yml computes now - run.created_at). When it is a positive
+# value we render " in Nm SSs"; when it is 0 (dispatcher could not measure it,
+# or a hand-dispatch passed nothing) we OMIT the phrase entirely rather than
+# print a meaningless "in 0m 00s".
 fmt_elapsed() {
   local total="$1"
   local m=$((total / 60))
   local s=$((total % 60))
   printf '%dm %02ds' "$m" "$s"
 }
-elapsed_str=$(fmt_elapsed "$elapsed")
+if [ "$elapsed" -gt 0 ] 2>/dev/null; then
+  elapsed_phrase=" in $(fmt_elapsed "$elapsed")"
+else
+  elapsed_phrase=""
+fi
 
 # operator mention: dry-run simulates a successful Slack lookup; falls back to git name then "unknown" if no email present.
 if [ -n "$operator_email" ]; then
@@ -123,7 +191,18 @@ else
   trigger_label='`showcase_promote.yml`'
 fi
 
-init_text="🚂 *Promoting showcase → prod* (${total_count} services)
+# Name the services being promoted this run. We name only what was ATTEMPTED
+# — accurate whether the dispatch was `service=all` (the drifted subset) or a
+# single service. We do NOT claim the rest of the fleet was "already current":
+# for a scoped/single-service dispatch that is false (it conflates "attempted"
+# with "drifted"). Fall back to a bare count when the attempted set is empty
+# (e.g. a fleet-preflight abort that touched zero services).
+if [ -n "$attempted_csv" ]; then
+  init_headline="🚂 *Promoting showcase → prod* (${total_count}): ${attempted_csv}"
+else
+  init_headline="🚂 *Promoting showcase → prod* (${total_count})"
+fi
+init_text="${init_headline}
 operator ${operator_mention} · trigger ${trigger_label} · run \`${run_id}\`
 ${pre_staging_line}"
 
@@ -156,13 +235,11 @@ if [ -n "$abort_reason" ] && [ "$succeeded_count" -eq 0 ]; then
   if [ "$failed_real_count" -eq 0 ]; then
     # Fleet-preflight abort with zero services touched: no bullets to
     # render, so omit the *Failed:* heading entirely.
-    thread_text="❌ *Aborted in ${elapsed_str}* — 0 ✓ · 0 ✗
-verify-prod: not run
+    thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · 0 ✗
 ${pre_staging_line}
 ${reason_line}"
   else
-    thread_text="❌ *Aborted in ${elapsed_str}* — 0 ✓ · ${failed_real_count} ✗
-verify-prod: not run
+    thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · ${failed_real_count} ✗
 ${pre_staging_line}
 ${reason_line}
 *Failed:*
@@ -170,12 +247,12 @@ ${fail_bullets}"
   fi
 elif [ "$failed_real_count" -eq 0 ]; then
   outcome="success"
-  thread_text="✅ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · 0 ✗
-verify-prod: ✓ all green"
+  thread_text="✅ *Showcase Promoted to Prod* — ${succeeded_count} ✓  ·  <${gha_url}|View run>
+Services: ${succeeded_csv}"
 elif [ "$succeeded_count" -gt 0 ] && [ "$failed_real_count" -gt 0 ]; then
   outcome="partial"
-  thread_text="⚠️ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · ${failed_real_count} ✗
-verify-prod: ✓ on succeeded · n/a on failed
+  thread_text="⚠️ *Done${elapsed_phrase}* — ${succeeded_count} ✓ · ${failed_real_count} ✗
+*Promoted:* ${succeeded_csv}
 *Failed:*
 ${fail_bullets}"
 else
@@ -187,8 +264,7 @@ else
     per-service)     reason_line="*Reason:* all services individually refused" ;;
     *)               reason_line="*Reason:* aborted" ;;
   esac
-  thread_text="❌ *Aborted in ${elapsed_str}* — 0 ✓ · ${failed_real_count} ✗
-verify-prod: not run
+  thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · ${failed_real_count} ✗
 ${pre_staging_line}
 ${reason_line}
 *Failed:*
@@ -206,12 +282,45 @@ emit() {
 emit "#team-showcase" "$init_text"
 emit "#team-showcase (thread_ts=<init_ts>)" "$thread_text"
 
+# Mirror the workflow's outcome REACTION on the init message. The live .yml
+# calls reactions.add on the ORIGINAL init post (referencing it by `timestamp`,
+# not `ts`) so operators see the net outcome at a glance. No real Slack call
+# happens here, so EMIT what reaction the workflow WOULD add. Keep this
+# outcome→reaction-name case mapping BYTE-IDENTICAL to the .yml's — an
+# anti-drift bats guard enforces it.
+case "$outcome" in
+  success) reaction_name="white_check_mark" ;;
+  partial) reaction_name="warning" ;;
+  total)   reaction_name="x" ;;
+esac
+echo "--- reactions.add ---"
+echo "channel: #team-showcase (ts=<init_ts>)"
+echo "name: ${reaction_name}"
+echo
+
+# Mirror the workflow's post-and-verify exit semantics so the dry-run exercises
+# the SAME fail-loud/warn-only distinction the live .yml does (see the matching
+# slack_alert_posted_ok calls there). No real Slack call happens here, so we
+# feed each predicate a simulated response: a successful post by default (the
+# dry-run convention — see the operator-mention block above), overridable via
+# DRY_RUN_THREAD_RESP / DRY_RUN_OSS_RESP so a test can inject a 200/ok:false
+# drop and assert on the exit code.
+sim_ok='{"ok":true,"ts":"<sim>"}'
+
+# Thread reply: informational, in the promote channel — warn-only (|| true),
+# mirroring the .yml. A dropped summary post must not red the job.
+slack_alert_posted_ok "thread reply" "${DRY_RUN_THREAD_RESP:-$sim_ok}" || true
+
 if [ "$outcome" != "success" ]; then
   case "$outcome" in
     partial) oss_text="⚠️ showcase promote: ${succeeded_count} ✓ · ${failed_real_count} ✗ — thread: <permalink>" ;;
     total)   oss_text="❌ showcase promote aborted: 0 ✓ · ${failed_real_count} ✗ — thread: <permalink>" ;;
   esac
   emit "#oss-alerts" "$oss_text"
+  # Page-the-humans alert: FAIL LOUD, mirroring the .yml. No `|| true` — a
+  # 200/ok:false drop here means nobody is told the promote failed, so the
+  # predicate's non-zero return must abort (set -e) and red the run.
+  slack_alert_posted_ok "#oss-alerts cross-post" "${DRY_RUN_OSS_RESP:-$sim_ok}"
 fi
 
 echo "outcome=${outcome} run_id=${run_id}"

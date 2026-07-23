@@ -4,6 +4,7 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import { MobileTopNav } from "./mobile-top-nav";
 import { SidebarScrollPreserver } from "./sidebar-scroll-preserver";
 import { SidebarFolderStatePreserver } from "./sidebar-folder-state-preserver";
+import { SidebarReactDocsNotice } from "./sidebar-react-docs-notice";
 import GithubIcon from "./icons/github";
 import DiscordIcon from "./icons/discord";
 import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
@@ -18,10 +19,12 @@ import { PrimaryDocsTabs } from "./primary-docs-tabs";
 export function ShellDocsLayout({
   tree,
   banner,
+  sidebarClassName,
   children,
 }: {
   tree: PageTree.Root;
   banner?: React.ReactNode;
+  sidebarClassName?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -51,7 +54,9 @@ export function ShellDocsLayout({
         ),
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.
         collapsible: false,
-        className: "shell-docs-sidebar",
+        className: ["shell-docs-sidebar", sidebarClassName]
+          .filter(Boolean)
+          .join(" "),
         // Note: `key` is required here because fumadocs's Sidebar
         // passes the `footer` ReactNode into a `jsxs(children: [a, b,
         // footer])` array, and React's dev-mode warning insists every
@@ -106,6 +111,7 @@ export function ShellDocsLayout({
        * default state on every page mount, undoing the user's
        * "I want this section hidden" choice. */}
       <SidebarFolderStatePreserver />
+      <SidebarReactDocsNotice />
       {children}
     </DocsLayout>
   );

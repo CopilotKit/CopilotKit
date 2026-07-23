@@ -26,6 +26,7 @@ const {
   createE2eDeepEnumMock,
   createServiceEnumMock,
   demosForSlugMock,
+  loadManifestMock,
 } = vi.hoisted(() => ({
   // A mutable ref the producer mock returns from `tick()` so per-test we can
   // simulate enqueue success / partial failure / total failure.
@@ -64,6 +65,24 @@ const {
     `${slug}-demo-a`,
     `${slug}-demo-b`,
   ]),
+  // `loadManifest` reads manifest.yaml from disk; mock so tests don't need a
+  // real integration tree. Default = no NSF; per-test override via
+  // `mockReturnValue` to simulate a manifest that declares NSF.
+  loadManifestMock: vi.fn(
+    (
+      slug: string,
+    ): {
+      slug: string;
+      name: string;
+      features: string[];
+      not_supported_features?: string[];
+    } => ({
+      slug,
+      name: `Showcase ${slug}`,
+      features: [],
+      not_supported_features: undefined,
+    }),
+  ),
 }));
 
 vi.mock("../fleet/control-plane/job-producer.js", () => ({
@@ -96,6 +115,8 @@ vi.mock("./targets.js", async () => {
     ...actual,
     demosForSlug: (slug: string, _config: LocalConfig) =>
       demosForSlugMock(slug),
+    loadManifest: (slug: string, _config: LocalConfig) =>
+      loadManifestMock(slug),
   };
 });
 
@@ -104,8 +125,8 @@ import {
   expectedKeys,
   dedupeScopes,
   runViaControlPlane,
-  type SlugScope,
 } from "./control-plane-run.js";
+import type { SlugScope } from "./control-plane-run.js";
 
 const SILENT_LOGGER: Logger = {
   debug: () => {},
@@ -124,8 +145,8 @@ const STUB_CONFIG: LocalConfig = {
     password: "showcase-local-dev",
   },
   aimockUrl: "http://localhost:4010",
-  dashboardUrl: "http://localhost:3200",
-  dashboardPort: 3200,
+  dashboardUrl: "http://localhost:3210",
+  dashboardPort: 3210,
 };
 
 // Replace process.env.LOCAL_SERVICES_JSON across tests so `buildLocalServicesJson`
@@ -133,6 +154,13 @@ const STUB_CONFIG: LocalConfig = {
 const origEnv = { ...process.env };
 beforeEach(() => {
   delete process.env.LOCAL_SERVICES_JSON;
+  loadManifestMock.mockReset();
+  loadManifestMock.mockImplementation((slug: string) => ({
+    slug,
+    name: `Showcase ${slug}`,
+    features: [],
+    not_supported_features: undefined,
+  }));
   createJobProducerMock.mockReset();
   createJobProducerMock.mockReturnValue({
     start: vi.fn(),
@@ -166,12 +194,18 @@ describe("buildLocalServicesJson", () => {
     const scopes: SlugScope[] = [{ slug: "langgraph-python" }];
     const out = JSON.parse(
       buildLocalServicesJson(scopes, "d5", STUB_CONFIG),
-    ) as Array<{ name: string; publicUrl: string; demos: string[] }>;
+    ) as Array<{
+      name: string;
+      publicUrl: string;
+      demos: string[];
+      notSupportedFeatures: string[];
+    }>;
     expect(out).toEqual([
       {
         name: "showcase-langgraph-python",
         publicUrl: "http://langgraph-python:10000",
         demos: ["agentic-chat"],
+        notSupportedFeatures: [],
       },
     ]);
   });
@@ -211,6 +245,58 @@ describe("buildLocalServicesJson", () => {
     expect(buildLocalServicesJson(scopes, "d5", STUB_CONFIG)).toBe(
       '[{"name":"showcase-from-env"}]',
     );
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // not_supported_features (NSF) threading — LOCAL==STAGING parity.
+  // The synthesized roster MUST carry the manifest's NSF so the worker's
+  // D6 driver reclassifies architecturally/upstream-blocked features as
+  // skipped-incapable instead of red (mirrors the legacy --direct path in
+  // targets.ts buildFullInputs / buildDeepInputs).
+  // ─────────────────────────────────────────────────────────────────────
+  it("d6 threads manifest not_supported_features into the synthesized roster", () => {
+    loadManifestMock.mockReturnValue({
+      slug: "ms-agent-harness-dotnet",
+      name: "Showcase ms-agent-harness-dotnet",
+      features: ["beautiful-chat"],
+      not_supported_features: [
+        "shared-state-streaming",
+        "gen-ui-interrupt",
+        "interrupt-headless",
+      ],
+    });
+    const scopes: SlugScope[] = [{ slug: "ms-agent-harness-dotnet" }];
+    const out = JSON.parse(
+      buildLocalServicesJson(scopes, "d6", STUB_CONFIG),
+    ) as Array<{ notSupportedFeatures: string[] }>;
+    expect(out[0].notSupportedFeatures).toEqual([
+      "shared-state-streaming",
+      "gen-ui-interrupt",
+      "interrupt-headless",
+    ]);
+  });
+
+  it("d5 threads manifest not_supported_features into the synthesized roster", () => {
+    loadManifestMock.mockReturnValue({
+      slug: "ms-agent-harness-dotnet",
+      name: "Showcase ms-agent-harness-dotnet",
+      features: ["beautiful-chat"],
+      not_supported_features: ["shared-state-streaming"],
+    });
+    const scopes: SlugScope[] = [{ slug: "ms-agent-harness-dotnet" }];
+    const out = JSON.parse(
+      buildLocalServicesJson(scopes, "d5", STUB_CONFIG),
+    ) as Array<{ notSupportedFeatures: string[] }>;
+    expect(out[0].notSupportedFeatures).toEqual(["shared-state-streaming"]);
+  });
+
+  it("defaults notSupportedFeatures to [] when the manifest omits the field", () => {
+    // default loadManifestMock returns not_supported_features: undefined
+    const scopes: SlugScope[] = [{ slug: "langgraph-python" }];
+    const out = JSON.parse(
+      buildLocalServicesJson(scopes, "d6", STUB_CONFIG),
+    ) as Array<{ notSupportedFeatures: string[] }>;
+    expect(out[0].notSupportedFeatures).toEqual([]);
   });
 });
 

@@ -29,7 +29,7 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
     "@copilotkit/web-inspector": "workspace:*",
-    "@copilotkitnext/angular": "workspace:*",
+    "@copilotkit/angular": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
     "@tanstack/pacer": "^0.20.1",
     "clsx": "^2.1.1",

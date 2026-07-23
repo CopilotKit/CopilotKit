@@ -3,8 +3,18 @@
   "root": true,
   "pages": [
     "index",
+    "cli",
     "---Basics---",
     "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-import"
+      ]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "---Generative UI---",
@@ -18,7 +28,6 @@
     "configurable",
     "subgraphs",
     "auth",
-    "---Intelligence Platform---",
     "---Tutorials---",
     "...tutorials"
   ]

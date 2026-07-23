@@ -7,8 +7,8 @@
  * render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import { Context } from "@copilotkit/channels";
+import { defineChannelTool } from "@copilotkit/channels";
 import { renderDiagram } from "../render/diagram.js";
 
 const schema = z.object({
@@ -33,16 +33,23 @@ function slug(s: string): string {
   );
 }
 
-export const renderDiagramTool = defineBotTool({
+export const renderDiagramTool = defineChannelTool({
   name: "render_diagram",
   description:
-    "Render a Mermaid diagram as an image and post it to the Slack thread. " +
-    "Pass Mermaid source (flowchart/sequence/state/etc). Use this to diagram " +
-    "a flow, architecture, or incident timeline. The image renders inline.",
+    "Render a Mermaid diagram as an image and post it to the conversation " +
+    "thread. Pass Mermaid source (flowchart/sequence/state/etc). Use this to " +
+    "diagram a flow, architecture, or incident timeline. The image renders " +
+    "inline in the conversation.",
   parameters: schema,
   async handler({ title, mermaid }, ctx) {
     try {
       const png = await renderDiagram(mermaid);
+      // Post the caption as a HEADER first, then the image (see render-chart:
+      // a file upload's message lands a beat after `postFile` resolves, so
+      // caption-first keeps a stable caption → image order).
+      await ctx.thread.post(
+        <Context>{`📐  *${title ?? "Diagram"}* — diagram below.`}</Context>,
+      );
       const res = await ctx.thread.postFile({
         bytes: png,
         filename: `${slug(title ?? "diagram")}.png`,
@@ -52,10 +59,6 @@ export const renderDiagramTool = defineBotTool({
       if (!res.ok) {
         return `Diagram render failed: ${res.error ?? "upload was rejected"}. Fix the Mermaid syntax and retry.`;
       }
-      // After the image lands, post a small JSX caption card.
-      await ctx.thread.post(
-        <Context>{`:triangular_ruler:  *${title ?? "Diagram"}* — rendered as an image above.`}</Context>,
-      );
       return "Rendered and posted the diagram image to the thread.";
     } catch (e) {
       // Surface the Mermaid parse error so the agent can repair the source.

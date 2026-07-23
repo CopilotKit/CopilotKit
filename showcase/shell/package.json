@@ -3,18 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
-    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
+    "dev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@copilotkit/react-core": "latest",
-    "@copilotkitnext/agent": "next",
-    "@copilotkitnext/react": "next",
-    "@copilotkitnext/runtime": "next",
+    "@copilotkit/react-core": "1.61.2",
+    "@copilotkit/runtime": "1.61.2",
     "client-only": "0.0.1",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",

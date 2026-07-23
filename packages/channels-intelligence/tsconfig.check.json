@@ -1,0 +1,10 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["es2023", "dom"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

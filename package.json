@@ -26,6 +26,10 @@
     "demo:vue": "nx run @copilotkit/vue-demo:dev",
     "release:prepare:dry": "tsx scripts/release/prepare-release.ts --scope monorepo --bump patch --dry-run",
     "release:prerelease:dry": "tsx scripts/release/prerelease.ts --scope monorepo --dry-run",
+    "verify:channels-umbrella": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts",
+    "verify:channels-umbrella:registry": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts --registry",
+    "verify:angular-package": "nx run @copilotkit/angular:build && tsx scripts/release/verify-angular-package.ts",
+    "verify:runtime-package": "nx run @copilotkit/runtime:build && tsx scripts/release/verify-runtime-package.ts",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
@@ -39,6 +43,7 @@
     "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.207",
     "@arethetypeswrong/cli": "^0.18.2",
     "@commitlint/cli": "^20.3.0",
     "@commitlint/config-conventional": "^20.3.0",
@@ -48,6 +53,7 @@
     "@storybook/react-webpack5": "^10.2.10",
     "@types/jscodeshift": "^17.3.0",
     "@types/node": "^18.11.17",
+    "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^3.2.4",
     "browserslist": "^4.24.0",
     "danger": "^12.3.3",
@@ -64,6 +70,7 @@
     "remark": "^15.0.1",
     "remark-mdx": "^3.1.1",
     "remark-parse": "^11.0.0",
+    "semver": "^7.8.1",
     "size-limit": "12.1.0",
     "storybook": "^10.2.10",
     "ts-node": "^10.9.2",
@@ -103,7 +110,7 @@
       "serve-static@<=1.16.0": "1.16.0",
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
-      "@copilotkit/license-verifier": "~0.4.2",
+      "@copilotkit/license-verifier": "~0.5.0",
       "next": "^16.0.10",
       "defu@<=6.1.4": ">=6.1.5",
       "minimatch": ">=9.0.6",
@@ -160,6 +167,7 @@
       "@smithy/config-resolver": ">=4.4.0",
       "defu": ">=6.1.5",
       "ai": ">=5.0.52",
+      "@ai-sdk/mcp": "1.0.21",
       "storybook@>=8.0.0 <8.6.17": "8.6.17",
       "path-to-regexp@>=8.0.0 <8.4.0": ">=8.4.0"
     }

@@ -31,8 +31,6 @@ Render tool calls when you want to:
 
 ## Default tool rendering (zero-config)
 
-<FrameworkSetup concept="agent-setup" />
-
 The simplest entry point: call `useDefaultRenderTool()` with no arguments.
 CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
 wildcard: every tool call renders as a tidy status card (tool name, live
@@ -98,8 +96,9 @@ and `roll_dice`:
 ## The backend tool definition
 
 The frontend renderer only sees what the agent sends down. Here's the
-matching Python definition for `get_weather`, a standard LangChain tool,
-no CopilotKit-specific plumbing required:
+matching backend definition for `get_weather`: expose a tool named
+`get_weather`, return structured data, and let the frontend renderer with
+the same name paint the card.
 
 <Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
 

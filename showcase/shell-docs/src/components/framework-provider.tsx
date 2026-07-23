@@ -31,6 +31,7 @@ import React, {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { backendFromPathname } from "@/lib/frontend-options";
 
 export interface FrameworkContextValue {
   /**
@@ -121,9 +122,7 @@ export function FrameworkProvider({
 }) {
   const pathname = usePathname() ?? "";
   const urlFramework = useMemo(() => {
-    const first = pathname.split("/").filter(Boolean)[0];
-    if (first && knownFrameworks.includes(first)) return first;
-    return null;
+    return backendFromPathname(pathname, knownFrameworks);
   }, [pathname, knownFrameworks]);
 
   const [stored, setStored] = useState<string | null>(null);

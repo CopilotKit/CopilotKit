@@ -25,7 +25,7 @@ describe("RunHandler Standard Schema support", () => {
         },
       ]);
 
-      const [tool] = runHandler.buildFrontendTools();
+      const tool = runHandler.buildFrontendTools()[0]!;
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters).toHaveProperty("properties.city.type", "string");
       expect(tool.parameters.required).toContain("city");
@@ -49,7 +49,7 @@ describe("RunHandler Standard Schema support", () => {
         },
       ]);
 
-      const [tool] = runHandler.buildFrontendTools();
+      const tool = runHandler.buildFrontendTools()[0]!;
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters).toHaveProperty("properties.query.type", "string");
       expect(tool.parameters.required).toContain("query");
@@ -73,7 +73,7 @@ describe("RunHandler Standard Schema support", () => {
         },
       ]);
 
-      const [tool] = runHandler.buildFrontendTools();
+      const tool = runHandler.buildFrontendTools()[0]!;
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters).toHaveProperty("properties.user");
       expect(tool.parameters).toHaveProperty(
@@ -98,7 +98,7 @@ describe("RunHandler Standard Schema support", () => {
         },
       ]);
 
-      const [tool] = runHandler.buildFrontendTools();
+      const tool = runHandler.buildFrontendTools()[0]!;
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters).toHaveProperty("properties.query.type", "string");
       expect(tool.parameters).toHaveProperty("properties.limit.type", "number");
@@ -118,7 +118,7 @@ describe("RunHandler Standard Schema support", () => {
         },
       ]);
 
-      const [tool] = runHandler.buildFrontendTools();
+      const tool = runHandler.buildFrontendTools()[0]!;
       expect(tool.parameters).toHaveProperty("type", "object");
       expect(tool.parameters.required).toContain("name");
     });

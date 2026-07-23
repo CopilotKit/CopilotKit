@@ -71,23 +71,27 @@ interface ScriptStep {
  */
 function makeScriptedPage(script: ScriptStep[]) {
   let tickIdx = 0;
-  let evalsInTick = 0;
   const currentStep = (): ScriptStep =>
     script[Math.min(tickIdx, script.length - 1)];
   return {
     async evaluate(fn: unknown, arg?: unknown): Promise<unknown> {
       const body = String(fn);
       const step = currentStep();
-      evalsInTick += 1;
-      // Every 2 evals advances one script step (sse + cascade state).
-      // Post-r4f2 (commit 6a98baef1) the runner uses the atomic
-      // `readCascadeState` helper so each poll makes TWO evaluates,
-      // not three.
-      if (evalsInTick >= 2) {
-        evalsInTick = 0;
-        tickIdx += 1;
-      }
       if (body.includes("__hk_runsFinished")) return step.runsFinished;
+      // CopilotKit v2 run-lifecycle summary (`__hk_copilotRunning`) — the
+      // PRIMARY done-signal. These mechanism scripts model the legacy
+      // SSE-counter world (no chat-view attribute), so return the
+      // "attribute absent" shape; the gate falls back to the SSE counter,
+      // preserving the exact pre-fix conjunct semantics these tests assert.
+      if (body.includes("__hk_copilotRunning")) {
+        return {
+          attrPresent: false,
+          runningNow: null,
+          sawRunningTrue: false,
+          runStartCount: 0,
+          lastStoppedAtMs: 0,
+        };
+      }
       // Atomic cascade-state read (`readCascadeState`): returns BOTH the
       // count and the indexed text from the SAME cascade tier in ONE
       // round-trip. The distinguishing substring is the literal `{ count`
@@ -98,14 +102,21 @@ function makeScriptedPage(script: ScriptStep[]) {
         body.includes("textContent") &&
         body.includes("{ count")
       ) {
+        // The atomic cascade read is the once-per-poll anchor — advance the
+        // script tick HERE (rather than counting raw evaluates) so the
+        // script stays 1:1 with poll iterations regardless of how many
+        // auxiliary reads (`__hk_runsFinished`, `__hk_copilotRunning`) the
+        // primitive makes per poll. This is robust to the done-signal
+        // overhaul adding a third per-poll read.
         const idx = (arg as number | undefined) ?? 0;
-        if (idx < 0 || idx >= step.count) {
-          return { count: step.count, text: null };
-        }
-        // Only index 0 has populated text in our scripts; mirror the
-        // null-when-out-of-range behaviour of the production cascade.
-        const text = idx === 0 ? step.text : null;
-        return { count: step.count, text };
+        const result =
+          idx < 0 || idx >= step.count
+            ? { count: step.count, text: null }
+            : // Only index 0 has populated text in our scripts; mirror the
+              // null-when-out-of-range behaviour of the production cascade.
+              { count: step.count, text: idx === 0 ? step.text : null };
+        tickIdx += 1;
+        return result;
       }
       // Count-only re-read (`countAssistantMessages`): used by the
       // final-classification path AFTER the polling loop times out.

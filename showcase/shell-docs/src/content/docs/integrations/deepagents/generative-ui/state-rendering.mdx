@@ -49,16 +49,16 @@ Use state rendering when you want to:
       <Tab value="TypeScript">
         ```ts title="agent.ts"
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
         export const searchesStateMiddleware = createMiddleware({
             name: "AgentState",
             stateSchema: z.object({
-                searches: z.array(z.object({
+                searches: zodState(z.array(z.object({
                     query: z.string(),
                     done: z.boolean(),
-                })).default([]),
+                })).default([])),
             }),
         });
 
@@ -99,8 +99,8 @@ Use state rendering when you want to:
         ```ts title="agent.ts"
         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-        // Inside a custom tool or middleware hook where you have config/state:
-        async function emitResearchProgress(state: any, config: any) {
+        // Inside a custom graph node function that has access to state and config:
+        async function chatNode(state: any, config: any) {
             state.searches = [
                 { query: "Initial research", done: false },
                 { query: "Retrieving sources", done: false },
@@ -113,6 +113,8 @@ Use state rendering when you want to:
                 search.done = true;
                 await copilotkitEmitState(config, state); // [!code highlight]
             }
+
+            // ... rest of your node logic
         }
         ```
       </Tab>

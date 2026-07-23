@@ -72,7 +72,7 @@ test.describe("Shared State (Read + Write)", () => {
     });
     // Negative assertion: the wrong-fixture response is gone.
     await expect(assistantMessage).not.toContainText(
-      /Research the topic.*Outline key points/is,
+      /Research the topic[\s\S]*Outline key points/i,
     );
   });
 });

@@ -418,6 +418,7 @@ describe("createProbeLoader against the real shipped config set", () => {
     // (it does not enumerate), so stub sources matching the real names are
     // sufficient to exercise the load-time invariant without Railway/pnpm.
     discoveryRegistry.register(mkSource("railway-services"));
+    discoveryRegistry.register(mkSource("cross-env-pin-drift"));
     discoveryRegistry.register(mkSource("pnpm-packages"));
 
     const bus = mkBus();

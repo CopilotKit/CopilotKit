@@ -9,11 +9,13 @@
 // sidebar variant pins it at the top as a separate row, and the docs
 // landing already renders the page in BIA's "Continue with…" frame.
 export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
-  "langgraph-python",
-  "langgraph-typescript",
   "deepagents",
+  "langgraph-python",
+  "langgraph-fastapi",
+  "langgraph-typescript",
   "google-adk",
   "strands",
+  "strands-typescript",
   "mastra",
   "claude-sdk-python",
   "claude-sdk-typescript",
@@ -21,7 +23,6 @@ export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
   "ms-agent-python",
   "ms-agent-dotnet",
   "ms-agent-harness-dotnet",
-  "langgraph-fastapi",
   "ag2",
   "agno",
   "llamaindex",

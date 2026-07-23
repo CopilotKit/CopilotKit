@@ -17,14 +17,12 @@ import {
 
 // @region[chat-component]
 export function Chat() {
-  // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
       { title: "Write a sonnet", message: "Write a short sonnet about AI." },
     ],
     available: "always",
   });
-  // @endregion[configure-suggestions]
 
   // @region[render-chat]
   return <CopilotChat className="h-full rounded-2xl" />;

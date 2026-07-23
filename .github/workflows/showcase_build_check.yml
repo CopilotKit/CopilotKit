@@ -29,12 +29,12 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: filter
         with:
           filters: |
@@ -72,6 +72,8 @@ jobs:
               - 'showcase/integrations/spring-ai/**'
             strands:
               - 'showcase/integrations/strands/**'
+            strands_typescript:
+              - 'showcase/integrations/strands-typescript/**'
             ms_agent_python:
               - 'showcase/integrations/ms-agent-python/**'
             claude_sdk_typescript:
@@ -140,6 +142,7 @@ jobs:
             {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
@@ -190,7 +193,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           lfs: ${{ matrix.service.lfs }}
           persist-credentials: false
@@ -228,7 +231,16 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
-          for link_name in tools shared-tools; do
+          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Docker context. Integration directories use symlinks pointing
+          # outside the build context (tools -> ../../shared/python/tools,
+          # _shared -> ../_shared for the CVDIAG bootstrap modules). Docker
+          # build contexts cannot follow a symlink whose target escapes the
+          # context root — buildkit fails the checksum with "too many
+          # symlinks: /_shared" — so each symlink is replaced with a real
+          # copy of its target. Mirrors stage_shared() in
+          # showcase/scripts/cli/_common.sh (the local bin/showcase path).
+          for link_name in tools shared-tools _shared; do
             link_path="$CONTEXT/$link_name"
             if [ -L "$link_path" ]; then
               target="$(readlink -f "$link_path")"

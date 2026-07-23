@@ -59,6 +59,7 @@ const graphSpec = {
   interrupt_agent: "./interrupt-agent.ts:graph",
   a2ui_dynamic: "./a2ui-dynamic.ts:graph",
   a2ui_fixed: "./a2ui-fixed.ts:graph",
+  a2ui_recovery: "./recovery-agent.ts:graph",
   mcp_apps: "./mcp-apps.ts:graph",
   frontend_tools: "./frontend-tools.ts:graph",
   frontend_tools_async: "./frontend-tools-async.ts:graph",

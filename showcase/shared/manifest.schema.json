@@ -202,6 +202,11 @@
       "enum": ["native", "promise-based", null],
       "description": "Implementation pattern used by this integration for `gen-ui-interrupt` / `interrupt-headless`. Set only when at least one is wired. `native` = framework has a real interrupt primitive (e.g. LangGraph `interrupt()` + `useInterrupt`); `promise-based` = the demo uses `useFrontendTool` with a Promise-based handler. Consumed by docs `<WhenFrameworkHas>`."
     },
+    "thread_persistence_pattern": {
+      "type": ["string", "null"],
+      "enum": ["langgraph", "adk-session", null],
+      "description": "Framework-specific thread persistence/interoperability pattern. Set only when docs need to explain how CopilotKit Enterprise Intelligence Platform threads can be aligned with an external framework's own run/session identifiers. `langgraph` = explicit CopilotKit thread IDs are forwarded as AG-UI thread IDs and can be aligned with LangGraph checkpoint/thread IDs when the backend accepts them; `adk-session` = CopilotKit thread IDs may be mapped to ADK session IDs, while ADK durability depends on the configured ADK session service. Consumed by docs `<WhenFrameworkHas>`."
+    },
     "agent_config_pattern": {
       "type": ["string", "null"],
       "enum": ["shared-state", "runtime-properties", null],

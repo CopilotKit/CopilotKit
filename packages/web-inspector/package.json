@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/web-inspector",
-  "version": "1.60.2",
+  "version": "1.63.1",
   "description": "Lit-based web component for the CopilotKit web inspector",
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
     "build:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css -m",
     "dev": "pnpm run build:css && concurrently \"pnpm run dev:css\" \"tsdown --watch\"",
     "dev:css": "tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/generated.css --watch --minify",
+    "dev:standalone": "vite dev dev --config dev/vite.config.ts --host 127.0.0.1 --port 5177",
     "check-types": "pnpm run build:css && tsc --noEmit",
     "test": "pnpm run build:css && vitest run",
     "publint": "publint .",
@@ -48,6 +49,7 @@
     "tailwindcss": "^4.0.8",
     "tsdown": "^0.20.3",
     "typescript": "5.8.2",
+    "vite": "^7.3.2",
     "vitest": "^3.0.5"
   },
   "engines": {
