@@ -7,7 +7,7 @@ export interface ChartDatum {
 }
 
 /**
- * Default palette: shadcn `--chart-1..5` tokens with neutral hex fallbacks, so
+ * Default palette: shadcn `--chart-1..5` tokens with theme-independent hex fallbacks, so
  * charts adopt the app theme when the compiled CSS is passed via render.stylesheets,
  * and still render in color when it isn't. (`var()` + fallback are standard CSS,
  * resolved by Takumi.)

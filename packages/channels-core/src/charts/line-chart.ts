@@ -21,11 +21,13 @@ export function LineChart(props: LineChartProps): ReactElement {
     gridColor = "#e5e7eb",
     showGrid = true,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const pad = { l: 8, r: 8, t: title ? 28 : 8, b: 24 };
   const plotW = width - pad.l - pad.r;
   const plotH = height - pad.t - pad.b;
-  const max = Math.max(1, ...data.map((d) => d.value));
-  const min = Math.min(0, ...data.map((d) => d.value));
+  const vals = data.map((d) => d.value);
+  const max = vals.length ? Math.max(...vals) : 1;
+  const min = vals.length ? Math.min(0, ...vals) : 0;
   const span = max - min || 1;
   const step = data.length > 1 ? plotW / (data.length - 1) : 0;
   const x = (i: number) => pad.l + i * step;
@@ -39,8 +41,8 @@ export function LineChart(props: LineChartProps): ReactElement {
           x2: pad.l + plotW,
           y1: pad.t + plotH * f,
           y2: pad.t + plotH * f,
-          stroke: gridColor,
           strokeWidth: 1,
+          style: { stroke: gridColor },
         }),
       )
     : [];
@@ -66,14 +68,18 @@ export function LineChart(props: LineChartProps): ReactElement {
         )
       : null,
     ...grid,
-    h("polyline", { points, fill: "none", stroke: colors[0], strokeWidth: 2 }),
+    h("polyline", {
+      points,
+      strokeWidth: 2,
+      style: { fill: "none", stroke: palette[0] },
+    }),
     ...data.map((d, i) =>
       h("circle", {
         key: `p${i}`,
         cx: x(i),
         cy: y(d.value),
         r: 3,
-        fill: colors[0],
+        style: { fill: palette[0] },
       }),
     ),
     ...data.map((d, i) =>

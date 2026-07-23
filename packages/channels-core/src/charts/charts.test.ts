@@ -28,6 +28,24 @@ describe("box-model charts", () => {
   });
   it("Meter clamps and returns a React element", () => {
     expect(isValidElement(Meter({ value: 0.5 }))).toBe(true);
-    expect(isValidElement(Meter({ value: 5 }))).toBe(true); // > 1 clamps, no throw
+
+    interface MeterElement {
+      props: { children: unknown };
+    }
+    const innerBarWidth = (el: MeterElement): unknown => {
+      const children = el.props.children as unknown[];
+      const barOuter = children.at(-1) as MeterElement;
+      const barInner = barOuter.props.children as {
+        props: { style: { width: string } };
+      };
+      return barInner.props.style.width;
+    };
+
+    const over = Meter({ value: 5 }); // > 1 clamps, no throw
+    expect(isValidElement(over)).toBe(true);
+    expect(innerBarWidth(over as unknown as MeterElement)).toBe("100%");
+
+    const under = Meter({ value: -5 }); // < 0 clamps, no throw
+    expect(innerBarWidth(under as unknown as MeterElement)).toBe("0%");
   });
 });

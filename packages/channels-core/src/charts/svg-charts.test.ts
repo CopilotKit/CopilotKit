@@ -17,19 +17,39 @@ describe("svg charts", () => {
     expect(resolveArbitraryElement(el)).toBeTruthy();
   });
   it("PieChart returns a React element and handles a single slice", () => {
-    expect(
-      isValidElement(PieChart({ data: [{ label: "only", value: 5 }] })),
-    ).toBe(true);
-    expect(
-      isValidElement(
-        PieChart({
-          data: [
-            { label: "a", value: 1 },
-            { label: "b", value: 1 },
-          ],
-        }),
-      ),
-    ).toBe(true);
+    interface PieElement {
+      type: unknown;
+      props: { children: unknown };
+    }
+    const findByType = (el: PieElement, type: string): PieElement[] => {
+      const children = ([] as unknown[]).concat(
+        el.props?.children as unknown,
+      ) as PieElement[];
+      const matches: PieElement[] = [];
+      for (const child of children) {
+        if (!child || typeof child !== "object") continue;
+        if (child.type === type) matches.push(child);
+        matches.push(...findByType(child, type));
+      }
+      return matches;
+    };
+
+    const single = PieChart({ data: [{ label: "only", value: 5 }] });
+    expect(isValidElement(single)).toBe(true);
+    expect(findByType(single as unknown as PieElement, "circle").length).toBe(
+      1,
+    );
+
+    const twoSlice = PieChart({
+      data: [
+        { label: "a", value: 1 },
+        { label: "b", value: 1 },
+      ],
+    });
+    expect(isValidElement(twoSlice)).toBe(true);
+    expect(findByType(twoSlice as unknown as PieElement, "path").length).toBe(
+      2,
+    );
   });
   it("Scatter returns a React element", () => {
     const el = Scatter({

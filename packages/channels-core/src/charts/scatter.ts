@@ -25,7 +25,34 @@ export function Scatter(props: ScatterProps): ReactElement {
     gridColor = "#e5e7eb",
     showGrid = true,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const pad = 12;
+  const titleEl = title
+    ? h(
+        "div",
+        {
+          className: labelClassName,
+          style: { fontSize: 16, fontWeight: 600 },
+        },
+        title,
+      )
+    : null;
+  if (points.length === 0) {
+    return h(
+      "div",
+      {
+        className,
+        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+      },
+      titleEl,
+      h("svg", {
+        width,
+        height,
+        viewBox: `0 0 ${width} ${height}`,
+        style: { backgroundColor: "#ffffff" },
+      }),
+    );
+  }
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   const xMin = Math.min(...xs);
@@ -45,8 +72,8 @@ export function Scatter(props: ScatterProps): ReactElement {
           x2: width - pad,
           y1: pad + (height - pad * 2) * f,
           y2: pad + (height - pad * 2) * f,
-          stroke: gridColor,
           strokeWidth: 1,
+          style: { stroke: gridColor },
         }),
       )
     : [];
@@ -56,16 +83,7 @@ export function Scatter(props: ScatterProps): ReactElement {
       className,
       style: { display: "flex", flexDirection: "column", gap: 8, ...style },
     },
-    title
-      ? h(
-          "div",
-          {
-            className: labelClassName,
-            style: { fontSize: 16, fontWeight: 600 },
-          },
-          title,
-        )
-      : null,
+    titleEl,
     h(
       "svg",
       {
@@ -81,7 +99,7 @@ export function Scatter(props: ScatterProps): ReactElement {
           cx: px(p.x),
           cy: py(p.y),
           r: 4,
-          fill: colors[0],
+          style: { fill: palette[0] },
         }),
       ),
     ),

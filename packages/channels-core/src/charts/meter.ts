@@ -21,6 +21,7 @@ export function Meter(props: MeterProps): ReactElement {
     caption,
     labelClassName,
   } = props;
+  const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
   const pct = Math.max(0, Math.min(1, value)) * 100;
   return h(
     "div",
@@ -56,7 +57,11 @@ export function Meter(props: MeterProps): ReactElement {
         },
       },
       h("div", {
-        style: { width: `${pct}%`, height: "100%", backgroundColor: colors[0] },
+        style: {
+          width: `${pct}%`,
+          height: "100%",
+          backgroundColor: palette[0],
+        },
       }),
     ),
   );
