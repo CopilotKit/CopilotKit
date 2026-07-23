@@ -25,6 +25,12 @@ export interface Instance {
   agent: InstanceAgent;
   allowedDivergence: string[];
   packageJsonOverrides: Record<string, string>;
+  /**
+   * package.json key paths (e.g. "scripts.dev:ui") that are intentionally
+   * absent from this instance's package.json — not drift, just a smaller
+   * surface (e.g. no local agent process to run/debug/install for).
+   */
+  packageJsonAllowedAbsent?: string[];
 }
 
 export interface Manifest {

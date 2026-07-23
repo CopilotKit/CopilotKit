@@ -232,6 +232,45 @@
         "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
         "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
       }
+    },
+    "openclaw": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "openclaw-external-gateway"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.app",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "docker-route-override.ts",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**",
+        "src/app/page.tsx",
+        "src/app/layout.tsx",
+        "src/app/declarative-generative-ui/**",
+        "src/hooks/use-example-suggestions.tsx",
+        "src/components/example-canvas/**",
+        "src/components/example-layout/**",
+        "src/components/headless-chat.tsx",
+        "src/components/tool-rendering.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx",
+        "src/components/ui/spinner.tsx",
+        "src/lib/a2ui-theme.css"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev": "next dev --turbopack"
+      },
+      "packageJsonAllowedAbsent": [
+        "scripts.dev:ui",
+        "scripts.dev:debug",
+        "scripts.postinstall",
+        "devDependencies.concurrently"
+      ]
     }
   }
 }
