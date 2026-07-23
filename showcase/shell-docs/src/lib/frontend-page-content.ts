@@ -23,6 +23,10 @@ export const ANGULAR_GUIDE_PAGES = [
     title: "Threads, memory, attachments, and headless UI",
     slug: "guides/threads-memory-attachments-headless",
   },
+  {
+    title: "Troubleshooting Angular apps",
+    slug: "guides/troubleshooting",
+  },
 ] as const;
 
 /**
@@ -88,12 +92,20 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",
   "programmatic-control": "guides/threads-memory-attachments-headless",
+  "troubleshooting/error-reference": "guides/troubleshooting",
+  "troubleshooting/error-debugging": "guides/troubleshooting",
+  "troubleshooting/inspector-dev-console": "guides/troubleshooting",
+  "troubleshooting/hook-explorer": "guides/troubleshooting",
   "troubleshooting/migrate-to-1.8.2": "using-these-docs",
   "troubleshooting/migrate-to-1.10.X": "using-these-docs",
   "troubleshooting/migrate-to-v2": "using-these-docs",
-  "troubleshooting/error-debugging": "using-these-docs",
-  inspector: "using-these-docs",
+  "migrate/1.8.2": "using-these-docs",
+  "migrate/1.10.X": "using-these-docs",
+  "migrate/v2": "using-these-docs",
+  "whats-new/v1-50": "using-these-docs",
+  inspector: "guides/troubleshooting",
   "multi-agent-flows": "multi-agent/subagents",
+  "(other)/telemetry": "telemetry",
 };
 
 export function getFrontendContentSlug(id: FrontendPageId): string {

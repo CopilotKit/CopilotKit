@@ -15,6 +15,7 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
       "angular/guides/human-in-the-loop",
       "angular/guides/shared-state",
       "angular/guides/threads-memory-attachments-headless",
+      "angular/guides/troubleshooting",
       "angular/using-these-docs",
     ]),
   );
@@ -57,4 +58,47 @@ test("expands canonical Angular Showcase regions in LLM output", () => {
   expect(output).toContain("features/tools/tool-feature-model.ts");
   expect(output).toContain('name: "change_background"');
   expect(output).not.toContain("<AngularSnippet");
+});
+
+test("keeps shared backend guidance while expanding Angular source regions", () => {
+  const agentConfig = loadDoc("agent-config");
+  const subagents = loadDoc("multi-agent/subagents");
+  expect(agentConfig).not.toBeNull();
+  expect(subagents).not.toBeNull();
+
+  const angularAgentConfig = renderPageToLlmText(
+    {
+      url: "angular/langgraph-python/agent-config",
+      title: agentConfig!.fm.title,
+      description: agentConfig!.fm.description,
+      filePath: agentConfig!.filePath,
+      loadSlug: "agent-config",
+      framework: "langgraph-python",
+    },
+    { frontend: "angular", framework: "langgraph-python" },
+  );
+  const angularSubagents = renderPageToLlmText(
+    {
+      url: "angular/langgraph-python/multi-agent/subagents",
+      title: subagents!.fm.title,
+      description: subagents!.fm.description,
+      filePath: subagents!.filePath,
+      loadSlug: "multi-agent/subagents",
+      framework: "langgraph-python",
+    },
+    { frontend: "angular", framework: "langgraph-python" },
+  );
+
+  expect(angularAgentConfig).toContain(
+    "connectAgentContext(this.configContext)",
+  );
+  expect(angularAgentConfig).toContain(
+    "The backend half is also a single node.",
+  );
+  expect(angularAgentConfig).not.toContain("useAgentContext");
+  expect(angularSubagents).toContain(
+    "readDelegations(this.agentStore().state())",
+  );
+  expect(angularSubagents).toContain("Exposing sub-agents as tools");
+  expect(angularSubagents).not.toContain("useAgent({");
 });

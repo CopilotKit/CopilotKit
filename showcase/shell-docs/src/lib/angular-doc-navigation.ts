@@ -46,16 +46,18 @@ function frameworkContentSlug(
 ): string | null {
   const frameworkSlug = `integrations/${getDocsFolder(framework)}/${slugPath}`;
   const frameworkDoc = loadDoc(frameworkSlug);
-  const sharedDoc = isFrontendFirstClassDoc("angular", slugPath)
-    ? loadDoc(slugPath)
+  const sharedContentSlug =
+    slugPath === "telemetry" ? "(other)/telemetry" : slugPath;
+  const sharedDoc = isFrontendFirstClassDoc("angular", sharedContentSlug)
+    ? loadDoc(sharedContentSlug)
     : null;
 
   if (getDocsMode(framework) === "authored") {
-    if (sharedDoc) return slugPath;
+    if (sharedDoc) return sharedContentSlug;
     return frameworkDoc ? frameworkSlug : null;
   }
 
-  if (sharedDoc) return slugPath;
+  if (sharedDoc) return sharedContentSlug;
   return frameworkDoc ? frameworkSlug : null;
 }
 
@@ -91,20 +93,25 @@ export function resolveAngularDoc(
 function filterResolvableAngularNodes(
   nodes: NavNode[],
   backendFramework: string | null,
+  publishedSlugs: Set<string>,
 ): NavNode[] {
   const filtered = nodes.flatMap((node): NavNode[] => {
     if (node.type === "page") {
       if (node.slug === "" || node.slug === "quickstart") return [];
-      if (getFrontendCanonicalSlug("angular", node.slug) !== node.slug) {
+      const canonicalSlug = getFrontendCanonicalSlug("angular", node.slug);
+      if (publishedSlugs.has(canonicalSlug)) {
         return [];
       }
-      return resolveAngularDoc(backendFramework, node.slug) ? [node] : [];
+      if (!resolveAngularDoc(backendFramework, canonicalSlug)) return [];
+      publishedSlugs.add(canonicalSlug);
+      return [{ ...node, slug: canonicalSlug }];
     }
 
     if (node.type === "group") {
       const children = filterResolvableAngularNodes(
         node.children,
         backendFramework,
+        publishedSlugs,
       );
       return children.length > 0 ? [{ ...node, children }] : [];
     }
@@ -161,6 +168,11 @@ export function getAngularDocsNavTree(
   const backendNodes = filterResolvableAngularNodes(
     backendNavTree(backendFramework ?? ROOT_FRAMEWORK),
     backendFramework,
+    new Set(
+      prefixPages.flatMap((node) =>
+        node.type === "page" && !node.href ? [node.slug] : [],
+      ),
+    ),
   );
 
   return [...prefixPages, ...backendNodes];

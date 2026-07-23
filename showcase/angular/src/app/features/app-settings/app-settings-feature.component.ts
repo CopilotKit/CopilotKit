@@ -104,6 +104,7 @@ export class AppSettingsFeatureComponent {
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "agent-config";
   protected readonly signedIn = signal(false);
+  // @region[agent-config-context]
   protected readonly config = signal<AgentConfig>({ ...DEFAULT_AGENT_CONFIG });
   protected readonly authHeaders = DEMO_AUTH_HEADERS;
   protected readonly agentId = agentIdForRoute(this.feature, this.route);
@@ -118,6 +119,7 @@ export class AppSettingsFeatureComponent {
       connectAgentContext(this.configContext);
     }
   }
+  // @endregion[agent-config-context]
 
   protected signIn(): void {
     this.signedIn.set(true);

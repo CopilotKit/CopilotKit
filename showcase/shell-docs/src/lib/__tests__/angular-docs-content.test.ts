@@ -5,10 +5,22 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "../angular-doc-navigation";
-import { loadDoc } from "../docs-render";
+import {
+  buildFrameworkNav,
+  buildFrameworkOnlyNav,
+  buildRootSurfaceNav,
+  loadDoc,
+} from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { getFrontendCanonicalSlug } from "../frontend-page-content";
 import { renderPageToLlmText } from "../llm-text";
-import { getIntegrations } from "../registry";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegration,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "../registry";
 
 function markdownFiles(path: string): string[] {
   return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
@@ -42,6 +54,31 @@ function pageSlugs(nodes: NavNode[]): string[] {
   });
 }
 
+function getReactNavTree(backendFramework: string | null): NavNode[] {
+  if (!backendFramework) {
+    return buildRootSurfaceNav(getDocsFolder(ROOT_FRAMEWORK));
+  }
+
+  const folder = getDocsFolder(backendFramework);
+  if (getDocsMode(backendFramework) === "authored") {
+    return buildFrameworkOnlyNav(folder);
+  }
+
+  return buildFrameworkNav(
+    folder,
+    getIntegration(backendFramework)?.name ?? backendFramework,
+    backendFramework,
+  );
+}
+
+function getCanonicalAngularSlug(
+  backendFramework: string | null,
+  reactSlug: string,
+): string {
+  if (!backendFramework && reactSlug === "quickstart") return "";
+  return getFrontendCanonicalSlug("angular", reactSlug);
+}
+
 function expectAngularSurfaceToBeNative(
   backendFramework: string | null,
   slugs: string[],
@@ -67,14 +104,36 @@ function expectAngularSurfaceToBeNative(
     );
 
     expect(output, pageLabel).not.toMatch(
-      /@copilotkit\/react|from ["']react["']|\buse(?:Agent|Copilot\w*)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError))[^>]*>|<FrontendOnly|<AngularSnippet/,
+      /@copilotkit\/react|from ["']react["']|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError))[^>]*>|<FrontendOnly|<AngularSnippet/,
     );
   }
 }
 
+test("maps every React navigation destination to a published Angular destination", () => {
+  const backends = [
+    null,
+    ...getIntegrations()
+      .filter((integration) => integration.docs_mode !== "hidden")
+      .map((integration) => integration.slug),
+  ];
+
+  for (const backendFramework of backends) {
+    const angularSlugs = new Set(
+      pageSlugs(getAngularDocsNavTree(backendFramework)),
+    );
+
+    for (const reactSlug of pageSlugs(getReactNavTree(backendFramework))) {
+      const angularSlug = getCanonicalAngularSlug(backendFramework, reactSlug);
+      expect(
+        angularSlugs.has(angularSlug),
+        `${backendFramework ?? "root"}: ${reactSlug} -> ${angularSlug}`,
+      ).toBe(true);
+    }
+  }
+});
+
 test("keeps the complete Angular surface free of another frontend's code", () => {
   const slugs = pageSlugs(getAngularDocsNavTree(null)).filter(Boolean);
-  expect(slugs.length).toBeGreaterThanOrEqual(33);
   expectAngularSurfaceToBeNative(null, slugs);
 });
 

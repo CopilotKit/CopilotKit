@@ -24,8 +24,8 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## What you get
 
-- **Chat UI** — prebuilt chat interface, or headless hooks to build your own
-- **Shared state** — bidirectional sync between agent state and your React UI
+- **Chat UI** — prebuilt chat interface, or headless APIs to build your own
+- **Shared state** — bidirectional sync between agent state and your application UI
 - **Generative UI** — render custom components from tool calls in real time
 - **Human-in-the-loop** — let users review, approve, or redirect agent actions
 - **AgentCore memory** — conversation history persists across sessions via AgentCore's memory layer
@@ -56,6 +56,16 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       title="Start from scratch"
       description="Scaffold a complete AgentCore + CopilotKit application with one command."
     >
+      <FrontendOnly frontend="angular">
+      <Callout type="info" title="The infrastructure template includes a sample frontend">
+        Use the generated project for its AgentCore agent, runtime, Cognito, and
+        deployment infrastructure. The sample browser application is
+        hook-based; connect your Angular application to the generated
+        Copilot Runtime URL using the Angular steps in the existing-agent path
+        below.
+      </Callout>
+      </FrontendOnly>
+
       <Step>
         ### Run the CLI
 
@@ -139,9 +149,17 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           guide first, then return here.
         </Callout>
 
+        <FrontendOnly frontend="react">
         ```npm
         npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client rxjs
         ```
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        ```npm
+        npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @ag-ui/client rxjs
+        ```
+        </FrontendOnly>
       </Step>
 
       <Step>
@@ -271,6 +289,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
       <Step>
         ### Add the CopilotKit provider
 
+        <FrontendOnly frontend="react">
         ```tsx title="app/layout.tsx"
         import { CopilotKit } from "@copilotkit/react-core/v2";
         import "@copilotkit/react-core/v2/styles.css";
@@ -287,11 +306,38 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           );
         }
         ```
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        Register CopilotKit in the Angular application config. Keep the
+        runtime behind the same origin in production, or use its deployed
+        absolute URL and allow the Angular origin.
+
+        ```ts title="src/app/app.config.ts"
+        import { ApplicationConfig } from "@angular/core";
+        import { provideCopilotKit } from "@copilotkit/angular";
+
+        export const appConfig: ApplicationConfig = {
+          providers: [
+            provideCopilotKit({
+              runtimeUrl: "/api/copilotkit",
+            }),
+          ],
+        };
+        ```
+
+        Import the package stylesheet once:
+
+        ```css title="src/styles.css"
+        @import "@copilotkit/angular/styles.css";
+        ```
+        </FrontendOnly>
       </Step>
 
       <Step>
         ### Add the chat interface
 
+        <FrontendOnly frontend="react">
         ```tsx title="app/page.tsx"
         import { CopilotSidebar } from "@copilotkit/react-core/v2";
 
@@ -304,28 +350,64 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           );
         }
         ```
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        ```ts title="src/app/app.component.ts"
+        import { Component } from "@angular/core";
+        import { CopilotSidebar } from "@copilotkit/angular";
+
+        @Component({
+          selector: "app-root",
+          standalone: true,
+          imports: [CopilotSidebar],
+          template: `
+            <main>
+              <h1>My App</h1>
+              <copilot-sidebar agentId="my_agent" />
+            </main>
+          `,
+        })
+        export class AppComponent {}
+        ```
+        </FrontendOnly>
       </Step>
 
       <Step>
         ### 🎉 Run it
 
-        Point the Next.js app at the AgentCore runtime you deployed via AWS's
+        Point the Copilot Runtime server at the AgentCore runtime you deployed via AWS's
         [Deploy an AG-UI agent to AgentCore Runtime](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html)
-        guide. Create `.env.local`:
+        guide. Configure its environment:
 
-        ```bash title=".env.local"
+        ```bash title=".env"
         AGENTCORE_ENDPOINT_URL=https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations
         AGENTCORE_ACCESS_TOKEN=<your-bearer-token>
         ```
 
-        Then:
+        Start the runtime and your frontend application using their normal
+        development commands. The frontend calls Copilot Runtime; the runtime
+        forwards each request to the AgentCore invocation URL using the
+        server-held token.
 
+        <FrontendOnly frontend="react">
         ```bash
         npm run dev
         ```
 
         Navigate to `localhost:3000`. The frontend runs locally while the agent stays on AgentCore —
         the `/api/copilotkit` route forwards each call to the invocation URL using your token.
+        </FrontendOnly>
+
+        <FrontendOnly frontend="angular">
+        ```bash
+        ng serve
+        ```
+
+        When the runtime is a separate local process, proxy
+        `/api/copilotkit` to it or set `runtimeUrl` to its absolute URL and
+        enable CORS for `http://localhost:4200`.
+        </FrontendOnly>
       </Step>
     </TailoredContentOption>
   </TailoredContent>
@@ -333,17 +415,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
 ## What's next?
 
-<Cards>
-  <Card
-    title="Generative UI"
-    description="Render custom React components directly from your agent's tool calls."
-    href="/langgraph/generative-ui/tool-rendering"
-    icon={<PaintbrushIcon />}
-  />
-  <Card
-    title="Shared State"
-    description="Sync structured state between your agent and your React UI bidirectionally."
-    href="/langgraph/shared-state/in-app-agent-read"
-    icon={<RepeatIcon />}
-  />
-</Cards>
+- [Generative UI](/generative-ui/tool-rendering) — render application
+  components from agent tool calls.
+- [Shared State](/shared-state) — synchronize structured state between the
+  agent and application.
+- [Authentication](/auth) — validate the frontend session at Copilot Runtime
+  before forwarding identity to AgentCore.
