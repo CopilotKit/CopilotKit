@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
+import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
 import type { ChartDatum, ChartStyleProps } from "./types.js";
 
 export interface LineChartProps extends ChartStyleProps {
@@ -26,8 +26,9 @@ export function LineChart(props: LineChartProps): ReactElement {
   const plotW = width - pad.l - pad.r;
   const plotH = height - pad.t - pad.b;
   const vals = data.map((d) => finiteOr0(d.value));
-  const max = vals.length ? Math.max(...vals) : 1;
-  const min = vals.length ? Math.min(0, ...vals) : 0;
+  // Auto-scale to the data's own min/max (parity with Sparkline/Scatter), not
+  // zero-anchored. Empty data → extent returns {0,0}; `span || 1` guards it.
+  const { min, max } = extent(vals);
   const span = max - min || 1;
   const step = data.length > 1 ? plotW / (data.length - 1) : 0;
   const x = (i: number) => pad.l + i * step;

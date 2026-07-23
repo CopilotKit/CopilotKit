@@ -1,6 +1,6 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, finiteOr0 } from "./types.js";
+import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface ScatterPoint {
@@ -42,24 +42,29 @@ export function Scatter(props: ScatterProps): ReactElement {
       "div",
       {
         className,
-        style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+        // White default on the wrapper div so `style.backgroundColor` (and any
+        // other style) overrides uniformly; the inner <svg> stays transparent.
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          backgroundColor: "#ffffff",
+          ...style,
+        },
       },
       titleEl,
       h("svg", {
         width,
         height,
         viewBox: `0 0 ${width} ${height}`,
-        style: { backgroundColor: "#ffffff" },
       }),
     );
   }
   const pts = points.map((p) => ({ x: finiteOr0(p.x), y: finiteOr0(p.y) }));
   const xs = pts.map((p) => p.x);
   const ys = pts.map((p) => p.y);
-  const xMin = Math.min(...xs);
-  const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
+  const { min: xMin, max: xMax } = extent(xs);
+  const { min: yMin, max: yMax } = extent(ys);
   const xDegenerate = xMax === xMin;
   const yDegenerate = yMax === yMin;
   const xSpan = xMax - xMin || 1;
@@ -89,7 +94,15 @@ export function Scatter(props: ScatterProps): ReactElement {
     "div",
     {
       className,
-      style: { display: "flex", flexDirection: "column", gap: 8, ...style },
+      // White default on the wrapper div so `style.backgroundColor` (and any
+      // other style) overrides uniformly; the inner <svg> stays transparent.
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        backgroundColor: "#ffffff",
+        ...style,
+      },
     },
     titleEl,
     h(
@@ -98,7 +111,6 @@ export function Scatter(props: ScatterProps): ReactElement {
         width,
         height,
         viewBox: `0 0 ${width} ${height}`,
-        style: { backgroundColor: "#ffffff" },
       },
       ...grid,
       ...pts.map((p, i) =>
