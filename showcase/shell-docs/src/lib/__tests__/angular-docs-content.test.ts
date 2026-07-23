@@ -79,10 +79,15 @@ function getCanonicalAngularSlug(
   return getFrontendCanonicalSlug("angular", reactSlug);
 }
 
-function expectAngularSurfaceToBeNative(
+const REACT_ONLY_CONTENT =
+  /@copilotkit\/react|from ["']react["']|\bReact components?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError))[^>]*>|<FrontendOnly|<AngularSnippet/g;
+
+function findReactOnlyAngularContent(
   backendFramework: string | null,
   slugs: string[],
-): void {
+): string[] {
+  const leaks: string[] = [];
+
   for (const slug of slugs) {
     const pageLabel = backendFramework ? `${backendFramework}/${slug}` : slug;
     const resolution = resolveAngularDoc(backendFramework, slug);
@@ -103,10 +108,13 @@ function expectAngularSurfaceToBeNative(
       { framework: resolution!.framework, frontend: "angular" },
     );
 
-    expect(output, pageLabel).not.toMatch(
-      /@copilotkit\/react|from ["']react["']|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError))[^>]*>|<FrontendOnly|<AngularSnippet/,
-    );
+    const match = output.match(REACT_ONLY_CONTENT);
+    if (match) {
+      leaks.push(`${pageLabel}: ${[...new Set(match)].join(", ")}`);
+    }
   }
+
+  return leaks;
 }
 
 test("maps every React navigation destination to a published Angular destination", () => {
@@ -134,15 +142,19 @@ test("maps every React navigation destination to a published Angular destination
 
 test("keeps the complete Angular surface free of another frontend's code", () => {
   const slugs = pageSlugs(getAngularDocsNavTree(null)).filter(Boolean);
-  expectAngularSurfaceToBeNative(null, slugs);
+  expect(findReactOnlyAngularContent(null, slugs)).toEqual([]);
 });
 
 test("keeps every Angular and backend combination frontend-native", () => {
+  const leaks: string[] = [];
+
   for (const integration of getIntegrations()) {
     if (integration.docs_mode === "hidden") continue;
     const slugs = pageSlugs(getAngularDocsNavTree(integration.slug)).filter(
       (slug) => slug !== "" && slug !== "quickstart",
     );
-    expectAngularSurfaceToBeNative(integration.slug, slugs);
+    leaks.push(...findReactOnlyAngularContent(integration.slug, slugs));
   }
+
+  expect(leaks).toEqual([]);
 });

@@ -32,7 +32,15 @@ CopilotKit uses AG-UI to abstract the connection between your applications and t
 - **Flexibility and Interoperability**: By adhering to the AG-UI standard, CopilotKit components become interchangeable, allowing developers to use them with any AG-UI-compatible agent or to switch between different backend models without changing the UI.
 - **Unified Communication**: CopilotKit uses the AG-UI protocol to manage all the back-and-forth communication between the frontend and the AI agent, replacing custom WebSocket formats and text parsing.
 - **Frontend Tool Calls**: When an agent needs to use a tool that's integrated into the frontend application, AG-UI events facilitate this interaction.
+
+<FrontendOnly frontend="react">
 - **UI Components**: CopilotKit provides React components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+- **UI Components**: CopilotKit provides Angular components that are built for the AG-UI protocol. These components use AG-UI events to receive and display streaming AI responses and other data from the agent, creating a rich user experience.
+</FrontendOnly>
+
 - **State Management**: The AG-UI protocol includes events for managing shared state between the frontend and the agent. CopilotKit can then use these events to keep the application's UI and the agent's state synchronized in real-time.
 
 To learn more, check out the [AG-UI](https://ag-ui.com) website.
