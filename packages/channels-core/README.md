@@ -4,6 +4,13 @@ The supported platform-neutral foundation behind `@copilotkit/channels`.
 Most applications should use the batteries-included `@copilotkit/channels` package;
 install core directly when building an adapter or intentionally selecting one platform.
 
+> **Beta / breaking change.** As of this release adapters are **declarative and
+> credential-free** — `slack()`, not `slack({ botToken, appToken })` — and a
+> `Channel` no longer starts itself. Credentials and connectivity are supplied
+> by CopilotKit Intelligence (the recommended path) or a custom Channel runner.
+> See the quick start below. (Old: `slack({ …tokens })` + `channel.start()`;
+> new: `slack()` + `new CopilotRuntime({ intelligence, channels })`.)
+
 ## Selective install
 
 ```sh
@@ -19,17 +26,94 @@ pnpm add @copilotkit/channels-core @copilotkit/channels-slack
 }
 ```
 
+## Quick start
+
 ```ts
 import { createChannel } from "@copilotkit/channels-core";
 import { slack } from "@copilotkit/channels-slack";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+
+const support = createChannel({
+  name: "support",
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }), // or "billing" | router | omitted → "default"
+  adapters: [slack()], // credential-free
+});
+
+support.onMention(async ({ thread, message }) => {
+  await thread.react(message.ref, "eyes");
+  await thread.runAgent({ prompt: message.contentParts ?? message.text });
+});
+
+// CopilotKit Intelligence supplies credentials, connectivity, delivery, and failover:
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  channels: [support],
+});
 ```
+
+`createChannel(opts)` returns a `Channel`. Everything below `name`/`agent`/`adapters`
+is optional and shared across every provider README (`tools`, `context`, `commands`,
+`components`, `store`, `concurrency`).
+
+### `agent` — four binding modes
+
+`agent` picks which Runtime agent this Channel drives. The old per-thread
+factory (`agent: (threadId) => makeAgent(threadId)`) is **removed**. Instead:
+
+- `agent: new HttpAgent({ url })` (or any `AbstractAgent`) — a fixed inline
+  agent; the Runtime clones it per run.
+- `agent: "billing"` — a named agent looked up in `runtime.agents`.
+- `agent: ({ user, event }) => "billing"` — a router that selects a named
+  agent per turn from a bounded, side-effect-free `ChannelAgentRouteContext`
+  (channel name, platform, turn id, conversation kind/key, safe user fields,
+  a normalized `event`, and an `AbortSignal` — never raw provider payloads,
+  credentials, or unbounded history).
+- omitted — the Runtime agent named `"default"`.
+
+Named, routed, and default bindings can only be resolved by a Runtime
+(`CopilotRuntime`) — calling `thread.runAgent()` on a channel using one of
+those modes without going through a Runtime throws. Only the inline
+`AbstractAgent` mode works standalone (e.g. in tests).
+
+### Other `CreateChannelOptions`
+
+- `name` — project-unique Channel name. Required to run through CopilotKit
+  Intelligence (it ties the declaration to the Intelligence setup); optional
+  for a standalone/custom-runner Channel.
+- `adapters` — direct `PlatformAdapter`s (e.g. `slack()`, `discord()`). A
+  Channel with no adapters is *managed* — CopilotKit Intelligence supplies
+  delivery for it instead.
+- `provider` — which managed platform a no-adapter Channel targets when
+  activated via Intelligence (`"slack"` | `"teams"`; defaults to `"slack"`).
+  Ignored for direct-adapter Channels.
+- `concurrency` — `{ onConcurrent: "replace" | "queue" | "drop" }`, what to do
+  when a new turn arrives while a prior turn on the same conversation is still
+  running. Default `"replace"`.
+- `tools` — `ChannelTool[]` forwarded to the agent as frontend tools (see
+  below).
+- `context` — `ContextEntry[]`, knowledge folded into the agent's system
+  context on every `runAgent`.
+- `components` — named JSX components used in interactive messages; register
+  them here so a click on a message posted before a restart still resolves
+  (durable actions) instead of degrading to "action expired".
+- `commands` — slash commands, forwarded to adapters that support them.
+- `store` — persistence and per-thread state:
+  - `store.adapter` — pluggable `StateStore` (defaults to in-memory,
+    lost on restart).
+  - `store.state` — a Standard Schema for per-thread state; when set,
+    `thread.state()` / `thread.setState()` are typed to its output and
+    `setState` validates at runtime.
+  - `store.identity` / `store.transcripts` — cross-platform identity
+    resolution + transcript storage (must be configured together).
+  - `store.onLockConflict`, `store.lockTtl`, `store.dedupTtl` — turn-lock and
+    inbound-event-dedup tuning.
 
 `createChannel(opts)` returns a `Channel`:
 
 - `onMention(handler)` / `onMessage(handler)` — turn handlers receiving
-  `{ thread, message }`. (Routing is mention-preferred: if any mention
-  handler is registered, all turns route to it; otherwise message handlers
-  fire.)
+  `{ thread, message }`.
 - `onThreadStarted(handler)` — a conversation surface opened (e.g. the Slack
   assistant pane); receives `{ thread, user? }`. Greet, set suggested prompts
   or a title, or run the agent. Adapters without the concept never fire it.
@@ -44,12 +128,43 @@ import { slack } from "@copilotkit/channels-slack";
   with an `options` Standard Schema) for surfaces with native structured args
   (e.g. Discord). Forwarded to adapters that support commands and ignored
   elsewhere — also pass them up front via `commands` in `CreateChannelOptions`.
-- `tool(t)` — register a `ChannelTool` (alternative to `opts.tools`); must be
-  added before `start()`.
-- `start()` / `stop()` — bring adapters up / down.
+- `onReaction(handler)` / `onReaction(emoji, handler)` — react to emoji
+  reactions; omit `emoji` for a catch-all.
+- `onModalSubmit(callbackId, handler)` / `onModalClose(callbackId, handler)`
+  — handle a modal submission/dismissal.
+- `tool(t)` — register a `ChannelTool` (alternative to `opts.tools`).
+- `transcripts` — the cross-platform transcript store (available once the
+  Channel is running).
 
-`agent` is optional. If omitted, calling `thread.runAgent()` throws; supply
-an `AbstractAgent` or a `(threadId) => AbstractAgent` factory.
+There is no public `start()` / `stop()` / `addAdapter()` — the Runtime drives
+a Channel's lifecycle. You declare Channels on `CopilotRuntime`; you don't
+start them yourself.
+
+## Who supplies credentials and runs the Channel
+
+Adapters like `slack()` are declarative and credential-free — no bot token,
+app token, or signing secret is passed to the factory. Connectivity,
+credentials, delivery, and failover are supplied by whatever drives the
+Channel:
+
+- **CopilotKit Intelligence** (recommended): pass your Channels to
+  `new CopilotRuntime({ intelligence, identifyUser, channels: [support] })`.
+  Configure the provider's credentials once in Intelligence (the connector),
+  not in your code.
+- **A custom Channel runner**: running Channels without CopilotKit
+  Intelligence requires implementing a custom `ChannelRunner` (an advanced,
+  exported-but-undocumented escape hatch that supplies its own connectivity,
+  credentials, delivery, and failover).
+
+## Response defaults
+
+In a shared channel/thread, a message must be explicitly mentioned/tagged to
+be considered addressed — a prior bot reply does **not** remove that
+requirement. DMs and the assistant pane are already directly addressed. A
+matching `onMention` handler wins over `onMessage`, and any matching handler
+suppresses automatic agent execution. With no matching handler, an addressed
+message auto-runs the selected agent. An untagged shared message is ignored
+unless an `onMessage` handler opts in (`onMention` never fires for it).
 
 ## `Thread`
 
@@ -89,6 +204,10 @@ interface Thread {
 - `awaitChoice<T>(ui)` posts a picker and blocks until an interaction in this
   conversation resolves it to the clicked control's value (HITL); pass `T` to
   type the returned value.
+
+Note: `thread.getMessages()` reads provider history on adapters that support
+it (e.g. Slack, Discord) but falls back to an in-memory transcript on
+adapters that don't.
 
 ## Tools & context
 
@@ -147,7 +266,7 @@ TTL). It is lost on restart: after a restart an old button click degrades to
 an `ActionExpiredError` ("this action expired"), which `createChannel` swallows.
 **Durable actions require an external store (Redis / DB) — not shipped in
 v1.** Implement the `ActionStore` interface (`put` / `get` / `delete`) and
-pass it as `actionStore` to make actions survive restarts.
+pass it as `store.adapter` to make actions survive restarts.
 
 ## Writing a `PlatformAdapter`
 
@@ -173,9 +292,20 @@ invocations via `sink.onCommand(IncomingCommand)`, and may implement
 (e.g. Discord's application-command API); adapters that omit it are skipped.
 See `@copilotkit/channels-slack` for a complete implementation.
 
+Adapter authors are credential-free too: a `PlatformAdapter` describes *how*
+to speak to a surface, not *which* workspace/bot to speak to as — connectivity
+and credentials come from whatever drives the Channel (Intelligence or a
+custom runner).
+
 ## Exports
 
-`createChannel`, `Channel`, `CreateChannelOptions`, `ChannelHandler`, `ThreadStartHandler`;
+`createChannel`, `Channel`, `CreateChannelOptions`, `ChannelAgentBinding`,
+`ChannelAgentRouter`, `ChannelAgentRouteContext`, `ChannelRouteEvent`,
+`ChannelRouteUser`, `ChannelConversationKind`, `ChannelConcurrencyPolicy`,
+`ChannelConcurrencyDecision`, `ManagedChannelProvider`, `ChannelHandler`,
+`ThreadStartHandler`, `ReactionEvent`, `ReactionHandler`, `ModalSubmitEvent`,
+`ModalSubmitHandler`, `ModalCloseEvent`, `ModalCloseHandler`, `StoreConfig`,
+`LockConflictDecision`, `StatefulThread`, `ChannelComponent`;
 `Thread`; the `PlatformAdapter` boundary types (`RunRenderer`, `IngressSink`,
 `IncomingTurn`, `InteractionEvent`, `IncomingCommand`, `IncomingThreadStart`,
 `SurfaceCapabilities`,

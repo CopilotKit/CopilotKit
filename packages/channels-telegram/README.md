@@ -8,6 +8,12 @@ plus streaming via chunked message edits, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Telegram.
 
+> **Beta / breaking change.** As of this release the `telegram()` adapter is **declarative and
+> credential-free**: it no longer takes credentials and Channels are no longer started directly.
+> Credentials and connectivity are supplied by CopilotKit Intelligence (the recommended path) or a
+> custom `ChannelRunner`. See the quick start below. (Old: `telegram({ token })` +
+> `channel.start()`; New: `telegram()` + `new CopilotRuntime({ intelligence, channels })`.)
+
 ## Install
 
 ```sh
@@ -36,14 +42,13 @@ import {
   defaultTelegramContext,
 } from "@copilotkit/channels-telegram";
 import { Message, Section } from "@copilotkit/channels-ui";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
 
 const bot = createChannel({
-  adapters: [
-    telegram({
-      token: process.env.TELEGRAM_BOT_TOKEN!,
-    }),
-  ],
-  agent: (threadId) => makeAgent(threadId),
+  name: "support",
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }), // or "billing" | router | omitted→"default"
+  adapters: [telegram()], // credential-free
   tools: [...defaultTelegramTools, ...appTools], // lookup_telegram_user + your tools
   context: [...defaultTelegramContext, ...appContext], // tagging/HTML/thread guidance
 });
@@ -59,20 +64,37 @@ bot.onThreadStarted(async ({ thread }) => {
   );
 });
 
-await bot.start();
+// CopilotKit Intelligence supplies the Telegram bot token, connectivity, delivery, and failover:
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  channels: [bot],
+});
 ```
 
-`telegram(opts)` returns a `TelegramAdapter`. By default it runs in
-**long-polling** mode — no public URL needed. Set `mode: "webhook"` (with
-`webhook.domain`) to receive updates via HTTP, or `mode: "auto"` to let the
-adapter pick based on environment variables (prefers webhook in Vercel/Lambda
-environments, falls back to polling).
+`telegram(opts)` returns a `TelegramAdapter`. The adapter itself holds no credentials — it only
+renders IR and decides what to send. The bot token, and whether ingress runs over long-polling or
+webhook, is owned by whatever supplies connectivity (CopilotKit Intelligence's Telegram connector,
+in the managed path) — long-poll vs. webhook selection is the connector's concern, not something
+you configure on `telegram()`.
 
-### Required env
+### Response defaults
 
-| Var                  | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather (e.g. `123:ABC-xyz`) |
+- In group chats, the bot only responds when explicitly @-mentioned — a prior bot reply does not
+  remove that requirement.
+- DMs are always addressed (no mention needed).
+- An addressed message with no matching custom handler auto-runs the selected agent; a matching
+  `onMessage`/`onMention` handler replaces the auto-run.
+- Untagged messages in a shared group are ignored unless an `onMessage` handler opts in.
+
+### Credentials (now configured in CopilotKit Intelligence)
+
+Telegram still needs the same bot token — it's just no longer passed to the adapter. Configure it
+in the CopilotKit Intelligence Telegram connector instead:
+
+| Credential  | Purpose                                         |
+| ----------- | ------------------------------------------------ |
+| Bot token   | Bot token from @BotFather (e.g. `123:ABC-xyz`).  |
 
 ## What it provides
 
@@ -88,7 +110,7 @@ rows`, `Image → photo`, `Table → <pre> monospace grid`, `Divider → ──�
 Telegram API limits are enforced via `TELEGRAM_LIMITS` and the helpers:
 
 | Limit               | Value | Element                         |
-| ------------------- | ----- | ------------------------------- |
+| ------------------- | ----- | -------------------------------- |
 | `messageText`       | 4096  | characters per message          |
 | `caption`           | 1024  | caption characters              |
 | `callbackData`      | 64    | bytes per callback_data         |
@@ -154,17 +176,21 @@ command to the engine's `onCommand` handlers.
 
 ## Ingress modes
 
+Ingress mode (long-polling, webhook, or auto-detect) is owned by the connector supplying
+connectivity, not the `telegram()` adapter. In the managed CopilotKit Intelligence path this is
+handled for you. A custom `ChannelRunner`'s Telegram connector typically exposes:
+
 | Mode      | How it works                                                                     |
-| --------- | -------------------------------------------------------------------------------- |
+| --------- | ---------------------------------------------------------------------------------- |
 | `polling` | **Default.** grammY long-polling. No public URL needed.                          |
-| `webhook` | grammY webhook + minimal Node HTTP server. Requires `webhook.domain`.            |
+| `webhook` | grammY webhook + minimal Node HTTP server. Requires a configured domain.          |
 | `auto`    | Webhook when `VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`/`NETLIFY` is set, else polling. |
 
 ## Reactions
 
-`message_reaction` updates are enabled automatically. The adapter exports
-`TELEGRAM_ALLOWED_UPDATES` (the full update-type list it subscribes to) and
-passes it to grammY's long-polling `start()` call.
+`message_reaction` updates are enabled automatically. The package exports
+`TELEGRAM_ALLOWED_UPDATES` (the full update-type list the connector subscribes to) for use when
+wiring a custom connector's long-polling `start()` call.
 
 **Group chats:** the bot must be an **administrator** to receive
 `message_reaction` events. Private chats and channels work without any
@@ -232,6 +258,15 @@ await bot.api.setWebhook(url, {
   concurrent turns for the same conversation. Rapid back-to-back messages in
   one conversation may interleave. This is acceptable for typical use; a
   durable/locking store is out of v1 scope.
+- **`thread.getMessages()` reads an in-memory transcript** — unlike Slack/Discord (which read
+  provider history), Telegram's `getMessages()` reads the adapter's own conversation store, not a
+  provider API. History is lost on restart (see above).
+
+## Running without CopilotKit Intelligence
+
+Running Channels without CopilotKit Intelligence requires implementing a custom `ChannelRunner`
+(an advanced, exported-but-undocumented escape hatch that supplies its own connectivity,
+credentials, delivery, and failover).
 
 ## Exports
 

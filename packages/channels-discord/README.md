@@ -8,6 +8,12 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Discord.
 
+> **Beta / breaking change.** As of this release the `discord()` adapter is **declarative and
+> credential-free**: it no longer takes credentials and Channels are no longer started directly.
+> Credentials and connectivity are supplied by CopilotKit Intelligence (the recommended path) or a
+> custom `ChannelRunner`. See the quick start below. (Old: `discord({ botToken, appId, guildId })` +
+> `channel.start()`; New: `discord()` + `new CopilotRuntime({ intelligence, channels })`.)
+
 ## Install
 
 ```sh
@@ -23,16 +29,13 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
 
 const bot = createChannel({
-  adapters: [
-    discord({
-      botToken: process.env.DISCORD_BOT_TOKEN!, // Bot token — Gateway + REST
-      appId: process.env.DISCORD_APP_ID!, // Application ID for command registration
-      guildId: process.env.DISCORD_GUILD_ID, // Optional: instant guild-scoped dev commands
-    }),
-  ],
-  agent: (threadId) => makeAgent(threadId),
+  name: "support",
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }), // or "billing" | router | omitted→"default"
+  adapters: [discord()], // credential-free
   tools: [...defaultDiscordTools, ...appTools], // lookup_discord_user + your tools
   context: [...defaultDiscordContext, ...appContext], // tagging/formatting/thread guidance
   commands: [
@@ -48,30 +51,49 @@ const bot = createChannel({
 
 bot.onMention(({ thread }) => thread.runAgent());
 
-await bot.start();
+// CopilotKit Intelligence supplies the Discord bot token, connectivity, delivery, and failover:
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  channels: [bot],
+});
 ```
 
-`discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
-Discord Gateway (WebSocket) — no public URL required. The listener pre-filters
-ingress to the turns the bot should answer (@-mentions in guild channels and
-DMs), so a single `onMention` handler covers most use cases.
+`discord(opts)` returns a `DiscordAdapter`. The adapter itself holds no credentials — it only
+renders IR and decides what to send. The bot token, application id, and guild id live with
+whatever supplies connectivity (CopilotKit Intelligence's Discord connector, in the managed path).
+Ingress runs over the Discord Gateway (WebSocket) — no public URL required. The listener
+pre-filters ingress to the turns the bot should answer (@-mentions in guild channels and DMs), so
+a single `onMention` handler covers most use cases.
 
-### Required env
+### Response defaults
 
-| Var                 | Purpose                                                                  |
+- In guild channels, the bot only responds when explicitly @-mentioned — a prior bot reply in the
+  channel does not remove that requirement.
+- DMs are always addressed (no mention needed).
+- An addressed message with no matching custom handler auto-runs the selected agent; a matching
+  `onMessage`/`onMention` handler replaces the auto-run.
+- Untagged messages in a shared channel are ignored unless an `onMessage` handler opts in.
+
+### Credentials (now configured in CopilotKit Intelligence)
+
+Discord still needs the same app-level credentials — they're just no longer passed to the
+adapter. Configure these in the CopilotKit Intelligence Discord connector instead:
+
+| Credential          | Purpose                                                                  |
 | ------------------- | ------------------------------------------------------------------------ |
-| `DISCORD_BOT_TOKEN` | Bot token for Gateway login and REST calls.                              |
-| `DISCORD_APP_ID`    | Application ID used when registering slash commands.                     |
-| `DISCORD_GUILD_ID`  | _(Optional)_ Guild ID for instant per-guild command registration in dev. |
+| Bot token           | Gateway login and REST calls.                                            |
+| Application ID      | Used when registering slash commands.                                    |
+| Guild ID            | _(Optional)_ Guild ID for instant per-guild command registration in dev. |
 
-> **Global commands** (no `guildId`) propagate across Discord in ~1 hour.
-> **Guild-scoped commands** (with `guildId`) register instantly — use them
+> **Global commands** (no guild id) propagate across Discord in ~1 hour.
+> **Guild-scoped commands** (with a guild id) register instantly — use them
 > during development and switch to global for production.
 
 ### Privileged intents
 
-The adapter requests **two** privileged gateway intents — `MessageContent` and
-`GuildMembers`. Both must be enabled in the
+The connector backing this adapter requests **two** privileged gateway intents —
+`MessageContent` and `GuildMembers`. Both must be enabled in the
 [Discord Developer Portal](https://discord.com/developers/applications)
 (your application → Bot → Privileged Gateway Intents) or Gateway login is
 rejected.
@@ -84,7 +106,7 @@ rejected.
 
 ### Reaction intent and partials
 
-The adapter also requests `GuildMessageReactions` and enables the
+The connector also requests `GuildMessageReactions` and enables the
 `Partials.Message` and `Partials.Reaction` partials:
 
 > - **`GuildMessageReactions`** — a **non-privileged** gateway intent; no
@@ -250,10 +272,10 @@ work against any adapter that advertises the same capabilities.
 
 ## Slash commands
 
-Slash commands are registered up front on `bot.start()` via `registerCommands`.
-When `guildId` is set they register to that guild instantly; without it they
-register globally and take ~1 hour to propagate. Register handlers with
-`bot.onCommand`:
+Slash commands are registered up front when the Channel starts, via
+`registerCommands`. When a guild id is configured they register to that guild
+instantly; without one they register globally and take ~1 hour to propagate.
+Register handlers with `bot.onCommand`:
 
 ```ts
 bot.onCommand({
@@ -275,9 +297,7 @@ command's `options` schema is provided; args also arrive flattened as free text
 in `ctx.text`.
 
 > **App setup** (OAuth scopes, bot permissions, invite URL) is done via the
-> Discord Developer Portal and the OAuth2 invite flow. A complete wiring example
-> lives in [`examples/slack`](../../examples/slack) — one bot app that runs
-> Slack and/or Discord depending on which secrets you set.
+> Discord Developer Portal and the OAuth2 invite flow.
 
 ## What's NOT in v1
 
@@ -293,6 +313,12 @@ in `ctx.text`.
 - Native interaction-ephemeral (`supportsEphemeral` is `false`; use
   `thread.postEphemeral(user, ui, { fallbackToDM: true })` for a DM-based
   workaround)
+
+## Running without CopilotKit Intelligence
+
+Running Channels without CopilotKit Intelligence requires implementing a custom `ChannelRunner`
+(an advanced, exported-but-undocumented escape hatch that supplies its own connectivity,
+credentials, delivery, and failover).
 
 ## Exports
 

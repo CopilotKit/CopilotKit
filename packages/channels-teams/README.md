@@ -9,6 +9,14 @@ on Teams by adding this adapter.
 It is built on the **Microsoft 365 Agents SDK** (`@microsoft/agents-hosting`),
 the successor to the Bot Framework SDK.
 
+> **Beta / breaking change.** As of this release the `teams()` adapter is
+> **declarative and credential-free**: it no longer takes `clientId` /
+> `clientSecret` / `tenantId` and Channels are no longer started directly.
+> Credentials and connectivity are supplied by CopilotKit Intelligence (the
+> recommended path) or a custom `ChannelRunner`. See the quick start below.
+> (Old: `teams({ clientId, clientSecret, tenantId })` + `channel.start()`; New:
+> `teams()` + `new CopilotRuntime({ intelligence, channels })`.)
+
 ## Install
 
 ```sh
@@ -20,34 +28,45 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
 
-const bot = createChannel({
-  adapters: [teams({ port: 3978 })],
+const support = createChannel({
+  name: "support",
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }), // or "billing" | router | omitted→"default"
+  adapters: [teams()], // credential-free
 });
 
-bot.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
+support.onMessage(({ thread, message }) => thread.post(`Echo: ${message.text}`));
 
-await bot.start(); // POST /api/messages now listening on :3978
+// CopilotKit Intelligence supplies credentials, connectivity, delivery, and failover:
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  channels: [support],
+});
 ```
 
-Then point the **Microsoft 365 Agents Playground** at it. No Microsoft
-credentials are required for local development:
+`teams()` returns a `TeamsAdapter` — it holds no credentials. The
+`POST /api/messages` listener, the Microsoft app id/secret/tenant, and
+proactive re-entry are all supplied by the runner: CopilotKit Intelligence, or
+a custom `ChannelRunner`. Running Channels without CopilotKit Intelligence
+requires implementing a custom `ChannelRunner` (an advanced,
+exported-but-undocumented escape hatch that supplies its own connectivity,
+credentials, delivery, and failover).
 
-```sh
-npx @microsoft/m365agentsplayground   # opens http://localhost:56150
-```
-
-The Playground connects to `http://127.0.0.1:3978/api/messages` and gives you a
-Teams-like chat UI to test against. See [`examples/teams`](../../examples/teams)
-for a complete, runnable echo bot, and the
-[Microsoft Teams guide](../../showcase/shell-docs/src/content/docs/frontends/teams.mdx)
-for sideloading into real Teams via Azure Bot Service.
+For local testing against the **Microsoft 365 Agents Playground** (no
+Microsoft credentials required) and sideloading into real Teams via Azure Bot
+Service, see the runnable demo in
+[`examples/teams`](../../examples/teams) and the
+[Microsoft Teams guide](../../showcase/shell-docs/src/content/docs/frontends/teams.mdx).
 
 ## How it maps onto the `PlatformAdapter` contract
 
-- **Ingress:** a `CloudAdapter` receives Teams activities at
-  `POST /api/messages` (stood up by an Express server). Each `message` activity
-  is normalized into `sink.onTurn(...)`. Uploaded files ride along as
+- **Ingress:** the runner-injected connector's `CloudAdapter` receives Teams
+  activities at `POST /api/messages` (stood up by an Express server owned by
+  the connector, not the adapter). Each `message` activity is normalized into
+  `sink.onTurn(...)`. Uploaded files ride along as
   attachments: `buildFileContentParts` downloads them (a `file.download.info`
   URL, or a `data:`/https media URL) and hands the agent multimodal content
   parts — CSV/JSON/text as decoded text, images and PDFs as binary. That's what
@@ -79,18 +98,23 @@ for sideloading into real Teams via Azure Bot Service.
 
 ## Options
 
+`teams()` is credential-free — `TeamsAdapterOptions` only covers rendering/
+run-loop behavior:
+
 ```ts
 teams({
-  port: 3978, // POST /api/messages port (Playground default)
-  clientId, // Microsoft app id; omit for anonymous local dev
-  clientSecret, // omit for anonymous local dev
-  tenantId, // omit for multi-tenant / anonymous
   interruptEventNames, // custom-event names treated as agent interrupts
+  files, // tunables for inbound file size/count caps
 });
 ```
 
-Credentials also resolve from the `clientId` / `clientSecret` / `tenantId`
-environment variables (the names the M365 Agents SDK reads).
+### Credentials
+
+The Microsoft app id/secret/tenant (`clientId` / `clientSecret` / `tenantId` —
+the names the M365 Agents SDK reads), the `POST /api/messages` port, and
+proactive re-entry now live on the connector, not on `teams()`. Configure them
+on the Teams connector in CopilotKit Intelligence. Omitting them (anonymous
+local dev against the Playground) is still supported at the connector level.
 
 ## Status & roadmap
 
@@ -112,12 +136,13 @@ human decision; see `examples/teams` for an approve/reject demo. Ingress and
 interaction decoding derive the conversation key from one shared helper
 (`conversationKeyOf`) so the waiter always resolves.
 
-**Async turn handoff.** When credentialed, ingress acks the inbound turn
-immediately and runs the agent on a detached `continueConversation` context, so
-an `awaitChoice` suspend can outlive the Teams turn window (approval minutes
-later). In the anonymous local Playground (where `continueConversation` has no
-app id) the run uses the inbound turn context, which localhost holds open across
-the suspend. Waiters are in-memory (v1), so they don't survive a process restart.
+**Async turn handoff.** When the bound connector is credentialed, ingress acks
+the inbound turn immediately and runs the agent on a detached
+`continueConversation` context, so an `awaitChoice` suspend can outlive the
+Teams turn window (approval minutes later). In the anonymous local Playground
+(where `continueConversation` has no app id) the run uses the inbound turn
+context, which localhost holds open across the suspend. Waiters are in-memory
+(v1), so they don't survive a process restart.
 
 Planned follow-ups (the architecture leaves room for each):
 

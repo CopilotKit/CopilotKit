@@ -8,6 +8,14 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Slack.
 
+> **Beta / breaking change.** As of this release the `slack()` adapter is
+> **declarative and credential-free**: it no longer takes a bot/app token and
+> Channels are no longer started directly. Credentials and connectivity are
+> supplied by CopilotKit Intelligence (the recommended path) or a custom
+> `ChannelRunner`. See the quick start below. (Old: `slack({ botToken, appToken
+> })` + `channel.start()`; New: `slack()` + `new CopilotRuntime({ intelligence,
+> channels })`.)
+
 ## Install
 
 ```sh
@@ -23,27 +31,37 @@ import {
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
 
-const bot = createChannel({
-  adapters: [
-    slack({
-      botToken: process.env.SLACK_BOT_TOKEN!, // xoxb-…
-      appToken: process.env.SLACK_APP_TOKEN!, // xapp-… (Socket Mode)
-    }),
-  ],
-  agent: (threadId) => makeAgent(threadId),
+const support = createChannel({
+  name: "support",
+  agent: new HttpAgent({ url: process.env.AGENT_URL! }), // or "billing" | router | omitted→"default"
+  adapters: [slack()], // credential-free
   tools: [...defaultSlackTools, ...appTools], // lookup_slack_user + your tools
   context: [...defaultSlackContext, ...appContext], // tagging/mrkdwn/thread guidance
 });
 
-bot.onMention(({ thread }) => thread.runAgent());
+support.onMention(async ({ thread, message }) => {
+  await thread.react(message.ref, "eyes");
+  await thread.runAgent({ prompt: message.contentParts ?? message.text });
+});
 
-await bot.start();
+// CopilotKit Intelligence supplies credentials, connectivity, delivery, and failover:
+const runtime = new CopilotRuntime({
+  intelligence,
+  identifyUser,
+  channels: [support],
+});
 ```
 
-`slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
-(`socketMode: true`) — outbound WebSocket only, no public URL needed. HTTP
-mode (`socketMode: false`) needs `signingSecret` and a `port`.
+`slack()` returns a `SlackAdapter` — it holds no credentials. The bot token,
+app token (Socket Mode), and connectivity are supplied by the runner:
+CopilotKit Intelligence (via the workspace connector configured there), or a
+custom `ChannelRunner`. Running Channels without CopilotKit Intelligence
+requires implementing a custom `ChannelRunner` (an advanced,
+exported-but-undocumented escape hatch that supplies its own connectivity,
+credentials, delivery, and failover).
 
 Every Slack message becomes a turn — DMs, app mentions, plain thread replies,
 and top-level channel chatter alike. What happens next is a **product-driven
@@ -51,16 +69,21 @@ response policy**: DMs and the assistant pane are always directly addressed;
 a shared channel or thread message is addressed only when the bot is
 explicitly @-mentioned (a prior bot reply in that thread does NOT remove the
 tagging requirement). An addressed message with no matching `onMention`/
-`onMessage` handler auto-runs the agent; an untagged shared message is
-ignored UNLESS you register an `onMessage` handler, which opts in to seeing
-every untagged channel/thread message too.
+`onMessage` handler auto-runs the selected agent; an untagged shared message
+is ignored UNLESS you register an `onMessage` handler, which opts in to
+seeing every untagged channel/thread message too. A matching custom handler
+replaces the auto-run.
 
-### Required env
+### Credentials
 
-| Var               | Token   | Purpose                          |
-| ----------------- | ------- | -------------------------------- |
-| `SLACK_BOT_TOKEN` | `xoxb-` | Bot token for the Web API.       |
-| `SLACK_APP_TOKEN` | `xapp-` | App-level token for Socket Mode. |
+The Slack app still needs a bot token (`xoxb-`) and, for Socket Mode, an
+app-level token (`xapp-`) — they're just no longer passed to `slack()`.
+Configure them on the Slack connector in CopilotKit Intelligence:
+
+| Token         | Purpose                          |
+| ------------- | --------------------------------- |
+| `xoxb-` (bot) | Bot token for the Web API.        |
+| `xapp-` (app) | App-level token for Socket Mode.  |
 
 ## Response routing
 
@@ -79,14 +102,16 @@ is addressed; that product-driven decision (§2 above) always runs afterward.
 ```ts
 // Default routing made explicit.
 slack({
-  botToken,
-  appToken,
   respondTo: {
     directMessages: true,
     appMentions: { reply: "thread" },
   },
 });
 ```
+
+Mention-only is the default for shared channels/threads — a plain reply in a
+thread the bot already posted in still requires another @-mention; there is
+no adapter-level "keep responding after a mention" toggle.
 
 To see every plain, untagged reply in a shared channel/thread (not just
 `@mentions`), register an `onMessage` handler — the engine's response policy
@@ -160,8 +185,6 @@ dispatch. Without `feedback`, no buttons are shown.
 
 ```ts
 slack({
-  botToken,
-  appToken,
   feedback: {
     onFeedback: ({ sentiment, user, channel, messageTs }) => {
       recordFeedback({ sentiment, user, channel, messageTs }); // your telemetry
@@ -205,8 +228,6 @@ pane machinery lies dormant.
 
 ```ts
 slack({
-  botToken,
-  appToken,
   assistant: {
     greeting: "Hi! I can triage issues, search docs, and more.",
     suggestedPrompts: [
@@ -216,7 +237,7 @@ slack({
 });
 
 // Dynamic behavior when a user opens the pane (layers on top of the defaults):
-bot.onThreadStarted(async ({ thread, user }) => {
+support.onThreadStarted(async ({ thread, user }) => {
   await thread.setSuggestedPrompts(promptsFor(user));
   // await thread.setTitle(...) is also available
 });
