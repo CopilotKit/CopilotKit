@@ -131,7 +131,7 @@ test("does not run the broad Angular proof matrix in pull requests", async () =>
   ).rejects.toMatchObject({ code: "ENOENT" });
 });
 
-test("keeps the exhaustive Angular audit manual, complete, and fail-closed", async () => {
+test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", async () => {
   const workflow = await readFile(
     resolve(
       repositoryRoot,
@@ -141,7 +141,10 @@ test("keeps the exhaustive Angular audit manual, complete, and fail-closed", asy
   );
 
   expect(workflow).toContain("workflow_dispatch:");
-  expect(workflow).not.toContain("pull_request:");
+  expect(workflow).toContain("types: [labeled]");
+  expect(workflow).toContain("github.event.label.name == 'angular-audit'");
+  expect(workflow).not.toContain("types: [opened");
+  expect(workflow).not.toContain("types: [synchronize");
   for (const integration of integrations) {
     expect(workflow).toContain(`          - ${integration}`);
   }

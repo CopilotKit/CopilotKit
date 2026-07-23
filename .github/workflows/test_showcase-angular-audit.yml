@@ -1,6 +1,9 @@
 name: test / showcase Angular audit
 
 on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
@@ -19,6 +22,7 @@ env:
 jobs:
   build-angular:
     name: Build canonical Angular browser
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     outputs:
@@ -63,6 +67,7 @@ jobs:
 
   matrix:
     name: Chromium pairs / ${{ matrix.integration }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit' }}
     needs: build-angular
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -262,7 +267,7 @@ jobs:
 
   aggregate:
     name: Require 1,296 passing cells
-    if: always()
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit') }}
     needs: [build-angular, matrix]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
