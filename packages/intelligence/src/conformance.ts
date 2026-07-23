@@ -1274,6 +1274,78 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "run-snapshot-rejects-retained-event-after-terminal",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              timestamp: "2026-07-16T18:00:00.001Z",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "run-snapshot-rejects-sub-millisecond-retained-event-after-terminal",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        terminalAt: "2026-07-16T18:00:00.0001Z",
+        capturedAt: "2026-07-16T18:00:00.0001Z",
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              timestamp: "2026-07-16T18:00:00.0002Z",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "run-snapshot-accepts-retained-event-before-terminal-with-different-offset",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              timestamp: "2026-07-16T20:00:00.000+03:00",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "run-snapshot-accepts-retained-event-at-terminal-boundary",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        terminalAt: "2026-07-16T18:00:00.0001Z",
+        capturedAt: "2026-07-16T18:00:00.0001Z",
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            {
+              ...retainedEvidenceEvent,
+              timestamp: "2026-07-16T20:00:00.0001000+02:00",
+            },
+          ],
+        },
+      },
+    },
+    {
       name: "run-snapshot-rejects-duplicate-tool-call-ids",
       schema: "RunSnapshotV1",
       valid: false,

@@ -15,6 +15,7 @@ import {
   validateJsonTreeBoundsV1,
 } from "./snapshot-evidence-bounds.js";
 import type { INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1 } from "./snapshot-evidence-bounds.js";
+import { compareCanonicalDateTimes } from "./date-time.js";
 
 export type LearningContractAssertionNormalizationV1 = {
   readonly caseFold?: boolean;
@@ -31,6 +32,13 @@ export type LearningContractAssertionV1 =
       readonly right: string;
       readonly valueType?: LearningContractAssertionValueTypeV1;
       readonly normalization?: LearningContractAssertionNormalizationV1;
+    }
+  | {
+      readonly operation: "compare-values";
+      readonly values: string;
+      readonly relation: "less-than" | "less-than-or-equal";
+      readonly right: string;
+      readonly valueType: LearningContractAssertionValueTypeV1;
     }
   | {
       readonly operation: "unique";
@@ -614,10 +622,17 @@ function assertionValueKey(
   return `${typeof normalized}:${JSON.stringify(normalized)}`;
 }
 
+type ComparableDateTime = {
+  readonly valueType: "date-time";
+  readonly value: string;
+};
+
+type ComparableValue = number | string | ComparableDateTime;
+
 function comparableValue(
   value: unknown,
   valueType: LearningContractAssertionValueTypeV1 | undefined,
-): number | string | undefined {
+): ComparableValue | undefined {
   if (valueType === "number") {
     return typeof value === "number" && Number.isFinite(value)
       ? value
@@ -625,8 +640,9 @@ function comparableValue(
   }
   if (valueType === "date-time") {
     if (typeof value !== "string") return undefined;
-    const milliseconds = Date.parse(value);
-    return Number.isFinite(milliseconds) ? milliseconds : undefined;
+    return compareCanonicalDateTimes(value, value) === undefined
+      ? undefined
+      : { valueType: "date-time", value };
   }
   if (valueType === "string") {
     return typeof value === "string" ? value : undefined;
@@ -634,6 +650,24 @@ function comparableValue(
   return typeof value === "number" || typeof value === "string"
     ? value
     : undefined;
+}
+
+function compareComparableValues(
+  left: ComparableValue,
+  right: ComparableValue,
+): -1 | 0 | 1 | undefined {
+  if (
+    typeof left === "object" &&
+    typeof right === "object" &&
+    left.valueType === "date-time" &&
+    right.valueType === "date-time"
+  ) {
+    return compareCanonicalDateTimes(left.value, right.value);
+  }
+  if (typeof left !== typeof right || typeof left === "object") {
+    return undefined;
+  }
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function compareAssertionValues(
@@ -655,9 +689,9 @@ function compareAssertionValues(
   if (comparableLeft === undefined || comparableRight === undefined) {
     return false;
   }
-  return relation === "less-than"
-    ? comparableLeft < comparableRight
-    : comparableLeft <= comparableRight;
+  const comparison = compareComparableValues(comparableLeft, comparableRight);
+  if (comparison === undefined) return false;
+  return relation === "less-than" ? comparison < 0 : comparison <= 0;
 }
 
 function hasExactlyOneValue(values: readonly unknown[]): values is [unknown] {
@@ -679,6 +713,27 @@ function validateCompareAssertion(
       assertion.relation,
       assertion.valueType,
       assertion.normalization,
+    )
+  );
+}
+
+function validateCompareValuesAssertion(
+  assertion: Extract<
+    LearningContractAssertionV1,
+    { operation: "compare-values" }
+  >,
+  data: unknown,
+): boolean {
+  const right = selectJsonPointerValues(data, assertion.right);
+  return (
+    hasExactlyOneValue(right) &&
+    selectJsonPointerValues(data, assertion.values).every((value) =>
+      compareAssertionValues(
+        value,
+        right[0],
+        assertion.relation,
+        assertion.valueType,
+      ),
     )
   );
 }
@@ -717,7 +772,8 @@ function validateStrictlyIncreasingAssertion(
     (value, index) =>
       value !== undefined &&
       (index === 0 ||
-        (values[index - 1] !== undefined && value > values[index - 1]!)),
+        (values[index - 1] !== undefined &&
+          compareComparableValues(value, values[index - 1]!) === 1)),
   );
 }
 
@@ -747,18 +803,28 @@ function validateValuesInRangeAssertion(
   }
   const minimum = comparableValue(minimumValues[0], assertion.valueType);
   const maximum = comparableValue(maximumValues[0], assertion.valueType);
-  if (minimum === undefined || maximum === undefined || minimum > maximum) {
+  if (
+    minimum === undefined ||
+    maximum === undefined ||
+    compareComparableValues(minimum, maximum) === undefined ||
+    compareComparableValues(minimum, maximum)! > 0
+  ) {
     return false;
   }
   return selectJsonPointerValues(data, assertion.values).every((value) => {
     const comparable = comparableValue(value, assertion.valueType);
     if (comparable === undefined) return false;
+    const minimumComparison = compareComparableValues(comparable, minimum);
+    const maximumComparison = compareComparableValues(comparable, maximum);
+    if (minimumComparison === undefined || maximumComparison === undefined) {
+      return false;
+    }
     const aboveMinimum = assertion.minimumExclusive
-      ? comparable > minimum
-      : comparable >= minimum;
+      ? minimumComparison > 0
+      : minimumComparison >= 0;
     const belowMaximum = assertion.maximumExclusive
-      ? comparable < maximum
-      : comparable <= maximum;
+      ? maximumComparison < 0
+      : maximumComparison <= 0;
     return aboveMinimum && belowMaximum;
   });
 }
@@ -799,7 +865,7 @@ function validateOrderedRangesAssertion(
   >,
   data: unknown,
 ): boolean {
-  let previousLast: number | string | undefined;
+  let previousLast: ComparableValue | undefined;
   for (const range of selectJsonPointerValues(data, assertion.ranges)) {
     const firstValues = selectJsonPointerValues(range, assertion.first);
     const lastValues = selectJsonPointerValues(range, assertion.last);
@@ -808,11 +874,21 @@ function validateOrderedRangesAssertion(
     }
     const first = comparableValue(firstValues[0], assertion.valueType);
     const last = comparableValue(lastValues[0], assertion.valueType);
+    const rangeComparison =
+      first === undefined || last === undefined
+        ? undefined
+        : compareComparableValues(first, last);
+    const previousComparison =
+      first === undefined || previousLast === undefined
+        ? undefined
+        : compareComparableValues(first, previousLast);
     if (
       first === undefined ||
       last === undefined ||
-      first > last ||
-      (previousLast !== undefined && first <= previousLast)
+      rangeComparison === undefined ||
+      rangeComparison > 0 ||
+      (previousLast !== undefined &&
+        (previousComparison === undefined || previousComparison <= 0))
     ) {
       return false;
     }
@@ -1001,6 +1077,8 @@ function validateLearningContractAssertion(
   switch (assertion.operation) {
     case "compare":
       return validateCompareAssertion(assertion, data);
+    case "compare-values":
+      return validateCompareValuesAssertion(assertion, data);
     case "unique":
       return validateUniqueAssertion(assertion, data);
     case "all-equal":

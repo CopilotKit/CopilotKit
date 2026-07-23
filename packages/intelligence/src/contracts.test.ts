@@ -1120,6 +1120,48 @@ describe("parent V1 contract schemas", () => {
     ).toBe(expected);
   });
 
+  test.each([
+    {
+      name: "an event after the terminal boundary",
+      terminalAt: NOW,
+      timestamp: "2026-07-16T18:00:00.001Z",
+      expected: false,
+    },
+    {
+      name: "a sub-millisecond event after the terminal boundary",
+      terminalAt: "2026-07-16T18:00:00.0001Z",
+      timestamp: "2026-07-16T18:00:00.0002Z",
+      expected: false,
+    },
+    {
+      name: "an earlier instant with a later offset wall time",
+      terminalAt: NOW,
+      timestamp: "2026-07-16T20:00:00.000+03:00",
+      expected: true,
+    },
+    {
+      name: "an event exactly at the terminal boundary",
+      terminalAt: "2026-07-16T18:00:00.0001Z",
+      timestamp: "2026-07-16T20:00:00.0001000+02:00",
+      expected: true,
+    },
+  ])(
+    "retained evidence handles $name",
+    ({ terminalAt, timestamp, expected }) => {
+      expect(
+        runSnapshotV1Schema.safeParse({
+          ...snapshot,
+          terminalAt,
+          capturedAt: terminalAt,
+          retainedEvidence: {
+            schemaVersion: 1,
+            events: [{ ...correlatedRetainedEvidenceEvent, timestamp }],
+          },
+        }).success,
+      ).toBe(expected);
+    },
+  );
+
   test("requires exactly one source event matching the terminal event ID", () => {
     expect(runSnapshotV1Schema.parse(snapshot)).toEqual(snapshot);
     expect(

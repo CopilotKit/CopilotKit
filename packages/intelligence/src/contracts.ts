@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import type { LearningContractAssertionV1 } from "./portable-validator.js";
+import { compareCanonicalDateTimes } from "./date-time.js";
 import {
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
@@ -535,6 +536,15 @@ export const runSnapshotV1Schema = z
           message: `Retained event type ${event.type} does not match source-event type ${sourceEvent.type}.`,
         });
       }
+      if (
+        compareCanonicalDateTimes(event.timestamp, snapshot.terminalAt) === 1
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["retainedEvidence", "events", eventIndex, "timestamp"],
+          message: "Retained event timestamp cannot follow terminal time.",
+        });
+      }
     });
 
     const referencedTerminalEvent = sourceEventsById.get(
@@ -568,14 +578,18 @@ export const runSnapshotV1Schema = z
       });
     }
 
-    if (Date.parse(snapshot.startedAt) > Date.parse(snapshot.terminalAt)) {
+    if (
+      compareCanonicalDateTimes(snapshot.startedAt, snapshot.terminalAt) === 1
+    ) {
       context.addIssue({
         code: "custom",
         path: ["terminalAt"],
         message: "Terminal time cannot precede start time",
       });
     }
-    if (Date.parse(snapshot.terminalAt) > Date.parse(snapshot.capturedAt)) {
+    if (
+      compareCanonicalDateTimes(snapshot.terminalAt, snapshot.capturedAt) === 1
+    ) {
       context.addIssue({
         code: "custom",
         path: ["capturedAt"],
@@ -1541,6 +1555,20 @@ export const learningContractAssertionV1JsonSchema: JsonObject = {
       {
         type: "object",
         properties: {
+          operation: { const: "compare-values" },
+          values: assertionJsonPointerJsonSchema,
+          relation: {
+            enum: ["less-than", "less-than-or-equal"],
+          },
+          right: assertionJsonPointerJsonSchema,
+          valueType: assertionValueTypeJsonSchema,
+        },
+        required: ["operation", "values", "relation", "right", "valueType"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
           operation: { const: "unique" },
           values: assertionJsonPointerJsonSchema,
           normalization: assertionNormalizationJsonSchema,
@@ -2362,6 +2390,13 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
     collection: "/sourceEvents/*",
     key: "/eventId",
     targets: "/type",
+  },
+  {
+    operation: "compare-values",
+    values: "/retainedEvidence/events/*/timestamp",
+    relation: "less-than-or-equal",
+    right: "/terminalAt",
+    valueType: "date-time",
   },
   {
     operation: "unique",
