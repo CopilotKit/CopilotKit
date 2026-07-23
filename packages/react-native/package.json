@@ -18,6 +18,10 @@
   },
   "type": "module",
   "sideEffects": [
+    "./src/index.ts",
+    "./src/polyfills.ts",
+    "./src/polyfills/**/*",
+    "./src/streaming-fetch.ts",
     "./dist/index.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
@@ -66,7 +70,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:bundle",
+    "test:bundle": "node --test scripts/__tests__/*.test.mjs",
     "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
