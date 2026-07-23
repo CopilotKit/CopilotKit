@@ -150,9 +150,6 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   HeadlessThreads: "shared/threads/headless-threads.mdx",
   Threads: "shared/threads/headless-threads.mdx",
   ThreadsOverview: "shared/threads/overview.mdx",
-  // Local / Self-hosted FastAPI / LangGraph-Platform deployment-URL tabs,
-  // reused by the LangSmith deploy partial.
-  LangGraphPlatformDeploymentTabs: "langgraph-platform-deployment-tabs.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -545,9 +542,6 @@ export const docsComponents = {
     <div>{children}</div>
   ),
   A2UI: stubWithPartial("A2UI"),
-  LangGraphPlatformDeploymentTabs: stubWithPartial(
-    "LangGraphPlatformDeploymentTabs",
-  ),
   RunAndConnect: stubWithPartial("RunAndConnect"),
   RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
   MigrateTo: stubWithPartial("MigrateTo"),

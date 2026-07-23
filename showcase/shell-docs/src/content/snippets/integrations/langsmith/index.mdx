@@ -11,8 +11,8 @@ import {
 ## CopilotKit + LangSmith Platform
 
 [LangSmith Deployment](https://docs.langchain.com/langsmith/deployment) gives your LangGraph and
-Google ADK agents a managed, serverless runtime — handling scaling, persistence, and the LangGraph
-Server API. CopilotKit gives those agents a production-ready frontend.
+Google ADK agents a managed runtime (serverless by default) — handling scaling, persistence, and
+the LangGraph Server API. CopilotKit gives those agents a production-ready frontend.
 
 ## How it works
 
@@ -48,7 +48,16 @@ point the runtime at the LangSmith deployment URL.
 <Callout type="info" title="Prerequisites">
   You need a [LangSmith account](https://smith.langchain.com) on the **Plus plan or above** and a
   LangSmith API key (`lsv2_...`). Deploying uses the LangGraph CLI; Docker is optional (only needed
-  for local container builds).
+  for local container builds). **Google ADK** additionally needs **Python 3.11+**, the
+  `deployments-wrap-sdk[google-adk]` package, and a **Google AI API key** if you use Gemini models.
+</Callout>
+
+<Callout type="info" title="Deployment models">
+  This guide uses **LangSmith Cloud** via the CLI — serverless by default, or `--deployment-type
+  dedicated` for a dedicated deployment. LangSmith also supports self-hosted control plane, hybrid,
+  and standalone-server models; see the
+  [deployment overview](https://docs.langchain.com/langsmith/deployment) to pick one. The CopilotKit
+  wiring below is the same regardless of which model you deploy to.
 </Callout>
 
 <Steps>
@@ -163,6 +172,25 @@ point the runtime at the LangSmith deployment URL.
             The `graphs` key (`my_agent` here) is the **graph ID** you'll point CopilotKit at later.
             See the [Deploy Google ADK agents](https://docs.langchain.com/langsmith/deploy-google-adk)
             guide for the full walkthrough.
+
+            <Callout type="warn" title="ADK wrapper limitations">
+              The wrapper adapts ADK onto the LangGraph Server, so some ADK and CopilotKit features
+              don't carry over. Per LangChain's
+              [ADK guide](https://docs.langchain.com/langsmith/deploy-google-adk):
+
+              - **No multimodal input** — only `messages[-1].content` is forwarded as a single text
+                part; inbound images, files, or audio are dropped.
+              - **Last message only** — just the final item in `messages` is sent to the ADK agent
+                each turn.
+              - **No live / audio / voice** — ADK's `run_live()` bidirectional streaming isn't used.
+              - **Text output only** — non-text output parts (images, audio, files) aren't surfaced.
+              - **No intermediate events** — tool calls, tool results, and sub-agent turns aren't
+                emitted as separate messages.
+              - **`LangsmithSessionService` required** — other ADK session services are rejected.
+              - **No LangGraph interrupts** — `interrupt` / `Command(resume=...)` aren't exposed, so
+                human-in-the-loop that relies on native interrupts won't work with a wrapped ADK
+                agent.
+            </Callout>
           </Tab>
         </Tabs>
       </Step>
@@ -180,6 +208,12 @@ point the runtime at the LangSmith deployment URL.
 
       <Step>
         ### Deploy
+
+        <Callout type="info" title="Verify locally first">
+          Before deploying, run `langgraph dev` from the project root to serve the graph locally and
+          confirm it starts. This catches import errors, a bad graph export, or (for ADK) a missing
+          `LangsmithSessionService` or model credentials with clearer feedback than a remote build.
+        </Callout>
 
         From the project root:
 

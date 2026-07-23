@@ -1079,6 +1079,11 @@ export const SNIPPET_MAP: Record<string, string> = {
   HeadlessThreads: "shared/threads/headless-threads.mdx",
   Threads: "shared/threads/headless-threads.mdx",
   ThreadsOverview: "shared/threads/overview.mdx",
+  // Local / Self-hosted FastAPI / LangGraph-Platform deployment-URL tabs,
+  // reused by the LangSmith deploy partial. Registered here (not just in
+  // mdx-registry's STUB_PARTIAL_MAP) so inlineSnippets resolves it and
+  // doesn't emit a spurious "snippet missing" warning.
+  LangGraphPlatformDeploymentTabs: "langgraph-platform-deployment-tabs.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
