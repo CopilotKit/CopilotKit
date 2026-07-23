@@ -86,8 +86,10 @@ those modes without going through a Runtime throws. Only the inline
   Channel with no adapters is _managed_ — CopilotKit Intelligence supplies
   delivery for it instead.
 - `provider` — which managed platform a no-adapter Channel targets when
-  activated via Intelligence (`"slack"` | `"teams"`; defaults to `"slack"`).
-  Ignored for direct-adapter Channels.
+  activated via Intelligence (defaults to `"slack"`). `"slack"` is generally
+  available; `"teams"` is SDK-ready but currently **gated** at the Intelligence
+  gateway (only `"slack"` is accepted at join today). Ignored for direct-adapter
+  Channels.
 - `concurrency` — `{ onConcurrent: "replace" | "queue" | "drop" }`, what to do
   when a new turn arrives while a prior turn on the same conversation is still
   running. Default `"replace"`.
