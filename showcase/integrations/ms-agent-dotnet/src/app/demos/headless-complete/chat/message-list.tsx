@@ -27,6 +27,7 @@ import { AssistantBubble } from "./message-assistant";
 import { UserBubble } from "./message-user";
 
 export function MessageList({ messages }: { messages: Message[] }) {
+  // @region[use-rendered-messages-hook]
   const renderToolCall = useRenderToolCall();
   const { renderActivityMessage } = useRenderActivityMessage();
 
@@ -43,9 +44,11 @@ export function MessageList({ messages }: { messages: Message[] }) {
     }
     return map;
   }, [messages]);
+  // @endregion[use-rendered-messages-hook]
 
   return (
     <>
+      {/* @region[manual-activity-message-rendering] */}
       {messages.map((m) => {
         if (m.role === "user") {
           // Cast through the local input shape — UserBubble accepts a
@@ -66,6 +69,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
               key={m.id}
               content={typeof m.content === "string" ? m.content : undefined}
             >
+              {/* @region[manual-tool-call-rendering] */}
               {toolCalls.map((tc) => {
                 const toolMessage = toolMessagesByCallId.get(tc.id);
                 const node = renderToolCall({
@@ -74,6 +78,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
                 });
                 return node ? <div key={tc.id}>{node}</div> : null;
               })}
+              {/* @endregion[manual-tool-call-rendering] */}
             </AssistantBubble>
           );
         }
@@ -86,6 +91,7 @@ export function MessageList({ messages }: { messages: Message[] }) {
 
         return null;
       })}
+      {/* @endregion[manual-activity-message-rendering] */}
     </>
   );
 }

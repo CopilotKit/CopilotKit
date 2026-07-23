@@ -5,7 +5,7 @@
  *
  * MCP Apps are MCP servers that expose tools with associated UI resources.
  * The CopilotKit runtime is wired with `mcpApps: { servers: [...] }`
- * (see `src/app/api/copilotkit-mcp-apps/[[...slug]]/route.ts`), which auto-applies the
+ * (see `src/app/api/copilotkit-mcp-apps/route.ts`), which auto-applies the
  * MCP Apps middleware. When the agent calls an MCP tool, the middleware
  * fetches the associated UI resource and emits an activity event; the
  * built-in `MCPAppsActivityRenderer` registered by `CopilotKitProvider`

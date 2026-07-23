@@ -104,11 +104,6 @@ export default function AuthDemoPage() {
       agent="auth-demo"
       headers={headers}
       useSingleEndpoint={false}
-      // The dev-only inspector overlay is auto-enabled on localhost after
-      // <CopilotKit> mounts. In this demo that happens only after the first
-      // sign-in, so the post-sign-out Sign in button can sit underneath the
-      // overlay in local/D5 runs even though production never shows it.
-      enableInspector={false}
       onError={handleAuthError}
     >
       <div className="flex h-screen flex-col gap-3 p-6">
