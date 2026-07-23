@@ -26,6 +26,40 @@ describe("box-model charts", () => {
   it("Sparkline returns a React element", () => {
     expect(isValidElement(Sparkline({ data: [1, 2, 3, 2, 4] }))).toBe(true);
   });
+  it("Sparkline with no data returns a valid element without crashing", () => {
+    const el = Sparkline({ data: [] });
+    expect(isValidElement(el)).toBe(true);
+  });
+  it("BarChart clamps a negative value's bar to 0% height", () => {
+    const el = BarChart({
+      data: [
+        { label: "a", value: -5 },
+        { label: "b", value: 10 },
+      ],
+    });
+    interface BarElement {
+      props: { children: unknown };
+    }
+    const bars = (
+      (el as unknown as BarElement).props.children as BarElement[]
+    ).at(-1) as BarElement;
+    const [negativeBarWrapper, positiveBarWrapper] = bars.props
+      .children as BarElement[];
+    const negativeBarHeight = (
+      (negativeBarWrapper!.props.children as BarElement[])[0]!
+        .props as unknown as {
+        style: { height: string };
+      }
+    ).style.height;
+    const positiveBarHeight = (
+      (positiveBarWrapper!.props.children as BarElement[])[0]!
+        .props as unknown as {
+        style: { height: string };
+      }
+    ).style.height;
+    expect(negativeBarHeight).toBe("0%");
+    expect(parseFloat(positiveBarHeight)).toBeGreaterThan(0);
+  });
   it("Meter clamps and returns a React element", () => {
     expect(isValidElement(Meter({ value: 0.5 }))).toBe(true);
 

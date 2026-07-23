@@ -104,7 +104,7 @@ describe("Thread.post image routing", () => {
     );
     await expect(
       thread.update({ id: "m1" }, createElement("div", null) as never),
-    ).rejects.toThrow(/image.*update|update.*image/i);
+    ).rejects.toThrow(/does not support arbitrary JSX/);
   });
 
   it("throws on arbitrary JSX passed to awaitChoice()", async () => {
@@ -115,6 +115,6 @@ describe("Thread.post image routing", () => {
     );
     await expect(
       thread.awaitChoice(createElement("div", null) as never),
-    ).rejects.toThrow(/awaitChoice.*arbitrary JSX/i);
+    ).rejects.toThrow(/does not support arbitrary JSX/);
   });
 });
