@@ -85,6 +85,9 @@ test("keeps frontend guidance pages available under frontend/backend routes", ()
 });
 
 test("uses backend metadata for frontend routes that include a backend slug", () => {
+  expect(pageSource).toMatch(
+    /framework === "angular" && activeFrontendSlugPath[\s\S]*resolveAngularDoc\(/,
+  );
   expect(pageSource).toContain("frameworkMetadata(");
   expect(pageSource).toMatch(
     /frameworkMetadata\(\s*activeBackendFramework,\s*activeFrontendSlugPath/s,

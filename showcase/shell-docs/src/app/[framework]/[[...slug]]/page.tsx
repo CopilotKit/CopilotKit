@@ -315,6 +315,30 @@ export async function generateMetadata({
       );
     }
 
+    if (framework === "angular" && activeFrontendSlugPath) {
+      const canonicalSlugPath = getFrontendCanonicalSlug(
+        framework,
+        activeFrontendSlugPath,
+      );
+      const resolution = resolveAngularDoc(
+        activeBackendFramework,
+        canonicalSlugPath,
+      );
+      const doc = resolution ? loadDoc(resolution.contentSlugPath) : null;
+      const canonicalPath = frontendRoutePath(
+        framework,
+        canonicalSlugPath,
+        activeBackendFramework,
+      );
+
+      return buildDocMetadata({
+        title: doc?.fm.title ?? canonicalSlugPath,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
+    }
+
     if (activeBackendFramework) {
       const slugHrefPrefix = frontendRoutePath(
         framework,
