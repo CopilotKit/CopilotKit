@@ -3,15 +3,15 @@ import { resolveModel } from "../index";
 
 // Mock the SDK provider factories so we can assert the options resolveModel passes them
 // (the returned LanguageModel does not expose baseURL publicly, so we verify at the factory).
-const createOpenAI = vi.fn(() => (modelId: string) => ({
+const createOpenAI = vi.fn((_opts?: unknown) => (modelId: string) => ({
   modelId,
   provider: "openai",
 }));
-const createAnthropic = vi.fn(() => (modelId: string) => ({
+const createAnthropic = vi.fn((_opts?: unknown) => (modelId: string) => ({
   modelId,
   provider: "anthropic",
 }));
-const createGoogleGenerativeAI = vi.fn(() => (modelId: string) => ({
+const createGoogleGenerativeAI = vi.fn((_opts?: unknown) => (modelId: string) => ({
   modelId,
   provider: "google",
 }));
