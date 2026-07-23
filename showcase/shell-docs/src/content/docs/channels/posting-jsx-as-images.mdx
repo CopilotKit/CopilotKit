@@ -8,6 +8,16 @@ icon: "lucide/Component"
 
 **Where you're headed:** `thread.post(<MrrCard/>)` just works — the SDK renders your app's own React component to a PNG (fonts and compiled CSS included) and uploads it, no wrapper or extra API required. Native channel components keep rendering exactly as before.
 
+<Callout type="warn" title="Install react and takumi-js first">
+  `react` and `takumi-js` are **optional peer dependencies** of `@copilotkit/channels`/`@copilotkit/channels-core` — they aren't pulled in automatically. The chart components and image rendering hard-require them at runtime, so install both before using either:
+
+  ```bash
+  pnpm add react takumi-js
+  ```
+
+  Without them, importing `@copilotkit/channels/charts` or posting arbitrary JSX fails with a module-not-found error.
+</Callout>
+
 <Steps>
   <Step>
     ### How it's routed
@@ -127,8 +137,9 @@ icon: "lucide/Component"
       />,
     );
 
-    // Multi-color example: BarChart/StackedBar/PieChart cycle the palette per
-    // category, so a multi-entry `colors` array actually produces multiple colors.
+    // Multi-color example: BarChart and PieChart cycle the palette per bar/slice,
+    // so a multi-entry `colors` array actually produces multiple colors. (StackedBar
+    // instead cycles per series/segment — see the table below.)
     await thread.post(
       <PieChart
         title="Traffic by source"
@@ -150,18 +161,27 @@ icon: "lucide/Component"
     );
     ```
 
-    Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` — but not every field is honored by every chart:
+    Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` — but which fields actually do something is per-chart, not universal:
 
-    - **Colors:** Takumi does not resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on box-model charts), so the default palette is a **fixed** set of hex values, not your shadcn `--chart-1..5` tokens. Pass your own `colors` prop to theme a chart explicitly.
-    - **Single-color vs. palette-cycling:** `LineChart`, `Sparkline`, `Scatter`, and `Meter` are **single-color** — they only ever use `colors[0]`, so a multi-entry `colors` array has no extra effect on them. `BarChart`, `StackedBar`, and `PieChart` **cycle the palette per category** — pass a multi-entry `colors` array to get a distinct color per bar/slice.
-    - **Background:** every chart hardcodes an inline `backgroundColor` (white, on the SVG canvas or the box-model root). Inline `style` always wins over a CSS class, so theming the background via `className` (e.g. a `bg-card` utility class) has **no effect** — the only way to override a chart's background is the `style` prop, e.g. `style={{ backgroundColor: "#0f172a" }}`.
-    - **`width`/`height`:** honored by the SVG charts (`LineChart`, `PieChart`, `Scatter`, `Sparkline`) as the canvas size. `BarChart`/`StackedBar` fill their container and ignore both. `Meter` also fills its container width-wise and ignores `width`, but honors `height` as the bar's thickness.
+    | Chart | Color model | Default background | Size props | Title |
+    | --- | --- | --- | --- | --- |
+    | `BarChart` | palette cycles per bar: `colors[i]` | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
+    | `StackedBar` | palette cycles per **series** (stack segment): `colors[s]` — every bar shares the same segment colors | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
+    | `PieChart` | palette cycles per slice: `colors[i]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
+    | `LineChart` | single color: `colors[0]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (drawn inside the `<svg>`, doesn't add height) |
+    | `Scatter` | single color: `colors[0]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
+    | `Sparkline` | single color: `colors[0]` | transparent (no hardcoded color) | SVG, `width`/`height` set the canvas | no |
+    | `Meter` | single color: `colors[0]` | transparent (no hardcoded color) | box model; `width` ignored, `height` sets the bar's thickness | no |
+
+    A few things worth calling out explicitly:
+
+    - **Colors:** Takumi does not resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on box-model charts), so the default palette is a **fixed** set of hex values, not your shadcn `--chart-1..5` tokens. Pass your own `colors` prop to theme a chart explicitly. Note that `StackedBar`'s `colors[n]` indexes the *n*th series, not the *n*th bar — a multi-entry `colors` array gives you one color per stack segment, repeated identically across every bar.
+    - **Background:** `BarChart`, `StackedBar`, `LineChart`, `PieChart`, and `Scatter` default to a white background set via an inline `style.backgroundColor`. Inline `style` always wins over a CSS class, so theming these five via `className` (e.g. a `bg-card` utility class) has **no effect** — override with the `style` prop instead, e.g. `style={{ backgroundColor: "#0f172a" }}`. `Meter` and `Sparkline` don't hardcode a background at all (a transparent root), so for those two a `className`/`style` background does apply.
     - **`gridColor`/`showGrid`:** only apply to `LineChart` and `Scatter`.
-    - **`title`:** honored by `BarChart`/`StackedBar`/`LineChart`/`PieChart`/`Scatter`, not by `Meter`/`Sparkline`.
-    - **Non-negative values:** `BarChart`/`StackedBar` assume non-negative values — a negative value clamps to a zero-height bar rather than rendering below the axis.
-    - **Y-axis scaling:** all cartesian charts (`LineChart`, `Scatter`, `Sparkline`) scale to the data's own min/max rather than anchoring at zero, so their shape communicates relative movement across the data range, not absolute value against a zero baseline. (If you need a zero baseline, include a zero-valued datum in the series.)
+    - **Scaling:** `LineChart` and `Sparkline` scale the y-axis to the data's own min/max rather than anchoring at zero. `Scatter` scales **both** x and y to the point extent (and centers a degenerate axis — e.g. all points sharing one x value). None of these force a zero baseline; include a zero-valued datum in the series if you need one.
+    - **Negative values:** `BarChart` clamps a negative value to a zero-height bar (it assumes non-negative input). `StackedBar` clamps a negative segment to zero height *and* distorts the remaining segments' proportions within that bar (their percentages are computed against the bar's true total, then clipped to the bar's box) — pass non-negative values to `StackedBar`.
 
-    These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your app's own CSS.
+    These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your own CSS.
   </Step>
   <Step>
     ### Know the limits
