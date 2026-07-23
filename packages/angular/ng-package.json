@@ -1,15 +1,7 @@
 {
   "$schema": "../../node_modules/ng-packagr/ng-package.schema.json",
   "dest": "dist",
-  "assets": [
-    "README.md",
-    "API.md",
-    {
-      "input": "src/mcp-apps",
-      "glob": "sandbox-proxy.html",
-      "output": "mcp-apps"
-    }
-  ],
+  "assets": ["README.md", "API.md"],
   "lib": {
     "entryFile": "src/index.ts"
   },

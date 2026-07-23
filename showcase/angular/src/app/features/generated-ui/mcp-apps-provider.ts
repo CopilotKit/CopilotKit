@@ -7,10 +7,9 @@ import {
 
 const SHOWCASE_MCP_APPS_CONFIG = {
   ...DEFAULT_MCP_APPS_CONFIG,
-  sandboxProxyUrl: "/mcp-apps-sandbox.html",
 } satisfies Required<MCPAppsConfig>;
 
-/** Configures the strict-CSP sandbox document inside lazy MCP feature trees. */
+/** Configures MCP Apps inside lazy feature trees. */
 export const SHOWCASE_MCP_APPS_PROVIDER: Provider = {
   provide: MCP_APPS_CONFIG,
   useValue: SHOWCASE_MCP_APPS_CONFIG,

@@ -1,5 +1,4 @@
 import {
-  access,
   cp,
   copyFile,
   mkdir,
@@ -93,45 +92,6 @@ await Promise.all(
     copyFile(`${sourceRoot}/${filename}`, `${destinationRoot}/${filename}`),
   ),
 );
-
-const sandboxProxyCandidates = [
-  new URL(
-    "../.staged-angular-package/mcp-apps/sandbox-proxy.html",
-    import.meta.url,
-  ),
-  new URL(
-    "../node_modules/@copilotkit/angular/dist/mcp-apps/sandbox-proxy.html",
-    import.meta.url,
-  ),
-  new URL(
-    "../node_modules/@copilotkit/angular/mcp-apps/sandbox-proxy.html",
-    import.meta.url,
-  ),
-  new URL(
-    "../../../packages/angular/src/mcp-apps/sandbox-proxy.html",
-    import.meta.url,
-  ),
-];
-let sandboxProxySource;
-for (const candidate of sandboxProxyCandidates) {
-  const candidateFile = fileURLToPath(candidate);
-  try {
-    await access(candidateFile);
-    sandboxProxySource = candidateFile;
-    break;
-  } catch {
-    // Clean consumers use the packed asset; workspace builds use the source.
-  }
-}
-if (!sandboxProxySource) {
-  throw new Error(
-    "Could not find the packed or workspace MCP Apps sandbox proxy asset.",
-  );
-}
-const sandboxProxyDestination = fileURLToPath(
-  new URL("../public/mcp-apps-sandbox.html", import.meta.url),
-);
-await copyFile(sandboxProxySource, sandboxProxyDestination);
 
 const generatedRoot = fileURLToPath(
   new URL("../src/app/generated/", import.meta.url),

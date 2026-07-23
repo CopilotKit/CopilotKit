@@ -24,17 +24,6 @@ import { MCP_APPS_CONFIG } from "./mcp-apps-config";
 
 const PROTOCOL_VERSION = "2025-06-18";
 
-/**
- * CSP source expression for the package-owned inline MCP sandbox proxy.
- *
- * Hosts with a response-level `script-src` directive must include this value
- * or the browser will block the fallback `srcdoc` proxy before its handshake
- * begins. Strict-CSP hosts should prefer `MCPAppsConfig.sandboxProxyUrl` so
- * the embedded app does not inherit the main document's response policy.
- */
-export const MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE =
-  "'sha256-JFmPmlQxrmhhuJzvQorRReZp7gfZzK0a6+nkL8PPOwA='";
-
 const queuesByIdleTimeout = new Map<number, MCPAppsRequestQueue>();
 
 interface FetchedResource {
@@ -214,25 +203,17 @@ export class CopilotMCPAppsWidget {
         controller.signal,
         version,
       );
-      const proxyUrl = safeSandboxProxyURL(this.config.sandboxProxyUrl);
-      if (proxyUrl) {
-        frame.setAttribute("sandbox", "allow-scripts allow-forms");
-        frame.removeAttribute("srcdoc");
-        frame.src = proxyUrl;
-      } else {
-        frame.setAttribute(
-          "sandbox",
-          "allow-scripts allow-same-origin allow-forms",
-        );
-        frame.removeAttribute("src");
-        frame.srcdoc = buildSandboxHTML();
-      }
+      frame.setAttribute(
+        "sandbox",
+        "allow-scripts allow-same-origin allow-forms",
+      );
+      frame.removeAttribute("src");
+      frame.srcdoc = buildSandboxHTML(resource._meta?.ui?.csp?.resourceDomains);
 
       await sandboxReady;
       this.throwIfStale(controller.signal, version);
       this.sendNotification(frame, "ui/notifications/sandbox-resource-ready", {
         html,
-        resourceCsp: buildResourceCSP(resource._meta?.ui?.csp?.resourceDomains),
       });
       this.loading.set(false);
     } catch (error) {
@@ -592,11 +573,6 @@ function safeExternalURL(value: unknown): string | undefined {
   }
 }
 
-function safeSandboxProxyURL(value: string): string | undefined {
-  if (!value) return undefined;
-  return safeExternalURL(value);
-}
-
 function decodeBase64(value: string): string {
   try {
     const binary = atob(value);
@@ -645,21 +621,19 @@ function areStructurallyEqual(left: unknown, right: unknown): boolean {
   );
 }
 
-function buildResourceCSP(extraCspDomains?: string[]): string {
+function buildSandboxHTML(extraCspDomains?: string[]): string {
   const baseScriptSrc =
     "'self' 'wasm-unsafe-eval' 'unsafe-inline' 'unsafe-eval' blob: data: http://localhost:* https://localhost:*";
   const baseFrameSrc = "* blob: data: http://localhost:* https://localhost:*";
-  const safeDomains = extraCspDomains?.filter(isSafeCSPDomain) ?? [];
-  const extra = safeDomains.length ? ` ${safeDomains.join(" ")}` : "";
+  const extra = extraCspDomains?.length ? ` ${extraCspDomains.join(" ")}` : "";
+  const scriptSrc = baseScriptSrc + extra;
+  const frameSrc = baseFrameSrc + extra;
 
-  return `default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${baseScriptSrc}${extra}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${baseFrameSrc}${extra}; base-uri 'self';`;
-}
-
-function buildSandboxHTML(): string {
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src * data: blob: 'unsafe-inline'; media-src * blob: data:; font-src * blob: data:; script-src ${scriptSrc}; style-src * blob: data: 'unsafe-inline'; connect-src *; frame-src ${frameSrc}; base-uri 'self';" />
 <style>html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden}*{box-sizing:border-box}iframe{background-color:transparent;border:none;padding:0;overflow:hidden;width:100%;height:100%}</style>
 </head>
 <body>
@@ -669,47 +643,19 @@ const inner=document.createElement("iframe");
 inner.style="width:100%;height:100%;border:none;";
 inner.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
 document.body.appendChild(inner);
-function withResourceCsp(html,csp){
-if(typeof csp!=="string"||!csp)return html;
-const escaped=csp.replaceAll("&","&amp;").replaceAll('"',"&quot;");
-const meta='<meta http-equiv="Content-Security-Policy" content="'+escaped+'" />';
-const lower=html.toLowerCase();
-const headStart=lower.indexOf("<head");
-if(headStart>=0){const headEnd=html.indexOf(">",headStart);if(headEnd>=0)return html.slice(0,headEnd+1)+meta+html.slice(headEnd+1)}
-const htmlStart=lower.indexOf("<html");
-if(htmlStart>=0){const htmlEnd=html.indexOf(">",htmlStart);if(htmlEnd>=0)return html.slice(0,htmlEnd+1)+"<head>"+meta+"</head>"+html.slice(htmlEnd+1)}
-return "<!doctype html><html><head>"+meta+"</head><body>"+html+"</body></html>";
-}
-window.addEventListener("message",(event)=>{
+window.addEventListener("message",async(event)=>{
 if(event.source===window.parent){
 if(event.data&&event.data.method==="ui/notifications/sandbox-resource-ready"){
-const{html,sandbox,resourceCsp}=event.data.params;
+const{html,sandbox}=event.data.params;
 if(typeof sandbox==="string")inner.setAttribute("sandbox",sandbox);
-if(typeof html==="string")inner.srcdoc=withResourceCsp(html,resourceCsp);
-}else if(inner&&inner.contentWindow){inner.contentWindow.postMessage(event.data,"*")}
+if(typeof html==="string")inner.srcdoc=html;
+}else if(inner&&inner.contentWindow){
+inner.contentWindow.postMessage(event.data,"*");
+}
 }else if(event.source===inner.contentWindow){window.parent.postMessage(event.data,"*")}
 });
 window.parent.postMessage({jsonrpc:"2.0",method:"ui/notifications/sandbox-proxy-ready",params:{}},"*");
 </script>
 </body>
 </html>`;
-}
-
-function isSafeCSPDomain(source: string): boolean {
-  if (/[\s"'<>;]/u.test(source)) return false;
-
-  try {
-    const normalized = source.replace("://*.", "://wildcard.");
-    const url = new URL(normalized);
-    return (
-      (url.protocol === "http:" || url.protocol === "https:") &&
-      !url.username &&
-      !url.password &&
-      url.pathname === "/" &&
-      !url.search &&
-      !url.hash
-    );
-  } catch {
-    return false;
-  }
 }

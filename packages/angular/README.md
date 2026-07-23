@@ -414,17 +414,8 @@ take precedence over optional built-ins.
   `provideMCPApps()` to application providers and import advanced host APIs
   from `@copilotkit/angular/mcp-apps`. MCP resource and tool requests travel
   through the selected AG-UI agent; the browser provider does not accept a
-  server URL. Hosts with a strict response CSP should copy the packaged
-  `mcp-apps/sandbox-proxy.html` asset to a same- or cross-origin static route
-  and pass that route as `provideMCPApps({ sandboxProxyUrl })`. Serve only that
-  document with a response-level `sandbox allow-scripts allow-forms` directive
-  (never `allow-same-origin`) and a resource-capable CSP; the renderer injects
-  the MCP resource's validated domain policy into the nested app. The main
-  application policy can remain strict. The exported
-  `MCP_APPS_SANDBOX_SCRIPT_CSP_SOURCE` is available for the inline fallback,
-  but a parent response policy is also inherited by its nested resource, so a
-  dedicated proxy is the correct choice when resource scripts are not covered
-  by the main document's policy.
+  server URL. The renderer uses the same inline `srcdoc` sandbox, sandbox
+  permissions, and resource-domain CSP as the React SDK.
 
 ## Lifecycle and cleanup
 
