@@ -1029,6 +1029,135 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
     ).toBe(false);
   });
 
+  test("enforces portable UTF-8 byte lengths at exact boundaries", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "utf8-byte-length",
+          values: "/attachments/*/provider",
+          maximum: 64,
+        },
+      ],
+    });
+
+    expect(validate({ attachments: [{ provider: "é".repeat(32) }] })).toBe(
+      true,
+    );
+    expect(validate({ attachments: [{ provider: "é".repeat(33) }] })).toBe(
+      false,
+    );
+    expect(validate({})).toBe(true);
+    expect(validate({ attachments: [{ provider: 64 }] })).toBe(false);
+  });
+
+  test("enforces recursive bounded JSON through registered Ajv", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "bounded-json",
+          values: "/attachments/*/metadata",
+          serializedMaximum: 16_384,
+          maximumDepth: 6,
+          maximumNodes: 128,
+          maximumObjectProperties: 32,
+          maximumArrayItems: 32,
+          maximumStringUtf8Bytes: 2_048,
+          maximumKeyUtf8Bytes: 128,
+          forbiddenNormalizedKeys: ["body", "content", "data", "bytes"],
+          forbiddenNormalizedKeySuffixes: ["bytes"],
+          forbiddenNormalizedKeyFragments: ["base64"],
+        },
+      ],
+    });
+
+    expect(
+      validate({ attachments: [{ metadata: { source: "gateway" } }] }),
+    ).toBe(true);
+    expect(validate({})).toBe(true);
+    expect(
+      validate({
+        attachments: [{ metadata: { nested: { dataBase64: "x" } } }],
+      }),
+    ).toBe(false);
+    expect(
+      validate({
+        attachments: [
+          {
+            metadata: {
+              values: Array.from({ length: 33 }, (_, index) => index),
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
+    expect(validate({ attachments: [{ metadata: "not-an-object" }] })).toBe(
+      false,
+    );
+  });
+
+  test.each([
+    {
+      name: "negative UTF-8 maximum",
+      assertion: {
+        operation: "utf8-byte-length",
+        values: "/value",
+        maximum: -1,
+      },
+    },
+    {
+      name: "missing UTF-8 maximum",
+      assertion: {
+        operation: "utf8-byte-length",
+        values: "/value",
+      },
+    },
+    {
+      name: "negative bounded-JSON maximum",
+      assertion: {
+        operation: "bounded-json",
+        values: "/value",
+        serializedMaximum: -1,
+        maximumDepth: 1,
+        maximumNodes: 1,
+        maximumObjectProperties: 1,
+        maximumArrayItems: 1,
+        maximumStringUtf8Bytes: 1,
+        maximumKeyUtf8Bytes: 1,
+      },
+    },
+    {
+      name: "missing bounded-JSON maximum",
+      assertion: {
+        operation: "bounded-json",
+        values: "/value",
+        serializedMaximum: 1,
+        maximumDepth: 1,
+        maximumNodes: 1,
+        maximumObjectProperties: 1,
+        maximumArrayItems: 1,
+        maximumStringUtf8Bytes: 1,
+      },
+    },
+  ])("rejects $name", ({ assertion }) => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    expect(() =>
+      compileLearningContractJsonSchema(ajv, {
+        $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+        type: "object",
+        [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [assertion],
+      }),
+    ).toThrowError(/schema is invalid: data\/x-copilotkit-assertions/u);
+  });
+
   test("refuses assertion operations outside the bounded V1 language at schema compilation", () => {
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
     registerLearningContractJsonSchemaValidator(ajv);

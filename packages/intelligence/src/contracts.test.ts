@@ -79,6 +79,7 @@ const snapshot = {
   terminalEventId: "event_terminal",
   terminalType: "RUN_FINISHED",
   terminalStatus: null,
+  terminalError: null,
   startedAt: NOW,
   terminalAt: NOW,
   capturedAt: NOW,
@@ -110,6 +111,7 @@ const snapshot = {
       timestamp: NOW,
     },
   ],
+  retainedEvidence: { schemaVersion: 1, events: [] },
   stateChanges: [],
   annotations: [],
   attachments: [],
@@ -213,6 +215,8 @@ const workflowInput = {
       threadId: "thread_1",
       externalRunId: "run_external_1",
       messages: snapshot.messages,
+      terminalError: null,
+      attachments: [],
     },
     {
       snapshotId: UUIDS.snapshotSecond,
@@ -226,6 +230,8 @@ const workflowInput = {
           eventIds: ["event_2"],
         },
       ],
+      terminalError: null,
+      attachments: [],
     },
   ],
   selectedAnnotations: [

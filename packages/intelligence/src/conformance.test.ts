@@ -87,6 +87,7 @@ function containsPortableSemanticKeyword(value: unknown): boolean {
 }
 
 const dtoSchemaNames = [
+  "AttachmentReferenceV1",
   "BlobLocatorV1",
   "CandidateGateResultV1",
   "EvidenceLocatorV1",
@@ -118,6 +119,7 @@ const dtoSchemaNames = [
   "SkillSetProjectionV1",
   "SnapshotIdentityV1",
   "SourceEventManifestEntryV1",
+  "TerminalErrorV1",
   "ThreadAssignmentPatchV1",
   "ThreadAssignmentV1",
   "WorkflowThreadV1",
@@ -133,6 +135,9 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     ].sort();
 
     expect(corpus.schemaVersion).toBe(1);
+    expect(Object.keys(corpus.schemas)).toHaveLength(47);
+    expect(corpus.cases).toHaveLength(257);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(257);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -329,6 +334,24 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     ).toBe(true);
   });
 
+  test("keeps retained evidence snapshot-only and unnamed in the registry", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const workflowThread = corpus.schemas.WorkflowThreadV1 as {
+      properties?: {
+        readonly attachments?: unknown;
+        readonly retainedEvidence?: unknown;
+        readonly terminalError?: unknown;
+      };
+    };
+
+    expect(workflowThread.properties).toHaveProperty("terminalError");
+    expect(workflowThread.properties).toHaveProperty("attachments");
+    expect(workflowThread.properties).not.toHaveProperty("retainedEvidence");
+    expect(corpus.schemas).not.toHaveProperty("RetainedEvidenceEventV1");
+    expect(corpus.schemas).not.toHaveProperty("RetainedEvidenceV1");
+    expect(corpus.schemas).not.toHaveProperty("LearningResourceLimitsV1");
+  });
+
   test("covers cross-language assignment, identity, removal, command, and error semantics", () => {
     const names = buildLearningPlatformConformanceCorpus().cases.map(
       ({ name }) => name,
@@ -419,6 +442,17 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         ...commandSchemaNames.map((name) => `command-${name}-valid`),
         "stable-error-valid",
         "stable-error-unknown-code",
+        "normalized-activity-requires-activity-type",
+        "normalized-tool-message-requires-result",
+        "run-snapshot-rejects-unknown-tool-result-reference",
+        "run-error-requires-terminal-error",
+        "run-finished-forbids-terminal-error",
+        "run-snapshot-accepts-omitted-retained-evidence",
+        "run-snapshot-rejects-untyped-retained-evidence-event",
+        "run-snapshot-rejects-untyped-attachment-payload",
+        "run-snapshot-rejects-attachment-entry-boundary-plus-one",
+        "workflow-thread-requires-terminal-error-projection",
+        "workflow-thread-requires-attachment-projection",
       ]),
     );
   });

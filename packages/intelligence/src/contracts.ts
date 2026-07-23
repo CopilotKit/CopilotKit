@@ -1,5 +1,12 @@
 import { z } from "zod/v4";
 import type { LearningContractAssertionV1 } from "./portable-validator.js";
+import {
+  RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1,
+  RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1,
+  utf8ByteLength,
+  validateAttachmentMetadataV1,
+  validateTerminalErrorDetailsV1,
+} from "./snapshot-evidence-bounds.js";
 
 const nonEmptyStringSchema = z.string().min(1);
 const canonicalBase64Schema = z
@@ -86,6 +93,122 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
 
+const boundedSnapshotEvidenceStringSchema = (
+  field: string,
+  maxUtf8Bytes: number,
+) =>
+  z
+    .string()
+    .min(1)
+    .max(maxUtf8Bytes)
+    .superRefine((value, context) => {
+      if (utf8ByteLength(value) > maxUtf8Bytes) {
+        context.addIssue({
+          code: "custom",
+          message: `${field} exceeds ${maxUtf8Bytes} UTF-8 bytes.`,
+        });
+      }
+    });
+
+const attachmentMetadataV1Schema = jsonObjectSchema.superRefine(
+  (metadata, context) => {
+    for (const issue of validateAttachmentMetadataV1(metadata)) {
+      context.addIssue({
+        code: "custom",
+        path: [...issue.path],
+        message: issue.message,
+      });
+    }
+  },
+);
+
+const attachmentObjectLocatorV1Schema = z.strictObject({
+  resource: boundedSnapshotEvidenceStringSchema(
+    "Attachment resource",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.resourceMaxUtf8Bytes,
+  ),
+  key: boundedSnapshotEvidenceStringSchema(
+    "Attachment key",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.keyMaxUtf8Bytes,
+  ),
+  version: boundedSnapshotEvidenceStringSchema(
+    "Attachment version",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.versionMaxUtf8Bytes,
+  ).nullable(),
+});
+
+const attachmentChecksumV1Schema = z.strictObject({
+  algorithm: boundedSnapshotEvidenceStringSchema(
+    "Attachment checksum algorithm",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.checksumAlgorithmMaxUtf8Bytes,
+  ),
+  value: boundedSnapshotEvidenceStringSchema(
+    "Attachment checksum value",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.checksumValueMaxUtf8Bytes,
+  ),
+});
+
+/** Strict metadata-only reference to attachment bytes stored outside JSON. */
+export const attachmentReferenceV1Schema = z.strictObject({
+  schemaVersion: z.literal(1),
+  provider: boundedSnapshotEvidenceStringSchema(
+    "Attachment provider",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.providerMaxUtf8Bytes,
+  ),
+  objectLocator: attachmentObjectLocatorV1Schema,
+  name: boundedSnapshotEvidenceStringSchema(
+    "Attachment name",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.nameMaxUtf8Bytes,
+  ).nullable(),
+  mediaType: boundedSnapshotEvidenceStringSchema(
+    "Attachment media type",
+    RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.mediaTypeMaxUtf8Bytes,
+  ).nullable(),
+  byteLength: nonNegativeIntegerSchema.nullable(),
+  checksum: attachmentChecksumV1Schema.nullable(),
+  metadata: attachmentMetadataV1Schema.nullable(),
+});
+export type AttachmentReferenceV1 = z.infer<typeof attachmentReferenceV1Schema>;
+
+const attachmentReferencesV1Schema = z
+  .array(attachmentReferenceV1Schema)
+  .max(RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.maxEntries);
+
+const terminalErrorDetailsV1Schema = jsonObjectSchema.superRefine(
+  (details, context) => {
+    for (const issue of validateTerminalErrorDetailsV1(details)) {
+      context.addIssue({
+        code: "custom",
+        path: [...issue.path],
+        message: issue.message,
+      });
+    }
+  },
+);
+
+/** Bounded, sanitized failed-run evidence exposed to Learning workflows. */
+export const terminalErrorV1Schema = z.strictObject({
+  schemaVersion: z.literal(1),
+  message: boundedSnapshotEvidenceStringSchema(
+    "Terminal error message",
+    RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.messageMaxUtf8Bytes,
+  ),
+  code: boundedSnapshotEvidenceStringSchema(
+    "Terminal error code",
+    RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.codeMaxUtf8Bytes,
+  ).nullable(),
+  category: boundedSnapshotEvidenceStringSchema(
+    "Terminal error category",
+    RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.categoryMaxUtf8Bytes,
+  ).nullable(),
+  details: terminalErrorDetailsV1Schema.nullable(),
+  stack: boundedSnapshotEvidenceStringSchema(
+    "Terminal error stack",
+    RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.stackMaxUtf8Bytes,
+  ).nullable(),
+});
+export type TerminalErrorV1 = z.infer<typeof terminalErrorV1Schema>;
+
 /** Canonical project-scoped learning container read model. */
 export const learningContainerV1Schema = z.looseObject({
   schemaVersion: z.literal(1),
@@ -143,15 +266,34 @@ export type NormalizedToolResultV1 = z.infer<
 >;
 
 /** Lossless normalized message used by snapshots and workflow inputs. */
-export const normalizedMessageV1Schema = z.looseObject({
-  messageId: nonEmptyStringSchema,
-  role: nonEmptyStringSchema,
-  content: jsonValueSchema,
-  toolCalls: z.array(normalizedToolCallV1Schema),
-  toolResults: z.array(normalizedToolResultV1Schema),
-  eventIds: z.array(nonEmptyStringSchema),
-  timestamp: nullableTimestampSchema,
-});
+export const normalizedMessageV1Schema = z
+  .looseObject({
+    messageId: nonEmptyStringSchema,
+    role: nonEmptyStringSchema,
+    activityType: nonEmptyStringSchema.optional(),
+    activityMetadata: jsonObjectSchema.optional(),
+    content: jsonValueSchema,
+    toolCalls: z.array(normalizedToolCallV1Schema),
+    toolResults: z.array(normalizedToolResultV1Schema),
+    eventIds: z.array(nonEmptyStringSchema),
+    timestamp: nullableTimestampSchema,
+  })
+  .superRefine((message, context) => {
+    if (message.role === "activity" && message.activityType === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["activityType"],
+        message: "Activity messages must retain their activityType.",
+      });
+    }
+    if (message.role === "tool" && message.toolResults.length === 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["toolResults"],
+        message: "Tool messages must retain correlated tool-result evidence.",
+      });
+    }
+  });
 export type NormalizedMessageV1 = z.infer<typeof normalizedMessageV1Schema>;
 
 export const sourceEventManifestEntryV1Schema = z.looseObject({
@@ -164,6 +306,18 @@ export const sourceEventManifestEntryV1Schema = z.looseObject({
 export type SourceEventManifestEntryV1 = z.infer<
   typeof sourceEventManifestEntryV1Schema
 >;
+
+const retainedEvidenceEventV1Schema = z.strictObject({
+  eventId: nonEmptyStringSchema,
+  type: nonEmptyStringSchema,
+  timestamp: timestampSchema,
+  payload: jsonObjectSchema,
+});
+
+const retainedEvidenceV1Schema = z.strictObject({
+  schemaVersion: z.literal(1),
+  events: z.array(retainedEvidenceEventV1Schema),
+});
 
 /** Complete immutable first-terminal-event snapshot. */
 export const runSnapshotV1Schema = z
@@ -179,15 +333,17 @@ export const runSnapshotV1Schema = z
     terminalEventId: nonEmptyStringSchema,
     terminalType: z.enum(["RUN_FINISHED", "RUN_ERROR"]),
     terminalStatus: z.string().nullable(),
+    terminalError: terminalErrorV1Schema.nullable(),
     startedAt: timestampSchema,
     terminalAt: timestampSchema,
     capturedAt: timestampSchema,
     assignmentRevision: nonNegativeIntegerSchema,
     sourceEvents: z.array(sourceEventManifestEntryV1Schema),
     messages: z.array(normalizedMessageV1Schema),
+    retainedEvidence: retainedEvidenceV1Schema.optional(),
     stateChanges: z.array(jsonObjectSchema),
     annotations: z.array(jsonObjectSchema),
-    attachments: z.array(jsonObjectSchema),
+    attachments: attachmentReferencesV1Schema,
     normalizerVersion: nonEmptyStringSchema,
     sanitizerVersion: nonEmptyStringSchema,
     contentSha256: sha256Schema,
@@ -196,6 +352,39 @@ export const runSnapshotV1Schema = z
     containerSequence: positiveIntegerSchema,
   })
   .superRefine((snapshot, context) => {
+    if (
+      (snapshot.terminalType === "RUN_ERROR") !==
+      (snapshot.terminalError !== null)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["terminalError"],
+        message:
+          "RUN_ERROR requires terminal error evidence; RUN_FINISHED forbids it.",
+      });
+    }
+    const knownToolCallIds = new Set(
+      snapshot.messages.flatMap((message) =>
+        message.toolCalls.map((toolCall) => toolCall.id),
+      ),
+    );
+    snapshot.messages.forEach((message, messageIndex) => {
+      message.toolResults.forEach((result, resultIndex) => {
+        if (!knownToolCallIds.has(result.toolCallId)) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "messages",
+              messageIndex,
+              "toolResults",
+              resultIndex,
+              "toolCallId",
+            ],
+            message: `Unknown toolCallId ${result.toolCallId}.`,
+          });
+        }
+      });
+    });
     const referencedTerminalEvents = snapshot.sourceEvents.filter(
       ({ eventId }) => eventId === snapshot.terminalEventId,
     );
@@ -847,13 +1036,40 @@ export const skillSetProjectionV1Schema = z
   });
 export type SkillSetProjectionV1 = z.infer<typeof skillSetProjectionV1Schema>;
 
-export const workflowThreadV1Schema = z.looseObject({
-  snapshotId: uuidSchema,
-  snapshotSha256: sha256Schema,
-  threadId: idSchema,
-  externalRunId: nonEmptyStringSchema,
-  messages: z.array(normalizedMessageV1Schema),
-});
+export const workflowThreadV1Schema = z
+  .looseObject({
+    snapshotId: uuidSchema,
+    snapshotSha256: sha256Schema,
+    threadId: idSchema,
+    externalRunId: nonEmptyStringSchema,
+    messages: z.array(normalizedMessageV1Schema),
+    terminalError: terminalErrorV1Schema.nullable(),
+    attachments: attachmentReferencesV1Schema,
+  })
+  .superRefine((thread, context) => {
+    const knownToolCallIds = new Set(
+      thread.messages.flatMap((message) =>
+        message.toolCalls.map((toolCall) => toolCall.id),
+      ),
+    );
+    thread.messages.forEach((message, messageIndex) => {
+      message.toolResults.forEach((result, resultIndex) => {
+        if (!knownToolCallIds.has(result.toolCallId)) {
+          context.addIssue({
+            code: "custom",
+            path: [
+              "messages",
+              messageIndex,
+              "toolResults",
+              resultIndex,
+              "toolCallId",
+            ],
+            message: `Unknown toolCallId ${result.toolCallId}.`,
+          });
+        }
+      });
+    });
+  });
 
 export const frozenAvailableSkillV1Schema = z.looseObject({
   skillId: uuidSchema,
@@ -1323,6 +1539,54 @@ export const learningContractAssertionV1JsonSchema: JsonObject = {
         ],
         additionalProperties: false,
       },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "utf8-byte-length" },
+          values: assertionJsonPointerJsonSchema,
+          maximum: { type: "integer", minimum: 0 },
+        },
+        required: ["operation", "values", "maximum"],
+        additionalProperties: false,
+      },
+      {
+        type: "object",
+        properties: {
+          operation: { const: "bounded-json" },
+          values: assertionJsonPointerJsonSchema,
+          serializedMaximum: { type: "integer", minimum: 0 },
+          maximumDepth: { type: "integer", minimum: 0 },
+          maximumNodes: { type: "integer", minimum: 0 },
+          maximumObjectProperties: { type: "integer", minimum: 0 },
+          maximumArrayItems: { type: "integer", minimum: 0 },
+          maximumStringUtf8Bytes: { type: "integer", minimum: 0 },
+          maximumKeyUtf8Bytes: { type: "integer", minimum: 0 },
+          forbiddenNormalizedKeys: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+          },
+          forbiddenNormalizedKeySuffixes: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+          },
+          forbiddenNormalizedKeyFragments: {
+            type: "array",
+            items: { type: "string", minLength: 1 },
+          },
+        },
+        required: [
+          "operation",
+          "values",
+          "serializedMaximum",
+          "maximumDepth",
+          "maximumNodes",
+          "maximumObjectProperties",
+          "maximumArrayItems",
+          "maximumStringUtf8Bytes",
+          "maximumKeyUtf8Bytes",
+        ],
+        additionalProperties: false,
+      },
     ],
   },
 };
@@ -1504,7 +1768,7 @@ export function toLearningContractJsonSchema(schema: z.ZodType) {
           ...assertions,
         ];
       }
-      const actionConstraints: z.core.JSONSchema.JSONSchema[] | undefined =
+      const semanticConstraints: z.core.JSONSchema.JSONSchema[] | undefined =
         zodSchema === skillCandidateV1Schema
           ? skillCandidateActionJsonSchema
           : zodSchema === generatedSkillCandidateV1Schema
@@ -1524,11 +1788,54 @@ export function toLearningContractJsonSchema(schema: z.ZodType) {
                     },
                   },
                 ]
-              : undefined;
-      if (actionConstraints) {
+              : zodSchema === normalizedMessageV1Schema
+                ? [
+                    {
+                      if: {
+                        properties: { role: { const: "activity" } },
+                        required: ["role"],
+                      },
+                      // oxlint-disable-next-line unicorn/no-thenable -- `then` is a JSON Schema keyword here.
+                      then: { required: ["activityType"] },
+                    },
+                    {
+                      if: {
+                        properties: { role: { const: "tool" } },
+                        required: ["role"],
+                      },
+                      // oxlint-disable-next-line unicorn/no-thenable -- `then` is a JSON Schema keyword here.
+                      then: {
+                        properties: {
+                          toolResults: { type: "array", minItems: 1 },
+                        },
+                      },
+                    },
+                  ]
+                : zodSchema === runSnapshotV1Schema
+                  ? [
+                      {
+                        if: {
+                          properties: {
+                            terminalType: { const: "RUN_ERROR" },
+                          },
+                          required: ["terminalType"],
+                        },
+                        // oxlint-disable-next-line unicorn/no-thenable -- `then` is a JSON Schema keyword here.
+                        then: {
+                          properties: {
+                            terminalError: { type: "object" },
+                          },
+                        },
+                        else: {
+                          properties: { terminalError: { type: "null" } },
+                        },
+                      },
+                    ]
+                  : undefined;
+      if (semanticConstraints) {
         schemaFragment.allOf = [
           ...(schemaFragment.allOf ?? []),
-          ...actionConstraints,
+          ...semanticConstraints,
         ];
       }
     },
@@ -1709,6 +2016,103 @@ const frozenManifestPortableAssertions = [
   },
 ] as const satisfies readonly LearningContractAssertionV1[];
 
+registerLearningContractPortableAssertions(attachmentReferenceV1Schema, [
+  {
+    operation: "utf8-byte-length",
+    values: "/provider",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.providerMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/objectLocator/resource",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.resourceMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/objectLocator/key",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.keyMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/objectLocator/version",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.versionMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/name",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.nameMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/mediaType",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.mediaTypeMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/checksum/algorithm",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.checksumAlgorithmMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/checksum/value",
+    maximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.checksumValueMaxUtf8Bytes,
+  },
+  {
+    operation: "bounded-json",
+    values: "/metadata",
+    serializedMaximum: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxUtf8Bytes,
+    maximumDepth: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxDepth,
+    maximumNodes: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxNodes,
+    maximumObjectProperties:
+      RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxObjectProperties,
+    maximumArrayItems: RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxArrayItems,
+    maximumStringUtf8Bytes:
+      RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxStringUtf8Bytes,
+    maximumKeyUtf8Bytes:
+      RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.metadataMaxKeyUtf8Bytes,
+    forbiddenNormalizedKeys: ["body", "content", "data", "bytes"],
+    forbiddenNormalizedKeySuffixes: ["bytes"],
+    forbiddenNormalizedKeyFragments: ["base64"],
+  },
+]);
+registerLearningContractPortableAssertions(terminalErrorV1Schema, [
+  {
+    operation: "utf8-byte-length",
+    values: "/message",
+    maximum: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.messageMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/code",
+    maximum: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.codeMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/category",
+    maximum: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.categoryMaxUtf8Bytes,
+  },
+  {
+    operation: "utf8-byte-length",
+    values: "/stack",
+    maximum: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.stackMaxUtf8Bytes,
+  },
+  {
+    operation: "bounded-json",
+    values: "/details",
+    serializedMaximum:
+      RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxUtf8Bytes,
+    maximumDepth: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxDepth,
+    maximumNodes: RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxNodes,
+    maximumObjectProperties:
+      RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxObjectProperties,
+    maximumArrayItems:
+      RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxArrayItems,
+    maximumStringUtf8Bytes:
+      RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxStringUtf8Bytes,
+    maximumKeyUtf8Bytes:
+      RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxKeyUtf8Bytes,
+  },
+]);
 registerLearningContractPortableAssertions(runSnapshotV1Schema, [
   {
     operation: "lookup-equal",
@@ -1737,6 +2141,18 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
     relation: "less-than-or-equal",
     right: "/capturedAt",
     valueType: "date-time",
+  },
+  {
+    operation: "references",
+    values: "/messages/*/toolResults/*/toolCallId",
+    targets: "/messages/*/toolCalls/*/id",
+  },
+]);
+registerLearningContractPortableAssertions(workflowThreadV1Schema, [
+  {
+    operation: "references",
+    values: "/messages/*/toolResults/*/toolCallId",
+    targets: "/messages/*/toolCalls/*/id",
   },
 ]);
 registerLearningContractPortableAssertions(

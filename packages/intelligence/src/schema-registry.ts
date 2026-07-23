@@ -12,6 +12,7 @@ import {
   startLearningContainerRunV1Schema,
 } from "./commands.js";
 import {
+  attachmentReferenceV1Schema,
   blobLocatorV1Schema,
   candidateGateResultV1Schema,
   evidenceLocatorV1Schema,
@@ -43,6 +44,7 @@ import {
   skillSetProjectionV1Schema,
   snapshotIdentityV1Schema,
   sourceEventManifestEntryV1Schema,
+  terminalErrorV1Schema,
   threadAssignmentPatchV1Schema,
   threadAssignmentV1Schema,
   toLearningContractJsonSchema,
@@ -53,6 +55,7 @@ import { learningPlatformErrorResponseV1Schema } from "./errors.js";
 /** Canonical registry for every public Learning Platform V1 contract. */
 export const learningContractSchemas = {
   AppendLearningRunChunkV1: appendLearningRunChunkV1Schema,
+  AttachmentReferenceV1: attachmentReferenceV1Schema,
   BlobLocatorV1: blobLocatorV1Schema,
   CandidateGateResultV1: candidateGateResultV1Schema,
   CommitLearningRunResultV1: commitLearningRunResultV1Schema,
@@ -94,6 +97,7 @@ export const learningContractSchemas = {
   SnapshotIdentityV1: snapshotIdentityV1Schema,
   SourceEventManifestEntryV1: sourceEventManifestEntryV1Schema,
   StartLearningContainerRunV1: startLearningContainerRunV1Schema,
+  TerminalErrorV1: terminalErrorV1Schema,
   ThreadAssignmentPatchV1: threadAssignmentPatchV1Schema,
   ThreadAssignmentV1: threadAssignmentV1Schema,
   WorkflowThreadV1: workflowThreadV1Schema,

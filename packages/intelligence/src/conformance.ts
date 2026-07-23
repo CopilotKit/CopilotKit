@@ -51,12 +51,32 @@ const toolResult = {
   status: "ok",
   output: { hits: 1 },
 };
-const message = {
+const assistantCallMessage = {
   messageId: "message_1",
   role: "assistant",
-  content: "done",
+  content: "searching",
   toolCalls: [toolCall],
+  toolResults: [],
+  eventIds: ["event_1"],
+  timestamp: NOW,
+};
+const toolResultMessage = {
+  messageId: "message_2",
+  role: "tool",
+  content: "done",
+  toolCalls: [],
   toolResults: [toolResult],
+  eventIds: ["event_1"],
+  timestamp: NOW,
+};
+const activityMessage = {
+  messageId: "message_3",
+  role: "activity",
+  activityType: "handoff",
+  activityMetadata: { destination: "support" },
+  content: null,
+  toolCalls: [],
+  toolResults: [],
   eventIds: ["event_1"],
   timestamp: NOW,
 };
@@ -66,7 +86,39 @@ const sourceEvent = {
   type: "TEXT_MESSAGE_END",
   sha256: SHA_A,
 };
-const terminalSourceEvent = { ...sourceEvent, type: "RUN_FINISHED" };
+const terminalSourceEvent = { ...sourceEvent, type: "RUN_ERROR" };
+const attachment = {
+  schemaVersion: 1,
+  provider: "s3",
+  objectLocator: {
+    resource: "learning-evidence",
+    key: "snapshots/attachment.txt",
+    version: null,
+  },
+  name: "attachment.txt",
+  mediaType: "text/plain",
+  byteLength: 12,
+  checksum: { algorithm: "sha256", value: SHA_A },
+  metadata: { source: "gateway" },
+};
+const terminalError = {
+  schemaVersion: 1,
+  message: "The run failed.",
+  code: "MODEL_FAILED",
+  category: "model",
+  details: { attempt: 1 },
+  stack: null,
+};
+const retainedEvidenceEvent = {
+  eventId: "event_custom",
+  type: "CUSTOM",
+  timestamp: NOW,
+  payload: { answer: 42 },
+};
+const retainedEvidence = {
+  schemaVersion: 1,
+  events: [retainedEvidenceEvent],
+};
 const evidenceLocator = {
   messageIds: ["message_1"],
   eventIds: ["event_1"],
@@ -198,7 +250,9 @@ const workflowThread = {
   snapshotSha256: SHA_A,
   threadId: "thread_1",
   externalRunId: "external_run_1",
-  messages: [message],
+  messages: [assistantCallMessage, toolResultMessage, activityMessage],
+  terminalError,
+  attachments: [attachment],
 };
 const generatedInsight = {
   outputAlias: "insight_1",
@@ -294,6 +348,7 @@ const canonicalValidValues: Record<
     chunkIndex: 0,
     chunk: learningChunk,
   },
+  AttachmentReferenceV1: attachment,
   BlobLocatorV1: blobLocator,
   CandidateGateResultV1: {
     gateResultId: UUID.gate,
@@ -489,7 +544,7 @@ const canonicalValidValues: Record<
     limits: {},
   },
   LearningWorkflowOutputV1: workflowOutput,
-  NormalizedMessageV1: message,
+  NormalizedMessageV1: assistantCallMessage,
   NormalizedToolCallV1: toolCall,
   NormalizedToolResultV1: toolResult,
   PrepareLearningRunV1: {
@@ -532,17 +587,19 @@ const canonicalValidValues: Record<
     agentRunId: "agent_run_1",
     externalRunId: "external_run_1",
     terminalEventId: "event_1",
-    terminalType: "RUN_FINISHED",
+    terminalType: "RUN_ERROR",
     terminalStatus: null,
+    terminalError,
     startedAt: NOW,
     terminalAt: NOW,
     capturedAt: NOW,
     assignmentRevision: 0,
     sourceEvents: [terminalSourceEvent],
-    messages: [message],
+    messages: [assistantCallMessage, toolResultMessage, activityMessage],
+    retainedEvidence,
     stateChanges: [],
     annotations: [],
-    attachments: [],
+    attachments: [attachment],
     normalizerVersion: "normalizer:v1",
     sanitizerVersion: "sanitizer:v1",
     contentSha256: SHA_A,
@@ -567,6 +624,7 @@ const canonicalValidValues: Record<
     trigger: "manual",
     idempotencyKey: "run_1",
   },
+  TerminalErrorV1: terminalError,
   ThreadAssignmentPatchV1: {
     learningContainerId: null,
     expectedLearningContainerId: null,
@@ -603,6 +661,57 @@ function cloneJsonValue(value: JsonValue): JsonValue {
   return value;
 }
 
+function withoutJsonProperty(
+  value: Readonly<Record<string, JsonValue>>,
+  property: string,
+): Record<string, JsonValue> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== property),
+  );
+}
+
+function nestedJsonValue(objectDepth: number): JsonValue {
+  let value: JsonValue = "leaf";
+  for (let depth = 1; depth < objectDepth; depth += 1) {
+    value = { nested: value };
+  }
+  return value;
+}
+
+function jsonObjectWithSerializedUtf8Bytes(
+  targetBytes: number,
+  maximumStringBytes = 2_048,
+): JsonValue {
+  let entryCount = 1;
+  let entries = Array.from({ length: entryCount }, (_, index) => [
+    `k${index}`,
+    "",
+  ]);
+  while (
+    targetBytes - JSON.stringify(Object.fromEntries(entries)).length >
+    entryCount * maximumStringBytes
+  ) {
+    entryCount += 1;
+    entries = Array.from({ length: entryCount }, (_, index) => [
+      `k${index}`,
+      "",
+    ]);
+  }
+  const emptySerializedBytes = JSON.stringify(
+    Object.fromEntries(entries),
+  ).length;
+  let remaining = targetBytes - emptySerializedBytes;
+  for (const entry of entries) {
+    const length = Math.min(maximumStringBytes, remaining);
+    entry[1] = "a".repeat(length);
+    remaining -= length;
+  }
+  if (remaining !== 0) {
+    throw new Error(`Unable to build ${targetBytes}-byte bounded JSON fixture`);
+  }
+  return Object.fromEntries(entries);
+}
+
 function buildCases(): LearningPlatformConformanceCase[] {
   const cases: LearningPlatformConformanceCase[] = [];
   const schemaNames = Object.keys(
@@ -632,6 +741,375 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: canonicalValidValues[schema],
     });
   }
+
+  const canonicalAttachment = canonicalValidValues.AttachmentReferenceV1 as
+    | Record<string, JsonValue>
+    | undefined;
+  const canonicalTerminalError = canonicalValidValues.TerminalErrorV1 as
+    | Record<string, JsonValue>
+    | undefined;
+  const canonicalSnapshot = canonicalValidValues.RunSnapshotV1 as
+    | Record<string, JsonValue>
+    | undefined;
+  const canonicalMessage = canonicalValidValues.NormalizedMessageV1 as
+    | Record<string, JsonValue>
+    | undefined;
+  const canonicalWorkflowThread = canonicalValidValues.WorkflowThreadV1 as
+    | Record<string, JsonValue>
+    | undefined;
+  if (
+    canonicalAttachment === undefined ||
+    canonicalTerminalError === undefined ||
+    canonicalSnapshot === undefined ||
+    canonicalMessage === undefined ||
+    canonicalWorkflowThread === undefined
+  ) {
+    throw new Error("Canonical evidence fixtures are missing");
+  }
+
+  for (const nullableField of [
+    "name",
+    "mediaType",
+    "byteLength",
+    "checksum",
+    "metadata",
+  ]) {
+    cases.push({
+      name: `attachment-requires-nullable-${nullableField}`,
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: withoutJsonProperty(canonicalAttachment, nullableField),
+    });
+  }
+  for (const nullableField of ["code", "category", "details", "stack"]) {
+    cases.push({
+      name: `terminal-error-requires-nullable-${nullableField}`,
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: withoutJsonProperty(canonicalTerminalError, nullableField),
+    });
+  }
+
+  cases.push(
+    {
+      name: "attachment-provider-accepts-exact-utf8-boundary",
+      schema: "AttachmentReferenceV1",
+      valid: true,
+      value: { ...canonicalAttachment, provider: "é".repeat(32) },
+    },
+    {
+      name: "attachment-provider-rejects-utf8-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: { ...canonicalAttachment, provider: "é".repeat(33) },
+    },
+    {
+      name: "attachment-rejects-unknown-reference-field",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: { ...canonicalAttachment, rawAttachment: { secret: true } },
+    },
+    {
+      name: "attachment-rejects-unknown-locator-field",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        objectLocator: {
+          ...(canonicalAttachment.objectLocator as Record<string, JsonValue>),
+          body: "inline",
+        },
+      },
+    },
+    {
+      name: "attachment-rejects-unknown-checksum-field",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        checksum: {
+          ...(canonicalAttachment.checksum as Record<string, JsonValue>),
+          encoding: "hex",
+        },
+      },
+    },
+    {
+      name: "attachment-metadata-accepts-exact-serialized-boundary",
+      schema: "AttachmentReferenceV1",
+      valid: true,
+      value: {
+        ...canonicalAttachment,
+        metadata: jsonObjectWithSerializedUtf8Bytes(16_384),
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-serialized-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: jsonObjectWithSerializedUtf8Bytes(16_385),
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-recursive-inline-payload",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { nested: { dataBase64: "aGVsbG8=" } },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-depth-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: { ...canonicalAttachment, metadata: nestedJsonValue(7) },
+    },
+    {
+      name: "attachment-metadata-rejects-node-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { values: Array.from({ length: 127 }, () => null) },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-property-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: Object.fromEntries(
+          Array.from({ length: 33 }, (_, index) => [`key${index}`, index]),
+        ),
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-array-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { values: Array.from({ length: 33 }, () => null) },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-string-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: {
+        ...canonicalAttachment,
+        metadata: { value: "é".repeat(1_025) },
+      },
+    },
+    {
+      name: "attachment-metadata-rejects-key-boundary-plus-one",
+      schema: "AttachmentReferenceV1",
+      valid: false,
+      value: { ...canonicalAttachment, metadata: { ["k".repeat(129)]: true } },
+    },
+    {
+      name: "terminal-error-message-accepts-exact-utf8-boundary",
+      schema: "TerminalErrorV1",
+      valid: true,
+      value: { ...canonicalTerminalError, message: "é".repeat(2_048) },
+    },
+    {
+      name: "terminal-error-message-rejects-utf8-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, message: "é".repeat(2_049) },
+    },
+    {
+      name: "terminal-error-rejects-unknown-field",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, rawError: "must not cross" },
+    },
+    {
+      name: "terminal-error-details-rejects-array-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: { values: Array.from({ length: 65 }, () => null) },
+      },
+    },
+    {
+      name: "terminal-error-details-accepts-exact-serialized-boundary",
+      schema: "TerminalErrorV1",
+      valid: true,
+      value: {
+        ...canonicalTerminalError,
+        details: jsonObjectWithSerializedUtf8Bytes(32_768, 4_096),
+      },
+    },
+    {
+      name: "terminal-error-details-rejects-serialized-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: jsonObjectWithSerializedUtf8Bytes(32_769, 4_096),
+      },
+    },
+    {
+      name: "terminal-error-details-rejects-depth-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, details: nestedJsonValue(9) },
+    },
+    {
+      name: "terminal-error-details-rejects-node-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: { values: Array.from({ length: 255 }, () => null) },
+      },
+    },
+    {
+      name: "terminal-error-details-rejects-property-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: Object.fromEntries(
+          Array.from({ length: 65 }, (_, index) => [`key${index}`, index]),
+        ),
+      },
+    },
+    {
+      name: "terminal-error-details-rejects-string-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: { value: "é".repeat(2_049) },
+      },
+    },
+    {
+      name: "terminal-error-details-rejects-key-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: {
+        ...canonicalTerminalError,
+        details: { ["k".repeat(257)]: true },
+      },
+    },
+    {
+      name: "terminal-error-code-rejects-utf8-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, code: "é".repeat(129) },
+    },
+    {
+      name: "terminal-error-category-rejects-utf8-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, category: "é".repeat(129) },
+    },
+    {
+      name: "terminal-error-stack-rejects-utf8-boundary-plus-one",
+      schema: "TerminalErrorV1",
+      valid: false,
+      value: { ...canonicalTerminalError, stack: "é".repeat(8_193) },
+    },
+    {
+      name: "normalized-activity-requires-activity-type",
+      schema: "NormalizedMessageV1",
+      valid: false,
+      value: {
+        ...withoutJsonProperty(canonicalMessage, "activityType"),
+        role: "activity",
+      },
+    },
+    {
+      name: "normalized-tool-message-requires-result",
+      schema: "NormalizedMessageV1",
+      valid: false,
+      value: { ...canonicalMessage, role: "tool", toolResults: [] },
+    },
+    {
+      name: "run-snapshot-rejects-unknown-tool-result-reference",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          {
+            ...canonicalMessage,
+            toolResults: [{ ...toolResult, toolCallId: "missing" }],
+          },
+        ],
+      },
+    },
+    {
+      name: "run-error-requires-terminal-error",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        terminalType: "RUN_ERROR",
+        terminalError: null,
+        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_ERROR" }],
+      },
+    },
+    {
+      name: "run-finished-forbids-terminal-error",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        terminalType: "RUN_FINISHED",
+        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_FINISHED" }],
+      },
+    },
+    {
+      name: "run-snapshot-accepts-omitted-retained-evidence",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: withoutJsonProperty(canonicalSnapshot, "retainedEvidence"),
+    },
+    {
+      name: "run-snapshot-rejects-untyped-attachment-payload",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: { ...canonicalSnapshot, attachments: [{ body: "inline" }] },
+    },
+    {
+      name: "run-snapshot-rejects-attachment-entry-boundary-plus-one",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        attachments: Array.from({ length: 33 }, () => attachment),
+      },
+    },
+    {
+      name: "run-snapshot-rejects-untyped-retained-evidence-event",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        retainedEvidence: { schemaVersion: 1, events: [{ nope: true }] },
+      },
+    },
+    {
+      name: "workflow-thread-requires-terminal-error-projection",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: withoutJsonProperty(canonicalWorkflowThread, "terminalError"),
+    },
+    {
+      name: "workflow-thread-requires-attachment-projection",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: withoutJsonProperty(canonicalWorkflowThread, "attachments"),
+    },
+  );
 
   cases.push(
     {
@@ -1653,7 +2131,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...(canonicalValidValues.RunSnapshotV1 as Record<string, JsonValue>),
-        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_ERROR" }],
+        sourceEvents: [{ ...terminalSourceEvent, type: "RUN_FINISHED" }],
       },
     },
     {

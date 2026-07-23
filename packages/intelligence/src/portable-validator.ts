@@ -9,6 +9,10 @@ import {
   learningContractEqualPropertiesV1JsonSchema,
   learningContractSemanticsMetaSchema,
 } from "./contracts.js";
+import {
+  utf8ByteLength,
+  validateJsonTreeBoundsV1,
+} from "./snapshot-evidence-bounds.js";
 
 export type LearningContractAssertionNormalizationV1 = {
   readonly caseFold?: boolean;
@@ -104,6 +108,25 @@ export type LearningContractAssertionV1 =
       readonly minimum?: number;
       readonly maximum?: number;
       readonly normalization?: LearningContractAssertionNormalizationV1;
+    }
+  | {
+      readonly operation: "utf8-byte-length";
+      readonly values: string;
+      readonly maximum: number;
+    }
+  | {
+      readonly operation: "bounded-json";
+      readonly values: string;
+      readonly serializedMaximum: number;
+      readonly maximumDepth: number;
+      readonly maximumNodes: number;
+      readonly maximumObjectProperties: number;
+      readonly maximumArrayItems: number;
+      readonly maximumStringUtf8Bytes: number;
+      readonly maximumKeyUtf8Bytes: number;
+      readonly forbiddenNormalizedKeys?: readonly string[];
+      readonly forbiddenNormalizedKeySuffixes?: readonly string[];
+      readonly forbiddenNormalizedKeyFragments?: readonly string[];
     };
 
 export interface LearningContractJsonSchemaValidateFunction {
@@ -903,6 +926,75 @@ function validateCountAssertion(
   return assertion.maximum === undefined || count <= assertion.maximum;
 }
 
+function validateUtf8ByteLengthAssertion(
+  assertion: Extract<
+    LearningContractAssertionV1,
+    { operation: "utf8-byte-length" }
+  >,
+  data: unknown,
+): boolean {
+  return selectJsonPointerValues(data, assertion.values).every(
+    (value) =>
+      value === null ||
+      (typeof value === "string" && utf8ByteLength(value) <= assertion.maximum),
+  );
+}
+
+function normalizeBoundedJsonKey(key: string): string {
+  return key.toLowerCase().replaceAll("-", "").replaceAll("_", "");
+}
+
+function hasForbiddenBoundedJsonKey(
+  value: unknown,
+  assertion: Extract<
+    LearningContractAssertionV1,
+    { operation: "bounded-json" }
+  >,
+): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => hasForbiddenBoundedJsonKey(item, assertion));
+  }
+  if (value === null || typeof value !== "object") return false;
+
+  return Object.entries(value).some(([key, item]) => {
+    const normalizedKey = normalizeBoundedJsonKey(key);
+    return (
+      assertion.forbiddenNormalizedKeys?.includes(normalizedKey) === true ||
+      assertion.forbiddenNormalizedKeySuffixes?.some((suffix) =>
+        normalizedKey.endsWith(suffix),
+      ) === true ||
+      assertion.forbiddenNormalizedKeyFragments?.some((fragment) =>
+        normalizedKey.includes(fragment),
+      ) === true ||
+      hasForbiddenBoundedJsonKey(item, assertion)
+    );
+  });
+}
+
+function validateBoundedJsonAssertion(
+  assertion: Extract<
+    LearningContractAssertionV1,
+    { operation: "bounded-json" }
+  >,
+  data: unknown,
+): boolean {
+  return selectJsonPointerValues(data, assertion.values).every((value) => {
+    if (value === null) return true;
+    if (Array.isArray(value) || typeof value !== "object") return false;
+    return (
+      validateJsonTreeBoundsV1(value, {
+        maxSerializedBytes: assertion.serializedMaximum,
+        maxDepth: assertion.maximumDepth,
+        maxNodes: assertion.maximumNodes,
+        maxObjectProperties: assertion.maximumObjectProperties,
+        maxArrayItems: assertion.maximumArrayItems,
+        maxStringBytes: assertion.maximumStringUtf8Bytes,
+        maxKeyBytes: assertion.maximumKeyUtf8Bytes,
+      }).length === 0 && !hasForbiddenBoundedJsonKey(value, assertion)
+    );
+  });
+}
+
 function validateLearningContractAssertion(
   assertion: LearningContractAssertionV1,
   data: unknown,
@@ -932,6 +1024,10 @@ function validateLearningContractAssertion(
       return validateLookupReferencesAssertion(assertion, data);
     case "count":
       return validateCountAssertion(assertion, data);
+    case "utf8-byte-length":
+      return validateUtf8ByteLengthAssertion(assertion, data);
+    case "bounded-json":
+      return validateBoundedJsonAssertion(assertion, data);
   }
 }
 
