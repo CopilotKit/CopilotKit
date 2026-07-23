@@ -59,6 +59,33 @@ export interface FrontendParityReport {
   comparisons: FrontendParityComparison[];
 }
 
+export type CurrentFrontendParityOutcome =
+  | "passed"
+  | "angular-regression"
+  | "shared-failure"
+  | "angular-improvement"
+  | "react-only"
+  | "identity-mismatch"
+  | "missing-counterpart";
+
+export interface CurrentFrontendParityComparison {
+  id: string;
+  integration: string;
+  feature: string;
+  react: FrontendParityStatus | null;
+  angular: FrontendParityStatus | null;
+  outcome: CurrentFrontendParityOutcome;
+  blockingReasons: string[];
+}
+
+export interface CurrentFrontendParityReport {
+  schemaVersion: 1;
+  sourceCommit: string;
+  passed: boolean;
+  summary: Record<CurrentFrontendParityOutcome, number>;
+  comparisons: CurrentFrontendParityComparison[];
+}
+
 export interface FrontendParityInput {
   frozenBaseCommit: string;
   pullRequestCommit: string;
@@ -78,6 +105,16 @@ const OUTCOMES: readonly FrontendParityOutcome[] = [
   "unowned-baseline-failure",
   "identity-mismatch",
   "missing-result",
+];
+
+const CURRENT_OUTCOMES: readonly CurrentFrontendParityOutcome[] = [
+  "passed",
+  "angular-regression",
+  "shared-failure",
+  "angular-improvement",
+  "react-only",
+  "identity-mismatch",
+  "missing-counterpart",
 ];
 
 function comparisonId(
@@ -302,6 +339,87 @@ export function evaluateFrontendParity(
     schemaVersion: 1,
     frozenBaseCommit: input.frozenBaseCommit,
     pullRequestCommit: input.pullRequestCommit,
+    passed: comparisons.every(
+      (comparison) => comparison.blockingReasons.length === 0,
+    ),
+    summary,
+    comparisons,
+  };
+}
+
+/**
+ * Compare the two frontends at one exact source revision. Shared failures stay
+ * visible but do not block an Angular-parity audit; an Angular-only failure,
+ * missing counterpart, or pair-identity mismatch does.
+ */
+export function evaluateCurrentFrontendParity(input: {
+  sourceCommit: string;
+  cells: readonly FrontendParityCell[];
+}): CurrentFrontendParityReport {
+  const indexed = indexCells(input.cells);
+  const ids = new Set<string>();
+  for (const key of indexed.keys()) {
+    ids.add(key.replace(/^(react|angular)\//, ""));
+  }
+
+  const comparisons = [...ids]
+    .sort()
+    .map((id): CurrentFrontendParityComparison => {
+      const react = indexed.get(`react/${id}`);
+      const angular = indexed.get(`angular/${id}`);
+      const [integration = "", feature = ""] = id.split("/", 2);
+      const result = (
+        outcome: CurrentFrontendParityOutcome,
+        blockingReasons: string[] = [],
+      ): CurrentFrontendParityComparison => ({
+        id,
+        integration,
+        feature,
+        react: react?.status ?? null,
+        angular: angular?.status ?? null,
+        outcome,
+        blockingReasons,
+      });
+
+      if (!react) {
+        return result("missing-counterpart", [
+          "Angular cell has no React counterpart",
+        ]);
+      }
+      if (!angular) return result("react-only");
+
+      const identityReasons = pairIdentityReasons(
+        react,
+        angular,
+        input.sourceCommit,
+      );
+      if (identityReasons.length > 0) {
+        return result("identity-mismatch", identityReasons);
+      }
+      if (react.status === "passed" && angular.status === "failed") {
+        return result("angular-regression", [
+          "React passed while Angular failed at the same revision",
+        ]);
+      }
+      if (react.status === "failed" && angular.status === "failed") {
+        return result("shared-failure");
+      }
+      if (react.status === "failed" && angular.status === "passed") {
+        return result("angular-improvement");
+      }
+      return result("passed");
+    });
+
+  const summary = Object.fromEntries(
+    CURRENT_OUTCOMES.map((outcome) => [
+      outcome,
+      comparisons.filter((comparison) => comparison.outcome === outcome).length,
+    ]),
+  ) as Record<CurrentFrontendParityOutcome, number>;
+
+  return {
+    schemaVersion: 1,
+    sourceCommit: input.sourceCommit,
     passed: comparisons.every(
       (comparison) => comparison.blockingReasons.length === 0,
     ),

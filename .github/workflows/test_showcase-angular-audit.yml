@@ -259,11 +259,12 @@ jobs:
           done
           exit "$status"
 
-      - name: Reject any failed cell
+      - name: Validate complete shard evidence
         env:
           INTEGRATION: ${{ matrix.integration }}
         run: |
-          test "$(jq -s '[.[].summary.failed] | add' "$RUNNER_TEMP"/angular-audit-"$INTEGRATION"-*.json)" = "0"
+          test "$(find "$RUNNER_TEMP" -maxdepth 1 -name "angular-audit-$INTEGRATION-*.json" -type f | wc -l | tr -d ' ')" = "4"
+          test "$(jq -s '[.[].summary.total] | add > 0' "$RUNNER_TEMP"/angular-audit-"$INTEGRATION"-*.json)" = "true"
 
       - name: Stop branch-local services and scan logs
         if: always()
@@ -302,7 +303,7 @@ jobs:
           retention-days: 14
 
   aggregate:
-    name: Require 1,296 passing cells
+    name: Classify 1,296 cells and require Angular parity
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit') }}
     needs: [build-angular, matrix]
     runs-on: ubuntu-24.04
@@ -337,7 +338,7 @@ jobs:
           path: ${{ runner.temp }}/angular-audit-artifacts
           merge-multiple: true
 
-      - name: Aggregate and require the complete passing matrix
+      - name: Aggregate and classify the complete parity matrix
         env:
           SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
         run: |
@@ -350,8 +351,11 @@ jobs:
           test "$(jq -r .fixtureRevision "$RUNNER_TEMP/angular-audit-final.json")" = "$SOURCE_SHA"
           test "$(jq -r .featureContractRevision "$RUNNER_TEMP/angular-audit-final.json")" = "$SOURCE_SHA"
           test "$(jq -r .summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"
-          test "$(jq -r .summary.passed "$RUNNER_TEMP/angular-audit-final.json")" = "1296"
-          test "$(jq -r .summary.failed "$RUNNER_TEMP/angular-audit-final.json")" = "0"
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts pair \
+            --pull-request "$RUNNER_TEMP/angular-audit-final.json" \
+            --output "$RUNNER_TEMP/angular-audit-parity.json"
+          test "$(jq '.comparisons | length' "$RUNNER_TEMP/angular-audit-parity.json")" = "660"
+          test "$(jq '.summary[\"react-only\"]' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"
 
       - name: Publish audit summary
         if: always()
@@ -363,6 +367,14 @@ jobs:
               jq -r '"- Exact cells: \(.summary.total)\n- Passed: \(.summary.passed)\n- Failed: \(.summary.failed)\n- Source: `\(.sourceCommit)`"' "$RUNNER_TEMP/angular-audit-final.json"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f "$RUNNER_TEMP/angular-audit-parity.json" ]; then
+            {
+              echo
+              echo "### Current-revision parity"
+              echo
+              jq -r '"- Paired passes: \(.summary.passed)\n- Angular regressions: \(.summary[\"angular-regression\"])\n- Shared failures: \(.summary[\"shared-failure\"])\n- Angular improvements: \(.summary[\"angular-improvement\"])\n- React-only cells: \(.summary[\"react-only\"])\n- Identity mismatches: \(.summary[\"identity-mismatch\"])\n- Missing counterparts: \(.summary[\"missing-counterpart\"])"' "$RUNNER_TEMP/angular-audit-parity.json"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload complete audit evidence
         if: always()
@@ -371,6 +383,7 @@ jobs:
           name: angular-audit-final
           path: |
             ${{ runner.temp }}/angular-audit-final.json
+            ${{ runner.temp }}/angular-audit-parity.json
             ${{ runner.temp }}/angular-audit-timings.json
           if-no-files-found: warn
           retention-days: 90

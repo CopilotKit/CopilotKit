@@ -13,6 +13,7 @@ import {
 } from "../probes/frontend-matrix-ci.js";
 import type { FrontendMatrixAggregateReport } from "../probes/frontend-matrix-ci.js";
 import {
+  evaluateCurrentFrontendParity,
   evaluateFrontendParity,
   frontendParityCellsFromAggregate,
 } from "../probes/frontend-parity-gate.js";
@@ -353,6 +354,39 @@ function createProgram(): Command {
       if (report.summary.p95ShardWallTimeMs > P95_WALL_TIME_LIMIT_MS) {
         process.exitCode = 1;
       }
+    });
+
+  program
+    .command("pair")
+    .description("Compare React and Angular at one exact source revision")
+    .requiredOption("--pull-request <file>", "verified aggregate report")
+    .requiredOption("--output <file>")
+    .option("--integration <slug>", "limit comparison to one integration")
+    .option(
+      "--features <slugs>",
+      "limit comparison to comma-separated feature slugs",
+      commaSeparatedValues,
+    )
+    .action(async (options) => {
+      const pullRequest = await readJson<FrontendMatrixAggregateReport>(
+        options.pullRequest,
+      );
+      const cells = scopeByIntegrationAndFeature(
+        frontendParityCellsFromAggregate(pullRequest),
+        {
+          integration: options.integration,
+          features: options.features,
+        },
+      );
+      const report = evaluateCurrentFrontendParity({
+        sourceCommit: pullRequest.sourceCommit,
+        cells,
+      });
+      await writeJson(options.output, report);
+      console.log(
+        `Classified ${report.comparisons.length} current-revision frontend pairs; ${report.passed ? "no Angular regressions" : "blocking Angular regressions found"}.`,
+      );
+      if (!report.passed) process.exitCode = 1;
     });
 
   program

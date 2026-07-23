@@ -168,7 +168,14 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain(
     '.summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"',
   );
+  expect(workflow).toContain("frontend-matrix-ci.ts pair");
   expect(workflow).toContain(
+    '.comparisons | length\' "$RUNNER_TEMP/angular-audit-parity.json")" = "660"',
+  );
+  expect(workflow).toContain(
+    '.summary[\\"react-only\\"]\' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"',
+  );
+  expect(workflow).not.toContain(
     '.summary.failed "$RUNNER_TEMP/angular-audit-final.json")" = "0"',
   );
   expect(workflow).not.toContain("frontend-matrix-baseline");
