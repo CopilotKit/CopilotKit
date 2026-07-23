@@ -3146,6 +3146,9 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
     devDependencies:
+      '@testing-library/react':
+        specifier: ^16.3.0
+        version: 16.3.1(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@types/react':
         specifier: 19.1.8
         version: 19.1.8
@@ -3155,6 +3158,9 @@ importers:
       eslint:
         specifier: ^8.56.0
         version: 8.57.1
+      jsdom:
+        specifier: ^26.1.0
+        version: 26.1.0
       postcss:
         specifier: ^8.4.20
         version: 8.5.6

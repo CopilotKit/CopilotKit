@@ -68,9 +68,11 @@
     "remark-math": "^6.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.0",
     "@types/react": "^19.1.0",
     "@types/react-syntax-highlighter": "^15.5.7",
     "eslint": "^8.56.0",
+    "jsdom": "^26.1.0",
     "postcss": "^8.4.20",
     "react": "^18.2.0",
     "react-dom": "^19.2.0",
