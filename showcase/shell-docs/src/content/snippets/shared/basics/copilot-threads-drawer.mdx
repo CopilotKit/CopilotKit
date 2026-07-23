@@ -37,8 +37,11 @@ Use the drawer when you want:
 - A self-contained, themeable UI that follows your app's light/dark theme
 - A mobile-ready off-canvas drawer with its own launcher
 
-It requires the Enterprise Intelligence Platform (threads are stored and synced
-server-side). <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
+It requires the Enterprise Intelligence Platform because Threads are stored and
+synced server-side. The React setup below is the same for cloud-hosted and self-hosted deployments; only the platform endpoint and Runtime credential change.
+For a cloud-hosted project, follow [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence) first.
+<SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to
+create a hosted project.
 
 For multi-user applications, configure the Runtime to
 [scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
@@ -72,7 +75,10 @@ import "@copilotkit/react-core/v2/styles.css";
 
 export default function Page() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
+    >
       <CopilotChatConfigurationProvider>
         <div style={{ display: "flex", height: "100dvh" }}>
           <CopilotThreadsDrawer />
@@ -102,7 +108,7 @@ wiring to write.
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |
 | `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
-| `limit` | Page size for pagination. Shows a "Load more" control while more threads remain. Omit to load all at once. |
+| `limit` | Overrides the page size. The default page size is 50 threads. Cursor pagination stays active when you omit `limit`: `nextCursor` controls whether the drawer shows "Load more". |
 
 See the [Threads Drawer reference](/reference/components/CopilotThreadsDrawer) for the full prop and type list.
 
@@ -110,27 +116,38 @@ See the [Threads Drawer reference](/reference/components/CopilotThreadsDrawer) f
 
 The drawer renders in a shadow root with self-contained, theme-inheriting
 styles, so it looks correct in any app (including dark mode) with no config.
-Three bounded escape hatches pierce the boundary:
+Use the React wrapper's supported props to customize its content:
 
-- **Slots**: project children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`):
+```tsx title="app/threads-drawer.tsx"
+import { CopilotThreadsDrawer } from "@copilotkit/react-core/v2";
 
-  ```tsx
-  <CopilotThreadsDrawer>
-    <span slot="header">My conversations</span>
-  </CopilotThreadsDrawer>
-  ```
+export function ThreadsDrawer() {
+  return (
+    <CopilotThreadsDrawer
+      label="My conversations"
+      renderRow={(thread) => (
+        <span>{thread.name ?? "New conversation"}</span>
+      )}
+    />
+  );
+}
+```
 
 - **Per-row content**: the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab menu (Archive/Delete).
+- **Labels and behavior**: use the supported wrapper props above, such as `label`, `recentLabel`, and the selection callbacks, instead of passing raw custom-element children.
 - **CSS parts + variable tokens**: restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
 
 ## License
 
-Threads require CopilotKit Intelligence. Without a license key, the drawer shows
-a locked view in place of the list.
+Threads require CopilotKit Intelligence. A cloud-hosted app gets its entitlement
+from the Intelligence project connected to the Runtime; it does not put a
+license token in browser code. Self-hosted and offline enterprise setups may use
+an explicit license token.
 
 ## Related
 
 - [Rich Threads overview](/threads): compare thread UI and deployment paths
+- [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence): configure the Runtime and verify per-user persistence
 - [Headless Threads](/headless-threads): build a custom UI with the `useThreads` data layer
 - [Threads Drawer reference (React)](/reference/components/CopilotThreadsDrawer)
 - [CopilotChat](/prebuilt-components/chat): the chat the drawer connects to

@@ -26,12 +26,16 @@ The hosted web app is the control surface for developers and administrators. End
 
 Use Cloud-Hosted Enterprise Intelligence when you want the fastest path to production. Use [Self-Hosting Enterprise Intelligence](/premium/self-hosting) when your organization needs the platform inside its own VPC, cluster, or data boundary.
 
+For an existing app that you want to connect to the cloud-hosted service, run `npx copilotkit@latest project select`, then follow [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence).
+
 ## Login and workspace flow
 
 You sign in at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai). After login, choose or create the organization workspace you want to operate in. The ready page gives you two common paths:
 
 - `npx copilotkit@latest create` for a new app.
 - `npx copilotkit@latest skills onboard` for adding CopilotKit to an existing app with agent-assisted onboarding.
+
+`create` scaffolds any supported starter. During `create`, only starters with Threads support continue through managed project selection and project-scoped key provisioning.
 
 The [CopilotKit CLI](/cli) uses the same sign-in system. When the CLI needs dashboard access, it opens a browser login flow and then stores a local CLI session so project selection can happen from your terminal.
 
@@ -47,11 +51,16 @@ Inside a project, the web app shows the conversation history connected to that p
 
 ## API keys
 
-Project API keys connect your runtime to the cloud-hosted project. The CLI provisions a project-scoped key during `create` and `project select`, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`.
+Project API keys connect your runtime to the cloud-hosted project. During `project select`, the CLI provisions a project-scoped key, writes it to `.env` as `CPK_INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`. A `create` flow does the same only for a starter with Threads support. `CPK_INTELLIGENCE_API_KEY` remains required for managed connectivity. When telemetry is enabled and identity creation succeeds, the CLI may write `CPK_TELEMETRY_ID` for analytics attribution. The telemetry ID is not a secret. A selected project and its project-scoped key are a valid managed setup without `CPK_TELEMETRY_ID`. Managed setup does not issue or write `COPILOTKIT_LICENSE_TOKEN`.
 
 ![The Cloud-Hosted Enterprise Intelligence API keys page.](/images/enterprise-intelligence/managed-api-keys.png)
 
 When you create an API key in the web app, the plaintext token is shown once. Store it in your runtime environment, not in frontend code. Deleting a key invalidates any application still using it.
+
+If telemetry-identity setup fails, the CLI still commits the project and API
+key, removes stale telemetry identity, and warns that Runtime telemetry will
+stay anonymous. If key creation or local env writing fails, project selection
+does not replace the prior local project and credentials.
 
 ## Threads and conversation history
 
@@ -62,8 +71,8 @@ Threads are persistent conversations stored by the Enterprise Intelligence Platf
 Thread actions map to the same lifecycle your app sees through `useThreads`:
 
 - Rename changes the display name.
-- Archive hides the thread from the active list without deleting its history.
-- Delete permanently removes the thread.
+- Archive is reversible: it marks the thread archived and hides it from the default list without deleting its history. Pass `includeArchived: true` to show archived threads, then unarchive one to return it to the active list.
+- Delete is irreversible to the app user: the current UI and API expose no restore action. The platform soft-deletes the thread and retains its stored row.
 
 Use the thread detail page when you need to debug persistence, confirm that a runtime is writing events, or inspect the event sequence behind a conversation. Raw event payloads are available from the event disclosures when you need deeper debugging.
 
@@ -86,6 +95,7 @@ Your application code should stay focused on the CopilotKit SDK and runtime. The
 
 ## Next steps
 
+- **Connect an existing app:** [Connect an Existing App to Hosted Intelligence](/premium/existing-app-hosted-intelligence) — add one hosted project key and verified app-user identity to Runtime v2
 - **Explore Rich Threads:** [Rich Threads overview](/threads) — understand persistent, resumable conversations and choose an implementation path
 - **Use the CLI:** [CopilotKit CLI](/cli) — sign in, scaffold apps, select cloud-hosted projects, and write project configuration
 - **Add threads:** [Headless Threads](/headless-threads) — list, create, rename, archive, and delete persistent conversations in a custom UI
