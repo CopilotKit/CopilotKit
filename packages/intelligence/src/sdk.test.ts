@@ -612,6 +612,13 @@ describe("IntelligenceClient registry SDK", () => {
         { path: "safe/skill.md", bytes: new Uint8Array() },
       ],
     ],
+    [
+      "Unicode default case-fold collision",
+      [
+        { path: "safe/Straße.md", bytes: new Uint8Array() },
+        { path: "safe/STRASSE.md", bytes: new Uint8Array() },
+      ],
+    ],
   ])("rejects unsafe ZIP %s entries", async (_name, files) => {
     const root = await cacheRoot();
     const { archive, projection } = fixture({ files });
@@ -625,6 +632,32 @@ describe("IntelligenceClient registry SDK", () => {
     await expect(
       client.skills.get({ learningContainerId: CONTAINER }),
     ).rejects.toBeInstanceOf(IntelligenceSdkError);
+  });
+
+  it("rejects Unicode default case-fold collisions in registry manifests", async () => {
+    const root = await cacheRoot();
+    const bytes = new TextEncoder().encode("# Skill\n");
+    const { projection } = fixture({
+      manifestFiles: [
+        { path: "SKILL.md", bytes },
+        { path: "references/Straße.md", bytes },
+        { path: "references/STRASSE.md", bytes },
+      ],
+    });
+    const client = new IntelligenceClient({
+      baseUrl: "https://registry.test",
+      accessToken: "token",
+      projectNamespace: "project-a",
+      cacheRoot: root,
+      transport: sequence(jsonResponse(projection)),
+    });
+
+    await expect(
+      client.skills.get({ learningContainerId: CONTAINER }),
+    ).rejects.toMatchObject({
+      name: "IntelligenceSdkError",
+      code: "LEARNING_SDK_CACHE_CORRUPT",
+    });
   });
 
   it("enforces archive bounds, manifest order, integrity, and required SKILL.md", async () => {

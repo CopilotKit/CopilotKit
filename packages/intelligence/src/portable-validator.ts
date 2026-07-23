@@ -16,6 +16,7 @@ import {
 } from "./snapshot-evidence-bounds.js";
 import type { INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1 } from "./snapshot-evidence-bounds.js";
 import { compareCanonicalDateTimes } from "./date-time.js";
+import { unicodeDefaultCaseFold } from "./unicode-default-case-folding.js";
 
 export type LearningContractAssertionNormalizationV1 = {
   readonly caseFold?: boolean;
@@ -610,7 +611,7 @@ function normalizeAssertionValue(
     ? value.normalize(normalization.unicode)
     : value;
   return normalization.caseFold
-    ? unicodeNormalized.toLocaleLowerCase("en-US")
+    ? unicodeDefaultCaseFold(unicodeNormalized)
     : unicodeNormalized;
 }
 

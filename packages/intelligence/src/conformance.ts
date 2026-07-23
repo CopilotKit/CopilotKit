@@ -2080,6 +2080,71 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "artifact-manifest-rejects-sharp-s-path-collision",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/Straße.txt" },
+          { ...artifactFile, path: "references/STRASSE.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-final-sigma-path-collision",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/Σ.txt" },
+          { ...artifactFile, path: "references/ς.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-rejects-dotted-i-path-collision",
+      schema: "SkillArtifactManifestV1",
+      valid: false,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/\u0130.txt" },
+          { ...artifactFile, path: "references/i\u0307.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-allows-non-turkic-dotless-i-paths",
+      schema: "SkillArtifactManifestV1",
+      valid: true,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/I.txt" },
+          { ...artifactFile, path: "references/\u0131.txt" },
+        ],
+      },
+    },
+    {
+      name: "artifact-manifest-allows-non-turkic-dotted-i-paths",
+      schema: "SkillArtifactManifestV1",
+      valid: true,
+      value: {
+        ...artifactManifest,
+        files: [
+          artifactFile,
+          { ...artifactFile, path: "references/\u0130.txt" },
+          { ...artifactFile, path: "references/i.txt" },
+        ],
+      },
+    },
+    {
       name: "artifact-manifest-rejects-missing-skill-md",
       schema: "SkillArtifactManifestV1",
       valid: false,
@@ -2356,6 +2421,95 @@ function buildCases(): LearningPlatformConformanceCase[] {
             ...generatedCandidate.bundle.files,
             { path: "caf\u00e9.txt", contentBase64: "bGVmdA==" },
             { path: "cafe\u0301.txt", contentBase64: "cmlnaHQ=" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-sharp-s-path-collision",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            {
+              path: "references/Straße.txt",
+              contentBase64: "bGVmdA==",
+            },
+            {
+              path: "references/STRASSE.txt",
+              contentBase64: "cmlnaHQ=",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-final-sigma-path-collision",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "references/Σ.txt", contentBase64: "bGVmdA==" },
+            { path: "references/ς.txt", contentBase64: "cmlnaHQ=" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-rejects-dotted-i-path-collision",
+      schema: "GeneratedSkillCandidateV1",
+      valid: false,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "references/\u0130.txt", contentBase64: "bGVmdA==" },
+            {
+              path: "references/i\u0307.txt",
+              contentBase64: "cmlnaHQ=",
+            },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-allows-non-turkic-dotless-i-paths",
+      schema: "GeneratedSkillCandidateV1",
+      valid: true,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "references/I.txt", contentBase64: "bGVmdA==" },
+            { path: "references/\u0131.txt", contentBase64: "cmlnaHQ=" },
+          ],
+        },
+      },
+    },
+    {
+      name: "generated-bundle-allows-non-turkic-dotted-i-paths",
+      schema: "GeneratedSkillCandidateV1",
+      valid: true,
+      value: {
+        ...generatedCandidate,
+        bundle: {
+          ...generatedCandidate.bundle,
+          files: [
+            ...generatedCandidate.bundle.files,
+            { path: "references/\u0130.txt", contentBase64: "bGVmdA==" },
+            { path: "references/i.txt", contentBase64: "cmlnaHQ=" },
           ],
         },
       },

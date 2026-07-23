@@ -22,6 +22,7 @@ import type {
 } from "./contracts.js";
 import { learningPlatformErrorResponseV1Schema } from "./errors.js";
 import type { LearningPlatformErrorCode } from "./errors.js";
+import { unicodeDefaultCaseFold } from "./unicode-default-case-folding.js";
 
 const METADATA_FILE = ".copilotkit-skill-set.json";
 const POINTER_FILE = ".copilotkit-current.json";
@@ -304,9 +305,7 @@ function parseZip(bytes: Uint8Array, limits: ResolvedLimits): ZipEntry[] {
         "LEARNING_BLOB_INTEGRITY_FAILURE",
       );
     }
-    const collisionKey = checkedPath
-      .normalize("NFC")
-      .toLocaleLowerCase("en-US");
+    const collisionKey = unicodeDefaultCaseFold(checkedPath.normalize("NFC"));
     if (collisionKeys.has(collisionKey)) {
       throw sdkError(
         "ZIP path collision detected",
@@ -470,7 +469,7 @@ function parseManifest(
   const collisionKeys = new Set<string>();
   for (const file of manifest.files) {
     assertSafeRelativePath(file.path, DEFAULT_LIMITS.maxPathLength);
-    const key = file.path.normalize("NFC").toLocaleLowerCase("en-US");
+    const key = unicodeDefaultCaseFold(file.path.normalize("NFC"));
     if (collisionKeys.has(key)) {
       throw sdkError(
         "Artifact manifest path collision",

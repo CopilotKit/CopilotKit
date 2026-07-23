@@ -1032,6 +1032,71 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
     expect(validate({ ids: ["run", "other"] })).toBe(false);
   });
 
+  test.each([
+    ["multi-code-point sharp-s", "Straße", "STRASSE"],
+    ["Greek final sigma", "Σ", "ς"],
+    ["non-Turkic dotted capital I", "\u0130", "i\u0307"],
+  ])(
+    "applies Unicode full default case folding to %s uniqueness",
+    (_name, left, right) => {
+      const ajv = new Ajv2020({ strict: false, validateFormats: false });
+      registerLearningContractJsonSchemaValidator(ajv);
+      const validate = compileLearningContractJsonSchema(ajv, {
+        type: "object",
+        [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+          {
+            operation: "unique",
+            values: "/ids/*",
+            normalization: { caseFold: true },
+          },
+        ],
+      });
+
+      expect(validate({ ids: [left, right] })).toBe(false);
+    },
+  );
+
+  test("excludes locale-specific Turkic dotted-I mappings", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "unique",
+          values: "/ids/*",
+          normalization: { caseFold: true },
+        },
+      ],
+    });
+
+    expect(validate({ ids: ["I", "\u0131"] })).toBe(true);
+    expect(validate({ ids: ["\u0130", "i"] })).toBe(true);
+  });
+
+  test("applies Unicode full default case folding to references", () => {
+    const ajv = new Ajv2020({ strict: false, validateFormats: false });
+    registerLearningContractJsonSchemaValidator(ajv);
+    const validate = compileLearningContractJsonSchema(ajv, {
+      type: "object",
+      [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+        {
+          operation: "references",
+          values: "/references/*",
+          targets: "/targets/*",
+          normalization: { caseFold: true },
+        },
+      ],
+    });
+
+    expect(
+      validate({
+        references: ["Straße", "ς", "\u0130"],
+        targets: ["STRASSE", "Σ", "i\u0307"],
+      }),
+    ).toBe(true);
+  });
+
   test("scopes evidence references to the selected lookup target", () => {
     const ajv = new Ajv2020({ strict: false, validateFormats: false });
     registerLearningContractJsonSchemaValidator(ajv);

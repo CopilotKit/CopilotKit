@@ -12367,6 +12367,186 @@
       }
     },
     {
+      "name": "artifact-manifest-rejects-sharp-s-path-collision",
+      "schema": "SkillArtifactManifestV1",
+      "valid": false,
+      "value": {
+        "agentSkillsProfile": "agentskills:v1",
+        "bundleByteLength": 12,
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "files": [
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "SKILL.md",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/Straße.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/STRASSE.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          }
+        ],
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "manifestVersion": 1,
+        "provenance": {}
+      }
+    },
+    {
+      "name": "artifact-manifest-rejects-final-sigma-path-collision",
+      "schema": "SkillArtifactManifestV1",
+      "valid": false,
+      "value": {
+        "agentSkillsProfile": "agentskills:v1",
+        "bundleByteLength": 12,
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "files": [
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "SKILL.md",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/Σ.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/ς.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          }
+        ],
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "manifestVersion": 1,
+        "provenance": {}
+      }
+    },
+    {
+      "name": "artifact-manifest-rejects-dotted-i-path-collision",
+      "schema": "SkillArtifactManifestV1",
+      "valid": false,
+      "value": {
+        "agentSkillsProfile": "agentskills:v1",
+        "bundleByteLength": 12,
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "files": [
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "SKILL.md",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/İ.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/i̇.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          }
+        ],
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "manifestVersion": 1,
+        "provenance": {}
+      }
+    },
+    {
+      "name": "artifact-manifest-allows-non-turkic-dotless-i-paths",
+      "schema": "SkillArtifactManifestV1",
+      "valid": true,
+      "value": {
+        "agentSkillsProfile": "agentskills:v1",
+        "bundleByteLength": 12,
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "files": [
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "SKILL.md",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/I.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/ı.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          }
+        ],
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "manifestVersion": 1,
+        "provenance": {}
+      }
+    },
+    {
+      "name": "artifact-manifest-allows-non-turkic-dotted-i-paths",
+      "schema": "SkillArtifactManifestV1",
+      "valid": true,
+      "value": {
+        "agentSkillsProfile": "agentskills:v1",
+        "bundleByteLength": 12,
+        "bundleSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "files": [
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "SKILL.md",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/İ.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          },
+          {
+            "byteLength": 12,
+            "mediaType": "text/markdown",
+            "path": "references/i.txt",
+            "rawSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "role": "instructions"
+          }
+        ],
+        "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "manifestVersion": 1,
+        "provenance": {}
+      }
+    },
+    {
       "name": "artifact-manifest-rejects-missing-skill-md",
       "schema": "SkillArtifactManifestV1",
       "valid": false,
@@ -13703,6 +13883,276 @@
             {
               "contentBase64": "cmlnaHQ=",
               "path": "café.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-sharp-s-path-collision",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "references/Straße.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "references/STRASSE.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-final-sigma-path-collision",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "references/Σ.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "references/ς.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-rejects-dotted-i-path-collision",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": false,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "references/İ.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "references/i̇.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-allows-non-turkic-dotless-i-paths",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": true,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "references/I.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "references/ı.txt"
+            }
+          ],
+          "rootDirectoryName": "idempotent-retries"
+        },
+        "evidenceRefs": [
+          {
+            "annotationId": null,
+            "annotationSha256": null,
+            "eventIds": [
+              "event_1"
+            ],
+            "evidenceType": "run_snapshot",
+            "excerpt": null,
+            "excerptSha256": null,
+            "externalRunId": "external_run_1",
+            "messageIds": [
+              "message_1"
+            ],
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "threadId": "thread_1",
+            "truncated": false
+          }
+        ],
+        "insightAliases": [
+          "insight_1"
+        ],
+        "outputAlias": "candidate_1",
+        "parentVersionId": null,
+        "reason": "Avoid duplicate actions.",
+        "removalIntent": null,
+        "risk": "low",
+        "skillId": null
+      }
+    },
+    {
+      "name": "generated-bundle-allows-non-turkic-dotted-i-paths",
+      "schema": "GeneratedSkillCandidateV1",
+      "valid": true,
+      "value": {
+        "action": "add",
+        "bundle": {
+          "files": [
+            {
+              "contentBase64": "IyBTa2lsbA==",
+              "path": "SKILL.md"
+            },
+            {
+              "contentBase64": "bGVmdA==",
+              "path": "references/İ.txt"
+            },
+            {
+              "contentBase64": "cmlnaHQ=",
+              "path": "references/i.txt"
             }
           ],
           "rootDirectoryName": "idempotent-retries"

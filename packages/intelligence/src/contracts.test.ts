@@ -405,6 +405,9 @@ describe("parent V1 contract schemas", () => {
     ["same.txt", "same.txt"],
     ["Case.txt", "case.txt"],
     ["caf\u00e9.txt", "cafe\u0301.txt"],
+    ["references/Straße.txt", "references/STRASSE.txt"],
+    ["references/Σ.txt", "references/ς.txt"],
+    ["references/\u0130.txt", "references/i\u0307.txt"],
   ])("rejects artifact manifest path collision %j and %j", (left, right) => {
     expect(
       skillArtifactManifestV1Schema.safeParse(
@@ -645,6 +648,9 @@ describe("parent V1 contract schemas", () => {
     ["Case.txt", "case.txt"],
     ["caf\u00e9.txt", "cafe\u0301.txt"],
     ["1.txt", "\u2460.txt"],
+    ["references/Straße.txt", "references/STRASSE.txt"],
+    ["references/Σ.txt", "references/ς.txt"],
+    ["references/\u0130.txt", "references/i\u0307.txt"],
   ])("rejects generated bundle path collision %j and %j", (left, right) => {
     expect(
       generatedSkillCandidateV1Schema.safeParse({

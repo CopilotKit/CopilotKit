@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import type { LearningContractAssertionV1 } from "./portable-validator.js";
 import { compareCanonicalDateTimes } from "./date-time.js";
+import { unicodeDefaultCaseFold } from "./unicode-default-case-folding.js";
 import {
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEYS_V1,
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_FRAGMENTS_V1,
@@ -49,9 +50,9 @@ function normalizedPathCollisionIndexes(
   const collisionKeys = new Set<string>();
   const collisionIndexes: number[] = [];
   for (const [index, path] of paths.entries()) {
-    const collisionKey = path
-      .normalize(normalizationForm)
-      .toLocaleLowerCase("en-US");
+    const collisionKey = unicodeDefaultCaseFold(
+      path.normalize(normalizationForm),
+    );
     if (collisionKeys.has(collisionKey)) collisionIndexes.push(index);
     collisionKeys.add(collisionKey);
   }

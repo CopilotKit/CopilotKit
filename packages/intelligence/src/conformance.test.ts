@@ -202,8 +202,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(295);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(295);
+    expect(corpus.cases).toHaveLength(305);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(305);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -583,6 +583,11 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "artifact-manifest-rejects-backslash-path",
         "artifact-manifest-rejects-case-path-collision",
         "artifact-manifest-rejects-nfc-path-collision",
+        "artifact-manifest-rejects-sharp-s-path-collision",
+        "artifact-manifest-rejects-final-sigma-path-collision",
+        "artifact-manifest-rejects-dotted-i-path-collision",
+        "artifact-manifest-allows-non-turkic-dotless-i-paths",
+        "artifact-manifest-allows-non-turkic-dotted-i-paths",
         "artifact-manifest-rejects-missing-skill-md",
         "artifact-manifest-rejects-root-prefixed-skill-md",
         "skill-bundle-rejects-locator-hash-mismatch",
@@ -609,6 +614,11 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "generated-bundle-rejects-absolute-path",
         "generated-bundle-rejects-backslash-path",
         "generated-bundle-rejects-normalized-path-collision",
+        "generated-bundle-rejects-sharp-s-path-collision",
+        "generated-bundle-rejects-final-sigma-path-collision",
+        "generated-bundle-rejects-dotted-i-path-collision",
+        "generated-bundle-allows-non-turkic-dotless-i-paths",
+        "generated-bundle-allows-non-turkic-dotted-i-paths",
         "generated-bundle-rejects-missing-skill-md",
         "generated-bundle-rejects-root-prefixed-skill-md",
         "generated-bundle-rejects-empty-file-content",
