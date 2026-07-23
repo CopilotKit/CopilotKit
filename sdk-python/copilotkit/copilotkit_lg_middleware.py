@@ -417,7 +417,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         BYOC custom catalogs render their own components, not the basic one).
         """
         # AG-UI native path.
-        ag_ui = state.get("ag-ui") or {}
+        ag_ui = state.get("ag-ui") or state.get("ag_ui") or {}
         a2ui_schema = ag_ui.get("a2ui_schema")
         if a2ui_schema:
             catalog_id = None
@@ -463,7 +463,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         means no signal at all (off, or no A2UI middleware in the pipeline), in
         which case we do not auto-inject.
         """
-        return (state.get("ag-ui") or {}).get("inject_a2ui_tool")
+        return (state.get("ag-ui") or state.get("ag_ui") or {}).get("inject_a2ui_tool")
 
     def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
         """Build a ``generate_a2ui`` tool bound to the agent's own model when
