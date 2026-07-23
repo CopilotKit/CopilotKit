@@ -57,7 +57,16 @@ when it lands** so the Intelligence session can rebase cleanly.
   A1-remove deferred until coordinated. Public `Channel` type is CURRENTLY UNCHANGED — safe base for Task 7.
 - Intelligence session CONFIRMED (staying out of CopilotKit-channel-runner; will take a stacked ckit-task7
   worktree at T7, which is blocked on T5 — not yet). Coordination collision resolved.
-- SDK session note: to keep `ben1/channel-runner` GREEN through A1-remove, the SDK session will also migrate
+- ⚠️ **A1 COMPLETE — public `Channel` API CHANGED. Intelligence session: rebase Task 7 onto this.**
+  - A1-migrate `173258c8f` (repoint callers → ɵruntime; public methods kept as delegators).
+  - A1-remove  `06237c7d9` (DELETED public `Channel.start()/stop()/addAdapter()/provider`).
+  What changed for Task 7: the `Channel` type no longer has `start/stop/addAdapter/provider`. Drive the
+  lifecycle via `channel.ɵruntime.start()/stop()/addAdapter()`; read the managed provider via
+  `channel.ɵruntime.provider` (moved off the public API). `ChannelRuntimeInternals` (channel-agent.ts) now
+  also carries `provider`. All SDK-side + channels-intelligence callers are already migrated on this branch
+  (channels-intelligence tests + runtime reader updated + green). No connector/ProviderEffect/ChannelRunner
+  contract changed — only the public Channel lifecycle surface was removed.
+- SDK session note: to keep `ben1/channel-runner` GREEN through A1-remove, the SDK session also migrated
   any residual public-lifecycle callers in channels-intelligence + runtime to `ɵruntime.*` (mechanical only —
   NOT the T7 rewrite; done now while the Intelligence session isn't editing those files, so no concurrent-edit
   conflict). T7 rewrites channels-intelligence wholesale later regardless. A1-remove sha will be posted here.
