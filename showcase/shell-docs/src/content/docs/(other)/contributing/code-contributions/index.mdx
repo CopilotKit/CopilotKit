@@ -73,6 +73,7 @@ In most cases, you want to seamlessly be able to test your changes in real-time 
 
 We have an `examples` folder in the monorepo with a few different examples using CopilotKit. You can run these examples to test your changes, as they are linked to the `@copilotkit/*` packages in the monorepo.
 
+<FrontendOnly frontend="react">
 For this tutorial, we'll use the `next-openai` example, specifically the Presentation Demo (`/presentation`).
 
 In a separate terminal, run the following command to start the example:
@@ -89,6 +90,20 @@ pnpm run example-dev
 </Callout>
 
 Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+For Angular changes, validate the Angular package and Showcase host through Nx:
+
+```bash
+pnpm exec nx run @copilotkit/angular:test
+pnpm exec nx run @copilotkit/showcase-angular-host:test
+```
+
+The Angular Showcase under `showcase/angular` is the frontend-native test host
+for components, signals, tools, generative UI, interrupts, threads, and
+lifecycle behavior.
+</FrontendOnly>
 
 ## Step 5: Formatting and Linting
 
@@ -139,7 +154,13 @@ Every time you run CopilotKit on localhost, you will be able to see the **Copilo
   />
 </Frame>
 
+<FrontendOnly frontend="react">
 If you'd like to disable the Dev Console locally, simply set `showDevConsole` to `false` in your `<CopilotKit />` provider.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+For Angular debugging workflows, use the [Angular troubleshooting guide](/guides/troubleshooting) and the AG-UI Event Inspector.
+</FrontendOnly>
 
 ## (Advanced) Package Linking
 

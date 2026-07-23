@@ -50,7 +50,7 @@ For the thread lifecycle itself, see [Threads & Persistence Architecture](/premi
 
 Realtime sync keeps thread metadata and active conversation state aligned across clients. When enabled, clients subscribe to platform-backed updates so changes such as renames, archives, and active-run status can appear without a page reload.
 
-The important application-level contract is simple: your app uses the same hooks, while the runtime points at the platform endpoint for the selected deployment.
+The important application-level contract is simple: your app uses the same frontend APIs, while the runtime points at the platform endpoint for the selected deployment.
 
 ## Inspection and operational history
 
@@ -64,8 +64,8 @@ Cloud-hosted and self-hosted Enterprise Intelligence share the same application 
 
 | Deployment | What changes | What stays the same |
 |---|---|---|
-| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
-| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
 
 Self-hosting changes operational ownership. It does not require a different frontend integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
 

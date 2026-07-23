@@ -49,9 +49,16 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "multimodal-attachments": "guides/chat-ui",
   voice: "guides/chat-ui",
   "generative-ui/reasoning": "guides/frontend-tools-generative-ui",
+  "generative-ui": "guides/frontend-tools-generative-ui",
+  "generative-ui/display": "guides/frontend-tools-generative-ui",
+  "generative-ui/interactive": "guides/frontend-tools-generative-ui",
   "generative-ui/tool-based": "guides/frontend-tools-generative-ui",
   "generative-ui/tool-rendering": "guides/frontend-tools-generative-ui",
   "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
+  "generative-ui/open-generative-ui": "guides/frontend-tools-generative-ui",
+  "generative-ui/open-json-ui": "guides/frontend-tools-generative-ui",
+  "generative-ui/json-render": "guides/frontend-tools-generative-ui",
+  "generative-ui/hashbrown": "guides/frontend-tools-generative-ui",
   "generative-ui/your-components/display-only":
     "guides/frontend-tools-generative-ui",
   "generative-ui/your-components/interactive":
@@ -62,6 +69,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "generative-ui/a2ui/advanced": "guides/frontend-tools-generative-ui",
   "generative-ui/a2ui/dynamic-schema": "guides/frontend-tools-generative-ui",
   "generative-ui/a2ui/fixed-schema": "guides/frontend-tools-generative-ui",
+  "generative-ui/a2ui/styling": "guides/frontend-tools-generative-ui",
   "generative-ui/mcp-apps": "guides/frontend-tools-generative-ui",
   "frontend-tools": "guides/frontend-tools-generative-ui",
   "human-in-the-loop": "guides/human-in-the-loop",
@@ -96,6 +104,8 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "troubleshooting/error-debugging": "guides/troubleshooting",
   "troubleshooting/inspector-dev-console": "guides/troubleshooting",
   "troubleshooting/hook-explorer": "guides/troubleshooting",
+  "deploy/agentcore": "backend/copilot-runtime",
+  "deploy-agentcore": "backend/copilot-runtime",
   "troubleshooting/migrate-to-1.8.2": "using-these-docs",
   "troubleshooting/migrate-to-1.10.X": "using-these-docs",
   "troubleshooting/migrate-to-v2": "using-these-docs",
@@ -105,6 +115,12 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "whats-new/v1-50": "using-these-docs",
   inspector: "guides/troubleshooting",
   "multi-agent-flows": "multi-agent/subagents",
+  "ag-ui-protocol": "agentic-protocols/ag-ui",
+  "a2a-protocol": "agentic-protocols/a2a",
+  "a2a/generative-ui/declarative-a2ui": "guides/frontend-tools-generative-ui",
+  "connect-mcp-servers": "guides/frontend-tools-generative-ui",
+  "langgraph/auth": "auth",
+  "langgraph/quickstart": "langgraph-python/quickstart",
   "(other)/telemetry": "telemetry",
 };
 
@@ -136,8 +152,15 @@ export function getFrontendCanonicalSlug(
   slugPath: string,
 ): string {
   if (id !== "angular") return slugPath;
-  if (slugPath === "docs-status") return "using-these-docs";
-  return ANGULAR_DOC_REDIRECTS[slugPath] ?? slugPath;
+  const publicSlugPath = slugPath.startsWith("(other)/")
+    ? slugPath.slice("(other)/".length)
+    : slugPath;
+  if (publicSlugPath === "docs-status") return "using-these-docs";
+  return (
+    ANGULAR_DOC_REDIRECTS[slugPath] ??
+    ANGULAR_DOC_REDIRECTS[publicSlugPath] ??
+    publicSlugPath
+  );
 }
 
 const FRONTEND_REFERENCE_SLUGS = {

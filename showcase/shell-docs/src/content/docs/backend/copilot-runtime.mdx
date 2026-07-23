@@ -142,7 +142,9 @@ To scope it to specific agents only, pass an `agents` list:
 a2ui: { agents: ["my-agent"] }
 ```
 
-On the frontend, the A2UI renderer activates automatically. No extra configuration is needed. To override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
+On the frontend, the A2UI renderer activates automatically. No extra
+configuration is needed. Configure `a2ui` only when you want to override the
+default theme:
 
 <FrontendOnly frontend="react">
 ```tsx
@@ -235,7 +237,10 @@ In allowlist mode the built-in denylist does **not** apply — only your `allow`
 
 ## Connecting to an AG-UI agent directly
 
-CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances straight to the `CopilotKit`:
+CopilotKit is built on the [AG-UI protocol](/backend/ag-ui), which is an open
+standard. If you want to connect your frontend directly to an AG-UI-compatible
+agent without the runtime, you can do so by registering agent instances with the
+frontend SDK:
 
 <FrontendOnly frontend="react">
 ```tsx
@@ -277,8 +282,9 @@ Direct agent connections are intended for development and prototyping. They are 
 </Callout>
 
 If you intend to manage the agent connection yourself in production and have
-secured it, use the supported [`selfManagedAgents`](/backend/self-managed-agents)
-prop instead of `agents__unsafe_dev_only`.
+secured it, use the supported
+[`selfManagedAgents`](/backend/self-managed-agents) configuration instead of
+the local-development agent option.
 
 Key trade-offs:
 

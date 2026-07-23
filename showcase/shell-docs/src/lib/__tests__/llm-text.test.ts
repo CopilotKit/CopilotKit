@@ -43,6 +43,52 @@ test("swaps only frontend-specific Runtime code in LLM output", () => {
   expect(angular).not.toContain("<FrontendOnly");
 });
 
+test("keeps Angular Markdown links inside the Angular surface", () => {
+  const overview = loadDoc("concepts/generative-ui-overview");
+  expect(overview).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "angular/concepts/generative-ui-overview",
+      title: overview!.fm.title,
+      description: overview!.fm.description,
+      filePath: overview!.filePath,
+      loadSlug: "concepts/generative-ui-overview",
+    },
+    { frontend: "angular" },
+  );
+
+  expect(output).toContain("](/angular/guides/frontend-tools-generative-ui)");
+  expect(output).toContain(
+    'href="/angular/guides/frontend-tools-generative-ui"',
+  );
+  expect(output).not.toContain("](/generative-ui/");
+  expect(output).not.toContain('href="/generative-ui/');
+});
+
+test("keeps cross-backend and root-only Markdown links resolvable", () => {
+  const quickstart = loadDoc("frontends/angular");
+  expect(quickstart).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "angular/langgraph-python/quickstart",
+      title: quickstart!.fm.title,
+      description: quickstart!.fm.description,
+      filePath: quickstart!.filePath,
+      loadSlug: "frontends/angular",
+      framework: "langgraph-python",
+    },
+    { frontend: "angular", framework: "langgraph-python" },
+  );
+
+  expect(output).toContain("](/angular/model-selection)");
+  expect(output).toContain(
+    "](/angular/langgraph-python/backend/copilot-runtime)",
+  );
+  expect(output).not.toContain("/angular/langgraph-python/angular/");
+});
+
 test("expands canonical Angular Showcase regions in LLM output", () => {
   const doc = loadDoc("frontends/angular/guides/frontend-tools-generative-ui");
   expect(doc).not.toBeNull();

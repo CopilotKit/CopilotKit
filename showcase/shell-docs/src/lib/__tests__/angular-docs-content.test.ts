@@ -80,7 +80,7 @@ function getCanonicalAngularSlug(
 }
 
 const REACT_ONLY_CONTENT =
-  /@copilotkit\/react|from ["']react["']|\bReact components?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError))[^>]*>|<FrontendOnly|<AngularSnippet/g;
+  /@copilotkit\/react|from ["']react["']|\bReact (?:components?|SDK|UI|frontend|app)\b|\b(?:frontend|headless) hooks?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError|a2ui|selfManagedAgents|agents__unsafe_dev_only|showDevConsole))[^>]*>|<FrontendOnly|<AngularSnippet/g;
 
 function findReactOnlyAngularContent(
   backendFramework: string | null,
@@ -126,9 +126,14 @@ test("maps every React navigation destination to a published Angular destination
   ];
 
   for (const backendFramework of backends) {
-    const angularSlugs = new Set(
-      pageSlugs(getAngularDocsNavTree(backendFramework)),
+    const publishedAngularSlugs = pageSlugs(
+      getAngularDocsNavTree(backendFramework),
     );
+    const angularSlugs = new Set(publishedAngularSlugs);
+    expect(
+      publishedAngularSlugs.filter((slug) => slug.startsWith("(other)/")),
+      backendFramework ?? "root",
+    ).toEqual([]);
 
     for (const reactSlug of pageSlugs(getReactNavTree(backendFramework))) {
       const angularSlug = getCanonicalAngularSlug(backendFramework, reactSlug);
@@ -138,6 +143,26 @@ test("maps every React navigation destination to a published Angular destination
       ).toBe(true);
     }
   }
+});
+
+test("resolves canonical contribution aliases through shared Angular content", () => {
+  expect(
+    resolveAngularDoc("claude-sdk-python", "contributing/code-contributions"),
+  ).toEqual(
+    expect.objectContaining({
+      contentSlugPath: "(other)/contributing/code-contributions",
+      source: "shared",
+    }),
+  );
+  expect(
+    resolveAngularDoc("ag2", "contributing/code-contributions/package-linking"),
+  ).toEqual(
+    expect.objectContaining({
+      contentSlugPath:
+        "(other)/contributing/code-contributions/package-linking",
+      source: "shared",
+    }),
+  );
 });
 
 test("keeps the complete Angular surface free of another frontend's code", () => {
