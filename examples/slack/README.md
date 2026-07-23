@@ -157,6 +157,49 @@ you just created with `justCreated: true`), **`issue_list`** (several Linear
 issues), and **`page_list`** (Notion pages). The system prompt steers the
 agent to present results with these instead of prose.
 
+### Images from JSX — `render_mrr`
+
+Not every visualization fits the channel-UI vocabulary. **`render_mrr`**
+demonstrates posting **arbitrary app JSX as an image**: `<MrrCard/>` (a plain
+`react` component, not a `@copilotkit/channels` component) and an optional
+signups `<BarChart>` from `@copilotkit/channels/charts` are posted straight
+to `thread.post` — no wrapper, no explicit "render to image" call.
+
+```tsx
+export const renderMrrTool: ChannelTool<typeof schema> = {
+  name: "render_mrr",
+  description:
+    "Render an MRR summary card (and optional signups bar chart) as images and post them to the thread.",
+  parameters: schema,
+  async handler({ value, delta, series }, { thread }) {
+    await thread.post(<MrrCard value={value} delta={delta} />, {
+      filename: "mrr.png",
+      title: "MRR",
+    });
+    if (series?.length) {
+      await thread.post(<BarChart title="Signups / day" data={series} />, {
+        filename: "signups.png",
+      });
+    }
+    return (
+      "Posted the MRR card" + (series?.length ? " and signups chart." : ".")
+    );
+  },
+};
+```
+
+`thread.post` detects that `<MrrCard/>` and `<BarChart/>` return plain React
+elements (not the channels-ui vocabulary) and routes them through
+[Takumi](https://github.com/takumi-rs/takumi) — a static, in-process
+rasterizer — to a PNG, then uploads it through the same `postFile` path used
+everywhere else in this bot.
+
+**Source:** `app/tools/render-mrr.tsx`, `app/components/mrr-card.ts`.
+
+> `react` and `takumi-js` are dependencies of this example for that reason —
+> there is no headless browser (the old Playwright-based `render_chart` /
+> `render_diagram` tools are gone) at runtime; rendering happens in-process.
+
 ### Human-in-the-loop: `confirm_write`
 
 HITL is a **blocking frontend tool**. Before any Linear/Notion write the
