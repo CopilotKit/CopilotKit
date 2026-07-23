@@ -41,6 +41,34 @@ const tamperAssertionsSchema = {
   ],
 } as const;
 
+function deeplyNestedArray(depth: number): unknown {
+  let value: unknown = null;
+  for (let index = 0; index < depth; index += 1) value = [value];
+  return value;
+}
+
+function compileBoundedJsonValidator() {
+  const ajv = new Ajv2020({ strict: false, validateFormats: false });
+  registerLearningContractJsonSchemaValidator(ajv);
+  return compileLearningContractJsonSchema(ajv, {
+    $schema: COPILOTKIT_LEARNING_CONTRACT_META_SCHEMA_URI,
+    type: "object",
+    [COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD]: [
+      {
+        operation: "bounded-json",
+        values: "/value",
+        serializedMaximum: 16_384,
+        maximumDepth: 6,
+        maximumNodes: 128,
+        maximumObjectProperties: 32,
+        maximumArrayItems: 32,
+        maximumStringUtf8Bytes: 2_048,
+        maximumKeyUtf8Bytes: 128,
+      },
+    ],
+  });
+}
+
 function expectAccessorTamperingToFailClosed(
   target: object,
   property: string,
@@ -1101,6 +1129,26 @@ describe(`${COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD} bounded assertions`, () =
     expect(validate({ attachments: [{ metadata: "not-an-object" }] })).toBe(
       false,
     );
+  });
+
+  test.each([
+    ["deeply nested input", { nested: deeplyNestedArray(20_000) }],
+    [
+      "cyclic input",
+      (() => {
+        const value: { self?: unknown } = {};
+        value.self = value;
+        return value;
+      })(),
+    ],
+    ["BigInt input", { value: 1n }],
+    ["own __proto__ key", JSON.parse('{"__proto__":{"polluted":true}}')],
+  ])("bounded-json fails closed without throwing for %s", (_name, value) => {
+    const validate = compileBoundedJsonValidator();
+    const input = { value };
+
+    expect(() => validate(input)).not.toThrow();
+    expect(validate(input)).toBe(false);
   });
 
   test.each([

@@ -93,6 +93,25 @@ export const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 
 const jsonObjectSchema = z.record(z.string(), jsonValueSchema);
 
+const boundedJsonObjectSchema = (
+  validate: (value: unknown) => readonly {
+    readonly path: readonly (string | number)[];
+    readonly message: string;
+  }[],
+) =>
+  z
+    .unknown()
+    .superRefine((value, context) => {
+      for (const issue of validate(value)) {
+        context.addIssue({
+          code: "custom",
+          path: [...issue.path],
+          message: issue.message,
+        });
+      }
+    })
+    .pipe(jsonObjectSchema);
+
 const boundedSnapshotEvidenceStringSchema = (
   field: string,
   maxUtf8Bytes: number,
@@ -110,16 +129,8 @@ const boundedSnapshotEvidenceStringSchema = (
       }
     });
 
-const attachmentMetadataV1Schema = jsonObjectSchema.superRefine(
-  (metadata, context) => {
-    for (const issue of validateAttachmentMetadataV1(metadata)) {
-      context.addIssue({
-        code: "custom",
-        path: [...issue.path],
-        message: issue.message,
-      });
-    }
-  },
+const attachmentMetadataV1Schema = boundedJsonObjectSchema(
+  validateAttachmentMetadataV1,
 );
 
 const attachmentObjectLocatorV1Schema = z.strictObject({
@@ -174,16 +185,8 @@ const attachmentReferencesV1Schema = z
   .array(attachmentReferenceV1Schema)
   .max(RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1.maxEntries);
 
-const terminalErrorDetailsV1Schema = jsonObjectSchema.superRefine(
-  (details, context) => {
-    for (const issue of validateTerminalErrorDetailsV1(details)) {
-      context.addIssue({
-        code: "custom",
-        path: [...issue.path],
-        message: issue.message,
-      });
-    }
-  },
+const terminalErrorDetailsV1Schema = boundedJsonObjectSchema(
+  validateTerminalErrorDetailsV1,
 );
 
 /** Bounded, sanitized failed-run evidence exposed to Learning workflows. */

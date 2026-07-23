@@ -10,6 +10,7 @@ export interface JsonTreeBoundsV1 {
 
 export interface JsonTreeBoundsIssueV1 {
   readonly code:
+    | "invalid_json"
     | "serialized_bytes"
     | "depth"
     | "nodes"
@@ -79,10 +80,28 @@ export const RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1 = {
   detailsMaxKeyUtf8Bytes: TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxKeyBytes,
 } as const;
 
-const encoder = new TextEncoder();
-
 export function utf8ByteLength(value: string): number {
-  return encoder.encode(value).byteLength;
+  let bytes = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit < 0x80) {
+      bytes += 1;
+    } else if (codeUnit < 0x800) {
+      bytes += 2;
+    } else if (
+      codeUnit >= 0xd800 &&
+      codeUnit <= 0xdbff &&
+      index + 1 < value.length &&
+      value.charCodeAt(index + 1) >= 0xdc00 &&
+      value.charCodeAt(index + 1) <= 0xdfff
+    ) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
 }
 
 export function isInlineAttachmentPayloadKey(key: string): boolean {
@@ -101,98 +120,314 @@ export function validateJsonTreeBoundsV1(
   value: unknown,
   bounds: JsonTreeBoundsV1,
 ): readonly JsonTreeBoundsIssueV1[] {
-  const issues: JsonTreeBoundsIssueV1[] = [];
-  const serialized = JSON.stringify(value);
-  if (serialized !== undefined) {
-    const serializedBytes = utf8ByteLength(serialized);
-    if (serializedBytes > bounds.maxSerializedBytes) {
-      issues.push(
-        createIssue(
-          "serialized_bytes",
-          [],
-          serializedBytes,
-          bounds.maxSerializedBytes,
-        ),
-      );
-    }
+  try {
+    return validateJsonTreeBoundsUnchecked(value, bounds);
+  } catch {
+    return [createInvalidJsonIssue([])];
   }
+}
 
+interface JsonPathNode {
+  readonly parent: JsonPathNode | undefined;
+  readonly segment: string | number;
+}
+
+interface JsonValueFrame {
+  readonly kind: "value";
+  readonly value: unknown;
+  readonly path: JsonPathNode | undefined;
+  readonly depth: number;
+}
+
+interface JsonExitFrame {
+  readonly kind: "exit";
+  readonly value: object;
+}
+
+type JsonTraversalFrame = JsonValueFrame | JsonExitFrame;
+
+function validateJsonTreeBoundsUnchecked(
+  value: unknown,
+  bounds: JsonTreeBoundsV1,
+): readonly JsonTreeBoundsIssueV1[] {
+  const issues: JsonTreeBoundsIssueV1[] = [];
   let nodeCount = 0;
   let nodeLimitReported = false;
+  let depthLimitReported = false;
+  let serializedBytes = 0;
+  const ancestors = new WeakSet<object>();
+  const stack: JsonTraversalFrame[] = [
+    { kind: "value", value, path: undefined, depth: 1 },
+  ];
 
-  function visit(
-    current: unknown,
-    path: readonly (string | number)[],
-    depth: number,
-  ) {
+  function addSerializedBytes(bytes: number): void {
+    serializedBytes += bytes;
+  }
+
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+    if (frame.kind === "exit") {
+      ancestors.delete(frame.value);
+      continue;
+    }
+
+    const { value: current, path, depth } = frame;
     nodeCount += 1;
     if (nodeCount > bounds.maxNodes && !nodeLimitReported) {
       nodeLimitReported = true;
-      issues.push(createIssue("nodes", path, nodeCount, bounds.maxNodes));
+      issues.push(
+        createIssue("nodes", materializePath(path), nodeCount, bounds.maxNodes),
+      );
     }
 
-    if (depth > bounds.maxDepth) {
-      issues.push(createIssue("depth", path, depth, bounds.maxDepth));
+    if (depth > bounds.maxDepth && !depthLimitReported) {
+      depthLimitReported = true;
+      issues.push(
+        createIssue("depth", materializePath(path), depth, bounds.maxDepth),
+      );
     }
 
     if (typeof current === "string") {
       const stringBytes = utf8ByteLength(current);
+      addSerializedBytes(jsonStringByteLength(current));
       if (stringBytes > bounds.maxStringBytes) {
         issues.push(
-          createIssue("string_bytes", path, stringBytes, bounds.maxStringBytes),
+          createIssue(
+            "string_bytes",
+            materializePath(path),
+            stringBytes,
+            bounds.maxStringBytes,
+          ),
         );
       }
-      return;
+      continue;
     }
+
+    if (current === null) {
+      addSerializedBytes(4);
+      continue;
+    }
+    if (typeof current === "boolean") {
+      addSerializedBytes(current ? 4 : 5);
+      continue;
+    }
+    if (typeof current === "number") {
+      if (!Number.isFinite(current)) {
+        issues.push(createInvalidJsonIssue(materializePath(path)));
+      } else {
+        addSerializedBytes(String(Object.is(current, -0) ? 0 : current).length);
+      }
+      continue;
+    }
+    if (typeof current !== "object") {
+      issues.push(createInvalidJsonIssue(materializePath(path)));
+      continue;
+    }
+    if (ancestors.has(current)) {
+      issues.push(createInvalidJsonIssue(materializePath(path)));
+      continue;
+    }
+
+    const mayDescendIntoContainers =
+      depth <= bounds.maxDepth && nodeCount <= bounds.maxNodes;
 
     if (Array.isArray(current)) {
       if (current.length > bounds.maxArrayItems) {
         issues.push(
           createIssue(
             "array_items",
-            path,
+            materializePath(path),
             current.length,
             bounds.maxArrayItems,
           ),
         );
       }
-      for (const [index, item] of current.entries()) {
-        visit(item, [...path, index], depth + 1);
+      const ownKeys = Reflect.ownKeys(current);
+      if (
+        ownKeys.some((key) => typeof key !== "string") ||
+        ownKeys.length !== current.length + 1 ||
+        !Object.hasOwn(current, "length")
+      ) {
+        issues.push(createInvalidJsonIssue(materializePath(path)));
+        continue;
       }
-      return;
+      let arrayIsJson = true;
+      for (let index = 0; index < current.length; index += 1) {
+        const key = String(index);
+        const descriptor = Object.getOwnPropertyDescriptor(current, key);
+        if (descriptor === undefined || !("value" in descriptor)) {
+          arrayIsJson = false;
+          break;
+        }
+      }
+      if (!arrayIsJson) {
+        issues.push(createInvalidJsonIssue(materializePath(path)));
+        continue;
+      }
+
+      addSerializedBytes(2 + Math.max(0, current.length - 1));
+      ancestors.add(current);
+      stack.push({ kind: "exit", value: current });
+      const visitedItems = Math.min(current.length, bounds.maxArrayItems + 1);
+      for (let index = visitedItems - 1; index >= 0; index -= 1) {
+        const item = current[index];
+        if (
+          !mayDescendIntoContainers &&
+          item !== null &&
+          typeof item === "object"
+        ) {
+          continue;
+        }
+        stack.push({
+          kind: "value",
+          value: item,
+          path: { parent: path, segment: index },
+          depth: depth + 1,
+        });
+      }
+      continue;
     }
 
-    if (current === null || typeof current !== "object") return;
+    const prototype = Object.getPrototypeOf(current);
+    if (prototype !== Object.prototype && prototype !== null) {
+      issues.push(createInvalidJsonIssue(materializePath(path)));
+      continue;
+    }
 
-    const entries = Object.entries(current);
-    if (entries.length > bounds.maxObjectProperties) {
+    const ownKeys = Reflect.ownKeys(current);
+    const keys = Object.keys(current);
+    if (
+      ownKeys.some((key) => typeof key !== "string") ||
+      ownKeys.length !== keys.length
+    ) {
+      issues.push(createInvalidJsonIssue(materializePath(path)));
+      continue;
+    }
+    if (keys.length > bounds.maxObjectProperties) {
       issues.push(
         createIssue(
           "object_properties",
-          path,
-          entries.length,
+          materializePath(path),
+          keys.length,
           bounds.maxObjectProperties,
         ),
       );
     }
-    for (const [key, item] of entries) {
+
+    addSerializedBytes(2 + Math.max(0, keys.length - 1) + keys.length);
+    ancestors.add(current);
+    stack.push({ kind: "exit", value: current });
+    const visitedKeys = keys.slice(0, bounds.maxObjectProperties + 1);
+    for (let index = visitedKeys.length - 1; index >= 0; index -= 1) {
+      const key = visitedKeys[index];
+      if (key === undefined) continue;
+      const childPath: JsonPathNode = { parent: path, segment: key };
+      if (key === "__proto__") {
+        issues.push(createInvalidJsonIssue(materializePath(childPath)));
+        continue;
+      }
+      const descriptor = Object.getOwnPropertyDescriptor(current, key);
+      if (descriptor === undefined || !("value" in descriptor)) {
+        issues.push(createInvalidJsonIssue(materializePath(childPath)));
+        continue;
+      }
       const keyBytes = utf8ByteLength(key);
+      addSerializedBytes(jsonStringByteLength(key));
       if (keyBytes > bounds.maxKeyBytes) {
         issues.push(
           createIssue(
             "key_bytes",
-            [...path, key],
+            materializePath(childPath),
             keyBytes,
             bounds.maxKeyBytes,
           ),
         );
       }
-      visit(item, [...path, key], depth + 1);
+      if (
+        !mayDescendIntoContainers &&
+        descriptor.value !== null &&
+        typeof descriptor.value === "object"
+      ) {
+        continue;
+      }
+      stack.push({
+        kind: "value",
+        value: descriptor.value,
+        path: childPath,
+        depth: depth + 1,
+      });
     }
   }
 
-  visit(value, [], 1);
+  if (serializedBytes > bounds.maxSerializedBytes) {
+    issues.unshift(
+      createIssue(
+        "serialized_bytes",
+        [],
+        serializedBytes,
+        bounds.maxSerializedBytes,
+      ),
+    );
+  }
   return issues;
+}
+
+function materializePath(path: JsonPathNode | undefined): (string | number)[] {
+  const result: (string | number)[] = [];
+  for (let current = path; current !== undefined; current = current.parent) {
+    result.push(current.segment);
+  }
+  result.reverse();
+  return result;
+}
+
+function jsonStringByteLength(value: string): number {
+  let bytes = 2;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit === 0x22 || codeUnit === 0x5c) {
+      bytes += 2;
+    } else if (
+      codeUnit === 0x08 ||
+      codeUnit === 0x09 ||
+      codeUnit === 0x0a ||
+      codeUnit === 0x0c ||
+      codeUnit === 0x0d
+    ) {
+      bytes += 2;
+    } else if (codeUnit < 0x20) {
+      bytes += 6;
+    } else if (codeUnit < 0x80) {
+      bytes += 1;
+    } else if (codeUnit < 0x800) {
+      bytes += 2;
+    } else if (
+      codeUnit >= 0xd800 &&
+      codeUnit <= 0xdbff &&
+      index + 1 < value.length &&
+      value.charCodeAt(index + 1) >= 0xdc00 &&
+      value.charCodeAt(index + 1) <= 0xdfff
+    ) {
+      bytes += 4;
+      index += 1;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
+function createInvalidJsonIssue(
+  path: readonly (string | number)[],
+): JsonTreeBoundsIssueV1 {
+  return {
+    code: "invalid_json",
+    path,
+    actual: 1,
+    limit: 0,
+    message: "Expected an acyclic JSON value with data-only properties.",
+  };
 }
 
 export function validateAttachmentMetadataV1(
@@ -203,14 +438,22 @@ export function validateAttachmentMetadataV1(
     ATTACHMENT_METADATA_BOUNDS_V1,
   ).map((issue) => contextualizeTreeIssue(issue, "attachment_metadata"));
 
-  function visit(current: unknown, path: readonly (string | number)[]) {
+  if (issues.length > 0) return issues;
+
+  const stack: { value: unknown; path: readonly (string | number)[] }[] = [
+    { value, path: [] },
+  ];
+  while (stack.length > 0) {
+    const frame = stack.pop();
+    if (frame === undefined) break;
+    const { value: current, path } = frame;
     if (Array.isArray(current)) {
-      for (const [index, item] of current.entries()) {
-        visit(item, [...path, index]);
+      for (let index = current.length - 1; index >= 0; index -= 1) {
+        stack.push({ value: current[index], path: [...path, index] });
       }
-      return;
+      continue;
     }
-    if (current === null || typeof current !== "object") return;
+    if (current === null || typeof current !== "object") continue;
 
     for (const [key, item] of Object.entries(current)) {
       if (isInlineAttachmentPayloadKey(key)) {
@@ -225,11 +468,10 @@ export function validateAttachmentMetadataV1(
           message: `Attachment metadata field ${key} may contain inline payload data.`,
         });
       }
-      visit(item, [...path, key]);
+      stack.push({ value: item, path: [...path, key] });
     }
   }
 
-  visit(value, []);
   return issues;
 }
 
@@ -264,6 +506,9 @@ function contextualizeTreeIssue(
   const attachment = context === "attachment_metadata";
   let message: string;
   switch (issue.code) {
+    case "invalid_json":
+      message = issue.message;
+      break;
     case "serialized_bytes":
       message = attachment
         ? `Attachment metadata exceed ${issue.limit} UTF-8 bytes.`

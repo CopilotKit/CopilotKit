@@ -19,6 +19,12 @@ const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
 const NOW = "2026-07-20T12:35:00.000Z";
 
+function deeplyNestedArray(depth: number): unknown {
+  let value: unknown = null;
+  for (let index = 0; index < depth; index += 1) value = [value];
+  return value;
+}
+
 const attachment = {
   schemaVersion: 1,
   provider: "s3",
@@ -238,6 +244,30 @@ describe("canonical snapshot evidence contracts", () => {
         details: { values: Array.from({ length: 65 }, (_, index) => index) },
       }).success,
     ).toBe(false);
+  });
+
+  test.each([
+    ["deeply nested input", { nested: deeplyNestedArray(20_000) }],
+    [
+      "cyclic input",
+      (() => {
+        const value: { self?: unknown } = {};
+        value.self = value;
+        return value;
+      })(),
+    ],
+    ["BigInt input", { value: 1n }],
+    ["own __proto__ key", JSON.parse('{"__proto__":{"polluted":true}}')],
+  ])("native evidence schemas fail closed for %s", (_name, value) => {
+    const parseAttachment = () =>
+      attachmentReferenceV1Schema.safeParse({ ...attachment, metadata: value });
+    const parseTerminalError = () =>
+      terminalErrorV1Schema.safeParse({ ...terminalError, details: value });
+
+    expect(parseAttachment).not.toThrow();
+    expect(parseAttachment().success).toBe(false);
+    expect(parseTerminalError).not.toThrow();
+    expect(parseTerminalError().success).toBe(false);
   });
 
   test("requires terminal errors exactly for RUN_ERROR snapshots", () => {

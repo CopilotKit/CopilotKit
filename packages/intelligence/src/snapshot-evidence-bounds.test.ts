@@ -42,6 +42,12 @@ function codes(
   return issues.map((issue) => issue.code);
 }
 
+function deeplyNestedArray(depth: number): unknown {
+  let value: unknown = null;
+  for (let index = 0; index < depth; index += 1) value = [value];
+  return value;
+}
+
 describe("snapshot evidence limits", () => {
   test("publishes the exact attachment limits", () => {
     expect(RUN_SNAPSHOT_ATTACHMENT_LIMITS_V1).toEqual({
@@ -205,6 +211,28 @@ describe("validateJsonTreeBoundsV1", () => {
     );
     expect(codes(issues).filter((code) => code === "nodes")).toHaveLength(1);
     expect(issues.every((issue) => issue.message.length > 0)).toBe(true);
+  });
+
+  test.each([
+    ["deeply nested input", deeplyNestedArray(20_000)],
+    [
+      "cyclic input",
+      (() => {
+        const value: unknown[] = [];
+        value.push(value);
+        return value;
+      })(),
+    ],
+    ["BigInt input", 1n],
+  ])("fails closed without throwing for %s", (_name, value) => {
+    expect(() => issuesFor(value, { maxDepth: 6 })).not.toThrow();
+    expect(issuesFor(value, { maxDepth: 6 })).not.toEqual([]);
+  });
+
+  test("rejects an own __proto__ key from parsed JSON", () => {
+    const value: unknown = JSON.parse('{"__proto__":{"polluted":true}}');
+
+    expect(issuesFor(value, {})).not.toEqual([]);
   });
 });
 
