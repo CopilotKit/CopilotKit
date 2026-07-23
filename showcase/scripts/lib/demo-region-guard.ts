@@ -30,6 +30,7 @@ export const ALLOWED_MULTI_FILE_REGION_KEYS = new Set([
   "llamaindex::open-gen-ui-advanced::sandbox-function-registration",
   "mastra::headless-complete::custom-bubbles",
   "mastra::open-gen-ui-advanced::sandbox-function-registration",
+  "ms-agent-dotnet::headless-complete::custom-bubbles",
   "ms-agent-dotnet::open-gen-ui-advanced::sandbox-function-registration",
   "ms-agent-harness-dotnet::open-gen-ui-advanced::sandbox-function-registration",
   "ms-agent-python::open-gen-ui-advanced::sandbox-function-registration",
