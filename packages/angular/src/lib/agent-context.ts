@@ -16,13 +16,7 @@ export function connectAgentContext(
   context: Context | (() => Context),
   config?: ConnectAgentContextConfig,
 ): void {
-  const injector = inject(Injector, { optional: true }) ?? config?.injector;
-
-  if (!injector) {
-    throw new Error(
-      "Injector not found. You must call connectAgentContext in an injector context or pass an injector in the config",
-    );
-  }
+  const injector = config?.injector ?? inject(Injector);
 
   runInInjectionContext(injector, () => {
     const copilotkit = inject(CopilotKit);

@@ -3,7 +3,6 @@ import {
   input,
   output,
   ChangeDetectionStrategy,
-  signal,
   computed,
   ViewEncapsulation,
 } from "@angular/core";
@@ -96,7 +95,7 @@ export class CopilotChatSendButton {
   buttonClass = cn(buttonBase, chatInputToolbarPrimary);
 
   onClick(): void {
-    if (!this.disabled) {
+    if (!this.disabled()) {
       this.clicked.emit();
     }
   }
@@ -273,6 +272,7 @@ export class CopilotChatAddFileButton {
       type="button"
       [disabled]="disabled()"
       [class]="computedClass()"
+      [attr.aria-label]="title() || null"
       [copilotTooltip]="title()"
       tooltipPosition="below"
       (click)="onClick()"
@@ -283,10 +283,10 @@ export class CopilotChatAddFileButton {
   styles: [``],
 })
 export class CopilotChatToolbarButton {
-  disabled = signal(false);
-  variant = signal<"primary" | "secondary">("secondary");
-  customClass = signal("");
-  title = signal("");
+  disabled = input(false);
+  variant = input<"primary" | "secondary">("secondary");
+  customClass = input("");
+  title = input("");
 
   clicked = output<void>();
 

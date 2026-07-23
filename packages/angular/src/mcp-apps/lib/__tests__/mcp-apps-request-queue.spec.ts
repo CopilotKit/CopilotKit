@@ -63,6 +63,35 @@ it("runs requests for one thread in FIFO order", async () => {
   expect(calls).toEqual(["first:start", "first:end", "second"]);
 });
 
+it("runs different agents with the same thread id independently", async () => {
+  const queue = new MCPAppsRequestQueue({ idleTimeoutMs: 100 });
+  const blocker = deferred<string>();
+  const calls: string[] = [];
+
+  const firstResult = queue.enqueue({
+    agent: idleAgent("shared-thread"),
+    ownerId: "renderer-1",
+    execute: async () => {
+      calls.push("first");
+      return blocker.promise;
+    },
+  });
+  const secondResult = queue.enqueue({
+    agent: idleAgent("shared-thread"),
+    ownerId: "renderer-2",
+    execute: async () => {
+      calls.push("second");
+      return "second";
+    },
+  });
+
+  await expect(secondResult).resolves.toBe("second");
+  expect(calls).toEqual(["first", "second"]);
+
+  blocker.resolve("first");
+  await expect(firstResult).resolves.toBe("first");
+});
+
 it("times out while an agent remains busy and unsubscribes", async () => {
   vi.useFakeTimers();
   const unsubscribe = vi.fn();

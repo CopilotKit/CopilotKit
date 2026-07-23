@@ -353,7 +353,8 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
         if (
           !this.containerRef() ||
           this.previewSandbox ||
-          this.renderState().fullHtml
+          this.renderState().fullHtml ||
+          !this.renderState().hasPreview
         ) {
           return;
         }

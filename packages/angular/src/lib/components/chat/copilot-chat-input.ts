@@ -410,13 +410,14 @@ export class CopilotChatInput implements OnDestroy {
   CopilotChatStartTranscribeButton = CopilotChatStartTranscribeButton;
 
   // Computed values
-  computedMode = computed(() => this.modeSignal());
+  computedMode = computed(() => this.mode() ?? this.modeSignal());
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
   computedValue = computed(() => {
-    const customValue = this.value() ?? "";
-    const configValue = this.chatState.inputValue();
-    return customValue || configValue || "";
+    const customValue = this.value();
+    return customValue !== undefined
+      ? customValue
+      : (this.chatState.inputValue() ?? "");
   });
   addFileButtonDisabled = computed(
     () =>

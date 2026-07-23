@@ -21,6 +21,7 @@ import { cn } from "../../utils";
   template: `
     <button
       type="button"
+      aria-label="Scroll to bottom"
       [class]="computedClass"
       [disabled]="disabled()"
       (click)="handleClick()"

@@ -78,7 +78,8 @@ export type CopilotSidebarPosition = "left" | "right";
         role="complementary"
         [attr.id]="sidebarId"
         [attr.data-position]="position()"
-        [attr.aria-labelledby]="titleId"
+        [attr.aria-labelledby]="headerComponent() ? null : titleId"
+        [attr.aria-label]="headerComponent() ? title() : null"
         [style.--copilot-sidebar-width]="resolvedWidth()"
       >
         <ng-container [ngTemplateOutlet]="sidebarContents" />

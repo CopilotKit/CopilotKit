@@ -193,6 +193,31 @@ describe("InterruptController", () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it("does not let an old resume rejection clear a newer interrupt", async () => {
+    const agentA = new FakeAgent();
+    const agentB = new FakeAgent();
+    let rejectResume: ((error: unknown) => void) | undefined;
+    const run = vi.fn(
+      () =>
+        new Promise<RunAgentResult>((_resolve, reject) => {
+          rejectResume = reject;
+        }),
+    );
+    const controller = new InterruptController(run);
+    controller.connect(agentA as unknown as AbstractAgent);
+    finalizeStandard(agentA, [makeInterrupt("old")]);
+    const resume = controller.resolve("yes");
+
+    controller.connect(agentB as unknown as AbstractAgent);
+    finalizeStandard(agentB, [makeInterrupt("new")]);
+    const failure = new Error("old resume failed");
+    rejectResume?.(failure);
+
+    await expect(resume).rejects.toBe(failure);
+    expect(controller.interrupt()?.id).toBe("new");
+    expect(controller.error()).toBeNull();
+  });
+
   it("guards predicate and async preprocessing failures", async () => {
     const predicateError = new Error("predicate failed");
     const predicate = setup({
@@ -228,6 +253,19 @@ describe("InterruptController", () => {
     expect(handler.controller.hasInterrupt()).toBe(true);
     expect(handler.controller.result()).toBeNull();
     expect(handler.controller.error()).toBe(handlerError);
+  });
+
+  it("leaves rejected interrupts for another controller", async () => {
+    const { agent, controller, run } = setup({
+      enabled: () => false,
+    });
+    finalizeStandard(agent, [makeInterrupt("other-controller")]);
+
+    await controller.resolve("yes");
+    await controller.cancel();
+
+    expect(run).not.toHaveBeenCalled();
+    expect(controller.hasInterrupt()).toBe(false);
   });
 
   it("clears pending state on thread changes and failed runs", () => {

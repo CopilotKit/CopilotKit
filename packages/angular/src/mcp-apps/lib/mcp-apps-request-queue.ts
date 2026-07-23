@@ -67,8 +67,11 @@ export class MCPAppsQueueThreadChangedError extends Error {
  * thread-identity check immediately before execution.
  */
 export class MCPAppsRequestQueue {
-  private readonly queues = new Map<string, QueueItem[]>();
-  private readonly processing = new Set<string>();
+  private readonly queues = new Map<
+    MCPAppsQueueAgent,
+    Map<string, QueueItem[]>
+  >();
+  private readonly processing = new Map<MCPAppsQueueAgent, Set<string>>();
   private readonly idleTimeoutMs: number;
   private readonly idlePollIntervalMs: number;
 
@@ -90,7 +93,9 @@ export class MCPAppsRequestQueue {
     const capturedThreadId = request.agent.threadId || "default";
 
     return new Promise<T>((resolve, reject) => {
-      const queue = this.queues.get(capturedThreadId) ?? [];
+      const agentQueues =
+        this.queues.get(request.agent) ?? new Map<string, QueueItem[]>();
+      const queue = agentQueues.get(capturedThreadId) ?? [];
       const item: QueueItem = {
         agent: request.agent,
         capturedThreadId,
@@ -103,29 +108,37 @@ export class MCPAppsRequestQueue {
       };
 
       queue.push(item);
-      this.queues.set(capturedThreadId, queue);
-      void this.processQueue(capturedThreadId);
+      agentQueues.set(capturedThreadId, queue);
+      this.queues.set(request.agent, agentQueues);
+      void this.processQueue(request.agent, capturedThreadId);
     });
   }
 
   /** Cancels only requests associated with the supplied renderer owner. */
   cancelOwner(ownerId: string): void {
-    for (const queue of this.queues.values()) {
-      for (const item of queue) {
-        if (item.ownerId === ownerId && !item.controller.signal.aborted) {
-          item.controller.abort();
-          item.reject(new MCPAppsQueueCancelledError());
+    for (const agentQueues of this.queues.values()) {
+      for (const queue of agentQueues.values()) {
+        for (const item of queue) {
+          if (item.ownerId === ownerId && !item.controller.signal.aborted) {
+            item.controller.abort();
+            item.reject(new MCPAppsQueueCancelledError());
+          }
         }
       }
     }
   }
 
-  private async processQueue(threadId: string): Promise<void> {
-    if (this.processing.has(threadId)) return;
-    this.processing.add(threadId);
+  private async processQueue(
+    agent: MCPAppsQueueAgent,
+    threadId: string,
+  ): Promise<void> {
+    const processingThreads = this.processing.get(agent) ?? new Set<string>();
+    if (processingThreads.has(threadId)) return;
+    processingThreads.add(threadId);
+    this.processing.set(agent, processingThreads);
 
     try {
-      const queue = this.queues.get(threadId);
+      const queue = this.queues.get(agent)?.get(threadId);
       if (!queue) return;
 
       while (queue.length > 0) {
@@ -159,8 +172,12 @@ export class MCPAppsRequestQueue {
         }
       }
     } finally {
-      this.queues.delete(threadId);
-      this.processing.delete(threadId);
+      const agentQueues = this.queues.get(agent);
+      agentQueues?.delete(threadId);
+      if (agentQueues?.size === 0) this.queues.delete(agent);
+
+      processingThreads.delete(threadId);
+      if (processingThreads.size === 0) this.processing.delete(agent);
     }
   }
 

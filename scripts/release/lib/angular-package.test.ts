@@ -204,6 +204,10 @@ test("creates a zoneless SSR and hydration browser smoke fixture", () => {
     "provideZonelessChangeDetection",
   );
   expect(sources.get("src/app.config.ts")).toContain(
+    'from "@copilotkit/angular/mcp-apps"',
+  );
+  expect(sources.get("src/app.config.ts")).toContain("provideMCPApps()");
+  expect(sources.get("src/app.config.ts")).toContain(
     "provideClientHydration(withEventReplay())",
   );
   expect(sources.get("src/app.config.server.ts")).toContain(

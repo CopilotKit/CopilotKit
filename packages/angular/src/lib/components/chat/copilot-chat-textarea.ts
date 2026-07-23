@@ -9,8 +9,10 @@ import {
   inject,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  PLATFORM_ID,
   afterNextRender,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
@@ -37,6 +39,7 @@ import { injectChatState } from "../../chat-state";
 })
 export class CopilotChatTextarea implements AfterViewInit {
   private elementRef = inject(ElementRef<HTMLTextAreaElement>);
+  private platformId = inject(PLATFORM_ID);
   get textareaRef() {
     return this.elementRef;
   }
@@ -91,6 +94,8 @@ export class CopilotChatTextarea implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     this.calculateMaxHeight();
     this.adjustHeight();
   }

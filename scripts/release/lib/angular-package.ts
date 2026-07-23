@@ -393,6 +393,7 @@ import { provideClientHydration, withEventReplay } from "@angular/platform-brows
 import { provideRouter } from "@angular/router";
 import { AbstractAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
 import { provideCopilotKit } from "@copilotkit/angular";
+import { provideMCPApps } from "@copilotkit/angular/mcp-apps";
 import { EMPTY, type Observable } from "rxjs";
 import { z } from "zod";
 import { SmokeToolRenderer } from "./app";
@@ -413,6 +414,7 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideClientHydration(withEventReplay()),
     provideRouter([]),
+    provideMCPApps(),
     provideCopilotKit({
       licenseKey: "ck_pub_00000000000000000000000000000000",
       agents: { default: new SmokeAgent() },

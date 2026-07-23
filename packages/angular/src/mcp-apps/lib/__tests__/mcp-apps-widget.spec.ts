@@ -234,6 +234,36 @@ it("loads the resource through the selected agent and boots the sandbox", async 
   expect(fixture.nativeElement.querySelector("[role='status']")).toBeNull();
 });
 
+it("decodes UTF-8 resource blobs without corrupting text", async () => {
+  configureTestingModule();
+  const agent = createAgent();
+  const html = "<h1>Héllo 👋</h1>";
+  const bytes = new TextEncoder().encode(html);
+  const blob = btoa(String.fromCharCode(...bytes));
+  agent.runAgent.mockResolvedValueOnce({
+    result: {
+      contents: [
+        {
+          uri: snapshot.resourceUri,
+          mimeType: "text/html",
+          blob,
+        },
+      ],
+    },
+    newMessages: [],
+  });
+
+  const { postMessage } = await bootWidget(agent);
+
+  expect(postMessage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      method: "ui/notifications/sandbox-resource-ready",
+      params: expect.objectContaining({ html }),
+    }),
+    "*",
+  );
+});
+
 it("loads a dedicated sandbox proxy without granting it same-origin access", async () => {
   configureTestingModule(undefined, 30_000, 30_000, "/mcp-sandbox.html");
   const agent = createAgent();

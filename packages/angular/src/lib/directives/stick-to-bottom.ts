@@ -3,11 +3,13 @@ import {
   ElementRef,
   OnDestroy,
   AfterViewInit,
+  PLATFORM_ID,
   afterNextRender,
   inject,
   input,
   output,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { ScrollPosition } from "../scroll-position";
 import { ResizeObserverService } from "../resize-observer";
 import { Subject } from "rxjs";
@@ -54,6 +56,7 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
   private elementRef = inject(ElementRef);
   private scrollService = inject(ScrollPosition);
   private resizeService = inject(ResizeObserverService);
+  private platformId = inject(PLATFORM_ID);
 
   private destroy$ = new Subject<void>();
   private contentElement?: HTMLElement;
@@ -73,6 +76,8 @@ export class StickToBottom implements AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     const element = this.elementRef.nativeElement as HTMLElement;
 
     // Find or create content wrapper

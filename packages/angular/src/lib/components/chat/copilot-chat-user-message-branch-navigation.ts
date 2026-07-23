@@ -22,6 +22,7 @@ import { UserMessage } from "@ag-ui/core";
       <div [class]="computedClass()">
         <button
           type="button"
+          aria-label="Previous message branch"
           [class]="buttonClass"
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
@@ -35,6 +36,7 @@ import { UserMessage } from "@ag-ui/core";
         </span>
         <button
           type="button"
+          aria-label="Next message branch"
           [class]="buttonClass"
           [disabled]="!canGoNext()"
           (click)="handleNext()"

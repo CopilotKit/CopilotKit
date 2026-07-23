@@ -1,6 +1,9 @@
-import { Component } from "@angular/core";
+import { Component, signal } from "@angular/core";
+import { TestBed } from "@angular/core/testing";
+import type { AssistantMessage } from "@ag-ui/client";
 import { describe, expect, it } from "vitest";
 
+import { CopilotKit } from "./copilotkit";
 import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -9,6 +12,7 @@ import type {
 import {
   parseToolCallArguments,
   pickToolCallHandler,
+  RenderToolCalls,
 } from "./render-tool-calls";
 
 @Component({ template: "{{ label }}", standalone: true })
@@ -116,5 +120,41 @@ describe("tool renderer precedence", () => {
         builtInFallback: true,
       })?.type,
     ).toBe("builtIn");
+  });
+
+  it("uses the ambient agent id to select a scoped renderer", () => {
+    TestBed.configureTestingModule({
+      imports: [RenderToolCalls],
+      providers: [
+        {
+          provide: CopilotKit,
+          useValue: {
+            toolCallRenderConfigs: signal(application),
+            clientToolCallRenderConfigs: signal([]),
+            humanInTheLoopToolRenderConfigs: signal([]),
+            defaultToolRenderingEnabled: false,
+          },
+        },
+      ],
+    });
+    const fixture = TestBed.createComponent(RenderToolCalls);
+    fixture.componentRef.setInput("message", {
+      id: "message-1",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: "tool-1",
+          type: "function",
+          function: { name: "weather", arguments: "{}" },
+        },
+      ],
+    } satisfies AssistantMessage);
+    fixture.componentRef.setInput("messages", []);
+    fixture.componentRef.setInput("agentId", "agent-a");
+
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain("scoped");
   });
 });

@@ -599,7 +599,11 @@ function safeSandboxProxyURL(value: string): string | undefined {
 
 function decodeBase64(value: string): string {
   try {
-    return atob(value);
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    return new TextDecoder().decode(bytes);
   } catch {
     throw new Error("The MCP App resource contains invalid base64 content.");
   }

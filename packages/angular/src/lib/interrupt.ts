@@ -236,6 +236,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     interruptId?: string,
   ): Promise<RunAgentResult | void> => {
     if (this.#resumePromise) return this.#resumePromise;
+    if (!this.#accepted()) return;
     const current = this.#pending();
     const agent = this.#agent;
     if (!current || !agent) return;
@@ -266,6 +267,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     interruptId?: string,
   ): Promise<RunAgentResult | void> => {
     if (this.#resumePromise) return this.#resumePromise;
+    if (!this.#accepted()) return;
     const current = this.#pending();
     const agent = this.#agent;
     if (!current || !agent) return;
@@ -451,11 +453,14 @@ export class InterruptController<TValue = unknown, TResult = never> {
     }
 
     const tracked = run.catch((error: unknown) => {
+      const stillCurrent = this.#pending() === pending;
       console.error(
-        "[CopilotKit] injectInterrupt resume failed; pending state was cleared and the run will not be retried:",
+        stillCurrent
+          ? "[CopilotKit] injectInterrupt resume failed; pending state was cleared and the run will not be retried:"
+          : "[CopilotKit] a stale injectInterrupt resume failed after the controller moved on:",
         error,
       );
-      this.#clear(error);
+      if (stillCurrent) this.#clear(error);
       throw error;
     });
     if (this.#pending() === pending) this.#resumePromise = tracked;

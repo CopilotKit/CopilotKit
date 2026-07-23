@@ -1,7 +1,7 @@
 import { Component, Injectable, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { ChatState } from "../../../chat-state";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CopilotChatAddFileButton,
@@ -9,9 +9,12 @@ import {
   CopilotChatFinishTranscribeButton,
   CopilotChatSendButton,
   CopilotChatStartTranscribeButton,
+  CopilotChatToolbarButton,
 } from "../copilot-chat-buttons";
 import { CopilotChatToolsMenu } from "../copilot-chat-tools-menu";
 import { CopilotChatInput } from "../copilot-chat-input";
+import { CopilotChatUserMessageBranchNavigation } from "../copilot-chat-user-message-branch-navigation";
+import { CopilotChatViewScrollToBottomButton } from "../copilot-chat-view-scroll-to-bottom-button";
 
 @Injectable()
 class ChatStateStub extends ChatState {
@@ -38,6 +41,8 @@ class DefaultInputHost {
     CopilotChatFinishTranscribeButton,
     CopilotChatAddFileButton,
     CopilotChatToolsMenu,
+    CopilotChatUserMessageBranchNavigation,
+    CopilotChatViewScrollToBottomButton,
   ],
   template: `
     <copilot-chat-tools-menu [inputAddFile]="addFile" />
@@ -46,11 +51,28 @@ class DefaultInputHost {
     <copilot-chat-cancel-transcribe-button />
     <copilot-chat-finish-transcribe-button />
     <copilot-chat-send-button />
+    <copilot-chat-user-message-branch-navigation [numberOfBranches]="2" />
+    <copilot-chat-view-scroll-to-bottom-button />
   `,
 })
 class IconButtonHost {
   readonly addFile = (): void => {};
 }
+
+@Component({
+  imports: [CopilotChatToolbarButton],
+  template: `
+    <copilot-chat-toolbar-button
+      [disabled]="true"
+      variant="primary"
+      customClass="custom-toolbar-button"
+      title="Attach context"
+    >
+      <span aria-hidden="true">+</span>
+    </copilot-chat-toolbar-button>
+  `,
+})
+class ToolbarButtonHost {}
 
 describe("CopilotChat icon buttons", () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -71,7 +93,24 @@ describe("CopilotChat icon buttons", () => {
       "Cancel",
       "Finish",
       "Send message",
+      "Previous message branch",
+      "Next message branch",
+      "Scroll to bottom",
     ]);
+  });
+
+  it("emits enabled send clicks and ignores disabled clicks", () => {
+    const fixture = TestBed.createComponent(CopilotChatSendButton);
+    const clicked = vi.fn();
+    fixture.componentInstance.clicked.subscribe(clicked);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector("button").click();
+    fixture.componentRef.setInput("disabled", true);
+    fixture.detectChanges();
+    fixture.componentInstance.onClick();
+
+    expect(clicked).toHaveBeenCalledTimes(1);
   });
 
   it("names every icon-only control in the default chat input", () => {
@@ -101,5 +140,17 @@ describe("CopilotChat icon buttons", () => {
         '[data-testid="copilot-chat-textarea"]',
       ),
     ).not.toBeNull();
+  });
+
+  it("binds public toolbar button inputs and exposes its title as a name", () => {
+    const fixture = TestBed.createComponent(ToolbarButtonHost);
+    fixture.detectChanges();
+
+    const button: HTMLButtonElement =
+      fixture.nativeElement.querySelector("button");
+
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-label")).toBe("Attach context");
+    expect(button.className).toContain("custom-toolbar-button");
   });
 });

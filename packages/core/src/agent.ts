@@ -506,12 +506,22 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       throw new Error("Runtime URL is not set");
     }
 
-    this.runtimeInfoPromise ??= this.fetchRuntimeInfo().then((runtimeInfo) => {
-      this.runtimeMode = runtimeInfo.mode ?? RUNTIME_MODE_SSE;
-      this.intelligence = runtimeInfo.intelligence;
-    });
+    const runtimeInfoPromise =
+      this.runtimeInfoPromise ??
+      this.fetchRuntimeInfo().then((runtimeInfo) => {
+        this.runtimeMode = runtimeInfo.mode ?? RUNTIME_MODE_SSE;
+        this.intelligence = runtimeInfo.intelligence;
+      });
+    this.runtimeInfoPromise = runtimeInfoPromise;
 
-    await this.runtimeInfoPromise;
+    try {
+      await runtimeInfoPromise;
+    } catch (error) {
+      if (this.runtimeInfoPromise === runtimeInfoPromise) {
+        this.runtimeInfoPromise = undefined;
+      }
+      throw error;
+    }
   }
 
   private async fetchRuntimeInfo(): Promise<RuntimeInfo> {

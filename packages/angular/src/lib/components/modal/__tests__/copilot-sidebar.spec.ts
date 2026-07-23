@@ -9,6 +9,9 @@ class TestChat {
   protected readonly label = "Chat";
 }
 
+@Component({ selector: "test-header", template: "Custom header" })
+class TestHeader {}
+
 describe("CopilotSidebar", () => {
   afterEach(() => {
     document.body.style.marginInlineStart = "";
@@ -57,6 +60,19 @@ describe("CopilotSidebar", () => {
     expect(sidebar.getAttribute("aria-modal")).toBe("true");
     expect(sidebar.contains(document.activeElement)).toBe(true);
     expect(document.body.style.marginInlineEnd).toBe("");
+  });
+
+  it("names a docked sidebar when a custom header replaces its heading", async () => {
+    const fixture = await render({
+      headerComponent: TestHeader,
+      title: "Project copilot",
+    });
+    const sidebar: HTMLElement = fixture.nativeElement.querySelector(
+      "[data-copilot-sidebar]",
+    );
+
+    expect(sidebar.getAttribute("aria-label")).toBe("Project copilot");
+    expect(sidebar.hasAttribute("aria-labelledby")).toBe(false);
   });
 
   it("rejects a second open docked sidebar without affecting overlays", async () => {

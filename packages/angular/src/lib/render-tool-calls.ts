@@ -187,7 +187,7 @@ export class RenderToolCalls {
 
     return pickToolCallHandler({
       name,
-      agentId: messageAgentId,
+      agentId: this.agentId() ?? messageAgentId,
       application: renderers,
       frontend: clientTools,
       humanInTheLoop: humanInTheLoopTools,
