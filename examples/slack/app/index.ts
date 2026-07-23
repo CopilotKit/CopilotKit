@@ -62,7 +62,6 @@ import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
-import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -252,6 +251,16 @@ async function main() {
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.
     commands: appCommands,
+    // Takumi JSX image rendering config. Stylesheet-only (no `googleFonts`,
+    // which can trigger a network fetch and hang tests/CI) — Takumi's
+    // built-in Latin covers this demo, and the CSS vars give chart colors a
+    // hex fallback with no external dependency.
+    render: {
+      stylesheets: [
+        ":root{--chart-1:#6366f1;--chart-2:#22c55e;--chart-3:#f59e0b}",
+      ],
+      width: 720,
+    },
   });
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
@@ -342,14 +351,6 @@ async function main() {
       console.error("[channel] error stopping Channel", err);
       exitCode = 1;
     }
-    // Tear down the shared headless browser used for chart/diagram rendering.
-    // Best-effort, but surface a failure rather than swallow it.
-    await closeBrowser().catch((err: unknown) =>
-      console.error(
-        "[channel] browser cleanup failed (continuing shutdown)",
-        err,
-      ),
-    );
     process.exit(exitCode);
   };
   // A failed shutdown must not vanish, and must not leave the process alive: a

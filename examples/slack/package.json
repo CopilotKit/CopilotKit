@@ -27,7 +27,8 @@
     "@tanstack/ai-openai": "^0.17.1",
     "@slack/bolt": "^4.2.0",
     "@slack/types": "^2.21.1",
-    "playwright": "^1.49.0",
+    "react": "^19.1.0",
+    "takumi-js": "^2.4.1",
     "zod": "^3.25.76"
   },
   "devDependencies": {
