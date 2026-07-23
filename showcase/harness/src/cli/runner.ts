@@ -42,9 +42,9 @@ import { livenessDriver } from "../probes/drivers/d2-liveness.js";
 import { e2eChatToolsDriver } from "../probes/drivers/d4-chat-roundtrip.js";
 import {
   createE2eFullDriver,
-  openGuardedContext,
+  createSelfHealingE2eFullLauncher,
 } from "../probes/drivers/d6-all-pills.js";
-import type { E2eFullBrowser } from "../probes/drivers/d6-all-pills.js";
+import type playwrightModule from "playwright";
 import type { StatusWriter } from "../writers/status-writer.js";
 import { runViaControlPlane } from "./control-plane-run.js";
 import type { ControlPlaneLevel } from "./control-plane-run.js";
@@ -316,77 +316,19 @@ export async function run(
 
   const fullDriver = options.headed
     ? createE2eFullDriver({
-        launcher: async (): Promise<E2eFullBrowser> => {
-          const mod =
-            (await import("playwright")) as typeof import("playwright");
-          const browser = await mod.chromium.launch({
+        // Headed launcher: same self-healing shared-browser model as the
+        // headless defaultLauncher (crash → bounded relaunch + retry instead of
+        // cascading every remaining feature into a raw "has been closed"),
+        // differing ONLY in headless:false. Relaunch events flow to the CLI
+        // logger. The shared factory also gives headed mode the full E2eFullPage
+        // wrapper the driver expects.
+        launcher: createSelfHealingE2eFullLauncher(async () => {
+          const mod = (await import("playwright")) as typeof playwrightModule;
+          return mod.chromium.launch({
             headless: false,
             args: ["--no-sandbox", "--disable-dev-shm-usage"],
           });
-          return {
-            async newContext(contextOpts?: {
-              extraHTTPHeaders?: Record<string, string>;
-            }) {
-              // GUARD: same shared-browser disconnect guard as defaultLauncher
-              // — refuse to open on a dead browser and convert a mid-open
-              // disconnect into a clean BrowserDisconnectedError rather than
-              // leaking Playwright's raw "has been closed" string.
-              const bCtx = await openGuardedContext<
-                Awaited<ReturnType<typeof browser.newContext>>
-              >(browser, {
-                extraHTTPHeaders: {
-                  "X-AIMock-Strict": "true",
-                  ...contextOpts?.extraHTTPHeaders,
-                },
-              });
-              return {
-                async newPage() {
-                  const page = await bCtx.newPage();
-                  const consoleLogs: string[] = [];
-                  const requestFailures: string[] = [];
-                  page.on(
-                    "console",
-                    (msg: { type(): string; text(): string }) => {
-                      const t = msg.type();
-                      if (t === "error" || t === "warning") {
-                        consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
-                      }
-                    },
-                  );
-                  page.on(
-                    "requestfailed",
-                    (request: {
-                      method(): string;
-                      url(): string;
-                      failure(): { errorText: string } | null;
-                    }) => {
-                      requestFailures.push(
-                        `${request.method()} ${request.url().slice(0, 200)} => ${
-                          request.failure()?.errorText || "unknown"
-                        }`,
-                      );
-                    },
-                  );
-                  return Object.assign(page, {
-                    getDiagnostics: () => ({
-                      consoleLogs: consoleLogs.slice(-20),
-                      requestFailures: requestFailures.slice(-10),
-                    }),
-                    isClosed: () => page.isClosed(),
-                    locator: (s: string) => page.locator(s),
-                    route: (
-                      u: string | RegExp,
-                      handler: Parameters<typeof page.route>[1],
-                    ) => page.route(u, handler),
-                    unroute: (u: string | RegExp) => page.unroute(u),
-                  }) as unknown as import("../probes/drivers/d6-all-pills.js").E2eFullPage;
-                },
-                close: () => bCtx.close(),
-              };
-            },
-            close: () => browser.close(),
-          };
-        },
+        }, logger),
         // CVDIAG persistence for the local d5/d6 path (headed).
         cvdiagPbWriter: cvdiagWriter,
       })
