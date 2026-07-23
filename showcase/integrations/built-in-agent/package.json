@@ -37,6 +37,7 @@
     "recharts": "^2.15.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
+    "unpdf": "^1.3.2",
     "yaml": "^2.9.0",
     "zod": "^4.4.0",
     "zod-v3": "npm:zod@^3.25.76"
