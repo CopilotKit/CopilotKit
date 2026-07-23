@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DirectAdapterEgress } from "./channel-egress.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
+import type { PlatformAdapter } from "./platform-adapter.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
 const ir: ChannelNode[] = [{ type: "text", props: { value: "hi" } }];
@@ -79,6 +80,24 @@ describe("DirectAdapterEgress", () => {
     expect(a.ephemeralPosts).toEqual([
       { user: "u1", ir, opts: { fallbackToDM: false } },
     ]);
+  });
+
+  it("file → adapter.postFile when present, forwarding target + args", async () => {
+    const a = new FakeAdapter();
+    const calls: unknown[] = [];
+    const postFile: NonNullable<PlatformAdapter["postFile"]> = async (
+      t,
+      args,
+    ) => {
+      calls.push({ t, args });
+      return { ok: true, fileId: "f1" };
+    };
+    (a as { postFile?: PlatformAdapter["postFile"] }).postFile = postFile;
+    const egress = new DirectAdapterEgress(a);
+    const file = { bytes: new Uint8Array([1, 2]), filename: "a.txt" };
+    const r = await egress.send({ op: "file", target, file });
+    expect(r).toEqual({ ok: true, fileId: "f1" });
+    expect(calls).toEqual([{ t: target, args: file }]);
   });
 
   it("file → adapter.postFile; absent → capability-gated error", async () => {

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createChannel } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
+import { Thread } from "./thread.js";
+import type { ThreadDeps } from "./thread.js";
+import { DirectAdapterEgress } from "./channel-egress.js";
+import { MemoryStore } from "./state/memory-store.js";
+import type { ActionRegistry } from "./action-registry.js";
 
 async function runOnMessage(
   fake: FakeAdapter,
@@ -48,5 +53,47 @@ describe("Thread.postEphemeral", () => {
       });
     });
     expect(res).toBeNull();
+  });
+
+  it("short-circuits BEFORE binding when the surface can't post ephemerally at all", async () => {
+    // Binding mints + durably persists action ids for interactive UI; a surface
+    // with no `postEphemeral` must return the capability error WITHOUT binding,
+    // else it would leave a durable action for a message that is never sent.
+    const adapter = new FakeAdapter();
+    (adapter as { postEphemeral?: unknown }).postEphemeral = undefined;
+    let bindCalls = 0;
+    const registry = {
+      bindRenderable: async () => {
+        bindCalls++;
+        throw new Error(
+          "bindRenderable must not run for an unsupported surface",
+        );
+      },
+    } as unknown as ActionRegistry;
+    const deps: ThreadDeps = {
+      adapter,
+      egress: new DirectAdapterEgress(adapter),
+      replyTarget: {},
+      conversationKey: "c1",
+      registry,
+      agentFactory: () => {
+        throw new Error("agentFactory unused in this test");
+      },
+      tools: new Map(),
+      toolDescriptors: [],
+      context: [],
+      registerWaiter: () => {},
+      interruptHandlers: new Map(),
+      state: new MemoryStore(),
+    };
+    const thread = new Thread(deps);
+    const res = await thread.postEphemeral("U1", "psst", {
+      fallbackToDM: true,
+    });
+    expect(res).toEqual({
+      ok: false,
+      error: "fake does not support ephemeral messages",
+    });
+    expect(bindCalls).toBe(0);
   });
 });

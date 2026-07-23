@@ -219,6 +219,17 @@ export class Thread implements ThreadInterface {
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
+    // Probe support BEFORE binding: `bindForPost` mints and durably persists
+    // action ids for any interactive element in the UI, so a surface that can't
+    // post ephemerally must short-circuit first — otherwise we'd leave a durable
+    // action for a message that is never sent. This mirrors the pre-port path,
+    // where the capability guard ran before binding.
+    if (!this.deps.adapter.postEphemeral) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support ephemeral messages`,
+      };
+    }
     // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
     // (stripped by bindForPost) rather than registered.
     const { root } = await this.bindForPost(ui);
