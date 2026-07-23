@@ -10,6 +10,7 @@
  */
 import { readThreadTool } from "./read-thread.js";
 import { renderTableTool } from "./render-table.js";
+import { renderMrrTool } from "./render-mrr.js";
 import { issueCardTool, issueListTool, pageListTool } from "./render-tools.js";
 import {
   showIncidentTool,
@@ -30,6 +31,7 @@ import type { ChannelTool } from "@copilotkit/channels";
 export const appTools: ChannelTool[] = [
   readThreadTool,
   renderTableTool,
+  renderMrrTool,
   issueCardTool,
   issueListTool,
   pageListTool,
@@ -42,6 +44,7 @@ export const appTools: ChannelTool[] = [
 export {
   readThreadTool,
   renderTableTool,
+  renderMrrTool,
   issueCardTool,
   issueListTool,
   pageListTool,
