@@ -15,6 +15,7 @@ import type {
   Thread as ThreadInterface,
   EmojiValue,
   EphemeralResult,
+  ReactElementLike,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { RunLoopArgs } from "./run-loop.js";
@@ -37,6 +38,15 @@ import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
 import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
 import type { PostImageOptions } from "@copilotkit/channels-ui";
+import { resolveArbitraryElement } from "./render/detect.js";
+
+async function defaultRenderImage(
+  node: unknown,
+  cfg: ResolvedRenderConfig,
+): Promise<Uint8Array> {
+  const { renderJsxToPng } = await import("./render/takumi.js");
+  return renderJsxToPng(node, cfg);
+}
 
 /**
  * Default retention for a captured interrupt value (7 days) — deliberately the
@@ -251,9 +261,11 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  post(ui: Renderable): Promise<MessageRef> {
+  post(ui: Renderable | ReactElementLike, opts?: PostImageOptions): Promise<MessageRef> {
     return this.trackOperation(async () => {
-      const bound = await this.bindForPost(ui);
+      const el = resolveArbitraryElement(ui);
+      if (el) return this.postImage(el, opts);
+      const bound = await this.bindForPost(ui as Renderable);
       const ref = await this.deps.adapter.post(
         this.deps.replyTarget,
         bound.root,
@@ -261,6 +273,39 @@ export class Thread implements ThreadInterface {
       await this.bindReaction(ref.id, bound);
       return ref;
     });
+  }
+
+  }
+
+  /**
+   * Render a resolved React element to a PNG via the configured (or default
+   * lazy Takumi) renderer, then upload it through `postFile`.
+   */
+  private async postImage(
+    node: unknown,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    const g = this.deps.render ?? {};
+    const cfg: ResolvedRenderConfig = {
+      fonts: opts?.fonts ?? g.fonts ?? [],
+      stylesheets: opts?.stylesheets ?? g.stylesheets ?? [],
+      width: opts?.width ?? g.width ?? 720,
+      height: opts?.height ?? g.height ?? 480,
+    };
+    const renderFn = this.deps.renderImage ?? defaultRenderImage;
+    const bytes = await renderFn(node, cfg);
+    const res = await this.postFile({
+      bytes,
+      filename: opts?.filename ?? "image.png",
+      title: opts?.title,
+      altText: opts?.altText,
+    });
+    if (!res.ok) {
+      throw new Error(
+        `post(image): upload failed — ${res.error ?? "unknown error"}`,
+      );
+    }
+    return { id: res.fileId ?? "" };
   }
 
   /** @internal Post a registered component through the normal bind and adapter path. */
@@ -277,10 +322,7 @@ export class Thread implements ThreadInterface {
         this.activeContinuation,
         renderContext,
       );
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -288,6 +330,11 @@ export class Thread implements ThreadInterface {
 
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
+      if (resolveArbitraryElement(ui)) {
+        throw new Error(
+          "thread.update does not support arbitrary JSX (an image post can't be edited in place). Post a new image instead.",
+        );
+      }
       const bound = await this.bindForPost(ui);
       await this.deps.adapter.update(ref, bound.root);
       await this.bindReaction(ref.id, bound);
@@ -410,6 +457,11 @@ export class Thread implements ThreadInterface {
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     return this.trackOperation(async () => {
+      if (resolveArbitraryElement(ui)) {
+        throw new Error(
+          "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
+        );
+      }
       const adapter = this.deps.adapter;
       if (!adapter.postEphemeral) {
         return {
