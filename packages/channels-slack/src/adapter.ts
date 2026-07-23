@@ -6,6 +6,7 @@ import type {
   ChatStopStreamArguments,
   ChatPostMessageArguments,
   ChatUpdateArguments,
+  FilesUploadV2Arguments,
 } from "@slack/web-api";
 import type { AnyChunk, KnownBlock } from "@slack/types";
 import type {
@@ -31,6 +32,8 @@ import type {
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { SlackConversationStore } from "./conversation-store.js";
+import { WebClientSlackConnector } from "./slack-connector.js";
+import type { SlackConnector } from "./slack-connector.js";
 import { attachSlackListener } from "./slack-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import {
@@ -117,6 +120,15 @@ export class SlackAdapter implements PlatformAdapter {
 
   readonly app: App;
   client: WebClient;
+  /**
+   * Test-only injection point: when set, {@link connector} returns this
+   * instead of wrapping `this.client`. Lets tests drive `SlackAdapter`'s
+   * egress methods against a `FakeSlackConnector` directly (proving the
+   * adapter→connector routing) without a WebClient-shaped fake underneath.
+   * Production code never sets this — the adapter always wraps its own
+   * `WebClient`.
+   */
+  private connectorOverride: SlackConnector | undefined;
   botUserId = "";
   private readonly store: SlackConversationStore;
   private sink: IngressSink | undefined;
@@ -170,6 +182,18 @@ export class SlackAdapter implements PlatformAdapter {
       botUserId: "",
       botToken: opts.botToken,
     });
+  }
+
+  /**
+   * The credentialed {@link SlackConnector} every egress method routes
+   * through. Freshly wraps the CURRENT `this.client` on every access (rather
+   * than being built once) so tests that swap `adapter.client` for a fake
+   * keep working unchanged; `connectorOverride` lets tests substitute a
+   * `FakeSlackConnector` entirely. Token removal (routing through a
+   * runner-supplied connector instead) is a later unit.
+   */
+  private get connector(): SlackConnector {
+    return this.connectorOverride ?? new WebClientSlackConnector(this.client);
   }
 
   async start(sink: IngressSink): Promise<void> {
@@ -338,7 +362,7 @@ export class SlackAdapter implements PlatformAdapter {
     const args: ChatPostMessageArguments = accent
       ? { ...base, attachments: [{ color: accent, blocks }] }
       : { ...base, blocks };
-    const res = await this.client.chat.postMessage(args);
+    const res = await this.connector.postMessage(args);
     return { id: res.ts as string, channel: t.channel, ts: res.ts };
   }
 
@@ -361,7 +385,7 @@ export class SlackAdapter implements PlatformAdapter {
           text: summary,
           blocks,
         };
-    await this.client.chat.update(args);
+    await this.connector.updateMessage(args);
   }
 
   async stream(
@@ -376,7 +400,7 @@ export class SlackAdapter implements PlatformAdapter {
     const makeLegacy = (): TextStream =>
       new ChunkedMessageStream({
         postPlaceholder: async (text) => {
-          const posted = await this.client.chat.postMessage({
+          const posted = await this.connector.postMessage({
             channel: t.channel,
             thread_ts: t.threadTs,
             text,
@@ -391,7 +415,7 @@ export class SlackAdapter implements PlatformAdapter {
           return posted.ts;
         },
         updateAt: async (ts, text) => {
-          await this.client.chat.update({ channel: t.channel, ts, text });
+          await this.connector.updateMessage({ channel: t.channel, ts, text });
         },
         transform: (s) => markdownToMrkdwn(autoCloseOpenMarkdown(s)),
       });
@@ -464,7 +488,7 @@ export class SlackAdapter implements PlatformAdapter {
             ? { recipient_team_id: this.teamId }
             : {}),
         };
-        const res = await this.client.chat.startStream(args);
+        const res = await this.connector.startStream(args);
         if (!res.ts) throw new Error("startStream returned no ts");
         onFirstTs(res.ts, res.channel);
         return res.ts;
@@ -475,7 +499,7 @@ export class SlackAdapter implements PlatformAdapter {
           ts,
           markdown_text: markdownText,
         };
-        await this.client.chat.appendStream(args);
+        await this.connector.appendStream(args);
       },
       appendChunks: async (ts, chunks: AnyChunk[]) => {
         const args: ChatAppendStreamArguments = {
@@ -483,7 +507,7 @@ export class SlackAdapter implements PlatformAdapter {
           ts,
           chunks,
         };
-        await this.client.chat.appendStream(args);
+        await this.connector.appendStream(args);
       },
       stopStream: async (ts, finalBlocks?: KnownBlock[]) => {
         const args: ChatStopStreamArguments = {
@@ -493,7 +517,7 @@ export class SlackAdapter implements PlatformAdapter {
             ? { blocks: finalBlocks }
             : {}),
         };
-        await this.client.chat.stopStream(args);
+        await this.connector.stopStream(args);
       },
     };
   }
@@ -507,16 +531,16 @@ export class SlackAdapter implements PlatformAdapter {
   private renderTransport(): SlackRenderTransport {
     return {
       setStatus: async (a) => {
-        await this.client.assistant.threads.setStatus(a);
+        await this.connector.setStatus(a);
       },
       postMessage: async (a) => {
-        const res = await this.client.chat.postMessage(
+        const res = await this.connector.postMessage(
           a as ChatPostMessageArguments,
         );
         return { ts: res.ts };
       },
       updateMessage: async (a) => {
-        await this.client.chat.update(a as ChatUpdateArguments);
+        await this.connector.updateMessage(a as ChatUpdateArguments);
       },
     };
   }
@@ -567,7 +591,7 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
-    await this.client.chat.delete({ channel: channelOf(ref), ts: ref.id });
+    await this.connector.deleteMessage({ channel: channelOf(ref), ts: ref.id });
   }
 
   /**
@@ -652,7 +676,7 @@ export class SlackAdapter implements PlatformAdapter {
       };
     }
     try {
-      await this.client.assistant.threads.setSuggestedPrompts({
+      await this.connector.setSuggestedPrompts({
         channel_id: t.channel,
         thread_ts: t.threadTs,
         prompts: prompts.map((p) => ({
@@ -683,7 +707,7 @@ export class SlackAdapter implements PlatformAdapter {
       };
     }
     try {
-      await this.client.assistant.threads.setTitle({
+      await this.connector.setThreadTitle({
         channel_id: t.channel,
         thread_ts: t.threadTs,
         title,
@@ -704,17 +728,7 @@ export class SlackAdapter implements PlatformAdapter {
     try {
       let cursor: string | undefined;
       do {
-        const r = (await this.client.users.list({ cursor, limit: 200 })) as {
-          members?: Array<{
-            id?: string;
-            name?: string;
-            real_name?: string;
-            deleted?: boolean;
-            is_bot?: boolean;
-            profile?: { display_name?: string; email?: string };
-          }>;
-          response_metadata?: { next_cursor?: string };
-        };
+        const r = await this.connector.listUsers({ cursor, limit: 200 });
         for (const m of r.members ?? []) {
           if (!m.id || m.deleted || m.is_bot) continue;
           const candidates = [
@@ -752,18 +766,7 @@ export class SlackAdapter implements PlatformAdapter {
     if (cached) return cached;
     let user: PlatformUser = { id: userId };
     try {
-      const r = (await this.client.users.info({ user: userId })) as {
-        user?: {
-          id?: string;
-          name?: string;
-          real_name?: string;
-          profile?: {
-            real_name?: string;
-            display_name?: string;
-            email?: string;
-          };
-        };
-      };
+      const r = await this.connector.getUserInfo({ user: userId });
       const u = r.user;
       if (u?.id) {
         user = {
@@ -826,19 +829,11 @@ export class SlackAdapter implements PlatformAdapter {
       subtype?: string;
     }> = [];
     try {
-      const r = (await this.client.conversations.replies({
+      const r = await this.connector.getReplies({
         channel: t.channel,
         ts: threadTs,
         limit: 100,
-      })) as {
-        messages?: Array<{
-          text?: string;
-          ts?: string;
-          user?: string;
-          bot_id?: string;
-          subtype?: string;
-        }>;
-      };
+      });
       messages = r.messages ?? [];
     } catch {
       return [];
@@ -885,8 +880,8 @@ export class SlackAdapter implements PlatformAdapter {
         alt_text: altText,
       };
       if (t.threadTs) args.thread_ts = t.threadTs;
-      await this.client.files.uploadV2(
-        args as unknown as Parameters<WebClient["files"]["uploadV2"]>[0],
+      await this.connector.uploadFile(
+        args as unknown as FilesUploadV2Arguments,
       );
       return { ok: true };
     } catch (e) {
@@ -904,7 +899,7 @@ export class SlackAdapter implements PlatformAdapter {
       (messageRef as { channel?: string }).channel ??
       (target as ReplyTarget).channel;
     try {
-      await this.client.reactions.add({
+      await this.connector.addReaction({
         channel,
         timestamp: messageRef.id,
         name,
@@ -925,7 +920,7 @@ export class SlackAdapter implements PlatformAdapter {
       (messageRef as { channel?: string }).channel ??
       (target as ReplyTarget).channel;
     try {
-      await this.client.reactions.remove({
+      await this.connector.removeReaction({
         channel,
         timestamp: messageRef.id,
         name,
@@ -952,7 +947,7 @@ export class SlackAdapter implements PlatformAdapter {
     const { blocks } = renderSlackMessage(ir);
     const text = fallbackText(ir);
     try {
-      const res = await this.client.chat.postEphemeral({
+      const res = await this.connector.postEphemeral({
         channel: t.channel,
         user: userId,
         ...(t.threadTs ? { thread_ts: t.threadTs } : {}),
@@ -963,7 +958,7 @@ export class SlackAdapter implements PlatformAdapter {
         ok: true,
         usedFallback: false,
         ref: {
-          id: (res as { message_ts?: string }).message_ts ?? "",
+          id: res.message_ts ?? "",
           channel: t.channel,
         },
       };
@@ -1003,7 +998,7 @@ export class SlackAdapter implements PlatformAdapter {
           ? { pm: view.private_metadata }
           : {}),
       });
-      await this.client.views.open({
+      await this.connector.openModal({
         trigger_id: triggerId,
         view,
       });

@@ -83,6 +83,14 @@ export { lookupSlackUserTool, defaultSlackTools } from "./built-in-tools.js";
 export { slack, SlackAdapter } from "./adapter.js";
 export type { SlackAdapterOptions } from "./adapter.js";
 
+export { WebClientSlackConnector } from "./slack-connector.js";
+export type {
+  SlackConnector,
+  SlackConnectorMember,
+  SlackConnectorUserDetail,
+  SlackConnectorHistoryMessage,
+} from "./slack-connector.js";
+
 export { createRunRenderer } from "./event-renderer.js";
 export type { SlackRenderTransport } from "./render/transport.js";
 
