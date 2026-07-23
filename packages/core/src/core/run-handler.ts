@@ -102,6 +102,15 @@ export class RunHandler {
   private _runDepth = 0;
 
   /**
+   * Circuit breaker for recursive follow-up runs (see `processAgentResult`):
+   * tracks the tool-call signature of the previous follow-up round so that
+   * consecutive identical rounds can be detected and stopped. Reset on every
+   * top-level `runAgent` call.
+   */
+  private _lastFollowUpSignature = "";
+  private _identicalFollowUpRounds = 0;
+
+  /**
    * Tracks the threadId of the most recent `connectAgent` call so we
    * can distinguish a fresh thread restore (different threadId than
    * last time — chat is rebuilding state from scratch, must clear
@@ -379,6 +388,8 @@ export class RunHandler {
     let originalAbortRun: (() => void) | undefined;
 
     if (isTopLevel) {
+      this._lastFollowUpSignature = "";
+      this._identicalFollowUpRounds = 0;
       this._runAbortController = new AbortController();
 
       // Intercept agent.abortRun() so that calling it directly (not via
@@ -514,12 +525,30 @@ export class RunHandler {
     }
 
     if (needsFollowUp && !this._runAbortController?.signal.aborted) {
-      // Yield to the framework scheduler before the follow-up run so that any
-      // deferred state updates (e.g. React useEffect in useAgentContext) can
-      // complete and write fresh values into the context store before runAgent
-      // reads it. The base implementation is a no-op; React overrides this.
-      await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+      // Circuit breaker: when the agent keeps producing the exact same tool
+      // calls (same names, same arguments) round after round, it is stuck in
+      // a loop — stop recursing instead of running forever (#4819).
+      const signature = followUpSignature(newMessages);
+      if (signature === this._lastFollowUpSignature) {
+        this._identicalFollowUpRounds++;
+      } else {
+        this._lastFollowUpSignature = signature;
+        this._identicalFollowUpRounds = 1;
+      }
+      if (
+        this._identicalFollowUpRounds >= MAX_CONSECUTIVE_IDENTICAL_FOLLOW_UPS
+      ) {
+        logger.warn(
+          `CopilotKit: stopping follow-up runs after ${this._identicalFollowUpRounds} consecutive identical tool-call rounds — the agent appears to be stuck in a loop. Returning the current result.`,
+        );
+      } else {
+        // Yield to the framework scheduler before the follow-up run so that any
+        // deferred state updates (e.g. React useEffect in useAgentContext) can
+        // complete and write fresh values into the context store before runAgent
+        // reads it. The base implementation is a no-op; React overrides this.
+        await this._internal.waitForPendingFrameworkUpdates();
+        return await this.runAgent({ agent });
+      }
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
@@ -1153,4 +1182,45 @@ export function parseToolArguments(
   }
   const parsed = typeof rawArgs === "string" ? JSON.parse(rawArgs) : rawArgs;
   return ensureObjectArgs(parsed, toolName);
+}
+
+const MAX_CONSECUTIVE_IDENTICAL_FOLLOW_UPS = 3;
+
+/**
+ * Signature of a follow-up round: every assistant tool call in the run's new
+ * messages as name + arguments, with JSON object keys sorted so that equal
+ * payloads compare equal regardless of key order.
+ */
+function followUpSignature(newMessages: Message[]): string {
+  return newMessages
+    .flatMap((message) =>
+      message.role === "assistant" ? (message.toolCalls ?? []) : [],
+    )
+    .map(
+      (toolCall) =>
+        `${toolCall.function.name}:${normalizeArguments(toolCall.function.arguments)}`,
+    )
+    .join("|");
+}
+
+function normalizeArguments(args: string): string {
+  try {
+    return JSON.stringify(sortObjectKeys(JSON.parse(args)));
+  } catch {
+    return args;
+  }
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortObjectKeys);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([key, child]) => [key, sortObjectKeys(child)]),
+    );
+  }
+  return value;
 }

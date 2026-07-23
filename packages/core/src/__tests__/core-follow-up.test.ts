@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import { FrontendTool } from "../types";
+import type { FrontendTool } from "../types";
 import {
   MockAgent,
   createAssistantMessage,
@@ -203,6 +203,121 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     const result = await copilotKitCore.runAgent({ agent: agent as any });
 
     expect(result.newMessages).toEqual([finalMessage]);
+  });
+
+  it("stops follow-up runs after 3 consecutive identical tool calls", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const handler = vi.fn(async () => "Result");
+    copilotKitCore.addTool(
+      createTool({ name: "loopTool", handler, followUp: true }),
+    );
+
+    // Same tool call (fresh id) every run — loops forever without a breaker.
+    // runAgentDelay lets vitest time out instead of hanging if it does.
+    const agent = new MockAgent({ newMessages: [], runAgentDelay: 1 });
+    agent.runAgentCallback = () => {
+      agent.setNewMessages([createToolCallMessage("loopTool", { q: "same" })]);
+    };
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(agent.runAgentCalls).toHaveLength(3);
+    expect(handler).toHaveBeenCalledTimes(3);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("follow-up"));
+  });
+
+  it("allows the same tool to be called repeatedly with changing arguments", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    copilotKitCore.addTool(
+      createTool({
+        name: "pagerTool",
+        handler: vi.fn(async () => "Result"),
+        followUp: true,
+      }),
+    );
+
+    const agent = new MockAgent({ newMessages: [] });
+    let callCount = 0;
+    agent.runAgentCallback = () => {
+      callCount++;
+      if (callCount <= 5) {
+        agent.setNewMessages([
+          createToolCallMessage("pagerTool", { page: callCount }),
+        ]);
+      } else {
+        agent.setNewMessages([createAssistantMessage({ content: "Done" })]);
+      }
+    };
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(agent.runAgentCalls).toHaveLength(6);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("treats identical arguments with different key order as identical", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    copilotKitCore.addTool(
+      createTool({
+        name: "loopTool",
+        handler: vi.fn(async () => "Result"),
+        followUp: true,
+      }),
+    );
+
+    const agent = new MockAgent({ newMessages: [], runAgentDelay: 1 });
+    let callCount = 0;
+    agent.runAgentCallback = () => {
+      callCount++;
+      const args =
+        callCount % 2 === 0 ? { a: 1, b: { c: 2 } } : { b: { c: 2 }, a: 1 };
+      agent.setNewMessages([createToolCallMessage("loopTool", args)]);
+    };
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    expect(agent.runAgentCalls).toHaveLength(3);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets the breaker between top-level runs", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    copilotKitCore.addTool(
+      createTool({
+        name: "loopTool",
+        handler: vi.fn(async () => "Result"),
+        followUp: true,
+      }),
+    );
+
+    const agent = new MockAgent({ newMessages: [], runAgentDelay: 1 });
+    agent.runAgentCallback = () => {
+      agent.setNewMessages([createToolCallMessage("loopTool", { q: "same" })]);
+    };
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "test",
+      agent: agent as any,
+    });
+
+    await copilotKitCore.runAgent({ agent: agent as any });
+    await copilotKitCore.runAgent({ agent: agent as any });
+
+    // Each top-level run gets a fresh breaker: 3 calls per run, not 3 total.
+    expect(agent.runAgentCalls).toHaveLength(6);
+    expect(warnSpy).toHaveBeenCalledTimes(2);
   });
 
   it("should handle multiple recursive follow-ups (chain)", async () => {
