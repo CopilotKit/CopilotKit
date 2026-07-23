@@ -519,6 +519,8 @@ function jsonStringByteLength(value: string): number {
     ) {
       bytes += 4;
       index += 1;
+    } else if (codeUnit >= 0xd800 && codeUnit <= 0xdfff) {
+      bytes += 6;
     } else {
       bytes += 3;
     }

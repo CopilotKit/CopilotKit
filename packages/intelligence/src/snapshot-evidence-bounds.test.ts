@@ -46,6 +46,24 @@ function codes(
   return issues.map((issue) => issue.code);
 }
 
+function measuredSerializedBytes(value: unknown): number {
+  const issue = issuesFor(value, { maxSerializedBytes: 0 }).find(
+    ({ code }) => code === "serialized_bytes",
+  );
+  if (issue === undefined) {
+    throw new Error("Expected serialized byte validation issue");
+  }
+  return issue.actual;
+}
+
+function jsonStringifyUtf8Bytes(value: unknown): number {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) {
+    throw new Error("Expected a JSON-serializable value");
+  }
+  return utf8ByteLength(serialized);
+}
+
 function deeplyNestedArray(depth: number): unknown {
   let value: unknown = null;
   for (let index = 0; index < depth; index += 1) value = [value];
@@ -193,6 +211,47 @@ describe("validateJsonTreeBoundsV1", () => {
       "serialized_bytes",
     );
   });
+
+  test.each([
+    ["string value", "\ud800"],
+    ["object key", { "\udc00": null }],
+  ])(
+    "uses the exact JSON byte boundary for a lone surrogate in a %s",
+    (_name, value) => {
+      const exactBytes = jsonStringifyUtf8Bytes(value);
+
+      expect(
+        codes(issuesFor(value, { maxSerializedBytes: exactBytes })),
+      ).not.toContain("serialized_bytes");
+      expect(
+        codes(issuesFor(value, { maxSerializedBytes: exactBytes - 1 })),
+      ).toContain("serialized_bytes");
+    },
+  );
+
+  test.each([
+    ["empty", ""],
+    ["ASCII", "plain"],
+    ["quote and backslash", '"\\'],
+    ["short control escapes", "\b\t\n\f\r"],
+    ["unicode control escapes", "\u0000\u001f"],
+    ["two-byte code point", "é"],
+    ["three-byte code point", "€"],
+    ["astral pair", "\ud83d\ude00"],
+    ["lone high surrogate", "\ud800"],
+    ["lone low surrogate", "\udfff"],
+    ["mixed pairs and lone surrogates", 'a"\ud83d\ude00\\\ud800\n\udc00z'],
+  ])(
+    "matches JSON.stringify UTF-8 bytes for representative %s strings and keys",
+    (_name, value) => {
+      expect(measuredSerializedBytes(value)).toBe(
+        jsonStringifyUtf8Bytes(value),
+      );
+      expect(measuredSerializedBytes({ [value]: null })).toBe(
+        jsonStringifyUtf8Bytes({ [value]: null }),
+      );
+    },
+  );
 
   test("accepts depth at the limit and rejects one level over", () => {
     expect(codes(issuesFor([[null]], { maxDepth: 3 }))).not.toContain("depth");
