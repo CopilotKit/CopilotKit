@@ -11,10 +11,12 @@ const createAnthropic = vi.fn((_opts?: unknown) => (modelId: string) => ({
   modelId,
   provider: "anthropic",
 }));
-const createGoogleGenerativeAI = vi.fn((_opts?: unknown) => (modelId: string) => ({
-  modelId,
-  provider: "google",
-}));
+const createGoogleGenerativeAI = vi.fn(
+  (_opts?: unknown) => (modelId: string) => ({
+    modelId,
+    provider: "google",
+  }),
+);
 
 vi.mock("@ai-sdk/openai", () => ({
   createOpenAI: (opts: unknown) => createOpenAI(opts),
