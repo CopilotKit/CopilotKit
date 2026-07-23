@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import {
   CreditCard,
+  Receipt,
   HelpCircle,
   LayoutDashboard,
   RotateCcw,
@@ -208,6 +209,12 @@ export function LayoutComponent({
               icon={LayoutDashboard}
               label="Dashboard"
               active={pathname.startsWith("/dashboard")}
+            />
+            <NavItem
+              href="/charges"
+              icon={Receipt}
+              label="Charges"
+              active={pathname.startsWith("/charges")}
             />
             <NavItem
               href="/"
