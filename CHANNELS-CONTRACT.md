@@ -66,6 +66,11 @@ when it lands** so the Intelligence session can rebase cleanly.
   also carries `provider`. All SDK-side + channels-intelligence callers are already migrated on this branch
   (channels-intelligence tests + runtime reader updated + green). No connector/ProviderEffect/ChannelRunner
   contract changed — only the public Channel lifecycle surface was removed.
+- SDK DRAFT PR OPEN: **https://github.com/CopilotKit/CopilotKit/pull/6134** (base `main`, DRAFT). This is the
+  CopilotKit SDK-side changeset (Tasks 1-4,8-core,A1 + docs). It should land TOGETHER with the Intelligence-side
+  PR (Tasks 5,6,7,10). Task 7 (channels-intelligence rewrite) rebases onto `ben1/channel-runner` (new public
+  Channel type — A1 shas above). NOTE: this contract file itself is a temp artifact to remove before the SDK PR
+  is marked ready.
 - SDK session note: to keep `ben1/channel-runner` GREEN through A1-remove, the SDK session also migrated
   any residual public-lifecycle callers in channels-intelligence + runtime to `ɵruntime.*` (mechanical only —
   NOT the T7 rewrite; done now while the Intelligence session isn't editing those files, so no concurrent-edit
