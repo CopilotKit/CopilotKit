@@ -18,7 +18,7 @@ import {
   INLINE_ATTACHMENT_PAYLOAD_FORBIDDEN_NORMALIZED_KEY_SUFFIXES_V1,
   INLINE_ATTACHMENT_PAYLOAD_KEY_NORMALIZATION_V1,
 } from "./contracts.js";
-import type { JsonObject } from "./contracts.js";
+import type { JsonObject, JsonValue } from "./contracts.js";
 import { LEARNING_PLATFORM_ERROR_CODES } from "./errors.js";
 import { learningContractJsonSchemas } from "./schema-registry.js";
 import type { LearningContractJsonSchemaValidateFunction } from "./portable-validator.js";
@@ -26,6 +26,12 @@ import {
   compileLearningContractJsonSchema,
   registerLearningContractJsonSchemaValidator,
 } from "./portable-validator.js";
+import {
+  ATTACHMENT_METADATA_BOUNDS_V1,
+  TERMINAL_ERROR_DETAILS_BOUNDS_V1,
+  utf8ByteLength,
+  validateJsonTreeBoundsV1,
+} from "./snapshot-evidence-bounds.js";
 
 const corpusPath = fileURLToPath(
   new URL("../conformance/learning-platform-v1.json", import.meta.url),
@@ -114,6 +120,38 @@ function findAttachmentMetadataBoundedJsonAssertion(value: unknown): unknown {
   return undefined;
 }
 
+function countJsonNodes(value: JsonValue): number {
+  if (Array.isArray(value)) {
+    return (
+      1 + value.reduce<number>((count, item) => count + countJsonNodes(item), 0)
+    );
+  }
+  if (value !== null && typeof value === "object") {
+    return (
+      1 +
+      Object.values(value).reduce<number>(
+        (count, item) => count + countJsonNodes(item),
+        0,
+      )
+    );
+  }
+  return 1;
+}
+
+function withoutBoundedJsonNodeLimit(schema: JsonObject): JsonObject {
+  const clone = structuredClone(schema) as Record<string, unknown>;
+  const assertions = clone[COPILOTKIT_ASSERTIONS_JSON_SCHEMA_KEYWORD] as Array<
+    Record<string, unknown>
+  >;
+
+  for (const assertion of assertions) {
+    if (assertion.operation === "bounded-json") {
+      assertion.maximumNodes = Number.MAX_SAFE_INTEGER;
+    }
+  }
+  return clone as JsonObject;
+}
+
 const dtoSchemaNames = [
   "AttachmentReferenceV1",
   "BlobLocatorV1",
@@ -164,8 +202,8 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(corpus.schemaVersion).toBe(1);
     expect(Object.keys(corpus.schemas)).toHaveLength(47);
-    expect(corpus.cases).toHaveLength(272);
-    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(272);
+    expect(corpus.cases).toHaveLength(274);
+    expect(new Set(corpus.cases.map(({ name }) => name)).size).toBe(274);
     expect(Object.keys(corpus.schemas).sort()).toEqual(expectedNames);
     expect(Object.keys(learningPlatformConformanceSchemas).sort()).toEqual(
       expectedNames,
@@ -230,6 +268,113 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     }
 
     expect(mismatches, `mismatchCount: ${mismatches.length}`).toEqual([]);
+  });
+
+  test("isolates exact and plus-one JSON node fixtures from every other bound", () => {
+    const corpus = buildLearningPlatformConformanceCorpus();
+    const casesByName = new Map(
+      corpus.cases.map((entry) => [entry.name, entry]),
+    );
+    const subjects = [
+      {
+        exactName: "attachment-metadata-accepts-exact-node-boundary",
+        plusOneName: "attachment-metadata-rejects-node-boundary-plus-one",
+        property: "metadata",
+        limit: ATTACHMENT_METADATA_BOUNDS_V1.maxNodes,
+        bounds: ATTACHMENT_METADATA_BOUNDS_V1,
+        schema: "AttachmentReferenceV1",
+      },
+      {
+        exactName: "terminal-error-details-accepts-exact-node-boundary",
+        plusOneName: "terminal-error-details-rejects-node-boundary-plus-one",
+        property: "details",
+        limit: TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxNodes,
+        bounds: TERMINAL_ERROR_DETAILS_BOUNDS_V1,
+        schema: "TerminalErrorV1",
+      },
+    ] as const;
+
+    for (const subject of subjects) {
+      const exactCase = casesByName.get(subject.exactName);
+      const plusOneCase = casesByName.get(subject.plusOneName);
+      expect(plusOneCase, subject.plusOneName).toBeDefined();
+      if (plusOneCase === undefined) continue;
+
+      const plusOneValue = (plusOneCase.value as JsonObject)[subject.property];
+      expect(plusOneValue, `${subject.plusOneName} subject`).toBeDefined();
+      if (plusOneValue === undefined) continue;
+      expect(countJsonNodes(plusOneValue)).toBe(subject.limit + 1);
+
+      expect(
+        validateJsonTreeBoundsV1(plusOneValue, {
+          ...subject.bounds,
+          maxNodes: Number.MAX_SAFE_INTEGER,
+        }),
+      ).toEqual([]);
+
+      const nodeDisabledValidate = compileLearningContractJsonSchema(
+        createPortableSchemaValidator(),
+        withoutBoundedJsonNodeLimit(
+          corpus.schemas[subject.schema] as JsonObject,
+        ),
+      );
+      expect(
+        nodeDisabledValidate(plusOneCase.value),
+        `${subject.plusOneName}: ${JSON.stringify(nodeDisabledValidate.errors)}`,
+      ).toBe(true);
+
+      expect(exactCase, subject.exactName).toBeDefined();
+      if (exactCase === undefined) continue;
+      const exactValue = (exactCase.value as JsonObject)[subject.property];
+      expect(exactValue, `${subject.exactName} subject`).toBeDefined();
+      if (exactValue === undefined) continue;
+      expect(countJsonNodes(exactValue)).toBe(subject.limit);
+    }
+  });
+
+  test("makes UTF-8 plus-one fixtures exactly one byte over their limits", () => {
+    const casesByName = new Map(
+      buildLearningPlatformConformanceCorpus().cases.map((entry) => [
+        entry.name,
+        entry.value as JsonObject,
+      ]),
+    );
+    const subjects = [
+      ["attachment-provider-rejects-utf8-boundary-plus-one", "provider", 64],
+      [
+        "attachment-metadata-rejects-string-boundary-plus-one",
+        "metadata",
+        2_048,
+      ],
+      [
+        "terminal-error-message-rejects-utf8-boundary-plus-one",
+        "message",
+        4_096,
+      ],
+      [
+        "terminal-error-details-rejects-string-boundary-plus-one",
+        "details",
+        4_096,
+      ],
+      ["terminal-error-code-rejects-utf8-boundary-plus-one", "code", 256],
+      [
+        "terminal-error-category-rejects-utf8-boundary-plus-one",
+        "category",
+        256,
+      ],
+      ["terminal-error-stack-rejects-utf8-boundary-plus-one", "stack", 16_384],
+    ] as const;
+
+    for (const [name, property, limit] of subjects) {
+      const value = casesByName.get(name);
+      expect(value, name).toBeDefined();
+      if (value === undefined) continue;
+      const boundedValue =
+        property === "metadata" || property === "details"
+          ? (value[property] as JsonObject).value
+          : value[property];
+      expect(utf8ByteLength(boundedValue as string), name).toBe(limit + 1);
+    }
   });
 
   test("keeps exported and corpus JSON Schemas identical", () => {

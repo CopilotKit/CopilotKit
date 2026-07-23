@@ -5,6 +5,10 @@ import {
 } from "./contracts.js";
 import type { JsonValue } from "./contracts.js";
 import { learningContractSchemas } from "./schema-registry.js";
+import {
+  ATTACHMENT_METADATA_BOUNDS_V1,
+  TERMINAL_ERROR_DETAILS_BOUNDS_V1,
+} from "./snapshot-evidence-bounds.js";
 
 /** Canonical Zod schemas corresponding one-to-one with corpus schema names. */
 export const learningPlatformConformanceSchemas = learningContractSchemas;
@@ -678,6 +682,31 @@ function nestedJsonValue(objectDepth: number): JsonValue {
   return value;
 }
 
+function boundedBranchingJsonValue(
+  nodeCount: number,
+  maximumArrayItems: number,
+): JsonValue {
+  const remainingNodes = nodeCount - 2;
+  const branchCount = Math.ceil(remainingNodes / (maximumArrayItems + 1));
+  if (
+    remainingNodes < 1 ||
+    branchCount > maximumArrayItems ||
+    remainingNodes - branchCount > branchCount * maximumArrayItems
+  ) {
+    throw new Error(
+      `Unable to build ${nodeCount}-node JSON fixture with array limit ${maximumArrayItems}`,
+    );
+  }
+
+  let remainingLeaves = remainingNodes - branchCount;
+  const branches = Array.from({ length: branchCount }, () => {
+    const leafCount = Math.min(maximumArrayItems, remainingLeaves);
+    remainingLeaves -= leafCount;
+    return Array.from({ length: leafCount }, () => null);
+  });
+  return { values: branches };
+}
+
 function jsonObjectWithSerializedUtf8Bytes(
   targetBytes: number,
   maximumStringBytes = 2_048,
@@ -801,7 +830,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       name: "attachment-provider-rejects-utf8-boundary-plus-one",
       schema: "AttachmentReferenceV1",
       valid: false,
-      value: { ...canonicalAttachment, provider: "é".repeat(33) },
+      value: { ...canonicalAttachment, provider: `${"é".repeat(32)}a` },
     },
     {
       name: "attachment-rejects-unknown-reference-field",
@@ -926,12 +955,27 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: { ...canonicalAttachment, metadata: nestedJsonValue(7) },
     },
     {
+      name: "attachment-metadata-accepts-exact-node-boundary",
+      schema: "AttachmentReferenceV1",
+      valid: true,
+      value: {
+        ...canonicalAttachment,
+        metadata: boundedBranchingJsonValue(
+          ATTACHMENT_METADATA_BOUNDS_V1.maxNodes,
+          ATTACHMENT_METADATA_BOUNDS_V1.maxArrayItems,
+        ),
+      },
+    },
+    {
       name: "attachment-metadata-rejects-node-boundary-plus-one",
       schema: "AttachmentReferenceV1",
       valid: false,
       value: {
         ...canonicalAttachment,
-        metadata: { values: Array.from({ length: 127 }, () => null) },
+        metadata: boundedBranchingJsonValue(
+          ATTACHMENT_METADATA_BOUNDS_V1.maxNodes + 1,
+          ATTACHMENT_METADATA_BOUNDS_V1.maxArrayItems,
+        ),
       },
     },
     {
@@ -960,7 +1004,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...canonicalAttachment,
-        metadata: { value: "é".repeat(1_025) },
+        metadata: { value: `${"é".repeat(1_024)}a` },
       },
     },
     {
@@ -979,7 +1023,10 @@ function buildCases(): LearningPlatformConformanceCase[] {
       name: "terminal-error-message-rejects-utf8-boundary-plus-one",
       schema: "TerminalErrorV1",
       valid: false,
-      value: { ...canonicalTerminalError, message: "é".repeat(2_049) },
+      value: {
+        ...canonicalTerminalError,
+        message: `${"é".repeat(2_048)}a`,
+      },
     },
     {
       name: "terminal-error-rejects-unknown-field",
@@ -1021,12 +1068,27 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: { ...canonicalTerminalError, details: nestedJsonValue(9) },
     },
     {
+      name: "terminal-error-details-accepts-exact-node-boundary",
+      schema: "TerminalErrorV1",
+      valid: true,
+      value: {
+        ...canonicalTerminalError,
+        details: boundedBranchingJsonValue(
+          TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxNodes,
+          TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxArrayItems,
+        ),
+      },
+    },
+    {
       name: "terminal-error-details-rejects-node-boundary-plus-one",
       schema: "TerminalErrorV1",
       valid: false,
       value: {
         ...canonicalTerminalError,
-        details: { values: Array.from({ length: 255 }, () => null) },
+        details: boundedBranchingJsonValue(
+          TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxNodes + 1,
+          TERMINAL_ERROR_DETAILS_BOUNDS_V1.maxArrayItems,
+        ),
       },
     },
     {
@@ -1046,7 +1108,7 @@ function buildCases(): LearningPlatformConformanceCase[] {
       valid: false,
       value: {
         ...canonicalTerminalError,
-        details: { value: "é".repeat(2_049) },
+        details: { value: `${"é".repeat(2_048)}a` },
       },
     },
     {
@@ -1062,19 +1124,22 @@ function buildCases(): LearningPlatformConformanceCase[] {
       name: "terminal-error-code-rejects-utf8-boundary-plus-one",
       schema: "TerminalErrorV1",
       valid: false,
-      value: { ...canonicalTerminalError, code: "é".repeat(129) },
+      value: { ...canonicalTerminalError, code: `${"é".repeat(128)}a` },
     },
     {
       name: "terminal-error-category-rejects-utf8-boundary-plus-one",
       schema: "TerminalErrorV1",
       valid: false,
-      value: { ...canonicalTerminalError, category: "é".repeat(129) },
+      value: { ...canonicalTerminalError, category: `${"é".repeat(128)}a` },
     },
     {
       name: "terminal-error-stack-rejects-utf8-boundary-plus-one",
       schema: "TerminalErrorV1",
       valid: false,
-      value: { ...canonicalTerminalError, stack: "é".repeat(8_193) },
+      value: {
+        ...canonicalTerminalError,
+        stack: `${"é".repeat(8_192)}a`,
+      },
     },
     {
       name: "normalized-activity-requires-activity-type",

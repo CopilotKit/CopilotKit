@@ -181,6 +181,8 @@ describe("validateJsonTreeBoundsV1", () => {
         maxNodes: 1,
       }),
     ).toEqual([]);
+    expect(codes(issuesFor(null, { maxDepth: 0 }))).toContain("depth");
+    expect(codes(issuesFor(null, { maxNodes: 0 }))).toContain("nodes");
   });
 
   test("accepts serialized bytes at the limit and rejects one byte over", () => {
