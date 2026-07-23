@@ -79,6 +79,20 @@ interface ExecuteToolHandlerResult {
 }
 
 /**
+ * Absolute safety cap on the depth of recursive follow-up runs triggered by
+ * `processAgentResult`. Without this, any scenario that keeps
+ * `needsFollowUp = true` (e.g. the LLM repeatedly calling the same tool, a
+ * backend that errors after receiving tool results, or input processors that
+ * reprocess tool messages) would loop indefinitely, silently consuming API
+ * quota and potentially DOS'ing the backend.
+ *
+ * The cap is deliberately high so that legitimate multi-step agent workflows
+ * (search → fill form → confirm → update → send email, etc.) are never
+ * affected; it only trips on runaway recursion.
+ */
+const MAX_FOLLOW_UP_DEPTH = 100;
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
@@ -514,12 +528,28 @@ export class RunHandler {
     }
 
     if (needsFollowUp && !this._runAbortController?.signal.aborted) {
-      // Yield to the framework scheduler before the follow-up run so that any
-      // deferred state updates (e.g. React useEffect in useAgentContext) can
-      // complete and write fresh values into the context store before runAgent
-      // reads it. The base implementation is a no-op; React overrides this.
-      await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+      // Circuit breaker: bail out instead of recursing once the follow-up
+      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
+      // depth of nested runAgent calls (it is incremented in runAgent and
+      // decremented in its finally block), so a runaway loop — repeated
+      // identical tool calls, a backend that keeps erroring after tool
+      // results, reprocessed tool messages, etc. — eventually trips this
+      // guard rather than looping forever and exhausting API quota.
+      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+        logger.warn(
+          `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
+            `Stopping recursive follow-up runs to prevent an infinite loop. ` +
+            `This usually indicates a tool that keeps requesting a follow-up (e.g. the LLM repeatedly ` +
+            `calling the same tool). Consider setting "followUp: false" on the offending tool.`,
+        );
+      } else {
+        // Yield to the framework scheduler before the follow-up run so that any
+        // deferred state updates (e.g. React useEffect in useAgentContext) can
+        // complete and write fresh values into the context store before runAgent
+        // reads it. The base implementation is a no-op; React overrides this.
+        await this._internal.waitForPendingFrameworkUpdates();
+        return await this.runAgent({ agent });
+      }
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
