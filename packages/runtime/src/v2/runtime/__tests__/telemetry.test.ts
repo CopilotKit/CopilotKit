@@ -13,6 +13,19 @@ const baseInstanceEvent: RuntimeInstanceCreatedInfo = {
 const legacyLicenseToken = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.sig`;
+const callerSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+
+beforeEach(() => {
+  delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+});
+
+afterEach(() => {
+  if (callerSampleRate === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = callerSampleRate;
+  }
+});
 
 describe("V2 telemetry identity sampling", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
@@ -311,19 +324,11 @@ describe("TelemetryClient", () => {
   it("throws on NaN sampleRate from a malformed env override", () => {
     // parseFloat('nonsense') = NaN. Without Number.isNaN in the validator,
     // NaN slips past the range check and produces a silent always-drop.
-    const original = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
     process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
-    try {
-      expect(() => new TelemetryClient({ telemetryDisabled: false })).toThrow(
-        "Sample rate must be between 0 and 1",
-      );
-    } finally {
-      if (original === undefined) {
-        delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
-      } else {
-        process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = original;
-      }
-    }
+
+    expect(() => new TelemetryClient({ telemetryDisabled: false })).toThrow(
+      "Sample rate must be between 0 and 1",
+    );
   });
 
   it("default sampleRate=0.05 gates anonymous callers when no rate is configured", async () => {

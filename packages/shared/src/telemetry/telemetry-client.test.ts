@@ -64,6 +64,19 @@ const telemetryOptOuts = [
 const telemetryOptOutCases = telemetryOptOuts.flatMap((optOut) =>
   telemetryIdentityModes.map((identity) => ({ identity, optOut })),
 );
+const callerSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+
+beforeEach(() => {
+  delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+});
+
+afterEach(() => {
+  if (callerSampleRate === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = callerSampleRate;
+  }
+});
 
 describe("v1 TelemetryClient", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
@@ -511,17 +524,9 @@ describe("v1 TelemetryClient", () => {
     // parseFloat('nonsense') = NaN; without the explicit guard, NaN slips
     // past the range check (all NaN comparisons are false) and produces a
     // silent always-drop. Guard the validator with Number.isNaN.
-    const original = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
     process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = "not-a-number";
-    try {
-      expect(() => makeClient()).toThrow("Sample rate must be between 0 and 1");
-    } finally {
-      if (original === undefined) {
-        delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
-      } else {
-        process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = original;
-      }
-    }
+
+    expect(() => makeClient()).toThrow("Sample rate must be between 0 and 1");
   });
 });
 
