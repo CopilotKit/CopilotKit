@@ -3222,7 +3222,7 @@ importers:
         specifier: ^3.0.36
         version: 3.0.36(zod@3.25.76)
       '@anthropic-ai/sdk':
-        specifier: ^0.57.0
+        specifier: '>=0.57.0'
         version: 0.57.0
       '@copilotkit/channels-core':
         specifier: workspace:^
