@@ -1,0 +1,7 @@
+{
+  "claude-sdk-python": {
+    "overrides": {
+      "shared-state-write": { "cells": ["shared-state-write"] }
+    }
+  }
+}

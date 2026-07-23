@@ -1,0 +1,21 @@
+{
+  "suites": [
+    {
+      "title": "a.spec.ts",
+      "file": "a.spec.ts",
+      "specs": [
+        {
+          "title": "passes",
+          "ok": true,
+          "file": "a.spec.ts",
+          "tests": [
+            {
+              "title": "passes",
+              "results": [{ "status": "passed", "duration": 5 }]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

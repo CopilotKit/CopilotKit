@@ -5,8 +5,8 @@ import {
 } from "./d5-representatives.js";
 import { D5_REGISTRY, __clearD5RegistryForTesting } from "./d5-registry.js";
 import type { D5FeatureType } from "./d5-registry.js";
-import { glob } from "glob";
 import path from "node:path";
+import fs from "node:fs";
 
 describe("D5_REPRESENTATIVES", () => {
   it("maps known feature types to fixture filenames", () => {
@@ -31,10 +31,15 @@ describe("D5_REPRESENTATIVES", () => {
     // the production driver does at boot.
     __clearD5RegistryForTesting();
     const scriptsDir = path.resolve(__dirname, "../scripts");
-    const scriptFiles = await glob("d5-*.ts", {
-      cwd: scriptsDir,
-      ignore: ["*.test.ts", "_*"],
-    });
+    const scriptFiles = fs
+      .readdirSync(scriptsDir)
+      .filter(
+        (f) =>
+          f.startsWith("d5-") &&
+          f.endsWith(".ts") &&
+          !f.endsWith(".test.ts") &&
+          !f.startsWith("_"),
+      );
     for (const file of scriptFiles) {
       await import(path.join(scriptsDir, file));
     }
