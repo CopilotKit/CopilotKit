@@ -1,0 +1,314 @@
+/*
+ * Person profile entrance animation. Each child sets --stagger-i (an
+ * integer position index) and inherits the same fade-up keyframe, so the
+ * sequence reads as a cascade from header → stats → insight → tickets.
+ *
+ * Using CSS over a JS animation library keeps the demo featherweight and
+ * avoids re-running the stagger on every state sync (the animation only
+ * fires once per mount because the parent's `key` toggles when dashboard
+ * mode flips back to stats).
+ */
+
+.root {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  padding: 20px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+@keyframes profileStagger {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.root > *,
+.root .ticketRow,
+.root .statCard {
+  opacity: 0;
+  animation: profileStagger 420ms ease-out forwards;
+  animation-delay: calc(var(--stagger-i, 0) * 70ms);
+}
+
+/* ------------------------------------------------------------ header */
+
+.headerCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid #ffffff;
+  border-radius: 12px;
+  padding: 18px 20px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.avatarLarge {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: #010507;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(1, 5, 7, 0.08);
+}
+
+.headerMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: 10px;
+  font-weight: 500;
+  color: #57575b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.headerName {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 300;
+  color: #010507;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.headerRole {
+  font-size: 12px;
+  color: #57575b;
+  margin-top: 4px;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid #dbdbe5;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #010507;
+}
+
+/* -------------------------------------------------------- stats row */
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.statLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #57575b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.statValue {
+  font-size: 26px;
+  font-weight: 300;
+  color: #010507;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------- insight card */
+
+.insightCard {
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  padding: 14px 16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.insightLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #57575b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.insightBody {
+  font-size: 13px;
+  color: #010507;
+  line-height: 1.5;
+}
+
+/* --------------------------------------------------- section + rows */
+
+.sectionTitle {
+  font-size: 10px;
+  font-weight: 500;
+  color: #57575b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-left: 4px;
+}
+
+.ticketGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ticketRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  padding: 10px 14px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition:
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out;
+}
+
+.ticketRow:hover {
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(1, 5, 7, 0.06);
+}
+
+.ticketLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.priorityDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.ticketInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ticketId {
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: #838389;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ticketTitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: #010507;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ticketMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.statusChip {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #dbdbe5;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #010507;
+}
+
+.priorityChip {
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.dueChip {
+  padding: 2px 8px;
+  font-size: 10px;
+  color: #838389;
+  font-variant-numeric: tabular-nums;
+}
+
+.viewButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #dbdbe5;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #010507;
+  cursor: pointer;
+}
+
+.empty {
+  background: rgba(255, 255, 255, 0.65);
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: #57575b;
+}
