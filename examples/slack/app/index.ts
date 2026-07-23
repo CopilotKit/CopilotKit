@@ -241,7 +241,9 @@ async function main() {
       console.error("[channel] agent run failed", err);
       await thread
         .post("Sorry — I hit an error handling that. Please try again.")
-        .catch(() => {});
+        .catch((postErr: unknown) =>
+          console.error("[channel] failed to post agent error", postErr),
+        );
     }
   });
 

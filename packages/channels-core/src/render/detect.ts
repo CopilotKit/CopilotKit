@@ -42,7 +42,12 @@ function isFnTypeNode(v: unknown): v is {
  * the pure, presentational components this targets.
  */
 export function resolveArbitraryElement(v: unknown): unknown | null {
-  if (isReactElement(v)) return v;
+  if (isReactElement(v)) {
+    const t = (v as { type?: unknown }).type;
+    // A branded channels-ui component (even authored as a React element) is native.
+    if (typeof t === "function" && isChannelComponent(t)) return null;
+    return v;
+  }
   if (isFnTypeNode(v) && !isChannelComponent(v.type)) {
     try {
       const out = v.type(v.props ?? {});

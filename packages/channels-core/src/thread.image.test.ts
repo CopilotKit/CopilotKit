@@ -27,7 +27,12 @@ function makeThread(
     registerWaiter: () => {},
     interruptHandlers: new Map(),
     state: store,
-    render: { fonts: [], stylesheets: [], width: 640, height: 400 },
+    render: {
+      fonts: [{ name: "TestFont", data: new Uint8Array([9, 9, 9]) }],
+      stylesheets: ["body { color: red; }"],
+      width: 640,
+      height: 400,
+    },
     renderImage,
   };
   return new Thread(deps);
@@ -56,7 +61,14 @@ describe("Thread.post image routing", () => {
       width: 800,
       height: 400,
     }); // per-post width overrides
+    // fonts/stylesheets are not overridden per-post, so they thread through
+    // from the thread-wide deps.render config.
+    expect(renderImage.mock.calls[0]![1]).toMatchObject({
+      fonts: [{ name: "TestFont", data: new Uint8Array([9, 9, 9]) }],
+      stylesheets: ["body { color: red; }"],
+    });
     expect(filePosts).toHaveLength(1);
+    expect(filePosts[0]).toMatchObject({ filename: "card.png" });
     expect(adapter.posted).toHaveLength(0); // did NOT go through the native IR path
     expect(ref.id).toBe("F1");
   });
@@ -66,7 +78,7 @@ describe("Thread.post image routing", () => {
     const renderImage = vi.fn(async () => new Uint8Array());
     const thread = makeThread(adapter, renderImage);
 
-    await thread.post(Message({ children: "hello" }));
+    await thread.post({ type: Message, props: { children: "hello" } } as never);
 
     expect(renderImage).not.toHaveBeenCalled();
     expect(adapter.posted).toHaveLength(1);

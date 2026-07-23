@@ -37,6 +37,12 @@ describe("resolveArbitraryElement", () => {
     expect(resolveArbitraryElement({ type: Button, props: {} })).toBe(null);
   });
 
+  it("returns null for a branded channels-ui component authored as a React element", () => {
+    expect(resolveArbitraryElement(createElement(Message as never, {}))).toBe(
+      null,
+    );
+  });
+
   it("returns null when the fn throws while peeking (e.g. uses React hooks)", () => {
     const HooksComponent = () => {
       throw new Error("hooks");
