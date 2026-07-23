@@ -104,7 +104,7 @@ export type LearningContractAssertionV1 =
       readonly values: string;
       readonly collection: string;
       readonly key: string;
-      readonly targets: string;
+      readonly targets: string | readonly string[];
       readonly keyNormalization?: LearningContractAssertionNormalizationV1;
       readonly valueNormalization?: LearningContractAssertionNormalizationV1;
     }
@@ -960,9 +960,15 @@ function validateLookupReferencesAssertion(
     });
     if (!hasExactlyOneValue(matches)) return false;
 
+    const targetPointers =
+      typeof assertion.targets === "string"
+        ? [assertion.targets]
+        : assertion.targets;
     const targetKeys = new Set(
-      selectJsonPointerValues(matches[0], assertion.targets).map((value) =>
-        assertionValueKey(value, assertion.valueNormalization),
+      targetPointers.flatMap((pointer) =>
+        selectJsonPointerValues(matches[0], pointer).map((value) =>
+          assertionValueKey(value, assertion.valueNormalization),
+        ),
       ),
     );
     return selectJsonPointerValues(source, assertion.values).every((value) =>

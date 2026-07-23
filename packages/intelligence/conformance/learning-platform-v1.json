@@ -994,6 +994,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -1893,6 +1906,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -8844,6 +8870,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "threadId": "thread_1"
@@ -8908,6 +8947,322 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-requires-retained-evidence-projection",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-rejects-inline-attachment-bytes",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "body": "inline"
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-rejects-duplicate-retained-event-ids",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            },
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "repeated": true
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -9014,6 +9369,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -9114,6 +9482,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -9209,6 +9590,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -9305,6 +9699,19 @@
             "toolResults": []
           }
         ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
         "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "terminalError": {
@@ -9939,6 +10346,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10029,6 +10449,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "11111111-1111-4111-8111-111111111111",
             "snapshotSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "terminalError": {
@@ -10152,6 +10585,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10242,6 +10688,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10365,6 +10824,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10455,6 +10927,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10578,6 +11063,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10784,6 +11282,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -10907,6 +11418,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -11028,6 +11552,19 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -11149,6 +11686,153 @@
                 "toolResults": []
               }
             ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
+            "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "terminalError": {
+              "category": "model",
+              "code": "MODEL_FAILED",
+              "details": {
+                "attempt": 1
+              },
+              "message": "The run failed.",
+              "schemaVersion": 1,
+              "stack": null
+            },
+            "threadId": "thread_1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workflow-input-allows-annotation-retained-event",
+      "schema": "LearningWorkflowInputV1",
+      "valid": true,
+      "value": {
+        "availableSkills": [],
+        "limits": {},
+        "promptContext": null,
+        "schemaVersion": 1,
+        "selectedAnnotations": [
+          {
+            "annotationId": "11111111-1111-4111-8111-111111111111",
+            "annotationRevision": 0,
+            "authoredAt": "2026-07-16T18:00:00.000Z",
+            "capturedAt": "2026-07-16T18:00:00.000Z",
+            "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "schemaVersion": 1,
+            "targetEvidenceLocator": {
+              "eventIds": [
+                "event_custom"
+              ],
+              "messageIds": []
+            },
+            "targetSnapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "text": "Prefer idempotent retries."
+          }
+        ],
+        "threads": [
+          {
+            "attachments": [
+              {
+                "byteLength": 12,
+                "checksum": {
+                  "algorithm": "sha256",
+                  "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                },
+                "mediaType": "text/plain",
+                "metadata": {
+                  "source": "gateway"
+                },
+                "name": "attachment.txt",
+                "objectLocator": {
+                  "key": "snapshots/attachment.txt",
+                  "resource": "learning-evidence",
+                  "version": null
+                },
+                "provider": "s3",
+                "schemaVersion": 1
+              }
+            ],
+            "externalRunId": "external_run_1",
+            "messages": [
+              {
+                "content": "searching",
+                "eventIds": [
+                  "event_1"
+                ],
+                "messageId": "message_1",
+                "role": "assistant",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [
+                  {
+                    "argsText": "{}",
+                    "id": "call_1",
+                    "name": "search"
+                  }
+                ],
+                "toolResults": []
+              },
+              {
+                "content": "done",
+                "eventIds": [
+                  "event_2"
+                ],
+                "messageId": "message_2",
+                "role": "tool",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [],
+                "toolResults": [
+                  {
+                    "output": {
+                      "hits": 1
+                    },
+                    "status": "ok",
+                    "toolCallId": "call_1"
+                  }
+                ]
+              },
+              {
+                "activityMetadata": {
+                  "destination": "support"
+                },
+                "activityType": "handoff",
+                "content": null,
+                "eventIds": [
+                  "event_3"
+                ],
+                "messageId": "message_3",
+                "role": "activity",
+                "timestamp": "2026-07-16T18:00:00.000Z",
+                "toolCalls": [],
+                "toolResults": []
+              }
+            ],
+            "retainedEvidence": {
+              "events": [
+                {
+                  "eventId": "event_custom",
+                  "payload": {
+                    "answer": 42
+                  },
+                  "timestamp": "2026-07-16T18:00:00.000Z",
+                  "type": "CUSTOM"
+                }
+              ],
+              "schemaVersion": 1
+            },
             "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
             "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "terminalError": {
@@ -17050,8 +17734,21 @@
                     "type": "string"
                   },
                   "targets": {
-                    "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
-                    "type": "string"
+                    "oneOf": [
+                      {
+                        "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
+                        "type": "string"
+                      },
+                      {
+                        "items": {
+                          "pattern": "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
+                          "type": "string"
+                        },
+                        "minItems": 1,
+                        "type": "array",
+                        "uniqueItems": true
+                      }
+                    ]
                   },
                   "valueNormalization": {
                     "additionalProperties": false,
@@ -23498,6 +24195,60 @@
                 },
                 "type": "array"
               },
+              "retainedEvidence": {
+                "additionalProperties": {},
+                "properties": {
+                  "events": {
+                    "items": {
+                      "additionalProperties": {},
+                      "properties": {
+                        "eventId": {
+                          "maxLength": 1024,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "payload": {
+                          "additionalProperties": {
+                            "$ref": "#/$defs/__schema0"
+                          },
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "timestamp": {
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                          "type": "string"
+                        },
+                        "type": {
+                          "maxLength": 256,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "eventId",
+                        "type",
+                        "timestamp",
+                        "payload"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
+                  },
+                  "schemaVersion": {
+                    "const": 1,
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "schemaVersion",
+                  "events"
+                ],
+                "type": "object"
+              },
               "snapshotId": {
                 "format": "uuid",
                 "not": {
@@ -23636,11 +24387,64 @@
               "threadId",
               "externalRunId",
               "messages",
+              "retainedEvidence",
               "terminalError",
               "attachments"
             ],
             "type": "object",
             "x-copilotkit-assertions": [
+              {
+                "maximum": 4096,
+                "operation": "count",
+                "values": "/retainedEvidence/events/*"
+              },
+              {
+                "maximum": 1024,
+                "operation": "utf8-byte-length",
+                "values": "/retainedEvidence/events/*/eventId"
+              },
+              {
+                "maximum": 256,
+                "operation": "utf8-byte-length",
+                "values": "/retainedEvidence/events/*/type"
+              },
+              {
+                "maximumArrayItems": 4096,
+                "maximumDepth": 11,
+                "maximumKeyUtf8Bytes": 1024,
+                "maximumNodes": 1048576,
+                "maximumObjectProperties": 256,
+                "maximumStringUtf8Bytes": 8388608,
+                "operation": "bounded-json",
+                "serializedMaximum": 8388608,
+                "values": "/retainedEvidence"
+              },
+              {
+                "maximumArrayItems": 256,
+                "maximumDepth": 9,
+                "maximumKeyUtf8Bytes": 1024,
+                "maximumNodes": 1024,
+                "maximumObjectProperties": 256,
+                "maximumStringUtf8Bytes": 65536,
+                "operation": "bounded-json",
+                "serializedMaximum": 65536,
+                "values": "/retainedEvidence/events/*"
+              },
+              {
+                "maximumArrayItems": 256,
+                "maximumDepth": 8,
+                "maximumKeyUtf8Bytes": 512,
+                "maximumNodes": 512,
+                "maximumObjectProperties": 128,
+                "maximumStringUtf8Bytes": 16384,
+                "operation": "bounded-json",
+                "serializedMaximum": 32768,
+                "values": "/retainedEvidence/events/*/payload"
+              },
+              {
+                "operation": "unique",
+                "values": "/retainedEvidence/events/*/eventId"
+              },
               {
                 "operation": "unique",
                 "values": "/messages/*/messageId"
@@ -23722,7 +24526,10 @@
           "operation": "lookup-references",
           "reference": "/targetSnapshotId",
           "sources": "/selectedAnnotations/*",
-          "targets": "/messages/*/eventIds/*",
+          "targets": [
+            "/messages/*/eventIds/*",
+            "/retainedEvidence/events/*/eventId"
+          ],
           "values": "/targetEvidenceLocator/eventIds/*"
         }
       ]
@@ -26332,15 +27139,15 @@
         },
         {
           "operation": "unique",
+          "values": "/retainedEvidence/events/*/eventId"
+        },
+        {
+          "operation": "unique",
           "values": "/sourceEvents/*/eventId"
         },
         {
           "operation": "unique",
           "values": "/messages/*/messageId"
-        },
-        {
-          "operation": "unique",
-          "values": "/retainedEvidence/events/*/eventId"
         },
         {
           "collection": "/sourceEvents/*",
@@ -29139,6 +29946,60 @@
           },
           "type": "array"
         },
+        "retainedEvidence": {
+          "additionalProperties": {},
+          "properties": {
+            "events": {
+              "items": {
+                "additionalProperties": {},
+                "properties": {
+                  "eventId": {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "payload": {
+                    "additionalProperties": {
+                      "$ref": "#/$defs/__schema0"
+                    },
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "timestamp": {
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$",
+                    "type": "string"
+                  },
+                  "type": {
+                    "maxLength": 256,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "eventId",
+                  "type",
+                  "timestamp",
+                  "payload"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4096,
+              "type": "array"
+            },
+            "schemaVersion": {
+              "const": 1,
+              "type": "number"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "events"
+          ],
+          "type": "object"
+        },
         "snapshotId": {
           "format": "uuid",
           "not": {
@@ -29277,11 +30138,64 @@
         "threadId",
         "externalRunId",
         "messages",
+        "retainedEvidence",
         "terminalError",
         "attachments"
       ],
       "type": "object",
       "x-copilotkit-assertions": [
+        {
+          "maximum": 4096,
+          "operation": "count",
+          "values": "/retainedEvidence/events/*"
+        },
+        {
+          "maximum": 1024,
+          "operation": "utf8-byte-length",
+          "values": "/retainedEvidence/events/*/eventId"
+        },
+        {
+          "maximum": 256,
+          "operation": "utf8-byte-length",
+          "values": "/retainedEvidence/events/*/type"
+        },
+        {
+          "maximumArrayItems": 4096,
+          "maximumDepth": 11,
+          "maximumKeyUtf8Bytes": 1024,
+          "maximumNodes": 1048576,
+          "maximumObjectProperties": 256,
+          "maximumStringUtf8Bytes": 8388608,
+          "operation": "bounded-json",
+          "serializedMaximum": 8388608,
+          "values": "/retainedEvidence"
+        },
+        {
+          "maximumArrayItems": 256,
+          "maximumDepth": 9,
+          "maximumKeyUtf8Bytes": 1024,
+          "maximumNodes": 1024,
+          "maximumObjectProperties": 256,
+          "maximumStringUtf8Bytes": 65536,
+          "operation": "bounded-json",
+          "serializedMaximum": 65536,
+          "values": "/retainedEvidence/events/*"
+        },
+        {
+          "maximumArrayItems": 256,
+          "maximumDepth": 8,
+          "maximumKeyUtf8Bytes": 512,
+          "maximumNodes": 512,
+          "maximumObjectProperties": 128,
+          "maximumStringUtf8Bytes": 16384,
+          "operation": "bounded-json",
+          "serializedMaximum": 32768,
+          "values": "/retainedEvidence/events/*/payload"
+        },
+        {
+          "operation": "unique",
+          "values": "/retainedEvidence/events/*/eventId"
+        },
         {
           "operation": "unique",
           "values": "/messages/*/messageId"

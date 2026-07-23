@@ -14,6 +14,7 @@ import {
 const UUIDS = {
   container: "11111111-1111-4111-8111-111111111111",
   snapshot: "22222222-2222-4222-8222-222222222222",
+  annotation: "33333333-3333-4333-8333-333333333333",
 } as const;
 const SHA_A = "a".repeat(64);
 const SHA_B = "b".repeat(64);
@@ -221,6 +222,7 @@ const workflowInput = {
       threadId: finishedSnapshot.threadId,
       externalRunId: finishedSnapshot.externalRunId,
       messages: finishedSnapshot.messages,
+      retainedEvidence: finishedSnapshot.retainedEvidence,
       terminalError: finishedSnapshot.terminalError,
       attachments: finishedSnapshot.attachments,
     },
@@ -604,6 +606,46 @@ describe("canonical snapshot evidence contracts", () => {
     ).toBe(false);
   });
 
+  test("requires and preserves retained evidence in workflow projections", () => {
+    expect(
+      learningWorkflowInputV1Schema.parse(workflowInput).threads[0]
+        ?.retainedEvidence,
+    ).toEqual(finishedSnapshot.retainedEvidence);
+
+    const { retainedEvidence: _retainedEvidence, ...withoutRetainedEvidence } =
+      workflowInput.threads[0];
+    expect(
+      learningWorkflowInputV1Schema.safeParse({
+        ...workflowInput,
+        threads: [withoutRetainedEvidence],
+      }).success,
+    ).toBe(false);
+  });
+
+  test("allows selected annotations to target retained custom events", () => {
+    expect(
+      learningWorkflowInputV1Schema.safeParse({
+        ...workflowInput,
+        selectedAnnotations: [
+          {
+            schemaVersion: 1,
+            annotationId: UUIDS.annotation,
+            targetSnapshotId: finishedSnapshot.snapshotId,
+            targetEvidenceLocator: {
+              messageIds: [],
+              eventIds: ["event_custom"],
+            },
+            text: "Keep the custom event evidence.",
+            contentSha256: SHA_B,
+            annotationRevision: 0,
+            authoredAt: NOW,
+            capturedAt: NOW,
+          },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+
   test("carries evidence refinements into portable JSON Schema", () => {
     const portable = createLearningContractJsonSchemaValidator();
     const validateAttachment = portable.compile(
@@ -755,5 +797,41 @@ describe("canonical snapshot evidence contracts", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+  test("carries retained evidence and custom event references into portable workflow schemas", () => {
+    const portable = createLearningContractJsonSchemaValidator();
+    const validateThread = portable.compile(
+      learningContractJsonSchemas.WorkflowThreadV1,
+    );
+    const validateInput = portable.compile(
+      learningContractJsonSchemas.LearningWorkflowInputV1,
+    );
+    const { retainedEvidence: _retainedEvidence, ...withoutRetainedEvidence } =
+      workflowInput.threads[0];
+
+    expect(validateThread(workflowInput.threads[0])).toBe(true);
+    expect(validateThread(withoutRetainedEvidence)).toBe(false);
+    expect(
+      validateInput({
+        ...workflowInput,
+        selectedAnnotations: [
+          {
+            schemaVersion: 1,
+            annotationId: UUIDS.annotation,
+            targetSnapshotId: finishedSnapshot.snapshotId,
+            targetEvidenceLocator: {
+              messageIds: [],
+              eventIds: ["event_custom"],
+            },
+            text: "Keep the custom event evidence.",
+            contentSha256: SHA_B,
+            annotationRevision: 0,
+            authoredAt: NOW,
+            capturedAt: NOW,
+          },
+        ],
+      }),
+    ).toBe(true);
   });
 });

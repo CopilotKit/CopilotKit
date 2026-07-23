@@ -287,6 +287,7 @@ const workflowThread = {
   threadId: "thread_1",
   externalRunId: "external_run_1",
   messages: [assistantCallMessage, toolResultMessage, activityMessage],
+  retainedEvidence,
   terminalError,
   attachments: [attachment],
 };
@@ -1553,6 +1554,33 @@ function buildCases(): LearningPlatformConformanceCase[] {
       value: withoutJsonProperty(canonicalWorkflowThread, "attachments"),
     },
     {
+      name: "workflow-thread-requires-retained-evidence-projection",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: withoutJsonProperty(canonicalWorkflowThread, "retainedEvidence"),
+    },
+    {
+      name: "workflow-thread-rejects-inline-attachment-bytes",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: { ...canonicalWorkflowThread, attachments: [{ body: "inline" }] },
+    },
+    {
+      name: "workflow-thread-rejects-duplicate-retained-event-ids",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        retainedEvidence: {
+          schemaVersion: 1,
+          events: [
+            retainedEvidenceEvent,
+            { ...retainedEvidenceEvent, payload: { repeated: true } },
+          ],
+        },
+      },
+    },
+    {
       name: "workflow-thread-rejects-duplicate-message-ids",
       schema: "WorkflowThreadV1",
       valid: false,
@@ -1928,6 +1956,26 @@ function buildCases(): LearningPlatformConformanceCase[] {
             targetEvidenceLocator: {
               messageIds: [],
               eventIds: ["missing_event"],
+            },
+          },
+        ],
+      },
+    },
+    {
+      name: "workflow-input-allows-annotation-retained-event",
+      schema: "LearningWorkflowInputV1",
+      valid: true,
+      value: {
+        ...(canonicalValidValues.LearningWorkflowInputV1 as Record<
+          string,
+          JsonValue
+        >),
+        selectedAnnotations: [
+          {
+            ...selectedAnnotation,
+            targetEvidenceLocator: {
+              messageIds: [],
+              eventIds: [retainedEvidenceEvent.eventId],
             },
           },
         ],

@@ -527,7 +527,7 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
     ).toBe(true);
   });
 
-  test("keeps retained evidence snapshot-only and unnamed in the registry", () => {
+  test("projects retained evidence into workflows without naming internal DTOs", () => {
     const corpus = buildLearningPlatformConformanceCorpus();
     const workflowThread = corpus.schemas.WorkflowThreadV1 as {
       properties?: {
@@ -539,7 +539,7 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
 
     expect(workflowThread.properties).toHaveProperty("terminalError");
     expect(workflowThread.properties).toHaveProperty("attachments");
-    expect(workflowThread.properties).not.toHaveProperty("retainedEvidence");
+    expect(workflowThread.properties).toHaveProperty("retainedEvidence");
     expect(corpus.schemas).not.toHaveProperty("RetainedEvidenceEventV1");
     expect(corpus.schemas).not.toHaveProperty("RetainedEvidenceV1");
     expect(corpus.schemas).not.toHaveProperty("LearningResourceLimitsV1");
@@ -570,6 +570,10 @@ describe("Learning Platform V1 language-neutral conformance corpus", () => {
         "workflow-input-rejects-annotation-outside-frozen-input",
         "workflow-input-rejects-annotation-message-outside-target-snapshot",
         "workflow-input-rejects-annotation-event-outside-target-snapshot",
+        "workflow-input-allows-annotation-retained-event",
+        "workflow-thread-requires-retained-evidence-projection",
+        "workflow-thread-rejects-inline-attachment-bytes",
+        "workflow-thread-rejects-duplicate-retained-event-ids",
         "workflow-output-rejects-duplicate-insight-aliases",
         "workflow-output-rejects-duplicate-candidate-aliases",
         "workflow-output-rejects-dangling-insight-aliases",

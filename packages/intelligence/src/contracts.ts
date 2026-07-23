@@ -369,6 +369,18 @@ const retainedEvidenceV1Schema = z
         message: issue.message,
       });
     }
+
+    const eventIds = new Set<string>();
+    retainedEvidence.events.forEach((event, eventIndex) => {
+      if (eventIds.has(event.eventId)) {
+        context.addIssue({
+          code: "custom",
+          path: ["events", eventIndex, "eventId"],
+          message: `Duplicate retained-event ID ${event.eventId}.`,
+        });
+      }
+      eventIds.add(event.eventId);
+    });
   });
 
 type MessageIdentityIssue = {
@@ -512,13 +524,7 @@ export const runSnapshotV1Schema = z
       NonNullable<typeof snapshot.retainedEvidence>["events"][number]
     >();
     snapshot.retainedEvidence?.events.forEach((event, eventIndex) => {
-      if (retainedEventsById.has(event.eventId)) {
-        context.addIssue({
-          code: "custom",
-          path: ["retainedEvidence", "events", eventIndex, "eventId"],
-          message: `Duplicate retained-event ID ${event.eventId}.`,
-        });
-      } else {
+      if (!retainedEventsById.has(event.eventId)) {
         retainedEventsById.set(event.eventId, event);
       }
 
@@ -1208,6 +1214,7 @@ export const workflowThreadV1Schema = z
     threadId: idSchema,
     externalRunId: nonEmptyStringSchema,
     messages: z.array(normalizedMessageV1Schema),
+    retainedEvidence: retainedEvidenceV1Schema,
     terminalError: terminalErrorV1Schema.nullable(),
     attachments: attachmentReferencesV1Schema,
   })
@@ -1293,9 +1300,10 @@ export const learningWorkflowInputV1Schema = z
       const messageIds = new Set(
         thread.messages.map((message) => message.messageId),
       );
-      const eventIds = new Set(
-        thread.messages.flatMap((message) => message.eventIds),
-      );
+      const eventIds = new Set([
+        ...thread.messages.flatMap((message) => message.eventIds),
+        ...thread.retainedEvidence.events.map((event) => event.eventId),
+      ]);
       for (const [
         messageIndex,
         messageId,
@@ -1330,7 +1338,7 @@ export const learningWorkflowInputV1Schema = z
               eventIndex,
             ],
             message:
-              "Selected annotation event must exist in its target snapshot messages",
+              "Selected annotation event must exist in its target workflow evidence",
           });
         }
       }
@@ -1488,6 +1496,18 @@ const assertionValueTypeJsonSchema: JsonObject = {
 const assertionJsonPointerJsonSchema: JsonObject = {
   type: "string",
   pattern: "^(?:$|/(?:[^~/]|~[01])*(?:/(?:[^~/]|~[01])*)*)$",
+};
+
+const assertionJsonPointerListJsonSchema: JsonObject = {
+  oneOf: [
+    assertionJsonPointerJsonSchema,
+    {
+      type: "array",
+      items: assertionJsonPointerJsonSchema,
+      minItems: 1,
+      uniqueItems: true,
+    },
+  ],
 };
 
 const boundedJsonKeyNormalizationJsonSchema: JsonObject = {
@@ -1684,7 +1704,7 @@ export const learningContractAssertionV1JsonSchema: JsonObject = {
           values: assertionJsonPointerJsonSchema,
           collection: assertionJsonPointerJsonSchema,
           key: assertionJsonPointerJsonSchema,
-          targets: assertionJsonPointerJsonSchema,
+          targets: assertionJsonPointerListJsonSchema,
           keyNormalization: assertionNormalizationJsonSchema,
           valueNormalization: assertionNormalizationJsonSchema,
         },
@@ -2306,7 +2326,7 @@ registerLearningContractPortableAssertions(terminalErrorV1Schema, [
       RUN_SNAPSHOT_TERMINAL_ERROR_LIMITS_V1.detailsMaxKeyUtf8Bytes,
   },
 ]);
-registerLearningContractPortableAssertions(runSnapshotV1Schema, [
+const retainedEvidencePortableAssertions = [
   {
     operation: "count",
     values: "/retainedEvidence/events/*",
@@ -2372,15 +2392,19 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
   },
   {
     operation: "unique",
+    values: "/retainedEvidence/events/*/eventId",
+  },
+] satisfies readonly LearningContractAssertionV1[];
+
+registerLearningContractPortableAssertions(runSnapshotV1Schema, [
+  ...retainedEvidencePortableAssertions,
+  {
+    operation: "unique",
     values: "/sourceEvents/*/eventId",
   },
   {
     operation: "unique",
     values: "/messages/*/messageId",
-  },
-  {
-    operation: "unique",
-    values: "/retainedEvidence/events/*/eventId",
   },
   {
     operation: "lookup-references",
@@ -2451,6 +2475,7 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
   },
 ]);
 registerLearningContractPortableAssertions(workflowThreadV1Schema, [
+  ...retainedEvidencePortableAssertions,
   {
     operation: "unique",
     values: "/messages/*/messageId",
@@ -2599,7 +2624,7 @@ registerLearningContractPortableAssertions(learningWorkflowInputV1Schema, [
     values: "/targetEvidenceLocator/eventIds/*",
     collection: "/threads/*",
     key: "/snapshotId",
-    targets: "/messages/*/eventIds/*",
+    targets: ["/messages/*/eventIds/*", "/retainedEvidence/events/*/eventId"],
     keyNormalization: { caseFold: true },
   },
 ]);
