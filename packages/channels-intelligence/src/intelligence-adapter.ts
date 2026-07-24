@@ -266,12 +266,14 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn egress sequence; reset at the start of each turn's processing so
-   * a redelivered turn reproduces the same operation id sequence. */
-  private readonly seq = new Map<string, number>();
-  /** Whether the last durably accepted realtime frame for a live turn still
-   * needs a terminal `finalize` before its delivery may complete. */
-  private readonly renderNeedsFinalize = new Map<string, boolean>();
+  /** Per-turn render state; reset at the start of each turn's processing so a
+   * redelivery reproduces the same operation ids. A realtime turn starts
+   * non-terminal: even an output-free handler must durably accept `finalize`
+   * before its delivery may complete. */
+  private readonly renderState = new Map<
+    string,
+    { nextSeq: number; needsFinalize: boolean }
+  >();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -358,10 +360,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
-    this.seq.set(env.turnId, 0);
-    if (this.renderSink) {
-      this.renderNeedsFinalize.set(env.turnId, false);
-    }
+    this.renderState.set(env.turnId, {
+      nextSeq: 0,
+      needsFinalize: this.renderSink !== undefined,
+    });
     try {
       await this.dispatchTo(env);
       await this.finalizeRenderedTurn(env);
@@ -372,11 +374,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
         err instanceof Error ? err.message : String(err),
       );
     } finally {
-      // Drop the per-turn counter once the turn is fully processed (renderer
+      // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
-      this.seq.delete(env.turnId);
-      this.renderNeedsFinalize.delete(env.turnId);
+      this.renderState.delete(env.turnId);
     }
   }
 
@@ -524,8 +525,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * renderer and discrete post/update so all of a turn's render frames land on
    * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
   private nextFrameSeq(turnId: string): number {
-    const seq = this.seq.get(turnId) ?? 0;
-    this.seq.set(turnId, seq + 1);
+    const state = this.renderState.get(turnId);
+    if (!state) {
+      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      return 0;
+    }
+    const seq = state.nextSeq;
+    state.nextSeq += 1;
     return seq;
   }
 
@@ -538,8 +544,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
     turnId: string,
     event: ChannelRenderEvent,
   ): void {
-    if (!this.renderNeedsFinalize.has(turnId)) return;
-    this.renderNeedsFinalize.set(turnId, event.kind !== "finalize");
+    const state = this.renderState.get(turnId);
+    if (!state) return;
+    state.needsFinalize = event.kind !== "finalize";
   }
 
   /**
@@ -570,7 +577,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private async finalizeRenderedTurn(
     env: ChannelIngressEnvelope,
   ): Promise<void> {
-    if (!this.renderNeedsFinalize.get(env.turnId)) return;
+    if (!this.renderState.get(env.turnId)?.needsFinalize) return;
     await this.pushRenderFrame(
       {
         route: env.route,

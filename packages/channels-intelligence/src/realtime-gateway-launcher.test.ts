@@ -77,41 +77,25 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
 }
 
 /** Read the semantic render kind from a recorded gateway push. */
-function renderKind(push: {
-  event: string;
-  payload: unknown;
-}): string | undefined {
-  const envelope = push.payload;
-  if (
-    push.event !== "channel.render_event.v1" ||
-    envelope === null ||
-    typeof envelope !== "object" ||
-    !("payload" in envelope)
-  ) {
+function renderKind(push: { event: string; payload: unknown }) {
+  if (push.event !== "channel.render_event.v1") return undefined;
+  if (!isObject(push.payload) || !isObject(push.payload.payload)) {
     return undefined;
   }
-  const payload = envelope.payload;
-  if (
-    payload === null ||
-    typeof payload !== "object" ||
-    !("event" in payload)
-  ) {
-    return undefined;
-  }
-  const event = payload.event;
-  if (
-    event === null ||
-    typeof event !== "object" ||
-    !("kind" in event) ||
-    typeof event.kind !== "string"
-  ) {
-    return undefined;
-  }
-  return event.kind;
+  const event = push.payload.payload.event;
+  return isObject(event) && typeof event.kind === "string"
+    ? event.kind
+    : undefined;
+}
+
+function isObject(value: unknown): value is {
+  readonly [key: string]: unknown;
+} {
+  return value !== null && typeof value === "object";
 }
 
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
-  it("finalizes a direct post before requesting delivery completion", async () => {
+  it("finalizes a direct post before requesting completion and never self-acks", async () => {
     const fake = makeFakeSession();
     let ran = false;
     const bot = createChannel({
@@ -151,6 +135,65 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
         (p) => p.event === "channel.delivery.complete_requested.v1",
       ),
     );
+
+    await handle.stop();
+  });
+
+  it("finalizes an output-free turn so completion has an accepted pointer", async () => {
+    const fake = makeFakeSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (push) => push.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual(["finalize"]);
+
+    await handle.stop();
+  });
+
+  it("adds one trailing finalize when a direct post follows an agent finalize", async () => {
+    const fake = makeFakeSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+      await thread.post(Section({ children: "after run" }));
+    });
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (push) => push.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual([
+      "finalize",
+      "post",
+      "finalize",
+    ]);
 
     await handle.stop();
   });
