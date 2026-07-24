@@ -76,8 +76,42 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
   throw new Error("waitFor: condition not met within the poll window");
 }
 
+/** Read the semantic render kind from a recorded gateway push. */
+function renderKind(push: {
+  event: string;
+  payload: unknown;
+}): string | undefined {
+  const envelope = push.payload;
+  if (
+    push.event !== "channel.render_event.v1" ||
+    envelope === null ||
+    typeof envelope !== "object" ||
+    !("payload" in envelope)
+  ) {
+    return undefined;
+  }
+  const payload = envelope.payload;
+  if (
+    payload === null ||
+    typeof payload !== "object" ||
+    !("event" in payload)
+  ) {
+    return undefined;
+  }
+  const event = payload.event;
+  if (
+    event === null ||
+    typeof event !== "object" ||
+    !("kind" in event) ||
+    typeof event.kind !== "string"
+  ) {
+    return undefined;
+  }
+  return event.kind;
+}
+
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
-  it("runs a delivered turn end-to-end: handler → render frame → completion intent, never self-ack", async () => {
+  it("finalizes a direct post before requesting delivery completion", async () => {
     const fake = makeFakeSession();
     let ran = false;
     const bot = createChannel({
@@ -103,10 +137,20 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     );
 
     const events = fake.pushes.map((p) => p.event);
+    const renderKinds = fake.pushes
+      .filter((p) => p.event === "channel.render_event.v1")
+      .map(renderKind);
     expect(ran).toBe(true); // the Channel handler ran off a gateway-delivered turn
-    expect(events).toContain("channel.render_event.v1"); // rendered over the gateway session
+    expect(renderKinds).toEqual(["post", "finalize"]); // every rendered delivery has a terminal frame
     expect(events).toContain("channel.delivery.complete_requested.v1"); // completion INTENT
     expect(events).not.toContain("channel.delivery.ack.v1"); // SDK never commits the ack
+    expect(
+      fake.pushes.findIndex((p) => renderKind(p) === "finalize"),
+    ).toBeLessThan(
+      fake.pushes.findIndex(
+        (p) => p.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
 
     await handle.stop();
   });
