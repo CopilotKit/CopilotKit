@@ -14,13 +14,13 @@
 
 These decisions are inputs to implementation and are not reopened by an adapter slot:
 
-| Artifact | Public surface | Framework support | Runtime SDK dependency |
-| --- | --- | --- | --- |
-| PyPI `copilotkit-intelligence-adk` | `SkillRegistry`, `SkillToolset` | `google-adk>=2.0.0,<3.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
-| PyPI `copilotkit-intelligence-langgraph` | `createSkillRegistryMiddleware`, `create_skill_registry_middleware` | `langgraph>=1.2.2,<2.0.0`, `langchain>=1.3.2,<2.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
-| npm `@copilotkit/intelligence-langgraph` | `createSkillRegistryMiddleware` | `@langchain/langgraph>=1.3.0 <2.0.0`, `langchain>=1.4.4 <2.0.0`; Node >=20 | peer `@copilotkit/intelligence>=0.1.0 <1.0.0` |
-| PyPI `copilotkit-intelligence-agent-framework` | `SkillRegistryContextProvider` | `agent-framework-core>=1.11.0,<2.0.0`; Python >=3.10 | `copilotkit>=0.1.95,<1.0.0` |
-| NuGet `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider` | `Microsoft.Agents.AI.Abstractions` `[1.13.0,2.0.0)`; `net8.0` | `CopilotKit.Intelligence` `[0.1.0,1.0.0)` |
+| Artifact                                       | Public surface                                                      | Framework support                                                          | Runtime SDK dependency                        |
+| ---------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------- |
+| PyPI `copilotkit-intelligence-adk`             | `SkillRegistry`, `SkillToolset`                                     | `google-adk>=2.0.0,<3.0.0`; Python >=3.10                                  | `copilotkit>=0.1.95,<1.0.0`                   |
+| PyPI `copilotkit-intelligence-langgraph`       | `createSkillRegistryMiddleware`, `create_skill_registry_middleware` | `langgraph>=1.2.2,<2.0.0`, `langchain>=1.3.2,<2.0.0`; Python >=3.10        | `copilotkit>=0.1.95,<1.0.0`                   |
+| npm `@copilotkit/intelligence-langgraph`       | `createSkillRegistryMiddleware`                                     | `@langchain/langgraph>=1.3.0 <2.0.0`, `langchain>=1.4.4 <2.0.0`; Node >=20 | peer `@copilotkit/intelligence>=0.1.0 <1.0.0` |
+| PyPI `copilotkit-intelligence-agent-framework` | `SkillRegistryContextProvider`                                      | `agent-framework-core>=1.11.0,<2.0.0`; Python >=3.10                       | `copilotkit>=0.1.95,<1.0.0`                   |
+| NuGet `CopilotKit.Intelligence.AgentFramework` | `SkillRegistryContextProvider`                                      | `Microsoft.Agents.AI.Abstractions` `[1.13.0,2.0.0)`; `net8.0`              | `CopilotKit.Intelligence` `[0.1.0,1.0.0)`     |
 
 The normative cross-language symbol is `createSkillRegistryMiddleware`. Python exports that exact camelCase symbol and the idiomatic alias `create_skill_registry_middleware`; both names reference the same factory object and appear in `__all__`. Its README, docstring, and API test say that `create_skill_registry_middleware` is the Python spelling of the normative `createSkillRegistryMiddleware` API.
 
@@ -30,13 +30,13 @@ All five packages are owned by Intelligence/Learning, are versioned and publishe
 
 The implementation creates the following roots. A parallel slot owns exactly one row; it must not edit another row or any serialized file listed later.
 
-| Slot | Exclusive root | Package artifacts |
-| --- | --- | --- |
-| `adk-python` | `sdk-python-adk/**` | sdist and universal wheel for `copilotkit-intelligence-adk` |
-| `langgraph-python` | `sdk-python-langgraph/**` | sdist and universal wheel for `copilotkit-intelligence-langgraph` |
-| `langgraph-typescript` | `packages/intelligence-langgraph/**` | ESM npm tarball for `@copilotkit/intelligence-langgraph` |
-| `agent-framework-python` | `sdk-python-agent-framework/**` | sdist and universal wheel for `copilotkit-intelligence-agent-framework` |
-| `agent-framework-dotnet` | `sdk-dotnet-agent-framework/**` | `.nupkg` and `.snupkg` for `CopilotKit.Intelligence.AgentFramework` |
+| Slot                     | Exclusive root                       | Package artifacts                                                       |
+| ------------------------ | ------------------------------------ | ----------------------------------------------------------------------- |
+| `adk-python`             | `sdk-python-adk/**`                  | sdist and universal wheel for `copilotkit-intelligence-adk`             |
+| `langgraph-python`       | `sdk-python-langgraph/**`            | sdist and universal wheel for `copilotkit-intelligence-langgraph`       |
+| `langgraph-typescript`   | `packages/intelligence-langgraph/**` | ESM npm tarball for `@copilotkit/intelligence-langgraph`                |
+| `agent-framework-python` | `sdk-python-agent-framework/**`      | sdist and universal wheel for `copilotkit-intelligence-agent-framework` |
+| `agent-framework-dotnet` | `sdk-dotnet-agent-framework/**`      | `.nupkg` and `.snupkg` for `CopilotKit.Intelligence.AgentFramework`     |
 
 One `shared-integration` owner serializes every file outside the five exclusive roots. No package slot may edit any of these paths:
 
@@ -48,13 +48,13 @@ The serialized owner lands the generic Python SDK prerequisite as a separate PR,
 
 Every adapter `project.json` defines the same four Nx targets; integration never guesses language-specific target names:
 
-| Project name | `test` command | `check` command | `build` command | `pack-check` command |
-| --- | --- | --- | --- | --- |
-| `@copilotkit/intelligence-adk` | `sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests -v` | `sdk-python-adk/.venv/bin/python -m compileall -q sdk-python-adk/src && cd sdk-python-adk && poetry check` | `cd sdk-python-adk && poetry build` | `sdk-python-adk/.venv/bin/twine check sdk-python-adk/dist/* && sdk-python-adk/.venv/bin/python -m zipfile -l sdk-python-adk/dist/copilotkit_intelligence_adk-0.1.0-py3-none-any.whl` |
-| `@copilotkit/intelligence-langgraph-python` | `sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests -v` | `sdk-python-langgraph/.venv/bin/python -m compileall -q sdk-python-langgraph/src && cd sdk-python-langgraph && poetry check` | `cd sdk-python-langgraph && poetry build` | `sdk-python-langgraph/.venv/bin/twine check sdk-python-langgraph/dist/* && sdk-python-langgraph/.venv/bin/python -m zipfile -l sdk-python-langgraph/dist/copilotkit_intelligence_langgraph-0.1.0-py3-none-any.whl` |
-| `@copilotkit/intelligence-langgraph` | `pnpm --dir packages/intelligence-langgraph vitest run` | `pnpm --dir packages/intelligence-langgraph check-types && pnpm --dir packages/intelligence-langgraph publint && pnpm --dir packages/intelligence-langgraph attw` | `pnpm --dir packages/intelligence-langgraph build` | `pnpm --dir packages/intelligence-langgraph verify-package` |
-| `@copilotkit/intelligence-agent-framework-python` | `sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests -v` | `sdk-python-agent-framework/.venv/bin/python -m compileall -q sdk-python-agent-framework/src && cd sdk-python-agent-framework && poetry check` | `cd sdk-python-agent-framework && poetry build` | `sdk-python-agent-framework/.venv/bin/twine check sdk-python-agent-framework/dist/* && sdk-python-agent-framework/.venv/bin/python -m zipfile -l sdk-python-agent-framework/dist/copilotkit_intelligence_agent_framework-0.1.0-py3-none-any.whl` |
-| `@copilotkit/intelligence-agent-framework-dotnet` | `dotnet test sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `dotnet format sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj --verify-no-changes --no-restore` | `dotnet build sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `bash sdk-dotnet-agent-framework/scripts/verify-package.sh` |
+| Project name                                      | `test` command                                                                                                                                                                       | `check` command                                                                                                                                                              | `build` command                                                                                                                                                           | `pack-check` command                                                                                                                                                                                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@copilotkit/intelligence-adk`                    | `sdk-python-adk/.venv/bin/pytest sdk-python-adk/tests -v`                                                                                                                            | `sdk-python-adk/.venv/bin/python -m compileall -q sdk-python-adk/src && cd sdk-python-adk && poetry check`                                                                   | `cd sdk-python-adk && poetry build`                                                                                                                                       | `sdk-python-adk/.venv/bin/twine check sdk-python-adk/dist/* && sdk-python-adk/.venv/bin/python -m zipfile -l sdk-python-adk/dist/copilotkit_intelligence_adk-0.1.0-py3-none-any.whl`                                                             |
+| `@copilotkit/intelligence-langgraph-python`       | `sdk-python-langgraph/.venv/bin/pytest sdk-python-langgraph/tests -v`                                                                                                                | `sdk-python-langgraph/.venv/bin/python -m compileall -q sdk-python-langgraph/src && cd sdk-python-langgraph && poetry check`                                                 | `cd sdk-python-langgraph && poetry build`                                                                                                                                 | `sdk-python-langgraph/.venv/bin/twine check sdk-python-langgraph/dist/* && sdk-python-langgraph/.venv/bin/python -m zipfile -l sdk-python-langgraph/dist/copilotkit_intelligence_langgraph-0.1.0-py3-none-any.whl`                               |
+| `@copilotkit/intelligence-langgraph`              | `pnpm --dir packages/intelligence-langgraph vitest run`                                                                                                                              | `pnpm --dir packages/intelligence-langgraph check-types && pnpm --dir packages/intelligence-langgraph publint && pnpm --dir packages/intelligence-langgraph attw`            | `pnpm --dir packages/intelligence-langgraph build`                                                                                                                        | `pnpm --dir packages/intelligence-langgraph verify-package`                                                                                                                                                                                      |
+| `@copilotkit/intelligence-agent-framework-python` | `sdk-python-agent-framework/.venv/bin/pytest sdk-python-agent-framework/tests -v`                                                                                                    | `sdk-python-agent-framework/.venv/bin/python -m compileall -q sdk-python-agent-framework/src && cd sdk-python-agent-framework && poetry check`                               | `cd sdk-python-agent-framework && poetry build`                                                                                                                           | `sdk-python-agent-framework/.venv/bin/twine check sdk-python-agent-framework/dist/* && sdk-python-agent-framework/.venv/bin/python -m zipfile -l sdk-python-agent-framework/dist/copilotkit_intelligence_agent_framework-0.1.0-py3-none-any.whl` |
+| `@copilotkit/intelligence-agent-framework-dotnet` | `dotnet test sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `dotnet format sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework.Tests/CopilotKit.Intelligence.AgentFramework.Tests.csproj --verify-no-changes --no-restore` | `dotnet build sdk-dotnet-agent-framework/CopilotKit.Intelligence.AgentFramework/CopilotKit.Intelligence.AgentFramework.csproj -c Release -p:UseLocalIntelligenceSdk=true` | `bash sdk-dotnet-agent-framework/scripts/verify-package.sh`                                                                                                                                                                                      |
 
 Each target uses `nx:run-commands`, declares its build/test artifact outputs, and sets the repository root as `cwd`. The TypeScript package keeps its `check-types`, `publint`, `attw`, and `verify-package` package scripts; Nx's common `check` and `pack-check` targets call those exact scripts. The .NET root also creates `sdk-dotnet-agent-framework/scripts/verify-package.sh`, which packs, inspects the `.nuspec`, and compiles the clean example consumer.
 
@@ -78,11 +78,11 @@ AdapterSnapshot = {
 
 The lifecycle surface is exact even though each native hook signature is gated on dependency inspection:
 
-| Runtime | Fresh | Explicit offline | Request-time | Readiness/status | Close |
-| --- | --- | --- | --- | --- | --- |
-| Python | `await preload()` | `await preload_cached()` | `await load()` | `ready`, `status`, `await wait_until_ready(timeout)` | `await aclose()` |
-| TypeScript | `await preload()` | `await preloadCached()` | `await load()` | `ready`, `status`, `await waitUntilReady({ timeoutMs })` | `await close()` |
-| .NET | `PreloadAsync` | `PreloadCachedAsync` | `LoadAsync` | `IsReady`, `Status`, `WaitUntilReadyAsync` | `DisposeAsync` |
+| Runtime    | Fresh             | Explicit offline         | Request-time   | Readiness/status                                         | Close            |
+| ---------- | ----------------- | ------------------------ | -------------- | -------------------------------------------------------- | ---------------- |
+| Python     | `await preload()` | `await preload_cached()` | `await load()` | `ready`, `status`, `await wait_until_ready(timeout)`     | `await aclose()` |
+| TypeScript | `await preload()` | `await preloadCached()`  | `await load()` | `ready`, `status`, `await waitUntilReady({ timeoutMs })` | `await close()`  |
+| .NET       | `PreloadAsync`    | `PreloadCachedAsync`     | `LoadAsync`    | `IsReady`, `Status`, `WaitUntilReadyAsync`               | `DisposeAsync`   |
 
 The ADK methods live on `SkillRegistry`; the other packages expose them on the native middleware/provider object returned or constructed by the required public symbol. `ready`/`IsReady` is true only for `ready` and `revoked`. A readiness wait returns the immutable snapshot, rejects immediately for `denied`, `stale`, or `closed`, and times out without changing state.
 
@@ -161,18 +161,18 @@ Each adapter includes a small test-only runner that consumes this JSON directly 
 
 Every package README uses these exact level-two headings, and its public-API/package test reads the shipped README and asserts all ten headings plus the stated smoke behavior:
 
-| Heading | Required content and smoke assertion |
-| --- | --- |
-| `## Installation` | Exact package ID, supported runtime floor, and bounded framework/generic-SDK dependencies; clean consumer installs the built artifact. |
-| `## Native registration` | Compilable/importable native framework registration using the required public symbol; no agent wrapper or builder. |
-| `## Lifecycle and preload` | Fresh preload, explicit cached preload, request-time load, readiness/status, and cold fail-closed behavior. |
-| `## Fresh and cached data` | Networked versus offline routing, freshness/source status, throttle, singleflight, and no implicit stale fallback. |
-| `## Limits and scripts` | Exact 128/262144/1048576 limits, strict UTF-8, full-set failure, and script role/path denial. |
-| `## Telemetry` | Event list, permitted fields, forbidden secrets/content, and explicit sink-failure propagation to joined callers. |
-| `## Errors` | Canonical auth, permission, 401, 403, 404, 410, archived, project-mismatch, not-found, unrecoverable, stale, and adapter validation errors. |
-| `## Closing` | Idempotent close/disposal, in-flight invocation semantics, and rejection of every future load. |
-| `## Compatibility` | Exact minimum/exclusive-major ranges and the native hook verified at minimum and latest. |
-| `## Ownership and release` | Intelligence/Learning ownership, independent version/tag/publish lane, and no coupling to another adapter release. |
+| Heading                    | Required content and smoke assertion                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `## Installation`          | Exact package ID, supported runtime floor, and bounded framework/generic-SDK dependencies; clean consumer installs the built artifact.      |
+| `## Native registration`   | Compilable/importable native framework registration using the required public symbol; no agent wrapper or builder.                          |
+| `## Lifecycle and preload` | Fresh preload, explicit cached preload, request-time load, readiness/status, and cold fail-closed behavior.                                 |
+| `## Fresh and cached data` | Networked versus offline routing, freshness/source status, throttle, singleflight, and no implicit stale fallback.                          |
+| `## Limits and scripts`    | Exact 128/262144/1048576 limits, strict UTF-8, full-set failure, and script role/path denial.                                               |
+| `## Telemetry`             | Event list, permitted fields, forbidden secrets/content, and explicit sink-failure propagation to joined callers.                           |
+| `## Errors`                | Canonical auth, permission, 401, 403, 404, 410, archived, project-mismatch, not-found, unrecoverable, stale, and adapter validation errors. |
+| `## Closing`               | Idempotent close/disposal, in-flight invocation semantics, and rejection of every future load.                                              |
+| `## Compatibility`         | Exact minimum/exclusive-major ranges and the native hook verified at minimum and latest.                                                    |
+| `## Ownership and release` | Intelligence/Learning ownership, independent version/tag/publish lane, and no coupling to another adapter release.                          |
 
 The exact tests are `test_readme_and_public_api_contract()` in each Python `tests/test_public_api.py`, `README and public API contract > exports and documents every required behavior` in TypeScript `src/public-api.test.ts`, and `ReadmeAndPublicApiContract` in .NET `PackageTests.cs`. Each compiles or imports the README registration snippet from the built artifact and asserts the package exports only its declared adapter API plus necessary public option/status types.
 
@@ -268,19 +268,41 @@ Add a test that loads the JSON, requires `schemaVersion: 1`, `contractVersion: "
 ```ts
 expect(new Set(corpus.cases.map(({ name }) => name))).toEqual(
   new Set([
-    "cold-fresh-load", "explicit-cached-preload", "throttle-hit",
-    "concurrent-singleflight", "etag-unchanged", "changed-revision",
-    "empty", "revoked", "transient-stale", "integrity-stale", "denial",
-    "too-many-skills", "skill-md-too-large", "aggregate-too-large",
-    "invalid-utf8", "script-disabled", "close-idempotent",
-    "readiness-ready", "readiness-timeout", "readiness-denied-rejects",
-    "readiness-stale-rejects", "readiness-closed-rejects",
-    "retry-after-failed-throttle-window", "load-after-close-rejects",
-    "telemetry-sink-failure-singleflight", "error-category-auth-denied",
-    "error-category-permission-denied", "http-401-denied",
-    "http-403-denied", "http-404-denied", "http-410-denied",
-    "container-archived-denied", "project-mismatch-denied",
-    "container-not-found-denied", "registry-unrecoverable-denied",
+    "cold-fresh-load",
+    "explicit-cached-preload",
+    "throttle-hit",
+    "concurrent-singleflight",
+    "etag-unchanged",
+    "changed-revision",
+    "empty",
+    "revoked",
+    "transient-stale",
+    "integrity-stale",
+    "denial",
+    "too-many-skills",
+    "skill-md-too-large",
+    "aggregate-too-large",
+    "invalid-utf8",
+    "script-disabled",
+    "close-idempotent",
+    "readiness-ready",
+    "readiness-timeout",
+    "readiness-denied-rejects",
+    "readiness-stale-rejects",
+    "readiness-closed-rejects",
+    "retry-after-failed-throttle-window",
+    "load-after-close-rejects",
+    "telemetry-sink-failure-singleflight",
+    "error-category-auth-denied",
+    "error-category-permission-denied",
+    "http-401-denied",
+    "http-403-denied",
+    "http-404-denied",
+    "http-410-denied",
+    "container-archived-denied",
+    "project-mismatch-denied",
+    "container-not-found-denied",
+    "registry-unrecoverable-denied",
   ]),
 );
 ```

@@ -14,7 +14,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
 ]
-packages = [{ include = "copilotkit_intelligence_agent_framework", from = "src" }]
+packages = [
+  { include = "copilotkit_intelligence_agent_framework", from = "src" },
+]
 include = ["src/copilotkit_intelligence_agent_framework/py.typed"]
 
 [tool.poetry.dependencies]

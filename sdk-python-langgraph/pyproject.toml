@@ -7,7 +7,14 @@ license = "MIT"
 readme = "README.md"
 homepage = "https://copilotkit.ai"
 repository = "https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python-langgraph"
-keywords = ["copilotkit", "intelligence", "langgraph", "langchain", "agents", "skills"]
+keywords = [
+  "copilotkit",
+  "intelligence",
+  "langgraph",
+  "langchain",
+  "agents",
+  "skills",
+]
 classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
