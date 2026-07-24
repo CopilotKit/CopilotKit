@@ -134,6 +134,136 @@ def test_frontend_tools_merge_does_not_mutate_input_request():
 
 
 # ---------------------------------------------------------------------------
+# _get_copilotkit_context — fallback to config.configurable
+# ---------------------------------------------------------------------------
+
+
+def test_get_copilotkit_context_returns_state_level_when_present(monkeypatch):
+    """When state["copilotkit"] has actions, return it unchanged."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_one"}],
+            "context": "some context",
+        }
+    }
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == state["copilotkit"]
+
+
+def test_get_copilotkit_context_falls_back_to_config_when_state_empty(monkeypatch):
+    """When state["copilotkit"] is empty, read from config.configurable.copilotkit."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_config"}],
+        "context": "config context",
+    }
+
+    def mock_get_config():
+        return {"configurable": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_prefers_state_over_config(monkeypatch):
+    """State-level copilotkit takes precedence over config."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_state"}],
+        }
+    }
+
+    def mock_get_config():
+        return {
+            "configurable": {
+                "copilotkit": {
+                    "actions": [{"name": "fe_config"}],
+                }
+            }
+        }
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result["actions"][0]["name"] == "fe_state"
+
+
+def test_get_copilotkit_context_returns_empty_dict_when_not_found(monkeypatch):
+    """When copilotkit is not in state or config, return empty dict."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        return {"configurable": {}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_get_copilotkit_context_handles_missing_config(monkeypatch):
+    """When get_config raises, return empty state copilotkit."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        raise RuntimeError("No active context")
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_wrap_model_call_injects_frontend_tools_from_config_fallback(monkeypatch):
+    """wrap_model_call uses config fallback when state lacks copilotkit."""
+    middleware = CopilotKitMiddleware()
+    backend_tool = {"name": "backend_tool"}
+    fe_tools = [{"name": "fe_from_config"}]
+
+    def mock_get_config():
+        return {"configurable": {"copilotkit": {"actions": fe_tools}}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    # State has no copilotkit key, but config does.
+    request = _make_request(state={"messages": []}, tools=[backend_tool])
+
+    seen, _ = _run_wrap(middleware, request)
+
+    seen_names = [t["name"] for t in seen.tools]
+    assert "backend_tool" in seen_names
+    assert "fe_from_config" in seen_names
+
+
+# ---------------------------------------------------------------------------
 # expose_state — opt-in state surfacing
 # ---------------------------------------------------------------------------
 

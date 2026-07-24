@@ -274,6 +274,25 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def name(self) -> str:
         return "CopilotKitMiddleware"
 
+    @staticmethod
+    def _get_copilotkit_context(state: dict) -> dict:
+        """Read copilotkit context from state, falling back to LangGraph config.
+
+        When the agent runs as a subgraph, the parent may not propagate the
+        copilotkit state key. LangGraph always propagates config.configurable
+        to subgraph nodes, so we fall back to reading from there.
+        """
+        ck = state.get("copilotkit") or {}
+        if ck.get("actions") or ck.get("context"):
+            return ck
+        try:
+            from langgraph.config import get_config
+
+            cfg = get_config() or {}
+            return (cfg.get("configurable") or {}).get("copilotkit") or ck
+        except Exception:  # noqa: BLE001 - no active context / older langgraph
+            return ck
+
     # ------------------------------------------------------------------
     # State-to-prompt surfacing
     # ------------------------------------------------------------------
@@ -539,7 +558,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(request.state or {}).get(
+            "actions", []
+        )
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
@@ -743,7 +764,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(request.state or {}).get(
+            "actions", []
+        )
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
@@ -820,7 +843,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(state).get("actions", [])
         if not frontend_tools:
             return None
 
