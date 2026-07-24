@@ -94,7 +94,10 @@ test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
     );
 
     try {
-      await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
+      await client.capture(
+        "oss.runtime.instance_created",
+        instanceCreatedEvent,
+      );
 
       expect(randomSpy).toHaveBeenCalledTimes(1);
       expect(sinkSpy).not.toHaveBeenCalled();
