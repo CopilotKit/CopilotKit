@@ -20,6 +20,11 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import {
+  createRowKeyStore,
+  pruneRowKeyStore,
+  resolveRowRenderKeys,
+} from "./rowRenderKeys";
 
 interface MessageMetaProps {
   message: Message;
@@ -187,6 +192,23 @@ function deduplicateMessages(messages: Message[]): Message[] {
 const deduplicatedMessages = computed(() =>
   deduplicateMessages(props.messages),
 );
+
+// Stable per-row keys. Backends can re-key a message mid-stream, and keying
+// rows by the canonical id tears the row down on that swap (the HITL chat
+// flash). See ./rowRenderKeys for the mechanism and its limits.
+const rowKeyStore = createRowKeyStore();
+const rowRenderKeys = computed(() =>
+  resolveRowRenderKeys(rowKeyStore, deduplicatedMessages.value),
+);
+
+// Prune after the DOM is patched, never during computed evaluation: dropping an
+// anchor the rendered rows still need would re-mint their keys and tear them
+// down.
+watch(
+  deduplicatedMessages,
+  (messages) => pruneRowKeyStore(rowKeyStore, messages),
+  { flush: "post" },
+);
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
@@ -345,7 +367,10 @@ function resolveToolMessage(
 
 <template>
   <div data-copilotkit class="cpk:flex cpk:flex-col" v-bind="$attrs">
-    <template v-for="message in deduplicatedMessages" :key="message.id">
+    <template
+      v-for="message in deduplicatedMessages"
+      :key="rowRenderKeys.get(message.id) ?? message.id"
+    >
       <slot
         v-if="componentSlots['message-before']"
         name="message-before"
