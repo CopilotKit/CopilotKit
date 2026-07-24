@@ -54,9 +54,11 @@ An Intelligence runtime also returns `runtimeEntitlements`. `ready` includes
 the normalized feature and limit values. `degraded`, `misconfigured`, and
 `unavailable` include a structured error with a code, message, and retry flag.
 The `/info` request still succeeds when entitlement lookup fails so core Runtime
-behavior can continue; features that need a proven entitlement stay off. An
-invalid Intelligence project key remains a `401` from Intelligence rather than
-a successful entitlement response.
+behavior can continue; features that need a proven entitlement stay off. If
+Intelligence rejects the project key with a `401`, the Runtime still returns
+`200` from `/info`. The body reports `runtimeEntitlements.status` as
+`misconfigured` with the non-retryable `runtime_entitlements_misconfigured`
+error code.
 
 ## Single-route mode
 
