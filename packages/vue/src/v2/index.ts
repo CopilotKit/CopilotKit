@@ -8,7 +8,19 @@ export * from "./components";
 // named export. Vue users need a catalog to pass to `a2ui.catalog` for the
 // catalog-on-provider path; the nested `export *` barrel above gets
 // tree-shaken by the library build, so surface it directly here.
-export { vueBasicCatalog } from "./components/a2ui/catalog";
+export { vueBasicCatalog } from "./a2ui/vue-renderer/catalog/basic";
+export type {
+  A2UITheme,
+  A2UIUserAction,
+  A2UIActionInterceptor,
+  A2UIRecoveryRendererOptions,
+} from "./a2ui";
+export { a2uiDefaultTheme, createA2UIMessageRenderer } from "./a2ui";
+export {
+  ThemeProvider as A2UIThemeProvider,
+  useTheme as useA2UITheme,
+  useThemeOptional as useA2UIThemeOptional,
+} from "./a2ui/vue-renderer/theme/ThemeContext";
 export * from "./hooks";
 export * from "./providers";
 export * from "./types";

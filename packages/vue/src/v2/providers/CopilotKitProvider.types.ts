@@ -3,6 +3,7 @@ import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig } from "@copilotkit/shared";
 import type {
   A2UITheme,
+  A2UIRecoveryRendererOptions,
   SandboxFunction,
   VueActivityMessageRenderer,
   VueCustomMessageRenderer,
@@ -48,6 +49,7 @@ export interface CopilotKitProviderProps {
     catalog?: any;
     loadingComponent?: Component;
     includeSchema?: boolean;
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /**
    * Default anchor corner for the inspector button and window.

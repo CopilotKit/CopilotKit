@@ -6,8 +6,8 @@ import {
   A2UI_DEFAULT_GENERATION_GUIDELINES,
   A2UI_DEFAULT_DESIGN_GUIDELINES,
 } from "@copilotkit/shared";
-import type { CopilotKitCoreVue } from "../../lib/vue-core";
-import { vueBasicCatalog } from "./catalog";
+import type { CopilotKitCoreVue } from "../lib/vue-core";
+import { vueBasicCatalog } from "./vue-renderer/catalog/basic";
 
 /**
  * Context description used to identify the A2UI component schema in
