@@ -1,0 +1,57 @@
+---
+title: Migrate runtime dependencies in 1.64.0
+description: "@copilotkit/runtime 1.64.0 narrows the @langchain/langgraph-sdk peer range to 1.x and installs the Anthropic, Groq, and Intelligence SDKs directly."
+icon: "lucide/RefreshCw"
+---
+
+`@copilotkit/runtime` `1.64.0` changes which packages you must provide and which ones the runtime now installs for you. One change is breaking: the `@langchain/langgraph-sdk` peer range no longer accepts `0.x`.
+
+## Breaking: `@langchain/langgraph-sdk` must be `1.8.8` or later
+
+| | Range |
+| --- | --- |
+| `1.63.x` and earlier | `>=0.1.2` |
+| `1.64.0` and later | `^1.8.8` |
+
+If your project pins `@langchain/langgraph-sdk` to a `0.x` version, upgrading `@copilotkit/runtime` produces an unmet peer dependency. Under `strict-peer-dependencies` (pnpm's default) the install fails outright.
+
+```bash
+pnpm add @langchain/langgraph-sdk@^1.8.8
+```
+
+### Why the range narrowed
+
+`@copilotkit/runtime` re-exports LangGraph types through `@copilotkit/runtime/langgraph`, and `@ag-ui/langgraph` reaches into declaration paths that the SDK's `exports` map does not expose. The runtime ships an ambient compatibility shim that rebuilds those contracts from the SDK's public root, and the packed-package verifier compiles that shim against real consumer projects on `1.8.8` and `1.8.9` only. The peer range now states exactly the SDK versions that are verified end to end, instead of advertising a `0.x` floor that nothing exercises.
+
+### If you cannot upgrade yet
+
+Stay on `@copilotkit/runtime` `1.63.x` until you can move to `@langchain/langgraph-sdk` `1.8.8` or later. Do not silence the peer warning with `strict-peer-dependencies=false` while remaining on `0.x`: the runtime's LangGraph declarations are only validated against `1.x`, so type errors and client-identity mismatches are expected.
+
+## The Anthropic and Groq SDKs are now installed for you
+
+`@anthropic-ai/sdk` and `groq-sdk` were optional peer dependencies. They are now regular dependencies as well, because the runtime's published type declarations reference them: `AnthropicAdapter` and `GroqAdapter` expose the SDK client types in their public signatures, so consumers cannot type-check the packed declarations without them.
+
+What this means for you:
+
+- You no longer need to install either SDK to use `AnthropicAdapter` or `GroqAdapter`.
+- Both are installed even if you use neither adapter. Neither is imported at module load; the runtime only requires them when you construct the corresponding adapter without passing your own client, so there is no startup cost.
+- Passing your own client still works and is still the recommended pattern:
+
+```ts
+import { AnthropicAdapter } from "@copilotkit/runtime";
+import Anthropic from "@anthropic-ai/sdk";
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+export const serviceAdapter = new AnthropicAdapter({ anthropic });
+```
+
+If you supply your own `@anthropic-ai/sdk`, keep it on `0.57.x`. The runtime installs `^0.57.0`, which for a `0.x` package means `0.57.x` only, so a newer copy in your project (`0.115.0`, say) leaves two nominally distinct `Anthropic` classes installed and the adapter's internal fallback client is the `0.57.x` one.
+
+## `@copilotkit/intelligence` is a new runtime dependency
+
+The runtime resolves Intelligence learning-container assignment contracts from `@copilotkit/intelligence`. It is installed automatically as a regular dependency; you do not need to add it yourself. If you build against the contracts directly, install the same major line the runtime does.
+
+## `@types/cors` and `@types/express` moved into dependencies
+
+`cors` and `express` are runtime dependencies, and `@copilotkit/runtime/v2/express` publishes declarations that reference `Router` and `CorsOptions`. Their type packages therefore ship as regular dependencies so the published `.d.ts` closure resolves in a consumer project with `skipLibCheck` disabled. No action is required.

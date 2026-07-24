@@ -2,6 +2,7 @@
   "title": "Migrate",
   "icon": "lucide/RefreshCw",
   "pages": [
+    "runtime-dependencies-1.64",
     "learning-containers-to-resolve-learning-container",
     "v2",
     "1.10.X",
