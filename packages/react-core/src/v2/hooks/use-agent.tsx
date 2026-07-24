@@ -106,9 +106,6 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       // Return cached provisional if available (keeps reference stable)
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        // Update request settings on the cached agent in case they changed
-        copilotkit.applyHeadersToAgent(cached);
-        cached.credentials = copilotkit.credentials;
         return { agent: cached, isReady: false };
       }
 
@@ -136,8 +133,6 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     ) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        copilotkit.applyHeadersToAgent(cached);
-        cached.credentials = copilotkit.credentials;
         return { agent: cached, isReady: false };
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
@@ -231,9 +226,9 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
 
-  // Keep HttpAgent headers fresh without mutating inside useMemo, which is
-  // unsafe in concurrent mode (React may invoke useMemo multiple times and
-  // discard intermediate results, but mutations always land).
+  // Keep HttpAgent request settings fresh without mutating inside useMemo,
+  // which is unsafe in concurrent mode (React may invoke useMemo multiple
+  // times and discard intermediate results, but mutations always land).
   useEffect(() => {
     if (agent instanceof HttpAgent) {
       // Merge core headers on top of the agent's own headers rather than
@@ -241,8 +236,11 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       // self-hosted backend) are preserved (see #5635).
       copilotkit.applyHeadersToAgent(agent);
     }
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.credentials = copilotkit.credentials;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers)]);
+  }, [agent, JSON.stringify(copilotkit.headers), copilotkit.credentials]);
 
   // Propagate the caller-supplied threadId from the chat configuration onto
   // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId
