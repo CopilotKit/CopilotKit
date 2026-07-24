@@ -7,25 +7,22 @@ Covers:
 """
 
 import json
-import pytest
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
+
+import pytest
 from ag_ui.core import (
-    EventType,
     CustomEvent,
-    TextMessageStartEvent,
+    EventType,
+    RunAgentInput,
     TextMessageContentEvent,
-    TextMessageEndEvent,
     ToolCallStartEvent,
-    ToolCallArgsEvent,
-    ToolCallEndEvent,
-    StateSnapshotEvent,
 )
 from ag_ui_langgraph import LangGraphAgent as AGUIBase
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.langgraph_agui_agent import (
-    LangGraphAGUIAgent,
     CustomEventNames,
+    LangGraphAGUIAgent,
 )
 
 
@@ -458,6 +455,73 @@ class TestLanggraphDefaultMergeState:
 
         action_names = [a.get("name") for a in result["copilotkit"]["actions"]]
         assert action_names == ["first", "second", "third"]
+
+
+class TestGetStreamKwargs:
+    """get_stream_kwargs threads CopilotKit payload into LangGraph context."""
+
+    class _GraphWithContext:
+        nodes = {}
+
+        def get_state(self):
+            return None
+
+        async def astream_events(
+            self,
+            *,
+            input=None,
+            subgraphs=False,
+            version="v2",
+            config=None,
+            context=None,
+        ):
+            if False:
+                yield input, subgraphs, version, config, context
+
+    def test_copilotkit_payload_added_to_runtime_context(self):
+        agent = LangGraphAGUIAgent(name="test", graph=self._GraphWithContext())
+        run_input = RunAgentInput(
+            thread_id="t-1",
+            run_id="r-1",
+            state={},
+            messages=[],
+            tools=[
+                {
+                    "name": "frontend_lookup",
+                    "description": "frontend tool",
+                }
+            ],
+            context=[
+                {
+                    "description": "viewer role",
+                    "value": "admin",
+                }
+            ],
+            forwarded_props={},
+        )
+
+        kwargs = agent.get_stream_kwargs(
+            input=run_input,
+            subgraphs=True,
+            version="v2",
+            config={"configurable": {"thread_id": "t-1", "x-trace": "abc"}},
+        )
+
+        assert kwargs["context"]["thread_id"] == "t-1"
+        assert kwargs["context"]["x-trace"] == "abc"
+        assert kwargs["context"]["copilotkit"]["actions"] == [
+            {
+                "name": "frontend_lookup",
+                "description": "frontend tool",
+                "parameters": None,
+            }
+        ]
+        assert kwargs["context"]["copilotkit"]["context"] == [
+            {
+                "description": "viewer role",
+                "value": "admin",
+            }
+        ]
 
 
 # ---------- Reasoning content preservation ----------

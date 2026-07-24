@@ -1,24 +1,26 @@
 import json
 import logging
-from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+
+from ag_ui.core import (
+    CustomEvent,
+    EventType,
+    StateSnapshotEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+    ToolCallArgsEvent,
+    ToolCallEndEvent,
+    ToolCallStartEvent,
+)
+from ag_ui_langgraph import LangGraphAgent
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
+
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
-from ag_ui_langgraph import LangGraphAgent
-from ag_ui.core import (
-    EventType,
-    CustomEvent,
-    TextMessageStartEvent,
-    TextMessageContentEvent,
-    TextMessageEndEvent,
-    ToolCallStartEvent,
-    ToolCallArgsEvent,
-    ToolCallEndEvent,
-    StateSnapshotEvent,
-)
-from langgraph.graph.state import CompiledStateGraph
-from langchain_core.runnables import RunnableConfig
 
 try:
     from langchain.schema import BaseMessage
@@ -266,6 +268,47 @@ class LangGraphAGUIAgent(LangGraphAgent):
         # Call the parent method to handle all other events
         async for event_str in super()._handle_single_event(event, state):
             yield event_str
+
+    @staticmethod
+    def _serialize_copilotkit_runtime_payload(input: Any) -> dict[str, Any]:
+        """Build the CopilotKit payload that subgraphs need in runtime context."""
+        tools = [
+            tool.model_dump() if hasattr(tool, "model_dump") else tool
+            for tool in (getattr(input, "tools", None) or [])
+        ]
+        context = [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in (getattr(input, "context", None) or [])
+        ]
+        return {
+            "actions": tools,
+            "context": context,
+        }
+
+    def get_stream_kwargs(
+        self,
+        input: Any,
+        subgraphs: bool = False,
+        version: str = "v2",
+        config: Union[Optional[RunnableConfig], dict] = None,
+        context: Optional[Dict[str, Any]] = None,
+        fork: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Thread CopilotKit payload through LangGraph runtime context for subgraphs."""
+        merged_context = dict(context or {})
+        existing_copilotkit = merged_context.get("copilotkit") or {}
+        merged_context["copilotkit"] = {
+            **existing_copilotkit,
+            **self._serialize_copilotkit_runtime_payload(input),
+        }
+        return super().get_stream_kwargs(
+            input=input,
+            subgraphs=subgraphs,
+            version=version,
+            config=config,
+            context=merged_context,
+            fork=fork,
+        )
 
     def langgraph_default_merge_state(
         self, state: State, messages: List[BaseMessage], input: Any
