@@ -2,7 +2,7 @@ import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { AGENT_MODEL } from "./models";
 
 /**
- * System prompt for the AI + Finance Tracker assistant.
+ * System prompt for the Personal Finance Copilot assistant.
  *
  * The actual write/read tools live on the CLIENT (the React Native app
  * registers `addTransaction`, `createAccount`, `setBudget`, `editBudget`,
@@ -11,7 +11,7 @@ import { AGENT_MODEL } from "./models";
  * only describes intent and the human-in-the-loop contract — it does not, and
  * must not, hardcode tool schemas.
  */
-export const FINANCE_SYSTEM_PROMPT = `You are the assistant for "AI + Finance Tracker", a helpful, friendly, and meticulous personal-finance assistant used by people all over the world.
+export const FINANCE_SYSTEM_PROMPT = `You are the assistant for "Personal Finance Copilot", a helpful, friendly, and meticulous personal-finance assistant used by people all over the world.
 
 Your job is to help the user understand and manage their money: logging transactions, creating accounts, and setting or adjusting budgets, and answering questions about their finances.
 
@@ -46,7 +46,7 @@ Your job is to help the user understand and manage their money: logging transact
  * Uses CopilotKit's v2 `BuiltInAgent`, which speaks AG-UI natively (the same
  * protocol the RN `@copilotkit/react-native` client connects with) and runs
  * the model via the Vercel AI SDK under the hood. The model is vision-capable
- * (`openai/gpt-4o` by default) so the agent can reason over images the client
+ * (`openai/gpt-5.4-2026-03-05` by default) so the agent can reason over images the client
  * forwards. The provider API key is resolved from the environment by the SDK.
  *
  * Client-registered frontend tools are passed in by the runtime per request,
