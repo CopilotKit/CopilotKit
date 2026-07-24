@@ -14,9 +14,13 @@ const legacyLicenseToken = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.sig`;
 const callerSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+const callerTelemetryDisabled = process.env.COPILOTKIT_TELEMETRY_DISABLED;
+const callerDoNotTrack = process.env.DO_NOT_TRACK;
 
 beforeEach(() => {
   delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+  delete process.env.DO_NOT_TRACK;
 });
 
 afterEach(() => {
@@ -24,6 +28,16 @@ afterEach(() => {
     delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   } else {
     process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = callerSampleRate;
+  }
+  if (callerTelemetryDisabled === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_DISABLED = callerTelemetryDisabled;
+  }
+  if (callerDoNotTrack === undefined) {
+    delete process.env.DO_NOT_TRACK;
+  } else {
+    process.env.DO_NOT_TRACK = callerDoNotTrack;
   }
 });
 
@@ -282,6 +296,26 @@ describe("TelemetryClient", () => {
 
     expect(lambdaSpy).not.toHaveBeenCalled();
   });
+
+  test.each([
+    ["COPILOTKIT_TELEMETRY_DISABLED", "true"],
+    ["COPILOTKIT_TELEMETRY_DISABLED", "1"],
+    ["DO_NOT_TRACK", "true"],
+    ["DO_NOT_TRACK", "1"],
+  ] as const)(
+    "%s=%s remains authoritative when telemetryDisabled is false",
+    async (environmentVariable, value) => {
+      process.env[environmentVariable] = value;
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 1,
+      });
+
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+      expect(lambdaSpy).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not send events when sampled out", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0.99);

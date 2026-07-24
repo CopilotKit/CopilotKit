@@ -59,7 +59,7 @@ export class TelemetryClient {
     telemetryDisabled?: boolean;
     sampleRate?: number;
   } = {}) {
-    this.telemetryDisabled = telemetryDisabled ?? isTelemetryDisabled();
+    this.telemetryDisabled = telemetryDisabled || isTelemetryDisabled();
     this.setSampleRate(sampleRate);
   }
 
