@@ -52,6 +52,16 @@ function toolCall(id: string, name: string, args = "{}") {
 }
 
 /**
+ * Attaches a `renderId` to a message. `renderId` is emitted by newer
+ * `@ag-ui/core` versions; the cast keeps this test compiling against versions
+ * whose `Message` type does not yet declare the field (the value is still read
+ * at runtime, which is what the keying logic relies on).
+ */
+function withRenderId<T extends Message>(message: T, renderId: string): T {
+  return { ...message, renderId } as T;
+}
+
+/**
  * Renders CopilotChatMessageView wrapped in the required providers.
  * Unified helper used by all describe blocks in this file.
  */
@@ -183,6 +193,50 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
     expect(userMessages).toHaveLength(2);
     expect(assistantMessages).toHaveLength(2);
+  });
+});
+
+describe("CopilotChatMessageView stable renderId keying", () => {
+  function tree(messages: Message[]) {
+    return (
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={THREAD_ID}
+        >
+          <CopilotChatMessageView messages={messages} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+  }
+
+  it("reconciles the row in place when id changes but renderId is stable", () => {
+    const { rerender } = render(
+      tree([withRenderId(assistantMsg("stream-1", "Thinking..."), "render-1")]),
+    );
+    const before = screen.getByTestId("copilot-assistant-message");
+
+    // Canonical id flips mid-stream; renderId stays stable.
+    rerender(
+      tree([withRenderId(assistantMsg("final-1", "Thinking..."), "render-1")]),
+    );
+    const after = screen.getByTestId("copilot-assistant-message");
+
+    // Same DOM node => React reconciled in place instead of remounting.
+    expect(after).toBe(before);
+  });
+
+  it("remounts the row when id changes and no renderId is present (fallback to id)", () => {
+    const { rerender } = render(
+      tree([assistantMsg("stream-1", "Thinking...")]),
+    );
+    const before = screen.getByTestId("copilot-assistant-message");
+
+    rerender(tree([assistantMsg("final-1", "Thinking...")]));
+    const after = screen.getByTestId("copilot-assistant-message");
+
+    // Different DOM node => the row remounted (the pre-fix behavior).
+    expect(after).not.toBe(before);
   });
 });
 
