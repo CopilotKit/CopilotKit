@@ -89,7 +89,7 @@ export class AmplifyHostingStack extends cdk.NestedStack {
       platform: amplify.Platform.WEB,
       environmentVariables: {
         VITE_COPILOTKIT_THREADS_ENABLED: props.config
-          .copilotkit_intelligence_api_key_secret_name
+          .copilotkit_license_token_secret_name
           ? "true"
           : "false",
       },

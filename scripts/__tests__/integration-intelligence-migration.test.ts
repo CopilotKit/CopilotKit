@@ -67,7 +67,7 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
 >;
 
-const MANAGED_CLI_FRAMEWORKS = [
+const INTELLIGENCE_CLI_FRAMEWORKS = [
   "langgraph-py",
   "langgraph-js",
   "claude-sdk-typescript",
@@ -89,7 +89,7 @@ const MANAGED_CLI_FRAMEWORKS = [
   "opengenui",
 ] as const;
 
-type ManagedCliFramework = (typeof MANAGED_CLI_FRAMEWORKS)[number];
+type ManagedCliFramework = (typeof INTELLIGENCE_CLI_FRAMEWORKS)[number];
 
 interface AgentOptionContract {
   readonly property: string;
@@ -130,6 +130,7 @@ interface ManagedTemplateContract {
 
 interface AgentCoreViteEnvironment {
   readonly [MANAGED_API_KEY]?: string;
+  readonly [MANAGED_LICENSE_TOKEN]?: string;
   readonly [VITE_THREADS_GATE]?: string;
 }
 
@@ -265,7 +266,7 @@ const STRANDS_RUNTIME_AGENT_CONTRACT = {
   ],
 } as const satisfies RuntimeAgentContract;
 
-const MANAGED_TEMPLATE_CONTRACTS = [
+const INTELLIGENCE_TEMPLATE_CONTRACTS = [
   {
     directory: "langgraph-python",
     frameworks: ["langgraph-py", "a2ui", "opengenui"],
@@ -2453,7 +2454,7 @@ function agentCoreFrontendGateInitializer(
   return managedGate?.initializer ?? null;
 }
 
-/** Assert AgentCore's frontend receives only the key-derived public gate. */
+/** Assert AgentCore's frontend receives only the token-derived public gate. */
 function expectAgentCoreFrontendDeploymentContract(contents: string): void {
   const managedGate = agentCoreFrontendGateInitializer(contents);
   expect(managedGate).not.toBeNull();
@@ -2464,7 +2465,7 @@ function expectAgentCoreFrontendDeploymentContract(contents: string): void {
     expressionContainsPropertyPath(managedGate, [
       "props",
       "config",
-      MANAGED_API_KEY_SECRET_CONFIG,
+      LEGACY_LICENSE_TOKEN_SECRET_CONFIG,
     ]),
   ).toBe(true);
   expect(expressionContainsEnvRead(managedGate, MANAGED_API_KEY)).toBe(false);
@@ -2472,19 +2473,18 @@ function expectAgentCoreFrontendDeploymentContract(contents: string): void {
   expect(contents).not.toMatch(
     exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
   );
-  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /**
  * Resolves the public AgentCore frontend gate emitted by the Amplify stack.
  *
  * @param contents - Amplify stack source.
- * @param hasManagedSecret - Whether the managed key secret reference is configured.
+ * @param hasLicenseSecret - Whether the compatibility-token secret reference is configured.
  * @returns The projected boolean string, or null for an unsupported expression.
  */
 function agentCoreFrontendGateProjection(
   contents: string,
-  hasManagedSecret: boolean,
+  hasLicenseSecret: boolean,
 ): string | null {
   const gate = agentCoreFrontendGateInitializer(contents);
   const initializer = gate ? unwrapExpression(gate) : null;
@@ -2493,7 +2493,7 @@ function agentCoreFrontendGateProjection(
   }
 
   const selected = unwrapExpression(
-    hasManagedSecret ? initializer.whenTrue : initializer.whenFalse,
+    hasLicenseSecret ? initializer.whenTrue : initializer.whenFalse,
   );
   return ts.isStringLiteral(selected) ? selected.text : null;
 }
@@ -2582,7 +2582,7 @@ function readAgentCoreFrontendGateSurfaces(): {
   readonly deployment: string;
   readonly vite: string;
 } {
-  const contract = MANAGED_TEMPLATE_CONTRACTS.find(
+  const contract = INTELLIGENCE_TEMPLATE_CONTRACTS.find(
     ({ directory }) => directory === "agentcore",
   );
   if (!contract || !("supportedPaths" in contract)) {
@@ -2810,7 +2810,7 @@ function expectIntegrationParityWorkflowContract(contents: string): void {
     ({ name }) => name === "Verify integration-demo parity",
   );
   const contractIndex = steps.findIndex(
-    ({ name }) => name === "Verify managed integration credential contracts",
+    ({ name }) => name === "Verify Intelligence template credential contracts",
   );
   expect(parityIndex).toBeGreaterThanOrEqual(0);
   expect(contractIndex).toBeGreaterThan(parityIndex);
@@ -2963,7 +2963,7 @@ test("managed gate helpers accept normalized Next and Vite boolean projections",
   expect(() => expectManagedGateContract(viteGateWithOverride)).not.toThrow();
 });
 
-test("AgentCore Vite honors the Amplify public gate before local key presence", () => {
+test("AgentCore Vite honors the Amplify public gate before local token presence", () => {
   const { deployment, vite } = readAgentCoreFrontendGateSurfaces();
 
   expectAgentCoreFrontendDeploymentContract(deployment);
@@ -2988,28 +2988,43 @@ test("AgentCore Vite honors the Amplify public gate before local key presence", 
   ).toBe(JSON.stringify("false"));
 });
 
-test("AgentCore Vite falls back to local managed-key presence", () => {
+test("AgentCore Vite falls back to local compatibility-token presence", () => {
+  const { vite } = readAgentCoreFrontendGateSurfaces();
+
+  expect(
+    evaluateAgentCoreViteGate(vite, {
+      [MANAGED_LICENSE_TOKEN]: LEGACY_LICENSE_TOKEN_SENTINEL,
+    }),
+  ).toBe(JSON.stringify("true"));
+  expect(evaluateAgentCoreViteGate(vite, {})).toBe(JSON.stringify("false"));
+});
+
+test("AgentCore does not expose a no-token managed drawer on its pinned SDK", () => {
   const { vite } = readAgentCoreFrontendGateSurfaces();
 
   expect(
     evaluateAgentCoreViteGate(vite, {
       [MANAGED_API_KEY]: MANAGED_API_KEY_SENTINEL,
     }),
+  ).toBe(JSON.stringify("false"));
+  expect(
+    evaluateAgentCoreViteGate(vite, {
+      [MANAGED_LICENSE_TOKEN]: LEGACY_LICENSE_TOKEN_SENTINEL,
+    }),
   ).toBe(JSON.stringify("true"));
-  expect(evaluateAgentCoreViteGate(vite, {})).toBe(JSON.stringify("false"));
 });
 
-test("AgentCore emitted browser gate omits the managed key value", () => {
+test("AgentCore emitted browser gate omits the compatibility token value", () => {
   const { vite } = readAgentCoreFrontendGateSurfaces();
 
   const definition = evaluateAgentCoreViteGate(vite, {
-    [MANAGED_API_KEY]: MANAGED_API_KEY_SENTINEL,
+    [MANAGED_LICENSE_TOKEN]: LEGACY_LICENSE_TOKEN_SENTINEL,
   });
   const browserAsset = emitAgentCoreBrowserGateAsset(definition);
 
   expect(browserAsset).toContain(JSON.stringify("true"));
-  expect(browserAsset).not.toContain(MANAGED_API_KEY_SENTINEL);
-  expect(browserAsset).not.toContain(MANAGED_API_KEY);
+  expect(browserAsset).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+  expect(browserAsset).not.toContain(MANAGED_LICENSE_TOKEN);
 });
 
 test("AgentCore structural helpers accept linked root-env, secret, Lambda, and frontend wiring", () => {
@@ -3030,7 +3045,7 @@ test("AgentCore structural helpers accept linked root-env, secret, Lambda, and f
   const frontendDeployment = `
     new amplify.App(this, "AmplifyApp", {
       environmentVariables: {
-        ${VITE_THREADS_GATE}: props.config.${MANAGED_API_KEY_SECRET_CONFIG}
+        ${VITE_THREADS_GATE}: props.config.${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}
           ? "true"
           : "false",
       },
@@ -3849,9 +3864,9 @@ ${renderWorkflowPaths(paths)}
 jobs:
   parity-check:
     steps:
-      - name: ${reversed ? "Verify managed integration credential contracts" : "Verify integration-demo parity"}
+      - name: ${reversed ? "Verify Intelligence template credential contracts" : "Verify integration-demo parity"}
         run: ${reversed ? "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts" : "pnpm parity:check"}
-      - name: ${reversed ? "Verify integration-demo parity" : "Verify managed integration credential contracts"}
+      - name: ${reversed ? "Verify integration-demo parity" : "Verify Intelligence template credential contracts"}
         run: ${reversed ? "pnpm parity:check" : "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts"}
 `;
 
@@ -3863,27 +3878,20 @@ jobs:
   ).toThrow();
 });
 
-test("the 17 managed template directories back all 19 in-repo CLI frameworks", () => {
-  const frameworks = MANAGED_TEMPLATE_CONTRACTS.flatMap(
+test("the 17 Intelligence template directories back all 19 in-repo CLI frameworks", () => {
+  const frameworks = INTELLIGENCE_TEMPLATE_CONTRACTS.flatMap(
     (contract) => contract.frameworks,
   );
-  const ordinaryRuntimeContracts = MANAGED_TEMPLATE_CONTRACTS.filter(
+  const ordinaryRuntimeContracts = INTELLIGENCE_TEMPLATE_CONTRACTS.filter(
     (contract) => "runtimeAgent" in contract,
   );
 
-  expect(MANAGED_TEMPLATE_CONTRACTS).toHaveLength(17);
+  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(17);
   expect(ordinaryRuntimeContracts).toHaveLength(14);
   expect(new Set(frameworks).size).toBe(19);
-  expect([...frameworks].sort()).toEqual([...MANAGED_CLI_FRAMEWORKS].sort());
-});
-
-test("Mastra explicitly includes its generated managed env example", () => {
-  const gitignore = fs.readFileSync(
-    path.join(integrationsDir, "mastra", ".gitignore"),
-    "utf8",
+  expect([...frameworks].sort()).toEqual(
+    [...INTELLIGENCE_CLI_FRAMEWORKS].sort(),
   );
-
-  expect(gitignore).toMatch(/^!\.env\.example$/m);
 });
 
 test.each([
@@ -3933,7 +3941,7 @@ test.each([
   },
 );
 
-for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
+for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
   if ("runtimeAgent" in contract) {
     test(`${contract.directory} runtime preserves its framework-specific agent wiring`, () => {
       const runtime = readManagedSurface(
@@ -3974,58 +3982,108 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
     expectFrontendThreadContract(provider, threadSurface);
   });
 
-  test(`${contract.directory} runtime uses the managed Intelligence API key`, () => {
-    const runtime = readManagedSurface(
-      contract,
-      contract.runtimePath,
-      "runtime",
-    );
+  if (contract.directory !== "agentcore") {
+    test(`${contract.directory} defers the no-token managed drawer until its pinned SDK supports structured entitlements`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+      const gate = readManagedSurface(
+        contract,
+        contract.gatePath,
+        "client gate",
+      );
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
+      const pins = readManagedSdkPins(contract);
 
-    expectManagedRuntimeContract(runtime);
-  });
+      expect(pins.every((pin) => !pinSupportsManagedEntitlements(pin))).toBe(
+        true,
+      );
+      expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      expect(gate).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      for (const contents of [runtime, gate, readme]) {
+        expect(contents).not.toMatch(
+          exactEnvIdentifierPattern(MANAGED_API_KEY),
+        );
+        expect(contents).not.toMatch(
+          exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
+        );
+      }
+    });
+  }
 
-  test(`${contract.directory} keeps entitlement compatibility for its pinned SDKs`, () => {
-    const runtime = readManagedSurface(
-      contract,
-      contract.runtimePath,
-      "runtime",
-    );
-    const envExample = readManagedSurface(
-      contract,
-      contract.envPath,
-      "env example",
-    );
-    const readme = readManagedSurface(contract, contract.readmePath, "README");
+  if (contract.directory === "agentcore") {
+    test(`${contract.directory} runtime uses the managed Intelligence API key`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
 
-    expectPinnedSdkCompatibilityContract(
-      readManagedSdkPins(contract),
-      runtime,
-      envExample,
-      readme,
-    );
-  });
+      expectManagedRuntimeContract(runtime);
+    });
 
-  test(`${contract.directory} client gate uses the managed Intelligence API key`, () => {
-    const gate = readManagedSurface(contract, contract.gatePath, "client gate");
+    test(`${contract.directory} keeps entitlement compatibility for its pinned SDKs`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+      const envExample = readManagedSurface(
+        contract,
+        contract.envPath,
+        "env example",
+      );
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
 
-    expectManagedGateContract(gate);
-  });
+      expectPinnedSdkCompatibilityContract(
+        readManagedSdkPins(contract),
+        runtime,
+        envExample,
+        readme,
+      );
+    });
 
-  test(`${contract.directory} env example documents managed Intelligence credentials`, () => {
-    const envExample = readManagedSurface(
-      contract,
-      contract.envPath,
-      "env example",
-    );
+    test(`${contract.directory} client gate uses the pinned compatibility token`, () => {
+      const gate = readManagedSurface(
+        contract,
+        contract.gatePath,
+        "client gate",
+      );
 
-    expectManagedEnvContract(envExample);
-  });
+      expect(gate).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      expect(gate).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+    });
 
-  test(`${contract.directory} README documents managed Intelligence credentials`, () => {
-    const readme = readManagedSurface(contract, contract.readmePath, "README");
+    test(`${contract.directory} env example documents managed Intelligence credentials`, () => {
+      const envExample = readManagedSurface(
+        contract,
+        contract.envPath,
+        "env example",
+      );
 
-    expectManagedReadmeContract(readme);
-  });
+      expectManagedEnvContract(envExample);
+    });
+
+    test(`${contract.directory} README documents managed Intelligence credentials`, () => {
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
+
+      expectManagedReadmeContract(readme);
+    });
+  }
 
   if (contract.directory === "mcp-apps") {
     test("mcp-apps runtime preserves its MCP Apps client middleware", () => {
@@ -4189,7 +4247,7 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
       );
     });
 
-    test(`${contract.directory} deployed frontend receives only the key-derived gate`, () => {
+    test(`${contract.directory} deployed frontend receives only the token-derived gate`, () => {
       const frontendDeployment = readManagedSurface(
         contract,
         supportedPaths.frontendDeploymentPath,

@@ -15,7 +15,7 @@ export default defineConfig({
         ? "true"
         : process.env.VITE_COPILOTKIT_THREADS_ENABLED === "false"
           ? "false"
-          : process.env.CPK_INTELLIGENCE_API_KEY
+          : process.env.COPILOTKIT_LICENSE_TOKEN
             ? "true"
             : "false",
     ),

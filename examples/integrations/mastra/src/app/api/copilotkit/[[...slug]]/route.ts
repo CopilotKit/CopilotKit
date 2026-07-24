@@ -8,24 +8,25 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { handle } from "hono/vercel";
 
-const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY?.trim();
-
 const runtime = new CopilotRuntime({
-  licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
   // @ts-expect-error - ignore for now, typing error
   agents: MastraAgent.getLocalAgents({ mastra }),
-  ...(intelligenceApiKey
+  // --- copilotkit:intelligence (remove this block to opt out) ---
+  ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: intelligenceApiKey,
+          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
           apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
           wsUrl:
             process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         }),
-        // Demo stub — replace with auth-derived identity before multi-user use.
+        // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
+        // before any multi-user deployment, or all users share one thread history.
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
+  // --- /copilotkit:intelligence ---
 });
 
 const app = createCopilotEndpoint({

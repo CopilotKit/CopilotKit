@@ -30,7 +30,7 @@ export default function HomePage() {
     */
     <CopilotChatConfigurationProvider agentId="default">
       <div className={styles.layout}>
-        {/* SDK threads drawer for the selected managed Intelligence project. */}
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
         <CopilotThreadsDrawer agentId="default" />
         <div className={styles.mainPanel}>
           <ExampleLayout

@@ -256,24 +256,6 @@ The **A2A Middleware** (in `app/api/copilotkit/route.ts`) is the magic that conn
 - [LangGraph Documentation](https://langchain-ai.github.io/langgraph/)
 - [CopilotKit Documentation](https://docs.copilotkit.ai)
 
-## Managed CopilotKit Intelligence
-
-`copilotkit init` writes `CPK_INTELLIGENCE_API_KEY` for the selected managed
-project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
-Keep both values in `.env`; the telemetry ID is not a credential.
-
-## Pinned SDK compatibility and offline licensing
-
-This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
-`1.62.3`. Those packages predate managed entitlement responses. Until the
-pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
-`.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
-Threads entitlement check; it does not replace the managed API key.
-
-`CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
-self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
-in the self-hosting guide.
-
 ## License
 
 MIT

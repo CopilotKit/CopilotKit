@@ -93,24 +93,6 @@ Otherwise, check out the documentation relevant to your task:
 
 Feel free to submit issues and enhancement requests! This starter is designed to be easily extensible.
 
-## Managed CopilotKit Intelligence
-
-`copilotkit init` writes `CPK_INTELLIGENCE_API_KEY` for the selected managed
-project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
-Keep both values in `.env`; the telemetry ID is not a credential.
-
-## Pinned SDK compatibility and offline licensing
-
-This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
-`1.62.3`. Those packages predate managed entitlement responses. Until the
-pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
-`.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
-Threads entitlement check; it does not replace the managed API key.
-
-`CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
-self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
-in the self-hosting guide.
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.

@@ -112,6 +112,11 @@ pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
 `.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
 Threads entitlement check; it does not replace the managed API key.
 
+The managed project setup does not issue this compatibility token, so this
+pinned template does not expose a key-only managed Threads drawer. Use an
+existing self-hosted or offline token-backed setup, or update the two SDK pins
+after a release includes structured managed entitlements.
+
 `CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
 self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
 in the self-hosting guide.

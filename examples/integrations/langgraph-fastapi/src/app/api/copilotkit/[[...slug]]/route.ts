@@ -17,11 +17,24 @@ const defaultAgent = new LangGraphHttpAgent({
   url: `${process.env.AGENT_URL || "http://localhost:8123"}/`,
 });
 
-const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY?.trim();
-
 const runtime = new CopilotRuntime({
-  licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
   agents: { default: defaultAgent },
+  // --- copilotkit:intelligence (remove this block to opt out) ---
+  ...(process.env.COPILOTKIT_LICENSE_TOKEN
+    ? {
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+          wsUrl:
+            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+        }),
+        // Demo stub — replace with your real auth-derived user identity before any
+        // multi-user deployment, or all users share one thread history.
+        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+      }
+    : { runner: new InMemoryAgentRunner() }),
+  // --- /copilotkit:intelligence ---
   openGenerativeUI: true,
   a2ui: {
     injectA2UITool: false,
@@ -35,18 +48,6 @@ const runtime = new CopilotRuntime({
       },
     ],
   },
-  ...(intelligenceApiKey
-    ? {
-        intelligence: new CopilotKitIntelligence({
-          apiKey: intelligenceApiKey,
-          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          wsUrl:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
-        }),
-        // Demo stub — replace with auth-derived identity before multi-user use.
-        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-      }
-    : { runner: new InMemoryAgentRunner() }),
 });
 
 const app = createCopilotEndpoint({

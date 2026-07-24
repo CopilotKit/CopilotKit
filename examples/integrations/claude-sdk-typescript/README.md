@@ -10,7 +10,7 @@ agent that speaks the [AG-UI protocol](https://docs.ag-ui.com), and shows Copilo
 - **flight cards** and **dynamic dashboards** via A2UI generative UI,
 - a **human-in-the-loop** meeting picker,
 - a light/dark **theme toggle**, and
-- the SDK **threads drawer** backed by the selected managed Intelligence project.
+- the SDK **threads drawer** (activated with a CopilotKit Intelligence license).
 
 The agent is powered by Claude (`claude-sonnet-5` by default) and exposes three backend tools —
 `query_data`, `search_flights`, and `generate_a2ui` — while the todo board is shared state the
@@ -59,26 +59,9 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 5. **Open [http://localhost:3000](http://localhost:3000)** and try the suggested prompts
    (add todos, draw a chart, search flights, build a dashboard, schedule a meeting).
 
-6. Open the Threads drawer to inspect history from the selected managed
-   Intelligence project.
-
-## Managed CopilotKit Intelligence
-
-`copilotkit init` writes `CPK_INTELLIGENCE_API_KEY` for the selected managed
-project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.
-Keep both values in `.env`; the telemetry ID is not a credential.
-
-## Pinned SDK compatibility and offline licensing
-
-This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
-`1.62.3`. Those packages predate managed entitlement responses. Until the
-pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
-`.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
-Threads entitlement check; it does not replace the managed API key.
-
-`CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
-self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
-in the self-hosting guide.
+6. **(Optional) Enable the Threads drawer.** Thread history is gated behind a CopilotKit
+   Intelligence license. Set `COPILOTKIT_LICENSE_TOKEN` (and the `INTELLIGENCE_*` URLs) in
+   `.env` to activate live thread history; without it the drawer shows a locked state.
 
 ## Available scripts
 
