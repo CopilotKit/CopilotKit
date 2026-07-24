@@ -296,7 +296,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         // x-* headers (e.g. x-aimock-context) bound into ALS by the
         // route handler. Without this, /v1/responses calls to aimock
         // miss every fixture (404) and the D6 subset goes 0/6.
-        adapter: openaiText("gpt-5.5", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools: [...serverTools, ...frontendTools],

@@ -28,7 +28,7 @@ export function createAgenticChatAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-5.5", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [AGENTIC_CHAT_SYSTEM_PROMPT, ...systemPrompts],
         tools: [],
