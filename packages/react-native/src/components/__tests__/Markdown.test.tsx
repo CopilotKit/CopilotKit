@@ -10,6 +10,9 @@ vi.mock("react-native", () => ({
     create: <T extends Record<string, any>>(styles: T): T => styles,
     flatten: (style: any) => style,
   },
+  Platform: {
+    OS: "ios",
+  },
   View: "View",
   Text: "Text",
 }));
@@ -29,6 +32,7 @@ vi.mock("react-native-streamdown", () => ({
 }));
 
 // Import after mocks
+import { Platform } from "react-native";
 import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -36,6 +40,7 @@ import { CopilotMarkdown, defaultMarkdownStyles } from "../Markdown";
 describe("CopilotMarkdown", () => {
   beforeEach(() => {
     lastStreamdownProps = null;
+    (Platform as { OS: string }).OS = "ios";
   });
 
   it("renders without crashing", () => {
@@ -86,6 +91,21 @@ describe("CopilotMarkdown", () => {
   it("allows disabling streamingAnimation", () => {
     render(<CopilotMarkdown content="test" streamingAnimation={false} />);
     expect(lastStreamdownProps.streamingAnimation).toBe(false);
+  });
+
+  it("uses a DOM markdown renderer on web", () => {
+    (Platform as { OS: string }).OS = "web";
+
+    const { container } = render(
+      <CopilotMarkdown content="**Bold** and [link](https://example.com)" />,
+    );
+
+    expect(container.querySelector("strong")?.textContent).toBe("Bold");
+    expect(container.querySelector("a")?.textContent).toBe("link");
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "https://example.com",
+    );
+    expect(lastStreamdownProps).toBeNull();
   });
 });
 
