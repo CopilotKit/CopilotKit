@@ -39,6 +39,8 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
+import { firstNonBlankTelemetryId } from "../telemetry/telemetry-identity";
 
 export const VERSION = pkg.version;
 
@@ -154,6 +156,8 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -233,6 +237,11 @@ export interface CopilotRuntimeLike {
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
   /**
+   * Runtime-bound telemetry capture. Optional so external implementations of
+   * this published interface remain source-compatible.
+   */
+  telemetry?: TelemetryCapture;
+  /**
    * Resolved inbound-header forwarding policy read by the /run and /connect call
    * sites. Optional on the published interface so an external `CopilotRuntimeLike`
    * implementor predating this field stays source-compatible (non-breaking minor
@@ -272,6 +281,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
+  public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
 
   /**
@@ -313,14 +323,20 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.resolvedLicenseToken =
       options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
 
-    // Attribute telemetry to the licensed customer for *every* runtime mode.
-    // Done in the shared base (not the subclasses) so SSE and Intelligence
-    // runtimes behave identically — previously only CopilotIntelligenceRuntime
-    // set this, so self-hosted SSE users never got a telemetry_id on their
-    // runtime events even with a license token configured.
-    if (this.resolvedLicenseToken) {
-      telemetry.setLicenseToken(this.resolvedLicenseToken);
-    }
+    // Snapshot identity and sampling authority for this runtime. Capture
+    // scopes share process-level telemetry settings but cannot be rewritten by
+    // another runtime's construction.
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      options.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
+    this.telemetry = telemetry.createScope(
+      resolvedTelemetryId !== undefined
+        ? { telemetryId: resolvedTelemetryId }
+        : this.resolvedLicenseToken !== undefined
+          ? { licenseToken: this.resolvedLicenseToken }
+          : {},
+    );
 
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
@@ -479,6 +495,8 @@ export interface RuntimeWithDeclaredChannels {
  * `CopilotRuntime` name resolves as a type as well as a value.
  */
 export interface CopilotRuntime extends CopilotRuntimeLike {
+  /** Telemetry capture bound to this runtime's construction-time identity. */
+  telemetry: TelemetryCapture;
   /** Auto-generate short thread names; `undefined` in SSE mode. */
   generateThreadNames?: boolean;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
@@ -523,7 +541,7 @@ export interface CopilotRuntimeConstructor {
  * channel-presence brand can flow from construction into the handler type.
  */
 class CopilotRuntimeShim implements CopilotRuntime {
-  private delegate: CopilotRuntimeLike;
+  private delegate: CopilotSseRuntime | CopilotIntelligenceRuntime;
 
   constructor(options: CopilotRuntimeOptions) {
     this.delegate = hasIntelligenceOptions(options)
@@ -621,6 +639,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get debugLogger(): CopilotRuntimeLogger | undefined {
     return this.delegate.debugLogger;
+  }
+
+  get telemetry(): TelemetryCapture {
+    return this.delegate.telemetry;
   }
 
   get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {

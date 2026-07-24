@@ -1,12 +1,13 @@
-import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
+import type { CreateCopilotRuntimeServerOptions } from "../shared";
+import { getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "../../../v2/runtime";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingWithBody } from "./request-handler";
 import {
   getFullUrl,
-  IncomingWithBody,
   isDisturbedOrLockedError,
   isStreamConsumed,
   nodeStreamToReadableStream,
@@ -32,7 +33,7 @@ export function copilotRuntimeNodeHttpEndpoint(
     });
   }
 
-  telemetry.capture(
+  options.runtime.telemetry.capture(
     "oss.runtime.instance_created",
     getRuntimeInstanceTelemetryInfo(options),
   );

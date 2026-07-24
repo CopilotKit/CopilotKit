@@ -1,406 +1,4230 @@
-import { describe, expect, it, test } from "vitest";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
+
+import * as ts from "typescript";
+import { expect, test } from "vitest";
 
 const repoRoot = path.resolve(__dirname, "..", "..");
 const integrationsDir = path.join(repoRoot, "examples", "integrations");
 
-const migratedIntegrations = [
-  "crewai-flows",
-  "llamaindex",
-  "langgraph-fastapi",
+const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
+const MANAGED_API_KEY_SENTINEL = "cpk_secret_must_not_reach_browser_assets";
+const OPTIONAL_TELEMETRY_ID = "CPK_TELEMETRY_ID";
+const LEGACY_API_KEY = "INTELLIGENCE_API_KEY";
+const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
+const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
+const MANAGED_API_KEY_SECRET_CONFIG =
+  "copilotkit_intelligence_api_key_secret_name";
+const MANAGED_API_KEY_SECRET_VERSION_ID =
+  "CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID";
+const MANAGED_API_KEY_SECRET_VERSION_SENTINEL =
+  "agentcore-secret-version-contract";
+const LEGACY_LICENSE_TOKEN_SECRET_CONFIG =
+  "copilotkit_license_token_secret_name";
+const LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID =
+  "COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID";
+const LEGACY_LICENSE_TOKEN_SENTINEL =
+  "license_token_must_not_reach_child_processes";
+const LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL =
+  "agentcore-license-token-version-contract";
+const INTELLIGENCE_API_URL = "INTELLIGENCE_API_URL";
+const INTELLIGENCE_GATEWAY_WS_URL = "INTELLIGENCE_GATEWAY_WS_URL";
+const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
+const VITE_THREADS_GATE = "VITE_COPILOTKIT_THREADS_ENABLED";
+const MANAGED_DOCUMENTATION_LABEL = /\bmanaged\b/i;
+const SELF_HOSTED_OR_OFFLINE_LABEL = /\b(?:self[ -]?hosted|offline)\b/i;
+const LICENSE_GATING_LANGUAGE =
+  /(?:\blicen[cs]e\b[\s\S]{0,160}\b(?:activat(?:e[sd]?|ing)|unlock(?:s|ed|ing)?|enabl(?:e[sd]?|ing))\b[\s\S]{0,160}\b(?:threads?|inspector)\b|\b(?:threads?|inspector)\b[\s\S]{0,160}\b(?:activat(?:e[sd]?|ing)|unlock(?:s|ed|ing)?|enabl(?:e[sd]?|ing))\b[\s\S]{0,160}\blicen[cs]e\b)/i;
+const INTEGRATION_PARITY_WORKFLOW = path.join(
+  repoRoot,
+  ".github",
+  "workflows",
+  "integrations_parity.yml",
+);
+
+type ManagedSdkPackageName = "@copilotkit/runtime" | "@copilotkit/react-core";
+
+interface ManagedSdkPin {
+  readonly packageName: ManagedSdkPackageName;
+  readonly packagePath: string;
+  readonly version: string;
+}
+
+const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
+  "@copilotkit/runtime": {
+    "1.62.2": false,
+    "1.62.3": false,
+  },
+  "@copilotkit/react-core": {
+    "1.62.2": false,
+    "1.62.3": false,
+  },
+} as const satisfies Readonly<
+  Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
+>;
+
+const INTELLIGENCE_CLI_FRAMEWORKS = [
+  "langgraph-py",
+  "langgraph-js",
+  "claude-sdk-typescript",
+  "claude-sdk-python",
+  "flows",
+  "mastra",
   "pydantic-ai",
+  "llamaindex",
+  "agno",
+  "adk",
+  "aws-strands-py",
+  "a2a",
+  "microsoft-agent-framework-dotnet",
+  "microsoft-agent-framework-py",
   "mcp-apps",
-  "agent-spec",
-  "strands-python",
-  "crewai-crews",
+  "agentcore-langgraph",
+  "agentcore-strands",
+  "a2ui",
+  "opengenui",
 ] as const;
-const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
-const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
-  "crewai-flows": "src/app",
-  llamaindex: "src/app",
-  "langgraph-fastapi": "src/app",
-  "pydantic-ai": "src/app",
-  "mcp-apps": "app",
-  "agent-spec": "src/app",
-  "strands-python": "src/app",
-  "crewai-crews": "src/app",
-};
+type ManagedCliFramework = (typeof INTELLIGENCE_CLI_FRAMEWORKS)[number];
 
-function readIntegrationFile(
-  integration: string,
+interface AgentOptionContract {
+  readonly property: string;
+  readonly environmentReads?: readonly string[];
+  readonly stringLiterals?: readonly string[];
+}
+
+type RuntimeAgentContract =
+  | {
+      readonly registration: "default";
+      readonly constructorName: string;
+      readonly options: readonly AgentOptionContract[];
+    }
+  | {
+      readonly registration: "factory";
+      readonly calleePath: readonly string[];
+      readonly argumentIdentifier: string;
+    };
+
+interface ManagedTemplateContract {
+  readonly directory: string;
+  readonly frameworks: readonly ManagedCliFramework[];
+  readonly runtimePath: string;
+  readonly gatePath: string;
+  readonly envPath: string;
+  readonly readmePath: string;
+  readonly runtimeAgent?: RuntimeAgentContract;
+  readonly supportedPaths?: {
+    readonly localComposePath: string;
+    readonly deploymentConfigPath: string;
+    readonly runtimeDeploymentPath: string;
+    readonly frontendDeploymentPath: string;
+    readonly terraformRuntimeDeploymentPath: string;
+    readonly terraformReadmePath: string;
+    readonly deployScriptPaths: readonly string[];
+  };
+}
+
+type AgentCoreDeployScriptName = "deploy-langgraph.sh" | "deploy-strands.sh";
+
+interface AgentCoreDeployEnvironment {
+  readonly apiUrl?: string;
+  readonly gatewayWsUrl?: string;
+}
+
+interface AgentCoreDeployHarnessOptions {
+  readonly scriptName: AgentCoreDeployScriptName;
+  readonly envFile: AgentCoreDeployEnvironment;
+  readonly callerEnvironment?: AgentCoreDeployEnvironment;
+  readonly skipBackend?: boolean;
+  readonly skipFrontend?: boolean;
+  readonly xtrace?: boolean;
+}
+
+interface AgentCoreDeployHarnessResult {
+  readonly status: number | null;
+  readonly output: string;
+  readonly cdkEnvironment: string | null;
+  readonly secretVersionId: string | null;
+  readonly licenseTokenSecretVersionId: string | null;
+  readonly awsCommands: readonly string[];
+  readonly npmCommands: readonly string[];
+  readonly frontendStackName: string | null;
+  readonly frontendSecretVersionId: string | null;
+  readonly secretExposureObservations: readonly string[];
+  readonly secretInputObservations: readonly string[];
+}
+
+const LANGGRAPH_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LangGraphAgent",
+  options: [
+    {
+      property: "deploymentUrl",
+      environmentReads: ["AGENT_URL", "LANGGRAPH_DEPLOYMENT_URL"],
+      stringLiterals: ["http://localhost:8123"],
+    },
+    { property: "graphId", stringLiterals: ["sample_agent"] },
+    {
+      property: "langsmithApiKey",
+      environmentReads: ["LANGSMITH_API_KEY"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const LANGGRAPH_FASTAPI_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LangGraphHttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8123"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000/"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const MASTRA_RUNTIME_AGENT_CONTRACT = {
+  registration: "factory",
+  calleePath: ["MastraAgent", "getLocalAgents"],
+  argumentIdentifier: "mastra",
+} as const satisfies RuntimeAgentContract;
+
+const LLAMAINDEX_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "LlamaIndexAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://127.0.0.1:9000", "/run"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const AGNO_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL"],
+      stringLiterals: ["http://localhost:8000", "/agui"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const STRANDS_RUNTIME_AGENT_CONTRACT = {
+  registration: "default",
+  constructorName: "HttpAgent",
+  options: [
+    {
+      property: "url",
+      environmentReads: ["AGENT_URL", "STRANDS_AGENT_URL"],
+      stringLiterals: ["http://localhost:8000"],
+    },
+  ],
+} as const satisfies RuntimeAgentContract;
+
+const INTELLIGENCE_TEMPLATE_CONTRACTS = [
+  {
+    directory: "langgraph-python",
+    frameworks: ["langgraph-py", "a2ui", "opengenui"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "langgraph-js",
+    frameworks: ["langgraph-js"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "langgraph-fastapi",
+    frameworks: [],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: LANGGRAPH_FASTAPI_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "claude-sdk-typescript",
+    frameworks: ["claude-sdk-typescript"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "claude-sdk-python",
+    frameworks: ["claude-sdk-python"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "crewai-flows",
+    frameworks: ["flows"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "mastra",
+    frameworks: ["mastra"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: MASTRA_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "pydantic-ai",
+    frameworks: ["pydantic-ai"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "llamaindex",
+    frameworks: ["llamaindex"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: LLAMAINDEX_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "agno",
+    frameworks: ["agno"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: AGNO_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "adk",
+    frameworks: ["adk"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "strands-python",
+    frameworks: ["aws-strands-py"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: STRANDS_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "a2a-middleware",
+    frameworks: ["a2a"],
+    runtimePath: "app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "ms-agent-framework-dotnet",
+    frameworks: ["microsoft-agent-framework-dotnet"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "ms-agent-framework-python",
+    frameworks: ["microsoft-agent-framework-py"],
+    runtimePath: "src/app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    runtimeAgent: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    directory: "mcp-apps",
+    frameworks: ["mcp-apps"],
+    runtimePath: "app/api/copilotkit/[[...slug]]/route.ts",
+    gatePath: "next.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+  },
+  {
+    directory: "agentcore",
+    frameworks: ["agentcore-langgraph", "agentcore-strands"],
+    runtimePath: "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
+    gatePath: "frontend/vite.config.ts",
+    envPath: ".env.example",
+    readmePath: "README.md",
+    supportedPaths: {
+      localComposePath: "docker/docker-compose.yml",
+      deploymentConfigPath: "config.yaml.example",
+      runtimeDeploymentPath: "infra-cdk/lib/backend-stack.ts",
+      frontendDeploymentPath: "infra-cdk/lib/amplify-hosting-stack.ts",
+      terraformRuntimeDeploymentPath:
+        "infra-terraform/modules/backend/copilotkit_runtime.tf",
+      terraformReadmePath: "infra-terraform/README.md",
+      deployScriptPaths: ["deploy-langgraph.sh", "deploy-strands.sh"],
+    },
+  },
+] as const satisfies readonly ManagedTemplateContract[];
+
+/**
+ * Reads one required managed-template surface from its authoritative path.
+ *
+ * @param contract - Managed template and its exact surface paths.
+ * @param relativePath - Surface path relative to the integration directory.
+ * @param surface - Human-readable surface name used in assertion failures.
+ * @returns The UTF-8 contents, or an empty string after a missing-file assertion.
+ */
+function readManagedSurface(
+  contract: ManagedTemplateContract,
   relativePath: string,
+  surface: string,
 ): string {
-  return fs.readFileSync(
-    path.join(integrationsDir, integration, relativePath),
-    "utf8",
+  const filePath = path.join(integrationsDir, contract.directory, relativePath);
+  const exists = fs.existsSync(filePath);
+
+  expect(
+    exists,
+    `${contract.directory} ${surface} must exist at ${relativePath}`,
+  ).toBe(true);
+
+  return exists ? fs.readFileSync(filePath, "utf8") : "";
+}
+
+/**
+ * Returns one two-space-indented YAML mapping section.
+ *
+ * @param contents - YAML source containing service-style mappings.
+ * @param name - Mapping key whose complete section should be returned.
+ * @returns The mapping section, or an empty string when it is absent.
+ */
+function yamlMappingSection(contents: string, name: string): string {
+  const lines = contents.split(/\r?\n/);
+  const start = lines.findIndex((line) => line === `  ${name}:`);
+  if (start < 0) {
+    return "";
+  }
+
+  const relativeEnd = lines
+    .slice(start + 1)
+    .findIndex((line) => /^  [^\s].*:\s*$/.test(line));
+  const end = relativeEnd < 0 ? lines.length : start + relativeEnd + 1;
+  return lines.slice(start, end).join("\n");
+}
+
+/** Matches a service-level reference to the generated project's root env. */
+function rootManagedEnvFilePattern(): RegExp {
+  return /env_file:\s*(?:\r?\n\s*-\s*)?\.\.\/\.env\b/;
+}
+
+/**
+ * Matches an environment identifier without matching it inside a longer name.
+ *
+ * @param identifier - Exact uppercase environment identifier to match.
+ * @returns A pattern that excludes surrounding uppercase identifier characters.
+ */
+function exactEnvIdentifierPattern(identifier: string): RegExp {
+  return new RegExp(`(^|[^A-Z0-9_])${identifier}([^A-Z0-9_]|$)`);
+}
+
+/** Returns whether a node is the `process.env` object expression. */
+function isProcessEnvObject(node: ts.Node): boolean {
+  return (
+    ts.isPropertyAccessExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "process" &&
+    node.name.text === "env"
   );
 }
 
-function readOptionalIntegrationFile(
-  integration: string,
-  relativePath: string,
-): string {
-  const filePath = path.join(integrationsDir, integration, relativePath);
-  return fs.existsSync(filePath) ? fs.readFileSync(filePath, "utf8") : "";
+/**
+ * Returns whether a node is a dot or bracket read from `process.env`.
+ *
+ * @param node - TypeScript syntax node under inspection.
+ * @param identifier - Exact environment identifier that must be read.
+ */
+function isProcessEnvRead(node: ts.Node, identifier: string): boolean {
+  if (ts.isPropertyAccessExpression(node)) {
+    return isProcessEnvObject(node.expression) && node.name.text === identifier;
+  }
+
+  return (
+    ts.isElementAccessExpression(node) &&
+    isProcessEnvObject(node.expression) &&
+    ts.isStringLiteral(node.argumentExpression) &&
+    node.argumentExpression.text === identifier
+  );
 }
 
-function readA2AMiddlewareFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(a2aMiddlewareRoot, pathFromRoot), "utf8");
+/** Returns the static text of an object-literal property name when available. */
+function propertyNameText(name: ts.PropertyName): string | null {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) {
+    return name.text;
+  }
+
+  return null;
 }
 
-describe("batch-2 Intelligence integration migration", () => {
-  for (const integration of migratedIntegrations) {
-    it(`${integration} has the env-gated Intelligence runtime route`, () => {
-      const route = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/api/copilotkit/[[...slug]]/route.ts`,
+/** Parses managed scaffold TypeScript and rejects parser-recovered source. */
+function parseManagedSource(contents: string): ts.SourceFile {
+  const transpiled = ts.transpileModule(contents, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.Preserve,
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.Latest,
+    },
+    fileName: "managed-integration-contract.tsx",
+    reportDiagnostics: true,
+  });
+  const parseDiagnostics =
+    transpiled.diagnostics?.filter(
+      (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+    ) ?? [];
+  expect(
+    parseDiagnostics,
+    "managed scaffold source must parse without diagnostics",
+  ).toHaveLength(0);
+
+  const sourceFile = ts.createSourceFile(
+    "managed-integration-contract.tsx",
+    contents,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+
+  return sourceFile;
+}
+
+/** Returns an expression without transparent TypeScript wrappers. */
+function unwrapExpression(expression: ts.Expression): ts.Expression {
+  if (
+    ts.isParenthesizedExpression(expression) ||
+    ts.isAsExpression(expression) ||
+    ts.isTypeAssertionExpression(expression) ||
+    ts.isSatisfiesExpression(expression) ||
+    ts.isNonNullExpression(expression)
+  ) {
+    return unwrapExpression(expression.expression);
+  }
+
+  return expression;
+}
+
+/** Returns one exact object-literal property assignment when present. */
+function objectPropertyAssignment(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.PropertyAssignment | null {
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === name
+    ) {
+      return property;
+    }
+  }
+
+  return null;
+}
+
+/** Returns whether one expression contains the exact managed env read. */
+function expressionContainsEnvRead(
+  expression: ts.Expression,
+  identifier: string,
+): boolean {
+  let found = false;
+
+  /** Visits one initializer node looking for the required env read. */
+  function visit(node: ts.Node): void {
+    if (found) {
+      return;
+    }
+    if (isProcessEnvRead(node, identifier)) {
+      found = true;
+      return;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns whether an expression contains one exact string literal. */
+function expressionContainsStringLiteral(
+  expression: ts.Expression,
+  expected: string,
+): boolean {
+  let found = false;
+
+  /** Visits one initializer node looking for the required literal. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      node.text === expected
+    ) {
+      found = true;
+      return;
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns whether an expression uses the managed key without telemetry. */
+function expressionUsesManagedKeyWithoutTelemetry(
+  expression: ts.Expression,
+): boolean {
+  return (
+    expressionContainsEnvRead(expression, MANAGED_API_KEY) &&
+    !expressionContainsEnvRead(expression, OPTIONAL_TELEMETRY_ID)
+  );
+}
+
+/** Returns whether an expression is a literal boolean string projection. */
+function isBooleanStringProjection(expression: ts.Expression): boolean {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isStringLiteral(unwrapped)) {
+    return unwrapped.text === "true" || unwrapped.text === "false";
+  }
+  if (ts.isConditionalExpression(unwrapped)) {
+    return (
+      isBooleanStringProjection(unwrapped.whenTrue) &&
+      isBooleanStringProjection(unwrapped.whenFalse)
+    );
+  }
+  if (
+    ts.isCallExpression(unwrapped) &&
+    ts.isPropertyAccessExpression(unwrapped.expression) &&
+    ts.isIdentifier(unwrapped.expression.expression) &&
+    unwrapped.expression.expression.text === "JSON" &&
+    unwrapped.expression.name.text === "stringify" &&
+    unwrapped.arguments.length === 1
+  ) {
+    return isBooleanStringProjection(unwrapped.arguments[0]!);
+  }
+
+  return false;
+}
+
+/** Returns whether the public gate is boolean-only and keyed by the CPK credential. */
+function expressionUsesManagedBooleanGate(expression: ts.Expression): boolean {
+  return (
+    expressionContainsEnvRead(expression, MANAGED_API_KEY) &&
+    !expressionContainsEnvRead(expression, OPTIONAL_TELEMETRY_ID) &&
+    isBooleanStringProjection(expression)
+  );
+}
+
+/** Returns the expression assigned to one exact object-literal property. */
+function objectPropertyExpression(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.Expression | null {
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === name
+    ) {
+      return property.initializer;
+    }
+    if (
+      ts.isShorthandPropertyAssignment(property) &&
+      property.name.text === name
+    ) {
+      return property.name;
+    }
+  }
+
+  return null;
+}
+
+/** Returns whether the Runtime's Intelligence client owns the API-key read. */
+function hasRuntimeApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  const clientUsesManagedKey = (clientExpression: ts.Expression): boolean => {
+    const client = resolveTopLevelExpression(sourceFile, clientExpression);
+    if (
+      !ts.isNewExpression(client) ||
+      !ts.isIdentifier(client.expression) ||
+      client.expression.text !== "CopilotKitIntelligence"
+    ) {
+      return false;
+    }
+
+    const options = client.arguments?.[0]
+      ? unwrapExpression(client.arguments[0])
+      : null;
+    if (!options || !ts.isObjectLiteralExpression(options)) return false;
+
+    const apiKey = objectPropertyAssignment(options, "apiKey");
+    return Boolean(
+      apiKey &&
+      expressionUsesManagedKeyWithoutTelemetry(
+        resolveTopLevelExpression(sourceFile, apiKey.initializer),
+      ),
+    );
+  };
+
+  return newExpressionOptions(sourceFile, "CopilotRuntime").some(
+    (runtimeOptions) => {
+      const directIntelligence = objectPropertyExpression(
+        runtimeOptions,
+        "intelligence",
       );
-
-      expect(route).toContain("CopilotKitIntelligence");
-      expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-      expect(route).toContain(
-        "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
-      );
-      expect(route).toContain('id: "demo-user"');
-      expect(route).toContain("new InMemoryAgentRunner()");
-      expect(route).toContain("export const GET = handle(app)");
-      expect(route).toContain("export const POST = handle(app)");
-      expect(route).toContain("export const PATCH = handle(app)");
-      expect(route).toContain("export const DELETE = handle(app)");
-    });
-
-    it(`${integration} forces REST transport for thread routes`, () => {
-      const layout = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/layout.tsx`,
-      );
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
-
-      expect(`${layout}\n${page}`).toContain("useSingleEndpoint={false}");
-    });
-
-    it(`${integration} wires the threads drawer into the chat thread context`, () => {
-      const page = readIntegrationFile(
-        integration,
-        `${appRoots[integration]}/page.tsx`,
-      );
-
-      expect(page).toContain("ThreadsDrawer");
-      expect(page).toContain("ThreadsPanelGate");
-      expect(page).toContain("CopilotChatConfigurationProvider");
-      expect(page).toContain("threadId");
-      expect(page).toContain("onThreadChange={setThreadId}");
-
-      if (integration === "mcp-apps") {
-        expect(page).toContain('key={threadId ?? "new-thread"}');
-        expect(page).toContain("threadId={threadId}");
-
-        const drawer = readIntegrationFile(
-          integration,
-          "app/components/threads-drawer/threads-drawer.tsx",
-        );
-        expect(drawer).toContain("onThreadChange(undefined)");
-        expect(drawer).not.toContain("crypto.randomUUID()");
+      if (directIntelligence && clientUsesManagedKey(directIntelligence)) {
+        return true;
       }
-    });
 
-    it(`${integration} exposes the client-safe threads enabled gate`, () => {
-      const nextConfig = readIntegrationFile(integration, "next.config.ts");
+      let found = false;
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isNewExpression(node) &&
+          ts.isIdentifier(node.expression) &&
+          node.expression.text === "CopilotKitIntelligence"
+        ) {
+          found = clientUsesManagedKey(node);
+        }
+        if (!found) ts.forEachChild(node, visit);
+      };
 
-      expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
-      expect(nextConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    });
+      visit(runtimeOptions);
+      return found;
+    },
+  );
+}
 
-    it(`${integration} documents the local Intelligence environment`, () => {
-      const envExample = readOptionalIntegrationFile(
-        integration,
-        ".env.example",
+/** Returns the initializer for one top-level variable identifier. */
+function topLevelVariableInitializer(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): ts.Expression | null {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) {
+      continue;
+    }
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (
+        ts.isIdentifier(declaration.name) &&
+        declaration.name.text === identifier
+      ) {
+        return declaration.initializer ?? null;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Returns every variable initializer with one exact identifier in a source tree. */
+function variableInitializers(
+  root: ts.Node,
+  identifier: string,
+): readonly ts.Expression[] {
+  const matches: ts.Expression[] = [];
+
+  /** Visits variable declarations for the requested identifier. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === identifier &&
+      node.initializer
+    ) {
+      matches.push(node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(root);
+  return matches;
+}
+
+/** Resolves transparent wrappers and top-level variable aliases. */
+function resolveTopLevelExpression(
+  sourceFile: ts.SourceFile,
+  expression: ts.Expression,
+  seenIdentifiers: ReadonlySet<string> = new Set(),
+): ts.Expression {
+  const unwrapped = unwrapExpression(expression);
+  if (!ts.isIdentifier(unwrapped) || seenIdentifiers.has(unwrapped.text)) {
+    return unwrapped;
+  }
+
+  const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+  if (!initializer) return unwrapped;
+
+  return resolveTopLevelExpression(
+    sourceFile,
+    initializer,
+    new Set([...seenIdentifiers, unwrapped.text]),
+  );
+}
+
+/** Resolves one registered agent through an optional top-level identifier. */
+function registeredAgentExpression(
+  sourceFile: ts.SourceFile,
+  expression: ts.Expression,
+): ts.Expression {
+  const unwrapped = unwrapExpression(expression);
+  if (!ts.isIdentifier(unwrapped)) return unwrapped;
+
+  const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+  return initializer ? unwrapExpression(initializer) : unwrapped;
+}
+
+/** Returns whether an object property carries one exact identifier. */
+function objectPropertyIsIdentifier(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+  identifier: string,
+): boolean {
+  return objectLiteral.properties.some((property) => {
+    if (
+      ts.isShorthandPropertyAssignment(property) &&
+      property.name.text === propertyName
+    ) {
+      return property.name.text === identifier;
+    }
+    if (
+      ts.isPropertyAssignment(property) &&
+      propertyNameText(property.name) === propertyName
+    ) {
+      const initializer = unwrapExpression(property.initializer);
+      return ts.isIdentifier(initializer) && initializer.text === identifier;
+    }
+
+    return false;
+  });
+}
+
+/** Resolves a default-exported object literal through top-level variables. */
+function exportedObjectLiteral(
+  expression: ts.Expression,
+  sourceFile: ts.SourceFile,
+  seenIdentifiers: ReadonlySet<string> = new Set(),
+): ts.ObjectLiteralExpression | null {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isObjectLiteralExpression(unwrapped)) {
+    return unwrapped;
+  }
+  if (ts.isIdentifier(unwrapped) && !seenIdentifiers.has(unwrapped.text)) {
+    const initializer = topLevelVariableInitializer(sourceFile, unwrapped.text);
+    if (initializer) {
+      return exportedObjectLiteral(
+        initializer,
+        sourceFile,
+        new Set([...seenIdentifiers, unwrapped.text]),
       );
+    }
+  }
 
-      expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN");
-      expect(envExample).toContain("INTELLIGENCE_API_KEY");
-      expect(envExample).toContain("INTELLIGENCE_API_URL");
-      expect(envExample).toContain("INTELLIGENCE_GATEWAY_WS_URL");
+  return null;
+}
+
+/** Returns the source's default export expression when it has one. */
+function defaultExportExpression(
+  sourceFile: ts.SourceFile,
+): ts.Expression | null {
+  for (const statement of sourceFile.statements) {
+    if (ts.isExportAssignment(statement) && !statement.isExportEquals) {
+      return statement.expression;
+    }
+  }
+
+  return null;
+}
+
+/** Returns whether the exported Next thread gate owns the key read. */
+function hasExportedGateApiKeyRead(sourceFile: ts.SourceFile): boolean {
+  const exported = defaultExportExpression(sourceFile);
+  if (!exported) {
+    return false;
+  }
+
+  const nextConfig = exportedObjectLiteral(exported, sourceFile);
+  return Boolean(
+    nextConfig &&
+    nestedPropertyMatches(
+      nextConfig,
+      "env",
+      NEXT_THREADS_GATE,
+      expressionUsesManagedBooleanGate,
+    ),
+  );
+}
+
+/** Returns whether a nested object property satisfies an expression predicate. */
+function nestedPropertyMatches(
+  objectLiteral: ts.ObjectLiteralExpression,
+  containerName: string,
+  propertyName: string,
+  predicate: (expression: ts.Expression) => boolean,
+): boolean {
+  const container = objectPropertyAssignment(objectLiteral, containerName);
+  if (!container) {
+    return false;
+  }
+  const containerInitializer = unwrapExpression(container.initializer);
+  if (!ts.isObjectLiteralExpression(containerInitializer)) {
+    return false;
+  }
+  const property = objectPropertyAssignment(containerInitializer, propertyName);
+  return Boolean(property && predicate(property.initializer));
+}
+
+/** Returns the exact dotted parts of a property-access expression. */
+function propertyAccessParts(expression: ts.Expression): readonly string[] {
+  const unwrapped = unwrapExpression(expression);
+  if (ts.isIdentifier(unwrapped)) {
+    return [unwrapped.text];
+  }
+  if (ts.isPropertyAccessExpression(unwrapped)) {
+    return [...propertyAccessParts(unwrapped.expression), unwrapped.name.text];
+  }
+
+  return [];
+}
+
+/** Returns whether an expression contains an exact dotted property path. */
+function expressionContainsPropertyPath(
+  expression: ts.Expression,
+  expectedPath: readonly string[],
+): boolean {
+  let found = false;
+
+  /** Visits one expression node for the exact configured path. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isExpression(node) &&
+      propertyAccessParts(node).join(".") === expectedPath.join(".")
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns whether an expression resolves a value through Secrets Manager. */
+function expressionContainsSecretResolution(
+  expression: ts.Expression,
+): boolean {
+  let found = false;
+
+  /** Visits one expression node for an explicit Secrets Manager call. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (ts.isCallExpression(node)) {
+      const callee = propertyAccessParts(node.expression);
+      if (
+        callee.at(-1) === "secretsManager" &&
+        callee.includes("SecretValue")
+      ) {
+        found = true;
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(expression);
+  return found;
+}
+
+/** Returns all new-expression option objects matching a construct name and id. */
+function constructOptions(
+  sourceFile: ts.SourceFile,
+  constructorPath: readonly string[],
+  constructId: string,
+): readonly ts.ObjectLiteralExpression[] {
+  const matches: ts.ObjectLiteralExpression[] = [];
+
+  /** Visits construct calls for exact constructor and id ownership. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isNewExpression(node) &&
+      propertyAccessParts(node.expression).join(".") ===
+        constructorPath.join(".") &&
+      node.arguments?.[1] &&
+      ts.isStringLiteral(node.arguments[1]) &&
+      node.arguments[1].text === constructId
+    ) {
+      const options = node.arguments[2]
+        ? unwrapExpression(node.arguments[2])
+        : null;
+      if (options && ts.isObjectLiteralExpression(options)) {
+        matches.push(options);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
+}
+
+/** Returns every object-literal options argument for one constructor. */
+function newExpressionOptions(
+  sourceFile: ts.SourceFile,
+  constructorName: string,
+): readonly ts.ObjectLiteralExpression[] {
+  const matches: ts.ObjectLiteralExpression[] = [];
+
+  /** Visits constructor calls for exact constructor ownership. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isNewExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === constructorName
+    ) {
+      const options = node.arguments?.[0]
+        ? unwrapExpression(node.arguments[0])
+        : null;
+      if (options && ts.isObjectLiteralExpression(options)) {
+        matches.push(options);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
+}
+
+/** Returns one constructor's object-literal options from an exact expression. */
+function constructorOptionsFromExpression(
+  expression: ts.Expression,
+  constructorName: string,
+): ts.ObjectLiteralExpression | null {
+  const unwrapped = unwrapExpression(expression);
+  if (
+    !ts.isNewExpression(unwrapped) ||
+    !ts.isIdentifier(unwrapped.expression) ||
+    unwrapped.expression.text !== constructorName
+  ) {
+    return null;
+  }
+
+  const options = unwrapped.arguments?.[0]
+    ? unwrapExpression(unwrapped.arguments[0])
+    : null;
+  return options && ts.isObjectLiteralExpression(options) ? options : null;
+}
+
+/** Returns whether a source contains a call to one exact function or method. */
+function sourceContainsCall(
+  sourceFile: ts.SourceFile,
+  calleePath: readonly string[],
+): boolean {
+  let found = false;
+
+  /** Visits call expressions until the required callee is found. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isCallExpression(node) &&
+      propertyAccessParts(node.expression).join(".") === calleePath.join(".")
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Returns calls to one exact function or method. */
+function sourceCalls(
+  sourceFile: ts.SourceFile,
+  calleePath: readonly string[],
+): readonly ts.CallExpression[] {
+  const matches: ts.CallExpression[] = [];
+
+  /** Visits source nodes for the required callee. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      propertyAccessParts(node.expression).join(".") === calleePath.join(".")
+    ) {
+      matches.push(node);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return matches;
+}
+
+/** Returns whether source contains an exact environment read. */
+function sourceContainsEnvRead(
+  sourceFile: ts.SourceFile,
+  identifier: string,
+): boolean {
+  let found = false;
+
+  /** Visits source nodes for the required environment read. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (isProcessEnvRead(node, identifier)) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Returns the exported HTTP methods assigned to `handle(app)`. */
+function exportedEndpointHandlers(
+  sourceFile: ts.SourceFile,
+): ReadonlySet<string> {
+  const methods = new Set<string>();
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !statement.modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      )
+    ) {
+      continue;
+    }
+
+    for (const declaration of statement.declarationList.declarations) {
+      const initializer = declaration.initializer
+        ? unwrapExpression(declaration.initializer)
+        : null;
+      if (
+        ts.isIdentifier(declaration.name) &&
+        initializer &&
+        ts.isCallExpression(initializer) &&
+        ts.isIdentifier(initializer.expression) &&
+        initializer.expression.text === "handle" &&
+        initializer.arguments.length === 1 &&
+        ts.isIdentifier(initializer.arguments[0]) &&
+        initializer.arguments[0].text === "app"
+      ) {
+        methods.add(declaration.name.text);
+      }
+    }
+  }
+
+  return methods;
+}
+
+/** Returns static JSX tag text when the tag is not computed. */
+function jsxTagNameText(name: ts.JsxTagNameExpression): string | null {
+  if (ts.isIdentifier(name)) {
+    return name.text;
+  }
+  if (ts.isPropertyAccessExpression(name)) {
+    return propertyAccessParts(name).join(".");
+  }
+
+  return null;
+}
+
+/** Returns all JSX elements and self-closing elements with one tag name. */
+function jsxNodesWithTag(
+  root: ts.Node,
+  tagName: string,
+): readonly (ts.JsxElement | ts.JsxSelfClosingElement)[] {
+  const matches: (ts.JsxElement | ts.JsxSelfClosingElement)[] = [];
+
+  /** Visits JSX nodes for the exact tag name. */
+  function visit(node: ts.Node): void {
+    if (
+      ts.isJsxElement(node) &&
+      jsxTagNameText(node.openingElement.tagName) === tagName
+    ) {
+      matches.push(node);
+    } else if (
+      ts.isJsxSelfClosingElement(node) &&
+      jsxTagNameText(node.tagName) === tagName
+    ) {
+      matches.push(node);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(root);
+  return matches;
+}
+
+/** Returns the opening-like node for a JSX element. */
+function jsxOpeningLikeElement(
+  node: ts.JsxElement | ts.JsxSelfClosingElement,
+): ts.JsxOpeningLikeElement {
+  return ts.isJsxElement(node) ? node.openingElement : node;
+}
+
+/** Returns one exact JSX attribute. */
+function jsxAttribute(
+  node: ts.JsxElement | ts.JsxSelfClosingElement,
+  attributeName: string,
+): ts.JsxAttribute | null {
+  const opening = jsxOpeningLikeElement(node);
+  for (const property of opening.attributes.properties) {
+    if (
+      ts.isJsxAttribute(property) &&
+      property.name.getText() === attributeName
+    ) {
+      return property;
+    }
+  }
+
+  return null;
+}
+
+/** Returns a stable structural identity for one JSX attribute value. */
+function jsxAttributeIdentity(
+  attribute: ts.JsxAttribute | null,
+): string | null {
+  if (!attribute?.initializer) {
+    return attribute ? "true" : null;
+  }
+  if (ts.isStringLiteral(attribute.initializer)) {
+    return JSON.stringify(attribute.initializer.text);
+  }
+  if (
+    ts.isJsxExpression(attribute.initializer) &&
+    attribute.initializer.expression
+  ) {
+    return attribute.initializer.expression.getText();
+  }
+
+  return null;
+}
+
+/** Returns whether a JSX attribute is the boolean literal `false`. */
+function jsxAttributeIsFalse(attribute: ts.JsxAttribute | null): boolean {
+  return Boolean(
+    attribute?.initializer &&
+    ts.isJsxExpression(attribute.initializer) &&
+    attribute.initializer.expression?.kind === ts.SyntaxKind.FalseKeyword,
+  );
+}
+
+/** Returns whether an object property is one exact string literal. */
+function objectPropertyIsString(
+  objectLiteral: ts.ObjectLiteralExpression,
+  propertyName: string,
+  expected: string,
+): boolean {
+  const property = objectPropertyAssignment(objectLiteral, propertyName);
+  if (!property) return false;
+  const initializer = unwrapExpression(property.initializer);
+  return ts.isStringLiteral(initializer) && initializer.text === expected;
+}
+
+/**
+ * Matches a documented environment assignment, including commented examples.
+ *
+ * @param identifier - Exact environment identifier expected before `=`.
+ * @returns A multiline assignment pattern.
+ */
+function envAssignmentPattern(identifier: string): RegExp {
+  return new RegExp(`^\\s*#?\\s*${identifier}\\s*=`, "m");
+}
+
+/** Returns every blank-line-delimited block in block-oriented text. */
+function textBlocks(contents: string): readonly string[] {
+  return contents.split(/\r?\n\s*\r?\n/);
+}
+
+/** Returns the first blank-line-delimited text block containing a marker. */
+function textBlockContaining(contents: string, marker: string): string {
+  return textBlocks(contents).find((block) => block.includes(marker)) ?? "";
+}
+
+/** Asserts telemetry copy describes identity without prerequisite semantics. */
+function expectTelemetryIdentityDocumentation(contents: string): void {
+  const telemetryBlock = textBlockContaining(contents, OPTIONAL_TELEMETRY_ID);
+
+  expect(telemetryBlock).toMatch(/\boptional\b/i);
+  expect(telemetryBlock).toMatch(/\bnon[- ]?secret\b/i);
+  expect(telemetryBlock).toMatch(/\banalytics\b/i);
+  expect(telemetryBlock).toMatch(/\bidentity\b/i);
+  expect(telemetryBlock).not.toMatch(
+    /\b(?:auth(?:entication|orization)?|entitlements?|enabl(?:e[sd]?|ing|ement)|consent(?:s|ed|ing)?|send(?:s|ing)?|sent|transmit(?:s|ted|ting)?)\b/i,
+  );
+}
+
+/** Returns whether an env block has an explicit comment label. */
+function envBlockHasLabel(block: string, label: RegExp): boolean {
+  return block
+    .split(/\r?\n/)
+    .some((line) => /^\s*#/.test(line) && label.test(line));
+}
+
+interface ManagedEnvSections {
+  readonly apiKey: string;
+  readonly telemetry: string;
+}
+
+/** Returns the exact ordered managed dotenv sections from the public contract. */
+function managedEnvSections(contents: string): ManagedEnvSections | null {
+  const lines = contents.replaceAll("\r\n", "\n").split("\n");
+  const apiHeader = "# Your CopilotKit Enterprise Intelligence API Key";
+  const telemetryHeader = "# CopilotKit Telemetry ID";
+  if (
+    lines.filter((line) => line === apiHeader).length !== 1 ||
+    lines.filter((line) => line === telemetryHeader).length !== 1 ||
+    lines.filter((line) => envAssignmentPattern(MANAGED_API_KEY).test(line))
+      .length !== 1 ||
+    lines.filter((line) =>
+      envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(line),
+    ).length !== 1
+  ) {
+    return null;
+  }
+  const apiHeaderIndex = lines.findIndex((line) => line === apiHeader);
+  if (apiHeaderIndex < 0) return null;
+
+  const projectName = lines[apiHeaderIndex + 1] ?? "";
+  const apiKeyAssignment = lines[apiHeaderIndex + 2] ?? "";
+  const separator = lines[apiHeaderIndex + 3];
+  const telemetryHeaderIndex = apiHeaderIndex + 4;
+  if (
+    !/^# Project Name: \S.*$/u.test(projectName) ||
+    !envAssignmentPattern(MANAGED_API_KEY).test(apiKeyAssignment) ||
+    separator !== "" ||
+    lines[telemetryHeaderIndex] !== telemetryHeader
+  ) {
+    return null;
+  }
+
+  let telemetryEnd = telemetryHeaderIndex + 1;
+  while (telemetryEnd < lines.length && lines[telemetryEnd] !== "") {
+    telemetryEnd += 1;
+  }
+  const telemetry = lines.slice(telemetryHeaderIndex, telemetryEnd).join("\n");
+  if (!envAssignmentPattern(OPTIONAL_TELEMETRY_ID).test(telemetry)) {
+    return null;
+  }
+
+  return {
+    apiKey: lines.slice(apiHeaderIndex, apiHeaderIndex + 3).join("\n"),
+    telemetry,
+  };
+}
+
+/** Asserts every env license occurrence has a deployment-mode label. */
+function expectEnvLicenseOccurrencesClassified(contents: string): void {
+  const licenseBlocks = textBlocks(contents).filter(
+    (block) =>
+      block.includes(MANAGED_LICENSE_TOKEN) ||
+      LICENSE_GATING_LANGUAGE.test(block),
+  );
+
+  expect(
+    licenseBlocks.every((block) =>
+      envBlockHasLabel(block, SELF_HOSTED_OR_OFFLINE_LABEL),
+    ),
+  ).toBe(true);
+}
+
+/** Returns Markdown paragraph starts containing license literals or gating copy. */
+function markdownLicenseOccurrenceLines(lines: readonly string[]): number[] {
+  const occurrences: number[] = [];
+  let start = 0;
+  while (start < lines.length) {
+    while (start < lines.length && lines[start]?.trim() === "") start += 1;
+    if (start >= lines.length) break;
+    let end = start + 1;
+    while (end < lines.length && lines[end]?.trim() !== "") end += 1;
+    const block = lines.slice(start, end).join("\n");
+    if (
+      block.includes(MANAGED_LICENSE_TOKEN) ||
+      LICENSE_GATING_LANGUAGE.test(block)
+    ) {
+      occurrences.push(start);
+    }
+    start = end + 1;
+  }
+
+  return occurrences;
+}
+
+interface MarkdownHeadingSection {
+  readonly heading: string;
+  readonly contents: string;
+}
+
+/** Returns every Markdown heading section through its next peer heading. */
+function markdownHeadingSections(
+  markdown: string,
+): readonly MarkdownHeadingSection[] {
+  const lines = markdown.split(/\r?\n/);
+  const sections: MarkdownHeadingSection[] = [];
+
+  for (let start = 0; start < lines.length; start += 1) {
+    const heading = lines[start]?.match(/^(#{1,6})\s+(.+?)\s*$/);
+    if (!heading) continue;
+
+    const headingLevel = heading[1]?.length ?? 0;
+    let end = lines.length;
+    for (let index = start + 1; index < lines.length; index += 1) {
+      const subsequent = lines[index]?.match(/^(#{1,6})\s+/);
+      if (subsequent && (subsequent[1]?.length ?? 0) <= headingLevel) {
+        end = index;
+        break;
+      }
+    }
+
+    sections.push({
+      heading: heading[2] ?? "",
+      contents: lines.slice(start, end).join("\n"),
     });
+  }
 
-    it(`${integration} pins CopilotKit packages to the threads-capable release`, () => {
-      const packageJson = JSON.parse(
-        readIntegrationFile(integration, "package.json"),
-      ) as { dependencies?: Record<string, string> };
+  return sections;
+}
 
-      expect(packageJson.dependencies?.["@copilotkit/react-core"]).toBe(
-        "1.59.3",
+/** Returns the managed Markdown section containing both managed fields. */
+function managedMarkdownSection(markdown: string): string {
+  return (
+    markdownHeadingSections(markdown).find(
+      ({ heading, contents }) =>
+        MANAGED_DOCUMENTATION_LABEL.test(heading) &&
+        exactEnvIdentifierPattern(MANAGED_API_KEY).test(contents) &&
+        exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID).test(contents),
+    )?.contents ?? ""
+  );
+}
+
+/** Returns distinct offline or self-hosted license-token guidance. */
+function offlineOrSelfHostedLicenseSection(markdown: string): string {
+  return (
+    markdownHeadingSections(markdown).find(
+      ({ heading, contents }) =>
+        SELF_HOSTED_OR_OFFLINE_LABEL.test(heading) &&
+        (exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN).test(contents) ||
+          /\blicen[cs]e\s+token\b/i.test(contents)),
+    )?.contents ?? ""
+  );
+}
+
+/** Returns whether a Markdown line has a heading ancestor with the label. */
+function markdownLineHasLabeledAncestor(
+  lines: readonly string[],
+  lineIndex: number,
+  label: RegExp,
+): boolean {
+  let childLevel = 7;
+  for (let index = lineIndex; index >= 0; index -= 1) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+(.+?)\s*$/);
+    const headingLevel = heading?.[1]?.length ?? 0;
+    if (heading && headingLevel < childLevel) {
+      if (label.test(heading[2] ?? "")) {
+        return true;
+      }
+      childLevel = headingLevel;
+    }
+  }
+
+  return false;
+}
+
+/** Asserts every README license mention has a deployment-mode heading. */
+function expectMarkdownLicenseOccurrencesClassified(markdown: string): void {
+  const lines = markdown.split(/\r?\n/);
+  const licenseLines = markdownLicenseOccurrenceLines(lines);
+
+  expect(
+    licenseLines.every((index) =>
+      markdownLineHasLabeledAncestor(
+        lines,
+        index,
+        SELF_HOSTED_OR_OFFLINE_LABEL,
+      ),
+    ),
+  ).toBe(true);
+}
+
+/**
+ * Asserts the managed runtime reads only the managed project credential.
+ *
+ * @param contents - Runtime route or bridge source.
+ */
+function expectManagedRuntimeContract(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+
+  expect(hasRuntimeApiKeyRead(sourceFile)).toBe(true);
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+}
+
+/**
+ * Asserts the browser-safe feature gate follows the managed project credential.
+ *
+ * @param contents - Next.js or Vite gate configuration source.
+ */
+function expectManagedGateContract(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+
+  expect(hasExportedGateApiKeyRead(sourceFile)).toBe(true);
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/**
+ * Asserts an env example documents the managed key and optional telemetry ID.
+ *
+ * @param contents - Managed template environment example contents.
+ */
+function expectManagedEnvContract(contents: string): void {
+  const managedSections = managedEnvSections(contents);
+
+  expect(managedSections).not.toBeNull();
+  if (!managedSections) return;
+  expect(managedSections.apiKey).toMatch(envAssignmentPattern(MANAGED_API_KEY));
+  expectTelemetryIdentityDocumentation(managedSections.telemetry);
+  expect(contents).not.toMatch(envAssignmentPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(envAssignmentPattern(LEGACY_TELEMETRY_ID));
+  expectEnvLicenseOccurrencesClassified(contents);
+}
+
+/**
+ * Asserts a README documents the managed key and optional telemetry identity.
+ *
+ * @param contents - Managed template README contents.
+ */
+function expectManagedReadmeContract(contents: string): void {
+  const managedSection = managedMarkdownSection(contents);
+  const offlineOrSelfHostedSection =
+    offlineOrSelfHostedLicenseSection(contents);
+
+  expect(managedSection).not.toBe("");
+  expect(managedSection).not.toContain(MANAGED_LICENSE_TOKEN);
+  expectTelemetryIdentityDocumentation(managedSection);
+  expect(offlineOrSelfHostedSection).not.toBe("");
+  if (offlineOrSelfHostedSection) {
+    expect(managedSection).not.toContain(offlineOrSelfHostedSection);
+  }
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expectMarkdownLicenseOccurrencesClassified(contents);
+}
+
+/** Reads the Runtime and React pins that own one template's entitlement flow. */
+function readManagedSdkPins(
+  contract: ManagedTemplateContract,
+): readonly ManagedSdkPin[] {
+  const packageContracts =
+    contract.directory === "agentcore"
+      ? [
+          {
+            packageName: "@copilotkit/runtime" as const,
+            packagePath: "infra-cdk/lambdas/copilotkit-runtime/package.json",
+          },
+          {
+            packageName: "@copilotkit/react-core" as const,
+            packagePath: "frontend/package.json",
+          },
+        ]
+      : [
+          {
+            packageName: "@copilotkit/runtime" as const,
+            packagePath: "package.json",
+          },
+          {
+            packageName: "@copilotkit/react-core" as const,
+            packagePath: "package.json",
+          },
+        ];
+
+  return packageContracts.map(({ packageName, packagePath }) => {
+    const manifest = JSON.parse(
+      readManagedSurface(contract, packagePath, `${packageName} manifest`),
+    ) as {
+      readonly dependencies?: Readonly<Record<string, string>>;
+      readonly devDependencies?: Readonly<Record<string, string>>;
+    };
+    const version =
+      manifest.dependencies?.[packageName] ??
+      manifest.devDependencies?.[packageName] ??
+      "";
+
+    expect(
+      version,
+      `${contract.directory} must pin ${packageName} in ${packagePath}`,
+    ).toMatch(/^\d+\.\d+\.\d+$/u);
+
+    return { packageName, packagePath, version };
+  });
+}
+
+/** Returns whether a classified package pin supports managed entitlements. */
+function pinSupportsManagedEntitlements(pin: ManagedSdkPin): boolean {
+  const classifications = MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION[
+    pin.packageName
+  ] as Readonly<Record<string, boolean>>;
+  const supportsManagedEntitlements = classifications[pin.version];
+
+  expect(
+    supportsManagedEntitlements,
+    `${pin.packageName}@${pin.version} must be classified before a managed template can use it`,
+  ).not.toBeUndefined();
+
+  return supportsManagedEntitlements === true;
+}
+
+/**
+ * Asserts stale managed SDK pins retain the legacy license-token bridge.
+ *
+ * The managed API key remains the Intelligence credential. The compatibility
+ * token only supplies the entitlement signal expected by older Runtime and
+ * React releases.
+ */
+function expectPinnedSdkCompatibilityContract(
+  pins: readonly ManagedSdkPin[],
+  runtime: string,
+  envExample: string,
+  readme: string,
+): void {
+  const stalePins = pins.filter((pin) => !pinSupportsManagedEntitlements(pin));
+  if (stalePins.length === 0) return;
+
+  const sourceFile = parseManagedSource(runtime);
+  const runtimeOptions = newExpressionOptions(sourceFile, "CopilotRuntime");
+  const licenseTokens = runtimeOptions.flatMap((options) => {
+    const property = objectPropertyAssignment(options, "licenseToken");
+    return property ? [property] : [];
+  });
+  expect(licenseTokens).toHaveLength(1);
+  const licenseToken = licenseTokens[0] ?? null;
+  expect(
+    licenseToken &&
+      expressionContainsEnvRead(
+        licenseToken.initializer,
+        MANAGED_LICENSE_TOKEN,
+      ),
+  ).toBe(true);
+
+  expect(
+    envExample
+      .split(/\r?\n/u)
+      .filter((line) => envAssignmentPattern(MANAGED_LICENSE_TOKEN).test(line)),
+  ).toHaveLength(1);
+
+  const compatibilitySection =
+    markdownHeadingSections(readme).find(
+      ({ heading, contents }) =>
+        /\bpinned SDK compatibility\b/i.test(heading) &&
+        exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN).test(contents),
+    )?.contents ?? "";
+  expect(compatibilitySection).not.toBe("");
+  expect(compatibilitySection).toMatch(
+    exactEnvIdentifierPattern(MANAGED_API_KEY),
+  );
+  expect(compatibilitySection).toMatch(/\bmanaged entitlement/i);
+  for (const version of new Set(stalePins.map((pin) => pin.version))) {
+    expect(compatibilitySection).toContain(version);
+  }
+}
+
+/** Asserts one ordinary template retains its framework-specific Runtime agent. */
+function expectRuntimeAgentContract(
+  contents: string,
+  contract: RuntimeAgentContract,
+): void {
+  const sourceFile = parseManagedSource(contents);
+  const runtimeOptions = newExpressionOptions(sourceFile, "CopilotRuntime");
+
+  expect(runtimeOptions).toHaveLength(1);
+  if (runtimeOptions.length !== 1) return;
+  const agents = objectPropertyAssignment(runtimeOptions[0]!, "agents");
+  expect(agents).not.toBeNull();
+  if (!agents) return;
+  const registeredAgents = unwrapExpression(agents.initializer);
+
+  if (contract.registration === "factory") {
+    expect(ts.isCallExpression(registeredAgents)).toBe(true);
+    if (!ts.isCallExpression(registeredAgents)) return;
+    expect(propertyAccessParts(registeredAgents.expression)).toEqual(
+      contract.calleePath,
+    );
+    const argument = registeredAgents.arguments[0]
+      ? unwrapExpression(registeredAgents.arguments[0])
+      : null;
+    expect(argument && ts.isObjectLiteralExpression(argument)).toBe(true);
+    if (!argument || !ts.isObjectLiteralExpression(argument)) return;
+    expect(
+      objectPropertyIsIdentifier(
+        argument,
+        contract.argumentIdentifier,
+        contract.argumentIdentifier,
+      ),
+    ).toBe(true);
+    return;
+  }
+
+  expect(ts.isObjectLiteralExpression(registeredAgents)).toBe(true);
+  if (!ts.isObjectLiteralExpression(registeredAgents)) return;
+  const defaultAgent = objectPropertyAssignment(registeredAgents, "default");
+  expect(defaultAgent).not.toBeNull();
+  if (!defaultAgent) return;
+  const agent = registeredAgentExpression(sourceFile, defaultAgent.initializer);
+  expect(ts.isNewExpression(agent)).toBe(true);
+  if (!ts.isNewExpression(agent)) return;
+  expect(propertyAccessParts(agent.expression)).toEqual([
+    contract.constructorName,
+  ]);
+  const agentOptions = agent.arguments?.[0]
+    ? unwrapExpression(agent.arguments[0])
+    : null;
+  expect(agentOptions && ts.isObjectLiteralExpression(agentOptions)).toBe(true);
+  if (!agentOptions || !ts.isObjectLiteralExpression(agentOptions)) return;
+
+  for (const optionContract of contract.options) {
+    const option = objectPropertyAssignment(
+      agentOptions,
+      optionContract.property,
+    );
+    expect(option).not.toBeNull();
+    if (!option) continue;
+    for (const identifier of optionContract.environmentReads ?? []) {
+      expect(expressionContainsEnvRead(option.initializer, identifier)).toBe(
+        true,
       );
-      expect(packageJson.dependencies?.["@copilotkit/runtime"]).toBe("1.59.3");
+    }
+    for (const literal of optionContract.stringLiterals ?? []) {
+      expect(expressionContainsStringLiteral(option.initializer, literal)).toBe(
+        true,
+      );
+    }
+  }
+}
+
+/** Asserts a Next/Hono runtime preserves its complete REST handler surface. */
+function expectEndpointHandlerContract(contents: string): void {
+  const handlers = exportedEndpointHandlers(parseManagedSource(contents));
+
+  expect([...handlers].sort()).toEqual(["DELETE", "GET", "PATCH", "POST"]);
+}
+
+/** Asserts a frontend preserves REST transport and shared thread ownership. */
+function expectFrontendThreadContract(
+  providerContents: string,
+  threadContents: string,
+): void {
+  const providerSource = parseManagedSource(providerContents);
+  const threadSource = parseManagedSource(threadContents);
+  const providers = [
+    ...jsxNodesWithTag(providerSource, "CopilotKit"),
+    ...jsxNodesWithTag(providerSource, "CopilotKitProvider"),
+  ];
+  const configurationProviders = jsxNodesWithTag(
+    threadSource,
+    "CopilotChatConfigurationProvider",
+  );
+  const drawers = jsxNodesWithTag(threadSource, "CopilotThreadsDrawer");
+
+  expect(providers).toHaveLength(1);
+  expect(configurationProviders).toHaveLength(1);
+  expect(drawers).toHaveLength(1);
+  if (
+    providers.length !== 1 ||
+    configurationProviders.length !== 1 ||
+    drawers.length !== 1
+  ) {
+    return;
+  }
+
+  const provider = providers[0]!;
+  const configurationProvider = configurationProviders[0]!;
+  const drawer = drawers[0]!;
+  const configuredAgent = jsxAttributeIdentity(
+    jsxAttribute(configurationProvider, "agentId"),
+  );
+  const drawerAgent = jsxAttributeIdentity(jsxAttribute(drawer, "agentId"));
+
+  expect(jsxAttribute(provider, "runtimeUrl")).not.toBeNull();
+  expect(jsxAttributeIsFalse(jsxAttribute(provider, "useSingleEndpoint"))).toBe(
+    true,
+  );
+  expect(jsxAttribute(configurationProvider, "threadId")).toBeNull();
+  expect(configuredAgent).not.toBeNull();
+  expect(drawerAgent).toBe(configuredAgent);
+  expect(
+    jsxNodesWithTag(configurationProvider, "CopilotThreadsDrawer"),
+  ).toHaveLength(1);
+
+  const configuredChatCount = [
+    "CopilotChat",
+    "CopilotSidebar",
+    "Chat",
+    "ResearchAssistant",
+  ].reduce(
+    (count, tagName) =>
+      count + jsxNodesWithTag(configurationProvider, tagName).length,
+    0,
+  );
+  expect(configuredChatCount).toBeGreaterThan(0);
+}
+
+/** Asserts MCP Apps retains its client middleware configuration. */
+function expectMcpAppsRuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const middlewareOptions = newExpressionOptions(
+    sourceFile,
+    "MCPAppsMiddleware",
+  );
+  const agentOptions = newExpressionOptions(sourceFile, "BuiltInAgent");
+
+  expect(middlewareOptions).toHaveLength(1);
+  expect(agentOptions).toHaveLength(1);
+  expect(sourceContainsCall(sourceFile, ["agent", "use"])).toBe(true);
+  if (middlewareOptions.length !== 1) return;
+
+  const serversProperty = objectPropertyAssignment(
+    middlewareOptions[0]!,
+    "mcpServers",
+  );
+  const servers = serversProperty
+    ? unwrapExpression(serversProperty.initializer)
+    : null;
+  expect(servers && ts.isArrayLiteralExpression(servers)).toBe(true);
+  if (!servers || !ts.isArrayLiteralExpression(servers)) return;
+
+  const configuredServers = servers.elements.filter(
+    ts.isObjectLiteralExpression,
+  );
+  expect(configuredServers).toHaveLength(1);
+  if (configuredServers.length !== 1) return;
+  expect(objectPropertyIsString(configuredServers[0]!, "type", "http")).toBe(
+    true,
+  );
+  expect(
+    objectPropertyIsString(configuredServers[0]!, "serverId", "threejs"),
+  ).toBe(true);
+  expect(
+    objectPropertyIsString(
+      configuredServers[0]!,
+      "url",
+      "http://localhost:3108/mcp",
+    ),
+  ).toBe(true);
+}
+
+/** Asserts the bundled MCP server retains its tools and UI resource. */
+function expectMcpServerBehavior(
+  serverContents: string,
+  transportContents: string,
+): void {
+  const serverSource = parseManagedSource(serverContents);
+  const transportSource = parseManagedSource(transportContents);
+  const appToolCalls = sourceCalls(serverSource, ["registerAppTool"]);
+  const toolCalls = sourceCalls(serverSource, ["server", "registerTool"]);
+  const resourceCalls = sourceCalls(serverSource, ["registerAppResource"]);
+  const routeCalls = sourceCalls(transportSource, ["app", "all"]);
+
+  expect(appToolCalls).toHaveLength(1);
+  expect(toolCalls).toHaveLength(1);
+  expect(resourceCalls).toHaveLength(1);
+  expect(routeCalls).toHaveLength(1);
+  expect(appToolCalls[0]?.arguments[1]).toMatchObject({
+    text: "show_threejs_scene",
+  });
+  expect(toolCalls[0]?.arguments[0]).toMatchObject({ text: "learn_threejs" });
+  expect(sourceContainsCall(serverSource, ["startServer"])).toBe(true);
+  expect(sourceContainsCall(transportSource, ["server", "connect"])).toBe(true);
+  expect(
+    sourceContainsCall(transportSource, ["transport", "handleRequest"]),
+  ).toBe(true);
+  expect(routeCalls[0]?.arguments[0]).toMatchObject({ text: "/mcp" });
+
+  const resourceArgument = resourceCalls[0]?.arguments[1];
+  expect(resourceArgument && ts.isIdentifier(resourceArgument)).toBe(true);
+  expect(serverContents).toContain(
+    'const resourceUri = "ui://threejs/mcp-app.html"',
+  );
+}
+
+/** Returns whether source declares one class extending the expected base. */
+function sourceContainsClassExtension(
+  sourceFile: ts.SourceFile,
+  className: string,
+  baseName: string,
+): boolean {
+  let found = false;
+
+  /** Visits class declarations for the exact inheritance edge. */
+  function visit(node: ts.Node): void {
+    if (found) return;
+    if (
+      ts.isClassDeclaration(node) &&
+      node.name?.text === className &&
+      node.heritageClauses?.some(
+        (clause) =>
+          clause.token === ts.SyntaxKind.ExtendsKeyword &&
+          clause.types.some(
+            (type) =>
+              ts.isIdentifier(type.expression) &&
+              type.expression.text === baseName,
+          ),
+      )
+    ) {
+      found = true;
+      return;
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return found;
+}
+
+/** Asserts A2A retains isolated multi-agent routing and URL ownership. */
+function expectA2ARuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const runtimeOptions = newExpressionOptions(
+    sourceFile,
+    "RuntimeA2AMiddlewareAgent",
+  ).find((options) => objectPropertyAssignment(options, "agentUrls"));
+
+  expect(
+    sourceContainsClassExtension(
+      sourceFile,
+      "RuntimeA2AMiddlewareAgent",
+      "A2AMiddlewareAgent",
+    ),
+  ).toBe(true);
+  expect(newExpressionOptions(sourceFile, "A2AMiddlewareAgent")).toHaveLength(
+    1,
+  );
+  expect(
+    newExpressionOptions(sourceFile, "HttpAgent").length,
+  ).toBeGreaterThanOrEqual(2);
+  expect(sourceContainsCall(sourceFile, ["isolatedAgent", "setMessages"])).toBe(
+    true,
+  );
+  expect(sourceContainsCall(sourceFile, ["isolatedAgent", "runAgent"])).toBe(
+    true,
+  );
+  for (const identifier of [
+    "RESEARCH_AGENT_URL",
+    "ANALYSIS_AGENT_URL",
+    "ORCHESTRATOR_URL",
+  ]) {
+    expect(sourceContainsEnvRead(sourceFile, identifier)).toBe(true);
+  }
+
+  expect(runtimeOptions).toBeDefined();
+  if (!runtimeOptions) return;
+  expect(objectPropertyIsString(runtimeOptions, "agentId", "a2a_chat")).toBe(
+    true,
+  );
+  const agentUrls = objectPropertyAssignment(runtimeOptions, "agentUrls");
+  const orchestrationAgentUrl = objectPropertyAssignment(
+    runtimeOptions,
+    "orchestrationAgentUrl",
+  );
+  expect(agentUrls?.initializer.getText()).toBe(
+    "[researchAgentUrl, analysisAgentUrl]",
+  );
+  expect(orchestrationAgentUrl?.initializer.getText()).toBe("orchestratorUrl");
+}
+
+/** Asserts A2A visualization stays registered inside the configured chat. */
+function expectA2AVisualizationBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const toolCalls = sourceCalls(sourceFile, ["useFrontendTool"]);
+  const visualizationTool = toolCalls.find((call) => {
+    const options = call.arguments[0]
+      ? unwrapExpression(call.arguments[0])
+      : null;
+    return (
+      options &&
+      ts.isObjectLiteralExpression(options) &&
+      objectPropertyIsString(options, "name", "send_message_to_a2a_agent")
+    );
+  });
+
+  expect(visualizationTool).toBeDefined();
+  expect(jsxNodesWithTag(sourceFile, "MessageToA2A")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "MessageFromA2A")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "CopilotChat")).toHaveLength(1);
+  expect(jsxNodesWithTag(sourceFile, "CopilotKit")).toHaveLength(0);
+  expect(jsxNodesWithTag(sourceFile, "CopilotKitProvider")).toHaveLength(0);
+}
+
+/** Asserts AgentCore selects managed Intelligence or its custom local runner. */
+function expectAgentCoreRuntimeBehavior(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const endpointCalls = sourceCalls(sourceFile, ["createCopilotEndpoint"]);
+  const requiredAgentUrl = sourceCalls(sourceFile, ["requireEnv"]).some(
+    (call) =>
+      call.arguments[0] &&
+      ts.isStringLiteral(call.arguments[0]) &&
+      call.arguments[0].text === "AGENTCORE_AG_UI_URL",
+  );
+
+  expect(
+    sourceContainsClassExtension(
+      sourceFile,
+      "AgentCoreRunner",
+      "InMemoryAgentRunner",
+    ),
+  ).toBe(true);
+  expect(requiredAgentUrl).toBe(true);
+  expect(newExpressionOptions(sourceFile, "HttpAgent")).toHaveLength(1);
+  expect(newExpressionOptions(sourceFile, "MCPAppsMiddleware")).toHaveLength(1);
+
+  const runtimeInitializers = variableInitializers(sourceFile, "runtime");
+  expect(runtimeInitializers).toHaveLength(1);
+  const runtimeSelection = runtimeInitializers[0]
+    ? unwrapExpression(runtimeInitializers[0])
+    : null;
+  expect(runtimeSelection && ts.isConditionalExpression(runtimeSelection)).toBe(
+    true,
+  );
+  if (!runtimeSelection || !ts.isConditionalExpression(runtimeSelection)) {
+    return;
+  }
+
+  expect(
+    expressionUsesManagedKeyWithoutTelemetry(runtimeSelection.condition),
+  ).toBe(true);
+  const managedOptions = constructorOptionsFromExpression(
+    runtimeSelection.whenTrue,
+    "CopilotRuntime",
+  );
+  const localOptions = constructorOptionsFromExpression(
+    runtimeSelection.whenFalse,
+    "CopilotRuntime",
+  );
+  expect(managedOptions).not.toBeNull();
+  expect(localOptions).not.toBeNull();
+  if (!managedOptions || !localOptions) return;
+
+  expect(
+    objectPropertyExpression(managedOptions, "intelligence"),
+  ).not.toBeNull();
+  expect(objectPropertyExpression(managedOptions, "runner")).toBeNull();
+  expect(objectPropertyExpression(localOptions, "intelligence")).toBeNull();
+  const localRunner = objectPropertyExpression(localOptions, "runner");
+  expect(localRunner).not.toBeNull();
+  const unwrappedLocalRunner = localRunner
+    ? unwrapExpression(localRunner)
+    : null;
+  expect(
+    unwrappedLocalRunner &&
+      ts.isNewExpression(unwrappedLocalRunner) &&
+      ts.isIdentifier(unwrappedLocalRunner.expression) &&
+      unwrappedLocalRunner.expression.text === "AgentCoreRunner",
+  ).toBe(true);
+  expect(endpointCalls).toHaveLength(1);
+  const endpointOptions = endpointCalls[0]?.arguments[0];
+  const unwrappedOptions = endpointOptions
+    ? unwrapExpression(endpointOptions)
+    : null;
+  expect(
+    unwrappedOptions && ts.isObjectLiteralExpression(unwrappedOptions),
+  ).toBe(true);
+  if (!unwrappedOptions || !ts.isObjectLiteralExpression(unwrappedOptions)) {
+    return;
+  }
+  expect(
+    objectPropertyIsString(unwrappedOptions, "basePath", "/copilotkit"),
+  ).toBe(true);
+}
+
+/** Asserts AgentCore local services retain bridge routing and one network. */
+function expectAgentCoreNetworkingBehavior(contents: string): void {
+  const agent = yamlMappingSection(contents, "agent");
+  const bridge = yamlMappingSection(contents, "bridge");
+  const frontend = yamlMappingSection(contents, "frontend");
+
+  expect(agent).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(bridge).toContain("AGENTCORE_AG_UI_URL=http://agent:8080/invocations");
+  expect(bridge).toMatch(
+    /depends_on:\s*\n\s*agent:\s*\n\s*condition: service_healthy/,
+  );
+  expect(bridge).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(frontend).toMatch(
+    /depends_on:\s*\n\s*bridge:\s*\n\s*condition: service_started/,
+  );
+  expect(frontend).toMatch(/networks:\s*\n\s*- agentcore-network/);
+  expect(contents).toMatch(
+    /^networks:\s*\n\s*agentcore-network:\s*\n\s*driver: bridge\s*$/m,
+  );
+}
+
+/** Asserts an AgentCore deploy script preserves one framework variant. */
+function expectAgentCoreVariantBehavior(
+  contents: string,
+  pattern: string,
+  suffix: string,
+): void {
+  expect(contents).toMatch(new RegExp(`^PATTERN="${pattern}"$`, "m"));
+  expect(contents).toMatch(new RegExp(`^SUFFIX="${suffix}"$`, "m"));
+  expect(contents).toMatch(/^CONFIG="\$SCRIPT_DIR\/config\.yaml"$/m);
+  expect(contents).toMatch(
+    /npx cdk@latest deploy --all --require-approval never/,
+  );
+  expect(contents).toMatch(
+    /python3 scripts\/deploy-frontend\.py "\$STACK_NAME"/,
+  );
+}
+
+/** Returns the provider and thread-owning frontend surfaces for a template. */
+function frontendBehaviorPaths(contract: ManagedTemplateContract): {
+  readonly providerPath: string;
+  readonly threadPath: string;
+} {
+  if (contract.directory === "agentcore") {
+    const chatPath = "frontend/src/components/chat/CopilotKit/index.tsx";
+    return { providerPath: chatPath, threadPath: chatPath };
+  }
+  if (contract.directory === "a2a-middleware") {
+    return { providerPath: "app/page.tsx", threadPath: "app/page.tsx" };
+  }
+  if (contract.directory === "mcp-apps") {
+    return { providerPath: "app/layout.tsx", threadPath: "app/page.tsx" };
+  }
+
+  return {
+    providerPath: "src/app/layout.tsx",
+    threadPath: "src/app/page.tsx",
+  };
+}
+
+/** Assert AgentCore local services consume the CLI-managed root env safely. */
+function expectAgentCoreLocalComposeContract(contents: string): void {
+  const bridge = yamlMappingSection(contents, "bridge");
+  const frontend = yamlMappingSection(contents, "frontend");
+
+  expect(bridge).toMatch(rootManagedEnvFilePattern());
+  expect(frontend).toMatch(rootManagedEnvFilePattern());
+  expect(frontend).not.toContain(VITE_THREADS_GATE);
+  expect(frontend).not.toContain(OPTIONAL_TELEMETRY_ID);
+  expect(bridge).not.toMatch(
+    new RegExp(`^\\s*-\\s*${INTELLIGENCE_API_URL}=`, "m"),
+  );
+  expect(bridge).not.toMatch(
+    new RegExp(`^\\s*-\\s*${INTELLIGENCE_GATEWAY_WS_URL}=`, "m"),
+  );
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
+  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore deploy configuration carries only a secret reference. */
+function expectAgentCoreDeploymentConfigContract(contents: string): void {
+  const configuredSecretNames = contents.split(/\r?\n/).flatMap((line) => {
+    const match = line.match(
+      new RegExp(
+        `^${MANAGED_API_KEY_SECRET_CONFIG}\\s*:\\s*([^#\\s][^#]*?)\\s*(?:#.*)?$`,
+      ),
+    );
+    return match?.[1] ? [match[1].trim()] : [];
+  });
+
+  expect(configuredSecretNames).toHaveLength(1);
+  expect(configuredSecretNames[0]).not.toMatch(/^\$\{|^process\.env\b/);
+  expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+}
+
+/** Assert AgentCore's deployed Lambda resolves the managed key from a secret. */
+function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
+  const sourceFile = parseManagedSource(contents);
+  const lambdaOptions = constructOptions(
+    sourceFile,
+    ["lambda", "Function"],
+    "CopilotKitRuntimeLambda",
+  );
+  expect(lambdaOptions).toHaveLength(1);
+  const environment = lambdaOptions[0]
+    ? objectPropertyAssignment(lambdaOptions[0], "environment")
+    : null;
+  const environmentObject = environment
+    ? unwrapExpression(environment.initializer)
+    : null;
+  expect(
+    environmentObject && ts.isObjectLiteralExpression(environmentObject),
+  ).toBe(true);
+  const managedKey =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, MANAGED_API_KEY)
+      : null;
+  const telemetryId =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, OPTIONAL_TELEMETRY_ID)
+      : null;
+  const apiUrl =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_API_URL)
+      : null;
+  const gatewayWsUrl =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_GATEWAY_WS_URL)
+      : null;
+  expect(managedKey).not.toBeNull();
+  expect(telemetryId).not.toBeNull();
+  expect(apiUrl).not.toBeNull();
+  expect(gatewayWsUrl).not.toBeNull();
+  if (!managedKey || !telemetryId || !apiUrl || !gatewayWsUrl) return;
+
+  expect(
+    expressionContainsPropertyPath(managedKey.initializer, [
+      "config",
+      MANAGED_API_KEY_SECRET_CONFIG,
+    ]),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(managedKey.initializer)).toBe(true);
+  expect(
+    expressionContainsEnvRead(
+      managedKey.initializer,
+      MANAGED_API_KEY_SECRET_VERSION_ID,
+    ),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(managedKey.initializer, MANAGED_API_KEY),
+  ).toBe(false);
+  expect(
+    expressionContainsEnvRead(telemetryId.initializer, OPTIONAL_TELEMETRY_ID),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(telemetryId.initializer)).toBe(
+    false,
+  );
+  expect(
+    expressionContainsEnvRead(apiUrl.initializer, INTELLIGENCE_API_URL),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(
+      gatewayWsUrl.initializer,
+      INTELLIGENCE_GATEWAY_WS_URL,
+    ),
+  ).toBe(true);
+}
+
+/** Assert AgentCore securely projects its legacy SDK compatibility token. */
+function expectAgentCoreLegacyLicenseDeploymentContract(
+  deploymentConfig: string,
+  runtimeDeployment: string,
+  deployScripts: readonly string[],
+): void {
+  expect(deploymentConfig).toMatch(
+    new RegExp(`^${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}:\\s*[^#\\s][^#]*$`, "m"),
+  );
+
+  const sourceFile = parseManagedSource(runtimeDeployment);
+  const lambdaOptions = constructOptions(
+    sourceFile,
+    ["lambda", "Function"],
+    "CopilotKitRuntimeLambda",
+  );
+  expect(lambdaOptions).toHaveLength(1);
+  const environment = lambdaOptions[0]
+    ? objectPropertyAssignment(lambdaOptions[0], "environment")
+    : null;
+  const environmentObject = environment
+    ? unwrapExpression(environment.initializer)
+    : null;
+  expect(
+    environmentObject && ts.isObjectLiteralExpression(environmentObject),
+  ).toBe(true);
+  const licenseToken =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, MANAGED_LICENSE_TOKEN)
+      : null;
+  expect(licenseToken).not.toBeNull();
+  if (!licenseToken) return;
+  expect(
+    expressionContainsPropertyPath(licenseToken.initializer, [
+      "config",
+      LEGACY_LICENSE_TOKEN_SECRET_CONFIG,
+    ]),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(licenseToken.initializer)).toBe(
+    true,
+  );
+  expect(
+    expressionContainsEnvRead(
+      licenseToken.initializer,
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID,
+    ),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(licenseToken.initializer, MANAGED_LICENSE_TOKEN),
+  ).toBe(false);
+
+  for (const contents of deployScripts) {
+    const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+    const lines = normalized.split(/\r?\n/);
+    const rootEnvLoadIndex = lines.findIndex((line) =>
+      /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+        line,
+      ),
+    );
+    const cdkDeployIndex = lines.findIndex((line) =>
+      /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+    );
+    const tokenSecretConfigIndex = lines.findIndex((line) =>
+      new RegExp(
+        `^\\s*[A-Z][A-Z0-9_]*=.*${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}`,
+      ).test(line),
+    );
+    const tokenSecretCommands = lines.flatMap((line, index) =>
+      line.includes(`$${MANAGED_LICENSE_TOKEN}`) &&
+      /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line)
+        ? [{ index, line }]
+        : [],
+    );
+    const tokenVersionExportIndex = lines.findIndex((line) =>
+      new RegExp(
+        `^\\s*export\\s+${LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID}(?:=|\\s|$)`,
+      ).test(line),
+    );
+    const tokenUnsetIndices = lines.flatMap((line, index) =>
+      new RegExp(`^\\s*unset\\s+${MANAGED_LICENSE_TOKEN}\\s*$`).test(line)
+        ? [index]
+        : [],
+    );
+
+    expect(rootEnvLoadIndex).toBeGreaterThanOrEqual(0);
+    expect(contents).toMatch(
+      new RegExp(`:\\s+["']\\$\\{${MANAGED_LICENSE_TOKEN}:\\?[^}]+\\}["']`),
+    );
+    expect(tokenSecretConfigIndex).toBeGreaterThan(rootEnvLoadIndex);
+    expect(tokenSecretCommands).toHaveLength(2);
+    expect(tokenVersionExportIndex).toBeGreaterThan(
+      tokenSecretCommands.at(-1)?.index ?? -1,
+    );
+    expect(cdkDeployIndex).toBeGreaterThan(tokenVersionExportIndex);
+    expect(
+      tokenUnsetIndices.some(
+        (index) =>
+          index > (tokenSecretCommands.at(-1)?.index ?? -1) &&
+          index < cdkDeployIndex,
+      ),
+    ).toBe(true);
+    for (const { line } of tokenSecretCommands) {
+      expect(line).toMatch(
+        /--secret-string(?:=|\s+)file:\/\/\/dev\/stdin(?:\s|$)/,
+      );
+      expect(line).not.toMatch(
+        new RegExp(
+          `--secret-string(?:=|\\s+)["']?\\$\\{?${MANAGED_LICENSE_TOKEN}\\}?["']?(?:\\s|$)`,
+        ),
+      );
+    }
+  }
+}
+
+/** Assert Terraform clearly excludes the managed Intelligence credential path. */
+function expectAgentCoreTerraformExclusionContract(
+  runtimeDeployment: string,
+  readme: string,
+): void {
+  expect(runtimeDeployment).not.toMatch(
+    exactEnvIdentifierPattern(MANAGED_API_KEY),
+  );
+  expect(runtimeDeployment).not.toMatch(
+    exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
+  );
+  expect(readme).toMatch(/does not project managed Intelligence credentials/i);
+  expect(readme).toMatch(/use the CDK deployment path/i);
+}
+
+/** Assert an AgentCore variant deploy script safely materializes its key secret. */
+function expectAgentCoreDeployScriptContract(contents: string): void {
+  const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+  const lines = normalized.split(/\r?\n/);
+  const rootEnvLoadIndex = lines.findIndex((line) =>
+    /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+      line,
+    ),
+  );
+  const secretConfigAssignment = lines
+    .map((line, index) => ({
+      index,
+      match: line.match(
+        new RegExp(`^\\s*([A-Z][A-Z0-9_]*)=.*${MANAGED_API_KEY_SECRET_CONFIG}`),
+      ),
+    }))
+    .find(({ match }) => match?.[1]);
+  const secretNameVariable = secretConfigAssignment?.match?.[1];
+  const secretCommands = lines
+    .map((line, index) => ({ index, line }))
+    .filter(
+      ({ line }) =>
+        line.includes(`$${MANAGED_API_KEY}`) &&
+        /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(
+          line,
+        ),
+    );
+  const cdkDeployIndex = lines.findIndex((line) =>
+    /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+  );
+  const skipBackendGuardIndex = lines.findIndex((line) =>
+    /if\s+\[\s+"\$SKIP_BACKEND"\s+=\s+true\s+\];\s+then/.test(line),
+  );
+  const backendDeployElseIndex = lines.findIndex(
+    (line, index) => index > skipBackendGuardIndex && line.trim() === "else",
+  );
+  const backendDeployEndIndex = lines.findIndex(
+    (line, index) => index > cdkDeployIndex && line.trim() === "fi",
+  );
+  const telemetryExportIndex = lines.findIndex((line) =>
+    new RegExp(`^\\s*export\\s+${OPTIONAL_TELEMETRY_ID}(?:=|\\s|$)`).test(line),
+  );
+  const disableAllexportIndex = lines.findIndex((line) =>
+    /^\s*set\s+\+a\s*$/.test(line),
+  );
+  const disableXtraceIndex = lines.findIndex((line) =>
+    /^\s*set\s+\+x\s*$/.test(line),
+  );
+  const managedKeyUnexportIndices = lines.flatMap((line, index) =>
+    new RegExp(`^\\s*export\\s+-n\\s+${MANAGED_API_KEY}\\s*$`).test(line)
+      ? [index]
+      : [],
+  );
+  const managedKeyUnsetIndices = lines.flatMap((line, index) =>
+    new RegExp(`^\\s*unset\\s+${MANAGED_API_KEY}\\s*$`).test(line)
+      ? [index]
+      : [],
+  );
+  const secretVersionExportIndex = lines.findIndex((line) =>
+    new RegExp(
+      `^\\s*export\\s+${MANAGED_API_KEY_SECRET_VERSION_ID}(?:=|\\s|$)`,
+    ).test(line),
+  );
+
+  expect(rootEnvLoadIndex).toBeGreaterThanOrEqual(0);
+  expect(secretNameVariable).toBeDefined();
+  expect(secretCommands.length).toBeGreaterThan(0);
+  if (
+    secretConfigAssignment === undefined ||
+    secretNameVariable === undefined ||
+    secretCommands[0] === undefined
+  ) {
+    throw new Error("AgentCore secret materialization contract is incomplete");
+  }
+  expect(skipBackendGuardIndex).toBeGreaterThanOrEqual(0);
+  expect(disableAllexportIndex).toBeGreaterThanOrEqual(0);
+  expect(disableAllexportIndex).toBeLessThan(rootEnvLoadIndex);
+  expect(disableXtraceIndex).toBeGreaterThanOrEqual(0);
+  expect(disableXtraceIndex).toBeLessThan(rootEnvLoadIndex);
+  expect(contents).not.toMatch(/^\s*set\s+-a\s*$/m);
+  expect(
+    managedKeyUnexportIndices.some((index) => index < rootEnvLoadIndex),
+  ).toBe(true);
+  expect(
+    managedKeyUnexportIndices.some(
+      (index) => index > rootEnvLoadIndex && index < skipBackendGuardIndex,
+    ),
+  ).toBe(true);
+  expect(backendDeployElseIndex).toBeGreaterThan(skipBackendGuardIndex);
+  expect(secretConfigAssignment.index).toBeGreaterThan(backendDeployElseIndex);
+  expect(secretVersionExportIndex).toBeGreaterThan(backendDeployElseIndex);
+  expect(backendDeployEndIndex).toBeGreaterThan(cdkDeployIndex);
+  expect(telemetryExportIndex).toBeGreaterThan(rootEnvLoadIndex);
+  expect(cdkDeployIndex).toBeGreaterThan(
+    Math.max(telemetryExportIndex, ...secretCommands.map(({ index }) => index)),
+  );
+  for (const { line } of secretCommands) {
+    expect(line).toMatch(
+      new RegExp(
+        `printf\\s+['"]%s['"]\\s+["']\\$\\{?${MANAGED_API_KEY}\\}?["']\\s*\\|\\s*aws\\s+secretsmanager`,
+      ),
+    );
+    expect(line).toMatch(
+      /--secret-string(?:=|\s+)file:\/\/\/dev\/stdin(?:\s|$)/,
+    );
+    expect(line).not.toMatch(
+      new RegExp(
+        `--secret-string(?:=|\\s+)["']?\\$\\{?${MANAGED_API_KEY}\\}?["']?(?:\\s|$)`,
+      ),
+    );
+    expect(line).toMatch(
+      new RegExp(
+        `--(?:name|secret-id)(?:=|\\s+)["']?\\$\\{?${secretNameVariable}\\}?["']?(?:\\s|$)`,
+      ),
+    );
+  }
+  expect(rootEnvLoadIndex).toBeLessThan(secretCommands[0].index);
+  expect(secretConfigAssignment.index).toBeLessThan(secretCommands[0].index);
+  expect(
+    managedKeyUnsetIndices.some(
+      (index) =>
+        index > skipBackendGuardIndex && index < backendDeployElseIndex,
+    ),
+  ).toBe(true);
+  expect(
+    managedKeyUnsetIndices.some(
+      (index) => index > secretCommands[0].index && index < cdkDeployIndex,
+    ),
+  ).toBe(true);
+  for (const backendOwnedIndex of [
+    secretConfigAssignment.index,
+    ...secretCommands.map(({ index: commandIndex }) => commandIndex),
+    secretVersionExportIndex,
+    cdkDeployIndex,
+  ]) {
+    expect(backendOwnedIndex).toBeGreaterThan(backendDeployElseIndex);
+    expect(backendOwnedIndex).toBeLessThan(backendDeployEndIndex);
+  }
+}
+
+/** Returns exact path filters for one top-level workflow event. */
+function workflowEventPaths(contents: string, eventName: string): string[] {
+  const lines = contents.split(/\r?\n/);
+  const eventStart = lines.findIndex((line) => line === `  ${eventName}:`);
+  if (eventStart < 0) return [];
+  const relativeEventEnd = lines
+    .slice(eventStart + 1)
+    .findIndex((line) => /^(?:\S| {2}\S).*:\s*$/.test(line));
+  const eventEnd =
+    relativeEventEnd < 0 ? lines.length : eventStart + relativeEventEnd + 1;
+  const eventLines = lines.slice(eventStart, eventEnd);
+  const pathsStart = eventLines.findIndex((line) => line === "    paths:");
+  if (pathsStart < 0) return [];
+
+  const paths: string[] = [];
+  for (const line of eventLines.slice(pathsStart + 1)) {
+    const match = line.match(/^      - ["']?(.+?)["']?\s*$/);
+    if (!match?.[1]) break;
+    paths.push(match[1]);
+  }
+  return paths;
+}
+
+interface WorkflowStep {
+  readonly name: string;
+  readonly run: string;
+}
+
+/** Returns named workflow steps with their complete run scripts. */
+function workflowSteps(contents: string): WorkflowStep[] {
+  const lines = contents.split(/\r?\n/);
+  const stepStarts = lines.flatMap((line, index) =>
+    /^      - name:\s*/.test(line) ? [index] : [],
+  );
+
+  return stepStarts.map((start, position) => {
+    const end = stepStarts[position + 1] ?? lines.length;
+    const stepLines = lines.slice(start, end);
+    const name = stepLines[0]!
+      .replace(/^      - name:\s*/, "")
+      .replace(/^["']|["']$/g, "");
+    const runStart = stepLines.findIndex((line) =>
+      line.startsWith("        run:"),
+    );
+    const run =
+      runStart < 0
+        ? ""
+        : stepLines
+            .slice(runStart)
+            .join("\n")
+            .replace(/^\s*run:\s*[|>-]?\s*/m, "")
+            .trim();
+    return { name, run };
+  });
+}
+
+/** Assert the parity workflow preserves filters and runs red contracts second. */
+function expectIntegrationParityWorkflowContract(contents: string): void {
+  const expectedPaths = [
+    "examples/integrations/**",
+    "scripts/__tests__/integration-intelligence-migration.test.ts",
+    ".github/workflows/integrations_parity.yml",
+  ];
+  expect(workflowEventPaths(contents, "pull_request")).toEqual(expectedPaths);
+  expect(workflowEventPaths(contents, "push")).toEqual(expectedPaths);
+
+  const steps = workflowSteps(contents);
+  const parityIndex = steps.findIndex(
+    ({ name }) => name === "Verify integration-demo parity",
+  );
+  const contractIndex = steps.findIndex(
+    ({ name }) => name === "Verify Intelligence template credential contracts",
+  );
+  expect(parityIndex).toBeGreaterThanOrEqual(0);
+  expect(contractIndex).toBeGreaterThan(parityIndex);
+  expect(steps[parityIndex]?.run).toContain("pnpm parity:check");
+  expect(steps[contractIndex]?.run).toContain(
+    "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts",
+  );
+}
+
+/** Renders an exact workflow path-filter list for helper self-tests. */
+function renderWorkflowPaths(values: readonly string[]): string {
+  return values.map((value) => `      - "${value}"`).join("\n");
+}
+
+test("managed TypeScript helpers reject API-key identifiers outside configured expressions", () => {
+  const unusedRuntimeRead = `
+    const unused = process.env.CPK_INTELLIGENCE_API_KEY;
+    // apiKey: process.env.CPK_INTELLIGENCE_API_KEY
+    const intelligence = { apiKey: "CPK_INTELLIGENCE_API_KEY" };
+  `;
+  const unusedGateRead = `
+    const unused = process.env["CPK_INTELLIGENCE_API_KEY"];
+    // NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.CPK_INTELLIGENCE_API_KEY
+    export default {
+      env: { NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: "false" },
+    };
+  `;
+
+  expect(() => expectManagedRuntimeContract(unusedRuntimeRead)).toThrow();
+  expect(() => expectManagedGateContract(unusedGateRead)).toThrow();
+});
+
+test("managed TypeScript helpers reject decoy configured properties", () => {
+  const decoyRuntimeRead = `
+    const decoy = { apiKey: process.env.CPK_INTELLIGENCE_API_KEY };
+    const intelligence = new CopilotKitIntelligence({ apiKey: "" });
+  `;
+  const decoyNextGateRead = `
+    const decoy = {
+      NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+        process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+    };
+    const nextConfig = {
+      env: { NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: "false" },
+    };
+    export default nextConfig;
+  `;
+  expect(() => expectManagedRuntimeContract(decoyRuntimeRead)).toThrow();
+  expect(() => expectManagedGateContract(decoyNextGateRead)).toThrow();
+});
+
+test.each([
+  {
+    name: "inline client",
+    source: `
+      const runtime = new CopilotRuntime({
+        agents: {},
+        intelligence: new CopilotKitIntelligence({
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+        }),
+      });
+    `,
+  },
+  {
+    name: "bound client",
+    source: `
+      const intelligence = new CopilotKitIntelligence({
+        apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+      });
+      const runtime = new CopilotRuntime({ agents: {}, intelligence });
+    `,
+  },
+])(
+  "managed Runtime helper accepts a $name wired into the Runtime",
+  ({ source }) => {
+    expect(() => expectManagedRuntimeContract(source)).not.toThrow();
+  },
+);
+
+test("managed Runtime helper rejects a configured Intelligence client that is not wired into the Runtime", () => {
+  const unusedConfiguredClient = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
     });
+    const runtime = new CopilotRuntime({
+      agents: { default: new HttpAgent({ url: "http://localhost:8000" }) },
+    });
+  `;
+
+  expect(() => expectManagedRuntimeContract(unusedConfiguredClient)).toThrow();
+});
+
+test("managed gate helpers reject direct, concatenated, comment-only, and decoy key exposure", () => {
+  const invalidGateSources = [
+    `export default { env: { ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY} } };`,
+    `export default { env: { ${NEXT_THREADS_GATE}: "enabled-" + process.env.${MANAGED_API_KEY} } };`,
+    `
+      // ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY} ? "true" : "false"
+      export default { env: { ${NEXT_THREADS_GATE}: "false" } };
+    `,
+    `
+      const decoy = process.env.${MANAGED_API_KEY} ? "true" : "false";
+      export default { env: { ${NEXT_THREADS_GATE}: "false" } };
+    `,
+  ];
+
+  for (const source of invalidGateSources) {
+    expect(() => expectManagedGateContract(source)).toThrow();
   }
 });
 
-test("a2a-middleware runtime route is gated for Intelligence threads", () => {
-  const route = readA2AMiddlewareFile(
-    "app/api/copilotkit/[[...slug]]/route.ts",
+test("managed gate helpers accept a normalized Next boolean projection", () => {
+  const nextGate = `
+    export default {
+      env: {
+        ${NEXT_THREADS_GATE}: process.env.${MANAGED_API_KEY}
+          ? "true"
+          : "false",
+      },
+    };
+  `;
+
+  expect(() => expectManagedGateContract(nextGate)).not.toThrow();
+});
+
+test("AgentCore deployment does not forward the unused client entitlement marker", () => {
+  const contract = INTELLIGENCE_TEMPLATE_CONTRACTS.find(
+    ({ directory }) => directory === "agentcore",
+  );
+  if (!contract || !("supportedPaths" in contract)) {
+    throw new Error("AgentCore managed template contract is missing");
+  }
+
+  const frontendDeployment = readManagedSurface(
+    contract,
+    contract.supportedPaths.frontendDeploymentPath,
+    "frontend deployment config",
+  );
+  const deployScripts = contract.supportedPaths.deployScriptPaths.map(
+    (deployScriptPath) =>
+      readManagedSurface(contract, deployScriptPath, "deploy script"),
   );
 
-  expect(route).toContain("CopilotKitIntelligence");
-  expect(route).toContain(
-    "class RuntimeA2AMiddlewareAgent extends A2AMiddlewareAgent",
+  expect(frontendDeployment).not.toMatch(
+    exactEnvIdentifierPattern(VITE_THREADS_GATE),
   );
-  expect(route).toContain("const isolatedAgent = new A2AMiddlewareAgent");
-  expect(route).toContain("new HttpAgent({");
-  expect(route).toContain("isolatedAgent.setMessages(parameters.messages)");
-  expect(route).toContain("return isolatedAgent.runAgent(");
-  expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
-  expect(route).toContain("process.env.INTELLIGENCE_API_URL");
-  expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
-  expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
-  expect(route).toContain("export const GET = handle(app);");
-  expect(route).toContain("export const POST = handle(app);");
-  expect(route).toContain("export const PATCH = handle(app);");
-  expect(route).toContain("export const DELETE = handle(app);");
+  for (const deployScript of deployScripts) {
+    expect(deployScript).not.toMatch(
+      exactEnvIdentifierPattern(VITE_THREADS_GATE),
+    );
+  }
 });
 
-test("a2a-middleware preserves its three-agent URL configuration", () => {
-  const route = readA2AMiddlewareFile(
-    "app/api/copilotkit/[[...slug]]/route.ts",
+test("AgentCore structural helpers accept linked root-env, secret, and Lambda wiring", () => {
+  const deploymentConfig = `${MANAGED_API_KEY_SECRET_CONFIG}: cpk-managed-key`;
+  const runtimeDeployment = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+          { versionId: process.env.${MANAGED_API_KEY_SECRET_VERSION_ID} },
+        ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
+        ${INTELLIGENCE_API_URL}: process.env.${INTELLIGENCE_API_URL} ?? "http://localhost:4201",
+        ${INTELLIGENCE_GATEWAY_WS_URL}: process.env.${INTELLIGENCE_GATEWAY_WS_URL} ?? "ws://localhost:4401",
+      },
+    });
+  `;
+  const deployScript = `
+    set +a
+    set +x
+    export -n ${MANAGED_API_KEY}
+    source "$SCRIPT_DIR/.env"
+    export -n ${MANAGED_API_KEY}
+    export ${OPTIONAL_TELEMETRY_ID}
+    if [ "$SKIP_BACKEND" = true ]; then
+      unset ${MANAGED_API_KEY}
+      echo "Skipping backend"
+    else
+      CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+      printf '%s' "$${MANAGED_API_KEY}" | aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string file:///dev/stdin
+      unset ${MANAGED_API_KEY}
+      export ${MANAGED_API_KEY_SECRET_VERSION_ID}
+      npx cdk deploy --all
+    fi
+  `;
+
+  expect(() =>
+    expectAgentCoreDeploymentConfigContract(deploymentConfig),
+  ).not.toThrow();
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDeployment),
+  ).not.toThrow();
+  expect(() => expectAgentCoreDeployScriptContract(deployScript)).not.toThrow();
+});
+
+test("AgentCore structural helpers reject comment, unrelated-secret, and disconnected-command decoys", () => {
+  const runtimeDecoy = `
+    // ${MANAGED_API_KEY} uses config.${MANAGED_API_KEY_SECRET_CONFIG}
+    const unrelated = cdk.SecretValue.secretsManager("other-secret");
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: "literal-key",
+        ${OPTIONAL_TELEMETRY_ID}: "literal-telemetry-id",
+      },
+    });
+  `;
+  const runtimeTelemetrySecretDecoy = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+      },
+    });
+  `;
+  const deployScriptDecoy = `
+    # source "$SCRIPT_DIR/.env"
+    CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+    echo "$${MANAGED_API_KEY}"
+    aws secretsmanager create-secret --name unrelated --secret-string literal
+    npx cdk deploy --all
+    export ${OPTIONAL_TELEMETRY_ID}
+  `;
+  const lateTelemetryExportDecoy = `
+    source "$SCRIPT_DIR/.env"
+    CPK_SECRET_NAME=$(read_config ${MANAGED_API_KEY_SECRET_CONFIG})
+    aws secretsmanager create-secret --name "$CPK_SECRET_NAME" --secret-string "$${MANAGED_API_KEY}"
+    npx cdk deploy --all
+    export ${OPTIONAL_TELEMETRY_ID}
+  `;
+
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeTelemetrySecretDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeployScriptContract(deployScriptDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeployScriptContract(lateTelemetryExportDecoy),
+  ).toThrow();
+  expect(() =>
+    expectAgentCoreDeploymentConfigContract(
+      `${MANAGED_API_KEY_SECRET_CONFIG}: \${${MANAGED_API_KEY}}`,
+    ),
+  ).toThrow();
+});
+
+test("AgentCore deployment helper rejects endpoint literals disconnected from the root env", () => {
+  const runtimeDeployment = `
+    new lambda.Function(this, "CopilotKitRuntimeLambda", {
+      environment: {
+        ${MANAGED_API_KEY}: cdk.SecretValue.secretsManager(
+          config.${MANAGED_API_KEY_SECRET_CONFIG},
+        ).unsafeUnwrap(),
+        ${OPTIONAL_TELEMETRY_ID}: process.env.${OPTIONAL_TELEMETRY_ID} ?? "",
+        ${INTELLIGENCE_API_URL}: "https://hard-coded.example",
+        ${INTELLIGENCE_GATEWAY_WS_URL}: "wss://hard-coded.example",
+      },
+    });
+  `;
+
+  expect(() =>
+    expectAgentCoreRuntimeDeploymentContract(runtimeDeployment),
+  ).toThrow();
+});
+
+test("AgentCore README documents caller-overridden remote endpoints for both AWS deploy variants", () => {
+  const readme = fs.readFileSync(
+    path.join(integrationsDir, "agentcore", "README.md"),
+    "utf8",
   );
 
-  expect(route).toContain("process.env.RESEARCH_AGENT_URL");
-  expect(route).toContain("process.env.ANALYSIS_AGENT_URL");
-  expect(route).toContain("process.env.ORCHESTRATOR_URL");
-  expect(route).toContain('agentId: "a2a_chat"');
-  expect(route).toContain("agentUrls: [researchAgentUrl, analysisAgentUrl]");
-  expect(route).toContain("orchestrationAgentUrl: orchestratorUrl");
+  expectAgentCoreAwsEndpointReadmeContract(readme);
 });
 
-test("a2a-middleware page uses REST transport for Threads APIs", () => {
-  const page = readA2AMiddlewareFile("app/page.tsx");
+for (const scriptName of [
+  "deploy-langgraph.sh",
+  "deploy-strands.sh",
+] as const) {
+  test(`${scriptName} validates AWS endpoint overrides before secret or CDK commands`, () => {
+    const deployScript = fs.readFileSync(
+      path.join(integrationsDir, "agentcore", scriptName),
+      "utf8",
+    );
 
-  expect(page).toContain('runtimeUrl="/api/copilotkit"');
-  expect(page).toContain("useSingleEndpoint={false}");
-  expect(page).toContain('agentId="a2a_chat"');
-  expect(page).toContain("ThreadsDrawer");
-  expect(page).toContain("ThreadsPanelGate");
-  expect(page).toContain("CopilotChatConfigurationProvider");
-  expect(page).toContain("const [threadId, setThreadId]");
-  expect(page).toContain("threadId={threadId}");
-});
+    expectAgentCoreAwsEndpointDeployContract(deployScript);
+  });
 
-test("a2a-middleware chat keeps A2A visualization tools inside the configured chat", () => {
-  const chat = readA2AMiddlewareFile("components/chat.tsx");
+  for (const invalidEndpoint of [
+    {
+      label: "localhost API URL",
+      envFile: {
+        apiUrl: "http://localhost:4201",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      expectedVariable: INTELLIGENCE_API_URL,
+    },
+    {
+      label: "127.0.0.1 gateway URL",
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "ws://127.0.0.1:4401",
+      },
+      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
+    },
+    {
+      label: "empty gateway URL",
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "",
+      },
+      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
+    },
+  ] as const) {
+    test(`${scriptName} rejects ${invalidEndpoint.label} without exposing the managed key`, () => {
+      const result = runAgentCoreDeployHarness({
+        scriptName,
+        envFile: invalidEndpoint.envFile,
+      });
 
-  expect(chat).toContain("useFrontendTool");
-  expect(chat).toContain('name: "send_message_to_a2a_agent"');
-  expect(chat).toContain("MessageToA2A");
-  expect(chat).toContain("MessageFromA2A");
-  expect(chat).not.toContain("<CopilotKit");
-});
+      expect(result.status).toBe(1);
+      expect(result.output).toContain(invalidEndpoint.expectedVariable);
+      expect(result.output).toMatch(/reachable from AWS/i);
+      expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+      expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+      expect(result.cdkEnvironment).toBeNull();
+    });
+  }
 
-test("a2a-middleware exposes local Intelligence env documentation", () => {
-  const envExample = readA2AMiddlewareFile(".env.example");
+  test(`${scriptName} accepts sourced HTTPS and WSS endpoints and passes them to CDK`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+    });
 
-  expect(envExample).toContain("GOOGLE_API_KEY=");
-  expect(envExample).toContain("OPENAI_API_KEY=");
-  expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN=");
-  expect(envExample).toContain("INTELLIGENCE_API_KEY=");
-  expect(envExample).toContain("INTELLIGENCE_API_URL=http://localhost:4201");
-  expect(envExample).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401",
-  );
-});
+    expect(result.status).toBe(0);
+    expect(result.cdkEnvironment).toBe(
+      "https://intelligence.example.com/api\n" +
+        "wss://gateway.example.com/runtime\n",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+  });
 
-test("a2a-middleware package is pinned to the Intelligence-ready CopilotKit SDK", () => {
-  const packageJson = JSON.parse(readA2AMiddlewareFile("package.json")) as {
-    dependencies: Record<string, string>;
-  };
+  test(`${scriptName} passes the updated secret version to CDK without logging it`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+    });
 
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.3");
-  expect(packageJson.dependencies["lucide-react"]).toBeDefined();
-});
+    expect(result.status).toBe(0);
+    expect(result.secretVersionId).toBe(
+      MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.licenseTokenSecretVersionId).toBe(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(
+      MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+  });
 
-test("a2a-middleware Next config enables the Threads feature flag", () => {
-  const nextConfig = readA2AMiddlewareFile("next.config.ts");
+  test(`${scriptName} delivers the managed key only through Secrets Manager stdin`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      skipFrontend: false,
+      xtrace: true,
+    });
 
-  expect(nextConfig).toContain('output: "standalone"');
-  expect(nextConfig).toContain("NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED");
-  expect(nextConfig).toContain("process.env");
-  expect(nextConfig).toContain("COPILOTKIT_LICENSE_TOKEN");
-});
+    expect(result.status).toBe(0);
+    expect(result.secretInputObservations).toEqual([
+      "aws:key-stdin-match",
+      "aws:license-stdin-match",
+    ]);
+    expect(result.secretExposureObservations).toEqual([]);
+    expect(result.awsCommands.join("\n")).not.toContain(
+      MANAGED_API_KEY_SENTINEL,
+    );
+    expect(result.awsCommands.join("\n")).not.toContain(
+      LEGACY_LICENSE_TOKEN_SENTINEL,
+    );
+  });
 
-const a2aA2uiRoot = path.join(integrationsDir, "a2a-a2ui");
+  test(`${scriptName} --skip-backend leaves backend secret state untouched while deploying the frontend`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      skipBackend: true,
+      skipFrontend: false,
+    });
 
-function readA2AA2uiFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(a2aA2uiRoot, pathFromRoot), "utf8");
+    expect(result.status).toBe(0);
+    expect(result.awsCommands).toEqual([
+      "sts get-caller-identity --query Account --output text",
+    ]);
+    expect(result.npmCommands).toEqual([]);
+    expect(result.cdkEnvironment).toBeNull();
+    expect(result.secretVersionId).toBeNull();
+    expect(result.licenseTokenSecretVersionId).toBeNull();
+    expect(result.frontendStackName).toBe(
+      scriptName === "deploy-langgraph.sh"
+        ? "agentcore-contract-lg"
+        : "agentcore-contract-st",
+    );
+    expect(result.frontendSecretVersionId).toBe("");
+    expect(result.secretExposureObservations).toEqual([]);
+    expect(result.secretInputObservations).toEqual([]);
+    expect(result.output).toContain("Skipping backend deploy (--skip-backend)");
+    expect(result.output).not.toContain(
+      "Managed Intelligence credentials stored",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+    expect(result.output).not.toContain(
+      MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
+    );
+  });
+
+  test(`${scriptName} preserves documented caller endpoint overrides over root localhost defaults`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {
+        apiUrl: "http://localhost:4201",
+        gatewayWsUrl: "ws://localhost:4401",
+      },
+      callerEnvironment: {
+        apiUrl: "https://managed-intelligence.example.com/api",
+        gatewayWsUrl: "wss://managed-gateway.example.com/runtime",
+      },
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.cdkEnvironment).toBe(
+      "https://managed-intelligence.example.com/api\n" +
+        "wss://managed-gateway.example.com/runtime\n",
+    );
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+  });
 }
 
-test("a2a-a2ui runtime route is gated for Intelligence threads", () => {
-  const route = readA2AA2uiFile("app/api/copilotkit/[[...slug]]/route.tsx");
+test("managed TypeScript helpers reject malformed source", () => {
+  const malformedRuntime = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+    });
+  }`;
+  const malformedGate = `
+    export default {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+      },
+    `;
 
-  expect(route).toContain("CopilotKitIntelligence");
-  expect(route).toContain("class RuntimeA2AAgent extends A2AAgent");
-  expect(route).toContain("const isolatedAgent = new A2AAgent");
-  expect(route).toContain("isolatedAgent.setMessages(parameters.messages)");
-  expect(route).toContain("return isolatedAgent.runAgent(");
-  expect(route).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
-  expect(route).toContain("process.env.INTELLIGENCE_API_URL");
-  expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
-  expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
-  expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
-  expect(route).toContain("a2ui: {}");
-  expect(route).toContain("export const GET = handle(app);");
-  expect(route).toContain("export const POST = handle(app);");
-  expect(route).toContain("export const PATCH = handle(app);");
-  expect(route).toContain("export const DELETE = handle(app);");
+  expect(() => expectManagedRuntimeContract(malformedRuntime)).toThrow();
+  expect(() => expectManagedGateContract(malformedGate)).toThrow();
 });
 
-test("a2a-a2ui page uses REST transport for Threads APIs", () => {
-  const page = readA2AA2uiFile("app/page.tsx");
-
-  expect(page).toContain('runtimeUrl="/api/copilotkit"');
-  expect(page).toContain('agentId="default"');
-  expect(page).toContain("useSingleEndpoint={false}");
-  expect(page).toContain("a2ui={{ theme }}");
-  expect(page).toContain("const activityRenderers = [a2uiV08Renderer];");
-  expect(page).toContain("renderActivityMessages={activityRenderers}");
+test("managed TypeScript helpers accept independent telemetry reads", () => {
+  const configuredRuntimeRead = `
+    const telemetryId = process.env.CPK_TELEMETRY_ID;
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env["CPK_INTELLIGENCE_API_KEY"] ?? "",
+    });
+    const runtime = new CopilotRuntime({ agents: {}, intelligence });
+  `;
+  const configuredGateRead = `
+    const telemetryId = process.env["CPK_TELEMETRY_ID"];
+    const nextConfig = {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY ? "true" : "false",
+      },
+    };
+    export default nextConfig;
+  `;
+  expect(() =>
+    expectManagedRuntimeContract(configuredRuntimeRead),
+  ).not.toThrow();
+  expect(() => expectManagedGateContract(configuredGateRead)).not.toThrow();
 });
 
-test("a2a-a2ui page wires a threads drawer into the active chat thread", () => {
-  const page = readA2AA2uiFile("app/page.tsx");
-
-  expect(page).toContain("ThreadsDrawer");
-  expect(page).toContain("ThreadsPanelGate");
-  expect(page).toContain("CopilotChatConfigurationProvider");
-  expect(page).toContain("const [threadId, setThreadId]");
-  expect(page).toContain('agentId="default"');
-  expect(page).toContain("threadId={threadId}");
+test("managed TypeScript helpers reject telemetry prerequisites", () => {
+  const telemetryGatedRuntime = `
+    const intelligence = new CopilotKitIntelligence({
+      apiKey:
+        process.env.CPK_INTELLIGENCE_API_KEY &&
+        process.env.CPK_TELEMETRY_ID,
+    });
+    const runtime = new CopilotRuntime({ agents: {}, intelligence });
+  `;
+  const telemetryGatedNextConfig = `
+    const nextConfig = {
+      env: {
+        NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED:
+          process.env.CPK_INTELLIGENCE_API_KEY &&
+          process.env.CPK_TELEMETRY_ID
+            ? "true"
+            : "false",
+      },
+    };
+    export default nextConfig;
+  `;
+  expect(() => expectManagedRuntimeContract(telemetryGatedRuntime)).toThrow();
+  expect(() => expectManagedGateContract(telemetryGatedNextConfig)).toThrow();
 });
 
-test("a2a-a2ui exposes local Intelligence env documentation", () => {
-  const envExample = readA2AA2uiFile(".env.example");
-  const gitignore = readA2AA2uiFile(".gitignore");
-
-  expect(envExample).toContain("OPENAI_API_KEY=");
-  expect(envExample).toContain("COPILOTKIT_LICENSE_TOKEN=");
-  expect(envExample).toContain("INTELLIGENCE_API_KEY=");
-  expect(envExample).toContain("INTELLIGENCE_API_URL=http://localhost:4201");
-  expect(envExample).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401",
-  );
-  expect(gitignore).toContain("!.env.example");
-});
-
-test("a2a-a2ui package is pinned to the Intelligence-ready CopilotKit SDK", () => {
-  const packageJson = JSON.parse(readA2AA2uiFile("package.json")) as {
-    dependencies: Record<string, string>;
-  };
-
-  expect(packageJson.dependencies["@copilotkit/a2ui-renderer"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/react-core"]).toBe("1.59.3");
-  expect(packageJson.dependencies["@copilotkit/runtime"]).toBe("1.59.3");
-  expect(packageJson.dependencies["lucide-react"]).toBeDefined();
-});
-
-test("a2a-a2ui Next config enables the Threads feature flag", () => {
-  const nextConfig = readA2AA2uiFile("next.config.js");
-
-  expect(nextConfig).toContain('output: "standalone"');
-  expect(nextConfig).toContain(
-    "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED: process.env.COPILOTKIT_LICENSE_TOKEN",
-  );
-});
-
-const agentcoreRoot = path.join(integrationsDir, "agentcore");
-
-function readAgentcoreFile(pathFromRoot: string): string {
-  return fs.readFileSync(path.join(agentcoreRoot, pathFromRoot), "utf8");
+/** Build the exact managed dotenv sections with telemetry semantics documented. */
+function managedEnvExample(
+  telemetryDescription = "Optional, non-secret analytics identity.",
+): string {
+  return [
+    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Project Name: xxxxxxxxxx",
+    "CPK_INTELLIGENCE_API_KEY=xxxxx",
+    "",
+    "# CopilotKit Telemetry ID",
+    `# ${telemetryDescription}`,
+    "CPK_TELEMETRY_ID=xxxxx",
+  ].join("\n");
 }
 
-describe("agentcore Intelligence integration migration", () => {
-  it("gates the Hono runtime bridge with CopilotKit Intelligence", () => {
-    const runtime = readAgentcoreFile(
-      "infra-cdk/lambdas/copilotkit-runtime/src/runtime.ts",
+test("managed documentation helpers reject misleading telemetry semantics", () => {
+  const misleadingDescriptions = [
+    "authentication credential",
+    "entitlement identity",
+    "feature enablement identity",
+    "analytics consent identity",
+    "telemetry send-policy identity",
+  ];
+
+  for (const description of misleadingDescriptions) {
+    const envExample = managedEnvExample(
+      `Optional, non-secret analytics ${description}.`,
     );
+    const readme = [
+      "## Managed Intelligence credentials",
+      "",
+      "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+      "",
+      `\`CPK_TELEMETRY_ID\` is an optional, non-secret analytics ${description}.`,
+    ].join("\n");
 
-    expect(runtime).toContain("CopilotKitIntelligence");
-    expect(runtime).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    expect(runtime).toContain("process.env.INTELLIGENCE_API_KEY");
-    expect(runtime).toContain("process.env.INTELLIGENCE_API_URL");
-    expect(runtime).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-    expect(runtime).toContain(
-      "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
-    );
-    expect(runtime).toContain('id: "demo-user"');
-    expect(runtime).toContain(": { runner: new AgentCoreRunner() }");
-    expect(runtime).toContain('basePath: "/copilotkit"');
-  });
+    expect(() => expectManagedEnvContract(envExample)).toThrow();
+    expect(() => expectManagedReadmeContract(readme)).toThrow();
+  }
+});
 
-  it("forces REST transport and threads context in the Vite frontend", () => {
-    const chat = readAgentcoreFile(
-      "frontend/src/components/chat/CopilotKit/index.tsx",
-    );
+test("managed documentation helpers accept an optional non-secret analytics identity", () => {
+  const envExample = managedEnvExample();
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+    "",
+    "`CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.",
+    "",
+    "## Offline or self-hosted licensing",
+    "",
+    "Set `COPILOTKIT_LICENSE_TOKEN` only for an offline deployment.",
+  ].join("\n");
 
-    expect(chat).toContain("useSingleEndpoint={false}");
-    expect(chat).toContain("ThreadsDrawer");
-    expect(chat).toContain("ThreadsPanelGate");
-    expect(chat).toContain("CopilotChatConfigurationProvider");
-    expect(chat).toContain("const [threadId, setThreadId]");
-    expect(chat).toContain("threadId={threadId}");
-    expect(chat).toContain("runtimeUrl={runtimeUrl}");
-    expect(chat).toContain("headers={headers}");
-  });
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
 
-  it("exposes the client-safe threads enabled gate for Vite", () => {
-    const viteConfig = readAgentcoreFile("frontend/vite.config.ts");
-    const lockedState = readAgentcoreFile(
-      "frontend/src/components/threads-drawer/locked-state.tsx",
-    );
+test("pinned SDK compatibility rejects a key-only stale template", () => {
+  const pins = [
+    {
+      packageName: "@copilotkit/runtime",
+      packagePath: "package.json",
+      version: "1.62.3",
+    },
+    {
+      packageName: "@copilotkit/react-core",
+      packagePath: "package.json",
+      version: "1.62.3",
+    },
+  ] as const satisfies readonly ManagedSdkPin[];
+  const runtime = `
+    new CopilotRuntime({
+      agents: {},
+      intelligence: new CopilotKitIntelligence({
+        apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+      }),
+    });
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+  ].join("\n");
 
-    expect(viteConfig).toContain("VITE_COPILOTKIT_THREADS_ENABLED");
-    expect(viteConfig).toContain("process.env.COPILOTKIT_LICENSE_TOKEN");
-    expect(lockedState).toContain(
-      "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED",
-    );
-  });
+  expect(() =>
+    expectPinnedSdkCompatibilityContract(
+      pins,
+      runtime,
+      managedEnvExample(),
+      readme,
+    ),
+  ).toThrow();
+});
 
-  it("documents and wires local Intelligence environment variables", () => {
-    const dockerEnv = readAgentcoreFile("docker/.env.example");
-    const compose = readAgentcoreFile("docker/docker-compose.yml");
+test("managed SDK compatibility rejects unclassified package versions", () => {
+  const pins = [
+    {
+      packageName: "@copilotkit/runtime",
+      packagePath: "package.json",
+      version: "9.9.9",
+    },
+  ] as const satisfies readonly ManagedSdkPin[];
 
-    for (const envName of [
-      "COPILOTKIT_LICENSE_TOKEN",
-      "INTELLIGENCE_API_KEY",
-      "INTELLIGENCE_API_URL",
-      "INTELLIGENCE_GATEWAY_WS_URL",
-    ]) {
-      expect(dockerEnv).toContain(envName);
-      expect(compose).toContain(envName);
+  expect(() => expectPinnedSdkCompatibilityContract(pins, "", "", "")).toThrow(
+    /must be classified/,
+  );
+});
+
+test("managed README helper rejects missing offline or self-hosted license guidance", () => {
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set `CPK_INTELLIGENCE_API_KEY` for the project.",
+    "",
+    "`CPK_TELEMETRY_ID` is an optional, non-secret analytics identity.",
+  ].join("\n");
+
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test.each([
+  {
+    invalidLayout: "two blank lines between sections",
+    envExample: managedEnvExample().replace(
+      "CPK_INTELLIGENCE_API_KEY=xxxxx\n\n# CopilotKit",
+      "CPK_INTELLIGENCE_API_KEY=xxxxx\n\n\n# CopilotKit",
+    ),
+  },
+  {
+    invalidLayout: "duplicate telemetry section",
+    envExample: `${managedEnvExample()}\n\n# CopilotKit Telemetry ID\nCPK_TELEMETRY_ID=duplicate`,
+  },
+])("managed documentation helpers reject $invalidLayout", ({ envExample }) => {
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+});
+
+test("managed documentation helpers reject license guidance inside the telemetry section", () => {
+  const envExample = `${managedEnvExample()}\nCOPILOTKIT_LICENSE_TOKEN=`;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "COPILOTKIT_LICENSE_TOKEN is not a managed credential.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers reject separated unlabeled license guidance", () => {
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license",
+    "COPILOTKIT_LICENSE_TOKEN=",
+    "",
+    "# Troubleshooting",
+    "COPILOTKIT_LICENSE_TOKEN=",
+  ].join("\n");
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Self-hosted / offline license",
+    "",
+    "Offline deployments may set COPILOTKIT_LICENSE_TOKEN.",
+    "",
+    "## Troubleshooting",
+    "",
+    "Set COPILOTKIT_LICENSE_TOKEN if the managed integration is unavailable.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers reject reordered managed dotenv sections", () => {
+  const envExample = [
+    "# CopilotKit Telemetry ID",
+    "# Optional, non-secret analytics identity.",
+    "CPK_TELEMETRY_ID=xxxxx",
+    "",
+    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Project Name: xxxxxxxxxx",
+    "CPK_INTELLIGENCE_API_KEY=xxxxx",
+  ].join("\n");
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "",
+    "## Analytics identity",
+    "",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers allow separate self-hosted and offline license guidance", () => {
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license",
+    "COPILOTKIT_LICENSE_TOKEN=",
+  ].join("\n");
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Self-hosted / offline license",
+    "",
+    "Offline deployments may set COPILOTKIT_LICENSE_TOKEN instead.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("managed documentation helpers reject unlabeled generic license-gating copy without an env literal", () => {
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Product capabilities",
+    "# A license unlocks Threads and enables Inspector.",
+  ].join("\n");
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Product capabilities",
+    "",
+    "A license activates Threads and unlocks Inspector.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).toThrow();
+  expect(() => expectManagedReadmeContract(readme)).toThrow();
+});
+
+test("managed documentation helpers allow generic license-gating copy only in self-hosted or offline sections", () => {
+  const envExample = [
+    managedEnvExample(),
+    "",
+    "# Self-hosted / offline license behavior",
+    "# A deployment license enables Threads and Inspector offline.",
+  ].join("\n");
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+    "",
+    "## Self-hosted / offline license behavior",
+    "",
+    "Set COPILOTKIT_LICENSE_TOKEN only for this deployment mode.",
+    "A deployment license enables Threads and Inspector offline.",
+  ].join("\n");
+
+  expect(() => expectManagedEnvContract(envExample)).not.toThrow();
+  expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("route preservation helper rejects an incomplete handler export set", () => {
+  const route = `
+    const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
+    export const GET = handle(app);
+    export const POST = handle(app);
+    export const PATCH = handle(app);
+  `;
+
+  expect(() => expectEndpointHandlerContract(route)).toThrow();
+});
+
+test("frontend preservation helper rejects controlled thread state and single-endpoint transport", () => {
+  const frontend = `
+    export function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={true}>
+          <CopilotChatConfigurationProvider agentId="default" threadId="thread-1">
+            <CopilotThreadsDrawer agentId="default" />
+            <CopilotChat />
+          </CopilotChatConfigurationProvider>
+        </CopilotKit>
+      );
     }
-  });
+  `;
 
-  it("pins AgentCore frontend and runtime packages to threads-capable versions", () => {
-    const frontendPackageJson = JSON.parse(
-      readAgentcoreFile("frontend/package.json"),
-    ) as { dependencies?: Record<string, string> };
-    const runtimePackageJson = JSON.parse(
-      readAgentcoreFile("infra-cdk/lambdas/copilotkit-runtime/package.json"),
-    ) as { dependencies?: Record<string, string> };
-
-    expect(frontendPackageJson.dependencies?.["@copilotkit/react-core"]).toBe(
-      "1.59.3",
-    );
-    expect(runtimePackageJson.dependencies?.["@copilotkit/runtime"]).toBe(
-      "1.59.3",
-    );
-    expect(runtimePackageJson.dependencies?.["@ag-ui/client"]).toBe("0.0.53");
-  });
+  expect(() => expectFrontendThreadContract(frontend, frontend)).toThrow();
 });
+
+test("MCP preservation helper rejects a middleware-only scaffold without server behavior", () => {
+  const server = `
+    export function createServer() {
+      return new McpServer({ name: "Three.js Server", version: "1.0.0" });
+    }
+  `;
+  const transport = `
+    export function startServer() {
+      const app = createMcpExpressApp();
+      app.all("/mcp", () => undefined);
+    }
+  `;
+
+  expect(() => expectMcpServerBehavior(server, transport)).toThrow();
+});
+
+test("A2A preservation helper rejects collapsed single-agent routing", () => {
+  const route = `
+    const agent = new RuntimeA2AMiddlewareAgent({
+      agentId: "a2a_chat",
+      agentUrls: [],
+      orchestrationAgentUrl: "http://localhost:9000",
+    });
+  `;
+
+  expect(() => expectA2ARuntimeBehavior(route)).toThrow();
+});
+
+test("AgentCore preservation helper rejects disconnected local services", () => {
+  const compose = `
+services:
+  agent:
+    image: agent
+  bridge:
+    image: bridge
+  frontend:
+    image: frontend
+`;
+
+  expect(() => expectAgentCoreNetworkingBehavior(compose)).toThrow();
+});
+
+test("AgentCore preservation helper rejects a custom runner disconnected from Runtime selection", () => {
+  const runtime = `
+    class AgentCoreRunner extends InMemoryAgentRunner {}
+    const disconnectedRunner = new AgentCoreRunner();
+    const runtime = process.env.${MANAGED_API_KEY}
+      ? new CopilotRuntime({
+          agents: {},
+          intelligence: new CopilotKitIntelligence({
+            apiKey: process.env.${MANAGED_API_KEY},
+          }),
+          identifyUser: () => ({ id: "demo-user" }),
+        })
+      : new CopilotRuntime({
+          agents: {},
+          runner: new InMemoryAgentRunner(),
+        });
+    const app = createCopilotEndpoint({ runtime, basePath: "/copilotkit" });
+  `;
+
+  expect(() => expectAgentCoreRuntimeBehavior(runtime)).toThrow();
+});
+
+test("integration parity workflow preserves filters and runs parity before the expected-red managed contract", () => {
+  const workflow = fs.readFileSync(INTEGRATION_PARITY_WORKFLOW, "utf8");
+
+  expectIntegrationParityWorkflowContract(workflow);
+});
+
+test("integration parity workflow helper rejects missing filters and reversed contract order", () => {
+  const paths = [
+    "examples/integrations/**",
+    "scripts/__tests__/integration-intelligence-migration.test.ts",
+    ".github/workflows/integrations_parity.yml",
+  ];
+  const workflow = (eventPaths: readonly string[], reversed: boolean) => `
+on:
+  pull_request:
+    paths:
+${renderWorkflowPaths(eventPaths)}
+  push:
+    paths:
+${renderWorkflowPaths(paths)}
+jobs:
+  parity-check:
+    steps:
+      - name: ${reversed ? "Verify Intelligence template credential contracts" : "Verify integration-demo parity"}
+        run: ${reversed ? "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts" : "pnpm parity:check"}
+      - name: ${reversed ? "Verify integration-demo parity" : "Verify Intelligence template credential contracts"}
+        run: ${reversed ? "pnpm parity:check" : "pnpm exec vitest run scripts/__tests__/integration-intelligence-migration.test.ts"}
+`;
+
+  expect(() =>
+    expectIntegrationParityWorkflowContract(workflow(paths, true)),
+  ).toThrow();
+  expect(() =>
+    expectIntegrationParityWorkflowContract(workflow(paths.slice(0, 2), false)),
+  ).toThrow();
+});
+
+test("the 17 Intelligence template directories back all 19 in-repo CLI frameworks", () => {
+  const frameworks = INTELLIGENCE_TEMPLATE_CONTRACTS.flatMap(
+    (contract) => contract.frameworks,
+  );
+  const ordinaryRuntimeContracts = INTELLIGENCE_TEMPLATE_CONTRACTS.filter(
+    (contract) => "runtimeAgent" in contract,
+  );
+
+  expect(INTELLIGENCE_TEMPLATE_CONTRACTS).toHaveLength(17);
+  expect(ordinaryRuntimeContracts).toHaveLength(14);
+  expect(new Set(frameworks).size).toBe(19);
+  expect([...frameworks].sort()).toEqual(
+    [...INTELLIGENCE_CLI_FRAMEWORKS].sort(),
+  );
+});
+
+test.each([
+  {
+    defect: "registered constructor changes",
+    contents: `
+      const defaultAgent = new WrongAgent({
+        url: process.env.AGENT_URL || "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: defaultAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "required endpoint configuration disappears",
+    contents: `
+      const defaultAgent = new HttpAgent({
+        url: "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: defaultAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "constructed agent is no longer registered",
+    contents: `
+      const defaultAgent = new HttpAgent({
+        url: process.env.AGENT_URL || "http://localhost:8000/",
+      });
+      new CopilotRuntime({ agents: { default: unregisteredAgent } });
+    `,
+    contract: HTTP_LOCALHOST_SLASH_RUNTIME_AGENT_CONTRACT,
+  },
+  {
+    defect: "framework factory changes",
+    contents: `
+      new CopilotRuntime({
+        agents: MastraAgent.getRemoteAgents({ mastra }),
+      });
+    `,
+    contract: MASTRA_RUNTIME_AGENT_CONTRACT,
+  },
+])(
+  "the ordinary Runtime agent helper rejects when $defect",
+  ({ contents, contract }) => {
+    expect(() => expectRuntimeAgentContract(contents, contract)).toThrow();
+  },
+);
+
+for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
+  if ("runtimeAgent" in contract) {
+    test(`${contract.directory} runtime preserves its framework-specific agent wiring`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectRuntimeAgentContract(runtime, contract.runtimeAgent);
+    });
+  }
+
+  if (contract.directory !== "agentcore") {
+    test(`${contract.directory} runtime preserves all REST endpoint handlers`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectEndpointHandlerContract(runtime);
+    });
+  }
+
+  test(`${contract.directory} frontend preserves REST transport and shared thread context`, () => {
+    const frontendPaths = frontendBehaviorPaths(contract);
+    const provider = readManagedSurface(
+      contract,
+      frontendPaths.providerPath,
+      "frontend provider",
+    );
+    const threadSurface = readManagedSurface(
+      contract,
+      frontendPaths.threadPath,
+      "thread surface",
+    );
+
+    expectFrontendThreadContract(provider, threadSurface);
+  });
+
+  if (contract.directory !== "agentcore") {
+    test(`${contract.directory} defers the no-token managed drawer until its pinned SDK supports structured entitlements`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+      const gate = readManagedSurface(
+        contract,
+        contract.gatePath,
+        "client gate",
+      );
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
+      const pins = readManagedSdkPins(contract);
+
+      expect(pins.every((pin) => !pinSupportsManagedEntitlements(pin))).toBe(
+        true,
+      );
+      expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      expect(gate).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      for (const contents of [runtime, gate, readme]) {
+        expect(contents).not.toMatch(
+          exactEnvIdentifierPattern(MANAGED_API_KEY),
+        );
+        expect(contents).not.toMatch(
+          exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
+        );
+      }
+    });
+  }
+
+  if (contract.directory === "agentcore") {
+    test(`${contract.directory} runtime uses the managed Intelligence API key`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectManagedRuntimeContract(runtime);
+    });
+
+    test(`${contract.directory} keeps entitlement compatibility for its pinned SDKs`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+      const envExample = readManagedSurface(
+        contract,
+        contract.envPath,
+        "env example",
+      );
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
+
+      expectPinnedSdkCompatibilityContract(
+        readManagedSdkPins(contract),
+        runtime,
+        envExample,
+        readme,
+      );
+    });
+
+    test(`${contract.directory} env example documents managed Intelligence credentials`, () => {
+      const envExample = readManagedSurface(
+        contract,
+        contract.envPath,
+        "env example",
+      );
+
+      expectManagedEnvContract(envExample);
+    });
+
+    test(`${contract.directory} README documents managed Intelligence credentials`, () => {
+      const readme = readManagedSurface(
+        contract,
+        contract.readmePath,
+        "README",
+      );
+
+      expectManagedReadmeContract(readme);
+    });
+  }
+
+  if (contract.directory === "mcp-apps") {
+    test("mcp-apps runtime preserves its MCP Apps client middleware", () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectMcpAppsRuntimeBehavior(runtime);
+    });
+
+    test("mcp-apps preserves its streamable HTTP tools and UI resource server", () => {
+      const server = readManagedSurface(
+        contract,
+        "threejs-server/server.ts",
+        "MCP server",
+      );
+      const transport = readManagedSurface(
+        contract,
+        "threejs-server/server-utils.ts",
+        "MCP transport",
+      );
+
+      expectMcpServerBehavior(server, transport);
+    });
+  }
+
+  if (contract.directory === "a2a-middleware") {
+    test("a2a-middleware preserves isolated multi-agent routing", () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectA2ARuntimeBehavior(runtime);
+    });
+
+    test("a2a-middleware preserves its configured chat visualization tool", () => {
+      const chat = readManagedSurface(
+        contract,
+        "components/chat.tsx",
+        "A2A chat",
+      );
+
+      expectA2AVisualizationBehavior(chat);
+    });
+  }
+
+  if ("supportedPaths" in contract) {
+    const supportedPaths = contract.supportedPaths;
+    test(`${contract.directory} runtime preserves AgentCore bridge behavior`, () => {
+      const runtime = readManagedSurface(
+        contract,
+        contract.runtimePath,
+        "runtime",
+      );
+
+      expectAgentCoreRuntimeBehavior(runtime);
+    });
+
+    test(`${contract.directory} local Compose preserves service networking`, () => {
+      const compose = readManagedSurface(
+        contract,
+        supportedPaths.localComposePath,
+        "local Compose config",
+      );
+
+      expectAgentCoreNetworkingBehavior(compose);
+    });
+
+    test(`${contract.directory} deploy scripts preserve LangGraph and Strands variants`, () => {
+      const variants = [
+        {
+          path: supportedPaths.deployScriptPaths[0]!,
+          pattern: "langgraph-single-agent",
+          suffix: "-lg",
+        },
+        {
+          path: supportedPaths.deployScriptPaths[1]!,
+          pattern: "strands-single-agent",
+          suffix: "-st",
+        },
+      ];
+
+      for (const variant of variants) {
+        const deployScript = readManagedSurface(
+          contract,
+          variant.path,
+          "deploy script",
+        );
+        expectAgentCoreVariantBehavior(
+          deployScript,
+          variant.pattern,
+          variant.suffix,
+        );
+        expect(
+          fs.existsSync(
+            path.join(
+              integrationsDir,
+              contract.directory,
+              "agents",
+              variant.pattern,
+            ),
+          ),
+        ).toBe(true);
+      }
+    });
+
+    test(`${contract.directory} local Compose consumes the root managed env`, () => {
+      const compose = readManagedSurface(
+        contract,
+        supportedPaths.localComposePath,
+        "local Compose config",
+      );
+
+      expectAgentCoreLocalComposeContract(compose);
+    });
+
+    test(`${contract.directory} deployment config stores a managed key secret reference`, () => {
+      const deploymentConfig = readManagedSurface(
+        contract,
+        supportedPaths.deploymentConfigPath,
+        "deployment config",
+      );
+
+      expectAgentCoreDeploymentConfigContract(deploymentConfig);
+    });
+
+    test(`${contract.directory} deployed Lambda resolves the managed key secret`, () => {
+      const runtimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.runtimeDeploymentPath,
+        "runtime deployment config",
+      );
+
+      expectAgentCoreRuntimeDeploymentContract(runtimeDeployment);
+    });
+
+    test(`${contract.directory} deploys the pinned SDK license token through Secrets Manager`, () => {
+      const deploymentConfig = readManagedSurface(
+        contract,
+        supportedPaths.deploymentConfigPath,
+        "deployment config",
+      );
+      const runtimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.runtimeDeploymentPath,
+        "runtime deployment config",
+      );
+      const deployScripts = supportedPaths.deployScriptPaths.map(
+        (deployScriptPath) =>
+          readManagedSurface(contract, deployScriptPath, "deploy script"),
+      );
+
+      expectAgentCoreLegacyLicenseDeploymentContract(
+        deploymentConfig,
+        runtimeDeployment,
+        deployScripts,
+      );
+    });
+
+    test(`${contract.directory} explicitly excludes managed credentials from Terraform`, () => {
+      const terraformRuntimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.terraformRuntimeDeploymentPath,
+        "Terraform runtime deployment",
+      );
+      const terraformReadme = readManagedSurface(
+        contract,
+        supportedPaths.terraformReadmePath,
+        "Terraform README",
+      );
+
+      expectAgentCoreTerraformExclusionContract(
+        terraformRuntimeDeployment,
+        terraformReadme,
+      );
+    });
+
+    test(`${contract.directory} deploy scripts materialize the configured managed key secret`, () => {
+      for (const deployScriptPath of supportedPaths.deployScriptPaths) {
+        const deployScript = readManagedSurface(
+          contract,
+          deployScriptPath,
+          "deploy script",
+        );
+        expectAgentCoreDeployScriptContract(deployScript);
+      }
+    });
+  }
+}
+
+/** Assert AgentCore's AWS instructions require caller-provided remote endpoints. */
+function expectAgentCoreAwsEndpointReadmeContract(contents: string): void {
+  expect(contents).toMatch(/managed or self-hosted Intelligence endpoints/i);
+  expect(contents).toMatch(/reachable from AWS/i);
+  expect(contents).toMatch(
+    /must not use[\s`]*localhost[\s\S]{0,40}127\.0\.0\.1/i,
+  );
+
+  for (const scriptName of [
+    "deploy-langgraph.sh",
+    "deploy-strands.sh",
+  ] as const) {
+    expect(contents).toMatch(
+      new RegExp(
+        `INTELLIGENCE_API_URL=https://[^\\s]+[\\s\\S]{0,200}` +
+          `INTELLIGENCE_GATEWAY_WS_URL=wss://[^\\s]+[\\s\\S]{0,200}` +
+          `\\./${scriptName.replace(".", "\\.")}`,
+      ),
+    );
+  }
+}
+
+/** Assert one AgentCore deploy script validates remote endpoints before AWS writes. */
+function expectAgentCoreAwsEndpointDeployContract(contents: string): void {
+  const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+  const lines = normalized.split(/\r?\n/);
+  const rootEnvLoadIndex = lines.findIndex((line) =>
+    /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+      line,
+    ),
+  );
+  const apiGuardIndex = lines.findIndex((line) =>
+    /require_remote_endpoint\s+INTELLIGENCE_API_URL\b/.test(line),
+  );
+  const gatewayGuardIndex = lines.findIndex((line) =>
+    /require_remote_endpoint\s+INTELLIGENCE_GATEWAY_WS_URL\b/.test(line),
+  );
+  const firstAwsWriteIndex = lines.findIndex((line) =>
+    /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line),
+  );
+  const cdkDeployIndex = lines.findIndex((line) =>
+    /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+  );
+
+  expect(contents).toContain("${INTELLIGENCE_API_URL+x}");
+  expect(contents).toContain("${INTELLIGENCE_GATEWAY_WS_URL+x}");
+  expect(contents).toContain("localhost");
+  expect(contents).toContain("127\\.0\\.0\\.1");
+  expect(apiGuardIndex).toBeGreaterThan(rootEnvLoadIndex);
+  expect(gatewayGuardIndex).toBeGreaterThan(rootEnvLoadIndex);
+  expect(firstAwsWriteIndex).toBeGreaterThan(
+    Math.max(apiGuardIndex, gatewayGuardIndex),
+  );
+  expect(cdkDeployIndex).toBeGreaterThan(
+    Math.max(apiGuardIndex, gatewayGuardIndex),
+  );
+}
+
+/** Write one executable command stub into an AgentCore deploy harness. */
+function writeAgentCoreCommandStub(
+  directory: string,
+  command: string,
+  contents = "#!/usr/bin/env bash\nexit 0\n",
+): void {
+  const commandPath = path.join(directory, command);
+  fs.writeFileSync(commandPath, contents);
+  fs.chmodSync(commandPath, 0o755);
+}
+
+/** Render one optional endpoint into a shell environment assignment. */
+function agentCoreEndpointAssignment(name: string, value?: string): string {
+  return value === undefined ? "" : `${name}=${value}\n`;
+}
+
+/** Read one optional newline-delimited harness capture. */
+function readAgentCoreHarnessLines(capturePath: string): string[] {
+  if (!fs.existsSync(capturePath)) {
+    return [];
+  }
+  return fs
+    .readFileSync(capturePath, "utf8")
+    .split("\n")
+    .filter((line) => line.length > 0);
+}
+
+/** Emit a shell probe that records any backend-credential environment leak. */
+function agentCoreSecretExposureProbe(command: string): string {
+  return [
+    `if [[ -n "\${${MANAGED_API_KEY}-}" ]]; then`,
+    `  printf '%s\\n' '${command}:env' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+    `if [[ -n "\${${MANAGED_LICENSE_TOKEN}-}" ]]; then`,
+    `  printf '%s\\n' '${command}:license-env' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+    `if [[ "$*" == *'${MANAGED_API_KEY_SENTINEL}'* ]]; then`,
+    `  printf '%s\\n' '${command}:argv' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+    `if [[ "$*" == *'${LEGACY_LICENSE_TOKEN_SENTINEL}'* ]]; then`,
+    `  printf '%s\\n' '${command}:license-argv' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+  ].join("\n");
+}
+
+/** Execute one real AgentCore deploy script against non-networking command stubs. */
+function runAgentCoreDeployHarness(
+  options: AgentCoreDeployHarnessOptions,
+): AgentCoreDeployHarnessResult {
+  const harnessDirectory = fs.mkdtempSync(
+    path.join(os.tmpdir(), "agentcore-deploy-contract-"),
+  );
+  try {
+    const fakeBin = path.join(harnessDirectory, "bin");
+    const cdkDirectory = path.join(harnessDirectory, "infra-cdk");
+    const capturePath = path.join(harnessDirectory, "cdk-environment.txt");
+    const awsCapturePath = path.join(harnessDirectory, "aws-commands.txt");
+    const npmCapturePath = path.join(harnessDirectory, "npm-commands.txt");
+    const frontendCapturePath = path.join(
+      harnessDirectory,
+      "frontend-environment.txt",
+    );
+    const secretExposureCapturePath = path.join(
+      harnessDirectory,
+      "secret-exposure.txt",
+    );
+    const secretInputCapturePath = path.join(
+      harnessDirectory,
+      "secret-input.txt",
+    );
+    const scriptPath = path.join(harnessDirectory, options.scriptName);
+    fs.mkdirSync(fakeBin);
+    fs.mkdirSync(cdkDirectory);
+    fs.mkdirSync(path.join(harnessDirectory, "scripts"));
+    fs.copyFileSync(
+      path.join(integrationsDir, "agentcore", options.scriptName),
+      scriptPath,
+    );
+    fs.writeFileSync(
+      path.join(harnessDirectory, ".env"),
+      [
+        `${MANAGED_API_KEY}=${MANAGED_API_KEY_SENTINEL}\n`,
+        `${MANAGED_LICENSE_TOKEN}=${LEGACY_LICENSE_TOKEN_SENTINEL}\n`,
+        `${OPTIONAL_TELEMETRY_ID}=agentcore-test-telemetry\n`,
+        agentCoreEndpointAssignment(
+          INTELLIGENCE_API_URL,
+          options.envFile.apiUrl,
+        ),
+        agentCoreEndpointAssignment(
+          INTELLIGENCE_GATEWAY_WS_URL,
+          options.envFile.gatewayWsUrl,
+        ),
+      ].join(""),
+    );
+    fs.writeFileSync(
+      path.join(harnessDirectory, "config.yaml"),
+      [
+        "stack_name_base: agentcore-contract\n",
+        `${MANAGED_API_KEY_SECRET_CONFIG}: agentcore/contract/key\n`,
+        `${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}: agentcore/contract/license-token\n`,
+        "backend:\n",
+        "  pattern: placeholder\n",
+      ].join(""),
+    );
+
+    for (const command of ["docker", "node"]) {
+      writeAgentCoreCommandStub(fakeBin, command);
+    }
+    writeAgentCoreCommandStub(
+      fakeBin,
+      "npm",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        `${agentCoreSecretExposureProbe("npm")}\n`,
+        'printf \'%s\\n\' "$*" >> "${NPM_COMMAND_CAPTURE:?}"\n',
+      ].join(""),
+    );
+    writeAgentCoreCommandStub(
+      fakeBin,
+      "aws",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        `${agentCoreSecretExposureProbe("aws")}\n`,
+        'printf \'%s\\n\' "$*" >> "${AWS_COMMAND_CAPTURE:?}"\n',
+        'if [[ "$*" == *"secretsmanager put-secret-value"* || "$*" == *"secretsmanager create-secret"* ]]; then\n',
+        "  secret_input=$(cat)\n",
+        `  if [[ "$secret_input" == '${MANAGED_API_KEY_SENTINEL}' ]]; then\n`,
+        "    printf '%s\\n' 'aws:key-stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        `    printf '%s\\n' '${MANAGED_API_KEY_SECRET_VERSION_SENTINEL}'\n`,
+        `  elif [[ "$secret_input" == '${LEGACY_LICENSE_TOKEN_SENTINEL}' ]]; then\n`,
+        "    printf '%s\\n' 'aws:license-stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        `    printf '%s\\n' '${LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL}'\n`,
+        "  else\n",
+        "    printf '%s\\n' 'aws:stdin-missing' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        "  fi\n",
+        "fi\n",
+      ].join(""),
+    );
+    writeAgentCoreCommandStub(
+      fakeBin,
+      "npx",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        `${agentCoreSecretExposureProbe("npx")}\n`,
+        `printf '%s\\n%s\\n%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" "\${${MANAGED_API_KEY_SECRET_VERSION_ID}-}" "\${${LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
+      ].join(""),
+    );
+    fs.writeFileSync(
+      path.join(harnessDirectory, "scripts", "deploy-frontend.py"),
+      [
+        "import os\n",
+        "import pathlib\n",
+        "import sys\n",
+        `if os.environ.get('${MANAGED_API_KEY}'):\n`,
+        '    with pathlib.Path(os.environ["SECRET_EXPOSURE_CAPTURE"]).open("a") as capture:\n',
+        '        capture.write("frontend:env\\n")\n',
+        `if os.environ.get('${MANAGED_LICENSE_TOKEN}'):\n`,
+        '    with pathlib.Path(os.environ["SECRET_EXPOSURE_CAPTURE"]).open("a") as capture:\n',
+        '        capture.write("frontend:license-env\\n")\n',
+        'pathlib.Path(os.environ["FRONTEND_CAPTURE"]).write_text(\n',
+        `    f"{sys.argv[1]}\\n{os.environ.get('${MANAGED_API_KEY_SECRET_VERSION_ID}', '')}\\n"\n`,
+        ")\n",
+      ].join(""),
+    );
+
+    const environment = { ...process.env };
+    environment[MANAGED_API_KEY] = MANAGED_API_KEY_SENTINEL;
+    environment[MANAGED_LICENSE_TOKEN] = LEGACY_LICENSE_TOKEN_SENTINEL;
+    delete environment[INTELLIGENCE_API_URL];
+    delete environment[INTELLIGENCE_GATEWAY_WS_URL];
+    delete environment[MANAGED_API_KEY_SECRET_VERSION_ID];
+    delete environment[LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID];
+    environment.PATH = `${fakeBin}:${process.env.PATH ?? ""}`;
+    environment.CDK_ENV_CAPTURE = capturePath;
+    environment.AWS_COMMAND_CAPTURE = awsCapturePath;
+    environment.NPM_COMMAND_CAPTURE = npmCapturePath;
+    environment.FRONTEND_CAPTURE = frontendCapturePath;
+    environment.SECRET_EXPOSURE_CAPTURE = secretExposureCapturePath;
+    environment.SECRET_INPUT_CAPTURE = secretInputCapturePath;
+    if (options.callerEnvironment?.apiUrl !== undefined) {
+      environment[INTELLIGENCE_API_URL] = options.callerEnvironment.apiUrl;
+    }
+    if (options.callerEnvironment?.gatewayWsUrl !== undefined) {
+      environment[INTELLIGENCE_GATEWAY_WS_URL] =
+        options.callerEnvironment.gatewayWsUrl;
+    }
+
+    const scriptArguments = [
+      ...(options.xtrace === true ? ["-x"] : []),
+      scriptPath,
+      ...(options.skipFrontend === false ? [] : ["--skip-frontend"]),
+      ...(options.skipBackend === true ? ["--skip-backend"] : []),
+    ];
+    const result = spawnSync("/bin/bash", scriptArguments, {
+      cwd: harnessDirectory,
+      encoding: "utf8",
+      env: environment,
+    });
+    const output = `${result.stdout}${result.stderr}`;
+    const capturedEnvironment = fs.existsSync(capturePath)
+      ? fs.readFileSync(capturePath, "utf8")
+      : null;
+    const capturedLines = capturedEnvironment?.split("\n") ?? [];
+    const cdkEnvironment = capturedEnvironment
+      ? `${capturedLines[0] ?? ""}\n${capturedLines[1] ?? ""}\n`
+      : null;
+    const secretVersionId = capturedEnvironment
+      ? (capturedLines[2] ?? null)
+      : null;
+    const licenseTokenSecretVersionId = capturedEnvironment
+      ? (capturedLines[3] ?? null)
+      : null;
+    const frontendEnvironment = fs.existsSync(frontendCapturePath)
+      ? fs.readFileSync(frontendCapturePath, "utf8").split("\n")
+      : null;
+    return {
+      status: result.status,
+      output,
+      cdkEnvironment,
+      secretVersionId,
+      licenseTokenSecretVersionId,
+      awsCommands: readAgentCoreHarnessLines(awsCapturePath),
+      npmCommands: readAgentCoreHarnessLines(npmCapturePath),
+      frontendStackName: frontendEnvironment?.[0] ?? null,
+      frontendSecretVersionId: frontendEnvironment?.[1] ?? null,
+      secretExposureObservations: readAgentCoreHarnessLines(
+        secretExposureCapturePath,
+      ),
+      secretInputObservations: readAgentCoreHarnessLines(
+        secretInputCapturePath,
+      ),
+    };
+  } finally {
+    fs.rmSync(harnessDirectory, { force: true, recursive: true });
+  }
+}

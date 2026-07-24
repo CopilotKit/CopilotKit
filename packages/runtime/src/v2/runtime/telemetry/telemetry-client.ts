@@ -1,6 +1,27 @@
 import type { AnalyticsEvents } from "./events";
 import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
+import { firstNonBlankTelemetryId } from "./telemetry-identity";
+
+/** Transport identity and sampling authority resolved for one runtime. */
+export interface TelemetryIdentity {
+  telemetryId?: string;
+  licenseToken?: string;
+}
+
+/** Capture-only telemetry client bound to one runtime identity. */
+export interface TelemetryCapture {
+  capture<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+  ): Promise<void>;
+}
+
+interface ResolvedTelemetryIdentity {
+  telemetryId: string | null;
+  licenseToken: string | null;
+  licenseTelemetryId: string | null;
+}
 
 export function isTelemetryDisabled(): boolean {
   return (
@@ -21,16 +42,15 @@ export class TelemetryClient {
   // caps anonymous OSS-runtime egress; identified customers send at
   // full fidelity. Override via COPILOTKIT_TELEMETRY_SAMPLE_RATE.
   private sampleRate: number = 0.05;
-  // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
-  // client decodes its payload to read telemetry_id for the
-  // X-CopilotKit-Telemetry-Id header. Set once at runtime construction
-  // via setLicenseToken; absent values produce anonymous sends.
+  // EIP / Intelligence license token (Ed25519-signed JWT). Kept separate
+  // from standalone identity so the transport receives only the selected
+  // identity source.
   private licenseToken: string | null = null;
-  // Parsed telemetry_id from the license-token JWT payload. Cached at
-  // setLicenseToken time so `capture()` can branch on identified vs
-  // anonymous without re-parsing per event. Null when the token is
-  // absent or yielded no telemetry_id.
+  // Standalone identity sent as a transport claim. It does not grant sampling
+  // authority.
   private telemetryId: string | null = null;
+  // License-derived identity used only as sampling authority.
+  private licenseTelemetryId: string | null = null;
 
   constructor({
     telemetryDisabled,
@@ -39,7 +59,7 @@ export class TelemetryClient {
     telemetryDisabled?: boolean;
     sampleRate?: number;
   } = {}) {
-    this.telemetryDisabled = telemetryDisabled ?? isTelemetryDisabled();
+    this.telemetryDisabled = telemetryDisabled || isTelemetryDisabled();
     this.setSampleRate(sampleRate);
   }
 
@@ -48,27 +68,117 @@ export class TelemetryClient {
     return Math.random() < this.sampleRate;
   }
 
-  setLicenseToken(licenseToken: string) {
-    this.licenseToken = licenseToken;
-    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
+  /**
+   * Atomically replace the process-wide telemetry identity.
+   *
+   * Standalone identity takes precedence and clears any legacy license token.
+   * It remains sample-gated; only a license-derived id bypasses sampling.
+   * Passing an empty object clears both sources.
+   *
+   * @param identity - One standalone id, one legacy license token, or neither.
+   */
+  setTelemetryIdentity(identity: {
+    telemetryId?: string;
+    licenseToken?: string;
+  }): void {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
+  }
+
+  /**
+   * Configure legacy license-derived telemetry identity.
+   *
+   * @deprecated Prefer {@link setTelemetryIdentity} for atomic replacement.
+   */
+  setLicenseToken(licenseToken: string): void {
+    this.setTelemetryIdentity({ licenseToken });
+  }
+
+  /**
+   * Create an immutable capture scope for one runtime.
+   *
+   * The scope shares this client's process-wide opt-out and sampling settings,
+   * but snapshots transport identity and license-derived sampling authority.
+   * Constructing another runtime cannot rewrite an existing scope.
+   *
+   * @param identity - The runtime's construction-time telemetry identity.
+   * @returns A capture-only client bound to that identity.
+   */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
   }
 
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
-  ) {
+  ): Promise<void> {
+    return this.captureWithIdentity(event, properties, {
+      telemetryId: this.telemetryId,
+      licenseToken: this.licenseToken,
+      licenseTelemetryId: this.licenseTelemetryId,
+    });
+  }
+
+  private async captureWithIdentity<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+    identity: ResolvedTelemetryIdentity,
+  ): Promise<void> {
     if (this.telemetryDisabled) return;
-    // Anonymous callers are gated by sampleRate; identified callers
-    // (telemetry_id present) bypass the gate and always send.
-    if (!this.telemetryId && !this.shouldSendEvent()) return;
+    // Standalone identity is a transport claim, not sampling authority.
+    // Only a legacy license token with telemetry_id bypasses sampleRate.
+    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
+
+    // License-authorized events ship at full fidelity. Anonymous and
+    // standalone-identified events report the configured sample rate so the
+    // sink can extrapolate volume without treating identity as event data.
+    const effectiveSampleRate = identity.licenseTelemetryId
+      ? 1
+      : this.sampleRate;
 
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
+      globalProperties: {
+        sampleRate: effectiveSampleRate,
+        sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
+        sampleWeight: 1 / effectiveSampleRate,
+      },
       packageName: packageJson.name,
       packageVersion: packageJson.version,
-      licenseToken: this.licenseToken ?? undefined,
+      telemetryId: identity.telemetryId ?? undefined,
+      licenseToken: identity.licenseToken ?? undefined,
     });
+  }
+
+  private resolveTelemetryIdentity(
+    identity: TelemetryIdentity,
+  ): ResolvedTelemetryIdentity {
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      return {
+        telemetryId,
+        licenseToken: null,
+        licenseTelemetryId: null,
+      };
+    }
+
+    return {
+      telemetryId: null,
+      licenseToken: identity.licenseToken ?? null,
+      licenseTelemetryId: identity.licenseToken
+        ? parseAndWarnTelemetryId(identity.licenseToken)
+        : null,
+    };
   }
 
   private setSampleRate(sampleRate: number | undefined) {

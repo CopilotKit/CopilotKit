@@ -9,14 +9,12 @@ import {
   watch,
 } from "vue";
 import { z } from "zod";
-import type { AbstractAgent } from "@ag-ui/client";
-import type {
-  CopilotKitCoreErrorCode,
-  CopilotKitCoreSubscriber,
-  FrontendTool,
-} from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber, FrontendTool } from "@copilotkit/core";
 import { schemaToJsonSchema } from "@copilotkit/shared";
-import type { RuntimeLicenseStatus } from "@copilotkit/shared";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
@@ -47,7 +45,6 @@ import type {
   SandboxFunction,
   VueActivityMessageRenderer,
   VueFrontendTool,
-  VueHumanInTheLoop,
   VueToolCallRenderer,
 } from "../types";
 
@@ -292,6 +289,10 @@ const allRenderCustomMessages = computed(
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
 const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
+const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
+  undefined,
+);
+const runtimeEntitlementRetryPending = ref(false);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -458,15 +459,14 @@ watch(
         runtimeA2UIEnabled.value = core.a2uiEnabled;
         runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
         runtimeLicenseStatus.value = core.licenseStatus;
+        runtimeEntitlements.value = core.runtimeEntitlements;
+        runtimeEntitlementRetryPending.value =
+          core.runtimeEntitlementRetryPending;
         triggerRef(copilotkit);
       },
     });
     const sub5 = core.subscribe({
-      onError: (event: {
-        error: Error;
-        code: CopilotKitCoreErrorCode;
-        context: Record<string, any>;
-      }) => {
+      onError: (event) => {
         void props.onError?.({
           error: event.error,
           code: event.code,
@@ -555,6 +555,9 @@ onMounted(() => {
   runtimeOpenGenerativeUIEnabled.value =
     copilotkit.value.openGenerativeUIEnabled;
   runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
+  runtimeEntitlements.value = copilotkit.value.runtimeEntitlements;
+  runtimeEntitlementRetryPending.value =
+    copilotkit.value.runtimeEntitlementRetryPending;
   didMountRef.value = true;
 });
 
@@ -631,23 +634,70 @@ provide(CopilotKitKey, {
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
 
-// License context — driven by server-reported `/info` license status.
-const licenseContextValue = computed<LicenseContextValue>(() =>
-  createLicenseContextValue(runtimeLicenseStatus.value),
+// License context — driven by structured and legacy Runtime authority.
+const retryableRuntimeEntitlementFailure = computed(
+  () =>
+    runtimeEntitlements.value?.status !== "ready" &&
+    runtimeEntitlements.value?.error.retryable === true,
 );
+const hasNonReadyRuntimeEntitlement = computed(
+  () =>
+    runtimeEntitlements.value !== undefined &&
+    runtimeEntitlements.value.status !== "ready",
+);
+const hasLegacyRuntimeEntitlementFallback = computed(
+  () =>
+    runtimeLicenseStatus.value === "valid" ||
+    runtimeLicenseStatus.value === "expiring",
+);
+const runtimeEntitlementRetryInProgress = computed(
+  () =>
+    retryableRuntimeEntitlementFailure.value &&
+    runtimeEntitlementRetryPending.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+const runtimeEntitlementFailureSettled = computed(
+  () =>
+    hasNonReadyRuntimeEntitlement.value &&
+    !runtimeEntitlementRetryInProgress.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+const licenseContextValue = computed<LicenseContextValue>(() => {
+  const runtimeLicenseContext = createLicenseContextValue(
+    runtimeEntitlementRetryInProgress.value
+      ? undefined
+      : runtimeLicenseStatus.value,
+    runtimeEntitlements.value,
+  );
+  if (!runtimeEntitlementFailureSettled.value) {
+    return runtimeLicenseContext;
+  }
+
+  return {
+    ...runtimeLicenseContext,
+    checkFeature: () => false,
+    getLimit: () => null,
+  };
+});
 provide(LicenseContextKey, licenseContextValue);
 
+const runtimeLicenseWarningStatus = computed(() =>
+  runtimeEntitlementRetryInProgress.value
+    ? undefined
+    : (licenseContextValue.value.status ?? undefined),
+);
 const showNoLicenseBanner = computed(
-  () => runtimeLicenseStatus.value === "none" && !resolvedPublicKey.value,
+  () =>
+    runtimeLicenseWarningStatus.value === "none" && !resolvedPublicKey.value,
 );
 const showExpiredBanner = computed(
-  () => runtimeLicenseStatus.value === "expired",
+  () => runtimeLicenseWarningStatus.value === "expired",
 );
 const showInvalidBanner = computed(
-  () => runtimeLicenseStatus.value === "invalid",
+  () => runtimeLicenseWarningStatus.value === "invalid",
 );
 const showExpiringBanner = computed(
-  () => runtimeLicenseStatus.value === "expiring",
+  () => runtimeLicenseWarningStatus.value === "expiring",
 );
 </script>
 

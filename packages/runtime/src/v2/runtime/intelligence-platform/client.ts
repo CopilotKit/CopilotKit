@@ -1,5 +1,70 @@
 import { logger } from "@copilotkit/shared";
+import type { RuntimeEntitlementResponse } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 5_000;
+const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
+const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
+
+interface RuntimeEntitlementCacheEntry {
+  readonly expiresAt: number;
+  readonly response: RuntimeEntitlementResponse;
+}
+
+interface RuntimeEntitlementFailureEntry {
+  readonly error: unknown;
+  readonly expiresAt: number;
+}
+
+/** Whether a response grants Runtime access and therefore cannot be served stale. */
+function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
+  return response.status === "ready" && response.entitlement.active;
+}
+
+/** Whether an HTTP status can recover without changing Runtime configuration. */
+function isRetryableRuntimeEntitlementStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+const runtimeEntitlementTransportSchema = z
+  .object({
+    organizationId: z.string(),
+    active: z.boolean(),
+    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    features: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number()),
+    planCode: z.string().optional(),
+    entitlementSource: z.string().optional(),
+  })
+  .strict();
+
+/** Validate and normalize the private App API transport into the public union. */
+function normalizeRuntimeEntitlementTransport(
+  value: unknown,
+): RuntimeEntitlementResponse | undefined {
+  const parsed = runtimeEntitlementTransportSchema.safeParse(value);
+  if (!parsed.success) {
+    return undefined;
+  }
+
+  const transport = parsed.data;
+  return {
+    status: "ready",
+    entitlement: {
+      active: transport.active,
+      source: transport.source,
+      features: transport.features,
+      limits: transport.limits,
+      ...(transport.planCode !== undefined
+        ? { planCode: transport.planCode }
+        : {}),
+      ...(transport.entitlementSource !== undefined
+        ? { entitlementSource: transport.entitlementSource }
+        : {}),
+    },
+  };
+}
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -35,10 +100,45 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /** Whether retrying may succeed without changing client configuration. */
+    public readonly retryable?: boolean,
   ) {
     super(message);
     this.name = "PlatformRequestError";
   }
+}
+
+/** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
+function cloneRuntimeEntitlementResponse(
+  response: RuntimeEntitlementResponse,
+): RuntimeEntitlementResponse {
+  if (response.status === "ready") {
+    return {
+      status: "ready",
+      entitlement: {
+        ...response.entitlement,
+        features: { ...response.entitlement.features },
+        limits: { ...response.entitlement.limits },
+      },
+    };
+  }
+
+  return {
+    status: response.status,
+    error: { ...response.error },
+  };
+}
+
+/** Copy a cached Error while preserving its concrete type and own fields. */
+function cloneRuntimeEntitlementError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return Object.create(
+    Object.getPrototypeOf(error),
+    Object.getOwnPropertyDescriptors(error),
+  ) as Error;
 }
 
 /**
@@ -400,6 +500,9 @@ export class CopilotKitIntelligence {
   #clientWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
+  #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
+  #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -508,6 +611,152 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Resolve the Runtime entitlement projection for this project.
+   *
+   * Calls share one in-flight request and cache active entitlements for 30
+   * seconds or inactive entitlements for 5 seconds. Failed refreshes cache and
+   * rethrow their error for 5 seconds instead of reusing a stale ready result.
+   * The network request is bounded, never retried, and strictly validates the
+   * private App API transport before normalizing it to the public response
+   * union. Validation and timeout failures use stable messages that do not
+   * expose rejected upstream payloads. Each caller receives an isolated copy
+   * of the cached response or error.
+   *
+   * @returns The validated Runtime entitlement response.
+   * @throws {@link PlatformRequestError} for non-OK, malformed, network, or
+   *   timeout outcomes.
+   */
+  async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const now = Date.now();
+    if (
+      this.#runtimeEntitlementsCache &&
+      now < this.#runtimeEntitlementsCache.expiresAt
+    ) {
+      return cloneRuntimeEntitlementResponse(
+        this.#runtimeEntitlementsCache.response,
+      );
+    }
+    if (
+      this.#runtimeEntitlementsFailure &&
+      now < this.#runtimeEntitlementsFailure.expiresAt
+    ) {
+      throw cloneRuntimeEntitlementError(
+        this.#runtimeEntitlementsFailure.error,
+      );
+    }
+
+    const request =
+      this.#runtimeEntitlementsInFlight ??
+      this.#fetchRuntimeEntitlements()
+        .then((response) => {
+          this.#runtimeEntitlementsFailure = undefined;
+          this.#runtimeEntitlementsCache = {
+            response,
+            expiresAt:
+              Date.now() +
+              (grantsRuntimeAccess(response)
+                ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+                : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+          };
+          return response;
+        })
+        .catch((error: unknown) => {
+          this.#runtimeEntitlementsFailure = {
+            error,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          throw error;
+        });
+    this.#runtimeEntitlementsInFlight = request;
+    try {
+      return cloneRuntimeEntitlementResponse(await request);
+    } catch (error) {
+      throw cloneRuntimeEntitlementError(error);
+    } finally {
+      if (this.#runtimeEntitlementsInFlight === request) {
+        this.#runtimeEntitlementsInFlight = undefined;
+      }
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const path = "/api/entitlements/runtime";
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await response.body?.cancel();
+        logger.error(
+          { status: response.status, path },
+          "Runtime entitlement request failed",
+        );
+        throw new PlatformRequestError(
+          `Runtime entitlement request failed with status ${response.status}`,
+          response.status,
+          isRetryableRuntimeEntitlementStatus(response.status),
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+
+      const normalized = normalizeRuntimeEntitlementTransport(payload);
+      if (!normalized) {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+
+      return normalized;
+    } catch (error) {
+      if (error instanceof PlatformRequestError) {
+        throw error;
+      }
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new PlatformRequestError(
+          "Runtime entitlement request timed out",
+          504,
+          true,
+        );
+      }
+      throw new PlatformRequestError(
+        "Runtime entitlement request failed",
+        502,
+        true,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async #request<T>(

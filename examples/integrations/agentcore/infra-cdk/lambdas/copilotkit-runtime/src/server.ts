@@ -18,7 +18,7 @@ import { serve } from "@hono/node-server";
 import { buildApp } from "./runtime";
 
 const PORT = parseInt(process.env.PORT ?? "3001");
-const app = buildApp();
+const app = buildApp({ localDevelopment: true });
 
 serve({ fetch: app.fetch, port: PORT }, () => {
   console.log(

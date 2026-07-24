@@ -11,12 +11,17 @@ import * as bedrockagentcore from "aws-cdk-lib/aws-bedrockagentcore";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as ecr_assets from "aws-cdk-lib/aws-ecr-assets";
 import * as cr from "aws-cdk-lib/custom-resources";
-import { Construct } from "constructs";
-import { AppConfig } from "./utils/config-manager";
+import type { Construct } from "constructs";
+import type { AppConfig } from "./utils/config-manager";
 import { AgentCoreRole } from "./utils/agentcore-role";
 import * as path from "path";
 import * as fs from "fs";
 import { execSync } from "child_process";
+import {
+  addAuthenticatedRuntimeMethod,
+  createRuntimeAuthorizer,
+  createRuntimeIntegration,
+} from "./copilotkit-runtime-auth";
 
 export interface BackendStackProps extends cdk.NestedStackProps {
   config: AppConfig;
@@ -426,6 +431,23 @@ export class BackendStack extends cdk.NestedStack {
           AGENTCORE_AG_UI_URL: agentCoreAgUiUrl,
           COPILOTKIT_AGENT_NAME:
             config.backend?.pattern || "langgraph-single-agent",
+          CPK_INTELLIGENCE_API_KEY: cdk.SecretValue.secretsManager(
+            config.copilotkit_intelligence_api_key_secret_name,
+            {
+              versionId: process.env.CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID,
+            },
+          ).unsafeUnwrap(),
+          COPILOTKIT_LICENSE_TOKEN: cdk.SecretValue.secretsManager(
+            config.copilotkit_license_token_secret_name,
+            {
+              versionId: process.env.COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID,
+            },
+          ).unsafeUnwrap(),
+          CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
+          INTELLIGENCE_API_URL:
+            process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
+          INTELLIGENCE_GATEWAY_WS_URL:
+            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
         },
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
@@ -442,7 +464,7 @@ export class BackendStack extends cdk.NestedStack {
       description: "Standalone CopilotKit runtime API backed by Lambda",
       defaultCorsPreflightOptions: {
         allowOrigins: [frontendUrl, "http://localhost:3000"],
-        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
       },
       deployOptions: {
@@ -450,28 +472,50 @@ export class BackendStack extends cdk.NestedStack {
       },
     });
 
-    const runtimeIntegration = new apigateway.LambdaIntegration(
+    const runtimeIntegration = createRuntimeIntegration(
       copilotKitRuntimeLambda,
-      {
-        responseTransferMode: apigateway.ResponseTransferMode.STREAM,
-      },
     );
+    const runtimeAuthorizer = createRuntimeAuthorizer(this, this.userPool);
 
     const runtimeResource = copilotKitApi.root.addResource("copilotkit");
-    runtimeResource.addMethod("GET", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
-    runtimeResource.addMethod("POST", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
+    addAuthenticatedRuntimeMethod(
+      runtimeResource,
+      "GET",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeResource,
+      "POST",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
 
     const runtimeProxy = runtimeResource.addResource("{proxy+}");
-    runtimeProxy.addMethod("GET", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
-    runtimeProxy.addMethod("POST", runtimeIntegration, {
-      authorizationType: apigateway.AuthorizationType.NONE,
-    });
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "GET",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "POST",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "PATCH",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "DELETE",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
 
     this.copilotKitRuntimeUrl = copilotKitApi.urlForPath("/copilotkit");
 
@@ -701,16 +745,6 @@ export class BackendStack extends cdk.NestedStack {
     new cdk.CfnOutput(this, "GatewayArn", {
       value: gateway.attrGatewayArn,
       description: "AgentCore Gateway ARN",
-    });
-
-    new cdk.CfnOutput(this, "GatewayTargetId", {
-      value: gatewayTarget.ref,
-      description: "AgentCore Gateway Target ID",
-    });
-
-    new cdk.CfnOutput(this, "ToolLambdaArn", {
-      description: "ARN of the sample tool Lambda",
-      value: toolLambda.functionArn,
     });
   }
 
