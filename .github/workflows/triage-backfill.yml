@@ -1,0 +1,105 @@
+# .github/workflows/triage-backfill.yml
+# One-time / occasional drain of the ACCRETED backlog — runs the SAME shared
+# analysis (scripts/triage/analyze.js) over EXISTING open issues. Manual only,
+# DRY-RUN by default (preview in the job summary before anything applies), capped.
+name: triage / backfill (manual)
+on:
+  workflow_dispatch:
+    inputs:
+      max_issues:
+        description: "Max issues to process this run (oldest first)"
+        type: number
+        default: 50
+      dry_run:
+        description: "Preview only (no labels/comments applied)"
+        type: boolean
+        default: true
+# Default to no privileges; each job opts in to exactly what it needs.
+permissions: {}
+concurrency:
+  group: triage-backfill
+  cancel-in-progress: false
+jobs:
+  backfill:
+    name: backfill triage over open issues
+    runs-on: ubuntu-latest
+    # Least privilege: read the repo (for analyze.js) + write issue labels/comments.
+    permissions:
+      contents: read # checkout reads scripts/triage/analyze.js
+      issues: write # apply labels + post the templated dup comment
+    timeout-minutes: 30 # backfill iterates many issues; still bounded
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit # baseline first — review the run's network report, then flip to "block" with the allow-list below
+          # block-mode allow-list (uncomment + set the model host when flipping):
+          #   allowed-endpoints: >
+          #     github.com:443
+          #     api.github.com:443
+          #     objects.githubusercontent.com:443
+          #     api.anthropic.com:443
+          #     <your-azure-resource>.openai.azure.com:443   # or *.services.ai.azure.com for Foundry
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false # only reads scripts/triage/analyze.js; no git ops
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          # Model provider — set ONE (Azure preferred so runs draw on shared credits; Anthropic is the fallback).
+          # Non-secret Azure config lives in repo "Variables"; only the API keys are secrets.
+          # zizmor: ignore[secrets-outside-env] read-only inference key; dedicated GH Environment adds friction w/ marginal benefit here
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+          # zizmor: ignore[secrets-outside-env] read-only inference key (fallback provider)
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Inputs via env (not inlined into the script) to avoid template-injection.
+          DRY_RUN: ${{ inputs.dry_run }}
+          MAX_ISSUES: ${{ inputs.max_issues }}
+        with:
+          script: |
+            const analyzeIssue = require(`${process.env.GITHUB_WORKSPACE}/scripts/triage/analyze.js`);
+            const { owner, repo } = context.repo;
+            const dryRun = process.env.DRY_RUN === "true";
+            const max = Number(process.env.MAX_ISSUES) || 50;
+            if (!analyzeIssue.providerConfigured()) { core.warning("No model provider configured (set Azure or Anthropic secrets) — nothing to do."); return; }
+            const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+            const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 });
+            const valid = new Set(labels.map(l => l.name));
+            const APPLYABLE = new Set(["bug","feature request","documentation","question","mcp","examples"]); // content labels only; see triage-on-open.yml for rationale
+            const labelList = labels.map(l => `- ${l.name}${l.description ? `: ${l.description}` : ""}`).join("\n");
+
+            const all = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: "open", sort: "created", direction: "asc", per_page: 100 });
+            const issues = all.filter(i => !i.pull_request).slice(0, max);
+            const rows = [];
+
+            for (const issue of issues) {
+              let r;
+              try { r = await analyzeIssue({ github, owner, repo, issue, labelList }); }
+              catch (e) { core.warning(`#${issue.number}: ${e.message}`); continue; }
+              await sleep(2500); // analyze() does a search — stay under the 30/min search limit
+              if (r.skipped) continue;
+
+              const toApply = r.labels.filter(l => valid.has(l) && APPLYABLE.has(l) && !(issue.labels || []).some(x => (x.name || x) === l));
+              const willLabel = r.labelConfidence >= 0.75 && toApply.length;
+              const dup = (r.duplicateOf && r.dupConfidence >= 0.8 && r.candidates.includes(r.duplicateOf) && valid.has("duplicate")) ? r.duplicateOf : null;
+              if (!willLabel && !dup) continue;
+
+              rows.push({ n: issue.number, labels: willLabel ? toApply.join(",") : "", dup: dup ? `#${dup}` : "" });
+              if (!dryRun) {
+                if (willLabel) await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: toApply });
+                if (dup) {
+                  await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels: ["duplicate"] });
+                  await github.rest.issues.createComment({ owner, repo, issue_number: issue.number, body: `Possible duplicate of #${dup} — a maintainer will confirm; say so if it's not and we'll remove the label. (Automated triage flag.)` });
+                }
+              }
+            }
+
+            core.summary
+              .addHeading(`Triage backfill — ${dryRun ? "DRY RUN (nothing applied)" : "APPLIED"} · ${issues.length} scanned · ${rows.length} actionable`)
+              .addTable([
+                [{ data: "Issue", header: true }, { data: "Labels", header: true }, { data: "Dup-of", header: true }],
+                ...rows.map(r => [`#${r.n}`, r.labels || "—", r.dup || "—"]),
+              ])
+              .write();

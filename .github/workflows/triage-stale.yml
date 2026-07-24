@@ -1,0 +1,46 @@
+# .github/workflows/triage-stale.yml
+# Stop-the-bleeding MVP #1 — drain the "awaiting info" dead weight.
+# Deterministic (no LLM). Scoped to needs-info only, so it never nukes real issues.
+name: triage / stale
+on:
+  schedule:
+    - cron: "0 9 * * *" # daily 09:00 UTC
+  workflow_dispatch:
+# Default to no privileges; each job opts in to exactly what it needs.
+permissions: {}
+concurrency:
+  group: triage-stale
+  cancel-in-progress: false
+jobs:
+  stale:
+    name: stale needs-info issues
+    runs-on: ubuntu-latest
+    # Least privilege: only label/close stale needs-info issues.
+    permissions:
+      issues: write # label/close stale needs-info issues
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit # no secrets/external calls here; GitHub API only. Block-mode: github.com:443 + api.github.com:443
+      - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
+        with:
+          # MVP: only auto-progress issues we explicitly asked info on and got silence.
+          only-labels: "needs-info"
+          days-before-stale: 14
+          days-before-close: 7
+          stale-issue-label: "stale"
+          stale-issue-message: >
+            Marking stale — this has been awaiting the requested info for 14 days
+            and will close in 7 if there's no update. Just comment to keep it open,
+            and reopen anytime if it closes.
+          close-issue-message: >
+            Closing due to inactivity while awaiting more information. Please reopen
+            or comment with the details and we'll pick it back up.
+          remove-stale-when-updated: true
+          exempt-issue-labels: "defer,Triaged,Roadmap,💎 Bounty"
+          # PRs are a later arc — do not touch them here.
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          # Be gentle on rate limits.
+          operations-per-run: 60
