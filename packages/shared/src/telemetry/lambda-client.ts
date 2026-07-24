@@ -84,7 +84,7 @@ function stripCloudKeys(
 // Pull telemetry_id out of a CopilotKit license token without verifying
 // the signature. The token shape is a standard JWT
 // (`<header>.<payload>.<sig>`) with base64url-encoded segments; the
-// payload is JSON with a `telemetry_id` string field.
+// payload is JSON with a nonblank `telemetry_id` string field.
 //
 // Verification (Ed25519, key rotation, expiry) is the license-verifier
 // package's job. For telemetry attribution we only need the claimed id —
@@ -106,9 +106,13 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
         ? atob(b64)
         : Buffer.from(b64, "base64").toString("utf8");
     const decoded = JSON.parse(json) as { telemetry_id?: unknown };
-    return typeof decoded.telemetry_id === "string"
-      ? decoded.telemetry_id
-      : null;
+    return (
+      firstNonBlankTelemetryId(
+        typeof decoded.telemetry_id === "string"
+          ? decoded.telemetry_id
+          : undefined,
+      ) ?? null
+    );
   } catch {
     return null;
   }
