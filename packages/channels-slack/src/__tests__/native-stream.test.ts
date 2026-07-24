@@ -164,23 +164,23 @@ describe("NativeMessageStream", () => {
     expect(textOf(messages[1]!.events).startsWith("```")).toBe(true);
   });
 
-  it("fails over to legacy (replaying the full buffer) when a continuation startStream fails", async () => {
+  it("fails over to legacy with only the un-posted remainder when a continuation startStream fails", async () => {
     // First startStream succeeds; the continuation's startStream throws.
     let starts = 0;
-    const messages: { ts: string; stopped: boolean }[] = [];
+    let native = ""; // text posted to the (only) native message
+    let stopped = false;
     const transport: NativeStreamTransport = {
       startStream: vi.fn(async () => {
         starts++;
         if (starts > 1) throw new Error("continuation startStream refused");
-        const ts = `S${starts}`;
-        messages.push({ ts, stopped: false });
-        return ts;
+        return "S1";
       }),
-      appendText: vi.fn(async () => {}),
+      appendText: vi.fn(async (_ts: string, md: string) => {
+        native += md;
+      }),
       appendChunks: vi.fn(async () => {}),
-      stopStream: vi.fn(async (ts: string) => {
-        const m = messages.find((x) => x.ts === ts);
-        if (m) m.stopped = true;
+      stopStream: vi.fn(async () => {
+        stopped = true;
       }),
     };
     const fallback = makeFakeFallback();
@@ -194,13 +194,57 @@ describe("NativeMessageStream", () => {
 
     const text = "word ".repeat(5_000).trimEnd(); // forces a continuation
     stream.append(text);
+    // Let the first flush run (and fail over) before appending more, so the
+    // post-failover forwarding path is exercised too.
+    await new Promise((r) => setTimeout(r, 1));
+    const finalText = `${text} plus a post-failover tail.`;
+    stream.append(finalText);
     await stream.finish();
 
     expect(starts).toBe(2); // first + the failing continuation
-    expect(onStartFailure).toHaveBeenCalledTimes(1);
-    // The full buffer is replayed to legacy so nothing is dropped.
-    expect(fallback.last()).toBe(text);
+    // The first start succeeded, so the workspace demonstrably supports native
+    // streaming — a continuation blip must NOT downgrade it to legacy.
+    expect(onStartFailure).not.toHaveBeenCalled();
+    // The native message was finalized at the boundary and keeps its text; the
+    // legacy stream carries ONLY the remainder — nothing dropped, nothing twice.
+    expect(stopped).toBe(true);
+    expect(native.length).toBeGreaterThan(0);
+    expect(native + fallback.last()).toBe(finalText);
     expect(fallback.finished).toBe(true);
+  });
+
+  it("prepends the open-markdown opener to the legacy remainder on continuation failover", async () => {
+    let starts = 0;
+    let native = "";
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation startStream refused");
+        return "S1";
+      }),
+      appendText: vi.fn(async (_ts: string, md: string) => {
+        native += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const fallback = makeFakeFallback();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      minIntervalMs: 0,
+    });
+
+    // A fence still open at the split point, so the legacy remainder needs a
+    // re-opener to render as code standalone.
+    const text = "intro\n```js\n" + "const x = 1;\n".repeat(1_500);
+    stream.append(text);
+    await stream.finish();
+
+    expect(starts).toBe(2);
+    expect(fallback.last().startsWith("```")).toBe(true);
+    // Everything past the native boundary made it into the legacy stream.
+    expect(fallback.last().endsWith(text.slice(native.length))).toBe(true);
   });
 
   it("appendChunk flushes pending text FIRST, then sends the chunk", async () => {

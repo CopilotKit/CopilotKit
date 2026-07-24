@@ -24,15 +24,20 @@
  *     message can carry trailing Block Kit (e.g. a feedback row) via the
  *     `finalBlocks` passed to {@link finish}.
  *
- * Failure handling — "opting in can never break a bot": if the first (or a
- * continuation) `startStream` throws (e.g. a workspace where the streaming API
- * is unavailable), the stream transparently rebuilds itself on the supplied
- * legacy `fallback()` transport and replays the full buffer there — no text is
- * lost. `onStartFailure` lets the adapter mark the workspace legacy so
- * subsequent streams skip the native path entirely. Per-`appendStream` failures
- * mid-stream are swallowed (logged) like the legacy streamer's failed edits; a
- * failing structured-chunk append additionally fires `onChunkFailure` so the
- * caller can degrade tool-progress to its legacy surface.
+ * Failure handling — "opting in can never break a bot": if the first
+ * `startStream` throws (e.g. a workspace where the streaming API is
+ * unavailable), the stream transparently rebuilds itself on the supplied
+ * legacy `fallback()` transport, replays the full buffer there, and fires
+ * `onStartFailure` so the adapter marks the workspace legacy and subsequent
+ * streams skip the native path entirely. If a *continuation* `startStream`
+ * throws, only the un-posted remainder (with its open-markdown opener) is
+ * replayed to legacy — the already-finalized native message(s) stand, so
+ * nothing posts twice — and `onStartFailure` is NOT fired: the successful
+ * first start proved the workspace supports native streaming, so a
+ * continuation blip is transient, not a downgrade signal. Per-`appendStream`
+ * failures mid-stream are swallowed (logged) like the legacy streamer's failed
+ * edits; a failing structured-chunk append additionally fires `onChunkFailure`
+ * so the caller can degrade tool-progress to its legacy surface.
  *
  * Nothing here imports `@slack/web-api` — the Slack calls are injected as a
  * {@link NativeStreamTransport}, keeping the cadence/continuation logic
@@ -68,7 +73,8 @@ export interface NativeMessageStreamConfig {
   transport: NativeStreamTransport;
   /**
    * Builds the legacy `chat.update` transport, used only if a `startStream`
-   * throws. The accumulated buffer is replayed into it so no text is lost.
+   * throws. The buffer not already held by a finalized native message is
+   * replayed into it so no text is lost.
    */
   fallback: () => TextStream;
   /** Called once when the first `startStream` fails (adapter marks the workspace legacy). */
@@ -121,6 +127,10 @@ export class NativeMessageStream implements TextStream {
 
   /** Set once `startStream` has failed and we've fallen back to the legacy transport. */
   private legacy: TextStream | undefined;
+  /** Buffer index where the legacy fallback's content starts (0 unless a continuation failed over). */
+  private legacyOffset = 0;
+  /** Open-markdown opener prepended to the legacy fallback's replayed remainder. */
+  private legacyOpener = "";
   /** Set once a chunk append has failed/been refused, so we stop trying. */
   private chunksDisabled = false;
 
@@ -147,7 +157,8 @@ export class NativeMessageStream implements TextStream {
 
   append(fullText: string): void {
     if (this.legacy) {
-      this.legacy.append(fullText);
+      this.buffer = fullText;
+      this.legacy.append(this.legacyRemainder());
       return;
     }
     if (fullText === this.buffer) return;
@@ -296,8 +307,9 @@ export class NativeMessageStream implements TextStream {
       }
       // Open the continuation, prepending the still-open markdown context so it
       // renders standalone (same as ChunkedMessageStream's re-opener path). A
-      // continuation-start failure fails over to legacy (replaying the full
-      // buffer) exactly like the first start — never dropping the remainder.
+      // continuation-start failure fails over to legacy, replaying only the
+      // un-posted remainder (opener included) — never dropping the remainder,
+      // never re-posting what the finalized native message(s) already hold.
       const opener = renderContextOpener(
         detectOpenContext(this.buffer.slice(0, boundary)),
       );
@@ -305,7 +317,7 @@ export class NativeMessageStream implements TextStream {
       try {
         nextTs = await this.transport.startStream();
       } catch (err) {
-        this.failOverToLegacy(err, "continuation");
+        this.failOverToLegacy(err, "continuation", boundary, opener);
         return;
       }
       this.curTs = nextTs;
@@ -386,24 +398,39 @@ export class NativeMessageStream implements TextStream {
   }
 
   /**
-   * Switch to the legacy `chat.update` transport and replay the full buffer so
-   * no text is lost ("opting in can never break a bot"). Used when the first OR
-   * a continuation `startStream` fails. The full buffer is replayed (not just
-   * the un-posted remainder) because `append()` forwards the accumulated full
-   * text once `this.legacy` is set, so the legacy stream owns the whole
-   * response; any already-streamed native message(s) stay as-is.
+   * Switch to the legacy `chat.update` transport so no text is lost ("opting
+   * in can never break a bot"). On a first-start failure the full buffer is
+   * replayed and `onStartFailure` marks the workspace legacy. On a
+   * continuation-start failure only the un-posted remainder is replayed
+   * (prepended with `opener` so open markdown renders standalone) — the
+   * finalized native message(s) already hold everything before `postedUpTo`,
+   * so replaying it would post it twice — and `onStartFailure` is NOT fired:
+   * the successful first start proved the workspace supports native streaming,
+   * so the blip is transient, not a capability signal. Subsequent
+   * `append(fullText)` calls keep forwarding only the slice past `postedUpTo`.
    */
   private failOverToLegacy(
     err: unknown,
     where: "first" | "continuation",
+    postedUpTo = 0,
+    opener = "",
   ): void {
     console.warn(
       `[native-stream] ${where} startStream failed; using legacy transport:`,
       err,
     );
-    this.onStartFailure?.(err);
+    if (where === "first") this.onStartFailure?.(err);
+    this.legacyOffset = postedUpTo;
+    this.legacyOpener = opener;
     const legacy = this.makeFallback();
-    legacy.append(this.buffer);
+    legacy.append(this.legacyRemainder());
     this.legacy = legacy;
+  }
+
+  /** The legacy fallback's view of the buffer: everything not already in a finalized native message. */
+  private legacyRemainder(): string {
+    return this.legacyOffset === 0
+      ? this.buffer
+      : this.legacyOpener + this.buffer.slice(this.legacyOffset);
   }
 }
