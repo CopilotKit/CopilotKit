@@ -31,6 +31,14 @@ import { readReleaseDraft } from "./lib/notion.js";
 import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
+import {
+  buildScopeIndex,
+  collectCopilotKitDependencyEdges,
+  collectCrossScopeReleaseRequirements,
+  findUnsatisfiedCrossScopeRequirements,
+  formatUnsatisfiedCrossScopeRequirements,
+  loadWorkspacePackages,
+} from "./lib/publishable-dependencies.js";
 
 type PublishPhase = "all" | "dependencies" | "umbrella";
 
@@ -64,6 +72,95 @@ function getPublishedVersion(packageName: string): string | null {
   // Any other error (network, auth, rate limit) should stop the release
   throw new Error(
     `npm registry check failed for ${packageName}: ${result.stderr?.trim() || "unknown error"}`,
+  );
+}
+
+function getPublishedVersions(packageName: string): readonly string[] {
+  const result = spawnSync("npm", ["view", packageName, "versions", "--json"], {
+    encoding: "utf8",
+    timeout: 15000,
+  });
+  if (result.status !== 0) {
+    // E404 means the package doesn't exist on the registry — no versions.
+    if (
+      result.stderr?.includes("E404") ||
+      result.stderr?.includes("is not in this registry")
+    ) {
+      return [];
+    }
+    // Any other error (network, auth, rate limit) should stop the release.
+    throw new Error(
+      `npm registry check failed for ${packageName}: ${result.stderr?.trim() || "unknown error"}`,
+    );
+  }
+  const raw = result.stdout.trim();
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `npm returned an unparseable version list for ${packageName}: ${raw}`,
+    );
+  }
+  // npm emits a bare string when exactly one version exists.
+  if (typeof parsed === "string") return [parsed];
+  if (
+    Array.isArray(parsed) &&
+    parsed.every((value) => typeof value === "string")
+  ) {
+    return parsed as string[];
+  }
+  throw new Error(
+    `npm returned an unexpected version list for ${packageName}: ${raw}`,
+  );
+}
+
+/**
+ * Refuse to publish a scope whose cross-scope `@copilotkit/*` dependencies are
+ * not on npm yet.
+ *
+ * pnpm rewrites `workspace:` specifiers to concrete versions when packing, so a
+ * dependency owned by a DIFFERENT release scope must already exist on the
+ * registry at that version. Independently versioned scopes ship on their own
+ * cadence, which makes the ordering a real hazard: publishing
+ * `@copilotkit/runtime` before the `intelligence` scope has ever shipped would
+ * emit `"@copilotkit/intelligence": "^0.1.0"` into the runtime's manifest and
+ * every `npm install @copilotkit/runtime` would fail with a registry 404.
+ */
+function verifyCrossScopeDependenciesArePublished(scope: ReleaseScope): void {
+  const requirements = collectCrossScopeReleaseRequirements(
+    scope,
+    collectCopilotKitDependencyEdges(
+      loadWorkspacePackages(),
+      buildScopeIndex(),
+    ),
+  );
+  if (requirements.length === 0) return;
+
+  const publishedVersions = new Map<string, readonly string[]>();
+  for (const requirement of requirements) {
+    publishedVersions.set(
+      requirement.dependency,
+      getPublishedVersions(requirement.dependency),
+    );
+  }
+
+  const unsatisfied = findUnsatisfiedCrossScopeRequirements(
+    requirements,
+    publishedVersions,
+  );
+  if (unsatisfied.length > 0) {
+    throw new Error(
+      formatUnsatisfiedCrossScopeRequirements(scope, unsatisfied),
+    );
+  }
+
+  console.log(
+    `Cross-scope dependency preflight OK (${requirements.length} checked): ` +
+      requirements
+        .map((r) => `${r.dependency}@${r.requiredVersion}`)
+        .join(", "),
   );
 }
 
@@ -165,6 +262,15 @@ async function main() {
       );
       process.exit(1);
     }
+  }
+
+  // Publish-order safety check: every cross-scope @copilotkit dependency must
+  // already be on npm at the version pnpm's workspace: rewrite will name.
+  try {
+    verifyCrossScopeDependenciesArePublished(scope);
+  } catch (err: any) {
+    console.error(err.message);
+    process.exit(1);
   }
 
   // Try to read edited release notes from Notion
