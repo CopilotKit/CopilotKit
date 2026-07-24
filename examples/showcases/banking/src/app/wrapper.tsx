@@ -285,14 +285,20 @@ const PILL = {
   },
   favoriteFood: {
     title: "What's my favorite food?",
-    message:
-      "What's my favorite food? Recall it from memory and tell me you got it from memory.",
+    message: "What's my favorite food?",
+  },
+  approveAws: {
+    // Self-learning trigger: AWS is over its policy limit, so with no saved
+    // procedure the agent offers to record how the officer clears it (the
+    // teach → demonstrate → save arc), then recalls it for future charges.
+    title: "Approve the $15,000 AWS charge",
+    message: "Approve the $15,000 AWS charge.",
   },
 } as const;
 
 type Pill = { title: string; message: string };
 
-// A fixed, curated demo set — the SAME seven bubbles everywhere, independent of
+// A fixed, curated demo set — the SAME bubbles everywhere, independent of
 // where the officer is in the app. Ordered to walk the capabilities end to end:
 //   1. show a chart
 //   2. change something in the app, driven by the agent
@@ -301,6 +307,7 @@ type Pill = { title: string; message: string };
 //   5. the 10 most expensive charges (navigate + stack-rank)
 //   6. generate + file the Q2 report
 //   7. recall a fact from long-term memory
+//   8. approve the over-limit AWS charge (triggers the self-learning teach arc)
 const DEMO_SUGGESTIONS: Pill[] = [
   PILL.spendingTrend,
   PILL.addCard,
@@ -309,6 +316,7 @@ const DEMO_SUGGESTIONS: Pill[] = [
   PILL.topExpensiveCharges,
   PILL.q2Report,
   PILL.favoriteFood,
+  PILL.approveAws,
 ];
 
 function BankingSuggestions() {
