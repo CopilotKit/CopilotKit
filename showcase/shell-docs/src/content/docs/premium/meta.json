@@ -3,6 +3,7 @@
   "pages": [
     "overview",
     "managed-intelligence-platform",
+    "existing-app-hosted-intelligence",
     "self-hosting",
     "intelligence-platform",
     "threads-explained"

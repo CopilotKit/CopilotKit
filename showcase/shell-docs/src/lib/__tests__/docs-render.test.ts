@@ -100,8 +100,8 @@ function groupPageEntries(
   return [];
 }
 
-function sectionPages(navTree: NavNode[], section: string): string[] {
-  const pages: string[] = [];
+function sectionPages(navTree: NavNode[], section: string) {
+  const pages: { title: string; slug: string }[] = [];
   let inSection = false;
   for (const node of navTree) {
     if (node.type === "section") {
@@ -109,7 +109,9 @@ function sectionPages(navTree: NavNode[], section: string): string[] {
       continue;
     }
     if (!inSection) continue;
-    if (node.type === "page") pages.push(node.title);
+    if (node.type === "page") {
+      pages.push({ title: node.title, slug: node.slug });
+    }
   }
   return pages;
 }
@@ -644,10 +646,26 @@ describe("framework nav", () => {
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "Enterprise Intelligence Platform",
-      "Cloud-Hosted Enterprise Intelligence",
-      "Self-Hosting Enterprise Intelligence",
-      "Enterprise Intelligence Architecture",
+      {
+        title: "Enterprise Intelligence Platform",
+        slug: "premium/overview",
+      },
+      {
+        title: "Cloud-Hosted Enterprise Intelligence",
+        slug: "premium/managed-intelligence-platform",
+      },
+      {
+        title: "Connect an Existing App to Hosted Intelligence",
+        slug: "premium/existing-app-hosted-intelligence",
+      },
+      {
+        title: "Self-Hosting Enterprise Intelligence",
+        slug: "premium/self-hosting",
+      },
+      {
+        title: "Enterprise Intelligence Architecture",
+        slug: "premium/intelligence-platform",
+      },
     ]);
   });
 });

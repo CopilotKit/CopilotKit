@@ -117,9 +117,9 @@ export interface CopilotThreadsDrawerProps {
    */
   onCollapseChange?: (collapsed: boolean) => void;
   /**
-   * Page size for thread pagination. When set, threads are fetched in pages of
-   * this size and the drawer shows a "Load more" control while more remain.
-   * When omitted, the full list loads at once and no pagination control shows.
+   * Overrides the thread page size. The default is 50 threads per page.
+   * Cursor pagination stays active when this is omitted: `nextCursor` controls
+   * whether the drawer shows a "Load more" control.
    */
   limit?: number;
   /**
