@@ -183,9 +183,16 @@ describe("classifyRung — §3 rules", () => {
   // FAIL-SAFE POLARITY. This used to assert NO_DATA — a genuinely-failing rung
   // was reported as "no data" (gray) whenever the bulk projection had stripped
   // `signal`, because infra-ness could not be determined. That hid ~94% of real
-  // reds to suppress ~6% infra false alarms, for up to a sweep interval on every
-  // load. Graying now requires POSITIVE infra evidence; a stripped blob is the
-  // absence of evidence, so the red survives.
+  // reds to suppress ~6% infra false alarms, for up to a full probe period (~60
+  // min for the hourly writers) on every load. Graying now requires POSITIVE
+  // infra evidence; a stripped blob is the absence of evidence, so the red
+  // survives.
+  //
+  // The 94/6 split is a MEASURED SNAPSHOT, not a constant: 336 product-class vs
+  // 21 infra-class of 357 `state = "red"` production rows on 2026-07-24,
+  // partitioned by `signalHasInfraErrorClass`. Query and caveats are recorded at
+  // the fail-safe-polarity note in `cell-model.contribution.ts`; the polarity
+  // argument only needs product reds to outnumber infra reds.
   it("red with stripped signal → FAIL_FRESH, never grayed away (rule 4 / §D)", () => {
     expect(
       classifyRung(raw("D3", [row("red", { signal: undefined })]), NOW)

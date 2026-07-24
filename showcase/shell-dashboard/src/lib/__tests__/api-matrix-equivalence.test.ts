@@ -142,12 +142,18 @@ describe("api == render == adapter over the golden fixture matrix (§11.4)", () 
 //    This block previously asserted `coldLoadChip === "gray"` and called that
 //    "the more accurate answer" — it pinned the defect as intended behaviour,
 //    which is precisely why CI never caught it. A stripped `signal` is a PENDING
-//    attribution (PocketBase omits the key ONLY under a `fields=` projection; a
-//    genuinely signal-less row arrives as `null`), so graying on it traded ~94%
-//    of real reds away to suppress ~6% infra false alarms — and it did so for up
-//    to a full sweep interval (~29 min observed), on every page load. The
-//    assertion is inverted here DELIBERATELY: the safe direction for a health
-//    dashboard is over-reporting failure, never hiding it. ───────────────────
+//    attribution (on the pinned PocketBase 0.22.21 the key is omitted ONLY under
+//    a `fields=` projection; a genuinely signal-less row arrives as `null` — see
+//    the version qualifier and upgrade hazard in `STATUS_LIST_FIELDS`' doc), so
+//    graying on it traded ~94% of real reds away to suppress ~6% infra false
+//    alarms — and it did so for up to a full probe period, ~60 min for the hourly
+//    `e2e:`/`starter:`/`d6:` writers (cadences in
+//    `harness/config/probes/*.yml`), on every page load. The 94/6 figures are a
+//    2026-07-24 production snapshot (336 vs 21 of 357 red rows); the query and
+//    its caveats live at the fail-safe-polarity note in
+//    `cell-model.contribution.ts`. The assertion is inverted here DELIBERATELY:
+//    the safe direction for a health dashboard is over-reporting failure, never
+//    hiding it. ──────────────────────────────────────────────────────────────
 describe("fail-safe polarity — a stripped `signal` never grays a real red (§11.4)", () => {
   const SLUG = "acme";
   const FEATURE = "agentic-chat";
@@ -183,14 +189,15 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
   const toolsKey = keyFor("tools", SLUG);
 
   it("full signal → RED (server / api); stripped signal (browser cold-load) → RED too", () => {
-    // Server / API state: full `signal` on every row (signalKnown === true).
+    // Server / API state: full `signal` on every row (so the red-row-scoped
+    // `fold.redSignalKnown` is true).
     const fullSignal = mergeRowsToMap([
       row(e2eKey, "red", { errorDesc: "assertion failed: wrong answer" }),
       row(chatKey, "green", null),
       row(toolsKey, "green", null),
     ]);
     // Browser cold-load state: the bulk initial fetch PROJECTS `signal` away
-    // (signal === undefined → signalKnown === false) on the red rung.
+    // (signal === undefined → `fold.redSignalKnown` false) on the red rung.
     const stripped = mergeRowsToMap([
       row(e2eKey, "red", undefined),
       row(chatKey, "green", undefined),

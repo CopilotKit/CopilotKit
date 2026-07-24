@@ -489,12 +489,30 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
   //      `null !== undefined`, so the provenance flag stays `true`. So it means
   //      exactly "this row came from a projected fetch" — PENDING, i.e. the
   //      ABSENCE of evidence about WHY the rung failed. It was never evidence
-  //      that the failure was infra.
+  //      that the failure was infra. (This omission-vs-null property is
+  //      VERSION-SCOPED to the pinned PocketBase 0.22.21 and re-verified there —
+  //      see the upgrade hazard in `STATUS_LIST_FIELDS`' doc, live-status.ts.)
   //   2. Empirically the guess it made was wrong on the overwhelming majority:
-  //      of the reds in production, ~94% are product-class and only ~6% are
-  //      infra-class. Graying them all lost 94 real failures to save 6 false
-  //      alarms — and a masked red is never investigated, while a false alarm
-  //      is looked at once and closed.
+  //      ~94% of production reds are product-class and only ~6% are infra-class.
+  //      Graying them all lost ~94 real failures to save ~6 false alarms — and a
+  //      masked red is never investigated, while a false alarm is looked at once
+  //      and closed.
+  //
+  //      MEASUREMENT (anchor this before quoting the split anywhere else). Taken
+  //      2026-07-24 against the production PocketBase
+  //      (`showcase-pocketbase-production.up.railway.app`): fetch the `status`
+  //      collection filtered `state = "red"` — 357 rows — and partition them
+  //      with THIS module's own `signalHasInfraErrorClass` predicate, i.e. count
+  //      a row infra iff its `signal.errorClass` or `signal.errorDesc` is in
+  //      `INFRA_ERROR_CLASSES`. Result: 21 infra (5.9%) vs 336 product (94.1%).
+  //      The 21 infra rows are `driver-error` (11) and `abort` (10); the product
+  //      side is dominated by `conversation-error` (121), `selector-timeout`
+  //      (49), `smoke-failed` (18) and untyped reds. The split is a SNAPSHOT of
+  //      one fleet on one day, not a constant — re-run that query before relying
+  //      on the exact figures. The ARGUMENT, however, does not depend on them:
+  //      the polarity only needs product-class reds to outnumber infra-class
+  //      reds, and it is asymmetric-loss reasoning regardless (a hidden red is
+  //      never investigated; an over-reported red is closed once).
   //
   // So graying a red now requires POSITIVE infra evidence: `hasNonInfraRed`
   // is false only when EVERY contributing red row's `signal` blob actually

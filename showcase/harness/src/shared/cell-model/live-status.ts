@@ -265,19 +265,63 @@ export type LiveStatusMap = Map<string, StatusRow>;
  *     those same rows (a projected GREEN sibling must not suppress it).
  *
  * Neither of the latter two can lazy-load, so `useLiveStatus` issues a
- * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of exactly
- * those two needs: the comm-error candidate aggregate rows
- * (`FLEET_COMM_AGGREGATE_DIMENSIONS`, `<dim>:<slug>` keys) ∪ every row whose
- * `state != "green"`. In production that is ~360 of ~3100 rows (~430 KB), so
- * the bulk projection keeps most of its payload win while both the comm-error
- * overlay AND the infra-vs-product red attribution are correct from a COLD
- * LOAD instead of waiting on an SSE re-delivery (which only arrives when the
- * probe's next sweep rewrites that specific row — up to ~29 min).
+ * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of two clauses:
+ * the comm-error candidate aggregate rows (`FLEET_COMM_AGGREGATE_DIMENSIONS`,
+ * `<dim>:<slug>` keys) ∪ every row whose `state != "green"`. Measured against
+ * production on 2026-07-24 that union is 436 of 3082 rows (~480 KB on the wire;
+ * the non-green clause alone is 357 rows / ~430 KB), so the bulk projection
+ * keeps most of its payload win while the infra-vs-product RED attribution and
+ * the AGGREGATE comm-error overlay are correct from a COLD LOAD instead of
+ * waiting on an SSE re-delivery (which only arrives when the probe's next sweep
+ * rewrites that specific row — up to a full probe period, i.e. ~60 min for the
+ * hourly `e2e:`/`starter:`/`d6:` writers and longer for the 6-hourly and
+ * weekly drift probes; cadences live in `harness/config/probes/*.yml`).
+ *
+ * SCOPE OF THAT "COLD LOAD" CLAIM — it is NOT the whole matrix. The union is
+ * green-blind outside clause 1: as of the same measurement 2646 rows sit
+ * outside it while carrying a non-empty `signal` (green `e2e:`/`d5:`/`d6:`
+ * per-cell rows, plus green `health:`/`chat:`/`tools:`/`starter:` rows). That is
+ * tolerated because `classifyRung` reads `signal` only in its RED branch and the
+ * harness mirrors comm errors onto the integration-level aggregates clause 1
+ * fetches state-independently — but it IS an open gap, and it is the same gap
+ * that let the mis-scoped signal-provenance precondition (the removed
+ * family-wide `RawRung.signalKnown`, now the red-row-scoped
+ * `FamilyFold.redSignalKnown`) ship green. `useLiveStatus`'s
+ * "WHAT THIS DOES NOT COVER" note has the full row-by-dimension breakdown.
  *
  * DO NOT re-narrow that supplemental fetch without re-reading
  * `classifyRung`'s fail-safe-polarity note: a non-green row that arrives
  * without `signal` is now painted RED (over-report), which is recoverable —
  * whereas it used to be painted GRAY, which silently hid real failures.
+ *
+ * ── WHY A STRIPPED `signal` IS UNAMBIGUOUS — AND WHAT WOULD BREAK IT ──────
+ * The `redSignalKnown` provenance flag `foldFamily` derives for `classifyRung`
+ * rests on this property: under
+ * a `fields=` projection PocketBase OMITS the `signal` key entirely, while a
+ * genuinely signal-less row arrives with `signal: null`. Because
+ * `null !== undefined`, "key absent" therefore means "projected", never "no
+ * signal".
+ *
+ * VERIFIED, and VERSION-SCOPED to the PB release this deploy pins —
+ * **PocketBase 0.22.21** (`ARG PB_VERSION` in `showcase/pocketbase/Dockerfile`).
+ * On 2026-07-24, against production: all 3082 rows fetched WITHOUT a projection
+ * carried a `signal` key (0 omitted), and all 500 rows of page 1 fetched WITH
+ * this projection omitted it (0 present); a version-matched throwaway instance
+ * confirmed that a record created with no `signal` value reads back as
+ * `"signal": null`, not as an absent key.
+ *
+ * UPGRADE HAZARD — do not carry this claim across a PocketBase major bump
+ * unchecked. PB >= 0.23 gained `isVisible = !f.GetHidden()` in its
+ * `PublicExport` path, so on those versions a field-level `hidden` flag makes
+ * the server omit `signal` for reasons that have NOTHING to do with our
+ * projection, reintroducing exactly the "absent = ?" ambiguity this flag was
+ * built to avoid. A PB upgrade must therefore re-verify both directions above
+ * and confirm `signal` is not `hidden` in the collection schema.
+ *
+ * Adjacent, verified-safe: `signal: ""` round-trips as a PRESENT key, so
+ * `redSignalKnown` stays `true` and an empty blob yields no infra attribution —
+ * the rung is painted RED. That over-reports rather than hides, which is the
+ * safe direction and needs no guard.
  *
  * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
  * minus `signal`, so a new `StatusRow` field forces a conscious decision about

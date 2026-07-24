@@ -34,14 +34,23 @@ export interface UseLiveStatusResult {
 const MAX_RECONNECT_ATTEMPTS = 3;
 // PocketBase clamps `perPage` to 500 server-side regardless of what the client
 // asks for, so 500 is the largest page the REST API will actually return. The
-// `status` collection holds ~3080 rows across all probe dimensions (smoke,
+// `status` collection holds ~3100 rows across all probe dimensions (smoke,
 // health, agent, e2e per-cell, d5/d6 per-feature, chat, tools, starter,
-// image-drift, etc. — measured against production), so the initial fetch spans
-// ~7 pages. That row count is also what sizes `MAX_INITIAL_FETCH_PAGES`. We fetch page 1
-// alone, then — because `skipTotal` drops `totalPages` from the response (we no
-// longer pay for the COUNT(*) query) — fan out the remaining pages in
-// LENGTH-bounded concurrent waves (see fetchInitial): keep going until a page
-// comes back shorter than `INITIAL_PAGE_SIZE`.
+// image-drift, etc.), so the initial fetch spans ~7 pages. That row count is
+// also what sizes `MAX_INITIAL_FETCH_PAGES`.
+//
+// SOURCE OF THE ROW COUNT — measured, not estimated: `totalItems` from
+// `GET /api/collections/status/records?perPage=1` against the production
+// PocketBase (`showcase-pocketbase-production.up.railway.app`). That read
+// returned 3082 rows on 2026-07-24, i.e. ceil(3082/500) = 7 pages. Re-run that
+// one request to refresh this number; every other size/page figure in this file
+// and in `STATUS_LIST_FIELDS`' doc (live-status.ts) is derived from it, so they
+// must move together.
+//
+// We fetch page 1 alone, then — because `skipTotal` drops `totalPages` from the
+// response (we no longer pay for the COUNT(*) query) — fan out the remaining
+// pages in LENGTH-bounded concurrent waves (see fetchInitial): keep going until
+// a page comes back shorter than `INITIAL_PAGE_SIZE`.
 const INITIAL_PAGE_SIZE = 500;
 // Size of each concurrent fan-out wave AFTER page 1. With `skipTotal` we can't
 // learn the page count up front, so we issue pages in waves of this many at
@@ -51,10 +60,14 @@ const INITIAL_PAGE_SIZE = 500;
 // first short page in a wave and appends up to AND INCLUDING it, dropping any
 // over-fetched empty tail pages. The constant only trades request concurrency
 // against wasted fetches past the end: kept at 2 so a wave over-fetches past
-// the first short page by at most one (empty) request — and for the real
-// ~7-page collection even that never happens (page 7 is short and ends its own
-// wave). A larger batch only requests more empty pages on a short final page;
-// it can never corrupt the merge.
+// the first short page by at most one (empty) request — and at the collection's
+// CURRENT size that one wasted request does not happen either, because the
+// waves after page 1 are (2,3), (4,5), (6,7) and the short page 7 lands in the
+// LAST slot of its wave. That is a coincidence of the current ODD page count
+// (~7 pages, see INITIAL_PAGE_SIZE above), NOT a property of the algorithm: at
+// an EVEN page count the short page lands in slot 0 and the wave over-fetches
+// one empty page. A larger batch only requests more empty pages on a short
+// final page; it can never corrupt the merge.
 const INITIAL_FANOUT_BATCH = 2;
 // HARD page cap for BOTH initial-fetch pagination loops (bulk and supplemental).
 // Neither loop can learn the page count up front (`skipTotal` drops
@@ -318,9 +331,11 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
 
     // SUPPLEMENTAL signal fetch — the narrow companion to the bulk projected
     // fetch. The bulk fetch projects `signal` away (STATUS_LIST_FIELDS) for the
-    // payload win, but two render-time readers need it, so we re-fetch it for
-    // the SMALLEST row set that covers both. The filter is the UNION of two
-    // clauses:
+    // payload win, but two render-time readers need it, so we re-fetch it for a
+    // CHEAP row set aimed at those two readers. It is deliberately NOT the
+    // minimal cover and NOT a complete one — see WHAT THIS DOES NOT COVER at the
+    // bottom of this comment before reasoning about cold-load correctness. The
+    // filter is the UNION of two clauses:
     //
     // CLAUSE 1 — comm-error candidate AGGREGATE rows (CF7-F3 #1).
     //   `decodeCellCommError` (cell-model.ts) reads `row.signal` per cell at
@@ -339,21 +354,38 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     //   INFRA red from a PRODUCT red, and it needs it ONLY in the red branch —
     //   the green/degraded paths never consult `signal` at all, and the branch's
     //   provenance precondition (`redSignalKnown`) is likewise scoped to the RED
-    //   rows, so this clause covers it EXACTLY. Without this
-    //   clause a genuinely-failing rung arrived signal-less and, before the
+    //   rows, so this clause covers it EXACTLY. Without this clause a
+    //   genuinely-failing rung arrived signal-less and, before the
     //   fail-safe polarity flip, was painted GRAY; it self-corrected only when
     //   the probe's next sweep rewrote that specific row and the SSE delta
-    //   redelivered it WITH `signal` — up to a full sweep interval (~29 min
-    //   observed, ~14 min mean), on EVERY page load. Clause 1 could never cover
-    //   these rows: they are mostly dimension `d5`/`e2e`/`health` (absent from
-    //   FLEET_COMM_AGGREGATE_DIMENSIONS entirely) AND they are per-cell
-    //   `<dim>:<slug>/<featureId>` keys that `key !~ "%/%"` excludes.
+    //   redelivered it WITH `signal` — up to a FULL PROBE PERIOD, on EVERY page
+    //   load. That worst case is ~60 min, not the ~30 min an earlier revision of
+    //   this comment claimed: the probes that write these rows are scheduled in
+    //   `showcase/harness/config/probes/*.yml`, and while `smoke` is `*/5`,
+    //   `e2e-smoke`/`image-drift` are `*/15` and `e2e-deep`/`qa` are `*/30`, the
+    //   `e2e:` (`e2e-demos.yml`, `10 * * * *`), `starter:` (`starter_smoke.yml`,
+    //   `40 * * * *`) and `d6:` (`d6-all-pills-e2e.yml`, `40 * * * *`) rows are
+    //   all HOURLY — and `aimock-wiring` (`0 */6 * * *`) plus the drift probes
+    //   (weekly / monthly) are slower still. So ~60 min bounds the routine
+    //   per-cell dimensions and the drift dimensions are unbounded in practice.
+    //   Clause 1 could never cover these rows: they are mostly dimension
+    //   `d5`/`e2e`/`health` (absent from FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   entirely) AND they are per-cell `<dim>:<slug>/<featureId>` keys that
+    //   `key !~ "%/%"` excludes.
     //
-    //   Scoping by STATE rather than by key is what keeps this cheap: in
-    //   production `signal` is ~70% of the full payload (~1.29 MB extra if
-    //   shipped on every row across all pages), but the non-green rows are ~360
-    //   of ~3100 — ~430 KB, ~1/3 of the full-signal cost — and no schema change
-    //   is needed. `!= "green"` (rather than an explicit red/degraded list) is
+    //   Scoping by STATE rather than by key is what keeps this cheap. Byte
+    //   basis, all measured against production PocketBase on 2026-07-24 (see
+    //   INITIAL_PAGE_SIZE above for the row-count source): a FULL 500-row page is
+    //   371 KB and the same page PROJECTED is 113 KB, so `signal` is ~70% of the
+    //   payload and costs ~258 KB per 500 rows. Across the whole ~3100-row
+    //   collection that is ~1.6 MB extra if shipped on every row (6.16 × 258 KB;
+    //   fetching all 7 pages both ways measures 2.34 MB full vs 0.70 MB
+    //   projected, i.e. 1.64 MB of `signal`). The supplemental union is 436 rows
+    //   / ~480 KB on the wire — ~29% of that ~1.6 MB — of which the non-green
+    //   clause is 357 rows / ~430 KB. No schema change is needed. NOTE the
+    //   retired "~1.29 MB" figure was the same 258 KB/500-row basis applied to
+    //   the OLD ~2455-row collection; it must be re-derived whenever the row
+    //   count moves. `!= "green"` (rather than an explicit red/degraded list) is
     //   deliberate: it also catches an out-of-vocabulary state, which
     //   `rankOfState` ranks as the WORST, so the rows that matter most can
     //   never fall outside the fetch.
@@ -368,6 +400,44 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     // left `d5`/`e2e`/`health` reds with no attribution at all.) The dimension
     // literals inside clause 1 come from our own `as const` list, never caller
     // input, so their inline interpolation is safe.
+    //
+    // WHAT THIS DOES NOT COVER — a REAL, still-open cold-load gap. This section
+    // restores an acknowledgement that an earlier revision of this comment
+    // carried and that was dropped when the non-green clause was added. It is
+    // load-bearing: the coverage hole it names is exactly the hole that let the
+    // mis-scoped signal-provenance misreport ship green (the family-wide
+    // `RawRung.signalKnown`, since replaced by the red-row-scoped
+    // `FamilyFold.redSignalKnown`), because no test covered a row inside it —
+    // a green sibling whose `signal` this union leaves stripped is precisely
+    // what made the family-wide flag read `false` on a legitimately-gray cell.
+    //
+    //   The union is GREEN-BLIND outside clause 1. Every GREEN row that is not an
+    //   integration-level aggregate arrives signal-less on a cold load. Measured
+    //   against production on 2026-07-24: 2725 of 3082 rows are green, and 2646
+    //   rows fall outside the union while carrying a non-empty `signal` —
+    //   dimension `e2e` (798), `d5` (770), `d6` (731), plus `image_drift`, `qa`,
+    //   `starter`, `smoke`, `health`, `chat`, `tools`, `agent`. In particular the
+    //   731 GREEN PER-CELL rows under the FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   dimensions are excluded by BOTH clauses at once: clause 1 drops them on
+    //   `key !~ "%/%"`, clause 2 drops them on `state != "green"`.
+    //
+    //   Why that is tolerated rather than fixed here: `classifyRung` only reads
+    //   `signal` in its RED branch, so a green row's missing blob cannot change a
+    //   chip verdict. `decodeCellCommError` CAN read a green row's blob, but the
+    //   harness mirrors comm errors onto the integration-level aggregates, which
+    //   clause 1 fetches state-independently — and a stale per-cell comm error is
+    //   only ever a same/lower-severity tie-break against that aggregate mirror
+    //   (see the decodeCellCommError scan doc). As of the 2026-07-24 measurement
+    //   ZERO uncovered rows carried a `__fleetCommError` key, so the gap is
+    //   currently latent rather than active.
+    //
+    //   But it IS a gap, not a proof of correctness: if the harness ever mirrors
+    //   a comm error onto a GREEN per-cell row, or a future reader consults
+    //   `signal` on a green row, that read is silently signal-less until an SSE
+    //   delta re-delivers the row (up to a full probe period — see clause 2).
+    //   Treat "correct from a cold load" as scoped to the RED/attribution path
+    //   plus the aggregate comm-error overlay, NOT to the whole matrix, and add a
+    //   test inside this hole before relying on it.
     const matchedCommDim =
       dimension === undefined
         ? undefined

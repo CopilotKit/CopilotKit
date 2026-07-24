@@ -35,7 +35,22 @@
  * engine could — and did — return one model object that simultaneously said
  * `d5.status === "red"` (strip renders `1P ✗`) and `chipColor === "gray"` (chip
  * renders the muted "no live data" treatment), and every chip-side invariant
- * still held. Roughly 20% of the matrix rendered that way on every cold load.
+ * still held.
+ *
+ * HOW MUCH OF THE MATRIX rendered that way on every cold load: an earlier
+ * revision of this comment said "roughly 20%", but that figure carries no
+ * recorded measurement and could not be reproduced, so do not quote it. What IS
+ * derivable, from the production `status` collection on 2026-07-24: 155 of 1331
+ * per-cell `(slug, feature)` pairs (~12%) had at least one red per-cell
+ * `e2e:`/`d5:`/`d6:` rung, and every one of those was eligible for the
+ * red-strip/gray-chip split because a cold load strips `signal` off all of them.
+ * Folding in integration-level red rungs (`health:`/`chat:`/`tools:`/…) raises
+ * the eligible share far higher (1018 of 1331 pairs, ~77%, sit under a slug with
+ * at least one red rung of any level). The true rendered share lies between
+ * those bounds and depends on which rung won each cell's fold — which this
+ * snapshot cannot reconstruct. The invariant's justification does not need the
+ * exact number: ONE incoherent cell is a misreport, and the defect was
+ * systematic across every red-bearing cell rather than incidental.
  *
  * INV7 closes it in the ONLY safe direction: coherence must be reached by
  * fixing the CHIP upward, never by muting the strip. Deriving the strip from the
