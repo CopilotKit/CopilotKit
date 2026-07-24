@@ -3,11 +3,10 @@
  * wrapper) + telemetry. This adapter delegates to createCopilotExpressHandler
  * with mode: "single-route".
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
-import { telemetry } from "../telemetry";
 import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
 
@@ -35,19 +34,13 @@ function makeRuntime() {
   });
 }
 
-describe("Express single-route adapter — telemetry firing (integration)", () => {
-  let captureSpy: ReturnType<typeof vi.spyOn>;
+test("Express single-route adapter fires instance_created on handler creation", async () => {
+  const runtime = makeRuntime();
+  const captureSpy = vi
+    .spyOn(runtime.telemetry, "capture")
+    .mockResolvedValue(undefined);
 
-  beforeEach(() => {
-    captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    captureSpy.mockRestore();
-  });
-
-  it("fires instance_created on handler creation", async () => {
-    const runtime = makeRuntime();
+  try {
     createCopilotEndpointSingleRouteExpress({
       runtime,
       basePath: "/api/copilotkit",
@@ -62,5 +55,7 @@ describe("Express single-route adapter — telemetry firing (integration)", () =
         }),
       );
     });
-  });
+  } finally {
+    captureSpy.mockRestore();
+  }
 });

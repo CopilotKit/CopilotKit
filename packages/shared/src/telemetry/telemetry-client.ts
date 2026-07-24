@@ -26,6 +26,26 @@ export function isTelemetryDisabled(): boolean {
   );
 }
 
+/** Transport identity and sampling authority resolved for one runtime. */
+export interface TelemetryIdentity {
+  telemetryId?: string;
+  licenseToken?: string;
+}
+
+/** Capture-only telemetry client bound to one runtime identity. */
+export interface TelemetryCapture {
+  capture<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+  ): Promise<void>;
+}
+
+interface ResolvedTelemetryIdentity {
+  telemetryId: string | null;
+  licenseToken: string | null;
+  licenseTelemetryId: string | null;
+}
+
 export class TelemetryClient {
   segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
@@ -97,7 +117,19 @@ export class TelemetryClient {
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
-  ) {
+  ): Promise<void> {
+    return this.captureWithIdentity(event, properties, {
+      telemetryId: this.telemetryId,
+      licenseToken: this.licenseToken,
+      licenseTelemetryId: this.licenseTelemetryId,
+    });
+  }
+
+  private async captureWithIdentity<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+    identity: ResolvedTelemetryIdentity,
+  ): Promise<void> {
     if (this.telemetryDisabled) {
       return;
     }
@@ -106,14 +138,16 @@ export class TelemetryClient {
     // sampleRate. Legacy license tokens with telemetry_id always send —
     // the volume is bounded by paying-customer count and full fidelity
     // per identified customer is worth the marginal cost.
-    if (!this.licenseTelemetryId && !this.shouldSendEvent()) {
+    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) {
       return;
     }
 
     // License-authorized events ship at a 100% effective rate. Anonymous and
     // standalone-identified events use sampleRate. Compute per event so
     // downstream weight-based extrapolation stays correct for both groups.
-    const effectiveSampleRate = this.licenseTelemetryId ? 1 : this.sampleRate;
+    const effectiveSampleRate = identity.licenseTelemetryId
+      ? 1
+      : this.sampleRate;
     const samplingMeta = {
       sampleRate: effectiveSampleRate,
       sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
@@ -142,8 +176,8 @@ export class TelemetryClient {
       globalProperties: { ...this.globalProperties, ...samplingMeta },
       packageName: this.packageName,
       packageVersion: this.packageVersion,
-      telemetryId: this.telemetryId ?? undefined,
-      licenseToken: this.licenseToken ?? undefined,
+      telemetryId: identity.telemetryId ?? undefined,
+      licenseToken: identity.licenseToken ?? undefined,
     });
 
     if (this.segment) {
@@ -187,19 +221,10 @@ export class TelemetryClient {
     telemetryId?: string;
     licenseToken?: string;
   }): void {
-    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
-    if (telemetryId !== undefined) {
-      this.telemetryId = telemetryId;
-      this.licenseToken = null;
-      this.licenseTelemetryId = null;
-      return;
-    }
-
-    this.telemetryId = null;
-    this.licenseToken = identity.licenseToken ?? null;
-    this.licenseTelemetryId = identity.licenseToken
-      ? parseAndWarnTelemetryId(identity.licenseToken)
-      : null;
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
   }
 
   /**
@@ -209,6 +234,49 @@ export class TelemetryClient {
    */
   setLicenseToken(licenseToken: string) {
     this.setTelemetryIdentity({ licenseToken });
+  }
+
+  /**
+   * Create an immutable capture scope for one runtime.
+   *
+   * The scope shares this client's sinks, process-wide opt-out, global
+   * properties, and sampling settings, but snapshots transport identity and
+   * license-derived sampling authority. Constructing another runtime cannot
+   * rewrite an existing scope.
+   *
+   * @param identity - The runtime's construction-time telemetry identity.
+   * @returns A capture-only client bound to that identity.
+   */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
+  }
+
+  private resolveTelemetryIdentity(
+    identity: TelemetryIdentity,
+  ): ResolvedTelemetryIdentity {
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      return {
+        telemetryId,
+        licenseToken: null,
+        licenseTelemetryId: null,
+      };
+    }
+
+    return {
+      telemetryId: null,
+      licenseToken: identity.licenseToken ?? null,
+      licenseTelemetryId: identity.licenseToken
+        ? parseAndWarnTelemetryId(identity.licenseToken)
+        : null,
+    };
   }
 
   private setSampleRate(sampleRate: number | undefined) {

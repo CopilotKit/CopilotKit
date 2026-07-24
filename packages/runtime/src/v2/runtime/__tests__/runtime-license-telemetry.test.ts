@@ -9,6 +9,7 @@ import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
+import { handleRunAgent } from "../handlers/handle-run";
 
 const AGENTS = {};
 const IDENTIFY_USER = vi
@@ -25,15 +26,12 @@ function createIntelligenceClient(): CopilotKitIntelligence {
 }
 
 /**
- * Every runtime construction path feeds the same endpoints, and all endpoints
- * share the process-wide `telemetry` singleton. So telemetry attribution is
- * decided entirely at construction time: if the runtime constructor forwards
- * the license token to `telemetry.setLicenseToken`, every downstream event
- * (instance_created, copilot_request_created, agent_execution_*) carries the
- * telemetry_id; if it doesn't, those events are anonymous and sample-gated.
+ * Every runtime construction path creates a telemetry scope. The scope keeps
+ * its construction-time identity for all downstream events, including
+ * instance_created, copilot_request_created, and agent_execution_*.
  *
- * Regression guard for the gap where only CopilotIntelligenceRuntime set the
- * token, so self-hosted SSE users never got a telemetry_id on their events.
+ * Regression guard for the gap where only CopilotIntelligenceRuntime used the
+ * license token, so self-hosted SSE users never got a telemetry_id.
  */
 describe("runtime construction — telemetry license token", () => {
   // Real JWT shape with telemetry_id so the parser doesn't warn.
@@ -41,16 +39,13 @@ describe("runtime construction — telemetry license token", () => {
     "base64url",
   )}.sig`;
 
-  let setTelemetryIdentitySpy: ReturnType<typeof vi.spyOn>;
+  let createScopeSpy: ReturnType<typeof vi.spyOn>;
   let setLicenseTokenSpy: ReturnType<typeof vi.spyOn>;
   let originalEnv: string | undefined;
 
   beforeEach(() => {
-    // Spy with a no-op impl so the shared singleton's identified/anonymous
-    // state is never mutated across tests — we assert the call, not state.
-    setTelemetryIdentitySpy = vi
-      .spyOn(telemetry, "setTelemetryIdentity")
-      .mockImplementation(() => {});
+    // Assert constructors create a scope without using the legacy setter.
+    createScopeSpy = vi.spyOn(telemetry, "createScope");
     setLicenseTokenSpy = vi.spyOn(telemetry, "setLicenseToken");
     originalEnv = process.env.COPILOTKIT_LICENSE_TOKEN;
     delete process.env.COPILOTKIT_LICENSE_TOKEN;
@@ -58,7 +53,7 @@ describe("runtime construction — telemetry license token", () => {
 
   afterEach(() => {
     setLicenseTokenSpy.mockRestore();
-    setTelemetryIdentitySpy.mockRestore();
+    createScopeSpy.mockRestore();
     if (originalEnv === undefined) {
       delete process.env.COPILOTKIT_LICENSE_TOKEN;
     } else {
@@ -74,8 +69,8 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("sse");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -87,8 +82,8 @@ describe("runtime construction — telemetry license token", () => {
       const runtime = new CopilotSseRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -110,8 +105,8 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("sse");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -123,8 +118,8 @@ describe("runtime construction — telemetry license token", () => {
       const runtime = new CopilotRuntime({ agents: AGENTS });
 
       expect(runtime.mode).toBe("sse");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -141,8 +136,8 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -158,8 +153,8 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -176,8 +171,8 @@ describe("runtime construction — telemetry license token", () => {
       });
 
       expect(runtime.mode).toBe("intelligence");
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentitySpy).toHaveBeenCalledWith({
+      expect(createScopeSpy).toHaveBeenCalledTimes(1);
+      expect(createScopeSpy).toHaveBeenCalledWith({
         licenseToken: TOKEN,
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
@@ -205,9 +200,9 @@ interface RuntimeConstructorCase {
   }): CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime;
 }
 
-/** Installs atomic and legacy setters that mutate the real telemetry singleton. */
+/** Installs scope, legacy-setter, sampling, and sink spies. */
 function installRuntimeTelemetryIdentitySpies() {
-  const setTelemetryIdentity = vi.spyOn(telemetry, "setTelemetryIdentity");
+  const createScope = vi.spyOn(telemetry, "createScope");
   const setLicenseToken = vi.spyOn(telemetry, "setLicenseToken");
   const send = vi.spyOn(lambdaClient, "send");
   const random = vi.spyOn(Math, "random").mockReturnValue(0);
@@ -222,13 +217,12 @@ function installRuntimeTelemetryIdentitySpies() {
     random,
     send,
     setLicenseToken,
-    setTelemetryIdentity,
+    createScope,
     restore: () => {
-      telemetry.setTelemetryIdentity({});
       random.mockRestore();
       send.mockRestore();
       setLicenseToken.mockRestore();
-      setTelemetryIdentity.mockRestore();
+      createScope.mockRestore();
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     },
@@ -345,14 +339,8 @@ const INSTANCE_CREATED_PROPERTIES = {
 test.each(runtimeConstructorIdentityCases)(
   "$constructorCase.label resolves $identityCase.label through one atomic telemetry configuration",
   async ({ constructorCase, identityCase }) => {
-    const {
-      fetchMock,
-      random,
-      send,
-      setLicenseToken,
-      setTelemetryIdentity,
-      restore,
-    } = installRuntimeTelemetryIdentitySpies();
+    const { fetchMock, random, send, setLicenseToken, createScope, restore } =
+      installRuntimeTelemetryIdentitySpies();
     vi.stubEnv("CPK_TELEMETRY_ID", identityCase.environmentTelemetryId);
     vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
     vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
@@ -364,13 +352,11 @@ test.each(runtimeConstructorIdentityCases)(
       });
 
       expect(runtime.mode).toBe(constructorCase.expectedMode);
-      expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentity).toHaveBeenCalledWith(
-        identityCase.expectedIdentity,
-      );
+      expect(createScope).toHaveBeenCalledTimes(1);
+      expect(createScope).toHaveBeenCalledWith(identityCase.expectedIdentity);
       expect(setLicenseToken).not.toHaveBeenCalled();
 
-      await telemetry.capture(
+      await runtime.telemetry.capture(
         "oss.runtime.instance_created",
         INSTANCE_CREATED_PROPERTIES,
       );
@@ -406,16 +392,10 @@ test.each(runtimeConstructorIdentityCases)(
 );
 
 test.each(runtimeConstructorCases)(
-  "$label clears an earlier singleton identity before an anonymous send",
+  "$label creates an anonymous scope without rewriting an identified runtime",
   async (constructorCase) => {
-    const {
-      fetchMock,
-      random,
-      send,
-      setLicenseToken,
-      setTelemetryIdentity,
-      restore,
-    } = installRuntimeTelemetryIdentitySpies();
+    const { fetchMock, random, send, setLicenseToken, createScope, restore } =
+      installRuntimeTelemetryIdentitySpies();
     vi.stubEnv("CPK_TELEMETRY_ID", undefined);
     vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
 
@@ -423,7 +403,7 @@ test.each(runtimeConstructorCases)(
       const identifiedRuntime = constructorCase.construct({
         licenseToken: LEGACY_IDENTITY_TOKEN,
       });
-      setTelemetryIdentity.mockClear();
+      createScope.mockClear();
       setLicenseToken.mockClear();
       send.mockClear();
       fetchMock.mockClear();
@@ -434,11 +414,11 @@ test.each(runtimeConstructorCases)(
         constructorCase.expectedMode,
         constructorCase.expectedMode,
       ]);
-      expect(setTelemetryIdentity).toHaveBeenCalledTimes(1);
-      expect(setTelemetryIdentity).toHaveBeenCalledWith({});
+      expect(createScope).toHaveBeenCalledTimes(1);
+      expect(createScope).toHaveBeenCalledWith({});
       expect(setLicenseToken).not.toHaveBeenCalled();
 
-      await telemetry.capture(
+      await anonymousRuntime.telemetry.capture(
         "oss.runtime.instance_created",
         INSTANCE_CREATED_PROPERTIES,
       );
@@ -457,3 +437,96 @@ test.each(runtimeConstructorCases)(
     }
   },
 );
+
+/** Emits the request-created event through the runtime-bound V2 request path. */
+async function emitRuntimeRequest(
+  runtime: CopilotRuntime | CopilotSseRuntime | CopilotIntelligenceRuntime,
+): Promise<Response> {
+  return handleRunAgent({
+    runtime,
+    request: new Request("https://example.com/agent/missing/run", {
+      method: "POST",
+    }),
+    agentId: "missing",
+  });
+}
+
+test("a licensed runtime keeps full-fidelity telemetry after an anonymous runtime is constructed", async () => {
+  const { fetchMock, random, send, restore } =
+    installRuntimeTelemetryIdentitySpies();
+  random.mockReturnValue(0.99);
+  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+  try {
+    const licensedRuntime = new CopilotSseRuntime({
+      agents: AGENTS,
+      licenseToken: LEGACY_IDENTITY_TOKEN,
+    });
+    const anonymousRuntime = new CopilotSseRuntime({ agents: AGENTS });
+
+    await emitRuntimeRequest(licensedRuntime);
+    await emitRuntimeRequest(anonymousRuntime);
+
+    expect(random).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "oss.runtime.copilot_request_created",
+        licenseToken: LEGACY_IDENTITY_TOKEN,
+        telemetryId: undefined,
+      }),
+    );
+    const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe("legacy-license-id");
+  } finally {
+    restore();
+  }
+});
+
+test("two standalone-identified runtimes keep their own sampled request identity", async () => {
+  const { fetchMock, random, send, restore } =
+    installRuntimeTelemetryIdentitySpies();
+  random.mockReturnValue(0);
+  vi.stubEnv("CPK_TELEMETRY_ID", undefined);
+  vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+
+  try {
+    const runtimeA = new CopilotSseRuntime({
+      agents: AGENTS,
+      telemetryId: "runtime-a",
+    });
+    const runtimeB = new CopilotSseRuntime({
+      agents: AGENTS,
+      telemetryId: "runtime-b",
+    });
+
+    await emitRuntimeRequest(runtimeA);
+    await emitRuntimeRequest(runtimeB);
+
+    expect(random).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          event: "oss.runtime.copilot_request_created",
+          licenseToken: undefined,
+          telemetryId: "runtime-a",
+        }),
+      ],
+      [
+        expect.objectContaining({
+          event: "oss.runtime.copilot_request_created",
+          licenseToken: undefined,
+          telemetryId: "runtime-b",
+        }),
+      ],
+    ]);
+    expect(
+      fetchMock.mock.calls.map(([, init]) =>
+        new Headers(init?.headers).get("X-CopilotKit-Telemetry-Id"),
+      ),
+    ).toEqual(["runtime-a", "runtime-b"]);
+  } finally {
+    restore();
+  }
+});

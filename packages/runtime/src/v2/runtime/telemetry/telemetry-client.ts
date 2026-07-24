@@ -3,6 +3,26 @@ import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 import { firstNonBlankTelemetryId } from "./telemetry-identity";
 
+/** Transport identity and sampling authority resolved for one runtime. */
+export interface TelemetryIdentity {
+  telemetryId?: string;
+  licenseToken?: string;
+}
+
+/** Capture-only telemetry client bound to one runtime identity. */
+export interface TelemetryCapture {
+  capture<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+  ): Promise<void>;
+}
+
+interface ResolvedTelemetryIdentity {
+  telemetryId: string | null;
+  licenseToken: string | null;
+  licenseTelemetryId: string | null;
+}
+
 export function isTelemetryDisabled(): boolean {
   return (
     (process.env as Record<string, string | undefined>)
@@ -61,19 +81,10 @@ export class TelemetryClient {
     telemetryId?: string;
     licenseToken?: string;
   }): void {
-    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
-    if (telemetryId !== undefined) {
-      this.telemetryId = telemetryId;
-      this.licenseToken = null;
-      this.licenseTelemetryId = null;
-      return;
-    }
-
-    this.telemetryId = null;
-    this.licenseToken = identity.licenseToken ?? null;
-    this.licenseTelemetryId = identity.licenseToken
-      ? parseAndWarnTelemetryId(identity.licenseToken)
-      : null;
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
   }
 
   /**
@@ -85,23 +96,77 @@ export class TelemetryClient {
     this.setTelemetryIdentity({ licenseToken });
   }
 
+  /**
+   * Create an immutable capture scope for one runtime.
+   *
+   * The scope shares this client's process-wide opt-out and sampling settings,
+   * but snapshots transport identity and license-derived sampling authority.
+   * Constructing another runtime cannot rewrite an existing scope.
+   *
+   * @param identity - The runtime's construction-time telemetry identity.
+   * @returns A capture-only client bound to that identity.
+   */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
+  }
+
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
-  ) {
+  ): Promise<void> {
+    return this.captureWithIdentity(event, properties, {
+      telemetryId: this.telemetryId,
+      licenseToken: this.licenseToken,
+      licenseTelemetryId: this.licenseTelemetryId,
+    });
+  }
+
+  private async captureWithIdentity<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+    identity: ResolvedTelemetryIdentity,
+  ): Promise<void> {
     if (this.telemetryDisabled) return;
     // Standalone identity is a transport claim, not sampling authority.
     // Only a legacy license token with telemetry_id bypasses sampleRate.
-    if (!this.licenseTelemetryId && !this.shouldSendEvent()) return;
+    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
 
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
       packageName: packageJson.name,
       packageVersion: packageJson.version,
-      telemetryId: this.telemetryId ?? undefined,
-      licenseToken: this.licenseToken ?? undefined,
+      telemetryId: identity.telemetryId ?? undefined,
+      licenseToken: identity.licenseToken ?? undefined,
     });
+  }
+
+  private resolveTelemetryIdentity(
+    identity: TelemetryIdentity,
+  ): ResolvedTelemetryIdentity {
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      return {
+        telemetryId,
+        licenseToken: null,
+        licenseTelemetryId: null,
+      };
+    }
+
+    return {
+      telemetryId: null,
+      licenseToken: identity.licenseToken ?? null,
+      licenseTelemetryId: identity.licenseToken
+        ? parseAndWarnTelemetryId(identity.licenseToken)
+        : null,
+    };
   }
 
   private setSampleRate(sampleRate: number | undefined) {
