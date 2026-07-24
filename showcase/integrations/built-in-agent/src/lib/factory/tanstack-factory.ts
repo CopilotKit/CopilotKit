@@ -201,6 +201,36 @@ async function* convertStream(
           ],
         };
       }
+      // `set_notes` is the shared-state-read-write demo's agent-authored
+      // notes tool (see server-tools.ts). Its server handler returns
+      // `{ notes }`; translate that into a STATE_DELTA that adds `/notes`
+      // on the agent state, so the frontend `useAgent` subscriber sees the
+      // update and the notes card (`notes-list` / `note-item`) populates.
+      //
+      // Same RFC-6902 `add`-not-`replace` rationale as `set_steps` above:
+      // the agent's initial state carries no `/notes` snapshot before the
+      // first delta, and `fast-json-patch` strict mode rejects `replace` on
+      // an unresolvable path (OPERATION_PATH_UNRESOLVABLE), which
+      // `@ag-ui/client` swallows with a console.warn and never applies —
+      // leaving the panel in its placeholder. `add` creates `/notes` on the
+      // first emission and idempotently overwrites on subsequent calls.
+      if (
+        toolName === "set_notes" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "notes" in parsedContent
+      ) {
+        yield {
+          type: EventType.STATE_DELTA,
+          delta: [
+            {
+              op: "add",
+              path: "/notes",
+              value: (parsedContent as { notes: unknown }).notes,
+            },
+          ],
+        };
+      }
 
       let serializedContent: string;
       if (typeof rawPayload === "string") {

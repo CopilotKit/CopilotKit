@@ -43,7 +43,7 @@
  * observes.
  */
 
-import type { CvdiagEnvelope } from "./schema.js";
+import type { CvdiagEnvelope } from "./schema";
 
 /** The `cvdiag_events` collection name (mirrors migration 1779990200). */
 const CVDIAG_EVENTS_COLLECTION = "cvdiag_events";

@@ -57,14 +57,22 @@ function DemoContent() {
   // Seed initial preferences + empty notes into agent state once, so the
   // agent has something to read on the very first turn.
   useEffect(() => {
-    if (!agentState?.preferences) {
+    // Seed against the CURRENT agent instance. `useAgent` returns a
+    // provisional agent while the runtime /info sync is still in flight and
+    // swaps in the real (runtime-synced) agent once it resolves — a new
+    // reference. Seeding with `[]` deps ran once against the provisional
+    // agent, so the real agent (the one `runAgent` serialises into
+    // `input.state`) was never seeded and the backend saw `state: {}`.
+    // Depending on `[agent]` re-seeds whenever the instance changes; the
+    // `!recipe/!preferences` guard keeps it from clobbering user edits.
+    if (!(agent.state as RWAgentState | undefined)?.preferences) {
       agent.setState({
         preferences: INITIAL_PREFERENCES,
         notes: [],
       } as RWAgentState);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent]);
 
   // @region[set-state]
   // @region[use-agent-write]
