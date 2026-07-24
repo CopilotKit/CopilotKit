@@ -11,6 +11,18 @@ const SKILL = "99999999-9999-4999-8999-999999999999";
 const VERSION = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const NOW = "2026-07-16T18:00:00.000Z";
 const roots: string[] = [];
+const MULTI_SKILLS = [
+  SKILL,
+  "88888888-8888-4888-8888-888888888888",
+  "77777777-7777-4777-8777-777777777777",
+  "66666666-6666-4666-8666-666666666666",
+] as const;
+const MULTI_VERSIONS = [
+  VERSION,
+  "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+] as const;
 
 interface GoldenRegistryFixture {
   identity: {
@@ -40,6 +52,7 @@ interface GoldenRegistryFixture {
     initialFreshness: "fresh";
     validated304Freshness: "fresh";
     explicitCacheFreshness: "cached";
+    secondUnconditional304Code: string;
     nonCanonicalErrorCode: string;
   };
 }
@@ -226,6 +239,103 @@ function fixture(
   return { archive, manifest, projection };
 }
 
+/**
+ * Builds a projection carrying more than one ordered skill, each with its own
+ * root directory, bundle bytes, and manifest. Single-entry fixtures cannot reach
+ * the per-entry install loop's second iteration, the duplicate-skillId branch,
+ * non-zero `padStart(6, "0")` directory names, or the index alignment in
+ * `assertProjectionMatchesCachedSkills`.
+ */
+function multiFixture(
+  overrides: {
+    count?: number;
+    positions?: number[];
+    skillIds?: readonly string[];
+  } = {},
+) {
+  const count = overrides.count ?? 3;
+  const skillIds = overrides.skillIds ?? MULTI_SKILLS.slice(0, count);
+  const positions = overrides.positions ?? skillIds.map((_, index) => index);
+  const skills = skillIds.map((skillId, index) => {
+    const root = `skill-${index}`;
+    const bytes = new TextEncoder().encode(`# Skill ${index}\n`);
+    const extra = new TextEncoder().encode(`reference ${index}\n`);
+    const archive = zip([
+      { path: `${root}/SKILL.md`, bytes },
+      { path: `${root}/reference.md`, bytes: extra },
+    ]);
+    const manifestWithoutHash = {
+      manifestVersion: 1 as const,
+      agentSkillsProfile: "agentskills:v1",
+      files: [
+        {
+          path: "SKILL.md",
+          role: "instructions",
+          mediaType: "text/markdown",
+          byteLength: bytes.byteLength,
+          rawSha256: sha(bytes),
+        },
+        {
+          path: "reference.md",
+          role: "resource",
+          mediaType: "text/markdown",
+          byteLength: extra.byteLength,
+          rawSha256: sha(extra),
+        },
+      ],
+      bundleSha256: sha(archive),
+      bundleByteLength: archive.byteLength,
+      provenance: {},
+    };
+    const manifest = {
+      ...manifestWithoutHash,
+      manifestSha256: sha(stable(manifestWithoutHash)),
+    };
+    return {
+      root,
+      archive,
+      entry: {
+        skillId,
+        versionId: MULTI_VERSIONS[index] ?? MULTI_VERSIONS[0],
+        position: positions[index] ?? index,
+        name: `Skill ${index}`,
+        description: null,
+        bundleLocator: {
+          schemaVersion: 1,
+          backendId: "primary",
+          provider: "awsS3",
+          resource: "skill-bundles",
+          key: `objects/skill-${index}.zip`,
+          providerVersion: null,
+          etag: null,
+          applicationSha256: sha(archive),
+          providerChecksum: null,
+          byteLength: archive.byteLength,
+          contentType: "application/zip",
+        },
+        bundleSha256: sha(archive),
+        manifestSha256: manifest.manifestSha256,
+        bundleByteLength: archive.byteLength,
+        approvalMethod: "manual",
+        manifest,
+      },
+    };
+  });
+  const projection = {
+    schemaVersion: 1,
+    learningContainerId: CONTAINER,
+    registryRevision: "revision-1",
+    skillSetHash: sha(
+      skills.map((skill) => skill.entry.bundleSha256).join(":"),
+    ),
+    etag: '"registry-1"',
+    entries: skills.map((skill) => skill.entry),
+    publishedAt: NOW,
+    revoked: false,
+  };
+  return { skills, projection };
+}
+
 function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -366,40 +476,71 @@ describe("IntelligenceClient registry SDK", () => {
         new Response(Buffer.from(golden.bundle.base64, "base64")),
       ),
     }).skills.get({ learningContainerId: golden.identity.learningContainerId });
-    const conflict = golden.errors.canonicalConflict;
-    const conflicting = new IntelligenceClient({
+    // Both scenarios are driven from errors.*.invalidatesCache rather than a
+    // hardcoded expectation, so the shared fixture field is what decides.
+    for (const scenario of [
+      golden.errors.canonicalConflict,
+      golden.errors.canonicalDenial,
+    ]) {
+      expect(typeof scenario.invalidatesCache).toBe("boolean");
+      const client = new IntelligenceClient({
+        ...options,
+        transport: sequence(jsonResponse(scenario.body, scenario.status)),
+      });
+      await expect(
+        client.skills.get({
+          learningContainerId: golden.identity.learningContainerId,
+        }),
+      ).rejects.toMatchObject(scenario.body.error as Record<string, unknown>);
+      const cached = client.skills.getCached({
+        learningContainerId: golden.identity.learningContainerId,
+      });
+      if (scenario.invalidatesCache === true) {
+        await expect(cached).rejects.toMatchObject({
+          code: "LEARNING_SDK_CACHE_CORRUPT",
+        });
+      } else {
+        await expect(cached).resolves.toMatchObject({
+          freshness: golden.expectations.explicitCacheFreshness,
+        });
+      }
+    }
+  });
+
+  it("uses the golden code when a second unconditional read also returns 304", async () => {
+    const golden = await goldenRegistryFixture();
+    const root = await cacheRoot();
+    const options = {
+      baseUrl: golden.identity.baseUrl,
+      accessToken: "secret-token",
+      projectNamespace: golden.identity.projectNamespace,
+      cacheRoot: root,
+    };
+    const installed = await new IntelligenceClient({
       ...options,
-      transport: sequence(jsonResponse(conflict.body, conflict.status)),
-    });
+      transport: sequence(
+        jsonResponse(golden.projection),
+        new Response(Buffer.from(golden.bundle.base64, "base64")),
+      ),
+    }).skills.get({ learningContainerId: golden.identity.learningContainerId });
+    await rm(installed.directory, { recursive: true, force: true });
+    const transport = sequence(
+      new Response(null, { status: 304 }),
+      new Response(null, { status: 304 }),
+    );
 
     await expect(
-      conflicting.skills.get({
+      new IntelligenceClient({ ...options, transport }).skills.get({
         learningContainerId: golden.identity.learningContainerId,
       }),
-    ).rejects.toMatchObject(conflict.body.error as Record<string, unknown>);
-    await expect(
-      conflicting.skills.getCached({
-        learningContainerId: golden.identity.learningContainerId,
-      }),
-    ).resolves.toMatchObject({
-      freshness: golden.expectations.explicitCacheFreshness,
+    ).rejects.toMatchObject({
+      code: golden.expectations.secondUnconditional304Code,
+      category: "internal",
     });
-
-    const denial = golden.errors.canonicalDenial;
-    const denied = new IntelligenceClient({
-      ...options,
-      transport: sequence(jsonResponse(denial.body, denial.status)),
-    });
-    await expect(
-      denied.skills.get({
-        learningContainerId: golden.identity.learningContainerId,
-      }),
-    ).rejects.toMatchObject(denial.body.error as Record<string, unknown>);
-    await expect(
-      denied.skills.getCached({
-        learningContainerId: golden.identity.learningContainerId,
-      }),
-    ).rejects.toMatchObject({ code: "LEARNING_SDK_CACHE_CORRUPT" });
+    expect(transport).toHaveBeenCalledTimes(2);
+    expect(
+      (transport as ReturnType<typeof vi.fn>).mock.calls[1]?.[1].headers,
+    ).not.toHaveProperty("If-None-Match");
   });
 
   it("maps golden unknown and malformed errors to a fail-loud SDK error", async () => {
@@ -575,6 +716,167 @@ describe("IntelligenceClient registry SDK", () => {
       await readFile(join(repaired.skills[0]!.directory, "SKILL.md"), "utf8"),
     ).toBe("# Skill\n");
   });
+
+  it("installs, orders, and names every skill in a multi-skill projection", async () => {
+    const root = await cacheRoot();
+    const { skills, projection } = multiFixture({ count: 3 });
+    const transport = sequence(
+      jsonResponse(projection),
+      ...skills.map((skill) => new Response(skill.archive)),
+    );
+    const client = new IntelligenceClient({
+      baseUrl: "https://registry.test",
+      accessToken: "token",
+      projectNamespace: "project-a",
+      cacheRoot: root,
+      transport,
+    });
+
+    const installed = await client.skills.get({
+      learningContainerId: CONTAINER,
+    });
+
+    expect(transport).toHaveBeenCalledTimes(4);
+    expect(installed.skills).toHaveLength(3);
+    expect(installed.skills.map((skill) => skill.position)).toEqual([0, 1, 2]);
+    expect(installed.skills.map((skill) => skill.skillId)).toEqual([
+      MULTI_SKILLS[0],
+      MULTI_SKILLS[1],
+      MULTI_SKILLS[2],
+    ]);
+    expect(installed.skills.map((skill) => skill.versionId)).toEqual([
+      MULTI_VERSIONS[0],
+      MULTI_VERSIONS[1],
+      MULTI_VERSIONS[2],
+    ]);
+    for (const [index, skill] of installed.skills.entries()) {
+      expect(skill.directory).toBe(
+        join(
+          installed.directory,
+          "skills",
+          `${String(index).padStart(6, "0")}-${MULTI_SKILLS[index]}`,
+          `skill-${index}`,
+        ),
+      );
+      expect(await readFile(join(skill.directory, "SKILL.md"), "utf8")).toBe(
+        `# Skill ${index}\n`,
+      );
+      expect(
+        await readFile(join(skill.directory, "reference.md"), "utf8"),
+      ).toBe(`reference ${index}\n`);
+    }
+  });
+
+  it("keeps multi-skill index alignment across a verified 304", async () => {
+    const root = await cacheRoot();
+    const { skills, projection } = multiFixture({ count: 3 });
+    const options = {
+      baseUrl: "https://registry.test",
+      accessToken: "token",
+      projectNamespace: "project-a",
+      cacheRoot: root,
+    };
+    const first = await new IntelligenceClient({
+      ...options,
+      transport: sequence(
+        jsonResponse(projection),
+        ...skills.map((skill) => new Response(skill.archive)),
+      ),
+    }).skills.get({ learningContainerId: CONTAINER });
+
+    const revalidated = await new IntelligenceClient({
+      ...options,
+      transport: sequence(new Response(null, { status: 304 })),
+    }).skills.get({ learningContainerId: CONTAINER });
+
+    expect(revalidated.freshness).toBe("fresh");
+    expect(revalidated.skills).toEqual(first.skills);
+    expect(
+      revalidated.projection.entries.map((entry) => entry.skillId),
+    ).toEqual([MULTI_SKILLS[0], MULTI_SKILLS[1], MULTI_SKILLS[2]]);
+  });
+
+  it("repairs one corrupt skill of a multi-skill set from fresh bytes", async () => {
+    const root = await cacheRoot();
+    const { skills, projection } = multiFixture({ count: 3 });
+    const options = {
+      baseUrl: "https://registry.test",
+      accessToken: "token",
+      projectNamespace: "project-a",
+      cacheRoot: root,
+    };
+    const installed = await new IntelligenceClient({
+      ...options,
+      transport: sequence(
+        jsonResponse(projection),
+        ...skills.map((skill) => new Response(skill.archive)),
+      ),
+    }).skills.get({ learningContainerId: CONTAINER });
+    await writeFile(
+      join(installed.skills[2]!.directory, "reference.md"),
+      "corrupt",
+    );
+    const transport = sequence(
+      new Response(null, { status: 304 }),
+      jsonResponse(projection),
+      ...skills.map((skill) => new Response(skill.archive)),
+    );
+
+    const repaired = await new IntelligenceClient({
+      ...options,
+      transport,
+    }).skills.get({ learningContainerId: CONTAINER });
+
+    expect(transport).toHaveBeenCalledTimes(5);
+    expect(
+      await readFile(
+        join(repaired.skills[2]!.directory, "reference.md"),
+        "utf8",
+      ),
+    ).toBe("reference 2\n");
+  });
+
+  it.each([
+    [
+      "duplicate skill ids",
+      multiFixture({
+        count: 3,
+        skillIds: [MULTI_SKILLS[0], MULTI_SKILLS[1], MULTI_SKILLS[0]],
+      }).projection,
+    ],
+    [
+      "position gaps",
+      multiFixture({ count: 3, positions: [0, 2, 3] }).projection,
+    ],
+    [
+      "out-of-order positions",
+      multiFixture({ count: 3, positions: [0, 2, 1] }).projection,
+    ],
+    [
+      "a repeated position",
+      multiFixture({ count: 3, positions: [0, 1, 1] }).projection,
+    ],
+    [
+      "a non-zero first position",
+      multiFixture({ count: 3, positions: [1, 2, 3] }).projection,
+    ],
+  ])(
+    "rejects a multi-skill projection with %s",
+    async (_name, invalidProjection) => {
+      const root = await cacheRoot();
+      const client = new IntelligenceClient({
+        baseUrl: "https://registry.test",
+        accessToken: "token",
+        projectNamespace: "project-a",
+        cacheRoot: root,
+        transport: sequence(jsonResponse(invalidProjection)),
+      });
+
+      await expect(
+        client.skills.get({ learningContainerId: CONTAINER }),
+      ).rejects.toBeInstanceOf(IntelligenceSdkError);
+    },
+  );
 
   it("rejects canonical projection mismatches with a typed error", async () => {
     const root = await cacheRoot();
