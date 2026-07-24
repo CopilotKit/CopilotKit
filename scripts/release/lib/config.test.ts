@@ -30,6 +30,28 @@ describe("Channels release scope", () => {
   });
 });
 
+describe("Intelligence release scope", () => {
+  it("is an independent one-package scope", () => {
+    expect(getScopeConfig("intelligence")).toEqual({
+      packages: ["@copilotkit/intelligence"],
+      versionSource: "@copilotkit/intelligence",
+      sharedVersion: false,
+    });
+  });
+
+  // @copilotkit/intelligence is the cross-language contracts SDK: its Python
+  // (copilotkit.intelligence) and .NET (CopilotKit.Intelligence) siblings each
+  // version independently, and @copilotkit/intelligence-langgraph declares a
+  // 0.x peer range against it. Folding it into the shared-version `monorepo`
+  // scope would force it to the react-core version on its first publish and
+  // instantly invalidate that peer range.
+  it("is not enrolled in the shared-version monorepo scope", () => {
+    expect(getScopeConfig("monorepo").packages).not.toContain(
+      "@copilotkit/intelligence",
+    );
+  });
+});
+
 describe("Intelligence LangGraph release scope", () => {
   it("is an independent one-package scope", () => {
     expect(getScopeConfig("intelligence-langgraph")).toEqual({

@@ -7,7 +7,17 @@
 # publish-release.yml when this workflow is the entry point.
 # The @copilotkit/intelligence-langgraph trusted-publisher identity is exactly:
 # workflow publish-release.yml, environment npm, package
-# @copilotkit/intelligence-langgraph. Keep this as the only npm OIDC publisher.
+# @copilotkit/intelligence-langgraph. The @copilotkit/intelligence identity is
+# the same shape: workflow publish-release.yml, environment npm, package
+# @copilotkit/intelligence. Keep this workflow as the only npm OIDC publisher.
+#
+# Release ORDER matters across scopes. @copilotkit/runtime (monorepo scope)
+# depends on @copilotkit/intelligence (intelligence scope) via `workspace:^`,
+# which pnpm rewrites to a concrete range at pack time. The `intelligence`
+# scope must therefore be released at least once BEFORE the next `monorepo`
+# release, or the published runtime resolves a version that does not exist.
+# publish-release.ts enforces this with a cross-scope registry preflight; see
+# scripts/release/lib/publishable-dependencies.ts.
 #
 # Triggers:
 #   - pull_request: closed on a release/publish/<scope>/v<X.Y.Z> branch → stable
@@ -46,6 +56,7 @@ on:
           - monorepo
           - angular
           - channels
+          - intelligence
           - intelligence-langgraph
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
@@ -203,6 +214,17 @@ jobs:
           set -euo pipefail
           pnpm nx run @copilotkit/intelligence-langgraph:check --skip-nx-cache
           pnpm nx run @copilotkit/intelligence-langgraph:pack-check --skip-nx-cache
+
+      # The contracts SDK ships the conformance corpus alongside dist, so the
+      # packed manifest and its export map are verified before publish exactly
+      # like the LangGraph adapter's.
+      - name: Verify Intelligence npm artifact
+        if: steps.meta.outputs.scope == 'intelligence'
+        run: |
+          set -euo pipefail
+          pnpm nx run @copilotkit/intelligence:check-types --skip-nx-cache
+          pnpm nx run @copilotkit/intelligence:publint --skip-nx-cache
+          pnpm nx run @copilotkit/intelligence:attw --skip-nx-cache
 
       # Strip caches and pack the workspace into a single tarball before
       # upload. upload-artifact's path filters are post-walk: it still

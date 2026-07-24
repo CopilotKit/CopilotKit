@@ -11,6 +11,7 @@ export type ReleaseScope =
   | "monorepo"
   | "angular"
   | "channels"
+  | "intelligence"
   | "intelligence-langgraph";
 
 export interface ScopeConfig {

@@ -69,6 +69,16 @@ if ! printf '%s\n' "$CONFIG_SCOPES" | grep -Fxq 'intelligence-langgraph'; then
   exit 1
 fi
 
+# Enrollment self-check for the Intelligence contracts SDK. @copilotkit/runtime
+# (monorepo scope) declares @copilotkit/intelligence as a hard `workspace:^`
+# dependency, which pnpm rewrites to a concrete range at publish time. If this
+# scope is ever dropped the package becomes unpublishable again and every
+# `npm install @copilotkit/runtime` 404s on @copilotkit/intelligence.
+if ! printf '%s\n' "$CONFIG_SCOPES" | grep -Fxq 'intelligence'; then
+  echo "ERROR: release.config.json must declare the intelligence scope." >&2
+  exit 1
+fi
+
 # Extract the `options:` list belonging to the `scope:` input from a workflow.
 # Uses yq when available (the CI path on ubuntu-latest), otherwise a robust awk
 # pass (the local-dev fallback):
