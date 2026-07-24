@@ -10,7 +10,6 @@ import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
 import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart, LineChart } from "@copilotkit/channels/charts";
-import { GEIST } from "./theme.js";
 import {
   REPO,
   ghFetch,
@@ -112,71 +111,28 @@ async function fetchPulse(): Promise<Pulse> {
 
 function kpi(label: string, value: string): ChannelNode {
   return (
-    <div
-      className="inset"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        flexGrow: 1,
-        padding: 18,
-      }}
-    >
-      <span className="kpi-label" style={{ fontSize: 14 }}>
-        {label}
-      </span>
-      <span className="kpi-value" style={{ fontSize: 34 }}>
-        {value}
-      </span>
+    <div className="flex flex-col gap-1.5 grow p-4 bg-brand-surface border border-brand-border rounded-xl">
+      <span className="text-sm text-brand-muted">{label}</span>
+      <span className="text-[34px] font-bold text-brand-ink">{value}</span>
     </div>
   );
 }
 
 export function PulseCard(p: Pulse): ChannelNode {
   return (
-    <div
-      className="card"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 16,
-        width: "100%",
-        height: "100%",
-        padding: 28,
-        fontFamily: GEIST,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-        }}
-      >
-        <span className="title" style={{ fontSize: 24 }}>
+    <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg rounded-2xl font-brand">
+      <div className="flex flex-row items-center justify-between w-full">
+        <span className="text-2xl font-bold text-brand-ink">
           Weekly OSS pulse
         </span>
         <span
-          className={p.live ? "badge badge-green" : "badge badge-amber"}
-          style={{ fontSize: 12, padding: "4px 12px" }}
+          className={`text-xs font-semibold rounded-full px-3 py-1 ${p.live ? "bg-brand-mint text-brand-mint-deep" : "bg-[#ffe8c7] text-[#9a5b00]"}`}
         >
           {p.live ? "live · github + npm" : "sample data"}
         </span>
       </div>
-      <span
-        className="muted"
-        style={{ fontSize: 14 }}
-      >{`${REPO} · past 7 days`}</span>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          gap: 14,
-          width: "100%",
-        }}
-      >
+      <span className="text-sm text-brand-muted">{`${REPO} · past 7 days`}</span>
+      <div className="flex flex-row gap-3.5 w-full">
         {kpi("Stars", compact(p.stars))}
         {kpi("Weekly downloads", compact(p.weeklyDownloads))}
         {kpi("Open issues", compact(p.openIssues))}

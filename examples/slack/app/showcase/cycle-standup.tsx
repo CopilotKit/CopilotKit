@@ -11,7 +11,6 @@ import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
 import type { ChannelNode } from "@copilotkit/channels";
 import { StackedBar, Meter } from "@copilotkit/channels/charts";
-import { GEIST } from "./theme.js";
 import { FETCH_TIMEOUT_MS, sampleTag } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
@@ -120,41 +119,20 @@ async function fetchStandup(): Promise<Standup> {
   }
 }
 
-/** green ≥66% · amber ≥33% · red below — the meter fill colour. */
+/** Meter fill colour (hex — the Meter chart takes a color, not a class): mint ≥66% · orange ≥33% · red below. */
 function pctColor(pct: number): string {
-  if (pct >= 66) return "#22c55e";
-  if (pct >= 33) return "#f59e0b";
-  return "#ef4444";
+  if (pct >= 66) return "#189370";
+  if (pct >= 33) return "#ffac4d";
+  return "#d92d20";
 }
 
 /** One team row: name + "pct% · done/total" over a progress meter. */
 function teamRow(t: TeamProgress): ChannelNode {
   return (
-    <div
-      key={t.name}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        width: "100%",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          justifyContent: "space-between",
-          width: "100%",
-        }}
-      >
-        <span
-          className="fg"
-          style={{ fontSize: 16, fontWeight: 600 }}
-        >{`${t.name} · ${t.cycleName}`}</span>
-        <span
-          className="muted"
-          style={{ fontSize: 15 }}
-        >{`${t.pct}% · ${t.done}/${t.total} done`}</span>
+    <div key={t.name} className="flex flex-col gap-1.5 w-full">
+      <div className="flex flex-row justify-between w-full">
+        <span className="text-base font-semibold text-brand-ink">{`${t.name} · ${t.cycleName}`}</span>
+        <span className="text-[15px] text-brand-muted">{`${t.pct}% · ${t.done}/${t.total} done`}</span>
       </div>
       <Meter value={t.pct / 100} height={14} colors={[pctColor(t.pct)]} />
     </div>
@@ -164,51 +142,22 @@ function teamRow(t: TeamProgress): ChannelNode {
 export function StandupCard(s: Standup): ChannelNode {
   const teams = s.teams.slice(0, 8);
   return (
-    <div
-      className="card"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 18,
-        width: "100%",
-        height: "100%",
-        padding: 28,
-        fontFamily: GEIST,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-        }}
-      >
-        <span className="title" style={{ fontSize: 24 }}>
+    <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg rounded-2xl font-brand">
+      <div className="flex flex-row items-center justify-between w-full">
+        <span className="text-2xl font-bold text-brand-ink">
           Cycle progress by team
         </span>
         <span
-          className={s.live ? "badge badge-green" : "badge badge-amber"}
-          style={{ fontSize: 12, padding: "4px 12px" }}
+          className={`text-xs font-semibold rounded-full px-3 py-1 ${s.live ? "bg-brand-mint text-brand-mint-deep" : "bg-[#ffe8c7] text-[#9a5b00]"}`}
         >
           {s.live ? "live · linear" : "sample data"}
         </span>
       </div>
-      <span className="muted" style={{ fontSize: 14 }}>
+      <span className="text-sm text-brand-muted">
         {`${s.teams.length} team${s.teams.length === 1 ? "" : "s"} with an active cycle`}
       </span>
-      <div className="divider" style={{ height: 1, width: "100%" }} />
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          width: "100%",
-        }}
-      >
-        {teams.map(teamRow)}
-      </div>
+      <div className="h-px w-full bg-brand-border" />
+      <div className="flex flex-col gap-4 w-full">{teams.map(teamRow)}</div>
     </div>
   );
 }
@@ -235,7 +184,7 @@ export async function renderStandup(thread: ShowcaseThread): Promise<string> {
       data={s.teams
         .slice(0, 8)
         .map((t) => ({ label: t.name, values: [t.done, t.total - t.done] }))}
-      colors={["#22c55e", "#3f3f46"]}
+      colors={["#189370", "#e5e7eb"]}
       width={760}
       height={420}
     />,

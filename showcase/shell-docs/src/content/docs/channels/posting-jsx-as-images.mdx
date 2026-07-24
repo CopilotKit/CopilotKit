@@ -185,6 +185,26 @@ icon: "lucide/Component"
     - **Negative values:** `BarChart` clamps a negative value to a zero-height bar (it assumes non-negative input). `StackedBar` clamps a negative segment to zero height *and* distorts the remaining segments' proportions within that bar (their percentages are computed against the bar's true total, then clipped to the bar's box) — pass non-negative values to `StackedBar`.
 
     These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your own CSS.
+
+    Charts default to the **CopilotKit brand data-viz palette** (purple · mint · blue · orange · …); pass a `colors` prop to override per chart.
+  </Step>
+  <Step>
+    ### Ready-made tools: `render_chart` and `render_diagram`
+
+    `@copilotkit/channels/charts` also ships two ready-made **channel tools**, so an agent can turn structured data into a visual with no bespoke code — spread them into `createChannel({ tools })`:
+
+    - **`chartTool`** (`render_chart`) — the agent passes `{ kind: "bar" | "line" | "pie" | "stacked" | "scatter", data, title }` and it posts the chart as an image. Point it at a parsed CSV and "chart this" just works.
+    - **`diagramTool`** (`render_diagram`) — the agent passes `{ nodes, edges, direction }` and it posts a layered flow diagram (boxes + arrows). Good for a process, pipeline, or architecture. Layered layout, not arbitrary graph auto-routing (Takumi has no JS layout engine).
+
+    ```ts
+    import { chartTool, diagramTool } from "@copilotkit/channels/charts";
+
+    createChannel({ tools: [chartTool, diagramTool /* , …your tools */] });
+
+    // User: "here's a CSV of signups by month — chart it"
+    // → the agent parses it and calls
+    //   render_chart({ kind: "bar", title: "Signups", data: [{ label: "Jan", value: 120 }, …] })
+    ```
   </Step>
   <Step>
     ### Know the limits
@@ -202,10 +222,10 @@ icon: "lucide/Component"
 
 ## A worked example
 
-The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this end-to-end for three "run it in your own Slack" features, each a shadcn-styled card plus charts, and each triggerable **both** by a slash command and by prompt (the agent calls the matching `render_*` tool — both share one `render*` fn):
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this end-to-end for three "run it in your own Slack" features, each a CopilotKit-branded card plus charts, and each triggerable **both** by a slash command and by prompt (the agent calls the matching `render_*` tool — both share one `render*` fn):
 
 - **PR review radar** (`/prs`) — a card of the oldest open PRs with age-coloured badges + a PRs-by-age bar chart, from GitHub's public API (no token).
 - **Weekly OSS pulse** (`/pulse`) — a KPI card (stars · npm downloads · open issues) + a downloads line chart + an issues bar chart, from GitHub + npm.
 - **Linear cycle standup** (`/standup`) — a per-team progress card (one labelled progress meter per team) + a done-vs-remaining stacked bar comparing scope across teams, from Linear.
 
-The shadcn look is a single token stylesheet fed once via `render.stylesheets`; each feature reads live data and falls back to labelled sample data so it always runs. It's a concrete template for wiring your own dashboards.
+The brand look is a **compiled Tailwind stylesheet** (`pnpm build:css`) plus **Plus Jakarta Sans**, fed once via `render.stylesheets`/`render.fonts` — cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It's a concrete template for wiring your own dashboards, and it registers `chartTool`/`diagramTool` so you can also just ask for an ad-hoc chart or diagram.
