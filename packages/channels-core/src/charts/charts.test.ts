@@ -46,13 +46,13 @@ describe("box-model charts", () => {
     const [negativeBarWrapper, positiveBarWrapper] = bars.props
       .children as BarElement[];
     const negativeBarHeight = (
-      (negativeBarWrapper!.props.children as BarElement[])[0]!
+      (negativeBarWrapper!.props.children as BarElement[])[1]!
         .props as unknown as {
         style: { height: string };
       }
     ).style.height;
     const positiveBarHeight = (
-      (positiveBarWrapper!.props.children as BarElement[])[0]!
+      (positiveBarWrapper!.props.children as BarElement[])[1]!
         .props as unknown as {
         style: { height: string };
       }
@@ -101,12 +101,12 @@ describe("box-model charts", () => {
     const [nanBarWrapper, finiteBarWrapper] = bars.props
       .children as BarElement[];
     const nanBarHeight = (
-      (nanBarWrapper!.props.children as BarElement[])[0]!.props as unknown as {
+      (nanBarWrapper!.props.children as BarElement[])[1]!.props as unknown as {
         style: { height: string };
       }
     ).style.height;
     const finiteBarHeight = (
-      (finiteBarWrapper!.props.children as BarElement[])[0]!
+      (finiteBarWrapper!.props.children as BarElement[])[1]!
         .props as unknown as {
         style: { height: string };
       }

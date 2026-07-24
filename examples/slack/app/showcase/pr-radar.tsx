@@ -254,6 +254,13 @@ function byAgeBucket(prs: Pr[]): { label: string; value: number }[] {
 export async function renderPrRadar(thread: ShowcaseThread): Promise<string> {
   const { prs, live } = await fetchPrRadar();
   const height = 150 + Math.max(1, Math.min(prs.length, 8)) * 40;
+  // Lead with a one-line summary. This is the ONLY part of an image-post turn
+  // that lands as Slack *text*, so it (a) captions the images for the reader and
+  // (b) survives history reconstruction, so a later turn's agent can see this
+  // request was already handled and won't re-post it.
+  await thread.post(
+    `*PR review radar* — ${prs.length} open PR${prs.length === 1 ? "" : "s"} on ${REPO}${live ? "" : " · sample data"}`,
+  );
   await thread.post(<PrRadarCard prs={prs} live={live} />, {
     filename: "pr-radar.png",
     title: "PR review radar",

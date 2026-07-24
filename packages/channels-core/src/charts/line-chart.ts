@@ -1,13 +1,23 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
+import {
+  DEFAULT_CHART_COLORS,
+  extent,
+  finiteOr0,
+  formatCompact,
+} from "./types.js";
 import type { ChartDatum, ChartStyleProps } from "./types.js";
 
 export interface LineChartProps extends ChartStyleProps {
   data: ChartDatum[];
 }
 
-/** A single-series line chart (inline SVG). */
+/**
+ * A single-series line chart. The line/grid/points are inline SVG, but every
+ * label (title, y-axis scale, x-axis) is HTML — Takumi rasterizes HTML text but
+ * NOT SVG `<text>`, so labels drawn inside the `<svg>` would be invisible. The
+ * SVG is a fixed-size plot; HTML title/axes are laid out around it.
+ */
 export function LineChart(props: LineChartProps): ReactElement {
   const {
     data,
@@ -22,52 +32,44 @@ export function LineChart(props: LineChartProps): ReactElement {
     showGrid = true,
   } = props;
   const palette = colors && colors.length > 0 ? colors : DEFAULT_CHART_COLORS;
-  const pad = { l: 8, r: 8, t: title ? 28 : 8, b: 24 };
-  const plotW = width - pad.l - pad.r;
-  const plotH = height - pad.t - pad.b;
+
+  // Reserve HTML gutters for the labels, then the SVG fills what's left.
+  const titleH = title ? 26 : 0;
+  const xAxisH = 22;
+  const yAxisW = 48;
+  const svgW = Math.max(1, width - yAxisW);
+  const svgH = Math.max(1, height - titleH - xAxisH);
+  const inset = 8; // keeps the line/points off the plot edges
+
+  const plotW = Math.max(1, svgW - inset * 2);
+  const plotH = Math.max(1, svgH - inset * 2);
   const vals = data.map((d) => finiteOr0(d.value));
-  // Auto-scale to the data's own min/max (parity with Sparkline/Scatter), not
-  // zero-anchored. Empty data → extent returns {0,0}; `span || 1` guards it.
+  // Auto-scale to the data's own min/max (parity with Sparkline/Scatter).
   const { min, max } = extent(vals);
   const span = max - min || 1;
   const step = data.length > 1 ? plotW / (data.length - 1) : 0;
-  const x = (i: number) => pad.l + i * step;
-  const y = (v: number) => pad.t + plotH - ((v - min) / span) * plotH;
-  const points = vals.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+  const px = (i: number) => inset + i * step;
+  const py = (v: number) => inset + plotH - ((v - min) / span) * plotH;
+  const points = vals.map((v, i) => `${px(i)},${py(v)}`).join(" ");
+
+  const gridFractions = [0, 0.25, 0.5, 0.75, 1];
   const grid = showGrid
-    ? [0, 0.25, 0.5, 0.75, 1].map((f, i) =>
+    ? gridFractions.map((f, i) =>
         h("line", {
           key: `g${i}`,
-          x1: pad.l,
-          x2: pad.l + plotW,
-          y1: pad.t + plotH * f,
-          y2: pad.t + plotH * f,
+          x1: 0,
+          x2: svgW,
+          y1: inset + plotH * f,
+          y2: inset + plotH * f,
           strokeWidth: 1,
           style: { stroke: gridColor },
         }),
       )
     : [];
-  return h(
+
+  const svg = h(
     "svg",
-    {
-      width,
-      height,
-      viewBox: `0 0 ${width} ${height}`,
-      className,
-      style: { backgroundColor: "#ffffff", ...style },
-    },
-    title
-      ? h(
-          "text",
-          {
-            x: pad.l,
-            y: 18,
-            className: labelClassName,
-            style: { fontSize: 15, fontWeight: 600 },
-          },
-          title,
-        )
-      : null,
+    { width: svgW, height: svgH, viewBox: `0 0 ${svgW} ${svgH}` },
     ...grid,
     h("polyline", {
       points,
@@ -77,25 +79,94 @@ export function LineChart(props: LineChartProps): ReactElement {
     ...vals.map((v, i) =>
       h("circle", {
         key: `p${i}`,
-        cx: x(i),
-        cy: y(v),
+        cx: px(i),
+        cy: py(v),
         r: 3,
         style: { fill: palette[0] },
       }),
     ),
+  );
+
+  // HTML y-axis: top label is `max`, bottom is `min`, spaced to the gridlines.
+  const yAxis = h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        width: yAxisW,
+        height: svgH,
+        paddingRight: 6,
+        boxSizing: "border-box",
+      },
+    },
+    ...gridFractions.map((f, i) =>
+      h(
+        "div",
+        {
+          key: `y${i}`,
+          className: labelClassName,
+          style: { fontSize: 11, textAlign: "right" },
+        },
+        formatCompact(max - f * span),
+      ),
+    ),
+  );
+
+  // HTML x-axis: one evenly-spaced label per datum, under the plot.
+  const xAxis = h(
+    "div",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "row",
+        height: xAxisH,
+        paddingLeft: yAxisW,
+      },
+    },
     ...data.map((d, i) =>
       h(
-        "text",
+        "div",
         {
-          key: `l${i}`,
-          x: x(i),
-          y: height - 8,
-          textAnchor: "middle",
+          key: `x${i}`,
           className: labelClassName,
-          style: { fontSize: 11 },
+          style: { flex: 1, fontSize: 11, textAlign: "center" },
         },
         d.label,
       ),
     ),
+  );
+
+  return h(
+    "div",
+    {
+      className,
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        width,
+        height,
+        backgroundColor: "#ffffff",
+        ...style,
+      },
+    },
+    title
+      ? h(
+          "div",
+          {
+            className: labelClassName,
+            style: { height: titleH, fontSize: 15, fontWeight: 600 },
+          },
+          title,
+        )
+      : null,
+    h(
+      "div",
+      { style: { display: "flex", flexDirection: "row", height: svgH } },
+      yAxis,
+      svg,
+    ),
+    xAxis,
   );
 }
