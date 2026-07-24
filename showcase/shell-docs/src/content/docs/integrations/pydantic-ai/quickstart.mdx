@@ -128,7 +128,7 @@ Before you begin, you'll need the following:
                 Add Pydantic AI with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn starlette==0.45.3
+                uv add 'pydantic-ai-slim[ag-ui,openai]' uvicorn starlette==0.45.3
                 ```
             </Step>
             <Step>
@@ -156,25 +156,66 @@ Before you begin, you'll need the following:
                 app = agent.to_ag_ui()
 
                 if __name__ == "__main__":
+                    import uvicorn
+                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+                ```
+            </Step>
+            <Step>
+                ### Install frontend dependencies
 
-                const serviceAdapter = new ExperimentalEmptyAdapter();
+                Create a Next.js app if you don't have one already, then install the required packages:
 
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### Create the API route
+
+                Create a route handler to connect your frontend to your agent:
+
+                ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+                import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
+                import { HttpAgent } from "@ag-ui/client";
+                import { handle } from "hono/vercel";
+
+                // Create the CopilotRuntime instance with your agent
                 const runtime = new CopilotRuntime({
                   agents: {
                     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
-                  }
+                  },
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                // Create the API endpoint
+                const app = createCopilotEndpoint({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
-               ```
+                export const GET = handle(app);
+                export const POST = handle(app);
+                export const PATCH = handle(app);
+                export const DELETE = handle(app);
+                ```
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -183,10 +224,12 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import type { ReactNode } from "react"; // [!code highlight]
 
                 // ...
 
-                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
                     <html lang="en">
                       <body>
@@ -293,6 +336,7 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
+
 </Steps>
 
 ## What's next?

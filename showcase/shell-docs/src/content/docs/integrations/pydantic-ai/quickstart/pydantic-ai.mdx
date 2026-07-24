@@ -4,7 +4,6 @@ description: Turn your Pydantic AI Agents into an agent-native application in 10
 icon: "lucide/Play"
 ---
 
-
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
   className="rounded-lg shadow-xl"
@@ -94,7 +93,7 @@ Before you begin, you'll need the following:
                 Our examples will also use uvicorn to run the agent.
 
                 ```sh
-                pip install 'pydantic-ai-slim[ag-ui]' uvicorn
+                pip install 'pydantic-ai-slim[ag-ui,openai]' uvicorn
                 ```
             </Step>
             <Step>
@@ -108,31 +107,66 @@ Before you begin, you'll need the following:
 
                 # If you want the server to run on invocation, you can do the following:
                 if __name__ == "__main__":
+                    import uvicorn
+                    uvicorn.run("agent:app", host="0.0.0.0", port=8000, reload=True)
+                ```
+            </Step>
+            <Step>
+                ### Install frontend dependencies
 
-                // 1. You can use any service adapter here for multi-agent support. We use
-                //    the empty adapter since we're only using one agent.
-                const serviceAdapter = new ExperimentalEmptyAdapter();
+                Create a Next.js app if you don't have one already, then install the required packages:
 
-                // 2. Create the CopilotRuntime instance and utilize the PydanticAI AG-UI
-                //    integration to setup the connection.
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        pnpm add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        yarn add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        bun add @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### Create the API route
+
+                Create a route handler to connect your frontend to your agent:
+
+                ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+                import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime/v2";
+                import { HttpAgent } from "@ag-ui/client";
+                import { handle } from "hono/vercel";
+
+                // Create the CopilotRuntime instance with your agent
                 const runtime = new CopilotRuntime({
                   agents: {
-                    // Our AG-UI endpoint URL
-                    "my_agent": new HttpAgent({ url: "http://localhost:8000/" }),
-                  }
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+                  },
                 });
 
-                // 3. Build a Next.js API route that handles the CopilotKit runtime requests.
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                // Create the API endpoint
+                const app = createCopilotEndpoint({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
-               ```
+                export const GET = handle(app);
+                export const POST = handle(app);
+                export const PATCH = handle(app);
+                export const DELETE = handle(app);
+                ```
             </Step>
             <Step>
                 ### Setup the CopilotKit provider
@@ -140,6 +174,9 @@ Before you begin, you'll need the following:
                 users will wrap their entire application in the CopilotKit provider.
 
                 ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css"; // [!code highlight]
+                import type { ReactNode } from "react"; // [!code highlight]
 
                 export default function RootLayout({ children }: { children: ReactNode }) {
                   return (
@@ -162,7 +199,7 @@ Before you begin, you'll need the following:
                 this is done alongside your core page components, e.g. in your `page.tsx` file.
 
                 ```tsx title="page.tsx"
-                // [!code highlight:2]
+                import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight]
 
                 export function YourApp() {
                 return (
