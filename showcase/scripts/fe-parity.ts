@@ -51,7 +51,10 @@ const CODE_EXT = new Set([".tsx", ".ts", ".jsx", ".js", ".css", ".scss", ".mjs",
 const DOC_EXT = new Set([".md", ".mdx"]);
 const DATA_EXT = new Set([".json"]);
 
-type Status = "IDENTICAL" | "IDENTITY" | "DRIFT" | "MISSING" | "EXTRA";
+// ALLOWED = a real content difference that is a SANCTIONED per-integration
+// divergence, declared in the integration's PARITY_NOTES.md allowlist. It is
+// NOT drift and does NOT fail the gate — see readAllowlist().
+type Status = "IDENTICAL" | "IDENTITY" | "ALLOWED" | "DRIFT" | "MISSING" | "EXTRA";
 type Kind = "code" | "doc" | "data";
 interface FileResult {
   rel: string; // path relative to src/
@@ -61,6 +64,7 @@ interface FileResult {
   diffLines: number; // for DRIFT
   refPath?: string;
   candPath?: string;
+  allowReason?: string; // set when status === "ALLOWED"
 }
 
 function fail(msg: string): never {
@@ -179,9 +183,40 @@ function unifiedDiff(a: string, b: string, labelA?: string, labelB?: string): st
   }
 }
 
+/** Read the sanctioned-divergence allowlist from an integration's
+ *  PARITY_NOTES.md — an HTML-comment block whose lines are
+ *  `<src-relative-path> | <reason>`. Listed files are REAL, intentional
+ *  per-integration differences (each verified, e.g. by D6) and are reported
+ *  as ALLOWED rather than DRIFT, so the gate is not driven toward an
+ *  impossible "byte-identical everything" goal. Keeping the list — with its
+ *  reason — human-visible in PARITY_NOTES.md is deliberate: it stops anyone
+ *  (or any agent) from re-litigating a difference that is there on purpose. */
+function readAllowlist(slug: string): Map<string, string> {
+  const out = new Map<string, string>();
+  let text: string;
+  try {
+    text = fs.readFileSync(path.join(INTEGRATIONS, slug, "PARITY_NOTES.md"), "utf8");
+  } catch {
+    return out;
+  }
+  const block = /<!--\s*fe-parity-allow\s*([\s\S]*?)-->/.exec(text);
+  if (!block) return out;
+  for (const raw of block[1].split("\n")) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const idx = line.indexOf("|");
+    if (idx === -1) continue;
+    const rel = line.slice(0, idx).trim();
+    const reason = line.slice(idx + 1).trim();
+    if (rel) out.set(rel, reason);
+  }
+  return out;
+}
+
 function compare(slug: string, refSlug: string): FileResult[] {
   const candId = readIdentity(slug);
   const refId = readIdentity(refSlug);
+  const allow = readAllowlist(slug);
   const refFiles = surfaceFiles(refSlug);
   const candFiles = surfaceFiles(slug);
   const results: FileResult[] = [];
@@ -214,6 +249,14 @@ function compare(slug: string, refSlug: string): FileResult[] {
       results.push({ rel, area: areaOf(rel), kind: kindOf(rel), status: "EXTRA", diffLines: 0, candPath: candAbs });
     }
   }
+  // Reclassify sanctioned divergences (DRIFT/MISSING/EXTRA declared in
+  // PARITY_NOTES.md) as ALLOWED so they never fail the gate.
+  for (const r of results) {
+    if ((r.status === "DRIFT" || r.status === "MISSING" || r.status === "EXTRA") && allow.has(r.rel)) {
+      r.status = "ALLOWED";
+      r.allowReason = allow.get(r.rel);
+    }
+  }
   return results;
 }
 
@@ -232,7 +275,11 @@ const C = {
   bold: (s: string) => `\x1b[1m${s}\x1b[0m`,
 };
 const mark = (s: Status) =>
-  s === "IDENTICAL" ? C.green("IDENTICAL") : s === "IDENTITY" ? C.green("IDENTITY ") : s === "DRIFT" ? C.red("DRIFT    ") : s === "MISSING" ? C.red("MISSING  ") : C.yellow("EXTRA    ");
+  s === "IDENTICAL" ? C.green("IDENTICAL") : s === "IDENTITY" ? C.green("IDENTITY ") : s === "ALLOWED" ? C.dim("ALLOWED  ") : s === "DRIFT" ? C.red("DRIFT    ") : s === "MISSING" ? C.red("MISSING  ") : C.yellow("EXTRA    ");
+
+// A demo/area is "clean" when nothing in it is unsanctioned drift — IDENTICAL,
+// IDENTITY (name-only) and ALLOWED (sanctioned) all count as clean.
+const CLEAN: Status[] = ["IDENTICAL", "IDENTITY", "ALLOWED"];
 
 function summarize(rs: FileResult[]) {
   const code = rs.filter((r) => r.kind === "code");
@@ -241,6 +288,7 @@ function summarize(rs: FileResult[]) {
     code: code.length,
     identical: by("IDENTICAL"),
     identity: by("IDENTITY"),
+    allowed: by("ALLOWED"),
     drift: by("DRIFT"),
     missing: by("MISSING"),
     extra: by("EXTRA"),
@@ -257,23 +305,27 @@ function humanReport(slug: string, refSlug: string, rs: FileResult[], verbose: b
   const order = (a: string) => (a === "chrome" ? 0 : a === "components" ? 1 : a === "lib" ? 2 : a.startsWith("demo:") ? 3 : 4);
   areas.sort((a, b) => order(a) - order(b) || a.localeCompare(b));
 
+  const fileLine = (r: FileResult) =>
+    `   ${mark(r.status)} ${r.rel}` +
+    (r.status === "DRIFT" ? C.dim(` (${r.diffLines} lines)`) : "") +
+    (r.status === "ALLOWED" ? C.dim(`  — sanctioned: ${r.allowReason ?? "(see PARITY_NOTES.md)"}`) : "");
+
   for (const area of areas) {
     const files = rs.filter((r) => r.area === area);
-    const problems = files.filter((r) => r.status !== "IDENTICAL");
+    const drifts = files.filter((r) => !CLEAN.includes(r.status)); // real, gating
+    const allowed = files.filter((r) => r.status === "ALLOWED");
     if (area === "components" || area === "lib") {
-      const total = files.length;
-      const clean = files.filter((r) => r.status === "IDENTICAL" || r.status === "IDENTITY").length;
-      const tag = problems.length ? C.red(`${total - clean} differ`) : C.green("all identical");
-      console.log(`${C.bold(area.toUpperCase())}  ${clean}/${total} ${tag}`);
-      for (const r of problems) console.log(`   ${mark(r.status)} ${r.rel}${r.status === "DRIFT" ? C.dim(` (${r.diffLines} lines)`) : ""}`);
+      const clean = files.filter((r) => CLEAN.includes(r.status)).length;
+      const tag = drifts.length ? C.red(`${drifts.length} drift`) : C.green("all clean");
+      console.log(`${C.bold(area.toUpperCase())}  ${clean}/${files.length} ${tag}`);
+      for (const r of [...drifts, ...allowed]) console.log(fileLine(r));
       continue;
     }
     const label = area.startsWith("demo:") ? area.slice(5) : area.toUpperCase();
-    if (!verbose && problems.length === 0 && area.startsWith("demo:")) continue; // hide clean demos
     if (area.startsWith("demo:")) {
-      if (problems.length === 0) {
+      if (drifts.length === 0 && allowed.length === 0) {
         if (verbose) console.log(`${C.green("✓")} demo ${label} — identical`);
-        continue;
+        continue; // hide fully-clean demos unless verbose
       }
       console.log(C.bold(`demo ${label}`));
     } else {
@@ -281,21 +333,20 @@ function humanReport(slug: string, refSlug: string, rs: FileResult[], verbose: b
     }
     for (const r of files) {
       if (!verbose && r.status === "IDENTICAL") continue;
-      console.log(`   ${mark(r.status)} ${r.rel}${r.status === "DRIFT" ? C.dim(` (${r.diffLines} lines)`) : ""}`);
+      console.log(fileLine(r));
     }
   }
 
   const s = summarize(rs);
-  const cleanDemos = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))].filter(
-    (a) => !rs.some((r) => r.area === a && r.status !== "IDENTICAL"),
-  ).length;
-  const totalDemos = new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area)).size;
+  const demoAreas = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))];
+  const cleanDemos = demoAreas.filter((a) => !rs.some((r) => r.area === a && !CLEAN.includes(r.status))).length;
   console.log(C.bold(`\nSUMMARY`));
-  console.log(`  code files: ${s.code} | ${C.green(`${s.identical} identical`)}, ${s.identity} identity-only, ${C.red(`${s.drift} drift`)}, ${C.red(`${s.missing} missing`)}, ${C.yellow(`${s.extra} extra`)}`);
-  console.log(`  demos: ${cleanDemos}/${totalDemos} byte-identical`);
+  console.log(`  code files: ${s.code} | ${C.green(`${s.identical} identical`)}, ${s.identity} identity-only, ${s.allowed ? C.dim(`${s.allowed} sanctioned, `) : ""}${C.red(`${s.drift} drift`)}, ${C.red(`${s.missing} missing`)}, ${C.yellow(`${s.extra} extra`)}`);
+  console.log(`  demos: ${cleanDemos}/${demoAreas.length} at parity (identical or sanctioned)`);
   if (s.docsData) console.log(C.dim(`  (docs/data files differing, non-gating: ${s.docsData})`));
   const pass = gatePasses(rs);
-  console.log(pass ? C.green(`\nPARITY: ✓ frontend is byte-identical (modulo integration name).`) : C.red(`\nPARITY: ✗ not yet — ${s.drift} drift, ${s.missing} missing, ${s.extra} extra code file(s).`));
+  const exceptNote = s.allowed ? ` (${s.allowed} sanctioned exception${s.allowed === 1 ? "" : "s"} — see PARITY_NOTES.md)` : "";
+  console.log(pass ? C.green(`\nPARITY: ✓ no unsanctioned drift — byte-identical modulo integration name${exceptNote}.`) : C.red(`\nPARITY: ✗ ${s.drift} drift, ${s.missing} missing, ${s.extra} extra unsanctioned code file(s).`));
 }
 
 function fleetReport(refSlug: string) {
@@ -304,11 +355,9 @@ function fleetReport(refSlug: string) {
     .map((slug) => {
       const rs = compare(slug, refSlug);
       const s = summarize(rs);
-      const totalDemos = new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area)).size;
-      const cleanDemos = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))].filter(
-        (a) => !rs.some((r) => r.area === a && r.status !== "IDENTICAL"),
-      ).length;
-      return { slug, ...s, cleanDemos, totalDemos, gap: s.drift + s.missing + s.extra };
+      const demoAreas = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))];
+      const cleanDemos = demoAreas.filter((a) => !rs.some((r) => r.area === a && !CLEAN.includes(r.status))).length;
+      return { slug, ...s, cleanDemos, totalDemos: demoAreas.length, gap: s.drift + s.missing + s.extra };
     })
     .sort((a, b) => a.gap - b.gap || a.slug.localeCompare(b.slug));
   console.log(C.bold(`\nFrontend parity vs ${refSlug} (code files; lower gap = closer)\n`));
@@ -329,10 +378,9 @@ function truncate(diff: string, full: boolean, n = 60): string {
 
 function markdownReport(slug: string, refSlug: string, rs: FileResult[], full: boolean) {
   const s = summarize(rs);
-  const totalDemos = new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area)).size;
-  const cleanDemos = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))].filter(
-    (a) => !rs.some((r) => r.area === a && r.status !== "IDENTICAL"),
-  ).length;
+  const demoAreas = [...new Set(rs.filter((r) => r.area.startsWith("demo:")).map((r) => r.area))];
+  const totalDemos = demoAreas.length;
+  const cleanDemos = demoAreas.filter((a) => !rs.some((r) => r.area === a && !CLEAN.includes(r.status))).length;
   const L: string[] = [];
   L.push(`# Frontend parity audit: \`${slug}\` → \`${refSlug}\``);
   L.push("");
@@ -345,15 +393,24 @@ function markdownReport(slug: string, refSlug: string, rs: FileResult[], full: b
   L.push(`| Code files compared | ${s.code} |`);
   L.push(`| Byte-identical | ${s.identical} |`);
   L.push(`| Identity-only (name/title) | ${s.identity} |`);
+  L.push(`| Sanctioned divergence (allowed) | ${s.allowed} |`);
   L.push(`| **Drift (must fix)** | **${s.drift}** |`);
   L.push(`| **Missing (must add)** | **${s.missing}** |`);
   L.push(`| **Extra (must remove/justify)** | **${s.extra}** |`);
-  L.push(`| Demos byte-identical | ${cleanDemos}/${totalDemos} |`);
+  L.push(`| Demos at parity (identical or sanctioned) | ${cleanDemos}/${totalDemos} |`);
   L.push("");
 
-  const problems = rs.filter((r) => r.status !== "IDENTICAL" && r.status !== "IDENTITY");
+  const allowed = rs.filter((r) => r.status === "ALLOWED");
+  if (allowed.length) {
+    L.push(`### Sanctioned divergences (not drift — see PARITY_NOTES.md)`);
+    L.push("");
+    for (const r of allowed) L.push(`- \`${r.rel}\` — ${r.allowReason ?? "(reason in PARITY_NOTES.md)"}`);
+    L.push("");
+  }
+
+  const problems = rs.filter((r) => !CLEAN.includes(r.status)); // real, gating drift only
   if (problems.length === 0) {
-    L.push(`✅ **At parity** — every frontend code file is byte-identical (modulo name).`);
+    L.push(`✅ **At parity** — no unsanctioned drift (byte-identical modulo integration name${allowed.length ? `; ${allowed.length} sanctioned exception(s)` : ""}).`);
   } else {
     // chrome first
     const areas = [...new Set(problems.map((r) => r.area))].sort((a, b) => {
