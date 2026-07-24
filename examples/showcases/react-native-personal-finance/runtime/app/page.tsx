@@ -10,7 +10,7 @@ export default function Home() {
         lineHeight: 1.6,
       }}
     >
-      <h1>AI + Finance Tracker — CopilotKit Runtime</h1>
+      <h1>Personal Finance Copilot — CopilotKit Runtime</h1>
       <p>
         This server hosts the CopilotKit runtime that the React Native app
         connects to. It exposes two endpoints:

@@ -1,5 +1,5 @@
 /**
- * Receipt image-attachment flow for the AI + Finance Tracker.
+ * Receipt image-attachment flow for the Personal Finance Copilot.
  *
  * Capture → parse → draft. When the user attaches a receipt photo in chat, the
  * image is POSTed to the runtime's vision endpoint (`/api/receipt`), which

@@ -1,5 +1,5 @@
 /**
- * Custom (headless) chat UI for the AI + Finance Tracker.
+ * Custom (headless) chat UI for the Personal Finance Copilot.
  *
  * Keeps the `useAgent` + `useCopilotKit` send loop, but renders the tool /
  * human-in-the-loop output INLINE in the message list and adds a receipt 📎

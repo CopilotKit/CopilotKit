@@ -1,5 +1,5 @@
 /**
- * Shared domain types for the AI + Finance Tracker.
+ * Shared domain types for the Personal Finance Copilot.
  *
  * This is the foundational contract every other slot imports. Keep these
  * JSON-friendly and stable — changing a field here ripples across the app.

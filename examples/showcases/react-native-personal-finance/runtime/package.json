@@ -2,7 +2,7 @@
   "name": "finance-tracker-runtime",
   "version": "0.1.0",
   "private": true,
-  "description": "CopilotKit runtime for the AI + Finance Tracker React Native app: hosts the finance assistant agent (AG-UI over @copilotkit/runtime) and a vision-powered receipt parsing endpoint.",
+  "description": "CopilotKit runtime for the Personal Finance Copilot React Native app: hosts the finance assistant agent (AG-UI over @copilotkit/runtime) and a vision-powered receipt parsing endpoint.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

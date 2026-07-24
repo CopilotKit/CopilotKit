@@ -1,5 +1,5 @@
 /**
- * AI + Finance Tracker — app shell.
+ * Personal Finance Copilot — app shell.
  * https://docs.copilotkit.ai/react-native
  *
  * Provider stack: SafeAreaProvider › CopilotKitProvider › app body.

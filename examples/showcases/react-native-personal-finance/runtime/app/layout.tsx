@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 export const metadata = {
-  title: "AI + Finance Tracker — CopilotKit Runtime",
+  title: "Personal Finance Copilot — CopilotKit Runtime",
   description:
     "CopilotKit runtime hosting the finance assistant agent and the receipt vision endpoint.",
 };

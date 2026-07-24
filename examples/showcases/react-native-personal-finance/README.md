@@ -89,8 +89,8 @@ You need a Mac with Xcode, Node 22+, Ruby (for CocoaPods), an iOS simulator, and
 
 ```bash
 # 1. Clone and install
-git clone https://github.com/jerelvelarde/personal-finance-copilot.git
-cd personal-finance-copilot
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/showcases/react-native-personal-finance
 npm install
 cd ios && bundle install && bundle exec pod install && cd ..
 
@@ -174,13 +174,7 @@ The agent can chain tools — try compound asks:
 └─────────────────────────────────────┘
 ```
 
-The custom `ChatScreen` walks `copilotkit.renderToolCalls` (registered by `useHumanInTheLoop` / `useFrontendTool({render})`) — a different registry from the RN-local `useRenderTool` registry the prebuilt `<CopilotChat>` reads. Doing this manually is what lets HITL `respond(…)` round-trip through a custom chat (see [the friction log](.chalk/friction.md) for the deep-dive).
-
----
-
-## Engineering notes
-
-A detailed friction log lives at [`.chalk/friction.md`](.chalk/friction.md) — every undocumented Metro / Babel / polyfill fix needed to get `@copilotkit/react-native@1.59.2` running on bare RN 0.85, plus a "Round 2" section with the API/DX issues hit while _building_ on the SDK (the headless-render registry, the `useAttachments` headless path, the `useCopilotReadable` parity gap, several typing papercuts, and the v1 vs v2 runtime endpoint trap). Useful reading if you're building on CopilotKit in React Native.
+The custom `ChatScreen` walks `copilotkit.renderToolCalls` (registered by `useHumanInTheLoop` / `useFrontendTool({render})`) — a different registry from the RN-local `useRenderTool` registry the prebuilt `<CopilotChat>` reads. Doing this manually is what lets HITL `respond(…)` round-trip through a custom chat.
 
 ---
 
@@ -192,18 +186,23 @@ Open issues track the most-requested follow-ups:
 - **Budget management** — edit / delete budgets from the UI (the richer per-category progress visualisation has shipped)
 - **Persistence** — the in-memory Zustand store should survive reloads
 
-See [Issues](https://github.com/jerelvelarde/personal-finance-copilot/issues).
+See [Issues](https://github.com/CopilotKit/CopilotKit/issues).
 
 ---
 
 ## Repo layout
 
 ```
+App.tsx                          # provider tree + state-based tab nav (repo root)
+index.js                         # RN entry: polyfills + AppRegistry.registerComponent
+
 src/
-├─ App.tsx                       # provider tree + tab nav
 ├─ ChatScreen.tsx                # custom headless chat (renders HITL + tool output inline)
-├─ types.ts, lib/, store/        # the small Zustand store + currency utilities
+├─ types.ts                      # shared domain types
+├─ lib/currency.ts               # currency formatting utilities
+├─ store/financeStore.ts         # the small Zustand store, seeded with sample data
 ├─ copilot/
+│  ├─ index.tsx                  # <FinanceCopilot> — mounts every tool once (renders no UI)
 │  ├─ contracts.ts               # tool names + arg shapes
 │  ├─ ApprovalCard.tsx           # shared HITL card
 │  ├─ ResultCards.tsx            # generative-UI result cards
@@ -215,15 +214,14 @@ src/
 │  ├─ receipt.tsx                # parseReceipt + useAttachments wiring
 │  └─ receiptClient.ts           # fetch wrapper for the runtime's /api/receipt
 ├─ screens/                      # Dashboard, Accounts, Transactions, Budgets
-└─ components/                   # presentational pieces (TransactionRow, BudgetBar, theme, …)
+└─ components/                   # presentational pieces (AccountCard, TransactionRow, BudgetBar, theme, …)
 
 runtime/                         # Next.js CopilotKit runtime
-├─ app/api/copilotkit/[[...all]]/route.ts   # AG-UI catch-all
+├─ app/api/copilotkit/[[...all]]/route.ts   # AG-UI catch-all (v2 handler)
 ├─ app/api/receipt/route.ts                  # vision endpoint
 └─ lib/                                      # finance agent + model selection
 
-.maestro/                        # E2E flows
-.chalk/friction.md               # engineering feedback / friction log
+.maestro/                        # E2E flows (Maestro)
 ```
 
 ---

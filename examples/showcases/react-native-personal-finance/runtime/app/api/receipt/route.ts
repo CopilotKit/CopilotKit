@@ -6,7 +6,7 @@ import { RECEIPT_MODEL } from "@/lib/models";
 /**
  * POST /api/receipt
  *
- * Vision-powered receipt parser for the AI + Finance Tracker app. Accepts a
+ * Vision-powered receipt parser for the Personal Finance Copilot app. Accepts a
  * receipt image and returns structured fields the client can turn into a
  * proposed transaction:
  *

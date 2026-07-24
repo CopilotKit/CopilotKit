@@ -6,7 +6,7 @@ import {
 import { createFinanceAgent } from "@/lib/finance-agent";
 
 /**
- * CopilotKit **v2 / AG-UI** runtime endpoint for the AI + Finance Tracker app.
+ * CopilotKit **v2 / AG-UI** runtime endpoint for the Personal Finance Copilot app.
  *
  * The React Native client (`@copilotkit/react-native` → `@copilotkit/core` →
  * `@ag-ui/client`) speaks the AG-UI HTTP protocol against SUB-PATHS of this
