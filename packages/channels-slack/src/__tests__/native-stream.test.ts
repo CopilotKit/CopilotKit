@@ -113,7 +113,7 @@ describe("NativeMessageStream", () => {
     expect(messages).toHaveLength(0);
   });
 
-  it("keeps a long reply in ONE message, chunking appends under the 12k per-call cap", async () => {
+  it("splits a long reply into continuation messages at the per-message budget", async () => {
     const { transport, messages } = makeFakeTransport();
     const stream = new NativeMessageStream({
       transport,
@@ -121,18 +121,130 @@ describe("NativeMessageStream", () => {
       minIntervalMs: 0,
     });
 
-    const text = "x".repeat(25_000); // > 2× the 12k per-append limit
+    // 25k of space-separated words (so clean word boundaries exist) > 2× budget.
+    const text = "word ".repeat(5_000).trimEnd(); // 24_999 chars
     stream.append(text);
     await stream.finish();
 
-    // One streamed message (no continuation splitting), finalized.
-    expect(messages).toHaveLength(1);
-    expect(messages[0]!.stopped).toBe(true);
-    // Reconstructs exactly, and every append is <= 12k chars.
-    const appends = messages[0]!.events.filter((e) => e.kind === "text");
-    expect(appends.length).toBeGreaterThan(1);
-    for (const a of appends) expect(a.value.length).toBeLessThanOrEqual(12_000);
-    expect(textOf(messages[0]!.events)).toBe(text);
+    // Rolls over into 3 messages (12k + 12k + remainder), each finalized.
+    expect(messages).toHaveLength(3);
+    for (const m of messages) expect(m.stopped).toBe(true);
+    // No text is lost: concatenating every message reconstructs the reply.
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    // Each message stays within the 12k markdown budget.
+    for (const m of messages) {
+      expect(textOf(m.events).length).toBeLessThanOrEqual(12_000);
+    }
+    // Every individual append is also under the per-call cap.
+    for (const m of messages) {
+      for (const e of m.events) {
+        if (e.kind === "text") expect(e.value.length).toBeLessThanOrEqual(12_000);
+      }
+    }
+    expect(stream.firstTs).toBe("S1");
+  });
+
+  it("re-opens an open code fence at the start of a continuation message", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // A fenced code block that stays open well past the 12k budget, forcing a
+    // split while inside the fence.
+    const text = "intro\n```js\n" + "const x = 1;\n".repeat(1_500);
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThanOrEqual(2);
+    // The continuation message's first text append re-opens the fence so it
+    // renders as code standalone rather than leaking the raw source.
+    expect(textOf(messages[1]!.events).startsWith("```")).toBe(true);
+  });
+
+  it("fails over to legacy with only the un-posted remainder when a continuation startStream fails", async () => {
+    // First startStream succeeds; the continuation's startStream throws.
+    let starts = 0;
+    let native = ""; // text posted to the (only) native message
+    let stopped = false;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation startStream refused");
+        return "S1";
+      }),
+      appendText: vi.fn(async (_ts: string, md: string) => {
+        native += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {
+        stopped = true;
+      }),
+    };
+    const fallback = makeFakeFallback();
+    const onStartFailure = vi.fn();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      onStartFailure,
+      minIntervalMs: 0,
+    });
+
+    const text = "word ".repeat(5_000).trimEnd(); // forces a continuation
+    stream.append(text);
+    // Let the first flush run (and fail over) before appending more, so the
+    // post-failover forwarding path is exercised too.
+    await new Promise((r) => setTimeout(r, 1));
+    const finalText = `${text} plus a post-failover tail.`;
+    stream.append(finalText);
+    await stream.finish();
+
+    expect(starts).toBe(2); // first + the failing continuation
+    // The first start succeeded, so the workspace demonstrably supports native
+    // streaming — a continuation blip must NOT downgrade it to legacy.
+    expect(onStartFailure).not.toHaveBeenCalled();
+    // The native message was finalized at the boundary and keeps its text; the
+    // legacy stream carries ONLY the remainder — nothing dropped, nothing twice.
+    expect(stopped).toBe(true);
+    expect(native.length).toBeGreaterThan(0);
+    expect(native + fallback.last()).toBe(finalText);
+    expect(fallback.finished).toBe(true);
+  });
+
+  it("prepends the open-markdown opener to the legacy remainder on continuation failover", async () => {
+    let starts = 0;
+    let native = "";
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation startStream refused");
+        return "S1";
+      }),
+      appendText: vi.fn(async (_ts: string, md: string) => {
+        native += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const fallback = makeFakeFallback();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      minIntervalMs: 0,
+    });
+
+    // A fence still open at the split point, so the legacy remainder needs a
+    // re-opener to render as code standalone.
+    const text = "intro\n```js\n" + "const x = 1;\n".repeat(1_500);
+    stream.append(text);
+    await stream.finish();
+
+    expect(starts).toBe(2);
+    expect(fallback.last().startsWith("```")).toBe(true);
+    // Everything past the native boundary made it into the legacy stream.
+    expect(fallback.last().endsWith(text.slice(native.length))).toBe(true);
   });
 
   it("appendChunk flushes pending text FIRST, then sends the chunk", async () => {

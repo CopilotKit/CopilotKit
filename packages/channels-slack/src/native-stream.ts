@@ -12,32 +12,42 @@
  *     renderer tolerates a mid-stream-unbalanced buffer).
  *   - `appendStream` takes the *delta* since the last flush, not the full
  *     accumulated text, so this class tracks how much it has already sent.
- *   - A single streamed message holds the whole reply: Slack documents no
- *     cumulative per-message cap, only a **12k char limit per `markdown_text`
- *     call**, so long replies are sent as successive ≤12k appends to the SAME
- *     message (no multi-message splitting — that was a `chat.update`-era
- *     workaround).
+ *   - A streamed message caps at ~12k characters of markdown; past that we
+ *     `stopStream` the current message and `startStream` a continuation,
+ *     prepending the open-markdown context (fence / bold / …) so the
+ *     continuation stands on its own — the same idea as
+ *     {@link ChunkedMessageStream}, reusing `detectOpenContext` /
+ *     `renderContextOpener`.
  *   - Beyond text, the stream can carry structured {@link AnyChunk}s
  *     (`task_update` / `plan_update` / `blocks`) via {@link appendChunk}, which
  *     flushes any pending text first so ordering is preserved, and a finalized
  *     message can carry trailing Block Kit (e.g. a feedback row) via the
  *     `finalBlocks` passed to {@link finish}.
  *
- * Failure handling — "opting in can never break a bot": if the very first
+ * Failure handling — "opting in can never break a bot": if the first
  * `startStream` throws (e.g. a workspace where the streaming API is
  * unavailable), the stream transparently rebuilds itself on the supplied
- * legacy `fallback()` transport and replays the buffer there. `onStartFailure`
- * lets the adapter mark the workspace legacy so subsequent streams skip the
- * native path entirely. Per-`appendStream` failures mid-stream are swallowed
- * (logged) like the legacy streamer's failed edits; a failing structured-chunk
- * append additionally fires `onChunkFailure` so the caller can degrade
- * tool-progress to its legacy surface.
+ * legacy `fallback()` transport, replays the full buffer there, and fires
+ * `onStartFailure` so the adapter marks the workspace legacy and subsequent
+ * streams skip the native path entirely. If a *continuation* `startStream`
+ * throws, only the un-posted remainder (with its open-markdown opener) is
+ * replayed to legacy — the already-finalized native message(s) stand, so
+ * nothing posts twice — and `onStartFailure` is NOT fired: the successful
+ * first start proved the workspace supports native streaming, so a
+ * continuation blip is transient, not a downgrade signal. Per-`appendStream`
+ * failures mid-stream are swallowed (logged) like the legacy streamer's failed
+ * edits; a failing structured-chunk append additionally fires `onChunkFailure`
+ * so the caller can degrade tool-progress to its legacy surface.
  *
  * Nothing here imports `@slack/web-api` — the Slack calls are injected as a
- * {@link NativeStreamTransport}, keeping the cadence logic unit-testable with
- * fake timers and a fake transport.
+ * {@link NativeStreamTransport}, keeping the cadence/continuation logic
+ * unit-testable with fake timers and a fake transport.
  */
 import type { AnyChunk, KnownBlock } from "@slack/types";
+import {
+  detectOpenContext,
+  renderContextOpener,
+} from "./auto-close-streaming.js";
 
 /** A minimal `{ append(fullText), finish() }` streaming sink. */
 export interface TextStream {
@@ -62,9 +72,9 @@ export interface NativeStreamTransport {
 export interface NativeMessageStreamConfig {
   transport: NativeStreamTransport;
   /**
-   * Builds the legacy `chat.update` transport, used only if the first
-   * `startStream` throws. The accumulated buffer is replayed into it so no
-   * text is lost.
+   * Builds the legacy `chat.update` transport, used only if a `startStream`
+   * throws. The buffer not already held by a finalized native message is
+   * replayed into it so no text is lost.
    */
   fallback: () => TextStream;
   /** Called once when the first `startStream` fails (adapter marks the workspace legacy). */
@@ -78,6 +88,12 @@ export interface NativeMessageStreamConfig {
   onChunkFailure?: (err: unknown) => void;
   /** Minimum gap between text flushes, in ms (defaults to 600). */
   minIntervalMs?: number;
+  /**
+   * Soft per-message markdown budget; once a message reaches it we finalize it
+   * and open a continuation message. Defaults to 12000 (Slack's per-message
+   * `markdown_text` limit).
+   */
+  messageBudget?: number;
 }
 
 /**
@@ -87,8 +103,9 @@ export interface NativeMessageStreamConfig {
  * 429s honoring `Retry-After`, so this is a soft floor, not a correctness gate.
  */
 const DEFAULT_MIN_INTERVAL_MS = 600;
-/** Slack caps `markdown_text` at 12k chars per `appendStream` call. */
+/** Slack caps `markdown_text` at ~12k chars per `appendStream` call and per message. */
 const APPEND_CHAR_LIMIT = 12000;
+const DEFAULT_MESSAGE_BUDGET = 12000;
 
 export class NativeMessageStream implements TextStream {
   private buffer = "";
@@ -99,13 +116,21 @@ export class NativeMessageStream implements TextStream {
 
   /** Current streamed message ts (undefined until the first `startStream`). */
   private curTs: string | undefined;
-  /** Buffer chars already appended as text to the current message. */
+  /** Buffer index where the current message's content begins. */
+  private curStart = 0;
+  /** Buffer chars of the current message already appended (excludes the opener prefix). */
   private curPosted = 0;
+  /** Display length of the open-context opener prepended to a continuation message. */
+  private curOpenerLen = 0;
   /** ts of the first streamed message (for the returned MessageRef). */
   private firstTsValue: string | undefined;
 
   /** Set once `startStream` has failed and we've fallen back to the legacy transport. */
   private legacy: TextStream | undefined;
+  /** Buffer index where the legacy fallback's content starts (0 unless a continuation failed over). */
+  private legacyOffset = 0;
+  /** Open-markdown opener prepended to the legacy fallback's replayed remainder. */
+  private legacyOpener = "";
   /** Set once a chunk append has failed/been refused, so we stop trying. */
   private chunksDisabled = false;
 
@@ -114,6 +139,7 @@ export class NativeMessageStream implements TextStream {
   private readonly onStartFailure: ((err: unknown) => void) | undefined;
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
   private readonly minIntervalMs: number;
+  private readonly messageBudget: number;
 
   constructor(config: NativeMessageStreamConfig) {
     this.transport = config.transport;
@@ -121,6 +147,7 @@ export class NativeMessageStream implements TextStream {
     this.onStartFailure = config.onStartFailure;
     this.onChunkFailure = config.onChunkFailure;
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
+    this.messageBudget = config.messageBudget ?? DEFAULT_MESSAGE_BUDGET;
   }
 
   /** The first streamed message's ts (or the fallback's), available after finish(). */
@@ -130,7 +157,8 @@ export class NativeMessageStream implements TextStream {
 
   append(fullText: string): void {
     if (this.legacy) {
-      this.legacy.append(fullText);
+      this.buffer = fullText;
+      this.legacy.append(this.legacyRemainder());
       return;
     }
     if (fullText === this.buffer) return;
@@ -205,30 +233,23 @@ export class NativeMessageStream implements TextStream {
       this.firstTsValue = this.curTs;
       return true;
     } catch (err) {
-      this.failOverToLegacy(err);
+      this.failOverToLegacy(err, "first");
       return false;
     }
   }
 
-  /** Append all un-posted buffer text to the current message, chunked under the 12k per-call cap. */
+  /** Append all un-posted buffer text, rolling into continuation messages at the budget. */
   private async flushText(): Promise<void> {
     if (this.legacy) return; // appends are forwarded directly once failed over
-    if (this.curPosted >= this.buffer.length) return; // nothing new
+    if (this.curStart + this.curPosted >= this.buffer.length) return; // nothing new
     if (!(await this.ensureStarted())) return;
     try {
-      let cursor = this.curPosted;
-      while (cursor < this.buffer.length) {
-        const end = Math.min(cursor + APPEND_CHAR_LIMIT, this.buffer.length);
-        await this.transport.appendText(
-          this.curTs!,
-          this.buffer.slice(cursor, end),
-        );
-        cursor = end;
-        this.curPosted = cursor;
-      }
+      await this.drainToNative();
     } catch (err) {
       // A mid-stream append failure shouldn't sink the stream; the next flush
-      // retries from `curPosted` (only advanced on success).
+      // retries from `curPosted` (only advanced on success). Continuation-start
+      // failures are handled inside drainToNative (failover), so anything
+      // reaching here is a genuine append failure.
       console.error(
         `[native-stream] appendText failed (ts=${this.curTs}, posted=${this.curPosted}/${this.buffer.length}):`,
         err,
@@ -236,6 +257,100 @@ export class NativeMessageStream implements TextStream {
     } finally {
       this.lastFlushedAt = Date.now();
     }
+  }
+
+  /**
+   * Drain un-posted text into the native stream, splitting messages at the
+   * budget: fill to a clean boundary, `stopStream`, `startStream` a
+   * continuation prepending the still-open markdown context (fence/bold/…) so
+   * it renders standalone.
+   */
+  private async drainToNative(): Promise<void> {
+    // Loop because a single flush may overflow the current message budget and
+    // need to open one (or more) continuation messages.
+    while (true) {
+      const posTextLen = this.curOpenerLen + this.curPosted; // display chars in current msg
+      const available = this.buffer.length - (this.curStart + this.curPosted);
+      if (available <= 0) return;
+
+      // Does the rest fit in the current message's budget?
+      if (posTextLen + available <= this.messageBudget) {
+        await this.appendDelta(
+          this.curStart + this.curPosted,
+          this.buffer.length,
+        );
+        return;
+      }
+
+      // Overflow: fill the current message up to the budget at a clean boundary,
+      // finalize it, then open a continuation that re-opens any open markdown.
+      const searchFrom = this.curStart + this.curPosted;
+      // `hardEnd` is the budget ceiling for this message; clamp it to always sit
+      // past `searchFrom` so a clean boundary can be found and we always make
+      // forward progress (a degenerate opener can never stall the loop).
+      const hardEnd = Math.max(
+        searchFrom + 1,
+        this.curStart + (this.messageBudget - this.curOpenerLen),
+      );
+      const boundary = this.chooseBoundary(searchFrom, hardEnd);
+      if (boundary > searchFrom) {
+        await this.appendDelta(searchFrom, boundary);
+      }
+      const ts = this.curTs!;
+      try {
+        await this.transport.stopStream(ts);
+      } catch (err) {
+        console.error(
+          `[native-stream] stopStream (continuation) failed (ts=${ts}):`,
+          err,
+        );
+      }
+      // Open the continuation, prepending the still-open markdown context so it
+      // renders standalone (same as ChunkedMessageStream's re-opener path). A
+      // continuation-start failure fails over to legacy, replaying only the
+      // un-posted remainder (opener included) — never dropping the remainder,
+      // never re-posting what the finalized native message(s) already hold.
+      const opener = renderContextOpener(
+        detectOpenContext(this.buffer.slice(0, boundary)),
+      );
+      let nextTs: string;
+      try {
+        nextTs = await this.transport.startStream();
+      } catch (err) {
+        this.failOverToLegacy(err, "continuation", boundary, opener);
+        return;
+      }
+      this.curTs = nextTs;
+      this.curStart = boundary;
+      this.curPosted = 0;
+      this.curOpenerLen = opener.length;
+      if (opener) await this.transport.appendText(this.curTs, opener);
+    }
+  }
+
+  /** Append `buffer[from, to)` to the current message, chunked under the 12k per-append cap. */
+  private async appendDelta(from: number, to: number): Promise<void> {
+    let cursor = from;
+    while (cursor < to) {
+      const end = Math.min(cursor + APPEND_CHAR_LIMIT, to);
+      await this.transport.appendText(this.curTs!, this.buffer.slice(cursor, end));
+      cursor = end;
+    }
+    this.curPosted = to - this.curStart;
+  }
+
+  /**
+   * Pick a split point in `[from, hardEnd]`: prefer the last newline (so a
+   * message ends on a line boundary), else the last space, else `hardEnd`.
+   * Never returns a point at or before `from` (that would post nothing and
+   * loop); falls back to `hardEnd` in that case.
+   */
+  private chooseBoundary(from: number, hardEnd: number): number {
+    const window = this.buffer.slice(from, hardEnd);
+    let rel = window.lastIndexOf("\n");
+    if (rel < window.length / 4) rel = window.lastIndexOf(" ");
+    const boundary = rel > 0 ? from + rel + 1 : hardEnd;
+    return boundary > from ? boundary : hardEnd;
   }
 
   /** Flush pending text, then append one structured chunk. */
@@ -249,6 +364,8 @@ export class NativeMessageStream implements TextStream {
       return;
     }
     await this.flushTextInline();
+    // A continuation boundary during the inline flush may have failed over.
+    if (this.legacy) return;
     try {
       await this.transport.appendChunks(this.curTs!, [chunk]);
     } catch (err) {
@@ -264,18 +381,8 @@ export class NativeMessageStream implements TextStream {
 
   /** Append pending text to the current (already-started) message; swallow failures. */
   private async flushTextInline(): Promise<void> {
-    if (this.curPosted >= this.buffer.length) return;
     try {
-      let cursor = this.curPosted;
-      while (cursor < this.buffer.length) {
-        const end = Math.min(cursor + APPEND_CHAR_LIMIT, this.buffer.length);
-        await this.transport.appendText(
-          this.curTs!,
-          this.buffer.slice(cursor, end),
-        );
-        cursor = end;
-        this.curPosted = cursor;
-      }
+      await this.drainToNative();
     } catch (err) {
       console.error(
         `[native-stream] appendText (pre-chunk) failed (ts=${this.curTs}):`,
@@ -291,19 +398,39 @@ export class NativeMessageStream implements TextStream {
   }
 
   /**
-   * Switch to the legacy `chat.update` transport and replay the full buffer so
-   * no text is lost ("opting in can never break a bot"). The full buffer is
-   * replayed because `append()` forwards the accumulated full text once
-   * `this.legacy` is set, so the legacy stream owns the whole response.
+   * Switch to the legacy `chat.update` transport so no text is lost ("opting
+   * in can never break a bot"). On a first-start failure the full buffer is
+   * replayed and `onStartFailure` marks the workspace legacy. On a
+   * continuation-start failure only the un-posted remainder is replayed
+   * (prepended with `opener` so open markdown renders standalone) — the
+   * finalized native message(s) already hold everything before `postedUpTo`,
+   * so replaying it would post it twice — and `onStartFailure` is NOT fired:
+   * the successful first start proved the workspace supports native streaming,
+   * so the blip is transient, not a capability signal. Subsequent
+   * `append(fullText)` calls keep forwarding only the slice past `postedUpTo`.
    */
-  private failOverToLegacy(err: unknown): void {
+  private failOverToLegacy(
+    err: unknown,
+    where: "first" | "continuation",
+    postedUpTo = 0,
+    opener = "",
+  ): void {
     console.warn(
-      "[native-stream] startStream failed; using legacy transport:",
+      `[native-stream] ${where} startStream failed; using legacy transport:`,
       err,
     );
-    this.onStartFailure?.(err);
+    if (where === "first") this.onStartFailure?.(err);
+    this.legacyOffset = postedUpTo;
+    this.legacyOpener = opener;
     const legacy = this.makeFallback();
-    legacy.append(this.buffer);
+    legacy.append(this.legacyRemainder());
     this.legacy = legacy;
+  }
+
+  /** The legacy fallback's view of the buffer: everything not already in a finalized native message. */
+  private legacyRemainder(): string {
+    return this.legacyOffset === 0
+      ? this.buffer
+      : this.legacyOpener + this.buffer.slice(this.legacyOffset);
   }
 }
