@@ -135,6 +135,19 @@ vi.mock("../../Markdown", () => ({
       fontFamily: "monospace",
       fontSize: 14,
     },
+    codeBlock: {
+      backgroundColor: "#f0f0f0",
+      borderRadius: 8,
+      padding: 12,
+      fontFamily: "monospace",
+      fontSize: 14,
+    },
+    blockquote: {
+      backgroundColor: "#f5f5f5",
+      borderWidth: 4,
+      borderColor: "#cccccc",
+      gapWidth: 12,
+    },
   },
   CopilotMarkdown: (props: {
     content: string;
@@ -254,6 +267,21 @@ describe("UserMessage", () => {
           color: "#FFFFFF",
           fontFamily: "monospace",
           fontSize: 14,
+        },
+        codeBlock: {
+          backgroundColor: "#004C99",
+          borderRadius: 8,
+          color: "#FFFFFF",
+          fontFamily: "monospace",
+          fontSize: 14,
+          padding: 12,
+        },
+        blockquote: {
+          backgroundColor: "#004C99",
+          borderColor: "#80BFFF",
+          borderWidth: 4,
+          color: "#FFFFFF",
+          gapWidth: 12,
         },
       },
     });
