@@ -78,6 +78,8 @@ const ALL_ROWS = Array.from({ length: TOTAL_ROWS }, (_, i) => makeRow(i));
 // the hook issues, so the test can assert the lightweight projection
 // (`fields=`) and `skipTotal` are actually sent on the wire. Reset per test.
 const initialFetchQueries: URLSearchParams[] = [];
+/** The supplemental signal fetch's query (unprojected — see the split below). */
+const supplementalQueries: URLSearchParams[] = [];
 
 function startPbServer(): Promise<{ server: Server; url: string }> {
   const server = createServer((req, res) => {
@@ -93,9 +95,19 @@ function startPbServer(): Promise<{ server: Server; url: string }> {
       PER_PAGE_CLAMP,
     );
     // Record initial-fetch (paged) requests only — skip the perPage=1 heartbeat
-    // ping so the projection/skipTotal assertions target the bulk fetch.
+    // ping so the projection/skipTotal assertions target the bulk fetch. The
+    // SUPPLEMENTAL signal fetch is also perPage>1, so it is split out by its
+    // `state !=` filter clause: it deliberately sends NO `fields` projection
+    // (bringing `signal` back is its entire purpose), so folding it in with the
+    // bulk pages would fail the "every initial page projects `signal` away"
+    // assertion below.
     if (perPage > 1) {
-      initialFetchQueries.push(new URLSearchParams(url.searchParams));
+      const q = new URLSearchParams(url.searchParams);
+      if ((q.get("filter") ?? "").includes("state !=")) {
+        supplementalQueries.push(q);
+      } else {
+        initialFetchQueries.push(q);
+      }
     }
     const start = (page - 1) * perPage;
     const items = ALL_ROWS.slice(start, start + perPage);
@@ -192,6 +204,7 @@ beforeEach(() => {
   // Clear captured initial-fetch query strings so each test sees only its own
   // requests.
   initialFetchQueries.length = 0;
+  supplementalQueries.length = 0;
   vi.resetModules();
 });
 
@@ -243,6 +256,19 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
         // The projection must exclude the heavy `signal` blob but keep `key`.
         expect(fields).not.toContain("signal");
         expect(fields).toContain("key");
+      }
+
+      // The SUPPLEMENTAL signal fetch is the other half of that contract, and
+      // it must reach the wire even for a dimension scope OUTSIDE the comm-error
+      // aggregate set (this hook is scoped to "smoke"). Asserted here on the
+      // REAL SDK against a real socket, because the sibling mocked suite cannot
+      // see the actual query string. Unprojected is load-bearing: with a
+      // `fields=` list PocketBase would omit `signal` and the classifier would
+      // be back to guessing why a rung failed.
+      expect(supplementalQueries.length).toBeGreaterThan(0);
+      for (const q of supplementalQueries) {
+        expect(q.get("fields")).toBeNull();
+        expect(q.get("filter")).toContain('state != "green"');
       }
     } finally {
       // Reaching "live" starts a 30s setInterval heartbeat that pings the

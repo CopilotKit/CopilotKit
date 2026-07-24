@@ -98,7 +98,7 @@ const RECONNECT_BACKOFF_MAX_MS = 8000;
 const SUBSCRIBE_FLUSH_INTERVAL_MS = 16;
 
 /**
- * `true` when the supplemental comm-aggregate row (`full`) is STRICTLY older
+ * `true` when the supplemental signal-bearing row (`full`) is STRICTLY older
  * than its projected bulk twin (`bulkRow`) — the freshness guard for the
  * cold-load merge in `fetchInitial` (CF8 F3).
  *
@@ -262,33 +262,61 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       ? pb.filter("dimension = {:dim}", { dim: dimension })
       : "";
 
-    // SUPPLEMENTAL comm-error aggregate filter (CF7-F3 #1). The bulk initial
-    // fetch projects `signal` away (STATUS_LIST_FIELDS), but
-    // `decodeCellCommError` (cell-model.ts) reads `row.signal` per cell at
-    // render to derive the REQ-B unreachable/pending overlay — so on a cold
-    // load every active overlay was invisible until an SSE delta happened to
-    // re-deliver the row. We re-fetch ONLY the comm-error candidate AGGREGATE
-    // rows WITH `signal`: the FLEET_COMM_AGGREGATE_DIMENSIONS dimensions
-    // (`d6`/`d4`/`e2e-demos`/`d5-single-pill-e2e`), restricted to
-    // integration-level aggregate keys (`key !~ "%/%"` — no `/<featureId>`
-    // segment), which is where the harness mirrors comm errors. That is a few
-    // rows per integration (~4 × #slugs), so the bulk projection's ~61%
-    // payload win is preserved; the per-cell rows under the same dimensions
-    // carry the heavy parity-diff signals and are deliberately NOT re-fetched
-    // (a stale per-cell comm error is only ever a same/lower-severity
-    // tie-break candidate against the aggregate mirror — see the
-    // decodeCellCommError scan doc).
+    // SUPPLEMENTAL signal fetch — the narrow companion to the bulk projected
+    // fetch. The bulk fetch projects `signal` away (STATUS_LIST_FIELDS) for the
+    // payload win, but two render-time readers need it, so we re-fetch it for
+    // the SMALLEST row set that covers both. The filter is the UNION of two
+    // clauses:
     //
-    // The dimension literals come from our own `as const` list (never caller
-    // input), so inline interpolation is safe; a caller-scoped `dimension` is
-    // honored by narrowing to the MATCHED literal (scopes outside the
-    // aggregate set skip the fetch entirely — their rows can't carry a
-    // mirrored comm error the dashboard would read).
+    // CLAUSE 1 — comm-error candidate AGGREGATE rows (CF7-F3 #1).
+    //   `decodeCellCommError` (cell-model.ts) reads `row.signal` per cell at
+    //   render to derive the REQ-B unreachable/pending overlay — so on a cold
+    //   load every active overlay was invisible until an SSE delta happened to
+    //   re-deliver the row. Scoped to the FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   dimensions (`d6`/`d4`/`e2e-demos`/`d5-single-pill-e2e`) restricted to
+    //   integration-level aggregate keys (`key !~ "%/%"` — no `/<featureId>`
+    //   segment), which is where the harness mirrors comm errors. That is a few
+    //   rows per integration (~4 × #slugs). This clause is NOT state-scoped: a
+    //   GREEN aggregate row can still carry an active comm-error blob, so it
+    //   must stay independent of clause 2.
+    //
+    // CLAUSE 2 — every NON-GREEN row, ALL dimensions (`state != "green"`).
+    //   `classifyRung` (cell-model.contribution.ts) needs `signal` to tell an
+    //   INFRA red from a PRODUCT red, and it needs it ONLY in the red branch —
+    //   the green/degraded paths never consult `signalKnown`. Without this
+    //   clause a genuinely-failing rung arrived signal-less and, before the
+    //   fail-safe polarity flip, was painted GRAY; it self-corrected only when
+    //   the probe's next sweep rewrote that specific row and the SSE delta
+    //   redelivered it WITH `signal` — up to a full sweep interval (~29 min
+    //   observed, ~14 min mean), on EVERY page load. Clause 1 could never cover
+    //   these rows: they are mostly dimension `d5`/`e2e`/`health` (absent from
+    //   FLEET_COMM_AGGREGATE_DIMENSIONS entirely) AND they are per-cell
+    //   `<dim>:<slug>/<featureId>` keys that `key !~ "%/%"` excludes.
+    //
+    //   Scoping by STATE rather than by key is what keeps this cheap: in
+    //   production `signal` is ~70% of the full payload (~1.29 MB extra if
+    //   shipped on every row across all pages), but the non-green rows are ~360
+    //   of ~3100 — ~430 KB, ~1/3 of the full-signal cost — and no schema change
+    //   is needed. `!= "green"` (rather than an explicit red/degraded list) is
+    //   deliberate: it also catches an out-of-vocabulary state, which
+    //   `rankOfState` ranks as the WORST, so the rows that matter most can
+    //   never fall outside the fetch.
+    //
+    // A caller-scoped `dimension` narrows the whole union (via a `pb.filter`
+    // placeholder, so the value is never interpolated raw), and clause 1 is
+    // narrowed to the MATCHED literal — or dropped entirely when the scope sits
+    // OUTSIDE the aggregate set, since those rows can't carry a mirrored comm
+    // error. Clause 2 always applies: EVERY dimension has non-green rows whose
+    // infra attribution the classifier needs. (Before the fail-safe fix an
+    // out-of-set scope skipped the supplemental fetch altogether, which is what
+    // left `d5`/`e2e`/`health` reds with no attribution at all.) The dimension
+    // literals inside clause 1 come from our own `as const` list, never caller
+    // input, so their inline interpolation is safe.
     const matchedCommDim =
       dimension === undefined
         ? undefined
         : FLEET_COMM_AGGREGATE_DIMENSIONS.find((d) => d === dimension);
-    const commAggregateFilter: string | null =
+    const commAggregateClause: string | null =
       dimension === undefined
         ? `(${FLEET_COMM_AGGREGATE_DIMENSIONS.map(
             (d) => `dimension = "${d}"`,
@@ -296,6 +324,17 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         : matchedCommDim !== undefined
           ? `dimension = "${matchedCommDim}" && key !~ "%/%"`
           : null;
+    const nonGreenClause = `state != "green"`;
+    const supplementalUnion =
+      commAggregateClause === null
+        ? nonGreenClause
+        : `(${commAggregateClause}) || (${nonGreenClause})`;
+    const supplementalFilter: string =
+      dimension === undefined
+        ? supplementalUnion
+        : pb.filter(`dimension = {:dim} && (${supplementalUnion})`, {
+            dim: dimension,
+          });
 
     function teardownSubscription(): void {
       if (cancel) {
@@ -478,22 +517,20 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     }
 
     /**
-     * Fetch the comm-error candidate AGGREGATE rows WITH `signal` (no
-     * `fields` projection) — the narrow companion to the bulk projected
-     * fetch; see the `commAggregateFilter` doc above (CF7-F3 #1). Returns
-     * `[]` without a request when the hook's dimension scope cannot
-     * intersect the aggregate set. Length-bounded serial pagination: the
-     * result is ~4 rows per integration, so page 1 is essentially always the
-     * only page — the loop is a correctness guard, not a hot path.
+     * Fetch the signal-bearing supplemental rows (no `fields` projection) — the
+     * narrow companion to the bulk projected fetch; see the
+     * `supplementalFilter` doc above (comm-error aggregates ∪ every non-green
+     * row). Length-bounded serial pagination: the result is on the order of a
+     * few hundred rows, so this is 1–2 pages in practice — the loop is a
+     * correctness guard, not a hot path.
      */
-    async function fetchCommAggregateRows(): Promise<StatusRow[]> {
-      if (commAggregateFilter === null) return [];
+    async function fetchSupplementalSignalRows(): Promise<StatusRow[]> {
       // `requestKey: null` for the same reason as the bulk fetch: this hits
       // the SAME path (`/api/collections/status/records`) concurrently with
       // the bulk pages, so the SDK's default auto-key would cancel one or
       // the other.
       const opts = {
-        filter: commAggregateFilter,
+        filter: supplementalFilter,
         sort: INITIAL_SORT,
         skipTotal: true,
         requestKey: null,
@@ -535,12 +572,12 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       // subscription reconciles anything created mid-fetch), so we drop it.
       //
       // `fields: STATUS_LIST_FIELDS` projects every StatusRow field EXCEPT the
-      // heavy `signal` blob (~61% of the payload), the dominant transfer-size
+      // heavy `signal` blob (~70% of the payload), the dominant transfer-size
       // win for first paint; the SSE subscription still delivers full rows
       // (signal included) for every subsequent delta, and the SUPPLEMENTAL
-      // comm-error aggregate fetch (kicked off below, CF7-F3 #1) restores
-      // `signal` on the few aggregate rows the comm-error overlay reads at
-      // render time.
+      // signal fetch (kicked off below) restores `signal` on exactly the rows
+      // that are read at render time — the comm-error aggregates plus every
+      // NON-GREEN row (the only rows whose `signal` can change a chip verdict).
       //
       // `sort: "id"` is forwarded to EVERY page request so all the concurrent
       // reads share the same ordering: for a STABLE collection that means no
@@ -575,12 +612,10 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
             requestKey: null,
           };
 
-      // Kick off the supplemental comm-error aggregate fetch (CF7-F3 #1)
-      // CONCURRENTLY with the bulk pages — it is independent of the page
-      // chain and its rows are merged in after the bulk completes. A no-op
-      // (resolved []) when the dimension scope can't intersect the aggregate
-      // set.
-      const commAggregatePromise = fetchCommAggregateRows();
+      // Kick off the supplemental signal fetch CONCURRENTLY with the bulk
+      // pages — it is independent of the page chain and its rows are merged in
+      // after the bulk completes.
+      const supplementalPromise = fetchSupplementalSignalRows();
       const pages: StatusRow[][] = [];
       try {
         const first = await pb
@@ -633,29 +668,31 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         // its eventual rejection (the backend is likely down for it too)
         // can't surface as an unhandled rejection; its rows are useless
         // without the bulk rows anyway.
-        commAggregatePromise.catch(() => {});
+        supplementalPromise.catch(() => {});
         throw err;
       }
       const bulk = pages.flat();
-      // Merge the supplemental signal-bearing aggregate rows over their
-      // projected bulk twins, BY KEY (CF7-F3 #1). A supplemental row replaces
-      // the projected row in place (preserving the bulk's deterministic page
-      // order) — UNLESS the bulk twin is strictly fresher (CF8 F3): the two
-      // fetches run concurrently, so the bulk copy can carry a newer state
-      // than the supplemental snapshot, and "fresher wins" must hold in both
-      // directions (see `supplementalRowIsOlder` for the recency key, the
-      // equal-timestamp preference for the signal-bearing row, and why the
-      // newer bulk row is kept intact rather than grafted with the older
-      // signal). An aggregate row the bulk snapshot didn't carry (created
-      // between the two reads) is appended — the same eventual-consistency
-      // posture as the SSE reconciliation. A supplemental FAILURE intentionally
-      // propagates: a cold load that silently misses active comm-error
-      // overlays is the exact bug this fetch exists to fix, so it retries
-      // through the same connect() chain as the bulk fetch (fail loud, not
-      // fail half-blind).
-      const commAggregates = await commAggregatePromise;
-      if (commAggregates.length === 0) return bulk;
-      const fullByKey = new Map(commAggregates.map((r) => [r.key, r] as const));
+      // Merge the supplemental signal-bearing rows over their projected bulk
+      // twins, BY KEY. A supplemental row replaces the projected row in place
+      // (preserving the bulk's deterministic page order) — UNLESS the bulk twin
+      // is strictly fresher (CF8 F3): the two fetches run concurrently, so the
+      // bulk copy can carry a newer state than the supplemental snapshot, and
+      // "fresher wins" must hold in both directions (see
+      // `supplementalRowIsOlder` for the recency key, the equal-timestamp
+      // preference for the signal-bearing row, and why the newer bulk row is
+      // kept intact rather than grafted with the older signal). A row the bulk
+      // snapshot didn't carry (created between the two reads) is appended — the
+      // same eventual-consistency posture as the SSE reconciliation. A
+      // supplemental FAILURE intentionally propagates: a cold load that
+      // silently misses active comm-error overlays, or that paints genuine reds
+      // without their infra attribution, is the exact bug this fetch exists to
+      // fix — so it retries through the same connect() chain as the bulk fetch
+      // (fail loud, not fail half-blind).
+      const supplementalRows = await supplementalPromise;
+      if (supplementalRows.length === 0) return bulk;
+      const fullByKey = new Map(
+        supplementalRows.map((r) => [r.key, r] as const),
+      );
       const merged = bulk.map((r) => {
         const full = fullByKey.get(r.key);
         if (full === undefined) return r;

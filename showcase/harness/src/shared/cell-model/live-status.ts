@@ -244,24 +244,38 @@ export type LiveStatusMap = Map<string, StatusRow>;
 /**
  * Comma-joined PocketBase `fields` projection for the BULK INITIAL status
  * fetch — every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe
- * output: error messages, diffs, nested objects) is ~61% of the status
- * payload by size. Dropping it from the bulk initial fetch (~2455 rows across
- * ~5 pages) is the dominant transfer-size win for first paint; the live SSE
+ * output: error messages, diffs, nested objects) is ~70% of the status
+ * payload by size (measured against production: 371 KB → 113 KB for a
+ * 500-row page). Dropping it from the bulk initial fetch (~3100 rows across
+ * ~7 pages) is the dominant transfer-size win for first paint; the live SSE
  * subscription still delivers full rows (`signal` included) for every
  * subsequent delta.
  *
- * `signal` IS read at render time, in three places:
+ * `signal` IS read at render time, in four places:
  *   - the drilldown panel and the per-cell banner, which lazy-load the full
- *     row on demand (unaffected by this projection), and
+ *     row on demand (unaffected by this projection),
  *   - `buildCellModel` → `decodeCellCommError` (cell-model.ts), which reads
  *     `row.signal` PER CELL on every render to derive the REQ-B
- *     unreachable/pending comm-error overlay. That read cannot lazy-load —
- *     so `useLiveStatus` issues a SUPPLEMENTAL initial fetch (CF7-F3 #1) of
- *     ONLY the comm-error candidate aggregate rows
- *     (`FLEET_COMM_AGGREGATE_DIMENSIONS`, `<dim>:<slug>` keys — a few rows
- *     per integration, not the whole collection) WITH `signal`, keeping the
- *     bulk projection's payload win while making active overlays visible
- *     from a cold load instead of waiting for an SSE re-delivery.
+ *     unreachable/pending comm-error overlay, and
+ *   - `classifyRung` (cell-model.contribution.ts), which reads it — via
+ *     `signalHasInfraErrorClass` and the `signalKnown` provenance flag — to
+ *     tell an INFRA red from a PRODUCT red. This read happens ONLY in the red
+ *     branch, so it only ever needs the NON-GREEN rows.
+ *
+ * Neither of the latter two can lazy-load, so `useLiveStatus` issues a
+ * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of exactly
+ * those two needs: the comm-error candidate aggregate rows
+ * (`FLEET_COMM_AGGREGATE_DIMENSIONS`, `<dim>:<slug>` keys) ∪ every row whose
+ * `state != "green"`. In production that is ~360 of ~3100 rows (~430 KB), so
+ * the bulk projection keeps most of its payload win while both the comm-error
+ * overlay AND the infra-vs-product red attribution are correct from a COLD
+ * LOAD instead of waiting on an SSE re-delivery (which only arrives when the
+ * probe's next sweep rewrites that specific row — up to ~29 min).
+ *
+ * DO NOT re-narrow that supplemental fetch without re-reading
+ * `classifyRung`'s fail-safe-polarity note: a non-green row that arrives
+ * without `signal` is now painted RED (over-report), which is recoverable —
+ * whereas it used to be painted GRAY, which silently hid real failures.
  *
  * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
  * minus `signal`, so a new `StatusRow` field forces a conscious decision about
