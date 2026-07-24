@@ -52,9 +52,19 @@
   "dependencies": {
     "@copilotkit/shared": "workspace:^"
   },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "react": "^19.1.0",
     "typescript": "^5.6.3",
     "vitest": "^4.1.3"
   }

@@ -10,10 +10,9 @@
  * is the prompt path (the agent calls it), the `defineChannelCommand` is the
  * deterministic slash path.
  */
-import { createElement as h } from "react";
-import type { ReactElement } from "react";
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart } from "@copilotkit/channels/charts";
 import { GEIST } from "./theme.js";
 import { REPO, ghFetch, ageInDays, sampleTag } from "./lib.js";
@@ -111,51 +110,44 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-function prRow(pr: Pr): ReactElement {
+function prRow(pr: Pr): ChannelNode {
   const badge = ageBadge(pr.ageDays);
-  return h(
-    "div",
-    {
-      key: pr.number,
-      style: {
+  return (
+    <div
+      key={pr.number}
+      style={{
         display: "flex",
         flexDirection: "row",
         alignItems: "center",
         gap: 12,
         width: "100%",
-      },
-    },
-    h(
-      "span",
-      { className: "muted", style: { fontSize: 15, width: 56 } },
-      `#${pr.number}`,
-    ),
-    h(
-      "span",
-      { className: "fg", style: { fontSize: 15, flexGrow: 1 } },
-      truncate(pr.title, 58),
-    ),
-    h(
-      "span",
-      {
-        className: "muted",
-        style: { fontSize: 14, width: 120, textAlign: "right" },
-      },
-      `@${truncate(pr.author, 12)}`,
-    ),
-    h(
-      "span",
-      {
-        className: badge.cls,
-        style: {
+      }}
+    >
+      <span
+        className="muted"
+        style={{ fontSize: 15, width: 56 }}
+      >{`#${pr.number}`}</span>
+      <span className="fg" style={{ fontSize: 15, flexGrow: 1 }}>
+        {truncate(pr.title, 58)}
+      </span>
+      <span
+        className="muted"
+        style={{ fontSize: 14, width: 120, textAlign: "right" }}
+      >
+        {`@${truncate(pr.author, 12)}`}
+      </span>
+      <span
+        className={badge.cls}
+        style={{
           fontSize: 13,
           padding: "3px 10px",
           width: 56,
           textAlign: "center",
-        },
-      },
-      badge.text,
-    ),
+        }}
+      >
+        {badge.text}
+      </span>
+    </div>
   );
 }
 
@@ -164,14 +156,13 @@ export interface PrRadarCardProps {
   live: boolean;
 }
 
-/** Presentational — arbitrary app JSX rendered to an image via Takumi. */
-export function PrRadarCard({ prs, live }: PrRadarCardProps): ReactElement {
+/** Presentational — arbitrary app JSX (host tags) rendered to an image via Takumi. */
+export function PrRadarCard({ prs, live }: PrRadarCardProps): ChannelNode {
   const shown = prs.slice(0, 8);
-  return h(
-    "div",
-    {
-      className: "card",
-      style: {
+  return (
+    <div
+      className="card"
+      style={{
         display: "flex",
         flexDirection: "column",
         gap: 14,
@@ -179,59 +170,49 @@ export function PrRadarCard({ prs, live }: PrRadarCardProps): ReactElement {
         height: "100%",
         padding: 28,
         fontFamily: GEIST,
-      },
-    },
-    // header
-    h(
-      "div",
-      {
-        style: {
+      }}
+    >
+      <div
+        style={{
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-        },
-      },
-      h(
-        "span",
-        { className: "title", style: { fontSize: 24 } },
-        "PR review radar",
-      ),
-      h(
-        "span",
-        {
-          className: live ? "badge badge-green" : "badge badge-amber",
-          style: { fontSize: 12, padding: "4px 12px" },
-        },
-        live ? "live · github" : "sample data",
-      ),
-    ),
-    h(
-      "span",
-      { className: "muted", style: { fontSize: 14 } },
-      `${REPO} · ${prs.length} open · oldest first`,
-    ),
-    h("div", { className: "divider", style: { height: 1, width: "100%" } }),
-    // rows (or empty state)
-    shown.length
-      ? h(
-          "div",
-          {
-            style: {
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-              width: "100%",
-            },
-          },
-          ...shown.map(prRow),
-        )
-      : h(
-          "span",
-          { className: "muted", style: { fontSize: 16 } },
-          "No open PRs awaiting review — all clear.",
-        ),
+        }}
+      >
+        <span className="title" style={{ fontSize: 24 }}>
+          PR review radar
+        </span>
+        <span
+          className={live ? "badge badge-green" : "badge badge-amber"}
+          style={{ fontSize: 12, padding: "4px 12px" }}
+        >
+          {live ? "live · github" : "sample data"}
+        </span>
+      </div>
+      <span
+        className="muted"
+        style={{ fontSize: 14 }}
+      >{`${REPO} · ${prs.length} open · oldest first`}</span>
+      <div className="divider" style={{ height: 1, width: "100%" }} />
+      {shown.length ? (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          {shown.map(prRow)}
+        </div>
+      ) : (
+        <span className="muted" style={{ fontSize: 16 }}>
+          No open PRs awaiting review — all clear.
+        </span>
+      )}
+    </div>
   );
 }
 
