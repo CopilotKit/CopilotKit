@@ -30,7 +30,7 @@ you can ensure that the agent is always making the right decisions and ultimatel
 
 Interrupt-based flows are a very intuitive way to implement HITL. Instead of having a node await user input before or after its execution,
 nodes can be interrupted in the middle of their execution to allow for user input. The trade-off is that the agent is not aware of the
-interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make-your-agent-aware-of-interruptions).
+interaction by default.
 
 ## Implementation
 
@@ -85,9 +85,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
     Now we can call `interrupt` in our Deep Agents agent.
 
     <Callout type="info">
-        Your agent will not be aware of the `interrupt` interaction by default in LangGraph.
-
-        If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
+        Your agent will not be aware of the `interrupt` interaction by default in LangGraph. To make state available to your agent, use `CopilotKitMiddleware(expose_state=[...])` as shown in the Python example below.
     </Callout>
 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
@@ -112,6 +110,17 @@ We're going to have the agent ask us to name it, so we'll need a state property 
                         name = interrupt("Before we start, what would you like to call me?") # [!code highlight]
                         return {"agent_name": name}
                     return None
+
+            # Now create the agent with the middleware
+            from deepagents import create_deep_agent # [!code highlight]
+            from copilotkit import CopilotKitMiddleware # [!code highlight]
+
+            graph = create_deep_agent( # [!code highlight:5]
+                model="openai:gpt-4o",
+                tools=[],  # Add your tools here
+                middleware=[AgentNameMiddleware(), CopilotKitMiddleware(expose_state=["agent_name"])],
+                system_prompt="You are a helpful assistant."
+            )
             ```
         </Tab>
         <Tab value="TypeScript">
@@ -152,9 +161,10 @@ We're going to have the agent ask us to name it, so we'll need a state property 
 
     const YourMainContent = () => {
     // ...
-    // [!code highlight:15]
+    // [!code highlight:16]
     // styles omitted for brevity
     useInterrupt({
+        agentId: "sample_agent",
         render: ({ event, resolve }) => (
             <div>
                 <p>{event.value}</p>
@@ -278,8 +288,9 @@ For this reason, the hook can take an `enabled` argument which will apply it con
 
         const YourMainContent = () => {
             // ...
-            // [!code highlight:13]
+            // [!code highlight:15]
             useInterrupt({
+                agentId: "sample_agent",
                 enabled: ({ eventValue }) => eventValue.type === 'ask',
                 render: ({ event, resolve }) => (
                     <AskComponent question={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -287,6 +298,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
             });
 
             useInterrupt({
+                agentId: "sample_agent",
                 enabled: ({ eventValue }) => eventValue.type === 'approval',
                 render: ({ event, resolve }) => (
                     <ApproveComponent content={event.value.content} onAnswer={answer => resolve(answer)} />
@@ -323,8 +335,9 @@ const YourMainContent = () => {
 
     // ...
     // styles omitted for brevity
-    // [!code highlight:28]
+    // [!code highlight:29]
     useInterrupt({
+        agentId: "sample_agent",
         handler: async ({ result, event, resolve }) => {
             const { department } = await getUserByEmail(userEmail)
             if (event.value.accessDepartment === department || department === 'admin') {
