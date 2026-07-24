@@ -164,16 +164,24 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         from copilotkit.langgraph import copilotkit_customize_config
                         from copilotkit import CopilotKitState
                         from langgraph.types import Command
-                        from langgraph.graph import END
+                        from langgraph.graph import END, StateGraph, MessagesState
                         from langchain.tools import tool
                         from langchain_openai import ChatOpenAI
-                        from langchain_core.messages import SystemMessage, AIMessage
+                        from langchain_core.messages import SystemMessage, AIMessage, ToolMessage
                         from langchain_core.runnables import RunnableConfig
+                        from typing import TypedDict, Annotated
+                        from langgraph.graph.message import add_messages
 
-                        # Define a step progress tool for the llm to report the steps
+                        # Define agent state extending MessagesState
+                        class AgentState(TypedDict):
+                            messages: Annotated[list, add_messages]
+                            observed_steps: list[str]
+
+                        # Define a step progress tool for the LLM to report the steps
                         @tool
                         def step_progress_tool(steps: list[str]):
                             """Reads and reports steps"""
+                            return steps
 
                         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
                             # Configure CopilotKit to treat step progress tool calls as predictive of the final state
@@ -189,17 +197,11 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                             )
 
                             system_message = SystemMessage(
-                                content=f"You are a task performer. Pretend doing tasks you are given, report the steps using step_progress_tool."
+                                content="You are a task performer. Pretend doing tasks you are given, report the steps using step_progress_tool."
                             )
 
-                            # Provide the actions to the LLM
-                            model = ChatOpenAI(model="gpt-4").bind_tools(
-                                [
-                                    *state["copilotkit"]["actions"],
-                                    step_progress_tool
-                                    # your other tools here
-                                ],
-                            )
+                            # Provide the tool to the LLM
+                            model = ChatOpenAI(model="gpt-4").bind_tools([step_progress_tool])
 
                             # Call the model with CopilotKit's modified config
                             response = await model.ainvoke([
@@ -207,17 +209,38 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                                 *state["messages"],
                             ], config)
 
-                            # Set the steps in state so they are persisted and communicated to the frontend
-                            if isinstance(response, AIMessage) and response.tool_calls and response.tool_calls[0].get("name") == 'step_progress_tool':
-                                return Command(
-                                    goto=END,
-                                    update={
-                                        "messages": response,
-                                        "observed_steps": response.tool_calls[0].get("args", None).get('steps')
-                                    }
-                                )
+                            # Handle tool calls - invoke the tool and create a ToolMessage to complete the lifecycle
+                            if isinstance(response, AIMessage) and response.tool_calls:
+                                tool_call = response.tool_calls[0]
+                                if tool_call["name"] == "step_progress_tool":
+                                    # Invoke the tool with the full args dict
+                                    tool_result = await step_progress_tool.ainvoke(tool_call["args"])
+                                    
+                                    # Extract steps for state update
+                                    observed_steps = tool_call["args"]["steps"]
+                                    
+                                    # Create a ToolMessage to complete the tool call
+                                    tool_message = ToolMessage(
+                                        content=str(tool_result),
+                                        tool_call_id=tool_call["id"]
+                                    )
+                                    
+                                    return Command(
+                                        goto=END,
+                                        update={
+                                            "messages": [response, tool_message],
+                                            "observed_steps": observed_steps
+                                        }
+                                    )
 
                             return Command(goto=END, update={"messages": response})
+
+                        # Build the graph
+                        workflow = StateGraph(AgentState)
+                        workflow.add_node("frontend_actions_node", frontend_actions_node)
+                        workflow.set_entry_point("frontend_actions_node")
+                        workflow.add_edge("frontend_actions_node", END)
+                        graph = workflow.compile()
                         ```
                     </Tab>
                     <Tab value="TypeScript">
@@ -362,6 +385,10 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         ```
                     </Tab>
                 </Tabs>
+
+                <Callout type="info">
+                    **Tool Call Lifecycle**: To ensure tool calls transition from `inProgress` to `complete`, you must invoke the tool and generate a `ToolMessage`. The example above shows the inline pattern (simpler for docs). For production agents with multiple tools, consider using a dedicated `ToolNode` that handles all tool invocations. See the [research-canvas example](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/research-canvas/agent/graph.py) for a complete pattern with proper tool routing.
+                </Callout>
             </TailoredContentOption>
         </TailoredContent>
     </Step>
