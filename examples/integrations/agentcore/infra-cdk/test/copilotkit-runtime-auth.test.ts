@@ -54,7 +54,7 @@ test("synthesizes four Cognito-protected Runtime methods", () => {
   }
 });
 
-test("synthesizes BackendStack without outputs for resources it does not create", () => {
+test("synthesizes BackendStack with all authenticated Runtime methods", () => {
   const app = new cdk.App();
   const parent = new cdk.Stack(app, "BackendTestParent", {
     env: { account: "123456789012", region: "us-east-1" },
@@ -111,7 +111,9 @@ test("synthesizes BackendStack without outputs for resources it does not create"
       (method) => method.Properties.AuthorizationType === "COGNITO_USER_POOLS",
     );
 
-    expect(authenticatedMethods).toHaveLength(4);
+    expect(
+      authenticatedMethods.map((method) => method.Properties.HttpMethod).sort(),
+    ).toEqual(["DELETE", "GET", "GET", "PATCH", "POST", "POST"]);
     expect(template.toJSON().Outputs).not.toHaveProperty("GatewayTargetId");
     expect(template.toJSON().Outputs).not.toHaveProperty("ToolLambdaArn");
   } finally {

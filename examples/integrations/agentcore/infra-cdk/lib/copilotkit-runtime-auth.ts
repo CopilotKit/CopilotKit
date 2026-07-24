@@ -27,7 +27,7 @@ export function createRuntimeAuthorizer(
 /** Mount one Runtime method behind the required Cognito authorizer. */
 export function addAuthenticatedRuntimeMethod(
   resource: apigateway.IResource,
-  httpMethod: "GET" | "POST",
+  httpMethod: "GET" | "POST" | "PATCH" | "DELETE",
   integration: apigateway.Integration,
   authorizer: apigateway.IAuthorizer,
 ): void {

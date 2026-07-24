@@ -28,11 +28,27 @@ test("AgentCore runtime methods require Cognito and map the verified subject", (
 
   expect(authSource).toContain("CognitoUserPoolsAuthorizer");
   expect(authSource).toContain("AuthorizationType.COGNITO");
+  expect(authSource).toContain(
+    'httpMethod: "GET" | "POST" | "PATCH" | "DELETE"',
+  );
   expect(
     runtimeApiSection.match(/addAuthenticatedRuntimeMethod\(/g),
-  ).toHaveLength(4);
+  ).toHaveLength(6);
+  expect(runtimeApiSection).toContain(
+    'allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]',
+  );
   expect(runtimeApiSection).not.toContain("runtimeResource.addMethod");
   expect(runtimeApiSection).not.toContain("AuthorizationType.NONE");
+});
+
+test("the AgentCore browser sends an ID token to identity-token Runtime methods", () => {
+  const source = readAgentCoreSource(
+    "frontend/src/components/chat/CopilotKit/index.tsx",
+  );
+
+  expect(source).toContain("const idToken = auth.user?.id_token;");
+  expect(source).toContain("idToken={idToken}");
+  expect(source).not.toContain("auth.user?.access_token");
 });
 
 test("the deployed AgentCore runtime does not use one shared demo identity", () => {

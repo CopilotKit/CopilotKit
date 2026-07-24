@@ -101,15 +101,14 @@ function CopilotChatContent() {
 
 function CopilotKitShell({
   config,
-  accessToken,
+  idToken,
 }: {
   config: ResolvedAwsExportsConfig;
-  accessToken: string | undefined;
+  idToken: string | undefined;
 }) {
   const headers = useMemo(
-    () =>
-      accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    [accessToken],
+    () => (idToken ? { Authorization: `Bearer ${idToken}` } : undefined),
+    [idToken],
   );
 
   return (
@@ -170,14 +169,14 @@ export default function CopilotChatInterface() {
     );
   }
 
-  const accessToken = auth.user?.access_token ?? auth.user?.id_token;
+  const idToken = auth.user?.id_token;
 
   return (
     <ThemeProvider>
       <div className="h-full bg-[#f5f7fb]">
         <CopilotKitShell
           config={config as ResolvedAwsExportsConfig}
-          accessToken={accessToken}
+          idToken={idToken}
         />
       </div>
     </ThemeProvider>

@@ -458,7 +458,7 @@ export class BackendStack extends cdk.NestedStack {
       description: "Standalone CopilotKit runtime API backed by Lambda",
       defaultCorsPreflightOptions: {
         allowOrigins: [frontendUrl, "http://localhost:3000"],
-        allowMethods: ["GET", "POST", "OPTIONS"],
+        allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
       },
       deployOptions: {
@@ -495,6 +495,18 @@ export class BackendStack extends cdk.NestedStack {
     addAuthenticatedRuntimeMethod(
       runtimeProxy,
       "POST",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "PATCH",
+      runtimeIntegration,
+      runtimeAuthorizer,
+    );
+    addAuthenticatedRuntimeMethod(
+      runtimeProxy,
+      "DELETE",
       runtimeIntegration,
       runtimeAuthorizer,
     );
