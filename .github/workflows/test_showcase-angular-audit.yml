@@ -264,12 +264,14 @@ jobs:
                 --output "$RUNNER_TEMP/angular-audit-phases/$frontend-$shard.json"
             }
 
-            # Four Spring Boot JVMs plus four Chromium instances can starve
-            # completed SSE streams long enough to create random 30-second
-            # misses. Each shard still has its own container and fixture
-            # sidecar; execute only Spring's browsers serially so the evidence
-            # is deterministic. Other integrations retain four-way parallelism.
-            if [ "$INTEGRATION" = "spring-ai" ]; then
+            # Four memory-heavy backend containers plus four Chromium instances
+            # can starve completed SSE streams long enough to create random
+            # settle misses. Pydantic's multimodal payload is especially
+            # sensitive to that contention. Each shard still has its own
+            # container and fixture sidecar; execute these browsers serially so
+            # the evidence is deterministic. Other integrations retain
+            # four-way parallelism.
+            if [ "$INTEGRATION" = "spring-ai" ] || [ "$INTEGRATION" = "pydantic-ai" ]; then
               for shard in 0 1 2 3; do
                 if ! run_shard "$shard" > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1; then
                   status=1
