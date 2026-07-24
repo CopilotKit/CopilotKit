@@ -719,7 +719,7 @@ export class RunHandler {
       let insertAt = messageIndex + 1;
       while (
         insertAt < agent.messages.length &&
-        agent.messages[insertAt].role === "tool"
+        agent.messages[insertAt]?.role === "tool"
       ) {
         insertAt++;
       }
@@ -868,7 +868,7 @@ export class RunHandler {
       let insertAt = messageIndex + 1;
       while (
         insertAt < agent.messages.length &&
-        agent.messages[insertAt].role === "tool"
+        agent.messages[insertAt]?.role === "tool"
       ) {
         insertAt++;
       }

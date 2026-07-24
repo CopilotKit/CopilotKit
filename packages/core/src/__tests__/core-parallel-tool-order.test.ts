@@ -1,3 +1,4 @@
+import type { Message } from "@ag-ui/client";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
 import {
@@ -6,6 +7,24 @@ import {
   createTool,
   createMultipleToolCallsMessage,
 } from "./test-utils";
+
+function getToolCallIds(message: Message): string[] {
+  if (message.role !== "assistant") {
+    throw new Error("Expected assistant message");
+  }
+
+  return message.toolCalls?.map((tc) => tc.id) ?? [];
+}
+
+function getToolResultMessage(
+  message: Message | undefined,
+): Extract<Message, { role: "tool" }> {
+  if (!message || message.role !== "tool") {
+    throw new Error("Expected tool message");
+  }
+
+  return message;
+}
 
 describe("CopilotKitCore.runAgent - Parallel Tool Order", () => {
   let copilotKitCore: CopilotKitCore;
@@ -54,24 +73,21 @@ describe("CopilotKitCore.runAgent - Parallel Tool Order", () => {
 
     // The message structure should be: [assistant, toolResultA, toolResultB, ...]
     // Find the assistant message
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === message.id,
-    );
+    const assistantIndex = agent.messages.findIndex((m) => m.id === message.id);
     expect(assistantIndex).toBeGreaterThanOrEqual(0);
 
     // The next two messages should be tool results in order
-    const firstToolResult = agent.messages[assistantIndex + 1];
-    const secondToolResult = agent.messages[assistantIndex + 2];
-
-    expect(firstToolResult).toBeDefined();
-    expect(secondToolResult).toBeDefined();
-    expect(firstToolResult?.role).toBe("tool");
-    expect(secondToolResult?.role).toBe("tool");
+    const firstToolResult = getToolResultMessage(
+      agent.messages[assistantIndex + 1],
+    );
+    const secondToolResult = getToolResultMessage(
+      agent.messages[assistantIndex + 2],
+    );
 
     // Verify the order: first result corresponds to toolA, second to toolB
-    const toolCallIds = message.toolCalls?.map((tc) => tc.id) || [];
-    expect(firstToolResult?.toolCallId).toBe(toolCallIds[0]);
-    expect(secondToolResult?.toolCallId).toBe(toolCallIds[1]);
+    const toolCallIds = getToolCallIds(message);
+    expect(firstToolResult.toolCallId).toBe(toolCallIds[0]);
+    expect(secondToolResult.toolCallId).toBe(toolCallIds[1]);
   });
 
   it("should preserve tool result ordering with one tool having followUp: true", async () => {
@@ -123,22 +139,21 @@ describe("CopilotKitCore.runAgent - Parallel Tool Order", () => {
     expect(agent.runAgentCalls.length).toBeGreaterThan(1);
 
     // Find the assistant message from the first call
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === message.id,
-    );
+    const assistantIndex = agent.messages.findIndex((m) => m.id === message.id);
     expect(assistantIndex).toBeGreaterThanOrEqual(0);
 
     // The next two messages should be tool results in order
-    const firstToolResult = agent.messages[assistantIndex + 1];
-    const secondToolResult = agent.messages[assistantIndex + 2];
-
-    expect(firstToolResult?.role).toBe("tool");
-    expect(secondToolResult?.role).toBe("tool");
+    const firstToolResult = getToolResultMessage(
+      agent.messages[assistantIndex + 1],
+    );
+    const secondToolResult = getToolResultMessage(
+      agent.messages[assistantIndex + 2],
+    );
 
     // Verify the order: first result corresponds to toolA, second to toolB
-    const toolCallIds = message.toolCalls?.map((tc) => tc.id) || [];
-    expect(firstToolResult?.toolCallId).toBe(toolCallIds[0]);
-    expect(secondToolResult?.toolCallId).toBe(toolCallIds[1]);
+    const toolCallIds = getToolCallIds(message);
+    expect(firstToolResult.toolCallId).toBe(toolCallIds[0]);
+    expect(secondToolResult.toolCallId).toBe(toolCallIds[1]);
   });
 
   it("should preserve tool result ordering with three parallel tool calls", async () => {
@@ -183,25 +198,19 @@ describe("CopilotKitCore.runAgent - Parallel Tool Order", () => {
     });
 
     // Find the assistant message
-    const assistantIndex = agent.messages.findIndex(
-      (m) => m.id === message.id,
-    );
+    const assistantIndex = agent.messages.findIndex((m) => m.id === message.id);
 
     // The next three messages should be tool results in order
     const toolResults = [
-      agent.messages[assistantIndex + 1],
-      agent.messages[assistantIndex + 2],
-      agent.messages[assistantIndex + 3],
+      getToolResultMessage(agent.messages[assistantIndex + 1]),
+      getToolResultMessage(agent.messages[assistantIndex + 2]),
+      getToolResultMessage(agent.messages[assistantIndex + 3]),
     ];
 
-    toolResults.forEach((result) => {
-      expect(result?.role).toBe("tool");
-    });
-
     // Verify the order
-    const toolCallIds = message.toolCalls?.map((tc) => tc.id) || [];
+    const toolCallIds = getToolCallIds(message);
     toolResults.forEach((result, index) => {
-      expect(result?.toolCallId).toBe(toolCallIds[index]);
+      expect(result.toolCallId).toBe(toolCallIds[index]);
     });
   });
 });
