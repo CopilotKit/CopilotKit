@@ -16,6 +16,7 @@ import type { ChannelCommand } from "@copilotkit/channels";
 import { senderContext } from "../sender-context.js";
 import { IssueCard } from "../components/index.js";
 import { FileIssueModal } from "../modals/file-issue.js";
+import { showcaseCommands } from "../showcase/index.js";
 
 export const appCommands: ChannelCommand[] = [
   // `/agent <text>` — a mention-free entry point. (Previously hardcoded in the
@@ -132,4 +133,9 @@ export const appCommands: ChannelCommand[] = [
       }
     },
   }),
+
+  // Showcase slash commands (`/prs`, `/pulse`, `/standup`) — each renders a
+  // shadcn card + charts as images. They share their render fns with the
+  // matching prompt-triggerable tools in app/tools.
+  ...showcaseCommands,
 ];
