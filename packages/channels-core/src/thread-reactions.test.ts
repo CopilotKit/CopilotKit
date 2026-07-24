@@ -12,7 +12,7 @@ describe("Thread.react / unreact", () => {
       results.push(await thread.react(message.ref, emoji.thumbs_up));
       results.push(await thread.unreact(message.ref, emoji.thumbs_up));
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi" });
     await new Promise((r) => setTimeout(r, 0));
 
@@ -32,7 +32,7 @@ describe("Thread.react / unreact", () => {
     channel.onMessage(async ({ thread, message }) => {
       res = await thread.react(message.ref, emoji.heart);
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi" });
     await new Promise((r) => setTimeout(r, 0));
 

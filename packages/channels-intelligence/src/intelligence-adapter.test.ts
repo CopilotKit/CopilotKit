@@ -49,7 +49,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
       seen = message;
       await thread.post(Section({ children: "reply" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ turnId: "t1", eventId: "e1" }));
 
     expect(egress.ops).toHaveLength(1);
@@ -72,7 +72,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     channel.onMessage(async ({ message }) => {
       seenUser = message.user;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     // The wire field is `displayName`; it must surface as PlatformUser.name so
     // `message.user.name` is observable through the typed API (parity with the
     // direct Slack adapter, which populates `name`).
@@ -92,7 +92,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
       agent: () => new FakeAgent(),
     });
     bot.onMessage(async () => {});
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ deliveryId: "d9" }));
     expect(source.acked).toEqual(["d9"]);
     expect(source.nacked).toEqual([]);
@@ -108,7 +108,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     bot.onMessage(async () => {
       throw new Error("boom");
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ deliveryId: "d9" }));
     expect(source.acked).toEqual([]);
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
@@ -129,7 +129,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         text: "what is this?",
@@ -168,7 +168,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         text: "hi",
@@ -200,7 +200,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         files: [
@@ -233,7 +233,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         files: [
@@ -264,7 +264,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
       await thread.post(Section({ children: "a" }));
       await thread.post(Section({ children: "b" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
 
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d1" }));
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
@@ -298,7 +298,7 @@ describe("intelligenceAdapter — egress fail-loud", () => {
         postError = err;
       }
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await source.deliver(envelope());
 
     // Before the fix, thread.post resolved with a synthetic ref and postError
@@ -365,7 +365,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       ran = text;
       await thread.post(Section({ children: "ok" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "command",
@@ -388,7 +388,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       seenValue = action.value;
       await thread.post(Section({ children: "clicked" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "interaction",
@@ -410,7 +410,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       // Flip the card that was clicked (posted in a PRIOR delivery) in place.
       await thread.update(message.ref, Section({ children: "approved" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       deliveryId: "d_click",
@@ -446,7 +446,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       ran = true;
       await thread.post(Section({ children: "hi" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({ ...base, kind: "thread_started" });
     expect(ran).toBe(true);
     expect(egress.ops).toHaveLength(1);
@@ -463,7 +463,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     bot.onReaction(async (evt) => {
       seenEmoji = evt.rawEmoji;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "reaction",
@@ -496,7 +496,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
       adapters: [ia()],
       agent: () => new FakeAgent(),
     });
-    expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
+    expect(() => bot.ɵruntime.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
@@ -506,7 +506,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
-    expect(() => bot.addAdapter(ia())).toThrow(
+    expect(() => bot.ɵruntime.addAdapter(ia())).toThrow(
       /only adapter|alternative modes/i,
     );
   });

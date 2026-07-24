@@ -8,6 +8,12 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Discord.
 
+The adapter keeps its own Discord credentials (`botToken` / `appId` / …) — but
+the Channel itself only runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (an API key; a free tier is available). There is no
+standalone / DIY runner and no `channel.start()`; the runtime starts and owns
+the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -23,8 +29,14 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/channels-discord";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     discord({
       botToken: process.env.DISCORD_BOT_TOKEN!, // Bot token — Gateway + REST
@@ -48,7 +60,19 @@ const bot = createChannel({
 
 bot.onMention(({ thread }) => thread.runAgent());
 
-await bot.start();
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl: "https://api.copilotkit.ai",
+    wsUrl: "wss://api.copilotkit.ai",
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
 ```
 
 `discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
@@ -250,8 +274,9 @@ work against any adapter that advertises the same capabilities.
 
 ## Slash commands
 
-Slash commands are registered up front on `bot.start()` via `registerCommands`.
-When `guildId` is set they register to that guild instantly; without it they
+Slash commands are registered up front — when the runtime activates the
+channel (`await handler.channels.ready()`) — via `registerCommands`. When
+`guildId` is set they register to that guild instantly; without it they
 register globally and take ~1 hour to propagate. Register handlers with
 `bot.onCommand`:
 
