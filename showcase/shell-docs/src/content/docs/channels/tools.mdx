@@ -1,0 +1,153 @@
+---
+title: Tools and Context
+icon: "lucide/Wrench"
+description: Give the agent channel-level tools it can call, and context it sees every turn.
+---
+
+Two things you configure on the channel shape what the agent can do:
+
+- **Tools** the agent can call, defined with `defineChannelTool`.
+- **Context** the agent sees every turn, as `{ description, value }` entries.
+
+The channel forwards both to the agent on each run, alongside the agent's own
+tools and any [MCP servers](/channels/mcp).
+
+## Define a tool
+
+A tool is a name, a description, a parameters schema (Zod or any Standard
+Schema), and a handler. The handler's `args` are typed from the schema.
+
+```tsx
+import { defineChannelTool } from "@copilotkit/channels";
+import { z } from "zod";
+import { Message, Header, Section } from "@copilotkit/channels/ui";
+
+export const issueCard = defineChannelTool({
+  name: "issue_card",
+  description: "Show a single Linear issue as a card.",
+  parameters: z.object({
+    title: z.string(),
+    status: z.string(),
+    url: z.string(),
+  }),
+  async handler({ title, status, url }, { thread }) {
+    await thread.post(
+      <Message accent="#5E6AD2">
+        <Header>{title}</Header>
+        <Section>{`Status: ${status}`}</Section>
+      </Message>,
+    );
+    return "Displayed the issue card to the user.";
+  },
+});
+```
+
+Register tools on the channel:
+
+```ts
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  tools: [issueCard],
+});
+
+// or add one later
+channel.tool(issueCard);
+```
+
+## The handler context
+
+The second argument gives you the conversation and the caller.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `thread` | `Thread` | Post UI, run the agent, block on a choice. See the [Thread API](/channels/reference/thread). |
+| `message` | `IncomingMessage?` | The message that triggered this turn, when there is one. |
+| `user` | `PlatformUser?` | The requesting user, when known. |
+| `platform` | `string` | The platform the call came from. |
+| `signal` | `AbortSignal?` | Aborts if the run is superseded or cancelled. |
+
+## What to return
+
+The return value is read by the **model**, not shown to the user. The SDK
+serializes it for you.
+
+| Return | The model sees |
+| --- | --- |
+| a `string` | the string as-is |
+| `null` / `undefined` | an empty string |
+| any object or array | the value, JSON-stringified automatically |
+
+Return something meaningful:
+
+- A **render tool** (one that posts a card with `thread.post`) should return a
+  short confirmation like `"Displayed the issue card."`, so the model gives a
+  brief acknowledgement instead of restating the card as text.
+- A **data tool** should return the raw object or array. Do not hand-stringify
+  it, and do not return boilerplate like `{ ok: true }`.
+- A **failure** should return the actual error text, so the model can repair
+  and retry.
+
+```ts
+export const listOpenIssues = defineChannelTool({
+  name: "list_open_issues",
+  description: "List the open issues for a team.",
+  parameters: z.object({ team: z.string() }),
+  async handler({ team }) {
+    const issues = await api.issues({ team, state: "open" });
+    return issues; // returned raw; the SDK serializes it for the model
+  },
+});
+```
+
+## Context
+
+Context entries are forwarded to the agent every turn as background it can
+rely on: app identity, policy, formatting rules, anything stable.
+
+```ts
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  context: [
+    { description: "Assistant policy", value: "Be concise. Never share secrets." },
+    { description: "Product", value: "Acme Cloud, a managed hosting platform." },
+  ],
+});
+```
+
+## Per-run tools and context
+
+Pass tools or context for a single run through `thread.runAgent`. They add to
+the channel-level ones for that turn only.
+
+```ts
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.text,
+    context: [{ description: "Requester", value: message.user.email ?? "" }],
+    tools: [oneOffTool],
+  });
+});
+```
+
+## How tools reach the agent
+
+The channel's tools and context travel in the run input. In [TanStack factory
+mode](/channels/quickstart), `convertInputToTanStackAI(ctx.input)` returns the
+tools as `tools` and folds context into `systemPrompts`, which you hand to
+`chat()`. So the model can call your channel tools next to the agent's own
+tools and MCP:
+
+```ts
+factory: (ctx) => {
+  const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
+  return chat({
+    adapter: openaiText("gpt-5.5"),
+    messages,
+    systemPrompts,
+    tools, // your channel tools, forwarded here
+    abortController: ctx.abortController,
+  });
+};
+```

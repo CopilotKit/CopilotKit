@@ -1,0 +1,111 @@
+---
+title: Commands and Reactions
+icon: "lucide/SlashSquare"
+description: Slash commands and react-to-any-message handlers at the channel level.
+---
+
+Two channel-level shortcuts that are not tied to a message you rendered: slash
+commands the user types, and reactions on any message in the channel.
+
+## Slash commands
+
+A command runs when the user types `/name`. Define it with
+`defineChannelCommand` and wire it into the channel.
+
+```ts
+import { defineChannelCommand } from "@copilotkit/channels";
+
+export const commands = [
+  defineChannelCommand({
+    name: "ask", // no leading slash, matched case-insensitively
+    description: "Ask the agent anything, no mention needed.",
+    async handler({ thread, text, user }) {
+      if (!text) {
+        await thread.post("Usage: `/ask <your question>`");
+        return;
+      }
+      await thread.runAgent({ prompt: text });
+    },
+  }),
+];
+```
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { agent } from "./agent";
+import { commands } from "./commands";
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  commands,
+});
+```
+
+The user's words after the command arrive as `text`:
+
+```
+/ask how do I reset my password
+        -> text = "how do I reset my password"
+```
+
+<Callout type="info" title="Slack needs the command declared too">
+On Slack, register the same command in your Slack app manifest so Slack sends
+it to your bot. The name in the manifest must match the `name` here.
+</Callout>
+
+### Typed arguments
+
+Platforms with native structured arguments (Discord) can parse args for you.
+Add an `options` schema, and read `options` in the handler:
+
+```ts
+import { z } from "zod";
+
+defineChannelCommand({
+  name: "weather",
+  description: "Get the weather for a city.",
+  options: z.object({ city: z.string() }),
+  async handler({ thread, options }) {
+    await thread.runAgent({ prompt: `What's the weather in ${options.city}?` });
+  },
+});
+```
+
+On text-only surfaces `options` is empty and the raw string is in `text`, so
+handle both if a command targets several platforms.
+
+The command handler also has `thread.postEphemeral(...)` for a reply only the
+caller sees, and `openModal(...)` on platforms that support dialogs.
+
+## Global reactions
+
+`channel.onReaction` fires when a user reacts to any message in the channel,
+not just a card you rendered. Use it for channel-wide shortcuts, like a
+refresh emoji that re-runs the last request.
+
+```ts
+channel.onReaction(async ({ added, emoji, thread, user }) => {
+  if (!added) return; // ignore un-reactions
+  if (emoji !== "refresh") return; // 🔄
+  await thread.post(`On it, ${user?.name ?? "there"}.`);
+});
+```
+
+Scope it to one emoji so you skip the check:
+
+```ts
+channel.onReaction("fire", async ({ thread }) => {
+  await thread.post("🔥");
+});
+```
+
+The event carries `emoji` (the canonical name), `rawEmoji` (the platform
+token), `added`, `user`, `thread`, and `messageRef` for
+`thread.update(messageRef, ...)`.
+
+<Callout type="info">
+Want to handle a reaction on one specific card instead of the whole channel?
+Use the per-message [`<Message onReaction>`](/channels/interactive/reactions)
+handler.
+</Callout>

@@ -1,0 +1,198 @@
+---
+title: Quickstart
+icon: "lucide/Rocket"
+description: Build a bot that answers messages in a chat app, end to end.
+---
+
+You have a CopilotKit agent. By the end of this page it answers messages in
+a real chat thread, run by the CopilotKit runtime.
+
+<Callout type="info" title="You need a CopilotKit Intelligence key">
+Every channel runs through the Intelligence runtime, so a CopilotKit
+Intelligence key is required to run one — for both managed and direct channels.
+A free tier is available. Grab a project key (`cpk-...`) from the Intelligence
+dashboard before you start.
+</Callout>
+
+<Steps>
+<Step>
+### Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+</Step>
+
+<Step>
+### Turn on JSX
+
+Replies render through components, so point the JSX runtime at the UI library.
+See [the UI library](/channels/ui-library) for what this unlocks.
+
+```jsonc title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels"
+  }
+}
+```
+</Step>
+
+<Step>
+### Create a channel in the dashboard
+
+In the Intelligence dashboard, create a channel and attach a platform
+(Slack, Teams, and so on). Note the channel **name**, you will pass the same
+name in code. Copy your project **runtime API key** (`cpk-...`).
+
+See [Intelligence Platform](/premium/intelligence-platform) for the dashboard
+walkthrough and per-platform install links.
+</Step>
+
+<Step>
+### Set the environment
+
+The Intelligence runtime reads the first two. For a managed channel no platform
+tokens live in your app. `OPENAI_API_KEY` powers the agent's model.
+
+```bash
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
+OPENAI_API_KEY=sk-...
+```
+</Step>
+
+<Step>
+### Define the agent
+
+The agent is the brain. Build it in TanStack factory mode: you own the LLM
+call with TanStack AI's `chat()`, and the Built-in Agent turns its stream into
+the events the channel renders.
+
+```ts title="agent.ts"
+import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const SYSTEM_PROMPT = "You are a helpful support assistant. Keep replies short.";
+
+export const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: (ctx) => {
+    // Turn the run input into TanStack AI messages, system prompts, and the
+    // channel tools forwarded on this turn.
+    const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
+
+    return chat({
+      adapter: openaiText("gpt-5.5"),
+      messages,
+      systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+      tools,
+      abortController: ctx.abortController,
+    });
+  },
+});
+```
+</Step>
+
+<Step>
+### Write the bot
+
+```ts title="bot.ts"
+import { createChannel } from "@copilotkit/channels";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { agent } from "./agent";
+
+// A managed channel: Intelligence hosts the platform transport, so it takes no
+// adapter. The name must match the channel you created in the dashboard.
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+});
+
+// Intelligence only delivers turns your bot should answer (a mention or a
+// DM), so run the agent on each delivered message.
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+// The runtime owns the channel. Declare it here, mount the listener, and
+// `ready()` activates it. The Intelligence key (free tier available) is what
+// lets the runtime run any channel.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const intelligence = new CopilotKitIntelligence({
+  apiUrl,
+  wsUrl: apiUrl.replace(/^http/, "ws"), // ws base derives from the api base
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence,
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
+console.log("bot listening");
+```
+</Step>
+
+<Step>
+### Run it
+
+```bash
+npx tsx bot.ts
+```
+
+Message the bot in your chat app. It replies in the thread.
+</Step>
+</Steps>
+
+<Callout type="info" title="Keep the process alive and shut down cleanly">
+The listener is a request handler, so to hold the lifecycle-owning process open
+mount it on a server, and stop the channels on shutdown:
+
+```ts
+import { createServer } from "node:http";
+
+createServer(listener).listen(3000);
+
+const shutdown = async () => {
+  await listener.channels?.stop();
+  process.exit(0);
+};
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
+```
+</Callout>
+
+## What `thread` gives you
+
+`onMessage` hands you a `thread` and the incoming `message`.
+
+```ts
+channel.onMessage(async ({ thread, message }) => {
+  message.text;        // the user's text
+  message.user;        // { id, name?, handle?, email? }
+  thread.platform;     // "slack" | "teams" | ...
+
+  await thread.post("a plain text reply");
+  await thread.runAgent({ prompt: message.text });
+});
+```
+
+`thread.runAgent` runs your agent and streams its reply into the thread.
+`thread.post` sends a message yourself, without the agent.
+
+## Next steps
+
+<Cards>
+  <Card title="UI library" href="/channels/ui-library" description="Reply with cards and buttons, not just text." />
+  <Card title="Interactive flows" href="/channels/interactive" description="Approval gates and reaction handlers." />
+  <Card title="Commands and reactions" href="/channels/commands-and-reactions" description="Slash commands and reaction handlers." />
+  <Card title="Files and multimodality" href="/channels/files-and-multimodality" description="Accept images and files." />
+</Cards>
