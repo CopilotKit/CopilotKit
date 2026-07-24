@@ -373,7 +373,12 @@ test.each(runtimeConstructorIdentityCases)(
           telemetryId: identityCase.expectedIdentity.telemetryId,
         }),
       );
-      expect(send.mock.calls[0]?.[0]).not.toHaveProperty("globalProperties");
+      const effectiveSampleRate = hasLicenseSamplingAuthority ? 1 : 0.05;
+      expect(send.mock.calls[0]?.[0].globalProperties).toEqual({
+        sampleRate: effectiveSampleRate,
+        sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
+        sampleWeight: 1 / effectiveSampleRate,
+      });
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       const expectedHeaders = new Headers();
       const expectedTelemetryId =
@@ -429,7 +434,11 @@ test.each(runtimeConstructorCases)(
         licenseToken: undefined,
         telemetryId: undefined,
       });
-      expect(send.mock.calls[0]?.[0]).not.toHaveProperty("globalProperties");
+      expect(send.mock.calls[0]?.[0].globalProperties).toEqual({
+        sampleRate: 0.05,
+        sampleRateAdjustmentFactor: 0.95,
+        sampleWeight: 20,
+      });
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
     } finally {

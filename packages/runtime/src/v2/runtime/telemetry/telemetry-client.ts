@@ -138,9 +138,21 @@ export class TelemetryClient {
     // Only a legacy license token with telemetry_id bypasses sampleRate.
     if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
 
+    // License-authorized events ship at full fidelity. Anonymous and
+    // standalone-identified events report the configured sample rate so the
+    // sink can extrapolate volume without treating identity as event data.
+    const effectiveSampleRate = identity.licenseTelemetryId
+      ? 1
+      : this.sampleRate;
+
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
+      globalProperties: {
+        sampleRate: effectiveSampleRate,
+        sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
+        sampleWeight: 1 / effectiveSampleRate,
+      },
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       telemetryId: identity.telemetryId ?? undefined,
