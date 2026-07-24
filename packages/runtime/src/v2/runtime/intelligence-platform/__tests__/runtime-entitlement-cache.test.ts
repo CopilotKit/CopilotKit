@@ -20,16 +20,6 @@ const ACTIVE_ENTITLEMENTS_TRANSPORT = {
   limits: {},
 } as const;
 
-const INACTIVE_ENTITLEMENTS = {
-  status: "ready",
-  entitlement: {
-    active: false,
-    source: "managedOrgSubscription",
-    features: {},
-    limits: {},
-  },
-} as const satisfies RuntimeEntitlementResponse;
-
 const INACTIVE_ENTITLEMENTS_TRANSPORT = {
   organizationId: "org-private",
   active: false,
@@ -160,7 +150,7 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
   }
 });
 
-test("serves an expired deny result when its refresh fails", async () => {
+test("backs off a failed refresh of an expired inactive entitlement", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-07-22T00:00:00.000Z"));
   const { client, fetchMock, teardown } = setup();
@@ -174,14 +164,18 @@ test("serves an expired deny result when its refresh fails", async () => {
     await client.getRuntimeEntitlements();
     await vi.advanceTimersByTimeAsync(5_000);
 
-    await expect(client.getRuntimeEntitlements()).resolves.toEqual(
-      INACTIVE_ENTITLEMENTS,
-    );
+    await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
+      message: "Runtime entitlement request failed",
+      status: 502,
+      retryable: true,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    await expect(client.getRuntimeEntitlements()).resolves.toEqual(
-      INACTIVE_ENTITLEMENTS,
-    );
+    await expect(client.getRuntimeEntitlements()).rejects.toMatchObject({
+      message: "Runtime entitlement request failed",
+      status: 502,
+      retryable: true,
+    });
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await vi.advanceTimersByTimeAsync(5_000);

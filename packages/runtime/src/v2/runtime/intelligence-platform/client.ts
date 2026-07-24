@@ -583,9 +583,10 @@ export class CopilotKitIntelligence {
   /**
    * Resolve the Runtime entitlement projection for this project.
    *
-   * Calls share one in-flight request and cache grants for 30 seconds or
-   * denials for 5 seconds. Failed refreshes never reuse a stale grant. The
-   * network request is bounded, never retried, and strictly validates the
+   * Calls share one in-flight request and cache active entitlements for 30
+   * seconds or inactive entitlements for 5 seconds. Failed refreshes cache and
+   * rethrow their error for 5 seconds instead of reusing a stale ready result.
+   * The network request is bounded, never retried, and strictly validates the
    * private App API transport before normalizing it to the public response
    * union. Validation and timeout failures use stable messages that do not
    * expose rejected upstream payloads.
@@ -613,7 +614,6 @@ export class CopilotKitIntelligence {
       return this.#runtimeEntitlementsInFlight;
     }
 
-    const staleEntry = this.#runtimeEntitlementsCache;
     const request = this.#fetchRuntimeEntitlements()
       .then((response) => {
         this.#runtimeEntitlementsFailure = undefined;
@@ -628,13 +628,6 @@ export class CopilotKitIntelligence {
         return response;
       })
       .catch((error: unknown) => {
-        if (staleEntry && !grantsRuntimeAccess(staleEntry.response)) {
-          this.#runtimeEntitlementsCache = {
-            response: staleEntry.response,
-            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
-          };
-          return staleEntry.response;
-        }
         this.#runtimeEntitlementsFailure = {
           error,
           expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
