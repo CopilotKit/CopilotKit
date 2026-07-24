@@ -47,6 +47,7 @@ import {
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
+import { shadcnCss } from "./showcase/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 
@@ -212,10 +213,13 @@ async function main() {
     commands: appCommands,
     // Takumi JSX image rendering config. No `fonts`/`googleFonts` (the latter
     // can trigger a network fetch and hang tests/CI) — Takumi's built-in Latin
-    // covers this demo. The `charts` components render in color from their own
-    // fixed hex palette (no stylesheet needed), and `MrrCard` uses inline styles.
+    // font is Geist, which the cards use via `fontFamily: "Geist"`. The
+    // `shadcnCss` stylesheet feeds shadcn-style tokens/classes so the showcase
+    // cards (PR radar, weekly pulse, cycle standup) get their dark-theme look;
+    // the `charts` components render in color from their own fixed hex palette.
     render: {
       width: 720,
+      stylesheets: [shadcnCss],
     },
   });
 

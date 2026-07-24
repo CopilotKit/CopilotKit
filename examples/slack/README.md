@@ -200,6 +200,40 @@ everywhere else in this bot.
 > there is no headless browser (the old Playwright-based `render_chart` /
 > `render_diagram` tools are gone) at runtime; rendering happens in-process.
 
+### Showcase features: shadcn cards + charts as images
+
+Three realistic "we run this in our own Slack" features (`app/showcase/`), each
+rendering a **shadcn-styled card** plus **charts** as images, and each
+triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
+matching `render_*` tool). Both paths share one `render*` fn.
+
+| Feature              | Slash / prompt               | Data                          | Renders                                                                         |
+| -------------------- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| **PR review radar**  | `/prs` · "show the PR radar" | GitHub PRs (public, no token) | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart            |
+| **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
+| **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | progress card + status pie (with legend) + load-per-assignee bar                |
+
+The shadcn look comes from a single token stylesheet fed once to
+`createChannel({ render: { stylesheets: [shadcnCss] } })` (`app/showcase/theme.ts`);
+cards set layout inline and pull colour/type from classes. Text is Geist
+(Takumi's built-in font). Every feature reads **live** data and **falls back to
+sample data** (never throws) when the API is unreachable, labelling the card
+`sample data` so the degradation is visible.
+
+```ts
+// One render fn, two triggers — app/showcase/pr-radar.tsx
+export async function renderPrRadar(thread) {
+  const { prs, live } = await fetchPrRadar();           // live GitHub or sample
+  await thread.post(<PrRadarCard prs={prs} live={live} />, { filename: "pr-radar.png", width: 760, height: 150 + prs.length * 40 });
+  if (prs.length) await thread.post(<BarChart title="Open PRs by age" data={byAgeBucket(prs)} />, { filename: "pr-age.png" });
+}
+export const prRadarTool = defineChannelTool({ name: "render_pr_radar", /* … */ async handler(_, { thread }) { return renderPrRadar(thread); } });
+export const prsCommand   = defineChannelCommand({ name: "prs", /* … */ async handler({ thread }) { await renderPrRadar(thread); } });
+```
+
+**Source:** `app/showcase/` — `pr-radar.tsx`, `weekly-pulse.tsx`,
+`cycle-standup.tsx`, `theme.ts`, `lib.ts`.
+
 ### Human-in-the-loop: `confirm_write`
 
 HITL is a **blocking frontend tool**. Before any Linear/Notion write the
@@ -231,7 +265,7 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Four app-owned slash commands, registered via `createChannel({ commands })`:
+App-owned slash commands, registered via `createChannel({ commands })`:
 
 - **`/agent <text>`** — a mention-free entry point; runs the agent with the
   command text as the prompt.
@@ -241,6 +275,11 @@ Four app-owned slash commands, registered via `createChannel({ commands })`:
   (only you see it); degrades to a DM on platforms without ephemeral messages.
 - **`/file-issue`** — opens a structured Linear issue form; degrades to a
   conversational flow on platforms without modal support (e.g. Telegram).
+- **`/prs`**, **`/pulse`**, **`/standup`** — the showcase features (see
+  [Showcase features](#showcase-features-shadcn-cards--charts-as-images)
+  below). Each renders a shadcn-style card + charts as images and is **also**
+  triggerable by prompt (the matching `render_*` tool), so the same feature
+  works whether you type the slash command or just ask the agent for it.
 
 ```ts
 defineChannelCommand({
@@ -257,12 +296,13 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
-> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
-> Slack won't deliver an unregistered command, even over Socket Mode. The
-> easiest path is to paste the full `slack-app-manifest.yaml` when creating
-> (or updating) your app, which already declares all four. Discord and Telegram
-> register their commands up front via the adapter.
+> **Slack setup:** every command (`/agent`, `/triage`, `/preview`,
+> `/file-issue`, `/prs`, `/pulse`, `/standup`) must be declared in your Slack
+> app under **Slash Commands** — Slack won't deliver an unregistered command,
+> even over Socket Mode. The easiest path is to paste the full
+> `slack-app-manifest.yaml` when creating (or updating) your app, which already
+> declares all of them. Discord and Telegram register their commands up front
+> via the adapter.
 
 ### The agent (`runtime.ts`)
 
@@ -322,7 +362,7 @@ several from one process).
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
 - The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
-  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
+  `/file-issue`, `/prs`, `/pulse`, `/standup` — all passed to `createChannel`) via `setMyCommands` on start
   (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 

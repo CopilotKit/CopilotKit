@@ -196,3 +196,13 @@ icon: "lucide/Component"
 </Steps>
 
 **You've reached point B.** Arbitrary app components render to images alongside your native channel UI, styled with your own fonts and compiled CSS, with no browser anywhere in the process.
+
+## A worked example
+
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this end-to-end for three "run it in your own Slack" features, each a shadcn-styled card plus charts, and each triggerable **both** by a slash command and by prompt (the agent calls the matching `render_*` tool — both share one `render*` fn):
+
+- **PR review radar** (`/prs`) — a card of the oldest open PRs with age-coloured badges + a PRs-by-age bar chart, from GitHub's public API (no token).
+- **Weekly OSS pulse** (`/pulse`) — a KPI card (stars · npm downloads · open issues) + a downloads line chart + an issues bar chart, from GitHub + npm.
+- **Linear cycle standup** (`/standup`) — a progress card + a status pie chart (with a matching colour legend baked into the card) + a load-per-assignee bar chart, from Linear.
+
+The shadcn look is a single token stylesheet fed once via `render.stylesheets`; each feature reads live data and falls back to labelled sample data so it always runs. It's a concrete template for wiring your own dashboards.
