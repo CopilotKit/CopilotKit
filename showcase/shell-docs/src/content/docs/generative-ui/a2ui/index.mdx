@@ -41,22 +41,23 @@ frontend renderer. The difference is *where the schema comes from* and
 Every A2UI surface is assembled from three kinds of operations emitted
 by the agent and consumed by the frontend renderer:
 
-1. **`createSurface` / `surfaceUpdate`** declares (or pins) the
-   component tree (the schema) for a surface.
-2. **`updateComponents` / `dataModelUpdate`** supplies the data that
-   populates the components via JSON Pointer paths.
-3. **`beginRendering`** tells the client the first frame is ready.
+1. **`createSurface`** declares the component catalog and surface ID.
+2. **`updateComponents`** supplies the component tree (the schema).
+3. **`updateDataModel`** populates the components with data via JSON Pointer paths.
 
-The CopilotKit Python SDK provides helpers for each:
+The CopilotKit Python SDK provides helpers for each, wrapped in a single `render()` call:
 
 ```python
 from copilotkit import a2ui
 
-a2ui.create_surface(surface_id, catalog_id=...)
-a2ui.update_components(surface_id, components)
-a2ui.update_data_model(surface_id, {"items": data})
-a2ui.begin_rendering(surface_id, root_id)
-a2ui.render(operations=[...])  # wraps and serializes for a tool result
+# Render a complete A2UI surface
+a2ui.render(
+    operations=[
+        a2ui.create_surface(surface_id, catalog_id="..."),
+        a2ui.update_components(surface_id, components),
+        a2ui.update_data_model(surface_id, {"items": data}),
+    ]
+)  # wraps and serializes for a tool result
 ```
 
 ## Setup
