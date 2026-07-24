@@ -19,27 +19,43 @@ If you only need file uploads (audio, images, video, documents), use [Multimodal
 
 ## Frontend
 
-`<CopilotChat />` renders the mic button automatically when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. There's nothing to wire up on the chat surface itself:
+`<CopilotChat />` from `@copilotkit/react-core/v2` renders the mic button automatically when the runtime advertises `audioFileTranscriptionEnabled: true` on its `/info` endpoint. There's nothing to wire up on the chat surface itself:
 
 <Snippet region="voice-page" title="frontend/src/app/page.tsx — chat surface" />
 
-When the user clicks the mic, the chat captures audio, POSTs it to the runtime's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
+The `runtimeUrl="/api/copilotkit-voice"` points to your Next.js API route. When the user clicks the mic, the chat captures audio, POSTs it to the runtime's `/transcribe` endpoint, drops the resulting transcript into the composer, and submits.
 
 ### Driving the demo without a mic
 
-For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that POSTs a bundled audio clip directly to the same `/transcribe` endpoint:
+For Playwright runs, screenshots, or any flow where prompting for mic permissions is awkward, ship a button that synchronously injects a canned sample phrase directly into the composer textarea, bypassing the transcription endpoint entirely:
 
-<Snippet region="sample-audio-button" title="frontend/src/app/sample-audio-button.tsx" />
+<Snippet
+  region="sample-audio-button"
+  title="frontend/src/app/sample-audio-button.tsx"
+/>
 
 The caller can drop the resulting text into the composer's textarea (matched via `data-testid="copilot-chat-textarea"`) using the native value setter and a synthetic `input` event so React's managed state updates correctly.
 
 ## Backend
 
-Wire up the V2 runtime with a `TranscriptionService`. The V1 wrapper drops the `transcriptionService` option, so use `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly:
+### Next.js API Route
 
-<Snippet region="voice-runtime" title="app/api/copilotkit-voice/[[...slug]]/route.ts" />
+Create a dedicated API route at `app/api/copilotkit-voice/[[...slug]]/route.ts`. The `[[...slug]]` catch-all pattern lets the V2 runtime handle its internal URL routing (`/info`, `/agent/:id/run`, `/transcribe`, etc.) under the `/api/copilotkit-voice` base path:
 
-With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
+<Snippet
+  region="voice-runtime"
+  title="app/api/copilotkit-voice/[[...slug]]/route.ts"
+/>
+
+The `basePath: "/api/copilotkit-voice"` in `createCopilotRuntimeHandler` must match the API route's directory path. With `transcriptionService` set, the runtime advertises `audioFileTranscriptionEnabled: true` on `/info` (which is what tells the chat to render the mic button) and routes `POST /transcribe` to the service.
+
+<Callout type="info">
+  **For Google ADK (Python/FastAPI) backends:** The voice route shown above is
+  frontend-only for transcription. There is **no corresponding `path="/voice"`
+  needed** in your Python backend's `add_adk_fastapi_endpoint` call. The
+  standard `path="/"` works with the frontend's dedicated voice runtime. Your
+  agent receives the transcribed text as a regular message.
+</Callout>
 
 ### Custom transcription backends
 
@@ -47,6 +63,9 @@ With `transcriptionService` set, the runtime advertises `audioFileTranscriptionE
 
 A useful pattern is wrapping your service in a guard that returns a clean 4xx when credentials aren't configured, instead of an opaque 5xx from the underlying SDK:
 
-<Snippet region="transcription-service-guard" title="backend — guarded transcription service" />
+<Snippet
+  region="transcription-service-guard"
+  title="backend — guarded transcription service"
+/>
 
 <IntegrationGrid path="voice" />
