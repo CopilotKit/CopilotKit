@@ -2,16 +2,28 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
+  signal,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
-import { injectInterrupt } from "@copilotkit/angular";
+import { injectInterrupt, registerHumanInTheLoop } from "@copilotkit/angular";
+import type { HumanInTheLoopConfig } from "@copilotkit/angular";
+import { z } from "zod";
 
 import { agentIdForRoute } from "../../feature-agent";
+import { integrationId } from "../../runtime-context";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
+import { TimePickerCard } from "../tools/hitl-cards";
+import { usesFrontendSchedulingTool } from "./interrupt-mode";
 import { parseInterruptPayload } from "./interrupt-payload";
 import type { InterruptSlot } from "./interrupt-payload";
+
+type ScheduleMeetingArgs = {
+  topic: string;
+  attendee?: string;
+};
 
 @Component({
   selector: "showcase-interrupt-feature",
@@ -80,7 +92,7 @@ import type { InterruptSlot } from "./interrupt-payload";
           <article class="interrupt-picker" data-testid="time-picker-card">
             <span>Pick a time</span>
             <h2>{{ payload().topic }}</h2>
-            @if (pickedLabel; as label) {
+            @if (pickedLabel(); as label) {
               <p data-testid="time-picker-picked">Booked {{ label }}</p>
             } @else {
               <div class="interrupt-slots">
@@ -118,11 +130,38 @@ export class InterruptFeatureComponent {
   protected readonly payload = computed(() =>
     parseInterruptPayload(this.controller.event()?.value),
   );
-  protected pickedLabel: string | null = null;
+  protected readonly pickedLabel = signal<string | null>(null);
+  private lastInterruptEvent: object | null = null;
+
+  constructor() {
+    effect(() => {
+      const event = this.controller.event();
+      if (event && event !== this.lastInterruptEvent) {
+        this.lastInterruptEvent = event;
+        this.pickedLabel.set(null);
+      }
+    });
+
+    if (usesFrontendSchedulingTool(this.feature, integrationId())) {
+      const config: HumanInTheLoopConfig<ScheduleMeetingArgs> = {
+        agentId: this.agentId,
+        name: "schedule_meeting",
+        description:
+          "Ask the user to pick a meeting time and return the selected slot.",
+        parameters: z.object({
+          topic: z.string(),
+          attendee: z.string().optional(),
+        }),
+        component:
+          TimePickerCard as unknown as HumanInTheLoopConfig<ScheduleMeetingArgs>["component"],
+      };
+      registerHumanInTheLoop(config);
+    }
+  }
 
   /** Resolve the active decision while retaining its visible confirmation. */
   protected resolve(slot: InterruptSlot): void {
-    this.pickedLabel = slot.label;
+    this.pickedLabel.set(slot.label);
     this.controller
       .resolve({
         chosen_time: slot.iso,
