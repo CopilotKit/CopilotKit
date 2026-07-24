@@ -16,7 +16,7 @@ import {
   computePrereleaseVersion,
   resolvePrereleaseId,
   bumpPackages,
-  findCrossScopeWorkspaceDeps,
+  findCrossScopePins,
 } from "./lib/versions.js";
 import { ALL_SCOPES, loadConfig, resolveScopes } from "./lib/config.js";
 
@@ -24,10 +24,8 @@ import { ALL_SCOPES, loadConfig, resolveScopes } from "./lib/config.js";
 const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 /**
- * Warn about dependency edges leaving the published set. `pnpm pack` pins them
- * to the dependency's current working-tree version — the other scope's last
- * stable release — so the canary only composes with THAT release. Silent before
- * this warning existed: a `monorepo` canary of a commit that changed the
+ * Warn about cross-scope pins that won't carry a version from this run. Silent
+ * before this warning existed: a `monorepo` canary of a commit that changed the
  * runtime↔channels contract shipped pinned to the pre-change channels release,
  * and the mismatch only surfaced as a TypeError in a consumer's app.
  *
@@ -35,15 +33,19 @@ const VALID_SCOPES = Object.keys(loadConfig().scopes);
  * the change doesn't cross the edge.
  */
 function warnOnCrossScopePins(scopes: ReturnType<typeof resolveScopes>): void {
-  const crossScope = findCrossScopeWorkspaceDeps(scopes);
-  if (crossScope.length === 0) return;
+  const pins = findCrossScopePins(scopes);
+  if (pins.length === 0) return;
 
   console.log(
-    `\n${crossScope.length} dependency edge(s) leave this publish and will be pinned to already-released versions:`,
+    `\n${pins.length} cross-scope pin(s) will NOT carry a version from this publish:`,
   );
-  for (const edge of crossScope) {
+  for (const pin of pins) {
+    const remedy =
+      pin.reason === "literal-range"
+        ? `That range is written literally in ${pin.from}'s package.json, so no bump rewrites it — scope=${ALL_SCOPES} does NOT fix this. Convert the dep to the workspace: protocol.`
+        : `If this commit changed both sides, re-run the canary with scope=${ALL_SCOPES}.`;
     console.log(
-      `::warning::${edge.from} depends on ${edge.dep} (scope "${edge.depScope}", not part of this publish) — the packed tarball pins ${edge.dep}@${edge.resolvesTo}, so this canary is only usable with that release. If this commit changed both sides, re-run the canary with scope=${ALL_SCOPES}.`,
+      `::warning::${pin.from} depends on ${pin.dep} (scope "${pin.depScope}") — the published manifest will pin ${pin.dep}@${pin.resolvesTo}, so this canary is only usable with that release. ${remedy}`,
     );
   }
 }

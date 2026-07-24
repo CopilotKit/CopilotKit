@@ -8,7 +8,7 @@ import {
   computePrereleaseVersion,
   resolvePrereleaseId,
   bumpPackages,
-  findCrossScopeWorkspaceDeps,
+  findCrossScopePins,
   getPackagesForScope,
 } from "./versions.js";
 
@@ -264,7 +264,7 @@ describe("bumpPackages", () => {
 // a package in one release scope carrying a workspace: dep on a package owned by
 // another. pnpm pack pins those to the working-tree version, so a canary of only
 // the depending scope ships against the OTHER scope's last stable release.
-describe("findCrossScopeWorkspaceDeps", () => {
+describe("findCrossScopePins", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "release-test-"));
     const packagesDir = path.join(tmpDir, "packages");
@@ -294,23 +294,48 @@ describe("findCrossScopeWorkspaceDeps", () => {
   });
 
   it("reports the version a dependency outside the published scopes pins to", () => {
-    expect(findCrossScopeWorkspaceDeps(["monorepo"])).toEqual([
+    expect(findCrossScopePins(["monorepo"])).toEqual([
       {
         from: "@copilotkit/react-core",
         dep: "@copilotkit/angular",
         depScope: "angular",
         resolvesTo: "0.2.0",
+        reason: "unpublished-scope",
       },
     ]);
   });
 
   it("reports nothing once every scope on the edge is published together", () => {
-    expect(findCrossScopeWorkspaceDeps(["monorepo", "angular"])).toEqual([]);
+    expect(findCrossScopePins(["monorepo", "angular"])).toEqual([]);
   });
 
   it("ignores in-scope deps and third-party ranges", () => {
-    const found = findCrossScopeWorkspaceDeps(["monorepo"]);
-    expect(found.map((edge) => edge.dep)).not.toContain("@copilotkit/shared");
-    expect(found.map((edge) => edge.dep)).not.toContain("some-third-party");
+    const found = findCrossScopePins(["monorepo"]);
+    expect(found.map((pin) => pin.dep)).not.toContain("@copilotkit/shared");
+    expect(found.map((pin) => pin.dep)).not.toContain("some-third-party");
+  });
+
+  // bumpPackages rewrites literal ranges for in-scope packages only, so a literal
+  // cross-scope range survives every bump — publishing both scopes together does
+  // NOT make it carry this run's version, which is why it reports even then.
+  it("reports a literal cross-scope range even when both scopes are published", () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "packages/react-core/package.json"),
+      JSON.stringify({
+        name: "@copilotkit/react-core",
+        version: "1.55.2",
+        dependencies: { "@copilotkit/angular": "^0.2.0" },
+      }),
+    );
+
+    expect(findCrossScopePins(["monorepo", "angular"])).toEqual([
+      {
+        from: "@copilotkit/react-core",
+        dep: "@copilotkit/angular",
+        depScope: "angular",
+        resolvesTo: "^0.2.0",
+        reason: "literal-range",
+      },
+    ]);
   });
 });

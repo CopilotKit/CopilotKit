@@ -7,6 +7,14 @@
  *
  * Always publishes with the "canary" dist-tag.
  *
+ * Multi-scope caveat (scope=all): packages publish scope by scope, and the
+ * cross-scope dependency graph has cycles (runtime -> channels-intelligence,
+ * channels-core -> core), so NO order avoids publishing a package before the
+ * same-run version it pins. A run that dies partway therefore leaves published
+ * canaries pinning versions that never shipped — uninstallable until the rest
+ * lands. There is no resume: npm rejects republishing a version, so retry with a
+ * NEW suffix and abandon the half-published id.
+ *
  * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 

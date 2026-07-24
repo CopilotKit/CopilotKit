@@ -185,35 +185,49 @@ export function bumpPackages(
   return updated;
 }
 
-/** A published dependency edge that leaves the set of scopes being published. */
-export interface CrossScopeDependency {
+/** A cross-scope dependency edge whose published pin won't be this run's version. */
+export interface CrossScopePin {
   /** Package being published. */
   from: string;
-  /** Its `workspace:` dependency, owned by a scope that is NOT being published. */
+  /** Its dependency, owned by a different release scope. */
   dep: string;
   /** The scope that owns `dep`. */
   depScope: ReleaseScope;
-  /** Version `pnpm pack` will rewrite the workspace protocol to. */
+  /** Version the published manifest will carry for `dep`. */
   resolvesTo: string;
+  /**
+   * Why the pin is stale:
+   * - `unpublished-scope`: a `workspace:` range that `pnpm pack` resolves against
+   *   the working tree, where `depScope` was not bumped in this run. Publishing
+   *   that scope too (scope=all) fixes it.
+   * - `literal-range`: a hand-written version range on a cross-scope package.
+   *   `bumpPackages` only rewrites literal ranges naming packages in the SAME
+   *   scope, so this one survives every bump — scope=all does NOT fix it. Convert
+   *   the dep to the `workspace:` protocol.
+   */
+  reason: "unpublished-scope" | "literal-range";
 }
 
 /**
- * Find dependency edges that leave `scopes`: a package being published whose
- * `workspace:` dependency belongs to a scope that ISN'T.
+ * Find cross-scope dependency edges whose published pin will NOT be a version
+ * from this run.
  *
- * `pnpm pack` resolves the workspace protocol against the working tree, so every
- * such edge is pinned to the dependency's CURRENT version — for a scope that was
- * not bumped in this run, its last stable release. The published artifact then
- * only composes with that release, even when the commit being canaried changed
- * both sides of the edge. Callers surface these so the pin is a visible choice
- * rather than a silent one.
+ * The failure this exists to make visible: `pnpm pack` resolves the workspace
+ * protocol against the working tree, so a canary of one scope pins the other
+ * scope's packages to their last stable release — even when the commit being
+ * canaried changed both sides of the contract. The artifact then only composes
+ * with that release, and nothing says so until a consumer hits a runtime error.
+ *
+ * Two shapes qualify. A `workspace:` range into a scope that isn't being
+ * published is fixed by publishing every scope together; a literal range into
+ * another scope is fixed only by converting it to `workspace:`, since
+ * {@link bumpPackages} rewrites literal ranges for in-scope packages only. Both
+ * are reported, tagged by {@link CrossScopePin.reason}.
  *
  * Only `dependencies`/`peerDependencies`/`optionalDependencies` are considered —
  * devDependencies never constrain a consumer's install.
  */
-export function findCrossScopeWorkspaceDeps(
-  scopes: ReleaseScope[],
-): CrossScopeDependency[] {
+export function findCrossScopePins(scopes: ReleaseScope[]): CrossScopePin[] {
   const config = loadConfig();
   const scopeByPackage = new Map<string, ReleaseScope>();
   for (const [scope, scopeConfig] of Object.entries(config.scopes)) {
@@ -223,7 +237,7 @@ export function findCrossScopeWorkspaceDeps(
   }
 
   const publishing = new Set(scopes);
-  const found: CrossScopeDependency[] = [];
+  const found: CrossScopePin[] = [];
 
   for (const scope of scopes) {
     for (const p of getPackagesForScope(scope)) {
@@ -235,19 +249,27 @@ export function findCrossScopeWorkspaceDeps(
         const deps = p.pkg[depField] as Record<string, string> | undefined;
         if (!deps) continue;
         for (const [dep, range] of Object.entries(deps)) {
-          if (!range.startsWith("workspace:")) continue;
           const depScope = scopeByPackage.get(dep);
-          if (!depScope || publishing.has(depScope)) continue;
+          if (!depScope || depScope === scope) continue;
+          const isWorkspace = range.startsWith("workspace:");
+          // A workspace: range into a scope this run bumps resolves to that
+          // scope's canary version — the composable case, nothing to report.
+          if (isWorkspace && publishing.has(depScope)) continue;
           found.push({
             from: p.name,
             dep,
             depScope,
-            resolvesTo: JSON.parse(
-              fs.readFileSync(
-                path.join(findPackageDir(dep), "package.json"),
-                "utf8",
-              ),
-            ).version,
+            // A literal range is published verbatim; a workspace: range is
+            // rewritten to the dependency's working-tree version.
+            resolvesTo: isWorkspace
+              ? JSON.parse(
+                  fs.readFileSync(
+                    path.join(findPackageDir(dep), "package.json"),
+                    "utf8",
+                  ),
+                ).version
+              : range,
+            reason: isWorkspace ? "unpublished-scope" : "literal-range",
           });
         }
       }
