@@ -1,4 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  test,
+  vi,
+} from "vitest";
 
 import {
   CopilotIntelligenceRuntime,
@@ -10,6 +19,20 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 import type { RuntimeInstanceCreatedInfo } from "../telemetry/events";
 import { handleRunAgent } from "../handlers/handle-run";
+
+const inheritedTelemetrySampleRate = vi.hoisted(() => {
+  const value = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  return value;
+});
+
+afterAll(() => {
+  if (inheritedTelemetrySampleRate === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = inheritedTelemetrySampleRate;
+  }
+});
 
 const AGENTS = {};
 const IDENTIFY_USER = vi

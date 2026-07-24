@@ -1,10 +1,33 @@
-import { afterEach, beforeEach, describe, expect, it, test, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  test,
+  vi,
+} from "vitest";
 
 import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotRuntime } from "../copilot-runtime";
 import telemetry from "../../telemetry-client";
 import { telemetry as delegatedTelemetry } from "../../../v2/runtime/telemetry";
 import { createCopilotRuntimeHandler } from "../../../v2/runtime";
+
+const inheritedTelemetrySampleRate = vi.hoisted(() => {
+  const value = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  return value;
+});
+
+afterAll(() => {
+  if (inheritedTelemetrySampleRate === undefined) {
+    delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
+  } else {
+    process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE = inheritedTelemetrySampleRate;
+  }
+});
 
 /**
  * The v1 (GraphQL) CopilotRuntime has its own constructor and telemetry scope.
