@@ -10,16 +10,19 @@ const instanceCreatedEvent: RuntimeInstanceCreatedInfo = {
   "cloud.api_key_provided": false,
 };
 
-/** Builds the signature-agnostic legacy token shape used at this boundary. */
-function jwtWithWhitespaceTelemetryId(): string {
+/** Build the signature-agnostic legacy token shape used at this boundary. */
+function jwtWithTelemetryId(telemetryId: string): string {
   const payload = Buffer.from(
-    JSON.stringify({ telemetry_id: " \t " }),
+    JSON.stringify({ telemetry_id: telemetryId }),
   ).toString("base64url");
   return `header.${payload}.sig`;
 }
 
 /** Creates one isolated V2 telemetry capture with a fixed sampling decision. */
-function setupRuntimeCapture(randomValue: number) {
+function setupRuntimeCapture(
+  randomValue: number,
+  telemetryId: string = " \t ",
+) {
   const priorSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   const randomSpy = vi.spyOn(Math, "random").mockReturnValue(randomValue);
@@ -28,7 +31,7 @@ function setupRuntimeCapture(randomValue: number) {
     telemetryDisabled: false,
     sampleRate: 0.05,
   });
-  client.setLicenseToken(jwtWithWhitespaceTelemetryId());
+  client.setLicenseToken(jwtWithTelemetryId(telemetryId));
 
   return {
     client,
@@ -80,3 +83,24 @@ test("V2 sampled whitespace-only legacy claim sends no identity header", async (
     teardown();
   }
 });
+
+test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
+  "V2 header-invalid legacy claim %j stays subject to sampling",
+  async (invalidTelemetryId) => {
+    const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+    const { client, randomSpy, teardown } = setupRuntimeCapture(
+      0.99,
+      invalidTelemetryId,
+    );
+
+    try {
+      await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(sinkSpy).not.toHaveBeenCalled();
+    } finally {
+      sinkSpy.mockRestore();
+      teardown();
+    }
+  },
+);

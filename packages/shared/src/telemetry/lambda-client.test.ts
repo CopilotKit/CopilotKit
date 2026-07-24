@@ -6,15 +6,30 @@ const EXPECTED_TELEMETRY_SINK_URL =
   "https://telemetry.copilotkit.ai/ingest";
 const TELEMETRY_ID_HEADER = "x-copilotkit-telemetry-id";
 
-test("preserves nonblank legacy license identity bytes", () => {
+test("normalizes surrounding HTTP whitespace in a legacy license identity", () => {
   const telemetryId = "\t legacy-telemetry-id \t";
   const payload = Buffer.from(
     JSON.stringify({ telemetry_id: telemetryId }),
   ).toString("base64url");
 
   expect(parseTelemetryIdFromLicense(`header.${payload}.sig`)).toBe(
-    telemetryId,
+    "legacy-telemetry-id",
   );
+});
+
+test("decodes a UTF-8 legacy identity in the browser fallback", () => {
+  const payload = Buffer.from(
+    JSON.stringify({ telemetry_id: "tenant-é" }),
+  ).toString("base64url");
+  vi.stubGlobal("Buffer", undefined);
+
+  try {
+    expect(parseTelemetryIdFromLicense(`header.${payload}.sig`)).toBe(
+      "tenant-é",
+    );
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 /**
@@ -65,6 +80,27 @@ function setupCapturedRequest() {
     teardown: () => fetchMock.mockRestore(),
   };
 }
+
+test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
+  "header-invalid legacy identity %j sends anonymously instead of dropping the event",
+  async (invalidTelemetryId) => {
+    const payload = Buffer.from(
+      JSON.stringify({ telemetry_id: invalidTelemetryId }),
+    ).toString("base64url");
+    const { readRequest, teardown } = setupCapturedRequest();
+
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        licenseToken: `header.${payload}.sig`,
+      });
+
+      expect(readRequest().rawTelemetryIdHeader).toBeUndefined();
+    } finally {
+      teardown();
+    }
+  },
+);
 
 describe("lambda-client send()", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

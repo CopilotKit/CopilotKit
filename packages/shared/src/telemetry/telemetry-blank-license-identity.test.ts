@@ -19,16 +19,19 @@ const instanceCreatedEvent = {
   "cloud.api_key_provided": false,
 };
 
-/** Builds the signature-agnostic legacy token shape used at this boundary. */
-function jwtWithWhitespaceTelemetryId(): string {
+/** Build the signature-agnostic legacy token shape used at this boundary. */
+function jwtWithTelemetryId(telemetryId: string): string {
   const payload = Buffer.from(
-    JSON.stringify({ telemetry_id: " \t " }),
+    JSON.stringify({ telemetry_id: telemetryId }),
   ).toString("base64url");
   return `header.${payload}.sig`;
 }
 
 /** Creates one isolated Shared telemetry capture with a fixed sampling decision. */
-function setupSharedCapture(randomValue: number) {
+function setupSharedCapture(
+  randomValue: number,
+  telemetryId: string = " \t ",
+) {
   const priorSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   delete process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
   segmentTrackMock.mockReset();
@@ -40,7 +43,7 @@ function setupSharedCapture(randomValue: number) {
     telemetryDisabled: false,
     sampleRate: 0.05,
   });
-  client.setLicenseToken(jwtWithWhitespaceTelemetryId());
+  client.setLicenseToken(jwtWithTelemetryId(telemetryId));
 
   return {
     client,
@@ -94,3 +97,25 @@ test("Shared sampled whitespace-only legacy claim sends no identity header", asy
     teardown();
   }
 });
+
+test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
+  "Shared header-invalid legacy claim %j stays subject to sampling",
+  async (invalidTelemetryId) => {
+    const sinkSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
+    const { client, randomSpy, teardown } = setupSharedCapture(
+      0.99,
+      invalidTelemetryId,
+    );
+
+    try {
+      await client.capture("oss.runtime.instance_created", instanceCreatedEvent);
+
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(sinkSpy).not.toHaveBeenCalled();
+      expect(segmentTrackMock).not.toHaveBeenCalled();
+    } finally {
+      sinkSpy.mockRestore();
+      teardown();
+    }
+  },
+);
