@@ -56,10 +56,12 @@ function managedRuntimeInfo(threadsEnabled: boolean): RuntimeInfo {
 }
 
 /** Build Runtime info for a retryable managed-entitlement outage. */
-function retryableRuntimeInfo(): RuntimeInfo {
+function retryableRuntimeInfo(
+  licenseStatus: RuntimeInfo["licenseStatus"] = "unknown",
+): RuntimeInfo {
   return {
     ...managedRuntimeInfo(true),
-    licenseStatus: "unknown",
+    licenseStatus,
     runtimeEntitlements: retryableRuntimeEntitlements,
   };
 }
@@ -282,6 +284,53 @@ test("a retryable entitlement result stays pending until the mounted drawer reco
     vi.useRealTimers();
   }
 });
+
+test.each(["invalid", "expired"] as const)(
+  "a retryable entitlement result hides a stale %s license warning while managed authority recovers",
+  async (licenseStatus) => {
+    vi.useFakeTimers();
+    const { dispose, fetchMock } = setupDrawerTest(
+      retryableRuntimeInfo(licenseStatus),
+      managedRuntimeInfo(true),
+    );
+
+    try {
+      render(
+        <CopilotKitProvider runtimeUrl="/api">
+          <CopilotChatConfigurationProvider>
+            <CopilotThreadsDrawer />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      await flushPromiseUpdates();
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(
+        screen.queryByText(
+          /CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
+        ),
+      ).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: true }),
+      );
+      expect(
+        screen.queryByText(
+          /CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
+        ),
+      ).toBeNull();
+    } finally {
+      dispose();
+      vi.useRealTimers();
+    }
+  },
+);
 
 test("a persistent retryable outage becomes terminal after the bounded retry", async () => {
   vi.useFakeTimers();

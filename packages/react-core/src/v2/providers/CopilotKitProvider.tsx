@@ -858,6 +858,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     retryableRuntimeEntitlementFailure && runtimeEntitlementRetryPending;
   const runtimeEntitlementRetryExhausted =
     retryableRuntimeEntitlementFailure && !runtimeEntitlementRetryPending;
+  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
+    ? undefined
+    : runtimeLicenseStatus;
   const licenseContextValue = useMemo<LicenseContextValue>(() => {
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
@@ -901,16 +904,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             />
           ) : null}
           {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
+          {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
             <LicenseWarningBanner type="no_license" />
           )}
-          {runtimeLicenseStatus === "expired" && (
+          {runtimeLicenseWarningStatus === "expired" && (
             <LicenseWarningBanner type="expired" />
           )}
-          {runtimeLicenseStatus === "invalid" && (
+          {runtimeLicenseWarningStatus === "invalid" && (
             <LicenseWarningBanner type="invalid" />
           )}
-          {runtimeLicenseStatus === "expiring" && (
+          {runtimeLicenseWarningStatus === "expiring" && (
             <LicenseWarningBanner type="expiring" />
           )}
         </LicenseContext.Provider>
