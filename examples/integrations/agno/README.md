@@ -64,6 +64,55 @@ bun run dev
 
 This will start both the UI and agent servers concurrently.
 
+## CopilotKit Intelligence & Threads (Optional)
+
+CopilotKit Intelligence provides durable, multi-turn conversation threads with memory persistence. To enable:
+
+### Prerequisites
+
+- Docker Desktop or equivalent
+- CopilotKit License Token (get from [CopilotKit Cloud](https://cloud.copilotkit.ai))
+
+### Setup
+
+1. Start the intelligence stack:
+
+```bash
+# Set your license token
+echo "COPILOTKIT_LICENSE_TOKEN=your-token-here" >> .env
+
+# Start intelligence services (postgres, redis, intelligence API)
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+
+# Verify services are healthy
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml ps
+```
+
+2. Add intelligence configuration to `.env` (uncomment these lines if they already exist):
+
+```bash
+INTELLIGENCE_API_URL=http://localhost:4201
+INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
+```
+
+3. Run your application:
+
+```bash
+npm run dev
+```
+
+The intelligence stack will now handle conversation threads, state persistence, and memory. See the [Intelligence setup documentation](../../../showcase/shared/intelligence-dev/README.md) for troubleshooting and advanced configuration.
+
+### Stopping Intelligence
+
+```bash
+# Stop services (keeps data)
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml stop
+
+# Stop and remove containers + volumes (fresh start)
+docker compose -f ../../../showcase/shared/intelligence-dev/docker-compose.yml down -v
+```
+
 ## Available Scripts
 
 The following scripts can also be run using your preferred package manager:

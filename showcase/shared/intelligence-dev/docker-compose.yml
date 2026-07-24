@@ -1,0 +1,104 @@
+# ============================================================================
+# Shared docker-compose template for local CopilotKit Intelligence development.
+#
+# This file provides the minimum infrastructure needed to run CopilotKit
+# Intelligence locally for starter/example development:
+#
+#   postgres (pgvector)  :5432    app DB with intelligence_app + intelligence_app_shadow
+#   redis                :6379    session / realtime fan-out
+#   intelligence         :4201    app-api (REST /api/memories + /mcp)
+#                        :4401    realtime-gateway (thread/conversation state)
+#
+# Usage from an integration example (e.g., examples/integrations/mastra):
+#   docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+#
+# Or create a local docker-compose.intelligence.yml that references this as a base.
+#
+# Environment variables (set in .env or export):
+#   COPILOTKIT_LICENSE_TOKEN - Your CopilotKit license (required for Intelligence)
+#   INTELLIGENCE_REPO        - Path to Intelligence repo checkout (defaults to ../../../Intelligence)
+#   POSTGRES_HOST_PORT       - Host port for postgres (default: 5432)
+#   REDIS_HOST_PORT          - Host port for redis (default: 6379)
+#   APP_API_HOST_PORT        - Host port for intelligence API (default: 4201)
+#   GATEWAY_HOST_PORT        - Host port for intelligence gateway (default: 4401)
+# ============================================================================
+
+name: copilotkit-intelligence
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg16
+    ports:
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: intelligence
+      POSTGRES_PASSWORD: intelligence
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Creates intelligence_app + intelligence_app_shadow on first boot.
+      # The intelligence container's migrations and app-api connect to intelligence_app.
+      - ./docker:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d intelligence_app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # Intelligence composite image: app-api + realtime-gateway + db migrations.
+  # You must have the Intelligence repo checked out locally and point
+  # INTELLIGENCE_REPO at it (defaults to ../../../Intelligence relative to CopilotKit).
+  intelligence:
+    image: cpki/intelligence-composite:local
+    build:
+      context: ${INTELLIGENCE_REPO:-../../../Intelligence}
+      dockerfile: Dockerfile.composite
+    ports:
+      - "${APP_API_HOST_PORT:-4201}:4201"
+      - "${GATEWAY_HOST_PORT:-4401}:4401"
+    environment:
+      DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
+      REDIS_URL: redis://redis:6379
+      MEMORY_ENABLED: "false"
+      SL_ENABLED: "false"
+      COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
+      AUTH_SECRET: "local-dev-auth-secret-at-least-32-bytes-long-000"
+      AUTH_TRUST_HOST: "true"
+      INTELLIGENCE_DEPLOYMENT_MODE: self_hosted
+      RUNNER_AUTH_SECRET: dev-runner-secret
+      SECRET_KEY_BASE: local-realtime-gateway-secret-key-base-at-least-64-bytes-long
+      PHX_HOST: localhost
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:4201/api/health && nc -z 127.0.0.1 4401",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
