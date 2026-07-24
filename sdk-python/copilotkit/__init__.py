@@ -46,6 +46,15 @@ from .intelligence import (
     IntelligenceSkillSet,
     IntelligenceUnavailableError,
 )
+from .learning_contract_validator import (
+    LearningContractValidatorError,
+    compile_learning_contract_schema,
+    validate_learning_contract,
+)
+from .unicode_default_case_folding import (
+    unicode_default_case_fold,
+    unicode_default_case_fold_normalized,
+)
 
 
 __all__ = [
@@ -86,4 +95,9 @@ __all__ = [
     "IntelligenceSkillManifestDescriptor",
     "IntelligenceSkillSet",
     "IntelligenceUnavailableError",
+    "LearningContractValidatorError",
+    "compile_learning_contract_schema",
+    "validate_learning_contract",
+    "unicode_default_case_fold",
+    "unicode_default_case_fold_normalized",
 ]
