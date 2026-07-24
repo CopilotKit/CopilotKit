@@ -78,6 +78,8 @@
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "text-encoding": "^0.7.0",
     "web-streams-polyfill": "^4.2.0"
   },

@@ -1,6 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 // ─── Mock react-native ───────────────────────────────────────────────────────
 // jsdom doesn't have react-native, so we provide lightweight stand-ins.
@@ -105,13 +105,61 @@ vi.mock("react-native", () => {
 });
 
 // ─── Mock the Markdown component (B1 owns it, may not exist yet) ─────────────
+const markdownProps = vi.hoisted(() => ({ current: null as any }));
+
 vi.mock("../../Markdown", () => ({
-  CopilotMarkdown: ({ content }: { content: string }) => {
+  defaultMarkdownStyles: {
+    h1: {
+      fontSize: 24,
+      fontWeight: "bold",
+      marginTop: 12,
+      marginBottom: 8,
+      color: "#111111",
+    },
+    h2: {
+      fontSize: 20,
+      fontWeight: "bold",
+      marginTop: 10,
+      marginBottom: 6,
+      color: "#111111",
+    },
+    h3: {
+      fontSize: 18,
+      fontWeight: "600",
+      marginTop: 8,
+      marginBottom: 4,
+      color: "#222222",
+    },
+    code: {
+      backgroundColor: "#f0f0f0",
+      fontFamily: "monospace",
+      fontSize: 14,
+    },
+    codeBlock: {
+      backgroundColor: "#f0f0f0",
+      borderRadius: 8,
+      padding: 12,
+      fontFamily: "monospace",
+      fontSize: 14,
+    },
+    blockquote: {
+      backgroundColor: "#f5f5f5",
+      borderWidth: 4,
+      borderColor: "#cccccc",
+      gapWidth: 12,
+    },
+  },
+  CopilotMarkdown: (props: {
+    content: string;
+    style?: Record<string, Record<string, unknown>>;
+    streamingAnimation?: boolean;
+  }) => {
     const React = require("react");
+    markdownProps.current = props;
     return React.createElement(
       "div",
       { "data-testid": "copilot-markdown" },
-      content,
+      props.content,
     );
   },
 }));
@@ -159,9 +207,84 @@ describe("AssistantMessage", () => {
 });
 
 describe("UserMessage", () => {
-  it("renders plain text content", () => {
-    const { container } = render(<UserMessage content="Hello from the user" />);
-    expect(container.textContent).toContain("Hello from the user");
+  beforeEach(() => {
+    markdownProps.current = null;
+  });
+
+  it("renders content via CopilotMarkdown", () => {
+    const { getByTestId } = render(
+      <UserMessage content="Hello **from the user**" />,
+    );
+
+    expect(getByTestId("copilot-markdown").textContent).toBe(
+      "Hello **from the user**",
+    );
+    expect(markdownProps.current).toMatchObject({
+      content: "Hello **from the user**",
+      streamingAnimation: false,
+      style: {
+        paragraph: {
+          color: "#FFFFFF",
+          fontSize: 16,
+          lineHeight: 22,
+          marginTop: 0,
+          marginBottom: 0,
+        },
+        h1: {
+          fontSize: 24,
+          fontWeight: "bold",
+          marginTop: 12,
+          marginBottom: 8,
+          color: "#FFFFFF",
+        },
+        h2: {
+          fontSize: 20,
+          fontWeight: "bold",
+          marginTop: 10,
+          marginBottom: 6,
+          color: "#FFFFFF",
+        },
+        h3: {
+          fontSize: 18,
+          fontWeight: "600",
+          marginTop: 8,
+          marginBottom: 4,
+          color: "#FFFFFF",
+        },
+        h4: { color: "#FFFFFF" },
+        h5: { color: "#FFFFFF" },
+        h6: { color: "#FFFFFF" },
+        link: { color: "#FFFFFF", underline: true },
+        list: {
+          color: "#FFFFFF",
+          bulletColor: "#FFFFFF",
+          markerColor: "#FFFFFF",
+          marginTop: 4,
+          marginBottom: 4,
+        },
+        code: {
+          backgroundColor: "#004C99",
+          color: "#FFFFFF",
+          fontFamily: "monospace",
+          fontSize: 14,
+        },
+        codeBlock: {
+          backgroundColor: "#004C99",
+          borderRadius: 8,
+          color: "#FFFFFF",
+          fontFamily: "monospace",
+          fontSize: 14,
+          padding: 12,
+        },
+        blockquote: {
+          backgroundColor: "#004C99",
+          borderColor: "#80BFFF",
+          borderWidth: 4,
+          color: "#FFFFFF",
+          gapWidth: 12,
+        },
+      },
+    });
   });
 
   it("displays a timestamp when provided", () => {

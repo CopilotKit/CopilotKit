@@ -2951,6 +2951,9 @@ importers:
       expo-file-system:
         specifier: '>=17.0.0'
         version: 56.0.7(expo@56.0.3)(react-native@0.85.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.29.7))(@types/react@19.1.8)(react@19.2.3))
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.1.8)(react@19.2.3)
       react-native:
         specifier: '>=0.70'
         version: 0.85.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.29.7))(@types/react@19.1.8)(react@19.2.3)
@@ -2963,6 +2966,9 @@ importers:
       react-native-streamdown:
         specifier: '>=0.1.0'
         version: 0.1.1(react-native-enriched-markdown@0.4.0(react-native@0.85.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.29.7))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3))(react-native@0.85.2(@babel/core@7.29.7)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.29.7)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.29.7))(@types/react@19.1.8)(react@19.2.3))(react@19.2.3)(remend@1.2.2)
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
       text-encoding:
         specifier: ^0.7.0
         version: 0.7.0
