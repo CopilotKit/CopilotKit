@@ -85,8 +85,9 @@ hook would power a modal, a toast, a sidebar form, or a voice UI.
 
 ## Resolving a frontend tool call from a button
 
-For promise-based integrations there is no native interrupt primitive —
-the demo uses `useFrontendTool` with a Promise-based handler instead.
+For integrations whose pinned showcase uses the promise-based path, the demo
+uses `useFrontendTool` with a Promise-based handler instead. This can be a
+runtime limitation or a temporary compatibility fallback.
 The handler stages its `resolve` callback and pending payload via React
 state, the app surface renders the picker outside the chat, and the
 user's pick resolves the Promise that the agent's tool call is awaiting.

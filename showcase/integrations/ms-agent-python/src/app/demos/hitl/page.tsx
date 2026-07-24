@@ -25,12 +25,11 @@ export default function HitlDemo() {
 function DemoContent() {
   useHitlSuggestions();
 
-  // NB: dropped the `useLangGraphInterrupt({...})` registration here because
-  // MS Agent Framework has no `interrupt()` primitive — the agent only ever
-  // emits a regular `generate_task_steps` tool call, which `useHumanInTheLoop`
-  // below handles. On LGP the langgraph-interrupt path coexists with the
-  // tool-call path; on MAF it's dead code and pulls in a V1 import that
-  // would break the V2 hook wiring (see GOTCHAS: V1 + V2 mixing silently
+  // This demo intentionally exercises the regular `generate_task_steps` tool
+  // approval path, which `useHumanInTheLoop` handles below. Standard AG-UI
+  // interrupts from agent-framework-ag-ui are documented separately. The
+  // LangGraph-only hook is omitted here because it would pull in a V1 import
+  // that breaks the V2 hook wiring (see GOTCHAS: V1 + V2 mixing silently
   // unregisters tool renderers).
   useHumanInTheLoop({
     agentId: "human_in_the_loop",

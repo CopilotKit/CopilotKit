@@ -177,6 +177,7 @@ demos:
     animated_preview_url:
     highlight:
       - src/agents/hitl_in_chat_agent.py
+      - src/agent_server.py
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts

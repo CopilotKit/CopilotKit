@@ -12,8 +12,9 @@ chat. Picking a slot resolves the pending tool call and the agent replies.
 The LangGraph version of this demo uses a custom `useHeadlessInterrupt` hook
 that listens for LangGraph's native `interrupt()` event on the AG-UI stream
 and resumes via `copilotkit.runAgent({ forwardedProps: { command: { resume } } })`.
-Microsoft Agent Framework has no interrupt primitive, so this port is
-**adapted**:
+`agent-framework-ag-ui` supports standard interrupts, but the CopilotKit
+package pinned by this showcase has a post-resume chat-rendering issue for this
+demo. Until that package fix ships, this port uses a frontend-tool fallback:
 
 - The backend agent (`src/agents/interrupt_agent.py`) is prompted to call
   `schedule_meeting` by name.
