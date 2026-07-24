@@ -14,11 +14,12 @@
     "...human-in-the-loop",
     "---Intelligence Platform---",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
         "headless-threads",
+        "threads-lifecycle",
         "threads-import"
       ]
     }

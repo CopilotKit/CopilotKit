@@ -89,6 +89,11 @@ const RECOVERY_RESPONSE_TIMEOUT_MS = FIRST_SIGNAL_TIMEOUT_MS + 30_000;
  * byte-for-byte. Unique per slug on purpose (see the module docstring).
  */
 const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
+  "built-in-agent": {
+    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a report that fails every validation pass so I can preview the fallback.",
+  },
   "google-adk": {
     heal: "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     exhaust:
@@ -108,6 +113,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     heal: "Lay out a sales KPI panel and heal a broken first attempt.",
     exhaust:
       "Lay out a KPI panel that never passes validation so I can reveal the fallback.",
+  },
+  mastra: {
+    heal: "Draft the Vantage quarterly revenue tile and mend a botched opening attempt.",
+    exhaust:
+      "Draft a Vantage board that flunks every validation sweep so I can preview the fallback.",
   },
   strands: {
     heal: "Assemble a quarterly performance board and recover from a malformed first draft.",

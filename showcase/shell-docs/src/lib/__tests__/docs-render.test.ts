@@ -4,9 +4,13 @@ import path from "path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-vi.mock("../registry", () => ({
-  getDocsMode: () => "generated",
-}));
+vi.mock("../registry", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    getDocsMode: () => "generated",
+  };
+});
 
 import {
   buildFrameworkNav,
@@ -23,6 +27,7 @@ import type { NavNode } from "../docs-render";
 import { buildCookbookNavTree } from "../cookbook-nav";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import { buildReferencePageTree } from "../reference-items";
+import { getDocsFolder, getIntegrations } from "../registry";
 
 let tempDir = "";
 
@@ -70,16 +75,25 @@ function hasPageTitle(navTree: NavNode[], page: string): boolean {
   });
 }
 
-function groupPageTitles(navTree: NavNode[], groupTitle: string): string[] {
+type NavPageEntry = { title: string; slug: string };
+
+function groupPageEntries(
+  navTree: NavNode[],
+  groupTitle: string,
+): NavPageEntry[] {
   for (const node of navTree) {
     if (node.type !== "group") continue;
     if (node.title === groupTitle) {
-      return node.children.flatMap((child) =>
-        child.type === "page" ? [child.title] : [],
-      );
+      if (node.children.some((child) => child.type !== "page")) {
+        throw new Error(`${groupTitle} must contain only direct page entries`);
+      }
+      return node.children.map((child) => {
+        if (child.type !== "page") throw new Error("expected page entry");
+        return { title: child.title, slug: child.slug };
+      });
     }
 
-    const nested = groupPageTitles(node.children, groupTitle);
+    const nested = groupPageEntries(node.children, groupTitle);
     if (nested.length > 0) return nested;
   }
 
@@ -193,12 +207,37 @@ describe("loadDoc", () => {
   });
 
   it("keeps the Threads overview and headless implementation on separate routes", () => {
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
     expect(loadDoc("headless-threads")?.fm.title).toBe("Headless Threads");
-    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("integrations/mastra/threads")?.fm.title).toBe(
+      "Rich Threads",
+    );
     expect(loadDoc("integrations/mastra/headless-threads")?.fm.title).toBe(
       "Headless Threads",
     );
+  });
+
+  it("keeps the approved overview assets and activation journey in order", () => {
+    const overview = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/overview.mdx"),
+      "utf8",
+    );
+
+    const screenshot = overview.indexOf("support-desk-threads.png");
+    const gettingStarted = overview.indexOf("## Get started");
+    const why = overview.indexOf("## Why use CopilotKit Rich Threads?");
+    const diagram = overview.indexOf("threads-diagram-light.png");
+
+    expect(screenshot).toBeGreaterThan(-1);
+    expect(screenshot).toBeLessThan(gettingStarted);
+    expect(gettingStarted).toBeLessThan(why);
+    expect(why).toBeLessThan(diagram);
+    expect(overview).toContain("npx copilotkit@latest init");
+    expect(overview).toContain("Build and verify this with a coding agent");
+    expect(overview).toContain("Threads-capable CLI starters already include");
+    expect(overview).toContain("Book time with a CopilotKit engineer");
+    expect(overview).toContain("## Sync existing conversations");
+    expect(overview).toContain("threads-diagram-dark.png");
   });
 });
 
@@ -252,7 +291,7 @@ describe("readTitle", () => {
     );
 
     expect(readTitle(filePath)).toBe("Overview");
-    expect(loadDoc("threads")?.fm.title).toBe("Threads");
+    expect(loadDoc("threads")?.fm.title).toBe("Rich Threads");
   });
 });
 
@@ -449,20 +488,151 @@ describe("framework nav", () => {
       "LangGraph (Python)",
       "langgraph-python",
     );
-    const authoredNav = buildFrameworkOnlyNav("mastra");
-    const builtInNav = buildFrameworkOnlyNav("built-in-agent");
-
     const expected = [
-      "Overview",
-      "Threads Drawer",
-      "Headless Threads",
-      "Threads & Persistence Architecture",
-      "Import Thread History",
+      { title: "Overview", slug: "threads" },
+      {
+        title: "Threads Drawer",
+        slug: "prebuilt-components/copilot-threads-drawer",
+      },
+      { title: "Headless Threads", slug: "headless-threads" },
+      { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
+      { title: "Synchronize Thread History", slug: "threads-import" },
+      {
+        title: "Threads & Persistence Architecture",
+        slug: "premium/threads-explained",
+      },
+    ];
+    const withoutDrawer = expected.filter(
+      (entry) => entry.title !== "Threads Drawer",
+    );
+
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toEqual(expected);
+
+    const authoredFolders = [
+      ...new Set(
+        getIntegrations()
+          .filter((integration) => integration.docs_mode === "authored")
+          .map((integration) => getDocsFolder(integration.slug)),
+      ),
     ];
 
-    expect(groupPageTitles(generatedNav, "Threads")).toEqual(expected);
-    expect(groupPageTitles(authoredNav, "Threads")).toEqual(expected);
-    expect(groupPageTitles(builtInNav, "Threads")).toEqual(expected);
+    for (const folder of authoredFolders) {
+      expect(
+        groupPageEntries(buildFrameworkOnlyNav(folder), "Rich Threads"),
+      ).toEqual(folder === "deepagents" ? withoutDrawer : expected);
+    }
+  });
+
+  it("keeps the thread synchronization route while preserving source-specific guides", () => {
+    const generic = loadDoc("threads-import");
+    const adk = loadDoc("integrations/adk/threads-import");
+    const langgraph = loadDoc("integrations/langgraph/threads-import");
+
+    expect(generic?.fm.title).toBe("Import & Synchronize Thread History");
+    expect(adk?.fm.title).toBe("Synchronize ADK Threads");
+    expect(langgraph?.fm.title).toBe("Synchronize LangGraph Threads");
+    expect(generic && readTitle(generic.filePath)).toBe(
+      "Synchronize Thread History",
+    );
+    expect(adk && readTitle(adk.filePath)).toBe("Synchronize Thread History");
+    expect(langgraph && readTitle(langgraph.filePath)).toBe(
+      "Synchronize Thread History",
+    );
+
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    expect(groupPageEntries(generatedNav, "Rich Threads")).toContainEqual({
+      title: "Synchronize Thread History",
+      slug: "threads-import",
+    });
+  });
+
+  it("documents destination credentials without claiming project metadata is imported", () => {
+    const genericDoc = loadDoc("threads-import");
+    const generic = genericDoc
+      ? inlineSnippets(genericDoc.source, "threads-import")
+      : "";
+    const adk = loadDoc("integrations/adk/threads-import")?.source ?? "";
+    const langgraph =
+      loadDoc("integrations/langgraph/threads-import")?.source ?? "";
+
+    for (const source of [generic, adk, langgraph]) {
+      expect(source).toContain(
+        "does not load `.env` or `.copilotkit/project.json` automatically",
+      );
+      expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
+      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).toContain(
+        "does not need an Enterprise Intelligence URL or API key",
+      );
+    }
+
+    expect(generic).toContain("durable LangGraph checkpointer");
+    expect(generic).toContain("durable ADK session service");
+    expect(adk).toContain("ADK session storage and analytics");
+    expect(langgraph).toContain("LangGraph or LangSmith storage and analytics");
+  });
+
+  it("keeps Drawer and Headless guidance applicable to starters and existing apps", () => {
+    const drawer = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/basics/copilot-threads-drawer.mdx"),
+      "utf8",
+    );
+    const headless = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/headless-threads.mdx"),
+      "utf8",
+    );
+
+    expect(drawer).toContain(
+      "If your project was created from a CopilotKit CLI starter",
+    );
+    expect(drawer).toContain("add it to an existing CopilotKit application");
+    expect(drawer).toContain("Get a free developer account");
+    expect(drawer).toContain("## Set up the Threads Drawer");
+    expect(drawer).not.toContain(
+      "Start with the [Rich Threads overview](/threads)",
+    );
+
+    expect(headless).toContain(
+      "If your app came from a CopilotKit CLI starter",
+    );
+    expect(headless).toContain("adding a custom thread UI to an existing app");
+    expect(headless).toContain(
+      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+    );
+    expect(headless).not.toContain("npx copilotkit@latest init");
+  });
+
+  it("documents conditional future native persistence without claiming replication", () => {
+    const lifecycle = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
+      "utf8",
+    );
+    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
+
+    for (const source of [lifecycle, architecture]) {
+      const normalized = source.replace(/\s+/g, " ");
+      expect(normalized).toContain("durable session service");
+      expect(normalized).toContain("rename");
+      expect(normalized).toContain("archive");
+      expect(normalized).toContain("delete");
+    }
+    expect(lifecycle).toContain("durable checkpointer");
+    expect(architecture).toContain("durable LangGraph checkpointer");
+    expect(lifecycle).toContain("general database replication");
+    expect(architecture).toContain("general replication link");
+  });
+
+  it("links the hosted Intelligence guide to the Rich Threads journey", () => {
+    const managed =
+      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
+
+    expect(managed).toContain("[Rich Threads overview](/threads)");
+    expect(managed).toContain("[CopilotKit CLI](/cli)");
+    expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
   it("uses the generated Intelligence Platform section for authored framework nav", () => {

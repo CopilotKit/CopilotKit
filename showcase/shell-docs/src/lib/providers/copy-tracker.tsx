@@ -13,6 +13,13 @@ export function CopyTracker() {
     const original = navigator.clipboard.writeText.bind(navigator.clipboard);
     navigator.clipboard.writeText = async function (text: string) {
       try {
+        const activeElement = document.activeElement;
+        const conversionSurface =
+          activeElement instanceof Element
+            ? activeElement.closest<HTMLElement>("[data-docs-copy-surface]")
+                ?.dataset.docsCopySurface
+            : undefined;
+
         trackCommandCopy(posthog, {
           command: text,
           location:
@@ -20,6 +27,11 @@ export function CopyTracker() {
               ? window.location.pathname
               : undefined,
         });
+        if (conversionSurface) {
+          posthog?.capture("docs_conversion_copied", {
+            surface: conversionSurface,
+          });
+        }
       } catch {
         // Never let analytics break the underlying copy.
       }

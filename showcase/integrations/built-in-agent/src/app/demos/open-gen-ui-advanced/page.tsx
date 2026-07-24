@@ -1,21 +1,22 @@
 "use client";
 
 /**
- * Open-Ended Generative UI — ADVANCED variant with host-side sandbox functions.
+ * Open-Ended Generative UI
+ * ------------------------
+ * The agent streams ONE `generateSandboxedUi` tool call; the runtime's
+ * `OpenGenerativeUIMiddleware` (enabled by `openGenerativeUI: { agents: [...] }`
+ * in `api/copilotkit-ogui/route.ts`) converts that stream into
+ * `open-generative-ui` activity events. Passing `openGenerativeUI` to
+ * CopilotKit here activates the built-in `OpenGenerativeUIActivityRenderer`,
+ * which mounts the agent-authored HTML + CSS inside a sandboxed iframe.
  *
- * Same backend wiring as `open-gen-ui` (the runtime's
- * `OpenGenerativeUIMiddleware` injects the `generateSandboxedUi` tool and
- * streams the agent's HTML/CSS/JS into a sandboxed iframe). The advanced
- * twist: the provider passes `openGenerativeUI.sandboxFunctions`, which the
- * built-in `OpenGenerativeUIActivityRenderer` exposes inside the iframe as
- * `Websandbox.connection.remote.<name>(args)`. Now the agent-authored UI
- * can call back INTO the host page — closing the loop between LLM-authored
- * UI and app-side capability.
+ * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
 // @region[sandbox-function-registration]
+import React from "react";
 import {
-  CopilotKitProvider,
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -27,38 +28,33 @@ export default function OpenGenUiAdvancedDemo() {
     // Pass the sandbox-function array on the `openGenerativeUI` provider prop.
     // The built-in `OpenGenerativeUIActivityRenderer` wires these as callable
     // remotes inside the agent-authored iframe.
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
-      useSingleEndpoint
+      agent="open-gen-ui-advanced"
       openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }}
     >
-      <Demo />
-    </CopilotKitProvider>
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
+    </CopilotKit>
     // @endregion[sandbox-function-registration]
   );
 }
 
-function Demo() {
+function Chat() {
   useConfigureSuggestions({
     suggestions: openGenUiSuggestions,
     available: "always",
   });
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold mb-4">
-        Open Generative UI (Advanced)
-      </h1>
-      <p className="text-sm opacity-70 mb-6">
-        Try one of the suggestions. The agent authors HTML + JS that runs in a
-        sandboxed iframe and calls host-side functions (
-        <code className="mx-1 px-1 bg-gray-100 rounded">
-          evaluateExpression
-        </code>
-        ,<code className="mx-1 px-1 bg-gray-100 rounded">notifyHost</code>) over
-        a postMessage bridge.
-      </p>
-      <CopilotChat />
-    </main>
+    <div className="flex h-full w-full flex-col p-3">
+      <CopilotChat
+        agentId="open-gen-ui-advanced"
+        className="flex-1 rounded-2xl"
+      />
+    </div>
   );
 }

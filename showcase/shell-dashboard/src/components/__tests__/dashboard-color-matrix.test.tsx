@@ -738,15 +738,18 @@ describe("(6) edges + rollup precedence", () => {
     expect(model.chipColor).toBe("gray");
   });
 
-  it("conflicting D4: green chat + red tools → worst-state red → red chip", () => {
+  it("conflicting D4: green chat + red tools → worst-state red fold, first-strike amber chip", () => {
     const live = mapOf([
       row(keyFor("e2e", SLUG, FEATURE), "e2e", "green"),
       row(keyFor("chat", SLUG), "chat", "green"),
       row(keyFor("tools", SLUG), "tools", "red"),
     ]);
     const model = wiredModel(live, FEATURE);
+    // Worst-state wins in the D4 fold — the red tools row beats the green chat.
     expect(model.d4?.status).toBe("red");
-    expect(model.chipColor).toBe("red");
+    // §C item 6: a first D4 strike (fail_count 1 < 2) de-amplifies to amber;
+    // a second consecutive red crosses the threshold → red.
+    expect(model.chipColor).toBe("amber");
   });
 
   it("resolveCell rollup precedence: red > amber(degraded) > green", () => {

@@ -376,6 +376,27 @@
       "og_docs_url": "https://docs.copilotkit.ai/coagents/multi-agent-flows"
     },
     {
+      "id": "background-agents",
+      "name": "Background Agents",
+      "category": "multi-agent",
+      "description": "A long-running deep-research tool dispatched as a background task, surfaced inline as a live \"working\" activity card",
+      "shell_docs_path": "/background-tasks"
+    },
+    {
+      "id": "observational-memory",
+      "name": "Observational Memory",
+      "category": "agent-state",
+      "description": "Conversation context is compressed and activated out of band; the background work surfaces inline as activity cards",
+      "shell_docs_path": "/observational-memory"
+    },
+    {
+      "id": "browser-use",
+      "name": "Browser Use",
+      "category": "platform",
+      "description": "The agent drives a real local headless browser to fetch pages and renders the results inline in chat",
+      "shell_docs_path": "/browser-use"
+    },
+    {
       "id": "auth",
       "name": "Authentication",
       "category": "platform",

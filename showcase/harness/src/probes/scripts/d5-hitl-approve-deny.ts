@@ -97,8 +97,8 @@ const script: D5Script = {
           baselineCount,
         );
         console.debug("[d5-hitl-approve-deny] checking follow-up tokens", {
-          expectedTokens: [...REFERENCE_TOKENS],
-          followupSnippet: followup.slice(0, 300),
+          expectedTokenCount: REFERENCE_TOKENS.length,
+          followupLength: followup.length,
         });
         for (const token of REFERENCE_TOKENS) {
           if (!followup.includes(token)) {

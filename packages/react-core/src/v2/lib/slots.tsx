@@ -1,71 +1,18 @@
-import React, { useRef } from "react";
+import React from "react";
 import { twMerge } from "tailwind-merge";
+import { shallowEqual, useShallowStableRef } from "./shallow-stable-ref";
+
+// Reference-stability helpers moved to ./shallow-stable-ref (a tailwind-free leaf
+// module) so the lean @copilotkit/react-core/v2/headless entry can reach them
+// without pulling tailwind-merge (issue #4893). Re-exported here to preserve this
+// module's public surface for existing importers (e.g. CopilotChat).
+export { shallowEqual, useShallowStableRef };
 
 /** Existing union (unchanged) */
 export type SlotValue<C extends React.ComponentType<any>> =
   | C
   | string
   | Partial<React.ComponentProps<C>>;
-
-/**
- * Shallow equality comparison for objects.
- */
-export function shallowEqual<T extends Record<string, unknown>>(
-  obj1: T,
-  obj2: T,
-): boolean {
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
-
-  if (keys1.length !== keys2.length) return false;
-
-  for (const key of keys1) {
-    if (obj1[key] !== obj2[key]) return false;
-  }
-
-  return true;
-}
-
-/**
- * Returns true only for plain JS objects (`{}`), excluding arrays, Dates,
- * class instances, and other exotic objects that happen to have typeof "object".
- */
-function isPlainObject(obj: unknown): obj is Record<string, unknown> {
-  return (
-    obj !== null &&
-    typeof obj === "object" &&
-    Object.prototype.toString.call(obj) === "[object Object]"
-  );
-}
-
-/**
- * Returns the same reference as long as the value is shallowly equal to the
- * previous render's value.
- *
- * - Identical references bail out immediately (O(1)).
- * - Plain objects ({}) are shallow-compared key-by-key.
- * - Arrays, Dates, class instances, functions, and primitives are compared by
- *   reference only — shallowEqual is never called on non-plain objects, which
- *   avoids incorrect equality for e.g. [1,2] vs [1,2] (different arrays).
- *
- * Typical use: stabilize inline slot props so MemoizedSlotWrapper's shallow
- * equality check isn't defeated by a new object reference on every render.
- */
-export function useShallowStableRef<T>(value: T): T {
-  const ref = useRef(value);
-
-  // 1. Identical reference — bail early, no comparison needed.
-  if (ref.current === value) return ref.current;
-
-  // 2. Both are plain objects — shallow-compare to detect structural equality.
-  if (isPlainObject(ref.current) && isPlainObject(value)) {
-    if (shallowEqual(ref.current, value)) return ref.current;
-  }
-
-  // 3. Different values (or non-comparable types) — update the ref.
-  ref.current = value;
-  return ref.current;
-}
 
 /** Utility: concrete React elements for every slot */
 type SlotElements<S> = { [K in keyof S]: React.ReactElement };

@@ -12,14 +12,15 @@
     "---Build Chat UIs---",
     "prebuilt-components",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
         "prebuilt-components/copilot-threads-drawer",
         "headless-threads",
-        "premium/threads-explained",
-        "threads-import"
+        "threads-lifecycle",
+        "threads-import",
+        "premium/threads-explained"
       ]
     },
     "custom-look-and-feel",

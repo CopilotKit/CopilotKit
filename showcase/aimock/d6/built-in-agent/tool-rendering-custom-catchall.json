@@ -2,25 +2,15 @@
   "_meta": {
     "description": "D6 fixtures for built-in-agent / tool-rendering-custom-catchall",
     "sourceFile": "d5-tool-rendering-custom-catchall.ts",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "_note": "BIA-specific structure ported from langgraph-python. The D6 probe (d5-tool-rendering-custom-catchall.ts) types two direct prompts — 'Forecast Tokyo through the wildcard renderer' (get_weather) and 'Quote AAPL through the wildcard renderer' (get_stock_price) — and asserts BOTH render through [data-testid=custom-wildcard-card] AND that the narration bubble contains the canonical phrase 'rendered through the custom wildcard catchall'. BIA runs these tools server-side via TanStack chat() and reprompts the LLM with the tool result, and its /v1/responses endpoint rewrites tool_call_ids to runtime `fc-…` values, so the LGP toolCallId-keyed narration never matches. Each pill is therefore a (sequenceIndex:0 emitter, narration fallback) pair per PARITY_NOTES: the emitter fires on the FIRST request for the pill prompt (counter starts at 0) and emits the tool call; the BIA reprompt iteration falls through the now-exhausted emitter to the userMessage-only narration fallback (no tool call), so the loop converges and the canonical narration lands. sequenceIndex (not hasToolResult:false) preserves multi-turn correctness — hasToolResult is computed across the whole thread. The four real UI pills (SF weather, flights, d20, chain) from suggestions.ts are also ported for the e2e spec; they use disjoint userMessages so they cannot cross-route with the two probe prompts."
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_weather tool result. Scoped via turnIndex:1 (assistant-count = 1 means 'one tool-call leg has been emitted; we're now narrating the result'). BIA's TanStack runtime auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the assistant-count gate fires.",
+      "_comment": "PROBE pill 1 emit — 'Forecast Tokyo through the wildcard renderer'. sequenceIndex:0 gates the FIRST request so it emits get_weather; the BIA server-tool reprompt falls through to the narration fallback below.",
       "match": {
         "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "turnIndex": 1,
-        "context": "built-in-agent"
-      },
-      "response": {
-        "content": "Tokyo is 22\u00b0C and partly cloudy \u2014 the custom wildcard renderer should show the tool card above \u2014 rendered through the custom wildcard catchall."
-      }
-    },
-    {
-      "_comment": "tool-rendering-custom-catchall \u2014 first prompt 'weather in Tokyo'. Emits get_weather tool call. The custom wildcard renderer fires for any tool the user doesn't explicitly handle. hasToolResult:false on the tool-emitting fixtures.",
-      "match": {
-        "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "hasToolResult": false,
+        "sequenceIndex": 0,
         "context": "built-in-agent"
       },
       "response": {
@@ -34,21 +24,20 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_stock_price tool result. Scoped via turnIndex:3 (assistant-count = 3 means weather-emit + weather-narrate + stock-emit have happened; we're now narrating the AAPL tool result). BIA's TanStack runtime auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the AAPL tool-emit sibling so first-match-wins picks narration once the AAPL assistant-count gate fires.",
+      "_comment": "PROBE pill 1 narration fallback — fires on the BIA reprompt iteration (emitter above exhausted). Emits the canonical custom-catchall phrase the probe asserts. No tool call, so the reprompt loop converges.",
       "match": {
-        "userMessage": "Quote AAPL through the wildcard renderer",
-        "turnIndex": 3,
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
         "context": "built-in-agent"
       },
       "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% \u2014 rendered through the custom wildcard catchall renderer."
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer should show the tool card above — rendered through the custom wildcard catchall."
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer. turnIndex:2 means exactly two prior assistant turns (Tokyo emit + Tokyo narrate) have happened, the AAPL prompt has just arrived, and no AAPL tool-call has been emitted yet. The narration sibling above (turnIndex:3) fires after this emit produces its assistant tool-call message.",
+      "_comment": "PROBE pill 2 emit — 'Quote AAPL through the wildcard renderer'. sequenceIndex:0 gates the FIRST request to emit get_stock_price (a DIFFERENT tool through the same wildcard renderer); the reprompt falls through to the narration fallback below.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "turnIndex": 2,
+        "sequenceIndex": 0,
         "context": "built-in-agent"
       },
       "response": {
@@ -59,6 +48,198 @@
             "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "PROBE pill 2 narration fallback — fires on the BIA reprompt iteration. Emits the canonical custom-catchall phrase the probe asserts (turn-2 bubble text check).",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% — rendered through the custom wildcard catchall renderer."
+      }
+    },
+    {
+      "_comment": "UI pill 'Weather in SF' emit — 'What's the weather in San Francisco?'. sequenceIndex:0 emitter; reprompt falls through to narration below.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "UI pill 'Weather in SF' narration fallback.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "UI pill 'Find flights' emit — 'Find flights from SFO to JFK.'. sequenceIndex:0 emitter; reprompt falls through to narration below.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "UI pill 'Find flights' narration fallback.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "UI pill 'Roll a d20' — five sequential roll_d20 emissions [7,14,3,19,20] gated by sequenceIndex (BIA server-tool reprompt increments the per-pill counter each iteration). The 5th roll is 20; the narration fallback fires once the sequence is exhausted.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "sequenceIndex": 1,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "sequenceIndex": 2,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "sequenceIndex": 3,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "sequenceIndex": 4,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "UI pill 'Roll a d20' narration fallback — fires once the five sequenceIndex-gated rolls are exhausted.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "UI pill 'Chain tools' emit — three tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). sequenceIndex:0 emitter; reprompt falls through to narration below.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_d6_cc_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_d6_cc_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "UI pill 'Chain tools' narration fallback.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     }
   ]

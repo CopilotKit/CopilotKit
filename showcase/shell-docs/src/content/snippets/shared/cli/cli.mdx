@@ -22,6 +22,10 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 
 ## Start a new app
 
+<Callout type="info" title="Creating vs. adding to an existing app">
+  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+</Callout>
+
 <Steps>
   <Step>
     ### Run create
@@ -82,7 +86,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   </Step>
 </Steps>
 
-## Import historical conversations
+## Import and synchronize historical conversations
 
 Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer targets the Enterprise Intelligence project already selected for the current directory.
 
@@ -105,15 +109,26 @@ Use `import` from a CopilotKit app created with the CLI and Enterprise Intellige
 
 The command runs interactively by default. Start with `--dry-run` to discover source agent keys, conversation counts, skips, and the estimated upload size without opening an import batch.
 
-If you need to import into a different project, select it before running the dry run:
+If you need to import into a different project, select it before continuing with the real import:
 
 ```bash title="Terminal"
 npx copilotkit@latest project select
 ```
 
-This changes the import target for the current directory and provisions a project-scoped runtime key for the selected project.
+This changes the project selected for the current directory and writes its project-scoped runtime key to the starter's generated `.env`.
 
-For the full migration flow, see [Import thread history](/threads-import). Source-specific setup lives in [Import ADK threads](/google-adk/threads-import) and [Import LangGraph threads](/langgraph-python/threads-import).
+Before the real import, export the destination values from that `.env`:
+
+```bash title="Terminal"
+export INTELLIGENCE_API_URL="https://..."
+export INTELLIGENCE_API_KEY="cpk_..."
+```
+
+The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
+
+Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
+
+For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Synchronize ADK threads](/google-adk/threads-import) and [Synchronize LangGraph threads](/langgraph-python/threads-import).
 
 ## Auth commands
 
@@ -146,5 +161,5 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 
 - **Cloud-hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
 - **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
-- **Import thread history:** [Import thread history](/threads-import) — migrate existing ADK or LangGraph conversations into Enterprise Intelligence
+- **Synchronize thread history:** [Import & Synchronize Thread History](/threads-import) — import existing ADK or LangGraph conversations and keep future CopilotKit runs synchronized
 - **Self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — run the Enterprise Intelligence Platform in your own Kubernetes cluster

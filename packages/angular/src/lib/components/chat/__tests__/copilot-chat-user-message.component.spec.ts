@@ -37,6 +37,11 @@ describe("CopilotChatUserMessage", () => {
     expect(editSpy).toHaveBeenCalledWith({ message: sampleMessage });
   });
 
+  it("exposes stable cross-frontend message classes", () => {
+    expect(component.computedClass()).toContain("copilotKitMessage");
+    expect(component.computedClass()).toContain("copilotKitUserMessage");
+  });
+
   it("indicates when branch navigation should be shown", () => {
     (component as any).numberOfBranches = () => 3;
     component.showBranchNavigation = computed(
