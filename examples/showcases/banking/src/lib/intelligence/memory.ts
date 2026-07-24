@@ -11,10 +11,13 @@
  * diverges, swap `restRecall` for the /mcp JSON-RPC caller (v1 plan Task 7) —
  * the exported signatures here stay identical, so callers are unaffected.
  *
- * NOTE on completeness: recall is top-k semantic search, NOT an enumeration.
- * `listRecalledMemories` is therefore "the most relevant memories", not "all
- * memories" — the Memory tab labels it accordingly and shows no absolute count.
+ * COMPLETENESS: the Memory tab's list uses app-api's `GET /api/memories`, which
+ * ENUMERATES every stored memory for the user (all scopes, all kinds) — not a
+ * top-k semantic recall. So the tab shows everything that's in there. The search
+ * box below it still uses semantic `recall` (top-k by meaning) via restRecall.
  */
+
+import { SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID } from "./user-id";
 
 export type PanelMemory = {
   id: string;
@@ -23,6 +26,9 @@ export type PanelMemory = {
   content: string;
   sourceThreadIds: readonly string[];
   score?: number;
+  /** Set by the backend when a memory has been superseded/invalidated. Active
+   * memories have this null; the list filters invalidated ones out. */
+  invalidatedAt?: string | null;
 };
 
 /** All three vars must be present for Intelligence (durable memory) mode. */
@@ -36,8 +42,6 @@ export function intelligenceEnabled(): boolean {
 
 const RECALL_TIMEOUT_MS = 25_000;
 const LIST_CACHE_TTL_MS = 8_000;
-const LIST_RECALL_QUERY =
-  "everything stored for this user and team — all facts, preferences, and operational procedures";
 
 /** Pull `memories` out of a REST recall body; tolerant of malformed payloads. Exported for tests. */
 export function parseRecallResponse(body: unknown): PanelMemory[] {
@@ -79,51 +83,99 @@ async function restRecall(
   }
 }
 
+/**
+ * Enumerate EVERY stored memory for a user via app-api's `GET /api/memories`
+ * (all scopes + kinds; NOT a semantic recall). Passing a `scope` query param to
+ * this endpoint returns nothing, so it is called bare. Invalidated/superseded
+ * rows are filtered out so only active memories show.
+ */
+async function restListAll(userId: string): Promise<PanelMemory[]> {
+  const apiUrl = process.env.INTELLIGENCE_API_URL!;
+  const apiKey = process.env.INTELLIGENCE_API_KEY!;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RECALL_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${apiUrl}/api/memories`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "X-Cpki-User-Id": userId,
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`list http ${resp.status}`);
+    const memories = parseRecallResponse(await resp.json());
+    return memories.filter((m) => !m.invalidatedAt);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Per-user list cache + in-flight de-dup. Refresh is event-driven (Tasks 9/10),
-// but a 15s backstop poll plus the user+project parallel fan-out still benefit
-// from coalescing so concurrent ticks don't double-hit app-api.
+// but a 15s backstop poll still benefits from coalescing so concurrent ticks
+// don't double-hit app-api.
 const listCache = new Map<string, { memories: PanelMemory[]; ts: number }>();
 const listInflight = new Map<string, Promise<PanelMemory[]>>();
 
 /**
- * The "Recalled memories" view: merge user + project scopes, de-duped by id.
- * This is top-k recall, not an enumeration — see the file-level NOTE.
+ * The Memory tab's list: EVERYTHING stored across the demo's identities, so the
+ * inspector never hides a memory just because it landed in a different scope
+ * bucket than the active member. Demo memory fragments across a few user ids —
+ * the active member's mapped id, the two seeded personas, and the default
+ * `northwind-demo-user` bucket (where facts taught before a member is selected
+ * land, and which reset never clears). We enumerate all of them (bare
+ * `GET /api/memories`, all scopes/kinds) and merge, de-duped by memory id.
+ *
+ * This trades strict per-viewer isolation in the INSPECTOR for completeness —
+ * intentional: the Glass Engine is a debug lens meant to show the whole store.
+ * The agent's own recall is still scoped per user (see restRecall / the runtime
+ * identifyUser); only this read-only panel aggregates.
+ *
+ * Name kept for callers/tests; `userId` is the active member's resolved id and
+ * is always included in the candidate set.
  */
 export async function listRecalledMemories(
   userId: string,
 ): Promise<PanelMemory[]> {
-  const cached = listCache.get(userId);
+  const cacheKey = userId;
+  const cached = listCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < LIST_CACHE_TTL_MS)
     return cached.memories;
 
-  const inflight = listInflight.get(userId);
+  const inflight = listInflight.get(cacheKey);
   if (inflight) return inflight;
+
+  const candidateIds = Array.from(
+    new Set([userId, ...SEEDED_USER_IDS, DEMO_DEFAULT_USER_ID]),
+  );
 
   const p = (async () => {
     try {
-      const [userMems, projectMems] = await Promise.all([
-        restRecall(userId, LIST_RECALL_QUERY, "user"),
-        restRecall(userId, LIST_RECALL_QUERY, "project"),
-      ]);
+      // One enumeration per candidate scope; tolerate a per-scope failure so one
+      // bad id can't blank the whole panel.
+      const batches = await Promise.all(
+        candidateIds.map((id) => restListAll(id).catch(() => [])),
+      );
       const seen = new Set<string>();
       const memories: PanelMemory[] = [];
-      for (const m of [...userMems, ...projectMems]) {
+      for (const m of batches.flat()) {
         if (m?.id && !seen.has(m.id)) {
           seen.add(m.id);
           memories.push(m);
         }
       }
-      listCache.set(userId, { memories, ts: Date.now() });
+      listCache.set(cacheKey, { memories, ts: Date.now() });
       return memories;
     } catch (err) {
-      const prev = listCache.get(userId);
+      const prev = listCache.get(cacheKey);
       if (prev) return prev.memories; // serve last good rather than flood/hang
       throw err;
     } finally {
-      listInflight.delete(userId);
+      listInflight.delete(cacheKey);
     }
   })();
-  listInflight.set(userId, p);
+  listInflight.set(cacheKey, p);
   return p;
 }
 
