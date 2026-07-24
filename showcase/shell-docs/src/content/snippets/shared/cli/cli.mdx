@@ -23,7 +23,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `init` (aliased as `create`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
 </Callout>
 
 <Steps>
@@ -64,20 +64,31 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Use the generated environment
 
-    The CLI writes the project-scoped runtime key and telemetry metadata to `.env`.
+    `init` and its `create` alias write the hosted platform URLs, `SL_ENABLED`,
+    and project-scoped runtime API key to `.env`. Every Threads-enabled starter
+    also receives a compatibility token.
 
     ```bash title=".env"
-    # Your CopilotKit Enterprise Intelligence API Key
-    # Project Name: Support Assistant
-    CPK_INTELLIGENCE_API_KEY=cpk_...
-
-    # CopilotKit Telemetry ID
-    CPK_TELEMETRY_ID=...
+    INTELLIGENCE_API_URL=https://...
+    INTELLIGENCE_GATEWAY_WS_URL=wss://...
+    INTELLIGENCE_API_KEY=cpk-...
+    SL_ENABLED=true
+    COPILOTKIT_LICENSE_TOKEN=...
     ```
 
-    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. It is the only managed
-    Intelligence credential. The CLI writes `CPK_TELEMETRY_ID` for analytics
-    attribution; it is not a secret and is not required for connectivity.
+    Keep `INTELLIGENCE_API_KEY` and `COPILOTKIT_LICENSE_TOKEN` on the server
+    side. The project key connects the Runtime to Intelligence. Current starter
+    SDK pins use the token for legacy entitlement checks; it does not replace
+    the project key.
+
+    Most starters read the project key from `INTELLIGENCE_API_KEY`. The
+    AgentCore AWS deployment path reads the same value from
+    `CPK_INTELLIGENCE_API_KEY`. Before you deploy an AgentCore starter, copy the
+    generated value to that variable:
+
+    ```bash title=".env"
+    CPK_INTELLIGENCE_API_KEY=cpk-...
+    ```
   </Step>
 
   <Step>
@@ -126,7 +137,7 @@ Before the real import, export the destination values from that `.env`:
 
 ```bash title="Terminal"
 export INTELLIGENCE_API_URL="https://..."
-export INTELLIGENCE_API_KEY="cpk_..."
+export INTELLIGENCE_API_KEY="cpk-..."
 ```
 
 The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
@@ -150,8 +161,8 @@ For the full adoption flow, see [Import & Synchronize Thread History](/threads-i
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
 | `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
 | `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
-| `npx copilotkit@latest license create` | Issues a license token for an explicit self-hosted or offline enterprise flow. |
-| `npx copilotkit@latest license list` | Lists self-hosted or offline license metadata for the current user or organization. |
+| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that still require one. |
+| `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
 
 Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
 

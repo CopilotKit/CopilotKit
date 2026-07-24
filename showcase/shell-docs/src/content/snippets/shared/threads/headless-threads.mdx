@@ -70,7 +70,22 @@ before exposing thread lists or lifecycle actions.
         });
         ```
 
-        CLI-created starters write the cloud-hosted platform URLs and project-scoped `CPK_INTELLIGENCE_API_KEY` to `.env`; keep that key server-side. Threads use the entitlement state returned by Intelligence, not a license token in the managed app. Existing Intelligence-enabled apps should keep their current server-side Runtime configuration. Production self-hosting uses the same React APIs and is deployed with CopilotKit Engineering through [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
+        CLI `init` and its `create` alias write the cloud-hosted platform URLs,
+        `SL_ENABLED`, and project-scoped `INTELLIGENCE_API_KEY` to `.env`. Every
+        Threads-enabled starter also receives `COPILOTKIT_LICENSE_TOKEN`.
+
+        Keep both secrets server-side. The project key connects the Runtime to
+        Intelligence. Current starter SDK pins use the token for legacy
+        entitlement checks; it does not replace the project key.
+
+        Most starters read the project key from `INTELLIGENCE_API_KEY`. The
+        AgentCore AWS deployment path reads the same value from
+        `CPK_INTELLIGENCE_API_KEY`; copy the generated project-key value to that
+        variable before deployment.
+
+        Existing Intelligence-enabled apps should keep their current server-side Runtime configuration.
+
+        Production self-hosting uses the same React APIs and is deployed with CopilotKit Engineering through [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
