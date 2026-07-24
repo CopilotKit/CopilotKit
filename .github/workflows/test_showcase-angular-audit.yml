@@ -246,30 +246,47 @@ jobs:
           run_frontend_phase() {
             frontend="$1"
             mkdir -p "$RUNNER_TEMP/angular-audit-phases"
-            pids=()
-            for shard in 0 1 2 3; do
+
+            run_shard() {
+              shard="$1"
               port=$((10000 + shard))
-              (
-                pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
-                  --plan "$RUNNER_TEMP/angular-audit-plan.json" \
-                  --shard-index "$shard" \
-                  --frontend "$frontend" \
-                  --integration "$INTEGRATION" \
-                  --integration-base-url "http://127.0.0.1:$port" \
-                  --source-commit "$SOURCE_SHA" \
-                  --container-image-revision "$IMAGE_REVISION" \
-                  --fixture-revision "$SOURCE_SHA" \
-                  --feature-contract-revision "$SOURCE_SHA" \
-                  --concurrency 1 \
-                  --output "$RUNNER_TEMP/angular-audit-phases/$frontend-$shard.json"
-              ) > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1 &
-              pids+=("$!")
-            done
-            for pid in "${pids[@]}"; do
-              if ! wait "$pid"; then
-                status=1
-              fi
-            done
+              pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+                --plan "$RUNNER_TEMP/angular-audit-plan.json" \
+                --shard-index "$shard" \
+                --frontend "$frontend" \
+                --integration "$INTEGRATION" \
+                --integration-base-url "http://127.0.0.1:$port" \
+                --source-commit "$SOURCE_SHA" \
+                --container-image-revision "$IMAGE_REVISION" \
+                --fixture-revision "$SOURCE_SHA" \
+                --feature-contract-revision "$SOURCE_SHA" \
+                --concurrency 1 \
+                --output "$RUNNER_TEMP/angular-audit-phases/$frontend-$shard.json"
+            }
+
+            # Four Spring Boot JVMs plus four Chromium instances can starve
+            # completed SSE streams long enough to create random 30-second
+            # misses. Each shard still has its own container and fixture
+            # sidecar; execute only Spring's browsers serially so the evidence
+            # is deterministic. Other integrations retain four-way parallelism.
+            if [ "$INTEGRATION" = "spring-ai" ]; then
+              for shard in 0 1 2 3; do
+                if ! run_shard "$shard" > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1; then
+                  status=1
+                fi
+              done
+            else
+              pids=()
+              for shard in 0 1 2 3; do
+                run_shard "$shard" > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1 &
+                pids+=("$!")
+              done
+              for pid in "${pids[@]}"; do
+                if ! wait "$pid"; then
+                  status=1
+                fi
+              done
+            fi
             for shard in 0 1 2 3; do
               sed -n '1,240p' "$RUNNER_TEMP/browser-$frontend-shard-$shard.log"
             done

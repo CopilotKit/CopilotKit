@@ -171,6 +171,8 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
     'OPENAI_BASE_URL="http://host.docker.internal:$fixture_port/v1"',
   );
   expect(workflow).toContain('"$RUNNER_TEMP/aimock-$shard.pid"');
+  expect(workflow).toContain('if [ "$INTEGRATION" = "spring-ai" ]; then');
+  expect(workflow).toContain('run_shard "$shard"');
   expect(workflow).toContain("--host 0.0.0.0");
   expect(workflow).not.toContain("--host 127.0.0.1");
   expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');
