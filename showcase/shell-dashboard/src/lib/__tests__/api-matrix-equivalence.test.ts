@@ -23,17 +23,19 @@
 import { describe, it, expect } from "vitest";
 import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/data/catalog-types";
-import {
-  buildCellModel,
-  type CellModel,
-  type CellModelInput,
+import { buildCellModel } from "../../../../harness/src/shared/cell-model/cell-model";
+import type {
+  CellModel,
+  CellModelInput,
 } from "../../../../harness/src/shared/cell-model/cell-model";
 import { catalogCellToInput } from "../../../../harness/src/shared/cell-model/catalog-input";
 import {
   keyFor,
   mergeRowsToMap,
-  type StatusRow,
-  type State,
+} from "../../../../harness/src/shared/cell-model/live-status";
+import type {
+  StatusRow,
+  State,
 } from "../../../../harness/src/shared/cell-model/live-status";
 import {
   FIXTURES,
@@ -132,13 +134,21 @@ describe("api == render == adapter over the golden fixture matrix (§11.4)", () 
   }
 });
 
-// ── MANDATORY red-green: the ONE intended input difference (§11.4). The server
-//    always supplies the full `signal`; the browser cold-load STRIPS it. For a
-//    genuine product-red rung, the full-signal answer is RED (the true chip),
-//    while the stripped-signal cold-load paint is GRAY (§3 rule 4 safe
-//    fallback). /api/matrix (full signal) reports the true, more-accurate chip;
-//    a naive stripped-signal read would MISreport it. ────────────────────────
-describe("full-signal advantage — /api/matrix is the more accurate answer (§11.4)", () => {
+// ── FAIL-SAFE POLARITY (§11.4). The server always supplies the full `signal`;
+//    the browser's bulk fetch STRIPS it. For a genuine product-red rung, BOTH
+//    reads must now answer RED: absence of evidence about WHY a rung failed must
+//    not erase the FACT that it failed.
+//
+//    This block previously asserted `coldLoadChip === "gray"` and called that
+//    "the more accurate answer" — it pinned the defect as intended behaviour,
+//    which is precisely why CI never caught it. A stripped `signal` is a PENDING
+//    attribution (PocketBase omits the key ONLY under a `fields=` projection; a
+//    genuinely signal-less row arrives as `null`), so graying on it traded ~94%
+//    of real reds away to suppress ~6% infra false alarms — and it did so for up
+//    to a full sweep interval (~29 min observed), on every page load. The
+//    assertion is inverted here DELIBERATELY: the safe direction for a health
+//    dashboard is over-reporting failure, never hiding it. ───────────────────
+describe("fail-safe polarity — a stripped `signal` never grays a real red (§11.4)", () => {
   const SLUG = "acme";
   const FEATURE = "agentic-chat";
   const FRESH = new Date(NOW - 60_000).toISOString();
@@ -172,7 +182,7 @@ describe("full-signal advantage — /api/matrix is the more accurate answer (§1
   const chatKey = keyFor("chat", SLUG);
   const toolsKey = keyFor("tools", SLUG);
 
-  it("full signal → RED (server / api); stripped signal (browser cold-load) → gray", () => {
+  it("full signal → RED (server / api); stripped signal (browser cold-load) → RED too", () => {
     // Server / API state: full `signal` on every row (signalKnown === true).
     const fullSignal = mergeRowsToMap([
       row(e2eKey, "red", { errorDesc: "assertion failed: wrong answer" }),
@@ -190,17 +200,35 @@ describe("full-signal advantage — /api/matrix is the more accurate answer (§1
     const serverChip = buildCellModel(fullSignal, input, NOW).chipColor;
     const coldLoadChip = buildCellModel(stripped, input, NOW).chipColor;
 
-    // RED-GREEN: the two inputs diverge — the classifier CANNOT tell an infra
-    // red from a product red without `signal`, so it fails safe to gray.
+    // The classifier still cannot tell an infra red from a product red without
+    // `signal` — but "can't tell" now fails toward RED, not toward gray.
+    // Graying a red requires POSITIVE infra evidence on every contributing red
+    // row (see `classifyRung`), and a stripped blob is the ABSENCE of evidence.
     expect(serverChip).toBe("red");
-    expect(coldLoadChip).toBe("gray");
-    expect(serverChip).not.toBe(coldLoadChip);
+    expect(coldLoadChip).toBe("red");
+    // No chip divergence between the server read and the browser cold-load
+    // read. This equality is the guard: if the projection (or the supplemental
+    // signal fetch that repairs it) ever regresses again, the browser must
+    // OVER-report the failure, never silently drop it.
+    expect(coldLoadChip).toBe(serverChip);
 
-    // /api/matrix always runs on the full-signal input, so it reports the
-    // TRUE chip (red) — the state the browser converges to after its
-    // supplemental `signal` fetch (§7 I5), i.e. the more accurate answer.
+    // /api/matrix always runs on the full-signal input, so it reports the TRUE
+    // chip (red) — and the browser now agrees from first paint.
     const apiChip = computeMatrix(fullSignal, [cell], NOW)[0]!.chipColor;
     expect(apiChip).toBe("red");
     expect(apiChip).toBe(serverChip);
+  });
+
+  it("an INFRA red still grays — the gray path requires POSITIVE evidence", () => {
+    // Negative control for the polarity flip: when the `signal` blob IS present
+    // and positively attributes every red to an INFRA error class, the rung
+    // still classifies INFRA_RED_FRESH → gray. The flip widens RED only for the
+    // can't-tell case; it does not collapse the infra distinction itself.
+    const infraSignal = mergeRowsToMap([
+      row(e2eKey, "red", { errorClass: "driver-error" }),
+      row(chatKey, "green", null),
+      row(toolsKey, "green", null),
+    ]);
+    expect(buildCellModel(infraSignal, input, NOW).chipColor).toBe("gray");
   });
 });

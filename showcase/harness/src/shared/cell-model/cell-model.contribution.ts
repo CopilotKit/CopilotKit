@@ -132,7 +132,17 @@ export interface RawRung {
    * `anyMissing` collapse (D4 missing-chat; D5/D6 missing sub-row).
    */
   anyExpectedMissing: boolean;
-  /** `false` when the projection stripped `signal` from a contributing row (I5/§D). */
+  /**
+   * `false` when the projection stripped `signal` from a contributing row
+   * (I5/§D) — i.e. the infra-vs-product attribution for this rung is PENDING,
+   * not absent. PocketBase omits the `signal` key ONLY under a `fields=`
+   * projection (a genuinely signal-less row arrives as `null`), so this flag is
+   * a pure PROVENANCE marker.
+   *
+   * It is consulted in exactly ONE place — `classifyRung`'s red branch — where
+   * it is a PRECONDITION for graying a red as infra, never a reason to gray one.
+   * See the fail-safe-polarity note there.
+   */
   signalKnown: boolean;
 }
 
@@ -444,13 +454,41 @@ export function classifyRung(raw: RawRung, now: number): RungContribution {
   }
 
   // ── Red fold winner (rank ≥ red) ───────────────────────────────────
-  // §3 rule 4 / §D: infra-ness unknown (signal stripped) → NO_DATA, never a
-  // manufactured product-red.
-  if (!raw.signalKnown) {
-    return { ...base, contribution: "NO_DATA", rawStatus: null };
-  }
-  // U7: every contributing red row is infra-classed → INFRA_RED_FRESH (→ gray).
-  if (!fold.hasNonInfraRed) {
+  // §3 rule 4 / §D — FAIL-SAFE POLARITY (inverted; see below). A red rung whose
+  // infra-ness we cannot determine classifies as a RED, never as NO_DATA.
+  //
+  // This branch used to read `if (!raw.signalKnown) return NO_DATA` — i.e. a
+  // genuinely-failing rung was painted GRAY ("nothing to see here") whenever the
+  // browser's bulk projection had stripped `signal` off its rows. That polarity
+  // was backwards in two independent ways:
+  //
+  //   1. `signalKnown === false` does NOT mean "known to have no signal". PB
+  //      only ever OMITS the `signal` key under a `fields=` projection; a row
+  //      that genuinely carries no signal arrives as `null`, and
+  //      `null !== undefined`, so `signalKnown` stays `true`. So the flag means
+  //      exactly "this row came from a projected fetch" — PENDING, i.e. the
+  //      ABSENCE of evidence about WHY the rung failed. It was never evidence
+  //      that the failure was infra.
+  //   2. Empirically the guess it made was wrong on the overwhelming majority:
+  //      of the reds in production, ~94% are product-class and only ~6% are
+  //      infra-class. Graying them all lost 94 real failures to save 6 false
+  //      alarms — and a masked red is never investigated, while a false alarm
+  //      is looked at once and closed.
+  //
+  // So graying a red now requires POSITIVE infra evidence: `hasNonInfraRed`
+  // is false only when EVERY contributing red row's `signal` blob actually
+  // carries an INFRA_ERROR_CLASSES attribution, and `signalKnown` is retained
+  // as a second, explicit precondition so an absent blob can never be read as
+  // an infra attribution even if `signalHasInfraErrorClass` is loosened later.
+  // The residual cost is over-reporting (a red that was really infra shows red
+  // until its signal arrives), which is the direction a health dashboard must
+  // fail in. `useLiveStatus` also re-fetches `signal` for every NON-GREEN row on
+  // cold load, so in practice this branch only fires when the data genuinely
+  // cannot say.
+  //
+  // U7: every contributing red row is POSITIVELY infra-classed, and we can see
+  // the blobs that say so → INFRA_RED_FRESH (→ gray).
+  if (raw.signalKnown && !fold.hasNonInfraRed) {
     return { ...base, contribution: "INFRA_RED_FRESH", rawStatus };
   }
   // §3 rule 3: first-strike de-amplification, per rung kind. Gate on the WORST

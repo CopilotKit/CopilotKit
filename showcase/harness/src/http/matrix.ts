@@ -14,8 +14,10 @@
  * The handler:
  *   1. reads the current PB `status` rows via `deps.pb` — WITH the full
  *      `signal` blob on every row (the server has it; the browser's bulk
- *      initial fetch strips it, §11.1(2)), so the infra classifier resolves
- *      with `signalKnown === true` and never hits the cold-load gray fallback;
+ *      initial fetch strips it and restores it for the non-green rows via a
+ *      supplemental fetch, §11.1(2)), so the infra classifier always resolves
+ *      with `signalKnown === true` here and never has to fall back to the
+ *      fail-safe red that a pending attribution produces browser-side;
  *   2. enumerates every catalog cell by RE-FLATTENING the committed
  *      `shared/feature-registry.json` + manifests via `buildCatalogCells` (the
  *      single flattening authority — NOT the dashboard's generated
@@ -41,11 +43,10 @@ import {
   STARTER_STALE_AFTER_MS,
   FUTURE_SKEW_TOLERANCE_MS,
 } from "../shared/cell-model/staleness.js";
-import {
-  buildCatalogCells,
-  type CatalogCell,
-} from "../shared/catalog/catalog-flatten.js";
-import { computeMatrix, type MatrixCell } from "./matrix-compute.js";
+import { buildCatalogCells } from "../shared/catalog/catalog-flatten.js";
+import type { CatalogCell } from "../shared/catalog/catalog-flatten.js";
+import { computeMatrix } from "./matrix-compute.js";
+import type { MatrixCell } from "./matrix-compute.js";
 
 export interface MatrixRouteDeps {
   /** PocketBase handle — lives on `ServerDeps`, threaded explicitly (§11.1(3)). */

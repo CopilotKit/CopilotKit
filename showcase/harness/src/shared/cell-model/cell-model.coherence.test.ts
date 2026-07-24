@@ -21,6 +21,24 @@
  *          surface as a product-red badge — the I-class coherence bug)
  *  - INV6  d6Effective ∈ {green, red, amber} ⟹ achieved>=5        (D6 gated on a
  *          contiguous-green ladder through D5, §4d)
+ *  - INV7  chip==gray ∧ some depth pill reads red ⟹ EVERY contributing red row
+ *          carries POSITIVE infra evidence                        (fail-safe
+ *          polarity — see below)
+ *
+ * INV7 is the invariant whose ABSENCE let a long-lived misreport ship. INV1–INV6
+ * only relate `chipColor` to the other CHIP-side outputs; none of them inspects
+ * the `d3`/`d4`/`d5`/`d6` `TestLevel`s (the depth pill strip), which are read
+ * straight off the RAW fold and never consult the infra classifier. So the
+ * engine could — and did — return one model object that simultaneously said
+ * `d5.status === "red"` (strip renders `1P ✗`) and `chipColor === "gray"` (chip
+ * renders the muted "no live data" treatment), and every chip-side invariant
+ * still held. Roughly 20% of the matrix rendered that way on every cold load.
+ *
+ * INV7 closes it in the ONLY safe direction: coherence must be reached by
+ * fixing the CHIP upward, never by muting the strip. Deriving the strip from the
+ * classified contributions instead would render `1P ✗` as `1P ?` and destroy the
+ * only on-page element that was telling the truth — converting a visible
+ * inconsistency into an invisible failure.
  */
 import { describe, it, expect } from "vitest";
 import { buildCellModel } from "./cell-model.js";
@@ -30,7 +48,13 @@ import type {
   RungKind,
   ContributionKind,
 } from "./cell-model.contribution.js";
+import {
+  signalHasInfraErrorClass,
+  rankOfState,
+  RED_RANK,
+} from "./cell-model.contribution.js";
 import type { CellModel } from "./cell-model.js";
+import type { LiveStatusMap } from "./live-status.js";
 import { FIXTURES, NOW } from "./cell-model.equivalence-fixtures.js";
 
 type Coherable = Pick<
@@ -92,10 +116,48 @@ function assertCoherent(label: string, m: Coherable): void {
   }
 }
 
+/**
+ * INV7 — CHIP/STRIP coherence with the fail-safe polarity. Needs the input rows
+ * (not just the model) because the legitimate gray-over-a-red case is defined by
+ * POSITIVE infra evidence in the rows' `signal` blobs.
+ *
+ * A gray chip means "no live verdict to show". It is only honest above a red
+ * depth pill when every contributing red row actually SAYS the failure was
+ * infra. A red row with a stripped `signal` says nothing at all — that is a
+ * PENDING attribution, and must surface as red/amber, not gray.
+ */
+function assertChipStripCoherent(
+  label: string,
+  m: CellModel,
+  live: LiveStatusMap,
+): void {
+  // A pill can be null entirely (an unsupported column has no strip at all).
+  const stripReadsRed = [m.d3, m.d4, m.d5, m.d6].some(
+    (lvl) => lvl !== null && lvl.exists && lvl.status === "red",
+  );
+  if (m.chipColor !== "gray" || !stripReadsRed) return;
+  const redRows = [...live.values()].filter(
+    (r) => rankOfState(r.state) >= RED_RANK,
+  );
+  for (const r of redRows) {
+    expect(
+      signalHasInfraErrorClass(r.signal),
+      `${label}: INV7 gray chip over a red pill requires POSITIVE infra ` +
+        `evidence on every red row — ${r.key} has none (signal ${
+          r.signal === undefined
+            ? "STRIPPED (pending)"
+            : JSON.stringify(r.signal)
+        }). A red whose cause is merely unknown must render red, not gray.`,
+    ).toBe(true);
+  }
+}
+
 describe("cell-model coherence — cross-field invariants over the fixture matrix", () => {
   for (const f of FIXTURES) {
     it(`coheres for fixture: ${f.name}`, () => {
-      assertCoherent(f.name, buildCellModel(f.live, f.input, NOW));
+      const m = buildCellModel(f.live, f.input, NOW);
+      assertCoherent(f.name, m);
+      assertChipStripCoherent(f.name, m, f.live);
     });
   }
 });

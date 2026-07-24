@@ -8,9 +8,11 @@ import {
   firstStrikeConfig,
   D4_FIRST_STRIKE_THRESHOLD,
   classifyRung,
-  type RawRung,
-  type RungKind,
-  type ContributionKind,
+} from "./cell-model.contribution.js";
+import type {
+  RawRung,
+  RungKind,
+  ContributionKind,
 } from "./cell-model.contribution.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
 
@@ -178,13 +180,39 @@ describe("classifyRung — §3 rules", () => {
     ).toBe("INFRA_RED_FRESH");
   });
 
-  it("red with stripped signal → NO_DATA, never product-red (rule 4 / §D)", () => {
+  // FAIL-SAFE POLARITY. This used to assert NO_DATA — a genuinely-failing rung
+  // was reported as "no data" (gray) whenever the bulk projection had stripped
+  // `signal`, because infra-ness could not be determined. That hid ~94% of real
+  // reds to suppress ~6% infra false alarms, for up to a sweep interval on every
+  // load. Graying now requires POSITIVE infra evidence; a stripped blob is the
+  // absence of evidence, so the red survives.
+  it("red with stripped signal → FAIL_FRESH, never grayed away (rule 4 / §D)", () => {
     expect(
       classifyRung(
         raw("D3", [row("red", { signal: undefined })], { signalKnown: false }),
         NOW,
       ).contribution,
-    ).toBe("NO_DATA");
+    ).toBe("FAIL_FRESH");
+  });
+
+  // The other half of the polarity: a stripped `signal` must not let an
+  // otherwise-infra red be grayed either. `signalHasInfraErrorClass` already
+  // returns false for a missing blob, and `signalKnown` is a second explicit
+  // precondition on the INFRA_RED_FRESH branch, so the two cannot disagree.
+  it("stripped signal never reaches INFRA_RED_FRESH even with an infra sibling", () => {
+    expect(
+      classifyRung(
+        raw(
+          "D3",
+          [
+            row("red", { signal: { errorClass: "driver-error" } }),
+            row("red", { signal: undefined }),
+          ],
+          { signalKnown: false },
+        ),
+        NOW,
+      ).contribution,
+    ).toBe("FAIL_FRESH");
   });
 
   it("anyExpectedMissing + green fold → NO_DATA (strict collapse)", () => {

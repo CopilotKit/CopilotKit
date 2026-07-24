@@ -12,7 +12,8 @@
 import { describe, it, expect } from "vitest";
 import type { StatusRow, State } from "./live-status.js";
 import { keyFor, mergeRowsToMap, CATALOG_TO_D5_KEY } from "./live-status.js";
-import { buildCellModel, type CellModelInput } from "./cell-model.js";
+import { buildCellModel } from "./cell-model.js";
+import type { CellModelInput } from "./cell-model.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
 
 const NOW = Date.parse("2026-06-04T12:00:00.000Z");
@@ -100,14 +101,27 @@ describe("§7 I4: infra-only red is not a regression", () => {
   });
 });
 
-describe("§7 I5: cold-load stripped signal → gray no-data", () => {
-  it("red D3 with signal stripped → gray (never product-red)", () => {
+// FAIL-SAFE POLARITY (was "§7 I5: cold-load stripped signal → gray no-data").
+// A stripped `signal` means the infra-vs-product attribution is PENDING, not
+// that there is no data — the rung's red state came through the projection
+// intact. Graying it erased a real failure for up to a sweep interval on every
+// page load, so the polarity is inverted: only POSITIVE infra evidence grays a
+// red (see the §7 I4 case above, which still grays). Compare
+// `classifyRung`'s fail-safe-polarity note.
+describe("§7 I5: cold-load stripped signal → red (pending attribution)", () => {
+  it("red D3 with signal stripped → red, and counts as a regression", () => {
     const live = mergeRowsToMap(
       greenBase(F).map((r) =>
         r.key.startsWith("e2e:") ? row(r.key, "red", { signal: undefined }) : r,
       ),
     );
-    expect(buildCellModel(live, wired(F), NOW).chipColor).toBe("gray");
+    const m = buildCellModel(live, wired(F), NOW);
+    expect(m.chipColor).toBe("red");
+    // The strip already reported this failure truthfully (`d3.status === "red"`)
+    // while the chip said "no data" — the chip/strip divergence that made the
+    // bug invisible. They must now agree.
+    expect(m.d3?.status).toBe("red");
+    expect(m.isRegression).toBe(true);
   });
 });
 
