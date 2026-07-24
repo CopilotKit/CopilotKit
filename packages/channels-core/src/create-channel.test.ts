@@ -66,7 +66,7 @@ describe("createChannel", () => {
       await thread.post(Section({ children: "hi" }));
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -85,7 +85,7 @@ describe("createChannel", () => {
       await thread.runAgent();
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -124,7 +124,7 @@ describe("createChannel", () => {
       });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({
       userText: "look",
       conversationKey: "c1",
@@ -161,7 +161,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "yo", conversationKey: "c1" });
     await tick();
 
@@ -195,7 +195,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "create a thing", conversationKey: "c1" });
     await tick();
 
@@ -239,7 +239,7 @@ describe("createChannel", () => {
       });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
@@ -263,7 +263,7 @@ describe("createChannel", () => {
       });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -289,7 +289,7 @@ describe("createChannel", () => {
       resolved = await thread.lookupUser("Ada");
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
     await tick();
 
@@ -319,7 +319,7 @@ describe("createChannel", () => {
       );
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "decide", conversationKey: "c1" });
     await tick();
 
@@ -355,7 +355,7 @@ describe("createChannel", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -392,7 +392,7 @@ describe("createChannel", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -426,7 +426,7 @@ describe("createChannel", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c",
@@ -489,7 +489,7 @@ describe("createChannel", () => {
       capturedKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -516,7 +516,7 @@ describe("createChannel", () => {
       },
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
 
     // Drive a turn so identity is resolved and we can verify transcripts exist
@@ -585,7 +585,7 @@ describe("createChannel", () => {
       await thread.runAgent({ transcript: true });
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     // Seed one prior cross-platform entry (different platform label) so we can
     // assert it shows up in the injected context. Seeded post-start: transcripts
     // are only available once the backend is resolved in start().
@@ -651,7 +651,7 @@ describe("createChannel", () => {
       }
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "go", conversationKey: "c1" });
     await tick();
 
@@ -680,7 +680,7 @@ describe("createChannel lock and dedup edge cases", () => {
       throw new Error("boom");
     });
 
-    await bot1.start();
+    await bot1.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -727,7 +727,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -765,7 +765,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c1",
@@ -801,7 +801,7 @@ describe("createChannel lock and dedup edge cases", () => {
       capturedUserKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -826,7 +826,7 @@ describe("createChannel lock and dedup edge cases", () => {
       capturedUserKey = message.userKey;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -851,7 +851,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const base = {
       conversationKey: "c1",
@@ -895,7 +895,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     await sink.onTurn({
       conversationKey: "c1",
@@ -925,7 +925,7 @@ describe("createChannel lock and dedup edge cases", () => {
       await gate;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turnA = {
       conversationKey: "c1",
@@ -973,7 +973,7 @@ describe("createChannel lock and dedup edge cases", () => {
       runs++;
     });
 
-    await channel.start();
+    await channel.ɵruntime.start();
     const sink = fake.getSink();
     const turn = {
       conversationKey: "c2",
@@ -1001,7 +1001,7 @@ describe("createChannel slash commands", () => {
     channel.onCommand("triage", ({ command, text }) => {
       seen = { command, text };
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({ command: "/Triage", text: "db is down" });
     expect(seen).toEqual({ command: "triage", text: "db is down" });
   });
@@ -1013,7 +1013,7 @@ describe("createChannel slash commands", () => {
     channel.onCommand("triage", () => {
       fired = true;
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({ command: "unknown", text: "x" });
     expect(fired).toBe(false);
   });
@@ -1033,7 +1033,7 @@ describe("createChannel slash commands", () => {
         }),
       ],
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await fake.emitCommand({
       command: "book",
       text: "raw",
@@ -1047,7 +1047,7 @@ describe("createChannel slash commands", () => {
     const channel = createChannel({ adapters: [fake] });
     channel.onCommand("triage", () => {});
     channel.onCommand("status", () => {});
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(fake.registeredCommands?.map((c) => c.name).sort()).toEqual([
       "status",
       "triage",
@@ -1060,7 +1060,7 @@ describe("createChannel slash commands", () => {
       const bad = new FakeAdapter({ platform: "telegram", failStart: true });
       const good = new FakeAdapter({ platform: "slack" });
       const channel = createChannel({ adapters: [bad, good] });
-      await expect(channel.start()).resolves.toBeUndefined();
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1080,7 +1080,7 @@ describe("createChannel slash commands", () => {
       const good = new FakeAdapter({ platform: "slack" });
       const channel = createChannel({ adapters: [bad, good] });
       channel.onCommand("triage", () => {});
-      await expect(channel.start()).resolves.toBeUndefined();
+      await expect(channel.ɵruntime.start()).resolves.toBeUndefined();
       expect(good.started).toBe(true);
       expect(good.registeredCommands?.map((c) => c.name)).toEqual(["triage"]);
       expect(
@@ -1098,8 +1098,8 @@ describe("createChannel slash commands", () => {
       const good = new FakeAdapter({ platform: "slack" });
       const stopSpy = vi.spyOn(good, "stop");
       const channel = createChannel({ adapters: [bad, good] });
-      await channel.start();
-      await expect(channel.stop()).resolves.toBeUndefined();
+      await channel.ɵruntime.start();
+      await expect(channel.ɵruntime.stop()).resolves.toBeUndefined();
       expect(stopSpy).toHaveBeenCalled();
       expect(
         errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
@@ -1126,7 +1126,7 @@ describe("createChannel slash commands", () => {
     expect(channel.adapters).toHaveLength(0);
 
     const fake = new FakeAdapter();
-    channel.addAdapter(fake);
+    channel.ɵruntime.addAdapter(fake);
     expect(channel.adapters).toEqual([fake]);
   });
 });

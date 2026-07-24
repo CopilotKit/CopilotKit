@@ -1,0 +1,114 @@
+---
+title: Reactions
+icon: "lucide/SmilePlus"
+description: Run code when a user reacts to a card you posted, using JSX.
+---
+
+Attach `onReaction` to a message you post, and your handler runs when someone
+reacts to that message. Good for a thumbs-up to confirm, or a refresh emoji to
+redraw a card.
+
+This is the per-card handler. It builds on [the UI library](/channels/ui-library), so set up JSX first. To react to
+_any_ message in the channel, see [global
+reactions](/channels/commands-and-reactions#global-reactions).
+
+## A card that reacts
+
+```tsx
+import { Message, Section, type ChannelNode } from "@copilotkit/channels/ui";
+
+export function PollCard(): ChannelNode {
+  return (
+    <Message
+      onReaction={async (emoji, reaction) => {
+        if (!reaction.added) return; // ignore un-reactions
+        if (emoji !== "thumbs_up") return;
+        await reaction.thread.post(`Thanks for the vote, ${reaction.user?.name ?? "friend"}.`);
+      }}
+    >
+      <Section>{"React with a thumbs up to vote."}</Section>
+    </Message>
+  );
+}
+```
+
+Post it, and register it so a late reaction still resolves after a restart:
+
+```ts
+const channel = createChannel({
+  name: "poll-bot",
+  agent,
+  components: [PollCard],
+});
+
+await thread.post(<PollCard />);
+```
+
+## What the handler gets
+
+```ts
+onReaction={(emoji, reaction) => {
+  emoji;              // canonical name: "thumbs_up", "refresh", "fire", ...
+  reaction.rawEmoji;  // the platform's native token
+  reaction.added;     // true = added, false = removed
+  reaction.user;      // who reacted
+  reaction.thread;    // post back here
+  reaction.messageRef; // pass to thread.update(...) to redraw this card
+}}
+```
+
+## Emoji names are normalized
+
+The same reaction arrives under one canonical `emoji` name on every platform.
+The counterclockwise-arrows emoji is `"refresh"` whether it came in as Slack's
+`arrows_counterclockwise`, a Teams token, or the raw unicode elsewhere. So you
+match on the name once:
+
+```ts
+if (emoji === "refresh") {
+  await reaction.thread.update(reaction.messageRef, <PollCard />);
+}
+```
+
+Reach for `reaction.rawEmoji` only when you need the exact platform token, for
+example a custom Slack emoji that has no canonical name.
+
+## Emoji helpers
+
+`@copilotkit/channels/ui` exports a few helpers for working with emoji names.
+
+Use the `emoji` accessor instead of a bare string so a typo is a compile error
+and you get autocomplete:
+
+```ts
+import { emoji } from "@copilotkit/channels/ui";
+
+if (reaction.emoji === emoji.refresh) {
+  // ...
+}
+```
+
+The known names come from `EMOJI_TABLE` (`thumbs_up`, `heart`, `fire`, `eyes`,
+`bug`, `check`, `cross`, `tada`, `rocket`, `refresh`, and more). The
+`EmojiValue` type is `KnownEmoji | (string & {})`, so a known name
+autocompletes while any custom token still passes through.
+
+| Helper | Signature | Use |
+| --- | --- | --- |
+| `toCanonicalEmoji` | `(value: EmojiValue) => EmojiValue` | Resolve a name, Slack shortcode, or unicode to the canonical name. Unknown tokens pass through. |
+| `normalizeEmoji` | `(token: string, platform) => EmojiValue \| undefined` | A platform-native token to its canonical name, or `undefined` if unknown. |
+| `toPlatformEmoji` | `(value: EmojiValue, platform) => string \| undefined` | The reverse: a canonical name to a platform's native token. |
+
+`platform` is one of `"slack" | "discord" | "telegram" | "teams" | "whatsapp"`.
+
+```ts
+import { toCanonicalEmoji, toPlatformEmoji } from "@copilotkit/channels/ui";
+
+toCanonicalEmoji("arrows_counterclockwise"); // "refresh"
+toCanonicalEmoji("🔄");                       // "refresh"
+toPlatformEmoji("refresh", "slack");          // "arrows_counterclockwise"
+```
+
+Ingress already normalizes `reaction.emoji` for you, so you mostly reach for
+these when matching a caller-supplied filter or posting a reaction with
+`thread.react` on a specific platform.

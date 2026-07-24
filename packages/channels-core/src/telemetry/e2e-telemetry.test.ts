@@ -45,7 +45,7 @@ describe("oss.channel.* end-to-end (real ChannelTelemetry, only network boundary
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({ userText: "hi", conversationKey: "c1" });
 
     await waitFor(() =>

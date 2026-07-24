@@ -770,7 +770,6 @@ export function CopilotChatInput({
     ) {
       const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
       if (isMobileViewport) {
-        ensureMeasurements();
         adjustTextareaHeight();
         updateLayout("expanded");
         return;

@@ -1,0 +1,102 @@
+---
+title: WhatsApp
+icon: "lucide/MessageCircle"
+description: Connect WhatsApp with the WhatsApp adapter.
+---
+
+Connect WhatsApp with the WhatsApp adapter, backed by the WhatsApp Cloud API.
+You hold the Meta credentials and the bot runs on your infrastructure.
+
+## Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+## Credentials
+
+From your Meta app and WhatsApp Business number:
+
+```bash
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_APP_SECRET=...
+WHATSAPP_VERIFY_TOKEN=...   # a string you choose, used to verify the webhook
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
+```
+
+## Connect
+
+The adapter serves a webhook at `/webhook` by default. Point your Meta app's
+webhook at that public URL and use the same `verifyToken`.
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { whatsapp } from "@copilotkit/channels/whatsapp";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [
+    whatsapp({
+      accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+      appSecret: process.env.WHATSAPP_APP_SECRET!,
+      verifyToken: process.env.WHATSAPP_VERIFY_TOKEN!,
+      port: 3000,
+      path: "/webhook",
+    }),
+  ],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+// The runtime drives the channel — it starts the WhatsApp adapter, you don't
+// call channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
+```
+
+<Callout type="info">
+Slash commands on WhatsApp are plain text with a `/` prefix. The user's words
+after the command arrive in `text`. See [commands and
+reactions](/channels/commands-and-reactions).
+</Callout>
+
+## Built-in tools and context
+
+The WhatsApp adapter ships default tools and formatting context you can spread
+into your channel. Unlike the other adapters, it does not ship a user-lookup
+tool.
+
+```ts
+import { whatsapp, defaultWhatsAppTools, defaultWhatsAppContext } from "@copilotkit/channels/whatsapp";
+
+createChannel({
+  agent,
+  tools: [...defaultWhatsAppTools],
+  context: [...defaultWhatsAppContext],
+  adapters: [whatsapp({ /* ...credentials */ })],
+});
+```
