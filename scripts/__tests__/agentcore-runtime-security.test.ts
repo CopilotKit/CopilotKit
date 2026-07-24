@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
+
 import {
+  createVerifiedRuntimeHandler,
   resolveLocalRuntimeUser,
   resolveVerifiedRuntimeUser,
   VERIFIED_RUNTIME_USER_HEADER,
   withVerifiedRuntimeUserHeader,
 } from "../../examples/integrations/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
+import type { ApiGatewayRuntimeEvent } from "../../examples/integrations/agentcore/infra-cdk/lambdas/copilotkit-runtime/src/identity";
 
 /** Read a tracked AgentCore source file from the repository root. */
 function readAgentCoreSource(relativePath: string): string {
@@ -58,6 +61,46 @@ test("the deployed AgentCore runtime does not use one shared demo identity", () 
 
   expect(source).toContain("resolveVerifiedRuntimeUser(request)");
   expect(source).not.toContain('identifyUser: () => ({ id: "demo-user"');
+});
+
+test("the deployed Lambda overwrites a caller identity before Hono receives it", () => {
+  const response = Object.freeze({ statusCode: 200 });
+  const context = Object.freeze({ awsRequestId: "request-1" });
+  const callback = vi.fn();
+  const event: ApiGatewayRuntimeEvent = {
+    headers: {
+      "X-CopilotKit-Verified-User-Id": "attacker-user",
+      "x-safe-header": "preserved",
+    },
+    requestContext: {
+      authorizer: { claims: { sub: "verified-cognito-user" } },
+    },
+  };
+  const honoHandler = vi.fn().mockReturnValue(response);
+  const deployedRuntimeHandler = createVerifiedRuntimeHandler(honoHandler);
+
+  const result = deployedRuntimeHandler(event, context, callback);
+
+  expect(result).toBe(response);
+  expect(honoHandler).toHaveBeenCalledOnce();
+  expect(honoHandler).toHaveBeenCalledWith(
+    {
+      ...event,
+      headers: {
+        [VERIFIED_RUNTIME_USER_HEADER]: "verified-cognito-user",
+        "x-safe-header": "preserved",
+      },
+    },
+    context,
+    callback,
+  );
+
+  const indexSource = readAgentCoreSource(
+    "infra-cdk/lambdas/copilotkit-runtime/src/index.ts",
+  );
+  expect(indexSource).toContain(
+    "export const handler = createVerifiedRuntimeHandler(honoHandler);",
+  );
 });
 
 test("AgentCore rejects a Runtime request without the trusted user header", () => {

@@ -19,6 +19,11 @@ export interface ApiGatewayRuntimeEvent {
   readonly [key: string]: unknown;
 }
 
+export type RuntimeEventHandler = (
+  event: ApiGatewayRuntimeEvent,
+  ...args: unknown[]
+) => unknown;
+
 /**
  * Replace any caller-supplied private header with the Cognito claim that API
  * Gateway verified. A missing claim removes the header so the Runtime denies it.
@@ -46,6 +51,17 @@ export function withVerifiedRuntimeUserHeader(
     headers,
     ...(event.multiValueHeaders ? { multiValueHeaders } : {}),
   };
+}
+
+/**
+ * Wrap a Runtime event handler so Hono only receives the verified Cognito
+ * subject and never a caller-controlled private identity header.
+ */
+export function createVerifiedRuntimeHandler(
+  handler: RuntimeEventHandler,
+): RuntimeEventHandler {
+  return (event, ...args) =>
+    handler(withVerifiedRuntimeUserHeader(event), ...args);
 }
 
 /**
