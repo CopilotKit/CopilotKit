@@ -56,7 +56,6 @@ if [ "$SKIP_BACKEND" = false ]; then
   export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
 fi
 export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
-export VITE_COPILOTKIT_THREADS_ENABLED=true
 
 echo "── CopilotKit + AWS AgentCore (LangGraph) ──────────────────────────────"
 

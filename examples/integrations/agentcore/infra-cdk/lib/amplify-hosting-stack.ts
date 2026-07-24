@@ -87,12 +87,6 @@ export class AmplifyHostingStack extends cdk.NestedStack {
       appName: `${props.config.stack_name_base}-frontend`,
       description: `${props.config.stack_name_base} - React Frontend`,
       platform: amplify.Platform.WEB,
-      environmentVariables: {
-        VITE_COPILOTKIT_THREADS_ENABLED: props.config
-          .copilotkit_license_token_secret_name
-          ? "true"
-          : "false",
-      },
     });
 
     // Create main branch for the Amplify app

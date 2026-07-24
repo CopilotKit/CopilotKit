@@ -11,13 +11,8 @@ export default defineConfig({
 
   define: {
     "import.meta.env.VITE_COPILOTKIT_THREADS_ENABLED": JSON.stringify(
-      process.env.VITE_COPILOTKIT_THREADS_ENABLED === "true"
-        ? "true"
-        : process.env.VITE_COPILOTKIT_THREADS_ENABLED === "false"
-          ? "false"
-          : process.env.COPILOTKIT_LICENSE_TOKEN
-            ? "true"
-            : "false",
+      process.env.VITE_COPILOTKIT_THREADS_ENABLED ??
+        (process.env.COPILOTKIT_LICENSE_TOKEN ? "true" : "false"),
     ),
   },
 
