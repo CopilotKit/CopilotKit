@@ -10,6 +10,7 @@
     "start": "tsx app/index.ts",
     "channel": "tsx app/managed.ts",
     "build": "pnpm exec nx run-many -t build -p @copilotkit/channels @copilotkit/runtime",
+    "build:css": "tailwindcss -i styles/tailwind.css -o styles/brand.css",
     "runtime": "tsx runtime.ts",
     "notion-mcp": "tsx scripts/start-notion-mcp.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",

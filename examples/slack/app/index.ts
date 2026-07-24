@@ -47,7 +47,7 @@ import {
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
-import { shadcnCss } from "./showcase/index.js";
+import { loadBrandRender } from "./render/brand.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 
@@ -78,6 +78,9 @@ async function main() {
   const adapters: PlatformAdapter[] = [];
   const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
+  // CopilotKit brand render config: the compiled Tailwind stylesheet + Plus
+  // Jakarta Sans, fed to every image post so cards/charts render on-brand.
+  const brand = await loadBrandRender();
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
     adapters.push(
@@ -211,15 +214,14 @@ async function main() {
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.
     commands: appCommands,
-    // Takumi JSX image rendering config. No `fonts`/`googleFonts` (the latter
-    // can trigger a network fetch and hang tests/CI) — Takumi's built-in Latin
-    // font is Geist, which the cards use via `fontFamily: "Geist"`. The
-    // `shadcnCss` stylesheet feeds shadcn-style tokens/classes so the showcase
-    // cards (PR radar, weekly pulse, cycle standup) get their dark-theme look;
-    // the `charts` components render in color from their own fixed hex palette.
+    // Takumi image rendering config, CopilotKit-branded. `brand.stylesheets` is
+    // the compiled Tailwind sheet (styles/brand.css) whose classes the cards use;
+    // `brand.fonts` is Plus Jakarta Sans (the brand typeface) loaded from
+    // assets/fonts. Charts render in the brand data-viz palette by default.
     render: {
-      width: 720,
-      stylesheets: [shadcnCss],
+      width: 760,
+      stylesheets: brand.stylesheets,
+      fonts: brand.fonts,
     },
   });
 

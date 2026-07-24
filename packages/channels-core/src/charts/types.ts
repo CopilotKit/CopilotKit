@@ -7,18 +7,20 @@ export interface ChartDatum {
 }
 
 /**
- * Fixed default palette. The image renderer (Takumi) does not resolve CSS
- * `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on
- * box-model charts in a theme-independent way), so these are plain hex
- * values rather than shadcn `--chart-N` custom properties. Pass your own
- * `colors` prop per chart to theme it explicitly.
+ * Fixed default palette — the CopilotKit brand data-viz colors (purple, mint,
+ * blue, orange, deep-mint, periwinkle). The image renderer (Takumi) does not
+ * resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for
+ * `backgroundColor` on box-model charts in a theme-independent way), so these
+ * are plain hex values, not CSS custom properties. Pass your own `colors` prop
+ * per chart to theme it explicitly.
  */
 export const DEFAULT_CHART_COLORS: readonly string[] = [
-  "#6366f1",
-  "#22c55e",
-  "#f59e0b",
-  "#ef4444",
-  "#06b6d4",
+  "#5a3cd1", // brand purple
+  "#85ecce", // mint
+  "#3d92e8", // blue
+  "#ffac4d", // orange
+  "#189370", // deep mint
+  "#bec2ff", // periwinkle
 ];
 
 /** Coerce a chart value to a finite number (non-finite → 0) so one bad datum can't poison a scale. */

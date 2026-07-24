@@ -200,10 +200,10 @@ everywhere else in this bot.
 > there is no headless browser (the old Playwright-based `render_chart` /
 > `render_diagram` tools are gone) at runtime; rendering happens in-process.
 
-### Showcase features: shadcn cards + charts as images
+### Showcase features: CopilotKit-branded cards + charts as images
 
 Three realistic "we run this in our own Slack" features (`app/showcase/`), each
-rendering a **shadcn-styled card** plus **charts** as images, and each
+rendering a **CopilotKit-branded card** plus **charts** as images, and each
 triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
 matching `render_*` tool). Both paths share one `render*` fn.
 
@@ -213,12 +213,33 @@ matching `render_*` tool). Both paths share one `render*` fn.
 | **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
 | **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | per-team progress card (a meter per team) + done-vs-remaining stacked bar       |
 
-The shadcn look comes from a single token stylesheet fed once to
-`createChannel({ render: { stylesheets: [shadcnCss] } })` (`app/showcase/theme.ts`);
-cards set layout inline and pull colour/type from classes. Text is Geist
-(Takumi's built-in font). Every feature reads **live** data and **falls back to
-sample data** (never throws) when the API is unreachable, labelling the card
-`sample data` so the degradation is visible.
+The brand look comes from **Tailwind**: cards are authored with Tailwind classes
+(CopilotKit brand tokens in `styles/tailwind.css`), compiled to `styles/brand.css`
+with `pnpm build:css`, and fed — together with the **Plus Jakarta Sans** brand
+font (`assets/fonts/`) — to `createChannel({ render: { stylesheets, fonts } })`
+via `app/render/brand.ts`. Takumi resolves the Tailwind classes when it
+rasterizes. Charts default to the CopilotKit brand data-viz palette. Every
+feature reads **live** data and **falls back to sample data** (never throws) when
+the API is unreachable, labelling the card `sample data` so the degradation is
+visible.
+
+> After changing card classes, re-run `pnpm build:css` so the compiled
+> `styles/brand.css` (committed, fed at runtime) includes them.
+
+### Ad-hoc charts & diagrams: `render_chart` / `render_diagram`
+
+Beyond the fixed features above, the bot registers two **generic** data-viz
+tools from `@copilotkit/channels/charts` (`app/tools/index.ts`), so you can ask
+for a one-off visual:
+
+- **`render_chart`** — _"here's a CSV of signups by month, chart it as a bar
+  chart"_ → the agent parses the data and calls
+  `render_chart({ kind: "bar", data: [{label, value}, …], title })`, posting a
+  branded chart image. Supports `bar`/`line`/`pie`/`stacked`/`scatter`.
+- **`render_diagram`** — _"diagram our deploy pipeline"_ → the agent calls
+  `render_diagram({ nodes, edges, direction })`, posting a layered flow diagram
+  (boxes + arrows). Not arbitrary graph auto-layout (Takumi has no JS layout
+  engine).
 
 ```ts
 // One render fn, two triggers — app/showcase/pr-radar.tsx
@@ -232,7 +253,8 @@ export const prsCommand   = defineChannelCommand({ name: "prs", /* … */ async 
 ```
 
 **Source:** `app/showcase/` — `pr-radar.tsx`, `weekly-pulse.tsx`,
-`cycle-standup.tsx`, `theme.ts`, `lib.ts`.
+`cycle-standup.tsx`, `lib.ts`; brand render config in `app/render/brand.ts` +
+`styles/`.
 
 ### Human-in-the-loop: `confirm_write`
 

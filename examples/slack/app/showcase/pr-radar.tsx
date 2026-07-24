@@ -14,7 +14,6 @@ import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
 import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart } from "@copilotkit/channels/charts";
-import { GEIST } from "./theme.js";
 import { REPO, ghFetch, ageInDays, sampleTag } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
@@ -98,12 +97,12 @@ async function fetchPrRadar(): Promise<{ prs: Pr[]; live: boolean }> {
   }
 }
 
-/** green ≤3d · amber ≤7d · red >7d */
+/** Tailwind badge classes: mint ≤3d · orange ≤7d · red >7d. */
 function ageBadge(days: number): { cls: string; text: string } {
   const text = days === 0 ? "today" : `${days}d`;
-  if (days <= 3) return { cls: "badge badge-green", text };
-  if (days <= 7) return { cls: "badge badge-amber", text };
-  return { cls: "badge badge-red", text };
+  if (days <= 3) return { cls: "bg-brand-mint text-brand-mint-deep", text };
+  if (days <= 7) return { cls: "bg-[#ffe8c7] text-[#9a5b00]", text };
+  return { cls: "bg-[#ffd9d9] text-[#c0362c]", text };
 }
 
 function truncate(s: string, n: number): string {
@@ -113,37 +112,14 @@ function truncate(s: string, n: number): string {
 function prRow(pr: Pr): ChannelNode {
   const badge = ageBadge(pr.ageDays);
   return (
-    <div
-      key={pr.number}
-      style={{
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        width: "100%",
-      }}
-    >
-      <span
-        className="muted"
-        style={{ fontSize: 15, width: 56 }}
-      >{`#${pr.number}`}</span>
-      <span className="fg" style={{ fontSize: 15, flexGrow: 1 }}>
+    <div key={pr.number} className="flex flex-row items-center gap-3 w-full">
+      <span className="text-[15px] text-brand-muted w-14">{`#${pr.number}`}</span>
+      <span className="text-[15px] text-brand-ink grow">
         {truncate(pr.title, 58)}
       </span>
+      <span className="text-sm text-brand-muted w-28 text-right">{`@${truncate(pr.author, 12)}`}</span>
       <span
-        className="muted"
-        style={{ fontSize: 14, width: 120, textAlign: "right" }}
-      >
-        {`@${truncate(pr.author, 12)}`}
-      </span>
-      <span
-        className={badge.cls}
-        style={{
-          fontSize: 13,
-          padding: "3px 10px",
-          width: 56,
-          textAlign: "center",
-        }}
+        className={`text-[13px] font-semibold rounded-full px-2.5 py-0.5 w-14 text-center ${badge.cls}`}
       >
         {badge.text}
       </span>
@@ -156,59 +132,27 @@ export interface PrRadarCardProps {
   live: boolean;
 }
 
-/** Presentational — arbitrary app JSX (host tags) rendered to an image via Takumi. */
+/** Presentational — Tailwind host-tag JSX rendered to a branded image via Takumi. */
 export function PrRadarCard({ prs, live }: PrRadarCardProps): ChannelNode {
   const shown = prs.slice(0, 8);
   return (
-    <div
-      className="card"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-        width: "100%",
-        height: "100%",
-        padding: 28,
-        fontFamily: GEIST,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          width: "100%",
-        }}
-      >
-        <span className="title" style={{ fontSize: 24 }}>
+    <div className="flex flex-col gap-3.5 w-full h-full p-7 bg-brand-bg rounded-2xl font-brand">
+      <div className="flex flex-row items-center justify-between w-full">
+        <span className="text-2xl font-bold text-brand-ink">
           PR review radar
         </span>
         <span
-          className={live ? "badge badge-green" : "badge badge-amber"}
-          style={{ fontSize: 12, padding: "4px 12px" }}
+          className={`text-xs font-semibold rounded-full px-3 py-1 ${live ? "bg-brand-mint text-brand-mint-deep" : "bg-[#ffe8c7] text-[#9a5b00]"}`}
         >
           {live ? "live · github" : "sample data"}
         </span>
       </div>
-      <span
-        className="muted"
-        style={{ fontSize: 14 }}
-      >{`${REPO} · ${prs.length} open · oldest first`}</span>
-      <div className="divider" style={{ height: 1, width: "100%" }} />
+      <span className="text-sm text-brand-muted">{`${REPO} · ${prs.length} open · oldest first`}</span>
+      <div className="h-px w-full bg-brand-border" />
       {shown.length ? (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-            width: "100%",
-          }}
-        >
-          {shown.map(prRow)}
-        </div>
+        <div className="flex flex-col gap-3 w-full">{shown.map(prRow)}</div>
       ) : (
-        <span className="muted" style={{ fontSize: 16 }}>
+        <span className="text-base text-brand-muted">
           No open PRs awaiting review — all clear.
         </span>
       )}

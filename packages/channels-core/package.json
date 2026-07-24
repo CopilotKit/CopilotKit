@@ -65,6 +65,7 @@
     "@copilotkit/channels-ui": "workspace:~",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
+    "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {

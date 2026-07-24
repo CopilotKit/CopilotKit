@@ -6,3 +6,5 @@ export * from "./meter.js";
 export * from "./line-chart.js";
 export * from "./pie-chart.js";
 export * from "./scatter.js";
+export * from "./diagram.js";
+export * from "./tools.js";

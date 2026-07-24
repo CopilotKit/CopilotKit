@@ -24,9 +24,9 @@ function countPalettePixels(png: Buffer): number {
     ];
     if (a < 128) continue;
     if (
-      Math.abs(r - 99) < 40 &&
-      Math.abs(g - 102) < 40 &&
-      Math.abs(b - 241) < 40
+      Math.abs(r - 90) < 40 &&
+      Math.abs(g - 60) < 40 &&
+      Math.abs(b - 209) < 40
     )
       n++;
   }
