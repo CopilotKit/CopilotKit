@@ -1,10 +1,6 @@
-import {
-  DestroyRef,
-  ElementRef,
-  afterRenderEffect,
-  inject,
-  type Signal,
-} from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { DestroyRef, afterRenderEffect, inject } from "@angular/core";
+import type { Signal } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   Catalog,
@@ -23,6 +19,7 @@ export type A2UISurfaceElement = HTMLElement & {
   catalog?: Catalog<LitComponentImplementation>;
   theme?: Theme;
   loadingComponent?: () => LitRenderable;
+  updateComplete?: Promise<boolean>;
 };
 
 export type A2UIConfigLike = { a2ui?: A2UIConfig };
@@ -38,6 +35,9 @@ type CopilotKitActionBridge = {
 let definePromise: Promise<void> | undefined;
 
 export function defineA2UIWebComponentsOnce(): Promise<void> {
+  if (typeof globalThis.customElements === "undefined") {
+    return Promise.resolve();
+  }
   definePromise ??=
     import("@copilotkit/a2ui-renderer/web-components/define").then(
       async (mod) => {
@@ -84,19 +84,33 @@ export function connectA2UISurface(options: {
   surfaceRef: Signal<ElementRef<A2UISurfaceElement> | undefined>;
   operations: () => A2UIOperation[];
   config?: A2UIConfigLike | null;
+  onReady?: () => void;
 }): void {
-  const { surfaceRef, operations, config } = options;
+  const { surfaceRef, operations, config, onReady } = options;
+  const canRender = typeof globalThis.customElements !== "undefined";
   let destroyed = false;
   inject(DestroyRef).onDestroy(() => {
     destroyed = true;
   });
 
   const sync = (element = surfaceRef()?.nativeElement): void => {
-    if (destroyed) return;
-    syncA2UISurface(element, operations(), config);
+    if (destroyed || !element) return;
+    const nextOperations = operations();
+    syncA2UISurface(element, nextOperations, config);
+    if (canRender && onReady && surfaceHasRenderableContent(nextOperations)) {
+      void (element.updateComplete ?? Promise.resolve()).then(() => {
+        if (!destroyed) onReady();
+      });
+    }
   };
 
-  void defineA2UIWebComponentsOnce().then(() => sync());
+  if (canRender) {
+    void defineA2UIWebComponentsOnce().then(
+      () => sync(),
+      (error: unknown) =>
+        console.error("[A2UI Angular] failed to load the renderer:", error),
+    );
+  }
 
   afterRenderEffect({
     write: () => {
@@ -105,6 +119,27 @@ export function connectA2UISurface(options: {
       if (!surface) return;
       sync(surface.nativeElement);
     },
+  });
+}
+
+/** Whether operations can paint visible static or data-bound content. */
+export function surfaceHasRenderableContent(
+  operations: readonly A2UIOperation[],
+): boolean {
+  const componentOperations = operations.filter((operation) =>
+    isRecord(operation["updateComponents"]),
+  );
+  if (componentOperations.length === 0) return false;
+  const requiresData = JSON.stringify(componentOperations).includes('"path"');
+  if (!requiresData) return true;
+  return operations.some((operation) => {
+    const update = operation["updateDataModel"];
+    if (!isRecord(update) || !isRecord(update["value"])) return false;
+    return Object.values(update["value"]).some((value) =>
+      Array.isArray(value)
+        ? value.length > 0
+        : value !== null && value !== undefined && value !== "",
+    );
   });
 }
 
@@ -126,7 +161,7 @@ export async function bridgeA2UIAction(
     });
     await copilotKit.core.runAgent({ agent });
   } finally {
-    const { a2uiAction, ...rest } = copilotKit.core.properties;
+    const { a2uiAction: _a2uiAction, ...rest } = copilotKit.core.properties;
     copilotKit.core.setProperties(rest);
   }
 }

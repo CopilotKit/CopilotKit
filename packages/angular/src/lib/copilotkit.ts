@@ -1,26 +1,26 @@
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { FrontendTool, CopilotRuntimeTransport } from "@copilotkit/core";
 import {
-  FrontendTool,
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotRuntimeTransport,
-  type CopilotKitCoreGetSuggestionsResult,
-  type IntelligenceRuntimeInfo,
-  type RuntimeLicenseStatus,
-  type SuggestionsConfig,
-  type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
+import type {
+  CopilotKitCoreGetSuggestionsResult,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  SuggestionsConfig,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   computed,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
@@ -35,8 +35,9 @@ import {
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer/web-components";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
-  RenderActivityMessageConfig,
+  ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   anyActivityContentSchema,
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
@@ -55,17 +56,38 @@ import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
+import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
 
+/**
+ * Advertise a client-provided A2UI catalog to the runtime without mutating the
+ * caller's properties object. The runtime uses this per-run capability to
+ * enable A2UI middleware and inject its render tool when endpoint configuration
+ * does not opt in separately; this mirrors the React provider contract.
+ */
+function withA2UICatalogCapability(
+  properties: Record<string, unknown> | undefined,
+  hasCatalog: boolean,
+): Record<string, unknown> | undefined {
+  return hasCatalog
+    ? { ...properties, a2uiCatalogAvailable: true }
+    : properties;
+}
+
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
+  readonly #extensionActivityMessageRenderers = inject(
+    ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
+  );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  /** Whether unknown tools may use the built-in text-only fallback renderer. */
+  readonly defaultToolRenderingEnabled =
+    this.#config.defaultToolRendering === true;
   readonly #agents = signal<Record<string, AbstractAgent>>(
     this.#config.agents ?? {},
   );
@@ -118,13 +140,16 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
-    properties: this.#config.properties,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
       ...this.#config.selfManagedAgents,
     },
     tools: this.#config.tools,
     suggestionsConfig: this.#config.suggestionsConfig,
+    properties: withA2UICatalogCapability(
+      this.#config.properties,
+      this.#config.a2ui?.catalog !== undefined,
+    ),
   });
 
   readonly #toolCallRenderConfigs: WritableSignal<RenderToolCallConfig[]> =
@@ -164,6 +189,7 @@ export class CopilotKit {
   readonly activityMessageRenderConfigs: Signal<RenderActivityMessageConfig[]> =
     computed(() => [
       ...this.#activityMessageRenderConfigs(),
+      ...this.#extensionActivityMessageRenderers,
       ...this.#builtInActivityMessageRenderConfigs(),
     ]);
 
@@ -300,10 +326,17 @@ export class CopilotKit {
     ]);
   }
 
+  /** Remove one dynamically registered activity renderer by identity. */
+  removeRenderActivityMessage(renderConfig: RenderActivityMessageConfig): void {
+    this.#activityMessageRenderConfigs.update((current) =>
+      current.filter((candidate) => candidate !== renderConfig),
+    );
+  }
+
   #syncBuiltInActivityMessageRenderers(): void {
     const renderers: RenderActivityMessageConfig[] = [];
 
-    if (this.core.a2uiEnabled) {
+    if (this.#isA2UIActive()) {
       renderers.push({
         activityType: "a2ui-surface",
         content: anyActivityContentSchema,
@@ -324,7 +357,7 @@ export class CopilotKit {
   }
 
   #syncBuiltInA2UI(): void {
-    if (!this.core.a2uiEnabled) {
+    if (!this.#isA2UIActive()) {
       this.#builtInToolCallRenderConfigs.set([]);
       this.#removeA2UIContexts();
       return;
@@ -349,6 +382,11 @@ export class CopilotKit {
 
   #getA2UICatalog(): unknown {
     return this.#config.a2ui?.catalog;
+  }
+
+  /** Return whether runtime capability or an explicit catalog enables A2UI. */
+  #isA2UIActive(): boolean {
+    return this.core.a2uiEnabled || this.#getA2UICatalog() !== undefined;
   }
 
   #syncA2UIContexts(): void {
@@ -577,7 +615,12 @@ export class CopilotKit {
       this.#headers.set(options.headers);
     }
     if (options.properties !== undefined) {
-      this.core.setProperties(options.properties);
+      this.core.setProperties(
+        withA2UICatalogCapability(
+          options.properties,
+          this.#config.a2ui?.catalog !== undefined,
+        ) ?? options.properties,
+      );
     }
     if (
       options.agents !== undefined ||

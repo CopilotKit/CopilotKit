@@ -7,14 +7,14 @@ import {
   computed,
 } from "@angular/core";
 
-import { LucideAngularModule, ChevronLeft, ChevronRight } from "lucide-angular";
-import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
+import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
+import type { CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
-import { UserMessage } from "@ag-ui/core";
+import type { UserMessage } from "@ag-ui/core";
 
 @Component({
   selector: "copilot-chat-user-message-branch-navigation",
-  imports: [LucideAngularModule],
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -22,11 +22,12 @@ import { UserMessage } from "@ag-ui/core";
       <div [class]="computedClass()">
         <button
           type="button"
+          aria-label="Previous message branch"
           [class]="buttonClass"
           [disabled]="!canGoPrev()"
           (click)="handlePrevious()"
         >
-          <lucide-angular [img]="ChevronLeftIcon" [size]="20"></lucide-angular>
+          <copilot-icon [img]="ChevronLeftIcon" [size]="20"></copilot-icon>
         </button>
         <span
           class="cpk:text-sm cpk:text-muted-foreground cpk:px-0 cpk:font-medium"
@@ -35,11 +36,12 @@ import { UserMessage } from "@ag-ui/core";
         </span>
         <button
           type="button"
+          aria-label="Next message branch"
           [class]="buttonClass"
           [disabled]="!canGoNext()"
           (click)="handleNext()"
         >
-          <lucide-angular [img]="ChevronRightIcon" [size]="20"></lucide-angular>
+          <copilot-icon [img]="ChevronRightIcon" [size]="20"></copilot-icon>
         </button>
       </div>
     }

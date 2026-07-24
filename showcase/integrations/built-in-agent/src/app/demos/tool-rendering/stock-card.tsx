@@ -3,10 +3,10 @@
 import React from "react";
 
 // Per-tool renderer for the `get_stock_price` backend tool. Registered
-// in tool-renderers.tsx via
-// `useRenderTool({ name: "get_stock_price", ... })`. Carries a stable
-// `data-testid="stock-card"` and inner price/change testids so the
-// cell's e2e tests can pin to deterministic fixture values.
+// in page.tsx via `useRenderTool({ name: "get_stock_price", ... })`.
+// Carries a stable `data-testid="stock-card"` and inner price/change
+// testids so the cell's e2e tests can pin to deterministic fixture
+// values.
 
 export interface StockCardProps {
   loading: boolean;

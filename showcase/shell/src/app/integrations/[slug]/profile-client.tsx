@@ -11,6 +11,7 @@ import { DemoDrawer } from "@/components/demo-drawer";
 import type { Demo, Integration } from "@/lib/registry";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import { resolveBackendUrl } from "@/lib/backend-url";
+import { canonicalDemoPath } from "@/lib/frontend-route";
 
 interface StarterFile {
   filename: string;
@@ -498,7 +499,7 @@ export function ProfileClient({
         {activeDemo && (
           <p className="mt-4 text-xs text-[var(--text-muted)]">
             <Link
-              href={`/integrations/${integration.slug}/${activeDemo.id}`}
+              href={canonicalDemoPath("react", integration.slug, activeDemo.id)}
               className="text-[var(--accent)] hover:underline"
             >
               Open in full page →

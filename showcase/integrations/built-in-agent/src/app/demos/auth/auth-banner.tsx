@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
+
 interface AuthBannerProps {
   authenticated: boolean;
   onSignOut: () => void;
@@ -15,11 +17,6 @@ interface AuthBannerProps {
  *
  * Pure presentational — owns no state itself. Testids are stable contract
  * for QA + Playwright specs.
- *
- * Note: built-in-agent is a deliberately minimal integration with no
- * `@/components/ui` shadcn primitives, so this uses raw Tailwind-styled
- * elements rather than the shared `Button` component that langgraph-python
- * (the gold reference) uses. The prop contract, testids, and behavior match.
  */
 export function AuthBanner({
   authenticated,
@@ -42,23 +39,24 @@ export function AuthBanner({
           : "⚠ Signed out — the agent will reject your messages until you sign in."}
       </span>
       {authenticated ? (
-        <button
+        <Button
           type="button"
           data-testid="auth-sign-out-button"
+          size="sm"
+          variant="outline"
           onClick={onSignOut}
-          className="rounded border border-emerald-400 bg-white px-3 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100"
         >
           Sign out
-        </button>
+        </Button>
       ) : (
-        <button
+        <Button
           type="button"
           data-testid="auth-authenticate-button"
+          size="sm"
           onClick={onSignIn}
-          className="rounded border border-amber-400 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
         >
           Sign in
-        </button>
+        </Button>
       )}
     </div>
   );

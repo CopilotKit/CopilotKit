@@ -268,7 +268,10 @@ describe("d5-gen-ui-custom script", () => {
   it("haiku: assertion FAILS when haiku card has zero children (empty wrapper)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "mastra",
+      // agno is a genuine haiku integration; mastra was moved to
+      // CHART_INTEGRATIONS (it's an LGP-style useComponent chart demo), so it
+      // no longer takes the haiku path here.
+      integrationSlug: "agno",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;

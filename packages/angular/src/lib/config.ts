@@ -1,6 +1,7 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -22,6 +23,16 @@ export interface A2UIConfig {
   catalog?: Catalog<LitComponentImplementation>;
   loadingComponent?: () => LitRenderable;
   includeSchema?: boolean;
+  recovery?: A2UIRecoveryOptions;
+}
+
+export interface A2UIRecoveryOptions {
+  /** Delay before revealing a transient retry. Defaults to 2000ms. */
+  showAfterMs?: number;
+  /** Attempt number that reveals retry state immediately. Defaults to 2. */
+  showAfterAttempts?: number;
+  /** Client diagnostic visibility, overridden by server lifecycle content. */
+  debugExposure?: "hidden" | "collapsed" | "verbose";
 }
 
 export interface CopilotKitConfig {
@@ -37,6 +48,8 @@ export interface CopilotKitConfig {
   suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  /** Opt in to a text-only renderer for otherwise unknown tool calls. */
+  defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
 }

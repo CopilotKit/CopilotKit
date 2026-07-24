@@ -1,10 +1,10 @@
+import type { Type } from "@angular/core";
 import {
   Component,
   TemplateRef,
   ContentChild,
   signal,
   computed,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   Optional,
@@ -16,19 +16,19 @@ import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatToolCallsView } from "./copilot-chat-tool-calls-view";
 import type { Message } from "@ag-ui/core";
-import {
-  type AssistantMessage,
-  type CopilotChatAssistantMessageOnThumbsUpProps,
-  type CopilotChatAssistantMessageOnThumbsDownProps,
-  type CopilotChatAssistantMessageOnReadAloudProps,
-  type CopilotChatAssistantMessageOnRegenerateProps,
-  type AssistantMessageMarkdownRendererContext,
-  type AssistantMessageCopyButtonContext,
-  type ThumbsUpButtonContext,
-  type ThumbsDownButtonContext,
-  type ReadAloudButtonContext,
-  type RegenerateButtonContext,
-  type AssistantMessageToolbarContext,
+import type {
+  AssistantMessage,
+  CopilotChatAssistantMessageOnThumbsUpProps,
+  CopilotChatAssistantMessageOnThumbsDownProps,
+  CopilotChatAssistantMessageOnReadAloudProps,
+  CopilotChatAssistantMessageOnRegenerateProps,
+  AssistantMessageMarkdownRendererContext,
+  AssistantMessageCopyButtonContext,
+  ThumbsUpButtonContext,
+  ThumbsDownButtonContext,
+  ReadAloudButtonContext,
+  RegenerateButtonContext,
+  AssistantMessageToolbarContext,
 } from "./copilot-chat-assistant-message.types";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import {
@@ -54,7 +54,13 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div [class]="computedClass()" [attr.data-message-id]="message().id">
+    <div
+      [class]="computedClass()"
+      [attr.data-message-id]="message().id"
+      data-testid="copilot-assistant-message"
+      data-message-role="assistant"
+      role="article"
+    >
       <!-- Markdown Renderer -->
       @if (markdownRendererTemplate || markdownRendererComponent()) {
         <copilot-slot
@@ -427,7 +433,7 @@ export class CopilotChatAssistantMessage {
   // Computed values
   computedClass = computed(() => {
     return cn(
-      "cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
+      "copilotKitMessage copilotKitAssistantMessage cpk:prose cpk:max-w-full cpk:break-words cpk:dark:prose-invert",
       this.customClass(),
     );
   });

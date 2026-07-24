@@ -1,3 +1,4 @@
+import type { AfterViewInit } from "@angular/core";
 import {
   Component,
   input,
@@ -7,7 +8,6 @@ import {
   effect,
   inject,
   ElementRef,
-  AfterViewInit,
   ViewChild,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
@@ -15,14 +15,13 @@ import { Marked } from "marked";
 import hljs from "highlight.js";
 import * as katex from "katex";
 import { completePartialMarkdown } from "@copilotkit/core";
-import { LucideAngularModule } from "lucide-angular";
 import { copyToClipboard } from "@copilotkit/shared";
 import { injectChatLabels } from "../../chat-config";
 
 @Component({
   standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

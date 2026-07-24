@@ -1,13 +1,14 @@
+import type { OnDestroy, AfterViewInit } from "@angular/core";
 import {
   Directive,
   ElementRef,
-  OnInit,
-  OnDestroy,
-  AfterViewInit,
+  PLATFORM_ID,
+  afterNextRender,
   inject,
   input,
   output,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { ScrollPosition } from "../scroll-position";
 import { ResizeObserverService } from "../resize-observer";
 import { Subject } from "rxjs";
@@ -41,7 +42,7 @@ export type ScrollBehavior = "smooth" | "instant" | "auto";
   selector: "[copilotStickToBottom]",
   providers: [ScrollPosition, ResizeObserverService],
 })
-export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
+export class StickToBottom implements AfterViewInit, OnDestroy {
   enabled = input<boolean>(true);
   threshold = input<number>(10);
   initialBehavior = input<ScrollBehavior>("smooth");
@@ -54,18 +55,28 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
   private elementRef = inject(ElementRef);
   private scrollService = inject(ScrollPosition);
   private resizeService = inject(ResizeObserverService);
+  private platformId = inject(PLATFORM_ID);
 
   private destroy$ = new Subject<void>();
   private contentElement?: HTMLElement;
   private wasAtBottom = true;
   private hasInitialized = false;
   private userHasScrolled = false;
+  private destroyed = false;
 
-  ngOnInit(): void {
-    // Setup will happen in ngAfterViewInit
+  constructor() {
+    afterNextRender(() => {
+      if (this.destroyed) return;
+      this.hasInitialized = true;
+      if (this.enabled()) {
+        this.scrollToBottom(this.initialBehavior());
+      }
+    });
   }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     const element = this.elementRef.nativeElement as HTMLElement;
 
     // Find or create content wrapper
@@ -79,14 +90,6 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
     this.setupScrollMonitoring();
     this.setupResizeMonitoring();
     this.setupContentMutationObserver();
-
-    // Initial scroll to bottom if enabled
-    setTimeout(() => {
-      this.hasInitialized = true;
-      if (this.enabled()) {
-        this.scrollToBottom(this.initialBehavior());
-      }
-    }, 0);
   }
 
   private setupScrollMonitoring(): void {
@@ -212,6 +215,7 @@ export class StickToBottom implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true;
     this.destroy$.next();
     this.destroy$.complete();
   }

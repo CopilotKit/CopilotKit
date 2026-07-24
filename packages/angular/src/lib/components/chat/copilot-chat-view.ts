@@ -1,22 +1,25 @@
-import {
-  Component,
-  ContentChild,
+import type {
   TemplateRef,
   Type,
-  ViewChild,
-  ElementRef,
-  ChangeDetectionStrategy,
   ChangeDetectorRef,
-  ViewEncapsulation,
-  computed,
-  signal,
   OnInit,
   OnChanges,
   OnDestroy,
   AfterViewInit,
+} from "@angular/core";
+import {
+  Component,
+  ContentChild,
+  ViewChild,
+  ElementRef,
+  ChangeDetectionStrategy,
+  ViewEncapsulation,
+  computed,
+  signal,
   input,
   output,
   inject,
+  NgZone,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -28,14 +31,14 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
 import { ChatState } from "../../chat-state";
-import { LucideAngularModule, Upload } from "lucide-angular";
+import { CopilotIcon, Upload } from "../icons/copilot-icon";
 import { injectChatLabels } from "../../chat-config";
 
 /**
@@ -59,7 +62,7 @@ import { injectChatLabels } from "../../chat-config";
     CopilotChatViewScrollView,
     CopilotChatAttachmentQueue,
     CopilotChatSuggestionView,
-    LucideAngularModule,
+    CopilotIcon,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -84,7 +87,7 @@ import { injectChatLabels } from "../../chat-config";
             <div
               class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
             >
-              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
               <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
             </div>
           </div>
@@ -158,7 +161,7 @@ import { injectChatLabels } from "../../chat-config";
             <div
               class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
             >
-              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <copilot-icon [img]="UploadIcon" [size]="32"></copilot-icon>
               <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
             </div>
           </div>
@@ -170,9 +173,19 @@ import { injectChatLabels } from "../../chat-config";
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [state]="state()"
           [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
+          [assistantMessageComponent]="assistantMessageComponent()"
+          [assistantMessageTemplate]="assistantMessageTemplate()"
+          [assistantMessageClass]="assistantMessageClass()"
+          [reasoningMessageComponent]="reasoningMessageComponent()"
+          [reasoningMessageTemplate]="reasoningMessageTemplate()"
+          [reasoningMessageClass]="reasoningMessageClass()"
+          [messageViewChildrenComponent]="messageViewChildrenComponent()"
+          [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+          [messageViewChildrenClass]="messageViewChildrenClass()"
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
           [scrollToBottomButtonClass]="scrollToBottomButtonClass()"
           [showCursor]="showCursorSignal()"
@@ -212,6 +225,8 @@ export class CopilotChatView
   protected readonly chatState = inject(ChatState, { optional: true });
   protected readonly UploadIcon = Upload;
   messages = input<Message[]>([]);
+  /** Current agent state forwarded to message-view extension slots. */
+  state = input<unknown>({});
   agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
@@ -221,6 +236,21 @@ export class CopilotChatView
   messageViewComponent = input<Type<any> | undefined>(undefined);
   messageViewTemplate = input<TemplateRef<any> | undefined>(undefined);
   messageViewClass = input<string | undefined>(undefined);
+
+  // AssistantMessage slot inputs
+  assistantMessageComponent = input<Type<any> | undefined>(undefined);
+  assistantMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  assistantMessageClass = input<string | undefined>(undefined);
+
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>(undefined);
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>(undefined);
+  reasoningMessageClass = input<string | undefined>(undefined);
+
+  // Content rendered after the default message collection.
+  messageViewChildrenComponent = input<Type<any> | undefined>(undefined);
+  messageViewChildrenTemplate = input<TemplateRef<any> | undefined>(undefined);
+  messageViewChildrenClass = input<string | undefined>(undefined);
 
   // ScrollView slot inputs
   scrollViewComponent = input<Type<any> | undefined>(undefined);
@@ -358,9 +388,19 @@ export class CopilotChatView
     inputContainerHeight: this.inputContainerHeight(),
     isResizing: this.isResizing(),
     messages: this.messagesValue(),
+    state: this.state(),
     agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
+    assistantMessageComponent: this.assistantMessageComponent(),
+    assistantMessageTemplate: this.assistantMessageTemplate(),
+    assistantMessageClass: this.assistantMessageClass(),
+    reasoningMessageComponent: this.reasoningMessageComponent(),
+    reasoningMessageTemplate: this.reasoningMessageTemplate(),
+    reasoningMessageClass: this.reasoningMessageClass(),
+    messageViewChildrenComponent: this.messageViewChildrenComponent(),
+    messageViewChildrenTemplate: this.messageViewChildrenTemplate(),
+    messageViewChildrenClass: this.messageViewChildrenClass(),
   }));
 
   // Removed scrollViewPropsComputed - no longer needed
@@ -388,6 +428,9 @@ export class CopilotChatView
 
   private destroy$ = new Subject<void>();
   private resizeTimeoutRef?: number;
+  private measurementRetryTimeoutRef?: number;
+  private readonly ngZone = inject(NgZone);
+  private destroyed = false;
 
   constructor(
     private resizeObserverService: ResizeObserverService,
@@ -505,26 +548,41 @@ export class CopilotChatView
       const maxAttempts = 10;
 
       const retry = () => {
+        if (this.destroyed) return;
         attempts++;
         if (measureAndObserve()) {
           // Successfully measured
         } else if (attempts < maxAttempts) {
           // Exponential backoff: 50ms, 100ms, 200ms, 400ms, etc.
           const delay = 50 * Math.pow(2, Math.min(attempts - 1, 4));
-          setTimeout(retry, delay);
+          this.scheduleMeasurementRetry(retry, delay);
         } else {
           // Failed to measure after max attempts
         }
       };
 
       // Start retry with first delay
-      setTimeout(retry, 50);
+      this.scheduleMeasurementRetry(retry, 50);
     }
   }
 
+  /** Schedules a cancellable layout retry without triggering zone-wide ticks. */
+  private scheduleMeasurementRetry(callback: () => void, delay: number): void {
+    this.ngZone.runOutsideAngular(() => {
+      this.measurementRetryTimeoutRef = window.setTimeout(() => {
+        this.measurementRetryTimeoutRef = undefined;
+        callback();
+      }, delay);
+    });
+  }
+
   ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.resizeTimeoutRef) {
       clearTimeout(this.resizeTimeoutRef);
+    }
+    if (this.measurementRetryTimeoutRef) {
+      clearTimeout(this.measurementRetryTimeoutRef);
     }
     this.destroy$.next();
     this.destroy$.complete();

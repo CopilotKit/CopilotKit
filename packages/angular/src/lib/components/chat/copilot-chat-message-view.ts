@@ -1,10 +1,9 @@
+import type { TemplateRef, Type } from "@angular/core";
 import {
   Component,
   input,
   output,
   ContentChild,
-  TemplateRef,
-  Type,
   ChangeDetectionStrategy,
   ViewEncapsulation,
   computed,
@@ -92,11 +91,20 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
               </copilot-chat-user-message>
             }
           } @else if (message && message.role === "reasoning") {
-            <copilot-chat-reasoning-message
-              [message]="asReasoningMessage(message)"
-              [messages]="messagesValue()"
-              [isRunning]="isLoadingValue()"
-            />
+            @if (reasoningMessageComponent() || reasoningMessageTemplate()) {
+              <copilot-slot
+                [slot]="reasoningMessageTemplate() || reasoningMessageComponent()"
+                [context]="mergeReasoningProps(asReasoningMessage(message))"
+                [defaultComponent]="defaultReasoningComponent"
+              />
+            } @else {
+              <copilot-chat-reasoning-message
+                [message]="asReasoningMessage(message)"
+                [messages]="messagesValue()"
+                [isRunning]="isLoadingValue()"
+                [inputClass]="reasoningMessageClass()"
+              />
+            }
           } @else if (message && message.role === "activity") {
             @let activityRender = resolveActivityRender(message);
             @if (activityRender) {
@@ -106,6 +114,13 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
               />
             }
           }
+        }
+
+        @if (childrenComponent() || childrenTemplate()) {
+          <copilot-slot
+            [slot]="childrenTemplate() || childrenComponent()"
+            [context]="childrenContext()"
+          />
         }
 
         <!-- Cursor - exactly like React's conditional rendering -->
@@ -129,6 +144,8 @@ import type { RenderActivityMessageConfig } from "../../activity-renderer";
 export class CopilotChatMessageView {
   // Core inputs matching React props
   messages = input<Message[]>([]);
+  /** Current agent state exposed to transcript-children slots. */
+  state = input<unknown>({});
   showCursor = input<boolean>(false);
   isLoading = input<boolean>(false);
   inputClass = input<string | undefined>();
@@ -140,6 +157,16 @@ export class CopilotChatMessageView {
   assistantMessageComponent = input<Type<any> | undefined>();
   assistantMessageTemplate = input<TemplateRef<any> | undefined>();
   assistantMessageClass = input<string | undefined>();
+
+  // ReasoningMessage slot inputs
+  reasoningMessageComponent = input<Type<any> | undefined>();
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  reasoningMessageClass = input<string | undefined>();
+
+  // Content rendered after the message collection and before the cursor.
+  childrenComponent = input<Type<any> | undefined>();
+  childrenTemplate = input<TemplateRef<any> | undefined>();
+  childrenClass = input<string | undefined>();
 
   // User message slot inputs
   userMessageComponent = input<Type<any> | undefined>();
@@ -165,6 +192,7 @@ export class CopilotChatMessageView {
   // Default components for slots
   protected readonly defaultAssistantComponent = CopilotChatAssistantMessage;
   protected readonly defaultUserComponent = CopilotChatUserMessage;
+  protected readonly defaultReasoningComponent = CopilotChatReasoningMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
   protected readonly copilotKit = inject(CopilotKit);
 
@@ -217,6 +245,25 @@ export class CopilotChatMessageView {
       messages: this.messagesValue(),
       isLoading: this.isLoadingValue(),
       inputClass: this.assistantMessageClass(),
+    };
+  }
+
+  mergeReasoningProps(message: ReasoningMessage) {
+    return {
+      message,
+      messages: this.messagesValue(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.reasoningMessageClass(),
+    };
+  }
+
+  childrenContext() {
+    return {
+      messages: this.messagesValue(),
+      state: this.state(),
+      agentId: this.agentId(),
+      isRunning: this.isLoadingValue(),
+      inputClass: this.childrenClass(),
     };
   }
 
@@ -277,8 +324,6 @@ export class CopilotChatMessageView {
       },
     };
   }
-
-  constructor() {}
 
   // Event handlers - just pass them through
   handleAssistantThumbsUp(event: { message: Message }): void {

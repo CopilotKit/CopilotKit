@@ -1,15 +1,18 @@
+import type { AfterViewInit } from "@angular/core";
 import {
   Component,
   input,
   output,
   ElementRef,
-  AfterViewInit,
   signal,
   computed,
   inject,
   ChangeDetectionStrategy,
   ViewEncapsulation,
+  PLATFORM_ID,
+  afterNextRender,
 } from "@angular/core";
+import { isPlatformBrowser } from "@angular/common";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
 import { injectChatState } from "../../chat-state";
@@ -26,6 +29,7 @@ import { injectChatState } from "../../chat-state";
     "[style.max-height.px]": "maxHeight()",
     "[style.overflow]": "'auto'",
     "[style.resize]": "'none'",
+    "[attr.data-testid]": "'copilot-chat-textarea'",
     "(input)": "onInput($event)",
     "(keydown)": "onKeyDown($event)",
     "[attr.rows]": "1",
@@ -35,6 +39,7 @@ import { injectChatState } from "../../chat-state";
 })
 export class CopilotChatTextarea implements AfterViewInit {
   private elementRef = inject(ElementRef<HTMLTextAreaElement>);
+  private platformId = inject(PLATFORM_ID);
   get textareaRef() {
     return this.elementRef;
   }
@@ -80,17 +85,19 @@ export class CopilotChatTextarea implements AfterViewInit {
     return cn(baseClasses, this.inputClass());
   });
 
-  constructor() {}
+  constructor() {
+    afterNextRender(() => {
+      if (this.inputAutoFocus() ?? true) {
+        this.elementRef.nativeElement.focus();
+      }
+    });
+  }
 
   ngAfterViewInit(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
     this.calculateMaxHeight();
     this.adjustHeight();
-
-    if (this.inputAutoFocus() ?? true) {
-      setTimeout(() => {
-        this.elementRef.nativeElement.focus();
-      });
-    }
   }
 
   onInput(event: Event): void {

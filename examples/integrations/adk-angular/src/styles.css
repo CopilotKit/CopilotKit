@@ -1,0 +1,39 @@
+@import "@copilotkit/angular/styles.css";
+
+/*
+  Global border-box reset. Without it, elements default to content-box, so a
+  width:100% element with padding (e.g. the proverbs card) overflows its parent
+  and gets clipped on narrow screens. React/Next examples get this from their
+  Tailwind preflight; the Angular app needs it explicitly.
+*/
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+/*
+  Move the dev web-inspector's FAB to the bottom-left. Its default top-right
+  anchor sits on top of the floating chat panel's top-right close button (the
+  inspector uses a max z-index), intercepting the click. Bottom-left clears both
+  the close button (top-right) and the open-chat FAB (bottom-right).
+*/
+cpk-web-inspector {
+  /* The inspector is draggable and positions its FAB with an inline transform
+     (defaulting top-right); neutralize it so the corner below takes effect. */
+  transform: none !important;
+  top: auto !important;
+  bottom: 1rem !important;
+  left: 1rem !important;
+  right: auto !important;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}

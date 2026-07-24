@@ -1,3 +1,9 @@
+import type {
+  TemplateRef,
+  Type,
+  AfterViewInit,
+  OnDestroy,
+} from "@angular/core";
 import {
   Component,
   input,
@@ -8,14 +14,11 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  OnInit,
-  AfterViewInit,
-  OnDestroy,
   inject,
-  PLATFORM_ID,
   ChangeDetectorRef,
+  afterNextRender,
 } from "@angular/core";
-import { isPlatformBrowser, NgTemplateOutlet } from "@angular/common";
+import { NgTemplateOutlet } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatMessageView } from "./copilot-chat-message-view";
@@ -24,7 +27,7 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
 import { ScrollPosition } from "../../scroll-position";
 import { ChatState } from "../../chat-state";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
@@ -49,9 +52,7 @@ import { takeUntil } from "rxjs/operators";
   providers: [ScrollPosition],
   templateUrl: "./copilot-chat-view-scroll-view.html",
 })
-export class CopilotChatViewScrollView
-  implements OnInit, AfterViewInit, OnDestroy
-{
+export class CopilotChatViewScrollView implements AfterViewInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
   protected readonly chatState = inject(ChatState, { optional: true });
 
@@ -62,9 +63,20 @@ export class CopilotChatViewScrollView
   isResizing = input<boolean>(false);
   inputClass = input<string | undefined>();
   messages = input<Message[]>([]);
+  /** Current agent state forwarded to message-view extension slots. */
+  state = input<unknown>({});
   agentId = input<string | undefined>();
   messageView = input<any | undefined>();
   messageViewClass = input<string | undefined>();
+  assistantMessageComponent = input<Type<any> | undefined>();
+  assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  assistantMessageClass = input<string | undefined>();
+  reasoningMessageComponent = input<Type<any> | undefined>();
+  reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  reasoningMessageClass = input<string | undefined>();
+  messageViewChildrenComponent = input<Type<any> | undefined>();
+  messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
+  messageViewChildrenClass = input<string | undefined>();
   showCursor = input<boolean>(false);
 
   // Handler availability flags removed in favor of DI service
@@ -109,19 +121,12 @@ export class CopilotChatViewScrollView
   protected computedClass = computed(() => cn(this.inputClass()));
 
   private destroy$ = new Subject<void>();
-  private platformId = inject(PLATFORM_ID);
   private scrollPositionService = inject(ScrollPosition);
 
-  // No mirroring of inputs; derive directly via computed()
-
-  ngOnInit(): void {
-    // Check if we're in the browser
-    if (isPlatformBrowser(this.platformId)) {
-      // Set mounted after a tick to allow for hydration
-      setTimeout(() => {
-        this.hasMounted.set(true);
-      }, 0);
-    }
+  constructor() {
+    afterNextRender(() => {
+      this.hasMounted.set(true);
+    });
   }
 
   ngAfterViewInit(): void {
@@ -188,9 +193,19 @@ export class CopilotChatViewScrollView
   messageViewContext(): any {
     return {
       messages: this.messages(),
+      state: this.state(),
       agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
+      assistantMessageComponent: this.assistantMessageComponent(),
+      assistantMessageTemplate: this.assistantMessageTemplate(),
+      assistantMessageClass: this.assistantMessageClass(),
+      reasoningMessageComponent: this.reasoningMessageComponent(),
+      reasoningMessageTemplate: this.reasoningMessageTemplate(),
+      reasoningMessageClass: this.reasoningMessageClass(),
+      childrenComponent: this.messageViewChildrenComponent(),
+      childrenTemplate: this.messageViewChildrenTemplate(),
+      childrenClass: this.messageViewChildrenClass(),
     };
   }
 

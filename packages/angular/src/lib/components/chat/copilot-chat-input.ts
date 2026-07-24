@@ -1,3 +1,4 @@
+import type { OnDestroy, Type } from "@angular/core";
 import {
   Component,
   TemplateRef,
@@ -5,20 +6,18 @@ import {
   computed,
   effect,
   ChangeDetectionStrategy,
-  AfterViewInit,
-  OnDestroy,
-  Type,
   ViewEncapsulation,
   contentChild,
   input,
   output,
   viewChild,
   untracked,
+  afterNextRender,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { injectChatLabels } from "../../chat-config";
-import { LucideAngularModule, ArrowUp } from "lucide-angular";
+import { ArrowUp, CopilotIcon } from "../icons/copilot-icon";
 import { CopilotChatTextarea } from "./copilot-chat-textarea";
 import { CopilotChatAudioRecorder } from "./copilot-chat-audio-recorder";
 import {
@@ -56,7 +55,7 @@ export interface ToolbarContext {
   imports: [
     CommonModule,
     CopilotSlot,
-    LucideAngularModule,
+    CopilotIcon,
     CopilotChatTextarea,
     CopilotChatAudioRecorder,
     CopilotChatStartTranscribeButton,
@@ -224,11 +223,12 @@ export interface ToolbarContext {
           <div class="cpk:mr-[10px]">
             <button
               type="button"
+              aria-label="Send message"
               [class]="sendButtonClass() || defaultButtonClass"
               [disabled]="sendButtonDisabled()"
               (click)="send()"
             >
-              <lucide-angular [img]="ArrowUpIcon" [size]="18"></lucide-angular>
+              <copilot-icon [img]="ArrowUpIcon" [size]="18"></copilot-icon>
             </button>
           </div>
         }
@@ -280,7 +280,7 @@ export interface ToolbarContext {
     `,
   ],
 })
-export class CopilotChatInput implements AfterViewInit, OnDestroy {
+export class CopilotChatInput implements OnDestroy {
   readonly textAreaRef = viewChild(CopilotChatTextarea);
 
   readonly audioRecorderRef = viewChild(CopilotChatAudioRecorder);
@@ -409,13 +409,14 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   CopilotChatStartTranscribeButton = CopilotChatStartTranscribeButton;
 
   // Computed values
-  computedMode = computed(() => this.modeSignal());
+  computedMode = computed(() => this.mode() ?? this.modeSignal());
   computedToolsMenu = computed(() => this.toolsMenu() ?? []);
   computedAutoFocus = computed(() => this.autoFocus() ?? true);
   computedValue = computed(() => {
-    const customValue = this.value() ?? "";
-    const configValue = this.chatState.inputValue();
-    return customValue || configValue || "";
+    const customValue = this.value();
+    return customValue !== undefined
+      ? customValue
+      : (this.chatState.inputValue() ?? "");
   });
   addFileButtonDisabled = computed(
     () =>
@@ -505,6 +506,12 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
         }
       });
     });
+
+    afterNextRender(() => {
+      if (this.computedAutoFocus()) {
+        this.textAreaRef()?.focus();
+      }
+    });
   }
 
   // Output maps for slots
@@ -520,15 +527,6 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   };
   // Support both `clicked` (idiomatic in our slots) and `click` (legacy)
   sendButtonOutputs = { clicked: () => this.send(), click: () => this.send() };
-
-  ngAfterViewInit(): void {
-    // Auto-focus if needed
-    if (this.computedAutoFocus() && this.textAreaRef()) {
-      setTimeout(() => {
-        this.textAreaRef()?.focus();
-      });
-    }
-  }
 
   ngOnDestroy(): void {
     // Clean up any resources

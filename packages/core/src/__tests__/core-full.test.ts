@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore } from "../core";
-import { FrontendTool } from "../types";
+import type { FrontendTool } from "../types";
 import {
   MockAgent,
   createMessage,
@@ -239,6 +239,49 @@ describe("CopilotKitCore.runAgent - Full Test Suite", () => {
       } catch (error) {
         throw error;
       }
+    });
+
+    it("TEST 9b: should stop recursive follow-ups at the depth limit instead of looping forever", async () => {
+      const warnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => undefined);
+
+      // A tool that always requests a follow-up. The agent always returns a
+      // fresh tool call for it, so without a circuit breaker processAgentResult
+      // would recurse into runAgent indefinitely.
+      const tool = createTool({
+        name: "loopingTool",
+        handler: vi.fn(async () => "Result"),
+        followUp: true,
+      });
+      copilotKitCore.addTool(tool);
+
+      const agent = new MockAgent({
+        newMessages: [createToolCallMessage("loopingTool")],
+      });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "test",
+        agent: agent as any,
+      });
+
+      // Every run keeps emitting a brand-new tool call so needsFollowUp stays true.
+      agent.runAgentCallback = () => {
+        agent.setNewMessages([createToolCallMessage("loopingTool")]);
+      };
+
+      const result = await copilotKitCore.runAgent({ agent: agent as any });
+
+      // It must terminate rather than hang, capped by the absolute depth limit (100).
+      expect(agent.runAgentCalls.length).toBeGreaterThan(1);
+      expect(agent.runAgentCalls.length).toBeLessThanOrEqual(100);
+      expect(result).toBeDefined();
+
+      // A warning must be emitted when the breaker trips, for debuggability.
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Follow-up depth limit"),
+      );
+
+      warnSpy.mockRestore();
     });
 
     it("TEST 10: should handle concurrent tool calls", async () => {

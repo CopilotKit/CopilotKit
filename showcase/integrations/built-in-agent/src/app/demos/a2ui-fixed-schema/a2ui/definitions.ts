@@ -4,7 +4,9 @@
  * Each entry declares a component name + its Zod props schema. The basic
  * catalog (Card, Column, Row, Text, Button, …) ships with CopilotKit and
  * is mixed in via `createCatalog(..., { includeBasicCatalog: true })`, so
- * we only declare the project-specific additions here.
+ * we only declare the project-specific additions and the visual overrides
+ * here. (Custom entries with the same name as a basic component override
+ * the basic one — Catalog dedupes by `comp.name`, last-write-wins.)
  *
  * IMPORTANT — path bindings: fields that can be bound to a data-model path
  * (e.g. `{ path: "/origin" }` in the fixed schema JSON) must declare their
@@ -15,23 +17,9 @@
  * renderer, which React then throws on (error #31 "object with keys {path}").
  * This matches the canonical catalog's `DynString` helper:
  *   examples/integrations/langgraph-python/src/app/declarative-generative-ui/definitions.ts
- *
- * ZOD VERSION (load-bearing): these defs are authored with **Zod 3** (the
- * `zod-v3` alias), NOT the package's root `zod@4`. `@a2ui/web_core@0.9.0`'s
- * `GenericBinder.scrapeSchemaBehavior` classifies a field as DYNAMIC (and thus
- * resolves its `{ path }` binding) by inspecting **Zod 3** schema internals
- * (`_def.typeName === "ZodUnion"`, the union's `_def.options`, an option's
- * `_def.shape().path`). A Zod-4 schema reports `_def.typeName === undefined`
- * (Zod 4 moved to `_def.type === "union"`), so the binder MISCLASSIFIES the
- * field STATIC and passes the raw `{ path: "/origin" }` object through to the
- * renderer → React error #31 ("object with keys {path}") crashes the page.
- * web_core bundles its own `zod@3.25.x`; authoring these defs with a matching
- * Zod 3 makes the union recognizable so the binder resolves `{ path }` → "SFO".
- * (`scrapeSchemaBehavior` compares `_def.typeName` by string, not `instanceof`,
- * so a separate Zod-3 module instance is recognized identically.)
  */
 // @region[definitions-types]
-import { z } from "zod-v3";
+import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
 /**
@@ -40,12 +28,12 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
  */
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
-export const flightDefinitions = {
+export const definitions = {
   /**
-   * Card override: gives the outer flight-card container a stable
-   * `data-testid` for D6 e2e selectors. The basic catalog's Card ships
-   * its own renderer; declaring `Card` here lets us swap in a thin React
-   * component without otherwise altering layout.
+   * Card override: gives the outer flight-card container a ShadCN look
+   * (rounded-xl, neutral-200 border, soft shadow). The basic catalog's
+   * Card uses inline styles; overriding here lets the demo's renderer
+   * adopt the demo's Tailwind aesthetic without touching the schema JSON.
    */
   Card: {
     description: "A container card with a single child.",
@@ -105,7 +93,7 @@ export const flightDefinitions = {
           z.object({
             event: z.object({
               name: z.string(),
-              context: z.record(z.string(), z.any()).optional(),
+              context: z.record(z.any()).optional(),
             }),
           }),
           z.null(),
@@ -116,4 +104,4 @@ export const flightDefinitions = {
 } satisfies CatalogDefinitions;
 // @endregion[definitions-types]
 
-export type FlightDefinitions = typeof flightDefinitions;
+export type Definitions = typeof definitions;

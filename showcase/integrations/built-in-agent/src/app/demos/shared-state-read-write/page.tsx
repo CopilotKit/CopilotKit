@@ -1,103 +1,97 @@
 "use client";
 
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import {
-  CopilotKitProvider,
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-type Recipe = {
-  title: string;
-  ingredients: { name: string; quantity: string }[];
-  steps: string[];
+import type { Preferences } from "./preferences-card";
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateReadWriteSuggestions } from "./suggestions";
+
+const INITIAL_PREFERENCES: Preferences = {
+  name: "",
+  tone: "casual",
+  language: "English",
+  interests: [],
 };
 
-const defaultRecipe: Recipe = {
-  title: "Tomato Pasta",
-  ingredients: [
-    { name: "Pasta", quantity: "200g" },
-    { name: "Tomato", quantity: "3 medium" },
-  ],
-  steps: ["Boil pasta", "Sauté tomato", "Combine"],
-};
+// Shape of the bidirectional shared state.
+// - `preferences` is WRITTEN by the UI via agent.setState().
+// - `notes` is WRITTEN by the agent via its `set_notes` tool and READ
+//   by the UI via useAgent().
+interface RWAgentState {
+  preferences: Preferences;
+  notes: string[];
+}
 
-export default function SharedStateReadWrite() {
+export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
-      <Demo />
-    </CopilotKitProvider>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
+      <DemoContent />
+    </CopilotKit>
   );
 }
 
-function Demo() {
+function DemoContent() {
   // @region[use-agent]
   // @region[use-agent-read]
+  // Subscribe the component to agent state changes. Any time the agent
+  // mutates its state (e.g. via its `set_notes` tool) this hook fires,
+  // we re-render, and the sidebar panels reflect the new values.
   const { agent } = useAgent({
-    agentId: "default",
+    agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
   // @endregion[use-agent-read]
   // @endregion[use-agent]
 
-  useEffect(() => {
-    if (!agent.state || Object.keys(agent.state).length === 0) {
-      agent.setState({ ...defaultRecipe } as unknown as typeof agent.state);
-    }
-  }, [agent]);
+  useSharedStateReadWriteSuggestions();
 
-  const recipe = (agent.state as Partial<Recipe>) ?? {};
-  const title = recipe.title ?? defaultRecipe.title;
-  const ingredients = recipe.ingredients ?? defaultRecipe.ingredients;
-  const steps = recipe.steps ?? defaultRecipe.steps;
+  const agentState = agent.state as RWAgentState | undefined;
+  const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
+  const notes = agentState?.notes ?? [];
+
+  // Seed initial preferences + empty notes into agent state once, so the
+  // agent has something to read on the very first turn.
+  useEffect(() => {
+    if (!agentState?.preferences) {
+      agent.setState({
+        preferences: INITIAL_PREFERENCES,
+        notes: [],
+      } as RWAgentState);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // @region[set-state]
   // @region[use-agent-write]
-  function setTitle(next: string) {
+  // WRITE: every edit in the sidebar goes straight into agent state.
+  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
+  // back out of state and adds it to the system prompt — so the UI's
+  // writes visibly steer the model.
+  const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
-      ...(agent.state as object),
-      title: next,
-    } as unknown as typeof agent.state);
-  }
+      preferences: next,
+      notes, // preserve what the agent has written
+    } as RWAgentState);
+  };
   // @endregion[use-agent-write]
   // @endregion[set-state]
 
+  // WRITE: let the user clear the agent-authored notes from the UI.
+  const handleClearNotes = () => {
+    agent.setState({ preferences, notes: [] } as RWAgentState);
+  };
+
   return (
-    <main className="p-8 grid grid-cols-2 gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold mb-4">
-          Shared State (Read + Write)
-        </h1>
-        <p className="text-sm opacity-70 mb-4">
-          Edit the title; the agent reads from <code>input.state</code>. Ask the
-          agent to add an ingredient; it calls{" "}
-          <code>AGUISendStateSnapshot</code> and the panel updates live.
-        </p>
-        <input
-          type="text"
-          className="border rounded p-2 w-full mb-4"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <h2 className="font-medium mt-4 mb-2">Ingredients</h2>
-        <ul className="space-y-1 text-sm">
-          {ingredients.map((ing, i) => (
-            <li key={i}>
-              {ing.quantity} {ing.name}
-            </li>
-          ))}
-        </ul>
-        <h2 className="font-medium mt-4 mb-2">Steps</h2>
-        <ol className="space-y-1 text-sm list-decimal list-inside">
-          {steps.map((s, i) => (
-            <li key={i}>{s}</li>
-          ))}
-        </ol>
-      </div>
-      <div>
-        <CopilotChat />
-      </div>
-    </main>
+    <DemoLayout
+      preferences={preferences}
+      notes={notes}
+      onPreferencesChange={handlePreferencesChange}
+      onClearNotes={handleClearNotes}
+    />
   );
 }
