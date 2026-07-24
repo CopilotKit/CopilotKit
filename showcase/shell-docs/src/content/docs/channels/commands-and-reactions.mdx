@@ -32,14 +32,12 @@ export const commands = [
 
 ```ts
 import { createChannel } from "@copilotkit/channels";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
 import { agent } from "./agent";
 import { commands } from "./commands";
 
 const channel = createChannel({
   name: "support-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   commands,
 });
 ```

@@ -100,7 +100,6 @@ Register both the tool and the component:
 const channel = createChannel({
   name: "release-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   tools: [confirmWriteTool],
   components: [ConfirmWrite], // so the click resolves after a restart
 });
@@ -123,7 +122,7 @@ if (confirmed) {
 }
 ```
 
-The Intelligence adapter delivers one turn at a time and does not block, so
+A managed channel delivers one turn at a time and does not block, so
 use the post-and-resume pattern above with it.
 </Callout>
 
@@ -144,6 +143,6 @@ channel.onInterrupt<{ question: string }>("ask_human", async ({ payload, thread 
 ```
 
 `onInterrupt` is keyed by the event name (here `"ask_human"`), and the type
-argument types `payload`. On the Intelligence adapter, where `awaitChoice` does
+argument types `payload`. On a managed channel, where `awaitChoice` does
 not block, post a component whose button calls `thread.resume(answer)` instead.
 

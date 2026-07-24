@@ -48,7 +48,6 @@ Register tools on the channel:
 const channel = createChannel({
   name: "support-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   tools: [issueCard],
 });
 
@@ -110,7 +109,6 @@ rely on: app identity, policy, formatting rules, anything stable.
 const channel = createChannel({
   name: "support-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   context: [
     { description: "Assistant policy", value: "Be concise. Never share secrets." },
     { description: "Product", value: "Acme Cloud, a managed hosting platform." },

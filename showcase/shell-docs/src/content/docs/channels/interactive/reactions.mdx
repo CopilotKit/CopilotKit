@@ -38,7 +38,6 @@ Post it, and register it so a late reaction still resolves after a restart:
 const channel = createChannel({
   name: "poll-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   components: [PollCard],
 });
 

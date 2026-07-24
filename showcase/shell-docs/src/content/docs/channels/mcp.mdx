@@ -62,20 +62,35 @@ Wire that agent into the channel as usual:
 
 ```ts
 import { createChannel } from "@copilotkit/channels";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { agent } from "./agent";
 
+// A managed channel: Intelligence hosts the transport, so no adapter.
 const channel = createChannel({
   name: "ops-bot",
   agent,
-  adapters: [intelligenceAdapter()],
 });
 
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({ prompt: message.text });
 });
 
-await channel.start();
+// The runtime owns the channel; a CopilotKit Intelligence key runs it (free
+// tier available). `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 
 Now when a user asks the bot something that needs an MCP tool, the agent calls

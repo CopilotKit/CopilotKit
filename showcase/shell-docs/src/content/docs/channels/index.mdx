@@ -67,20 +67,20 @@ Replies render as native UI. Point the JSX runtime at the channels package.
 <Step>
 ### The channel
 
-Plug the agent into a channel through the Intelligence adapter, then answer
-messages. A reply can be the agent's own words, or a card whose button you
-handle right where you wrote it.
+Declare a channel, then answer messages. A reply can be the agent's own words,
+or a card whose button you handle right where you wrote it.
 
 ```tsx title="bot.ts"
 import { createChannel } from "@copilotkit/channels";
-import { intelligenceAdapter } from "@copilotkit/channels/intelligence";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { Message, Section, Actions, Button } from "@copilotkit/channels/ui";
 import { agent } from "./agent";
 
+// A managed channel: Intelligence hosts the transport, so no adapter.
 const channel = createChannel({
   name: "support-bot",
   agent,
-  adapters: [intelligenceAdapter()],
 });
 
 channel.onMessage(async ({ thread, message }) => {
@@ -104,7 +104,21 @@ channel.onMessage(async ({ thread, message }) => {
   );
 });
 
-await channel.start();
+// The runtime owns the channel's lifecycle. A CopilotKit Intelligence key runs
+// any channel (free tier available); `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 </Step>
 </Steps>
@@ -116,18 +130,23 @@ its button still works after a restart.
 
 ## Two ways to connect a platform
 
-| | Managed (Intelligence adapter) | Direct (platform adapter) |
-| --- | --- | --- |
-| Who holds the platform tokens | CopilotKit Intelligence | You |
-| What your process does | Runs the agent, nothing else | Connects straight to the platform |
-| Add a platform | Attach it in the Intelligence dashboard | Add another adapter in code |
-| Best for | Shipping fast, many platforms, no secrets in your app | Full control, self-hosting one platform |
+Every channel runs through the Intelligence runtime, so both paths need a
+CopilotKit Intelligence key (free tier available). The difference is **who
+holds the platform bot credentials** — either way, the runtime drives the
+channel.
 
-With the managed path your process holds no Slack or Teams tokens. CopilotKit
-receives the platform event, delivers it to your bot over HTTP, runs the same
-handlers, and does the credentialed send back. Start there. See
-[Platforms](/channels/platforms) for what Intelligence handles for you and the
-per-platform setup.
+| | Managed | Direct (platform adapter) |
+| --- | --- | --- |
+| Who holds the platform tokens | CopilotKit Intelligence | You supply them to the adapter |
+| Add a platform | Attach it in the Intelligence dashboard | Add another adapter in code |
+| Best for | Shipping fast, many platforms, no platform secrets in your app | Owning one platform's connection end to end |
+
+With the managed path your process holds no Slack or Teams tokens: Intelligence
+receives the platform event, delivers the turn to your bot, runs the same
+handlers, and does the credentialed send back. With a direct adapter you supply
+the platform credentials, but the runtime still owns the channel's lifecycle.
+Start with managed. See [Platforms](/channels/platforms) for what Intelligence
+handles for you and the per-platform setup.
 
 ## What you can build
 

@@ -19,6 +19,11 @@ Create a bot with [BotFather](https://t.me/botfather) and copy its token:
 
 ```bash
 TELEGRAM_BOT_TOKEN=...
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
 ```
 
 ## Connect
@@ -26,9 +31,12 @@ TELEGRAM_BOT_TOKEN=...
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { telegram } from "@copilotkit/channels/telegram";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
 
 const channel = createChannel({
+  name: "support-bot",
   agent,
   adapters: [
     telegram({ token: process.env.TELEGRAM_BOT_TOKEN! }),
@@ -39,7 +47,21 @@ channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({ prompt: message.text });
 });
 
-await channel.start();
+// The runtime drives the channel — it starts the Telegram adapter, you don't
+// call channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 
 That is the whole connection. Add [commands](/channels/commands-and-reactions),

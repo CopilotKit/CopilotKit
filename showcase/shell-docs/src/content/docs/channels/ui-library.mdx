@@ -137,7 +137,6 @@ function DeployCard(): ChannelNode {
 const channel = createChannel({
   name: "release-bot",
   agent,
-  adapters: [intelligenceAdapter()],
   components: [DeployCard], // required for the click to resolve after a restart
 });
 

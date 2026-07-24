@@ -18,12 +18,12 @@ and cards work on all of them.
 ## What Intelligence handles for you
 
 Each platform has its own login, its own way of delivering events, and its own
-message format. When you connect through the [Intelligence
-adapter](/channels/quickstart), Intelligence takes care of the platform-side
-work, so your process just runs the agent. Connect a platform with its own
-adapter and that work becomes yours.
+message format. With a [managed channel](/channels/quickstart), Intelligence
+takes care of the platform-side work, so your process just runs the agent.
+Connect a platform with its own adapter and that work becomes yours (though the
+runtime still drives the channel).
 
-| Concern | With the Intelligence adapter | With a direct adapter |
+| Concern | With a managed channel | With a direct adapter |
 | --- | --- | --- |
 | **Credentials** | Held by Intelligence. No platform tokens in your app. | You hold and rotate every token. |
 | **Ingress** | Intelligence receives the platform event and delivers the turn to your bot over HTTP. | You run the webhook or socket connection. |
@@ -51,8 +51,9 @@ connect:
 
 ## Connect a platform directly
 
-Start with the [Quickstart](/channels/quickstart) on the Intelligence adapter.
-Reach for a direct adapter when you want to own one platform end to end:
+Start with the [Quickstart](/channels/quickstart) on a managed channel. Reach
+for a direct adapter when you want to own one platform's credentials end to end
+(the runtime still runs the channel, so an Intelligence key is required):
 
 <Cards>
   <Card title="Slack" href="/channels/platforms/slack" description="Socket Mode, no public URL needed." />

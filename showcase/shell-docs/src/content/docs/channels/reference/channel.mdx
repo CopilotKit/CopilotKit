@@ -17,9 +17,9 @@ const channel = createChannel({ name, agent, adapters });
 
 | Option | Type | Description |
 | --- | --- | --- |
-| `name` | `string` | Project-unique Intelligence channel name. Required for managed channels, optional for direct adapters. |
+| `name` | `string` | Project-unique channel name. Required: the runtime keys the channel's lifecycle by it (and, for a managed channel, ties it to the dashboard setup). |
 | `agent` | `AbstractAgent \| (threadId: string) => AbstractAgent` | The agent, or a per-thread factory. |
-| `adapters` | `PlatformAdapter[]` | Adapters attached at construction. You can also add them later with `addAdapter`. |
+| `adapters` | `PlatformAdapter[]` | Direct platform adapters attached at construction. The runtime starts them when it activates the channel. |
 | `provider` | `"slack" \| "teams"` | Managed delivery provider for a no-adapter (Intelligence) channel. Defaults to `"slack"`. `"teams"` is SDK-ready but gated. |
 | `tools` | `ChannelTool[]` | Tools exposed to the agent. See [commands](/channels/commands-and-reactions) and the agent's own tools. |
 | `context` | `ContextEntry[]` | `{ description, value }` entries forwarded to the agent each turn. |
@@ -46,7 +46,8 @@ const channel = createChannel({ name, agent, adapters });
 
 ## Event handlers
 
-Register these before `start()`.
+Register these before the runtime activates the channel (before
+`handler.channels.ready()`).
 
 ### onMessage / onMention / onThreadStarted
 
@@ -130,10 +131,13 @@ For platforms with modal/dialog support. Open a modal from an interaction with
 
 ## Registration and lifecycle
 
+A channel has no public `start()`/`stop()`. Lifecycle is owned by the runtime:
+declare the channel on `new CopilotRuntime({ channels: [channel] })`, then drive
+it through the handler's `channels` control — `handler.channels.ready()` to
+activate and `handler.channels.stop()` to tear down. See the
+[Quickstart](/channels/quickstart) for the full run pattern.
+
 | Method | Signature | Description |
 | --- | --- | --- |
 | `tool` | `tool(t: ChannelTool): void` | Register one tool (same as an entry in `tools`). |
-| `addAdapter` | `addAdapter(a: PlatformAdapter): void` | Attach an adapter. Throws if called after `start()`. |
-| `start` | `start(): Promise<void>` | Start all attached adapters and begin handling events. |
-| `stop` | `stop(): Promise<void>` | Tear everything down. |
 | `transcripts` | `Transcripts` | Cross-platform transcript store. See [Transcripts](/channels/transcripts). |

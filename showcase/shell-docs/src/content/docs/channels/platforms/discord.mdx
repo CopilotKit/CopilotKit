@@ -21,6 +21,11 @@ From the Discord Developer Portal (your application and bot):
 DISCORD_BOT_TOKEN=...
 DISCORD_APP_ID=...
 DISCORD_GUILD_ID=...   # optional, for faster command registration in one server
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
 ```
 
 ## Connect
@@ -28,9 +33,12 @@ DISCORD_GUILD_ID=...   # optional, for faster command registration in one server
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { discord } from "@copilotkit/channels/discord";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
 
 const channel = createChannel({
+  name: "support-bot",
   agent,
   adapters: [
     discord({
@@ -45,7 +53,21 @@ channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({ prompt: message.text });
 });
 
-await channel.start();
+// The runtime drives the channel — it starts the Discord adapter, you don't
+// call channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 
 ## Typed slash commands

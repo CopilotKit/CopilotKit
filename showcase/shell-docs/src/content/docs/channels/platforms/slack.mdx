@@ -20,6 +20,11 @@ From your Slack app:
 ```bash
 SLACK_BOT_TOKEN=xoxb-...   # Bot User OAuth token
 SLACK_APP_TOKEN=xapp-...   # App-level token, for Socket Mode
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
 ```
 
 ## Connect
@@ -27,9 +32,12 @@ SLACK_APP_TOKEN=xapp-...   # App-level token, for Socket Mode
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { slack, defaultSlackContext } from "@copilotkit/channels/slack";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
 
 const channel = createChannel({
+  name: "support-bot",
   agent,
   // Slack output-formatting guidance so replies render well in Slack.
   context: [...defaultSlackContext],
@@ -50,7 +58,22 @@ channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({ prompt: message.text });
 });
 
-await channel.start();
+// The runtime drives the channel — it starts the Slack adapter, you don't call
+// channel.start() yourself. A CopilotKit Intelligence key runs every channel,
+// direct adapters included (free tier available); `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 
 `respondTo` controls when the bot answers: DMs, mentions, and whether it keeps

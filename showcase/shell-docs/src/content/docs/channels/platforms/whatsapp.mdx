@@ -22,6 +22,11 @@ WHATSAPP_ACCESS_TOKEN=...
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_APP_SECRET=...
 WHATSAPP_VERIFY_TOKEN=...   # a string you choose, used to verify the webhook
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
 ```
 
 ## Connect
@@ -32,9 +37,12 @@ webhook at that public URL and use the same `verifyToken`.
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
 
 const channel = createChannel({
+  name: "support-bot",
   agent,
   adapters: [
     whatsapp({
@@ -52,7 +60,21 @@ channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({ prompt: message.text });
 });
 
-await channel.start();
+// The runtime drives the channel — it starts the WhatsApp adapter, you don't
+// call channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
 ```
 
 <Callout type="info">
