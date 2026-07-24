@@ -258,9 +258,11 @@ export type LiveStatusMap = Map<string, StatusRow>;
  *     `row.signal` PER CELL on every render to derive the REQ-B
  *     unreachable/pending comm-error overlay, and
  *   - `classifyRung` (cell-model.contribution.ts), which reads it — via
- *     `signalHasInfraErrorClass` and the `signalKnown` provenance flag — to
- *     tell an INFRA red from a PRODUCT red. This read happens ONLY in the red
- *     branch, so it only ever needs the NON-GREEN rows.
+ *     `signalHasInfraErrorClass` plus the `redSignalKnown` provenance flag
+ *     `foldFamily` derives over the RED rows — to tell an INFRA red from a
+ *     PRODUCT red. This read happens ONLY in the red branch, so it only ever
+ *     needs the NON-GREEN rows, and its provenance precondition is scoped to
+ *     those same rows (a projected GREEN sibling must not suppress it).
  *
  * Neither of the latter two can lazy-load, so `useLiveStatus` issues a
  * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of exactly

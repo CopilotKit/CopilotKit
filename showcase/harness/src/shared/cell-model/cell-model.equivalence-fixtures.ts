@@ -8,7 +8,7 @@
  * (D1/D2) rows so their pre-change outcome is preserved under the incoming §F
  * liveness gate. On top of that, a pruned reachable combinatorial matrix
  * (spec §6) exercises every axis that drives the classifier: per-rung state ×
- * freshness × infra-class × signalKnown × first-strike, the D1/D2
+ * freshness × infra-class × signal-provenance × first-strike, the D1/D2
  * presence/freshness axis, the D6 soft-parity top, the D5-unmapped ceiling, and
  * the starter axis.
  *

@@ -16,8 +16,11 @@
  *      `signal` blob on every row (the server has it; the browser's bulk
  *      initial fetch strips it and restores it for the non-green rows via a
  *      supplemental fetch, §11.1(2)), so the infra classifier always resolves
- *      with `signalKnown === true` here and never has to fall back to the
- *      fail-safe red that a pending attribution produces browser-side;
+ *      with `redSignalKnown === true` here and never has to fall back to the
+ *      fail-safe red that a pending attribution produces browser-side. That
+ *      precondition is RED-ROW-scoped on both sides, which is what keeps the two
+ *      reads in agreement on a MIXED-state family — where the browser has
+ *      `signal` on the reds but not on their green siblings (§11.4);
  *   2. enumerates every catalog cell by RE-FLATTENING the committed
  *      `shared/feature-registry.json` + manifests via `buildCatalogCells` (the
  *      single flattening authority — NOT the dashboard's generated

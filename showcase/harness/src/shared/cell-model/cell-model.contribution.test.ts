@@ -8,6 +8,7 @@ import {
   firstStrikeConfig,
   D4_FIRST_STRIKE_THRESHOLD,
   classifyRung,
+  foldFamily,
 } from "./cell-model.contribution.js";
 import type {
   RawRung,
@@ -52,7 +53,6 @@ function raw(
     rows,
     mapped: opts.mapped ?? true,
     anyExpectedMissing: opts.anyExpectedMissing ?? false,
-    signalKnown: opts.signalKnown ?? true,
   };
 }
 
@@ -188,31 +188,45 @@ describe("classifyRung — §3 rules", () => {
   // absence of evidence, so the red survives.
   it("red with stripped signal → FAIL_FRESH, never grayed away (rule 4 / §D)", () => {
     expect(
-      classifyRung(
-        raw("D3", [row("red", { signal: undefined })], { signalKnown: false }),
-        NOW,
-      ).contribution,
+      classifyRung(raw("D3", [row("red", { signal: undefined })]), NOW)
+        .contribution,
     ).toBe("FAIL_FRESH");
   });
 
   // The other half of the polarity: a stripped `signal` must not let an
   // otherwise-infra red be grayed either. `signalHasInfraErrorClass` already
-  // returns false for a missing blob, and `signalKnown` is a second explicit
+  // returns false for a missing blob, and `redSignalKnown` is a second explicit
   // precondition on the INFRA_RED_FRESH branch, so the two cannot disagree.
   it("stripped signal never reaches INFRA_RED_FRESH even with an infra sibling", () => {
     expect(
       classifyRung(
-        raw(
-          "D3",
-          [
-            row("red", { signal: { errorClass: "driver-error" } }),
-            row("red", { signal: undefined }),
-          ],
-          { signalKnown: false },
-        ),
+        raw("D3", [
+          row("red", { signal: { errorClass: "driver-error" } }),
+          row("red", { signal: undefined }),
+        ]),
         NOW,
       ).contribution,
     ).toBe("FAIL_FRESH");
+  });
+
+  // §D SCOPE. The gray precondition is about the RED rows' provenance ONLY. A
+  // GREEN sibling whose `signal` the cold-load projection stripped says nothing
+  // about the red row's attribution, and must not suppress the gray — the
+  // supplemental fetch covers `state != "green"`, so this mixed shape is what
+  // EVERY multi-row family looks like in the browser on first paint.
+  it("a projected-away GREEN sibling does not block the infra gray (red-row scope)", () => {
+    const contribution = classifyRung(
+      raw("D4", [
+        row("green", { signal: undefined }),
+        row("red", {
+          signal: { errorClass: "driver-error" },
+          failCount: 2, // ≥ D4 first-strike threshold: amber is not the answer
+        }),
+      ]),
+      NOW,
+    ).contribution;
+    expect(contribution).toBe("INFRA_RED_FRESH");
+    expect(contributionToColor(contribution)).toBe("gray");
   });
 
   it("anyExpectedMissing + green fold → NO_DATA (strict collapse)", () => {
@@ -362,5 +376,66 @@ describe("classifyRung — §3 rules", () => {
     const c = classifyRung(raw("starter", [soft5, soft1]), NOW);
     expect(c.contribution).toBe("FAIL_FRESH");
     expect(contributionToColor(c.contribution)).toBe("red");
+  });
+});
+
+// ── `redSignalKnown` is RED-ROW-scoped ───────────────────────────────────────
+// The infra-gray precondition guards evidence read off the RED rows, so it must
+// be answerable only by those rows. `classifyRung` cannot cover this on its own:
+// `signalHasInfraErrorClass(undefined)` is already false, so today
+// `!hasNonInfraRed` implies `redSignalKnown` and the conjunct has no observable
+// effect through the classifier. The flag is nonetheless the explicit
+// masks-real-red precondition, so its SCOPE is pinned here, directly on the fold
+// — otherwise a family-wide reading could be reintroduced with the whole suite
+// staying green, which is exactly how the previous scope bug shipped.
+describe("foldFamily — `redSignalKnown` scope", () => {
+  const W = E2E_STALE_AFTER_MS;
+
+  it("is TRUE when only a GREEN sibling was projected away (green rows are irrelevant)", () => {
+    const fold = foldFamily(
+      [
+        row("green", { signal: undefined }),
+        row("red", { signal: { errorClass: "driver-error" } }),
+      ],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(true);
+    expect(fold.hasNonInfraRed).toBe(false);
+  });
+
+  it("is FALSE when a RED row was projected away", () => {
+    const fold = foldFamily(
+      [row("green"), row("red", { signal: undefined })],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(false);
+  });
+
+  it("is FALSE when ANY of several red rows was projected away", () => {
+    const fold = foldFamily(
+      [
+        row("red", { signal: { errorClass: "driver-error" } }),
+        row("red", { signal: undefined }),
+      ],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(false);
+  });
+
+  it("is vacuously TRUE for a family with no red rows at all", () => {
+    expect(
+      foldFamily([row("green", { signal: undefined })], W, NOW).redSignalKnown,
+    ).toBe(true);
+  });
+
+  it("a `null` signal on a red row is DELIVERED, not projected away", () => {
+    // PB omits the key only under a `fields=` projection; a genuinely
+    // signal-less row arrives as `null`. `null !== undefined`.
+    expect(
+      foldFamily([row("red", { signal: null })], W, NOW).redSignalKnown,
+    ).toBe(true);
   });
 });

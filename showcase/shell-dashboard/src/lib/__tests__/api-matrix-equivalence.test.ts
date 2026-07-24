@@ -219,6 +219,48 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
     expect(apiChip).toBe(serverChip);
   });
 
+  // The block above pins the cold-load equality on a SINGLE-KEY D3 family
+  // (`e2e:<slug>/<feature>`), where the family's only row IS the red row — so a
+  // family-scoped and a red-row-scoped "was `signal` delivered?" precondition
+  // coincide and the distinction is invisible.
+  //
+  // MULTI-ROW families are where they diverge, and they are the common case: D4
+  // is `chat:<slug>` + `tools:<slug>`, and a multi-pill D5/D6 is one
+  // `<dim>:<slug>/<pill>` row per pill. The supplemental signal fetch restores
+  // `signal` for `state != "green"` ONLY, so in a mixed-state family the red
+  // rows arrive WITH attribution and the green siblings arrive WITHOUT it. A
+  // family-scoped precondition then reads "not delivered" because of a row the
+  // infra branch never looks at, the U7 gray is skipped, and the browser paints
+  // RED a cell that `/api/matrix` (full `signal`, always) reports as gray.
+  it("multi-row D4 family: an infra red beside a projected-away GREEN sibling does not drift api-vs-browser", () => {
+    // `tools` is the infra red; `chat` is green, so the supplemental fetch
+    // skips it and its `signal` stays stripped on a cold load.
+    const serverRows = [
+      row(e2eKey, "green", null),
+      row(chatKey, "green", null),
+      row(toolsKey, "red", { errorClass: "driver-error" }),
+    ];
+    const fullSignal = mergeRowsToMap(serverRows);
+    const stripped = mergeRowsToMap(
+      serverRows.map((r) =>
+        r.state === "green" ? { ...r, signal: undefined } : r,
+      ),
+    );
+
+    const serverChip = buildCellModel(fullSignal, input, NOW).chipColor;
+    const coldLoadChip = buildCellModel(stripped, input, NOW).chipColor;
+    const apiChip = computeMatrix(fullSignal, [cell], NOW)[0]!.chipColor;
+
+    // Every contributing RED row is positively infra-attributed → gray.
+    expect(serverChip).toBe("gray");
+    // The SAME rows read through the browser's cold-load projection. Pre-fix
+    // this was "red" — a real api-vs-render drift on the most common family
+    // shape on the board.
+    expect(coldLoadChip).toBe("gray");
+    expect(coldLoadChip).toBe(serverChip);
+    expect(apiChip).toBe(serverChip);
+  });
+
   it("an INFRA red still grays — the gray path requires POSITIVE evidence", () => {
     // Negative control for the polarity flip: when the `signal` blob IS present
     // and positively attributes every red to an INFRA error class, the rung

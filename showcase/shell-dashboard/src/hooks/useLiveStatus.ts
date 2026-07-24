@@ -283,7 +283,9 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     // CLAUSE 2 — every NON-GREEN row, ALL dimensions (`state != "green"`).
     //   `classifyRung` (cell-model.contribution.ts) needs `signal` to tell an
     //   INFRA red from a PRODUCT red, and it needs it ONLY in the red branch —
-    //   the green/degraded paths never consult `signalKnown`. Without this
+    //   the green/degraded paths never consult `signal` at all, and the branch's
+    //   provenance precondition (`redSignalKnown`) is likewise scoped to the RED
+    //   rows, so this clause covers it EXACTLY. Without this
     //   clause a genuinely-failing rung arrived signal-less and, before the
     //   fail-safe polarity flip, was painted GRAY; it self-corrected only when
     //   the probe's next sweep rewrote that specific row and the SSE delta

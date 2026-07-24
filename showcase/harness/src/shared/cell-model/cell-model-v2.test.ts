@@ -295,3 +295,131 @@ describe("T4 null-feature liveness-only path (NEW capability)", () => {
     expect(m.isRegression).toBe(true);
   });
 });
+
+// ── The infra-gray precondition is RED-ROW-scoped, not FAMILY-scoped ─────────
+//
+// `classifyRung`'s U7 gray branch needs to know that the `signal` blobs it just
+// read as positive infra evidence were actually DELIVERED. That question is
+// about the RED rows only — they are the sole rows the branch reads. Scoping it
+// to the whole family instead makes the precondition answerable "no" by a row
+// the branch never looks at.
+//
+// The browser hits exactly that shape on every cold load. The bulk fetch strips
+// `signal`; the supplemental fetch restores it for `state != "green"` — so in a
+// MIXED-state family the red rows arrive WITH attribution and the green
+// siblings arrive WITHOUT it. A family-scoped precondition therefore reads
+// `false` precisely when it should read `true`, and the infra red is painted
+// RED in the browser while `/api/matrix` (full `signal` on every row) says
+// gray. That is the drift §11.4 exists to forbid.
+//
+// Every multi-row family is affected: D4 (`chat` + `tools`), and any multi-key
+// D5/D6 (per-pill `d5:<slug>/<pill>` keys). Only single-key D3 was safe — its
+// one row IS the red row, so the two scopes coincide, which is why the
+// single-key fixtures could never see this.
+/**
+ * The browser's cold-load projection: `signal` present on non-green rows
+ * (restored by the supplemental `state != "green"` fetch), STRIPPED
+ * (`undefined`) on green rows, which that fetch deliberately skips.
+ */
+function coldLoad(rows: StatusRow[]): StatusRow[] {
+  return rows.map((r) =>
+    r.state === "green" ? { ...r, signal: undefined } : r,
+  );
+}
+
+describe("§7 §D: infra-gray precondition is RED-ROW-scoped (mixed-state family)", () => {
+  it("D4: infra-classed red `tools` + green `chat` grays — even when the green sibling's `signal` was projected away", () => {
+    // fail_count 2 ≥ D4_FIRST_STRIKE_THRESHOLD, so amber can never be the
+    // answer: the ONLY route to a non-red chip here is the U7 infra gray.
+    const rows = greenBase(F).map((r) =>
+      r.key.startsWith("tools:")
+        ? row(r.key, "red", {
+            signal: { errorClass: "driver-error" },
+            failCount: 2,
+          })
+        : r,
+    );
+    // Server / `/api/matrix` read: full `signal` on every row.
+    const server = buildCellModel(mergeRowsToMap(rows), wired(F), NOW);
+    expect(server.chipColor).toBe("gray");
+
+    // Browser cold-load read of the SAME underlying data. Pre-fix the green
+    // `chat` row's stripped `signal` flipped the family-wide flag to false, the
+    // gray branch was skipped, and the cell rendered RED.
+    const browser = buildCellModel(
+      mergeRowsToMap(coldLoad(rows)),
+      wired(F),
+      NOW,
+    );
+    expect(browser.chipColor).toBe("gray");
+    expect(browser.chipColor).toBe(server.chipColor);
+  });
+
+  /** 5 per-pill `d5:`/`d6:` keys — the multi-key family shape. */
+  const F_MULTI = "beautiful-chat";
+
+  it("D5 multi-key: one infra-classed red pill + green sibling pills grays under the cold-load projection", () => {
+    const pills = CATALOG_TO_D5_KEY[F_MULTI] ?? [];
+    expect(pills.length).toBeGreaterThan(1); // guard the premise of this test
+    const redPillKey = keyFor("d5", SLUG, pills[0]!);
+    const rows = greenBase(F_MULTI).map((r) =>
+      r.key === redPillKey
+        ? row(r.key, "red", {
+            signal: { errorClass: "driver-error" },
+            failCount: 2,
+          })
+        : r,
+    );
+    const server = buildCellModel(mergeRowsToMap(rows), wired(F_MULTI), NOW);
+    const browser = buildCellModel(
+      mergeRowsToMap(coldLoad(rows)),
+      wired(F_MULTI),
+      NOW,
+    );
+    // The other four d5 pills are GREEN, so THEIR stripped `signal` is what
+    // broke the family-wide precondition for the one red pill.
+    expect(server.chipColor).toBe("gray");
+    expect(browser.chipColor).toBe("gray");
+    expect(browser.chipColor).toBe(server.chipColor);
+  });
+
+  it("D6 multi-key: the `d6Effective` badge does not drift between the server and cold-load reads", () => {
+    // D6 is the SOFT-PARITY top — any non-green D6 over a green D1–D5 is amber
+    // either way, so the chip cannot see this. `d6Effective` can: an
+    // INFRA_RED_FRESH D6 surfaces as null (gray "?"), a FAIL_FRESH D6 as a
+    // product-red badge. Same rows, two different badges = the §11.4 drift.
+    const pills = CATALOG_TO_D5_KEY[F_MULTI] ?? [];
+    const redPillKey = keyFor("d6", SLUG, pills[0]!);
+    const rows = greenBase(F_MULTI).map((r) =>
+      r.key === redPillKey
+        ? row(r.key, "red", {
+            signal: { errorClass: "driver-error" },
+            failCount: 2,
+          })
+        : r,
+    );
+    const server = buildCellModel(mergeRowsToMap(rows), wired(F_MULTI), NOW);
+    const browser = buildCellModel(
+      mergeRowsToMap(coldLoad(rows)),
+      wired(F_MULTI),
+      NOW,
+    );
+    expect(server.d6Effective).toBeNull();
+    expect(browser.d6Effective).toBeNull();
+    expect(browser.d6Effective).toBe(server.d6Effective);
+  });
+
+  it("a red row whose OWN `signal` was stripped still renders RED (fail-safe polarity retained)", () => {
+    // The negative control: narrowing the precondition to the red rows must not
+    // widen the gray path. This red row carries NO attribution at all, so the
+    // absence of evidence must keep it red, not gray it.
+    const rows = greenBase(F).map((r) =>
+      r.key.startsWith("tools:")
+        ? row(r.key, "red", { signal: undefined, failCount: 2 })
+        : r,
+    );
+    expect(
+      buildCellModel(mergeRowsToMap(coldLoad(rows)), wired(F), NOW).chipColor,
+    ).toBe("red");
+  });
+});
