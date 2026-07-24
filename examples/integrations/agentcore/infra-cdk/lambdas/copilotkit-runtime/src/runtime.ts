@@ -118,6 +118,7 @@ export function buildApp(
   const runtime = process.env.CPK_INTELLIGENCE_API_KEY
     ? new CopilotRuntime({
         agents: { ...agents, default: defaultAgent },
+        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
         intelligence: new CopilotKitIntelligence({
           apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
           apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",

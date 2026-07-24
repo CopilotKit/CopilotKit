@@ -20,6 +20,7 @@ const defaultAgent = new LangGraphHttpAgent({
 const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY?.trim();
 
 const runtime = new CopilotRuntime({
+  licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
   agents: { default: defaultAgent },
   openGenerativeUI: true,
   a2ui: {

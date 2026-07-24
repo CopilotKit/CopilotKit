@@ -10,6 +10,7 @@ import { handle } from "hono/vercel";
 const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY?.trim();
 
 const runtime = new CopilotRuntime({
+  licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
   agents: {
     default: new LlamaIndexAgent({
       url:

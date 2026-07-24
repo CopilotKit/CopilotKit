@@ -19,7 +19,9 @@ Create the root environment file before deploying or running locally:
 cp .env.example .env
 ```
 
-Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit Intelligence project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics identity and can be left blank.
+Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit
+Intelligence project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics
+identity and can stay blank. The pinned SDK token setup is below.
 
 ## Deploy to AWS
 
@@ -31,7 +33,10 @@ Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit Intell
    # Edit .env and config.yaml.
    ```
 
-   Set `stack_name_base` and `admin_user_email` in `config.yaml`. The deploy script stores the managed key from `.env` in the configured AWS Secrets Manager secret; CDK resolves it only for the CopilotKit runtime Lambda.
+   Set `stack_name_base` and `admin_user_email` in `config.yaml`. The deploy
+   script stores the managed key and compatibility token from `.env` in their
+   configured AWS Secrets Manager secrets. CDK resolves both only for the
+   CopilotKit runtime Lambda.
 
    Before deploying, provide managed or self-hosted Intelligence endpoints that are reachable from AWS. AWS deployments must not use `localhost` or `127.0.0.1`; the localhost defaults in `.env.example` are only for local Docker Compose.
 
@@ -99,9 +104,17 @@ Browser → API Gateway → CopilotKit Lambda (Node.js, AG-UI bridge)
 
 Auth: Cognito OIDC → Bearer token forwarded from browser through Lambda to AgentCore.
 
-## Offline or self-hosted license
+## Pinned SDK compatibility and offline licensing
 
-This example's managed path uses `CPK_INTELLIGENCE_API_KEY`. For an offline or self-hosted enterprise deployment that requires a license token, follow the self-hosted Intelligence licensing guide and keep that separate from the managed project credentials above.
+This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
+`1.62.2`. Those packages predate managed entitlement responses. Until the
+pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
+`.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
+Threads entitlement check; it does not replace the managed API key.
+
+`CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
+self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
+in the self-hosting guide.
 
 ## Tear down
 

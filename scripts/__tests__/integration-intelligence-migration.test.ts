@@ -22,6 +22,14 @@ const MANAGED_API_KEY_SECRET_VERSION_ID =
   "CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID";
 const MANAGED_API_KEY_SECRET_VERSION_SENTINEL =
   "agentcore-secret-version-contract";
+const LEGACY_LICENSE_TOKEN_SECRET_CONFIG =
+  "copilotkit_license_token_secret_name";
+const LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID =
+  "COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID";
+const LEGACY_LICENSE_TOKEN_SENTINEL =
+  "license_token_must_not_reach_child_processes";
+const LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL =
+  "agentcore-license-token-version-contract";
 const INTELLIGENCE_API_URL = "INTELLIGENCE_API_URL";
 const INTELLIGENCE_GATEWAY_WS_URL = "INTELLIGENCE_GATEWAY_WS_URL";
 const NEXT_THREADS_GATE = "NEXT_PUBLIC_COPILOTKIT_THREADS_ENABLED";
@@ -37,6 +45,27 @@ const INTEGRATION_PARITY_WORKFLOW = path.join(
   "workflows",
   "integrations_parity.yml",
 );
+
+type ManagedSdkPackageName = "@copilotkit/runtime" | "@copilotkit/react-core";
+
+interface ManagedSdkPin {
+  readonly packageName: ManagedSdkPackageName;
+  readonly packagePath: string;
+  readonly version: string;
+}
+
+const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
+  "@copilotkit/runtime": {
+    "1.62.2": false,
+    "1.62.3": false,
+  },
+  "@copilotkit/react-core": {
+    "1.62.2": false,
+    "1.62.3": false,
+  },
+} as const satisfies Readonly<
+  Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
+>;
 
 const MANAGED_CLI_FRAMEWORKS = [
   "langgraph-py",
@@ -131,6 +160,7 @@ interface AgentCoreDeployHarnessResult {
   readonly output: string;
   readonly cdkEnvironment: string | null;
   readonly secretVersionId: string | null;
+  readonly licenseTokenSecretVersionId: string | null;
   readonly awsCommands: readonly string[];
   readonly npmCommands: readonly string[];
   readonly frontendStackName: string | null;
@@ -1521,8 +1551,6 @@ function expectManagedRuntimeContract(contents: string): void {
   expect(hasRuntimeApiKeyRead(sourceFile)).toBe(true);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
-  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
-  expect(contents).not.toMatch(/\blicenseToken\s*:/);
 }
 
 /**
@@ -1576,6 +1604,123 @@ function expectManagedReadmeContract(contents: string): void {
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_API_KEY));
   expect(contents).not.toMatch(exactEnvIdentifierPattern(LEGACY_TELEMETRY_ID));
   expectMarkdownLicenseOccurrencesClassified(contents);
+}
+
+/** Reads the Runtime and React pins that own one template's entitlement flow. */
+function readManagedSdkPins(
+  contract: ManagedTemplateContract,
+): readonly ManagedSdkPin[] {
+  const packageContracts =
+    contract.directory === "agentcore"
+      ? [
+          {
+            packageName: "@copilotkit/runtime" as const,
+            packagePath: "infra-cdk/lambdas/copilotkit-runtime/package.json",
+          },
+          {
+            packageName: "@copilotkit/react-core" as const,
+            packagePath: "frontend/package.json",
+          },
+        ]
+      : [
+          {
+            packageName: "@copilotkit/runtime" as const,
+            packagePath: "package.json",
+          },
+          {
+            packageName: "@copilotkit/react-core" as const,
+            packagePath: "package.json",
+          },
+        ];
+
+  return packageContracts.map(({ packageName, packagePath }) => {
+    const manifest = JSON.parse(
+      readManagedSurface(contract, packagePath, `${packageName} manifest`),
+    ) as {
+      readonly dependencies?: Readonly<Record<string, string>>;
+      readonly devDependencies?: Readonly<Record<string, string>>;
+    };
+    const version =
+      manifest.dependencies?.[packageName] ??
+      manifest.devDependencies?.[packageName] ??
+      "";
+
+    expect(
+      version,
+      `${contract.directory} must pin ${packageName} in ${packagePath}`,
+    ).toMatch(/^\d+\.\d+\.\d+$/u);
+
+    return { packageName, packagePath, version };
+  });
+}
+
+/** Returns whether a classified package pin supports managed entitlements. */
+function pinSupportsManagedEntitlements(pin: ManagedSdkPin): boolean {
+  const classifications = MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION[
+    pin.packageName
+  ] as Readonly<Record<string, boolean>>;
+  const supportsManagedEntitlements = classifications[pin.version];
+
+  expect(
+    supportsManagedEntitlements,
+    `${pin.packageName}@${pin.version} must be classified before a managed template can use it`,
+  ).not.toBeUndefined();
+
+  return supportsManagedEntitlements === true;
+}
+
+/**
+ * Asserts stale managed SDK pins retain the legacy license-token bridge.
+ *
+ * The managed API key remains the Intelligence credential. The compatibility
+ * token only supplies the entitlement signal expected by older Runtime and
+ * React releases.
+ */
+function expectPinnedSdkCompatibilityContract(
+  pins: readonly ManagedSdkPin[],
+  runtime: string,
+  envExample: string,
+  readme: string,
+): void {
+  const stalePins = pins.filter((pin) => !pinSupportsManagedEntitlements(pin));
+  if (stalePins.length === 0) return;
+
+  const sourceFile = parseManagedSource(runtime);
+  const runtimeOptions = newExpressionOptions(sourceFile, "CopilotRuntime");
+  const licenseTokens = runtimeOptions.flatMap((options) => {
+    const property = objectPropertyAssignment(options, "licenseToken");
+    return property ? [property] : [];
+  });
+  expect(licenseTokens).toHaveLength(1);
+  const licenseToken = licenseTokens[0] ?? null;
+  expect(
+    licenseToken &&
+      expressionContainsEnvRead(
+        licenseToken.initializer,
+        MANAGED_LICENSE_TOKEN,
+      ),
+  ).toBe(true);
+
+  expect(
+    envExample
+      .split(/\r?\n/u)
+      .filter((line) => envAssignmentPattern(MANAGED_LICENSE_TOKEN).test(line)),
+  ).toHaveLength(1);
+
+  const compatibilitySection =
+    markdownHeadingSections(readme).find(
+      ({ heading, contents }) =>
+        /\bpinned SDK compatibility\b/i.test(heading) &&
+        exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN).test(contents),
+    )?.contents ?? "";
+  expect(compatibilitySection).not.toBe("");
+  expect(compatibilitySection).toMatch(
+    exactEnvIdentifierPattern(MANAGED_API_KEY),
+  );
+  expect(compatibilitySection).toMatch(/\bmanaged entitlement/i);
+  for (const version of new Set(stalePins.map((pin) => pin.version))) {
+    expect(compatibilitySection).toContain(version);
+  }
 }
 
 /** Asserts one ordinary template retains its framework-specific Runtime agent. */
@@ -2079,7 +2224,6 @@ function expectAgentCoreDeploymentConfigContract(contents: string): void {
   expect(configuredSecretNames).toHaveLength(1);
   expect(configuredSecretNames[0]).not.toMatch(/^\$\{|^process\.env\b/);
   expect(contents).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
-  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /** Assert AgentCore's deployed Lambda resolves the managed key from a secret. */
@@ -2153,7 +2297,120 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
       INTELLIGENCE_GATEWAY_WS_URL,
     ),
   ).toBe(true);
-  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
+}
+
+/** Assert AgentCore securely projects its legacy SDK compatibility token. */
+function expectAgentCoreLegacyLicenseDeploymentContract(
+  deploymentConfig: string,
+  runtimeDeployment: string,
+  deployScripts: readonly string[],
+): void {
+  expect(deploymentConfig).toMatch(
+    new RegExp(`^${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}:\\s*[^#\\s][^#]*$`, "m"),
+  );
+
+  const sourceFile = parseManagedSource(runtimeDeployment);
+  const lambdaOptions = constructOptions(
+    sourceFile,
+    ["lambda", "Function"],
+    "CopilotKitRuntimeLambda",
+  );
+  expect(lambdaOptions).toHaveLength(1);
+  const environment = lambdaOptions[0]
+    ? objectPropertyAssignment(lambdaOptions[0], "environment")
+    : null;
+  const environmentObject = environment
+    ? unwrapExpression(environment.initializer)
+    : null;
+  expect(
+    environmentObject && ts.isObjectLiteralExpression(environmentObject),
+  ).toBe(true);
+  const licenseToken =
+    environmentObject && ts.isObjectLiteralExpression(environmentObject)
+      ? objectPropertyAssignment(environmentObject, MANAGED_LICENSE_TOKEN)
+      : null;
+  expect(licenseToken).not.toBeNull();
+  if (!licenseToken) return;
+  expect(
+    expressionContainsPropertyPath(licenseToken.initializer, [
+      "config",
+      LEGACY_LICENSE_TOKEN_SECRET_CONFIG,
+    ]),
+  ).toBe(true);
+  expect(expressionContainsSecretResolution(licenseToken.initializer)).toBe(
+    true,
+  );
+  expect(
+    expressionContainsEnvRead(
+      licenseToken.initializer,
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID,
+    ),
+  ).toBe(true);
+  expect(
+    expressionContainsEnvRead(licenseToken.initializer, MANAGED_LICENSE_TOKEN),
+  ).toBe(false);
+
+  for (const contents of deployScripts) {
+    const normalized = contents.replace(/\\\r?\n\s*/g, " ");
+    const lines = normalized.split(/\r?\n/);
+    const rootEnvLoadIndex = lines.findIndex((line) =>
+      /(?:^|\s)(?:source|\.)\s+["']?\$\{?SCRIPT_DIR\}?\/\.env["']?(?:\s|$)/.test(
+        line,
+      ),
+    );
+    const cdkDeployIndex = lines.findIndex((line) =>
+      /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
+    );
+    const tokenSecretConfigIndex = lines.findIndex((line) =>
+      new RegExp(
+        `^\\s*[A-Z][A-Z0-9_]*=.*${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}`,
+      ).test(line),
+    );
+    const tokenSecretCommands = lines.flatMap((line, index) =>
+      line.includes(`$${MANAGED_LICENSE_TOKEN}`) &&
+      /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line)
+        ? [{ index, line }]
+        : [],
+    );
+    const tokenVersionExportIndex = lines.findIndex((line) =>
+      new RegExp(
+        `^\\s*export\\s+${LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID}(?:=|\\s|$)`,
+      ).test(line),
+    );
+    const tokenUnsetIndices = lines.flatMap((line, index) =>
+      new RegExp(`^\\s*unset\\s+${MANAGED_LICENSE_TOKEN}\\s*$`).test(line)
+        ? [index]
+        : [],
+    );
+
+    expect(rootEnvLoadIndex).toBeGreaterThanOrEqual(0);
+    expect(contents).toMatch(
+      new RegExp(`:\\s+["']\\$\\{${MANAGED_LICENSE_TOKEN}:\\?[^}]+\\}["']`),
+    );
+    expect(tokenSecretConfigIndex).toBeGreaterThan(rootEnvLoadIndex);
+    expect(tokenSecretCommands).toHaveLength(2);
+    expect(tokenVersionExportIndex).toBeGreaterThan(
+      tokenSecretCommands.at(-1)?.index ?? -1,
+    );
+    expect(cdkDeployIndex).toBeGreaterThan(tokenVersionExportIndex);
+    expect(
+      tokenUnsetIndices.some(
+        (index) =>
+          index > (tokenSecretCommands.at(-1)?.index ?? -1) &&
+          index < cdkDeployIndex,
+      ),
+    ).toBe(true);
+    for (const { line } of tokenSecretCommands) {
+      expect(line).toMatch(
+        /--secret-string(?:=|\s+)file:\/\/\/dev\/stdin(?:\s|$)/,
+      );
+      expect(line).not.toMatch(
+        new RegExp(
+          `--secret-string(?:=|\\s+)["']?\\$\\{?${MANAGED_LICENSE_TOKEN}\\}?["']?(?:\\s|$)`,
+        ),
+      );
+    }
+  }
 }
 
 /** Assert Terraform clearly excludes the managed Intelligence credential path. */
@@ -2362,8 +2619,12 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
   const secretNameVariable = secretConfigAssignment?.match?.[1];
   const secretCommands = lines
     .map((line, index) => ({ index, line }))
-    .filter(({ line }) =>
-      /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line),
+    .filter(
+      ({ line }) =>
+        line.includes(`$${MANAGED_API_KEY}`) &&
+        /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(
+          line,
+        ),
     );
   const cdkDeployIndex = lines.findIndex((line) =>
     /npx\s+cdk(?:@\S+)?\s+deploy\b/.test(line),
@@ -2476,7 +2737,6 @@ function expectAgentCoreDeployScriptContract(contents: string): void {
     expect(backendOwnedIndex).toBeGreaterThan(backendDeployElseIndex);
     expect(backendOwnedIndex).toBeLessThan(backendDeployEndIndex);
   }
-  expect(contents).not.toContain(MANAGED_LICENSE_TOKEN);
 }
 
 /** Returns exact path filters for one top-level workflow event. */
@@ -2968,6 +3228,7 @@ for (const scriptName of [
       expect(result.output).toContain(invalidEndpoint.expectedVariable);
       expect(result.output).toMatch(/reachable from AWS/i);
       expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+      expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
       expect(result.cdkEnvironment).toBeNull();
     });
   }
@@ -2987,6 +3248,7 @@ for (const scriptName of [
         "wss://gateway.example.com/runtime\n",
     );
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
   });
 
   test(`${scriptName} passes the updated secret version to CDK without logging it`, () => {
@@ -3002,10 +3264,17 @@ for (const scriptName of [
     expect(result.secretVersionId).toBe(
       MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
     );
+    expect(result.licenseTokenSecretVersionId).toBe(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
+    );
     expect(result.output).not.toContain(
       MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
     );
+    expect(result.output).not.toContain(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
+    );
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
   });
 
   test(`${scriptName} delivers the managed key only through Secrets Manager stdin`, () => {
@@ -3020,10 +3289,16 @@ for (const scriptName of [
     });
 
     expect(result.status).toBe(0);
-    expect(result.secretInputObservations).toEqual(["aws:stdin-match"]);
+    expect(result.secretInputObservations).toEqual([
+      "aws:key-stdin-match",
+      "aws:license-stdin-match",
+    ]);
     expect(result.secretExposureObservations).toEqual([]);
     expect(result.awsCommands.join("\n")).not.toContain(
       MANAGED_API_KEY_SENTINEL,
+    );
+    expect(result.awsCommands.join("\n")).not.toContain(
+      LEGACY_LICENSE_TOKEN_SENTINEL,
     );
     expect(result.frontendThreadsEnabled).toBe("true");
   });
@@ -3046,6 +3321,7 @@ for (const scriptName of [
     expect(result.npmCommands).toEqual([]);
     expect(result.cdkEnvironment).toBeNull();
     expect(result.secretVersionId).toBeNull();
+    expect(result.licenseTokenSecretVersionId).toBeNull();
     expect(result.frontendStackName).toBe(
       scriptName === "deploy-langgraph.sh"
         ? "agentcore-contract-lg"
@@ -3056,10 +3332,16 @@ for (const scriptName of [
     expect(result.secretExposureObservations).toEqual([]);
     expect(result.secretInputObservations).toEqual([]);
     expect(result.output).toContain("Skipping backend deploy (--skip-backend)");
-    expect(result.output).not.toContain("Managed Intelligence key stored");
+    expect(result.output).not.toContain(
+      "Managed Intelligence credentials stored",
+    );
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
     expect(result.output).not.toContain(
       MANAGED_API_KEY_SECRET_VERSION_SENTINEL,
+    );
+    expect(result.output).not.toContain(
+      LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL,
     );
   });
 
@@ -3082,6 +3364,7 @@ for (const scriptName of [
         "wss://managed-gateway.example.com/runtime\n",
     );
     expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
   });
 }
 
@@ -3235,6 +3518,58 @@ test("managed documentation helpers accept an optional non-secret analytics iden
 
   expect(() => expectManagedEnvContract(envExample)).not.toThrow();
   expect(() => expectManagedReadmeContract(readme)).not.toThrow();
+});
+
+test("pinned SDK compatibility rejects a key-only stale template", () => {
+  const pins = [
+    {
+      packageName: "@copilotkit/runtime",
+      packagePath: "package.json",
+      version: "1.62.3",
+    },
+    {
+      packageName: "@copilotkit/react-core",
+      packagePath: "package.json",
+      version: "1.62.3",
+    },
+  ] as const satisfies readonly ManagedSdkPin[];
+  const runtime = `
+    new CopilotRuntime({
+      agents: {},
+      intelligence: new CopilotKitIntelligence({
+        apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
+      }),
+    });
+  `;
+  const readme = [
+    "## Managed Intelligence credentials",
+    "",
+    "Set CPK_INTELLIGENCE_API_KEY for the project.",
+    "CPK_TELEMETRY_ID is an optional, non-secret analytics identity.",
+  ].join("\n");
+
+  expect(() =>
+    expectPinnedSdkCompatibilityContract(
+      pins,
+      runtime,
+      managedEnvExample(),
+      readme,
+    ),
+  ).toThrow();
+});
+
+test("managed SDK compatibility rejects unclassified package versions", () => {
+  const pins = [
+    {
+      packageName: "@copilotkit/runtime",
+      packagePath: "package.json",
+      version: "9.9.9",
+    },
+  ] as const satisfies readonly ManagedSdkPin[];
+
+  expect(() => expectPinnedSdkCompatibilityContract(pins, "", "", "")).toThrow(
+    /must be classified/,
+  );
 });
 
 test("managed README helper rejects missing offline or self-hosted license guidance", () => {
@@ -3649,6 +3984,27 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
     expectManagedRuntimeContract(runtime);
   });
 
+  test(`${contract.directory} keeps entitlement compatibility for its pinned SDKs`, () => {
+    const runtime = readManagedSurface(
+      contract,
+      contract.runtimePath,
+      "runtime",
+    );
+    const envExample = readManagedSurface(
+      contract,
+      contract.envPath,
+      "env example",
+    );
+    const readme = readManagedSurface(contract, contract.readmePath, "README");
+
+    expectPinnedSdkCompatibilityContract(
+      readManagedSdkPins(contract),
+      runtime,
+      envExample,
+      readme,
+    );
+  });
+
   test(`${contract.directory} client gate uses the managed Intelligence API key`, () => {
     const gate = readManagedSurface(contract, contract.gatePath, "client gate");
 
@@ -3810,6 +4166,29 @@ for (const contract of MANAGED_TEMPLATE_CONTRACTS) {
       expectAgentCoreRuntimeDeploymentContract(runtimeDeployment);
     });
 
+    test(`${contract.directory} deploys the pinned SDK license token through Secrets Manager`, () => {
+      const deploymentConfig = readManagedSurface(
+        contract,
+        supportedPaths.deploymentConfigPath,
+        "deployment config",
+      );
+      const runtimeDeployment = readManagedSurface(
+        contract,
+        supportedPaths.runtimeDeploymentPath,
+        "runtime deployment config",
+      );
+      const deployScripts = supportedPaths.deployScriptPaths.map(
+        (deployScriptPath) =>
+          readManagedSurface(contract, deployScriptPath, "deploy script"),
+      );
+
+      expectAgentCoreLegacyLicenseDeploymentContract(
+        deploymentConfig,
+        runtimeDeployment,
+        deployScripts,
+      );
+    });
+
     test(`${contract.directory} deployed frontend receives only the key-derived gate`, () => {
       const frontendDeployment = readManagedSurface(
         contract,
@@ -3936,14 +4315,20 @@ function readAgentCoreHarnessLines(capturePath: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-/** Emit a shell probe that records any managed-key environment or argv leak. */
+/** Emit a shell probe that records any backend-credential environment leak. */
 function agentCoreSecretExposureProbe(command: string): string {
   return [
     `if [[ -n "\${${MANAGED_API_KEY}-}" ]]; then`,
     `  printf '%s\\n' '${command}:env' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
     "fi",
+    `if [[ -n "\${${MANAGED_LICENSE_TOKEN}-}" ]]; then`,
+    `  printf '%s\\n' '${command}:license-env' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
     `if [[ "$*" == *'${MANAGED_API_KEY_SENTINEL}'* ]]; then`,
     `  printf '%s\\n' '${command}:argv' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
+    "fi",
+    `if [[ "$*" == *'${LEGACY_LICENSE_TOKEN_SENTINEL}'* ]]; then`,
+    `  printf '%s\\n' '${command}:license-argv' >> "\${SECRET_EXPOSURE_CAPTURE:?}"`,
     "fi",
   ].join("\n");
 }
@@ -3985,6 +4370,7 @@ function runAgentCoreDeployHarness(
       path.join(harnessDirectory, ".env"),
       [
         `${MANAGED_API_KEY}=${MANAGED_API_KEY_SENTINEL}\n`,
+        `${MANAGED_LICENSE_TOKEN}=${LEGACY_LICENSE_TOKEN_SENTINEL}\n`,
         `${OPTIONAL_TELEMETRY_ID}=agentcore-test-telemetry\n`,
         agentCoreEndpointAssignment(
           INTELLIGENCE_API_URL,
@@ -4001,6 +4387,7 @@ function runAgentCoreDeployHarness(
       [
         "stack_name_base: agentcore-contract\n",
         `${MANAGED_API_KEY_SECRET_CONFIG}: agentcore/contract/key\n`,
+        `${LEGACY_LICENSE_TOKEN_SECRET_CONFIG}: agentcore/contract/license-token\n`,
         "backend:\n",
         "  pattern: placeholder\n",
       ].join(""),
@@ -4030,11 +4417,14 @@ function runAgentCoreDeployHarness(
         'if [[ "$*" == *"secretsmanager put-secret-value"* || "$*" == *"secretsmanager create-secret"* ]]; then\n',
         "  secret_input=$(cat)\n",
         `  if [[ "$secret_input" == '${MANAGED_API_KEY_SENTINEL}' ]]; then\n`,
-        "    printf '%s\\n' 'aws:stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        "    printf '%s\\n' 'aws:key-stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        `    printf '%s\\n' '${MANAGED_API_KEY_SECRET_VERSION_SENTINEL}'\n`,
+        `  elif [[ "$secret_input" == '${LEGACY_LICENSE_TOKEN_SENTINEL}' ]]; then\n`,
+        "    printf '%s\\n' 'aws:license-stdin-match' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
+        `    printf '%s\\n' '${LEGACY_LICENSE_TOKEN_SECRET_VERSION_SENTINEL}'\n`,
         "  else\n",
         "    printf '%s\\n' 'aws:stdin-missing' >> \"${SECRET_INPUT_CAPTURE:?}\"\n",
         "  fi\n",
-        `  printf '%s\\n' '${MANAGED_API_KEY_SECRET_VERSION_SENTINEL}'\n`,
         "fi\n",
       ].join(""),
     );
@@ -4045,7 +4435,7 @@ function runAgentCoreDeployHarness(
         "#!/usr/bin/env bash\n",
         "set -eu\n",
         `${agentCoreSecretExposureProbe("npx")}\n`,
-        `printf '%s\\n%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" "\${${MANAGED_API_KEY_SECRET_VERSION_ID}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
+        `printf '%s\\n%s\\n%s\\n%s\\n' "\${${INTELLIGENCE_API_URL}-}" "\${${INTELLIGENCE_GATEWAY_WS_URL}-}" "\${${MANAGED_API_KEY_SECRET_VERSION_ID}-}" "\${${LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID}-}" > "\${CDK_ENV_CAPTURE:?}"\n`,
       ].join(""),
     );
     fs.writeFileSync(
@@ -4057,6 +4447,9 @@ function runAgentCoreDeployHarness(
         `if os.environ.get('${MANAGED_API_KEY}'):\n`,
         '    with pathlib.Path(os.environ["SECRET_EXPOSURE_CAPTURE"]).open("a") as capture:\n',
         '        capture.write("frontend:env\\n")\n',
+        `if os.environ.get('${MANAGED_LICENSE_TOKEN}'):\n`,
+        '    with pathlib.Path(os.environ["SECRET_EXPOSURE_CAPTURE"]).open("a") as capture:\n',
+        '        capture.write("frontend:license-env\\n")\n',
         'pathlib.Path(os.environ["FRONTEND_CAPTURE"]).write_text(\n',
         `    f"{sys.argv[1]}\\n{os.environ.get('${MANAGED_API_KEY_SECRET_VERSION_ID}', '')}\\n{os.environ.get('${VITE_THREADS_GATE}', '')}\\n"\n`,
         ")\n",
@@ -4065,9 +4458,11 @@ function runAgentCoreDeployHarness(
 
     const environment = { ...process.env };
     environment[MANAGED_API_KEY] = MANAGED_API_KEY_SENTINEL;
+    environment[MANAGED_LICENSE_TOKEN] = LEGACY_LICENSE_TOKEN_SENTINEL;
     delete environment[INTELLIGENCE_API_URL];
     delete environment[INTELLIGENCE_GATEWAY_WS_URL];
     delete environment[MANAGED_API_KEY_SECRET_VERSION_ID];
+    delete environment[LEGACY_LICENSE_TOKEN_SECRET_VERSION_ID];
     environment.PATH = `${fakeBin}:${process.env.PATH ?? ""}`;
     environment.CDK_ENV_CAPTURE = capturePath;
     environment.AWS_COMMAND_CAPTURE = awsCapturePath;
@@ -4105,6 +4500,9 @@ function runAgentCoreDeployHarness(
     const secretVersionId = capturedEnvironment
       ? (capturedLines[2] ?? null)
       : null;
+    const licenseTokenSecretVersionId = capturedEnvironment
+      ? (capturedLines[3] ?? null)
+      : null;
     const frontendEnvironment = fs.existsSync(frontendCapturePath)
       ? fs.readFileSync(frontendCapturePath, "utf8").split("\n")
       : null;
@@ -4113,6 +4511,7 @@ function runAgentCoreDeployHarness(
       output,
       cdkEnvironment,
       secretVersionId,
+      licenseTokenSecretVersionId,
       awsCommands: readAgentCoreHarnessLines(awsCapturePath),
       npmCommands: readAgentCoreHarnessLines(npmCapturePath),
       frontendStackName: frontendEnvironment?.[0] ?? null,

@@ -31,6 +31,8 @@ export interface AppConfig {
   admin_user_email?: string | null;
   /** Secrets Manager name containing the managed CopilotKit Intelligence key. */
   copilotkit_intelligence_api_key_secret_name: string;
+  /** Secrets Manager name containing the pinned SDK compatibility token. */
+  copilotkit_license_token_secret_name: string;
   backend: {
     pattern: string;
     deployment_type: DeploymentType;
@@ -112,6 +114,8 @@ export class ConfigManager {
         admin_user_email: parsedConfig.admin_user_email || null,
         copilotkit_intelligence_api_key_secret_name:
           parsedConfig.copilotkit_intelligence_api_key_secret_name,
+        copilotkit_license_token_secret_name:
+          parsedConfig.copilotkit_license_token_secret_name,
         backend: {
           pattern: parsedConfig.backend?.pattern || "langgraph-single-agent",
           deployment_type: deploymentType,

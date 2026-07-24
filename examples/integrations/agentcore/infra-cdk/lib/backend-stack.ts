@@ -437,6 +437,12 @@ export class BackendStack extends cdk.NestedStack {
               versionId: process.env.CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID,
             },
           ).unsafeUnwrap(),
+          COPILOTKIT_LICENSE_TOKEN: cdk.SecretValue.secretsManager(
+            config.copilotkit_license_token_secret_name,
+            {
+              versionId: process.env.COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID,
+            },
+          ).unsafeUnwrap(),
           CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
           INTELLIGENCE_API_URL:
             process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",

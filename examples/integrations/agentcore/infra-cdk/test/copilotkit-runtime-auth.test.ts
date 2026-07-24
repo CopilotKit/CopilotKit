@@ -76,6 +76,7 @@ test("synthesizes BackendStack with all authenticated Runtime methods", () => {
   const config: AppConfig = {
     stack_name_base: "backend-runtime-test",
     copilotkit_intelligence_api_key_secret_name: "test/intelligence-key",
+    copilotkit_license_token_secret_name: "test/license-token",
     backend: {
       pattern: "langgraph-single-agent",
       deployment_type: "docker",
