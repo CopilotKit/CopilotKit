@@ -1,5 +1,6 @@
 "use client";
 
+// @region[weather-card-component]
 import React from "react";
 
 export interface WeatherCardProps {
@@ -85,3 +86,4 @@ function conditionsEmoji(conditions?: string): string {
   if (c.includes("snow")) return "snow";
   return "";
 }
+// @endregion[weather-card-component]
