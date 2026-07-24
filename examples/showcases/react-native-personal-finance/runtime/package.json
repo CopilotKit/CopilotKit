@@ -1,0 +1,32 @@
+{
+  "name": "finance-tracker-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CopilotKit runtime for the Personal Finance Copilot React Native app: hosts the finance assistant agent (AG-UI over @copilotkit/runtime) and a vision-powered receipt parsing endpoint.",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.49",
+    "@ai-sdk/openai": "^3.0.36",
+    "@copilotkit/runtime": "1.59.2",
+    "ai": "^6.0.104",
+    "next": "^15.5.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^3.23.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}

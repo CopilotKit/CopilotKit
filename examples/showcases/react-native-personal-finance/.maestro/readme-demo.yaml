@@ -1,0 +1,60 @@
+# README / docs demo recording — drives the chat hero moments.
+#
+# Captures: empty chat → donut chart → balances card → HITL approval card → approved.
+# Skips an explicit tab tour because the Dashboard already shows the
+# multi-currency story; we jump straight to the Assistant tab.
+#
+# IMPORTANT: We submit each prompt via `pressKey: Enter` instead of tapping
+# the Send button. On iOS under the New Architecture, programmatic text
+# input (Maestro's `inputText`) writes to the native UITextField directly
+# but does NOT dispatch React Native's `onChangeText`, so the controlled
+# `inputText` state stays empty and Send's onPress reads "". The
+# `onSubmitEditing` callback on the TextInput is wired to read text from
+# `e.nativeEvent.text` (the native value), so the Enter-key path works.
+appId: ai.copilotkit.examples.personalfinance
+---
+- launchApp
+- extendedWaitUntil:
+    visible: "Overview"
+    timeout: 90000
+- assertVisible: "NET WORTH"
+- waitForAnimationToEnd
+
+# → Assistant tab (rightmost of 5 tabs at the bottom).
+- tapOn:
+    point: "90%, 96%"
+- waitForAnimationToEnd
+- tapOn:
+    text: "Message your finance.*"
+- takeScreenshot: /tmp/shot-1-chat-start
+
+# Prompt 1: generative-UI donut chart
+- inputText: "where did my money go this month"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Total"
+    timeout: 120000
+- takeScreenshot: /tmp/shot-2-chat-donut
+
+# Prompt 2: balances card
+- tapOn:
+    text: "Message your finance.*"
+- inputText: "show me my balances"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Accounts · 3"
+    timeout: 120000
+- takeScreenshot: /tmp/shot-3-chat-accounts
+
+# Prompt 3: HITL approval card
+- tapOn:
+    text: "Message your finance.*"
+- inputText: "I spent $12.50 on coffee at Blue Bottle paid with Checking"
+- pressKey: Enter
+- extendedWaitUntil:
+    visible: "Add expense"
+    timeout: 120000
+- takeScreenshot: /tmp/shot-4-chat-hitl-pending
+- tapOn: "Add expense"
+- waitForAnimationToEnd
+- takeScreenshot: /tmp/shot-5-chat-hitl-approved

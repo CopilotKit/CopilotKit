@@ -1,0 +1,51 @@
+# Maestro demo flow — Personal Finance Copilot (CopilotKit React Native)
+# Headline UX for the demo recording:
+#   1. tab tour (Dashboard → Accounts → Transactions → Budgets)
+#   2. add a transaction by chat, approved via human-in-the-loop ("Add expense")
+#   3. set a budget by chat, approved via human-in-the-loop ("Save")
+#   4. back to Budgets to show the write landed
+#
+# Run:  maestro test .maestro/demo.yaml   (booted iOS sim + Metro + runtime up)
+appId: ai.copilotkit.examples.personalfinance
+---
+- launchApp
+
+# ── Tab tour: the tracker UI ──
+- extendedWaitUntil:
+    visible: "Overview"
+    timeout: 90000
+- assertVisible: "NET WORTH"
+- tapOn: "Accounts"
+- assertVisible: "Travel Fund"
+- tapOn: "Transactions"
+- swipe:
+    direction: UP
+- swipe:
+    direction: DOWN
+- tapOn: "Budgets"
+- assertVisible: "Groceries"
+
+# ── Add a transaction by chat → human-in-the-loop approval ──
+- tapOn: "Assistant"
+- tapOn:
+    text: "Message your finance.*"
+- inputText: "I spent $12.50 on coffee at Blue Bottle this morning, paid with Checking"
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "Add expense"
+    timeout: 90000
+- tapOn: "Add expense"
+
+# ── Set a budget by chat → human-in-the-loop approval ──
+- tapOn:
+    text: "Message your finance.*"
+- inputText: "Set my groceries budget to $500 a month"
+- tapOn: "Send"
+- extendedWaitUntil:
+    visible: "Save"
+    timeout: 90000
+- tapOn: "Save"
+
+# ── Show the budget change reflected in the UI ──
+- tapOn: "Budgets"
+- assertVisible: "Groceries"
