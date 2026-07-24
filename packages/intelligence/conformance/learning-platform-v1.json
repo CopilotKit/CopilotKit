@@ -6154,6 +6154,828 @@
       }
     },
     {
+      "name": "run-snapshot-rejects-identical-duplicate-tool-results",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "TOOL_CALL_RESULT"
+          },
+          {
+            "eventId": "event_3",
+            "sequence": 3,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "ACTIVITY_SNAPSHOT"
+          },
+          {
+            "eventId": "event_custom",
+            "sequence": 4,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "CUSTOM"
+          },
+          {
+            "eventId": "event_terminal",
+            "sequence": 5,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "terminalEventId": "event_terminal",
+        "terminalStatus": null,
+        "terminalType": "RUN_ERROR",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-rejects-contradictory-duplicate-tool-results",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "output": {
+                  "message": "search failed"
+                },
+                "status": "error",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "TOOL_CALL_RESULT"
+          },
+          {
+            "eventId": "event_3",
+            "sequence": 3,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "ACTIVITY_SNAPSHOT"
+          },
+          {
+            "eventId": "event_custom",
+            "sequence": 4,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "CUSTOM"
+          },
+          {
+            "eventId": "event_terminal",
+            "sequence": 5,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "terminalEventId": "event_terminal",
+        "terminalStatus": null,
+        "terminalType": "RUN_ERROR",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-rejects-tool-results-repeated-across-messages",
+      "schema": "RunSnapshotV1",
+      "valid": false,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_result_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "TOOL_CALL_RESULT"
+          },
+          {
+            "eventId": "event_3",
+            "sequence": 3,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "ACTIVITY_SNAPSHOT"
+          },
+          {
+            "eventId": "event_custom",
+            "sequence": 4,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "CUSTOM"
+          },
+          {
+            "eventId": "event_terminal",
+            "sequence": 5,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "terminalEventId": "event_terminal",
+        "terminalStatus": null,
+        "terminalType": "RUN_ERROR",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-accepts-one-result-for-each-distinct-tool-call",
+      "schema": "RunSnapshotV1",
+      "valid": true,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              },
+              {
+                "argsText": "{}",
+                "id": "call_2",
+                "name": "fetch"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "name": "fetch",
+                "output": {
+                  "found": true
+                },
+                "status": "ok",
+                "toolCallId": "call_2"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "TOOL_CALL_RESULT"
+          },
+          {
+            "eventId": "event_3",
+            "sequence": 3,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "ACTIVITY_SNAPSHOT"
+          },
+          {
+            "eventId": "event_custom",
+            "sequence": 4,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "CUSTOM"
+          },
+          {
+            "eventId": "event_terminal",
+            "sequence": 5,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "terminalEventId": "event_terminal",
+        "terminalStatus": null,
+        "terminalType": "RUN_ERROR",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
+      "name": "run-snapshot-accepts-tool-call-without-result",
+      "schema": "RunSnapshotV1",
+      "valid": true,
+      "value": {
+        "agentRunId": "agent_run_1",
+        "annotations": [],
+        "assignmentRevision": 0,
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "byteLength": 100,
+        "capturedAt": "2026-07-16T18:00:00.000Z",
+        "containerSequence": 1,
+        "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "externalRunId": "external_run_1",
+        "learningContainerId": "55555555-5555-4555-8555-555555555555",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "normalizerVersion": "normalizer:v1",
+        "organizationId": "org_1",
+        "projectId": "project_1",
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "sanitizerVersion": "sanitizer:v1",
+        "schemaVersion": 1,
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "sourceEvents": [
+          {
+            "eventId": "event_1",
+            "sequence": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "TEXT_MESSAGE_END"
+          },
+          {
+            "eventId": "event_2",
+            "sequence": 2,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "TOOL_CALL_RESULT"
+          },
+          {
+            "eventId": "event_3",
+            "sequence": 3,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "ACTIVITY_SNAPSHOT"
+          },
+          {
+            "eventId": "event_custom",
+            "sequence": 4,
+            "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "type": "CUSTOM"
+          },
+          {
+            "eventId": "event_terminal",
+            "sequence": 5,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "type": "RUN_ERROR"
+          }
+        ],
+        "startedAt": "2026-07-16T18:00:00.000Z",
+        "stateChanges": [],
+        "terminalAt": "2026-07-16T18:00:00.000Z",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "terminalEventId": "event_terminal",
+        "terminalStatus": null,
+        "terminalType": "RUN_ERROR",
+        "threadId": "thread_1",
+        "tokenEstimate": 25
+      }
+    },
+    {
       "name": "run-snapshot-rejects-message-event-outside-manifest",
       "schema": "RunSnapshotV1",
       "valid": false,
@@ -9465,6 +10287,573 @@
                 "toolCallId": "call_1"
               }
             ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-rejects-identical-duplicate-tool-results",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-rejects-contradictory-duplicate-tool-results",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "output": {
+                  "message": "search failed"
+                },
+                "status": "error",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-rejects-tool-results-repeated-across-messages",
+      "schema": "WorkflowThreadV1",
+      "valid": false,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_result_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-accepts-one-result-for-each-distinct-tool-call",
+      "schema": "WorkflowThreadV1",
+      "valid": true,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              },
+              {
+                "argsText": "{}",
+                "id": "call_2",
+                "name": "fetch"
+              }
+            ],
+            "toolResults": []
+          },
+          {
+            "content": "done",
+            "eventIds": [
+              "event_2"
+            ],
+            "messageId": "message_2",
+            "role": "tool",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": [
+              {
+                "output": {
+                  "hits": 1
+                },
+                "status": "ok",
+                "toolCallId": "call_1"
+              },
+              {
+                "name": "fetch",
+                "output": {
+                  "found": true
+                },
+                "status": "ok",
+                "toolCallId": "call_2"
+              }
+            ]
+          },
+          {
+            "activityMetadata": {
+              "destination": "support"
+            },
+            "activityType": "handoff",
+            "content": null,
+            "eventIds": [
+              "event_3"
+            ],
+            "messageId": "message_3",
+            "role": "activity",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [],
+            "toolResults": []
+          }
+        ],
+        "retainedEvidence": {
+          "events": [
+            {
+              "eventId": "event_custom",
+              "payload": {
+                "answer": 42
+              },
+              "timestamp": "2026-07-16T18:00:00.000Z",
+              "type": "CUSTOM"
+            }
+          ],
+          "schemaVersion": 1
+        },
+        "snapshotId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "snapshotSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "terminalError": {
+          "category": "model",
+          "code": "MODEL_FAILED",
+          "details": {
+            "attempt": 1
+          },
+          "message": "The run failed.",
+          "schemaVersion": 1,
+          "stack": null
+        },
+        "threadId": "thread_1"
+      }
+    },
+    {
+      "name": "workflow-thread-accepts-tool-call-without-result",
+      "schema": "WorkflowThreadV1",
+      "valid": true,
+      "value": {
+        "attachments": [
+          {
+            "byteLength": 12,
+            "checksum": {
+              "algorithm": "sha256",
+              "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "mediaType": "text/plain",
+            "metadata": {
+              "source": "gateway"
+            },
+            "name": "attachment.txt",
+            "objectLocator": {
+              "key": "snapshots/attachment.txt",
+              "resource": "learning-evidence",
+              "version": null
+            },
+            "provider": "s3",
+            "schemaVersion": 1
+          }
+        ],
+        "externalRunId": "external_run_1",
+        "messages": [
+          {
+            "content": "searching",
+            "eventIds": [
+              "event_1"
+            ],
+            "messageId": "message_1",
+            "role": "assistant",
+            "timestamp": "2026-07-16T18:00:00.000Z",
+            "toolCalls": [
+              {
+                "argsText": "{}",
+                "id": "call_1",
+                "name": "search"
+              }
+            ],
+            "toolResults": []
           },
           {
             "activityMetadata": {
@@ -24904,6 +26293,10 @@
                 "values": "/messages/*/toolCalls/*/id"
               },
               {
+                "operation": "unique",
+                "values": "/messages/*/toolResults/*/toolCallId"
+              },
+              {
                 "operation": "references",
                 "targets": "/messages/*/toolCalls/*/id",
                 "values": "/messages/*/toolResults/*/toolCallId"
@@ -27618,6 +29011,10 @@
         {
           "operation": "unique",
           "values": "/messages/*/toolCalls/*/id"
+        },
+        {
+          "operation": "unique",
+          "values": "/messages/*/toolResults/*/toolCallId"
         },
         {
           "operation": "references",
@@ -30653,6 +32050,10 @@
         {
           "operation": "unique",
           "values": "/messages/*/toolCalls/*/id"
+        },
+        {
+          "operation": "unique",
+          "values": "/messages/*/toolResults/*/toolCallId"
         },
         {
           "operation": "references",

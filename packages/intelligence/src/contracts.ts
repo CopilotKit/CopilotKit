@@ -396,6 +396,7 @@ function messageIdentityIssues(
   const messagesById = new Map<string, number>();
   const toolCallsById = new Map<string, { readonly name: string }>();
   const duplicateToolCallIds = new Set<string>();
+  const toolResultCallIds = new Set<string>();
 
   messages.forEach((message, messageIndex) => {
     if (messagesById.has(message.messageId)) {
@@ -422,6 +423,21 @@ function messageIdentityIssues(
 
   messages.forEach((message, messageIndex) => {
     message.toolResults.forEach((result, resultIndex) => {
+      if (toolResultCallIds.has(result.toolCallId)) {
+        issues.push({
+          path: [
+            "messages",
+            messageIndex,
+            "toolResults",
+            resultIndex,
+            "toolCallId",
+          ],
+          message: `Duplicate tool result for call ${result.toolCallId}.`,
+        });
+      } else {
+        toolResultCallIds.add(result.toolCallId);
+      }
+
       const call = toolCallsById.get(result.toolCallId);
       if (call === undefined || duplicateToolCallIds.has(result.toolCallId)) {
         issues.push({
@@ -2428,6 +2444,10 @@ registerLearningContractPortableAssertions(runSnapshotV1Schema, [
     values: "/messages/*/toolCalls/*/id",
   },
   {
+    operation: "unique",
+    values: "/messages/*/toolResults/*/toolCallId",
+  },
+  {
     operation: "references",
     values: "/messages/*/eventIds/*",
     targets: "/sourceEvents/*/eventId",
@@ -2484,6 +2504,10 @@ registerLearningContractPortableAssertions(workflowThreadV1Schema, [
   {
     operation: "unique",
     values: "/messages/*/toolCalls/*/id",
+  },
+  {
+    operation: "unique",
+    values: "/messages/*/toolResults/*/toolCallId",
   },
   {
     operation: "references",

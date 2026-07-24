@@ -233,6 +233,14 @@ const workflowInput = {
   limits: {},
 } as const;
 
+function portableSnapshotWithMessages(messages: readonly unknown[]) {
+  return { ...finishedSnapshot, messages };
+}
+
+function portableThreadWithMessages(messages: readonly unknown[]) {
+  return { ...workflowInput.threads[0], messages };
+}
+
 function failedSnapshot() {
   return {
     ...finishedSnapshot,
@@ -798,6 +806,112 @@ describe("canonical snapshot evidence contracts", () => {
       }),
     ).toBe(false);
   });
+
+  test.each([
+    {
+      name: "an identical result repeated in one message",
+      valid: false,
+      messages: [
+        {
+          ...assistantCallMessage,
+          toolResults: [
+            toolResultMessage.toolResults[0],
+            toolResultMessage.toolResults[0],
+          ],
+        },
+        { ...toolResultMessage, role: "assistant", toolResults: [] },
+      ],
+    },
+    {
+      name: "contradictory success and error results in one message",
+      valid: false,
+      messages: [
+        assistantCallMessage,
+        {
+          ...toolResultMessage,
+          toolResults: [
+            toolResultMessage.toolResults[0],
+            {
+              toolCallId: "call_1",
+              status: "error",
+              output: { message: "search failed" },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "results repeated across different messages",
+      valid: false,
+      messages: [
+        assistantCallMessage,
+        toolResultMessage,
+        { ...toolResultMessage, messageId: "message_result_2" },
+      ],
+    },
+    {
+      name: "one result for one call",
+      valid: true,
+      messages: [assistantCallMessage, toolResultMessage],
+    },
+    {
+      name: "one result for each of multiple distinct calls",
+      valid: true,
+      messages: [
+        {
+          ...assistantCallMessage,
+          toolCalls: [
+            assistantCallMessage.toolCalls[0],
+            { id: "call_2", name: "fetch", argsText: "{}" },
+          ],
+        },
+        {
+          ...toolResultMessage,
+          toolResults: [
+            toolResultMessage.toolResults[0],
+            {
+              toolCallId: "call_2",
+              name: "fetch",
+              status: "ok",
+              output: { found: true },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "a call without a result",
+      valid: true,
+      messages: [assistantCallMessage],
+    },
+    {
+      name: "a message without calls or results",
+      valid: true,
+      messages: [
+        {
+          ...assistantCallMessage,
+          toolCalls: [],
+          toolResults: [],
+        },
+      ],
+    },
+  ])(
+    "portable snapshots and workflow threads treat $name as valid=$valid",
+    ({ messages, valid }) => {
+      const portable = createLearningContractJsonSchemaValidator();
+      const validateSnapshot = portable.compile(
+        learningContractJsonSchemas.RunSnapshotV1,
+      );
+      const validateThread = portable.compile(
+        learningContractJsonSchemas.WorkflowThreadV1,
+      );
+
+      expect(validateSnapshot(portableSnapshotWithMessages(messages))).toBe(
+        valid,
+      );
+      expect(validateThread(portableThreadWithMessages(messages))).toBe(valid);
+    },
+  );
 
   test("carries retained evidence and custom event references into portable workflow schemas", () => {
     const portable = createLearningContractJsonSchemaValidator();

@@ -55,6 +55,13 @@ const toolResult = {
   status: "ok",
   output: { hits: 1 },
 };
+const secondToolCall = { id: "call_2", name: "fetch", argsText: "{}" };
+const secondToolResult = {
+  toolCallId: "call_2",
+  name: "fetch",
+  status: "ok",
+  output: { found: true },
+};
 const assistantCallMessage = {
   messageId: "message_1",
   role: "assistant",
@@ -1363,6 +1370,87 @@ function buildCases(): LearningPlatformConformanceCase[] {
       },
     },
     {
+      name: "run-snapshot-rejects-identical-duplicate-tool-results",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [toolResult, toolResult],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-contradictory-duplicate-tool-results",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [
+              toolResult,
+              {
+                ...toolResult,
+                status: "error",
+                output: { message: "search failed" },
+              },
+            ],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-rejects-tool-results-repeated-across-messages",
+      schema: "RunSnapshotV1",
+      valid: false,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          assistantCallMessage,
+          toolResultMessage,
+          { ...toolResultMessage, messageId: "message_result_2" },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-accepts-one-result-for-each-distinct-tool-call",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        messages: [
+          {
+            ...assistantCallMessage,
+            toolCalls: [toolCall, secondToolCall],
+          },
+          {
+            ...toolResultMessage,
+            toolResults: [toolResult, secondToolResult],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "run-snapshot-accepts-tool-call-without-result",
+      schema: "RunSnapshotV1",
+      valid: true,
+      value: {
+        ...canonicalSnapshot,
+        messages: [assistantCallMessage, activityMessage],
+      },
+    },
+    {
       name: "run-snapshot-rejects-message-event-outside-manifest",
       schema: "RunSnapshotV1",
       valid: false,
@@ -1606,6 +1694,87 @@ function buildCases(): LearningPlatformConformanceCase[] {
           toolResultMessage,
           activityMessage,
         ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-identical-duplicate-tool-results",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [toolResult, toolResult],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-contradictory-duplicate-tool-results",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          assistantCallMessage,
+          {
+            ...toolResultMessage,
+            toolResults: [
+              toolResult,
+              {
+                ...toolResult,
+                status: "error",
+                output: { message: "search failed" },
+              },
+            ],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-rejects-tool-results-repeated-across-messages",
+      schema: "WorkflowThreadV1",
+      valid: false,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          assistantCallMessage,
+          toolResultMessage,
+          { ...toolResultMessage, messageId: "message_result_2" },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-accepts-one-result-for-each-distinct-tool-call",
+      schema: "WorkflowThreadV1",
+      valid: true,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [
+          {
+            ...assistantCallMessage,
+            toolCalls: [toolCall, secondToolCall],
+          },
+          {
+            ...toolResultMessage,
+            toolResults: [toolResult, secondToolResult],
+          },
+          activityMessage,
+        ],
+      },
+    },
+    {
+      name: "workflow-thread-accepts-tool-call-without-result",
+      schema: "WorkflowThreadV1",
+      valid: true,
+      value: {
+        ...canonicalWorkflowThread,
+        messages: [assistantCallMessage, activityMessage],
       },
     },
     {

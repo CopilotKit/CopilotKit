@@ -124,6 +124,10 @@ const snapshot = {
   containerSequence: 1,
 } as const;
 
+function snapshotWithMessages(messages: readonly unknown[]) {
+  return { ...snapshot, messages };
+}
+
 const correlatedRetainedEvidenceEvent = {
   eventId: "event_1",
   type: "TEXT_MESSAGE_END",
@@ -264,6 +268,10 @@ const workflowInput = {
   promptContext: null,
   limits: {},
 } as const;
+
+function workflowThreadWithMessages(messages: readonly unknown[]) {
+  return { ...workflowInput.threads[0], messages };
+}
 
 const generatedInsight = {
   outputAlias: "insight_1",
@@ -959,6 +967,108 @@ describe("parent V1 contract schemas", () => {
       status: "unknown",
       output: { hits: 2 },
     });
+  });
+
+  test.each([
+    {
+      name: "an identical result repeated in one message",
+      messages: [
+        {
+          ...snapshot.messages[0],
+          toolResults: [
+            snapshot.messages[0].toolResults[0],
+            snapshot.messages[0].toolResults[0],
+          ],
+        },
+      ],
+    },
+    {
+      name: "contradictory success and error results in one message",
+      messages: [
+        {
+          ...snapshot.messages[0],
+          toolResults: [
+            { toolCallId: "call_1", status: "ok", output: { hits: 2 } },
+            {
+              toolCallId: "call_1",
+              status: "error",
+              output: { message: "search failed" },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "results repeated across different messages",
+      messages: [
+        snapshot.messages[0],
+        {
+          ...snapshot.messages[0],
+          messageId: "message_2",
+          role: "tool",
+          toolCalls: [],
+        },
+      ],
+    },
+  ])("rejects $name in snapshots and workflow threads", ({ messages }) => {
+    expect(
+      runSnapshotV1Schema.safeParse(snapshotWithMessages(messages)).success,
+    ).toBe(false);
+    expect(
+      workflowThreadV1Schema.safeParse(workflowThreadWithMessages(messages))
+        .success,
+    ).toBe(false);
+  });
+
+  test.each([
+    {
+      name: "one result for one call",
+      messages: snapshot.messages,
+    },
+    {
+      name: "one result for each of multiple distinct calls",
+      messages: [
+        {
+          ...snapshot.messages[0],
+          toolCalls: [
+            snapshot.messages[0].toolCalls[0],
+            { id: "call_2", name: "fetch", argsText: "{}" },
+          ],
+          toolResults: [
+            snapshot.messages[0].toolResults[0],
+            {
+              toolCallId: "call_2",
+              name: "fetch",
+              status: "ok",
+              output: { found: true },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "a call without a result",
+      messages: [{ ...snapshot.messages[0], toolResults: [] }],
+    },
+    {
+      name: "a message without calls or results",
+      messages: [
+        {
+          ...snapshot.messages[0],
+          role: "assistant",
+          toolCalls: [],
+          toolResults: [],
+        },
+      ],
+    },
+  ])("accepts $name in snapshots and workflow threads", ({ messages }) => {
+    expect(
+      runSnapshotV1Schema.safeParse(snapshotWithMessages(messages)).success,
+    ).toBe(true);
+    expect(
+      workflowThreadV1Schema.safeParse(workflowThreadWithMessages(messages))
+        .success,
+    ).toBe(true);
   });
 
   test.each([
