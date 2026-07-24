@@ -12,7 +12,10 @@ import type {
   UseThreadsResult,
 } from "../../../hooks/use-threads";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
-import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+import {
+  CopilotKitProvider,
+  useLicenseContext,
+} from "../../../providers/CopilotKitProvider";
 import { CopilotThreadsDrawer } from "../CopilotThreadsDrawer";
 
 const useThreadsMock = vi.fn<(input: UseThreadsInput) => UseThreadsResult>();
@@ -100,6 +103,44 @@ async function flushPromiseUpdates(): Promise<void> {
     await vi.advanceTimersByTimeAsync(0);
   });
 }
+
+/** Render only the feature decision exposed to React consumers. */
+function FeatureProbe() {
+  const { checkFeature } = useLicenseContext();
+
+  return <div data-testid="feature-probe">{String(checkFeature("chat"))}</div>;
+}
+
+test("a ready inactive entitlement denies feature-only React consumers", async () => {
+  const { dispose } = setupDrawerTest({
+    ...managedRuntimeInfo(true),
+    licenseStatus: "none",
+    runtimeEntitlements: {
+      status: "ready",
+      entitlement: {
+        active: false,
+        source: "managedOrgSubscription",
+        planCode: "pro",
+        features: { chat: true },
+        limits: {},
+      },
+    },
+  });
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <FeatureProbe />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("feature-probe").textContent).toBe("false");
+    });
+  } finally {
+    dispose();
+  }
+});
 
 test("managed entitlements keep the drawer locked when threads are denied", async () => {
   const { dispose } = setupManagedEntitlementDrawerTest(false);

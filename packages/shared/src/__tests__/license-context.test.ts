@@ -52,3 +52,22 @@ test("license context uses ready active feature grants and numeric limits", () =
   expect(ctx.getLimit("threads")).toBe(25);
   expect(ctx.getLimit("unknown")).toBeNull();
 });
+
+test("license context denies features and limits for a ready inactive entitlement", () => {
+  const ctx = createLicenseContextValue("none", {
+    status: "ready",
+    entitlement: {
+      active: false,
+      source: "managedOrgSubscription",
+      features: {
+        chat: true,
+      },
+      limits: {
+        threads: 25,
+      },
+    },
+  });
+
+  expect(ctx.checkFeature("chat")).toBe(false);
+  expect(ctx.getLimit("threads")).toBeNull();
+});

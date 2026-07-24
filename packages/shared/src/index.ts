@@ -51,7 +51,7 @@ export interface LicenseContextValue {
   status: RuntimeLicenseStatus | null;
   /** The license payload if available. Always null on the client; the payload stays server-side. */
   license: LicensePayload | null;
-  /** Whether a feature is licensed. Ready active grants override legacy status behavior. */
+  /** Whether a feature is licensed. Ready entitlements override legacy status behavior. */
   checkFeature: (feature: string) => boolean;
   /** Get a numeric feature limit. Returns null if not applicable. */
   getLimit: (feature: string) => number | null;
@@ -61,10 +61,11 @@ export interface LicenseContextValue {
  * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
  *
- * A ready, active structured entitlement is authoritative for feature grants
- * and limits. Older runtimes that report only a status retain the legacy
- * behavior: features are enabled unless the status is "expired" or "invalid",
- * and no limits are reported. This is inlined here to avoid importing the full
+ * A ready structured entitlement is authoritative. Active entitlements supply
+ * feature grants and limits; inactive entitlements deny every feature and
+ * limit. Older runtimes that report only a status retain the legacy behavior:
+ * features are enabled unless the status is "expired" or "invalid", and no
+ * limits are reported. This is inlined here to avoid importing the full
  * license-verifier bundle (which depends on Node's `crypto`) into browser
  * bundles.
  */
@@ -75,18 +76,18 @@ export function createLicenseContextValue(
   const resolvedStatus = status ?? null;
   const featuresEnabled =
     resolvedStatus !== "expired" && resolvedStatus !== "invalid";
-  const activeEntitlement =
-    runtimeEntitlements?.status === "ready" &&
-    runtimeEntitlements.entitlement.active
+  const readyEntitlement =
+    runtimeEntitlements?.status === "ready"
       ? runtimeEntitlements.entitlement
       : null;
+  const activeEntitlement = readyEntitlement?.active ? readyEntitlement : null;
 
   return {
     status: resolvedStatus,
     license: null,
     checkFeature: (feature) =>
-      activeEntitlement
-        ? (activeEntitlement.features[feature] ?? false)
+      readyEntitlement
+        ? (activeEntitlement?.features[feature] ?? false)
         : featuresEnabled,
     getLimit: (feature) =>
       activeEntitlement ? (activeEntitlement.limits[feature] ?? null) : null,
