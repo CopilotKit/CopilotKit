@@ -484,7 +484,7 @@ export class RunHandler {
           for (const toolCall of message.toolCalls || []) {
             const tool = this.getTool({
               toolName: toolCall.function.name,
-                agentId: agent.agentId,
+              agentId: agent.agentId,
             });
 
             let wildcardTool: FrontendTool<any> | undefined;
@@ -503,7 +503,9 @@ export class RunHandler {
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
             );
             const existingResult =
-              existingResultIndex === -1 ? undefined : newMessages[existingResultIndex];
+              existingResultIndex === -1
+                ? undefined
+                : newMessages[existingResultIndex];
             const executableTool = tool ?? getWildcardTool();
 
             if (
@@ -535,10 +537,10 @@ export class RunHandler {
                   needsFollowUp = true;
                 }
               } else {
-                const wildcardTool = getWildcardTool();
-                if (wildcardTool) {
+                const fallbackTool = getWildcardTool();
+                if (fallbackTool) {
                   const followUp = await this.executeWildcardTool(
-                    wildcardTool,
+                    fallbackTool,
                     toolCall,
                     message,
                     agent,
