@@ -734,6 +734,11 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeEntitlements;
   }
 
+  /** Whether Core still has a bounded Runtime entitlement retry to settle. */
+  get runtimeEntitlementRetryPending(): boolean {
+    return this.agentRegistry.runtimeEntitlementRetryPending;
+  }
+
   get telemetryDisabled(): boolean {
     return this.agentRegistry.telemetryDisabled;
   }

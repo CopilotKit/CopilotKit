@@ -68,6 +68,7 @@ export class AgentRegistry {
   private _connectionInFlight?: { key: string; promise: Promise<void> };
   private _runtimeEntitlementRetryTimer?: ReturnType<typeof setTimeout>;
   private _runtimeEntitlementRetryAttemptedKey?: string;
+  private _runtimeEntitlementRetryPendingKey?: string;
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -170,6 +171,12 @@ export class AgentRegistry {
   /** Structured Runtime entitlement authority advertised by `/info`. */
   get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
     return this._runtimeEntitlements;
+  }
+
+  get runtimeEntitlementRetryPending(): boolean {
+    return (
+      this._runtimeEntitlementRetryPendingKey === this.runtimeConnectionKey()
+    );
   }
 
   get telemetryDisabled(): boolean {
@@ -485,6 +492,7 @@ export class AgentRegistry {
       this._runtimeEntitlementRetryTimer = undefined;
     }
     this._runtimeEntitlementRetryAttemptedKey = undefined;
+    this._runtimeEntitlementRetryPendingKey = undefined;
   }
 
   /**
@@ -506,14 +514,16 @@ export class AgentRegistry {
       return;
     }
 
-    if (
-      this._runtimeEntitlementRetryTimer !== undefined ||
-      this._runtimeEntitlementRetryAttemptedKey === key
-    ) {
+    if (this._runtimeEntitlementRetryTimer !== undefined) {
+      return;
+    }
+    if (this._runtimeEntitlementRetryAttemptedKey === key) {
+      this._runtimeEntitlementRetryPendingKey = undefined;
       return;
     }
 
     this._runtimeEntitlementRetryAttemptedKey = key;
+    this._runtimeEntitlementRetryPendingKey = key;
     this._runtimeEntitlementRetryTimer = setTimeout(() => {
       this._runtimeEntitlementRetryTimer = undefined;
       if (!this._runtimeUrl || this.runtimeConnectionKey() !== key) {
@@ -680,6 +690,12 @@ export class AgentRegistry {
         return;
       }
 
+      if (
+        this._runtimeEntitlementRetryTimer === undefined &&
+        this._runtimeEntitlementRetryAttemptedKey === key
+      ) {
+        this._runtimeEntitlementRetryPendingKey = undefined;
+      }
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;

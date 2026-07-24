@@ -309,6 +309,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeEntitlements, setRuntimeEntitlements] = useState<
     RuntimeEntitlementResponse | undefined
   >(undefined);
+  const [runtimeEntitlementRetryPending, setRuntimeEntitlementRetryPending] =
+    useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -618,7 +620,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // past the `/info` resolution. If that happens, the settled values would be
   // lost forever. To close the race we read the CURRENT values immediately, so a
   // status that already resolved is captured whether or not we caught its event.
-  // This MUST mirror the subscriber below (all four values), otherwise a missed
+  // This MUST mirror the subscriber below (all five values), otherwise a missed
   // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
   // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
@@ -627,6 +629,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
       setRuntimeLicenseStatus(copilotkit.licenseStatus);
       setRuntimeEntitlements(copilotkit.runtimeEntitlements);
+      setRuntimeEntitlementRetryPending(
+        copilotkit.runtimeEntitlementRetryPending,
+      );
     };
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: syncRuntimeInfo,
@@ -846,17 +851,36 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
 
   // License context — driven by server-reported authority via /info endpoint
-  const runtimeEntitlementRetryPending =
+  const retryableRuntimeEntitlementFailure =
     runtimeEntitlements?.status !== "ready" &&
     runtimeEntitlements?.error.retryable === true;
-  const licenseContextValue = useMemo(
-    () =>
-      createLicenseContextValue(
-        runtimeEntitlementRetryPending ? undefined : runtimeLicenseStatus,
-        runtimeEntitlements,
-      ),
-    [runtimeEntitlementRetryPending, runtimeEntitlements, runtimeLicenseStatus],
-  );
+  const runtimeEntitlementRetryInProgress =
+    retryableRuntimeEntitlementFailure && runtimeEntitlementRetryPending;
+  const runtimeEntitlementRetryExhausted =
+    retryableRuntimeEntitlementFailure && !runtimeEntitlementRetryPending;
+  const licenseContextValue = useMemo<LicenseContextValue>(() => {
+    const runtimeLicenseContext = createLicenseContextValue(
+      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+      runtimeEntitlements,
+    );
+    if (!runtimeEntitlementRetryExhausted) {
+      return runtimeLicenseContext;
+    }
+
+    // The bounded retry settled without managed authority. Keep the Runtime's
+    // truthful "unknown" status, but deny feature-only consumers instead of
+    // falling back to legacy fail-open behavior.
+    return {
+      ...runtimeLicenseContext,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+  }, [
+    runtimeEntitlementRetryExhausted,
+    runtimeEntitlementRetryInProgress,
+    runtimeEntitlements,
+    runtimeLicenseStatus,
+  ]);
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>

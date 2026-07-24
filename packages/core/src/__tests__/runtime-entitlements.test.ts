@@ -327,6 +327,7 @@ test("retries a transient Runtime entitlement result once without a reconnect", 
       licenseStatus: "unknown",
       runtimeEntitlements: retryableRuntimeEntitlements,
     });
+    expect(core.runtimeEntitlementRetryPending).toBe(true);
 
     await vi.advanceTimersByTimeAsync(5_000);
 
@@ -337,6 +338,7 @@ test("retries a transient Runtime entitlement result once without a reconnect", 
         runtimeEntitlements: initialRuntimeEntitlements,
       });
     });
+    expect(core.runtimeEntitlementRetryPending).toBe(false);
   } finally {
     teardown();
     vi.useRealTimers();
@@ -403,6 +405,7 @@ test("bounds automatic recovery to one retry for a persistent outage", async () 
     await vi.waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
+    expect(core.runtimeEntitlementRetryPending).toBe(false);
     await vi.advanceTimersByTimeAsync(30_000);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);

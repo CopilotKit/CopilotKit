@@ -19,6 +19,14 @@ import {
 import { CopilotThreadsDrawer } from "../CopilotThreadsDrawer";
 
 const useThreadsMock = vi.fn<(input: UseThreadsInput) => UseThreadsResult>();
+const retryableRuntimeEntitlements: RuntimeEntitlementResponse = {
+  status: "unavailable",
+  error: {
+    code: "runtime_entitlements_unavailable",
+    message: "Runtime entitlement lookup failed",
+    retryable: true,
+  },
+};
 
 vi.mock("../../../hooks/use-threads", () => ({
   useThreads: (input: UseThreadsInput) => useThreadsMock(input),
@@ -44,6 +52,15 @@ function managedRuntimeInfo(threadsEnabled: boolean): RuntimeInfo {
         limits: {},
       },
     },
+  };
+}
+
+/** Build Runtime info for a retryable managed-entitlement outage. */
+function retryableRuntimeInfo(): RuntimeInfo {
+  return {
+    ...managedRuntimeInfo(true),
+    licenseStatus: "unknown",
+    runtimeEntitlements: retryableRuntimeEntitlements,
   };
 }
 
@@ -105,7 +122,7 @@ async function flushPromiseUpdates(): Promise<void> {
 }
 
 /** Render only the feature decision exposed to React consumers. */
-function FeatureProbe() {
+function FeatureProbe(): React.ReactElement {
   const { checkFeature } = useLicenseContext();
 
   return <div data-testid="feature-probe">{String(checkFeature("chat"))}</div>;
@@ -141,6 +158,16 @@ test("a ready inactive entitlement denies feature-only React consumers", async (
     dispose();
   }
 });
+
+/** Show the status and feature policy exposed to feature-only consumers. */
+function ThreadsFeatureProbe(): React.ReactElement {
+  const { status, checkFeature } = useLicenseContext();
+  return (
+    <div data-testid="threads-feature-authority">
+      {`status:${status ?? "null"} threads:${checkFeature("threads")}`}
+    </div>
+  );
+}
 
 test("managed entitlements keep the drawer locked when threads are denied", async () => {
   const { dispose } = setupManagedEntitlementDrawerTest(false);
@@ -208,20 +235,8 @@ test("managed entitlements load the drawer when threads are granted", async () =
 
 test("a retryable entitlement result stays pending until the mounted drawer recovers", async () => {
   vi.useFakeTimers();
-  const retryableRuntimeEntitlements: RuntimeEntitlementResponse = {
-    status: "unavailable",
-    error: {
-      code: "runtime_entitlements_unavailable",
-      message: "Runtime entitlement lookup failed",
-      retryable: true,
-    },
-  };
   const { dispose, fetchMock } = setupDrawerTest(
-    {
-      ...managedRuntimeInfo(true),
-      licenseStatus: "unknown",
-      runtimeEntitlements: retryableRuntimeEntitlements,
-    },
+    retryableRuntimeInfo(),
     managedRuntimeInfo(true),
   );
 
@@ -262,6 +277,64 @@ test("a retryable entitlement result stays pending until the mounted drawer reco
       COPILOTKIT_THREADS_DRAWER_TAG,
     ) as CopilotKitThreadsDrawerElement | null;
     expect(recoveredDrawer?.licensed).toBe(true);
+  } finally {
+    dispose();
+    vi.useRealTimers();
+  }
+});
+
+test("a persistent retryable outage becomes terminal after the bounded retry", async () => {
+  vi.useFakeTimers();
+  const { dispose, fetchMock } = setupDrawerTest(
+    retryableRuntimeInfo(),
+    retryableRuntimeInfo(),
+  );
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <ThreadsFeatureProbe />
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await flushPromiseUpdates();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(useThreadsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+    const pendingDrawer =
+      document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+    expect(pendingDrawer?.loading).toBe(true);
+    expect(pendingDrawer?.licensed).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(useThreadsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+    const terminalDrawer =
+      document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+    expect(terminalDrawer?.loading).toBe(false);
+    expect(terminalDrawer?.licensed).toBe(false);
+    expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+      "status:unknown threads:false",
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   } finally {
     dispose();
     vi.useRealTimers();
