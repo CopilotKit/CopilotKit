@@ -66,6 +66,45 @@ function retryableRuntimeInfo(
   };
 }
 
+/** Build Runtime info for a terminal managed-entitlement failure. */
+function terminalRuntimeInfo(
+  status: "degraded" | "misconfigured",
+  licenseStatus: RuntimeInfo["licenseStatus"] = "none",
+): RuntimeInfo {
+  return {
+    ...managedRuntimeInfo(true),
+    licenseStatus,
+    runtimeEntitlements: {
+      status,
+      error: {
+        code: `runtime_entitlements_${status}`,
+        message: `Runtime entitlement lookup is ${status}`,
+        retryable: false,
+      },
+    },
+  };
+}
+
+/** Create a value promise whose completion the test controls. */
+function deferredValue<T>(label: string): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} {
+  let resolveValue: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolveValue = resolve;
+  });
+  return {
+    promise,
+    resolve(value) {
+      if (!resolveValue) {
+        throw new Error(`Deferred ${label} resolved before initialization`);
+      }
+      resolveValue(value);
+    },
+  };
+}
+
 /** Set up ordered Runtime info responses and an inert thread store. */
 function setupDrawerTest(
   ...runtimeInfoResponses: [RuntimeInfo, ...RuntimeInfo[]]
@@ -161,6 +200,52 @@ test("a ready inactive entitlement denies feature-only React consumers", async (
   }
 });
 
+test.each(["misconfigured", "degraded"] as const)(
+  "a terminal %s entitlement result denies feature-only React consumers without a legacy fallback",
+  async (status) => {
+    const { dispose } = setupDrawerTest(terminalRuntimeInfo(status));
+
+    try {
+      render(
+        <CopilotKitProvider runtimeUrl="/api">
+          <FeatureProbe />
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("feature-probe").textContent).toBe("false");
+      });
+    } finally {
+      dispose();
+    }
+  },
+);
+
+test.each(["valid", "expiring"] as const)(
+  "a terminal managed failure preserves a legacy fallback with status %s",
+  async (licenseStatus) => {
+    const { dispose } = setupDrawerTest(
+      terminalRuntimeInfo("misconfigured", licenseStatus),
+    );
+
+    try {
+      render(
+        <CopilotKitProvider runtimeUrl="/api">
+          <ThreadsFeatureProbe />
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("threads-feature-authority").textContent,
+        ).toBe(`status:${licenseStatus} threads:true`);
+      });
+    } finally {
+      dispose();
+    }
+  },
+);
+
 /** Show the status and feature policy exposed to feature-only consumers. */
 function ThreadsFeatureProbe(): React.ReactElement {
   const { status, checkFeature } = useLicenseContext();
@@ -230,6 +315,69 @@ test("managed entitlements load the drawer when threads are granted", async () =
         /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
       ),
     ).toBeNull();
+  } finally {
+    dispose();
+  }
+});
+
+test("changing Runtime targets removes the previous thread grant while the next target is pending", async () => {
+  const nextRuntimeResponse = deferredValue<Response>("next Runtime response");
+  const { dispose, fetchMock } = setupDrawerTest(managedRuntimeInfo(true));
+  fetchMock.mockImplementationOnce(() => nextRuntimeResponse.promise);
+
+  try {
+    const { rerender } = render(
+      <CopilotKitProvider runtimeUrl="/api/a">
+        <CopilotChatConfigurationProvider>
+          <ThreadsFeatureProbe />
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: true }),
+      );
+    });
+
+    rerender(
+      <CopilotKitProvider runtimeUrl="/api/b">
+        <CopilotChatConfigurationProvider>
+          <ThreadsFeatureProbe />
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false }),
+      );
+      expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+        "status:null threads:true",
+      );
+    });
+
+    const pendingDrawer =
+      document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+    expect(pendingDrawer?.loading).toBe(true);
+
+    nextRuntimeResponse.resolve(
+      new Response(JSON.stringify(managedRuntimeInfo(false)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+        "status:valid threads:false",
+      );
+    });
   } finally {
     dispose();
   }
@@ -331,6 +479,55 @@ test.each(["invalid", "expired"] as const)(
     }
   },
 );
+
+test("a retryable managed outage preserves a valid legacy fallback through the bounded retry", async () => {
+  vi.useFakeTimers();
+  const { dispose, fetchMock } = setupDrawerTest(
+    retryableRuntimeInfo("valid"),
+    retryableRuntimeInfo("valid"),
+  );
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <ThreadsFeatureProbe />
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await flushPromiseUpdates();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+      "status:valid threads:true",
+    );
+    expect(useThreadsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+      "status:valid threads:true",
+    );
+    expect(useThreadsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(
+      screen.queryByText(
+        /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
+      ),
+    ).toBeNull();
+  } finally {
+    dispose();
+    vi.useRealTimers();
+  }
+});
 
 test("a persistent retryable outage becomes terminal after the bounded retry", async () => {
   vi.useFakeTimers();

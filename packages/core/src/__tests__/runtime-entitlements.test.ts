@@ -206,6 +206,58 @@ test("clears Runtime authority when the Runtime disconnects", async () => {
   }
 });
 
+test("clears Runtime authority before connecting to a new target", async () => {
+  const nextRuntimeResponse = deferredValue<Response>("next Runtime response");
+  const fetchMock = vi
+    .fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(runtimeInfoResponse(runtimeInfo()))
+    .mockImplementationOnce(() => nextRuntimeResponse.promise);
+  vi.stubGlobal("window", {});
+  vi.stubGlobal("fetch", fetchMock);
+  const core = new CopilotKitCore({
+    runtimeUrl: "https://a.example",
+    runtimeTransport: "rest",
+  });
+
+  try {
+    await waitForConnected(core);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
+
+    core.setRuntimeUrl("https://b.example");
+    const statusWhileConnecting = core.runtimeConnectionStatus;
+    const authorityWhileConnecting = readRuntimeAuthority(core);
+
+    nextRuntimeResponse.resolve(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "expiring",
+          runtimeEntitlements: refreshedRuntimeEntitlements,
+          version: "B",
+        }),
+      ),
+    );
+    await waitForCondition(() => core.runtimeVersion === "B");
+
+    expect(statusWhileConnecting).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    expect(authorityWhileConnecting).toEqual({
+      licenseStatus: undefined,
+      runtimeEntitlements: undefined,
+    });
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "expiring",
+      runtimeEntitlements: refreshedRuntimeEntitlements,
+    });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  }
+});
+
 test("clears Runtime authority when a refresh fails", async () => {
   const { core, teardown } = setupCore(
     runtimeInfoResponse(runtimeInfo()),

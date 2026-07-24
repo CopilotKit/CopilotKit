@@ -228,6 +228,10 @@ export class AgentRegistry {
     }
 
     this.resetRuntimeEntitlementRetry();
+    // License authority belongs to the Runtime target that advertised it.
+    // Clear it before observers see the next target enter Connecting.
+    this._licenseStatus = undefined;
+    this._runtimeEntitlements = undefined;
     this._runtimeUrl = normalizedRuntimeUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL

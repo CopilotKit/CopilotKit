@@ -854,10 +854,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const retryableRuntimeEntitlementFailure =
     runtimeEntitlements?.status !== "ready" &&
     runtimeEntitlements?.error.retryable === true;
+  const hasNonReadyRuntimeEntitlement =
+    runtimeEntitlements !== undefined && runtimeEntitlements.status !== "ready";
+  const hasLegacyRuntimeEntitlementFallback =
+    runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
   const runtimeEntitlementRetryInProgress =
-    retryableRuntimeEntitlementFailure && runtimeEntitlementRetryPending;
-  const runtimeEntitlementRetryExhausted =
-    retryableRuntimeEntitlementFailure && !runtimeEntitlementRetryPending;
+    retryableRuntimeEntitlementFailure &&
+    runtimeEntitlementRetryPending &&
+    !hasLegacyRuntimeEntitlementFallback;
+  const runtimeEntitlementFailureSettled =
+    hasNonReadyRuntimeEntitlement &&
+    !runtimeEntitlementRetryInProgress &&
+    !hasLegacyRuntimeEntitlementFallback;
   const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
     ? undefined
     : runtimeLicenseStatus;
@@ -866,20 +874,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
       runtimeEntitlements,
     );
-    if (!runtimeEntitlementRetryExhausted) {
+    if (!runtimeEntitlementFailureSettled) {
       return runtimeLicenseContext;
     }
 
-    // The bounded retry settled without managed authority. Keep the Runtime's
-    // truthful "unknown" status, but deny feature-only consumers instead of
-    // falling back to legacy fail-open behavior.
+    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // Keep its truthful status, but deny feature-only consumers.
     return {
       ...runtimeLicenseContext,
       checkFeature: () => false,
       getLimit: () => null,
     };
   }, [
-    runtimeEntitlementRetryExhausted,
+    runtimeEntitlementFailureSettled,
     runtimeEntitlementRetryInProgress,
     runtimeEntitlements,
     runtimeLicenseStatus,
