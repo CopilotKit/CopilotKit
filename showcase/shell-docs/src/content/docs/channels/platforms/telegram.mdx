@@ -1,0 +1,86 @@
+---
+title: Telegram
+icon: "lucide/Send"
+description: Connect Telegram with the Telegram adapter.
+---
+
+Connect Telegram with the Telegram adapter. All you need is a bot token from
+BotFather.
+
+## Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+## Credentials
+
+Create a bot with [BotFather](https://t.me/botfather) and copy its token:
+
+```bash
+TELEGRAM_BOT_TOKEN=...
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
+```
+
+## Connect
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { telegram } from "@copilotkit/channels/telegram";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [
+    telegram({ token: process.env.TELEGRAM_BOT_TOKEN! }),
+  ],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+// The runtime drives the channel — it starts the Telegram adapter, you don't
+// call channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
+```
+
+That is the whole connection. Add [commands](/channels/commands-and-reactions),
+[interactive flows](/channels/interactive), and [file
+handling](/channels/files-and-multimodality) the same way as any other channel.
+
+## Built-in tools and context
+
+The Telegram adapter ships helpers you can spread into your channel: a set of
+tools (including a Telegram user-lookup tool) and Telegram formatting context.
+
+```ts
+import { telegram, defaultTelegramTools, defaultTelegramContext } from "@copilotkit/channels/telegram";
+
+createChannel({
+  agent,
+  tools: [...defaultTelegramTools],
+  context: [...defaultTelegramContext],
+  adapters: [telegram({ token: process.env.TELEGRAM_BOT_TOKEN! })],
+});
+```

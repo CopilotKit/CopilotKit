@@ -21,7 +21,7 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // `a2ui_operations` container in the tool result and streams rendered
 // surfaces to the frontend.
 const runtime = new CopilotRuntime({
-  agents: { default: createDeclarativeGenUIAgent() },
+  agents: { "declarative-gen-ui": createDeclarativeGenUIAgent() },
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,

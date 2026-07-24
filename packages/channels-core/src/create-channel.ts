@@ -87,9 +87,10 @@ export type LockConflictDecision = "drop" | "force";
  * (Intelligence OSS-450 / #511).
  *
  * Distinct from a {@link PlatformAdapter} attached via
- * `createChannel({ adapters })` / {@link Channel.addAdapter}: an adapter is a
- * *direct*, developer-owned connection this handler does not manage, whereas
- * `provider` selects the *managed* platform for a Channel with no adapters.
+ * `createChannel({ adapters })` / `channel.ɵruntime.addAdapter`: an adapter is
+ * a *direct*, developer-owned connection this handler does not manage,
+ * whereas `provider` selects the *managed* platform for a Channel with no
+ * adapters.
  */
 export type ManagedChannelProvider = "slack" | "teams";
 
@@ -207,7 +208,8 @@ export interface CreateChannelOptions<
   name?: string;
   /**
    * Adapters supplied at construction. Optional — adapters can also be attached
-   * before `start()` via {@link Channel.addAdapter} (the Channel runtime uses this).
+   * before the runner starts the channel, via `channel.ɵruntime.addAdapter`
+   * (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
   /**
@@ -222,8 +224,8 @@ export interface CreateChannelOptions<
    * {@link ManagedChannelProvider}.
    *
    * Ignored for direct-adapter Channels (those created with `adapters` /
-   * {@link Channel.addAdapter}) — a direct Channel is owned by the developer's
-   * own adapter, not by managed activation.
+   * `channel.ɵruntime.addAdapter`) — a direct Channel is owned by the
+   * developer's own adapter, not by managed activation.
    */
   provider?: ManagedChannelProvider;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
@@ -298,12 +300,20 @@ export interface Channel<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: ChannelTool): void;
-  /** Attach an adapter before `start()`. Throws if called after the channel has started. */
-  addAdapter(adapter: PlatformAdapter): void;
-  start(): Promise<void>;
-  stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
   transcripts: Transcripts;
+  /**
+   * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
+   * implementations that the runtime uses to drive the lifecycle directly —
+   * there is no public equivalent; channels are runtime-driven only. (Read the
+   * managed provider off the top-level `channel.provider`, not here.)
+   * @internal
+   */
+  ɵruntime: {
+    start(): Promise<void>;
+    stop(): Promise<void>;
+    addAdapter(adapter: PlatformAdapter): void;
+  };
 }
 
 /** Build the IncomingMessage object from an IncomingTurn (shared by lock-conflict callback and handler path). */
@@ -374,17 +384,19 @@ export function createChannel<
     );
   }
 
-  // Adapters can be supplied up front or added later via `channel.addAdapter`
-  // (before `start()`). The runtime uses the latter to attach Channel delivery.
+  // Adapters can be supplied up front or added later via
+  // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
+  // runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
   assertExclusive(adapters);
   let started = false;
 
   // Backend, transcripts, telemetry, the action registry, and component
-  // registration are resolved in `start()` — not at construction — so an
-  // adapter added via `addAdapter` after `createChannel` can still supply the
-  // persistence backend (see `resolveBackend`). Nothing reads these before the
-  // first event, which can only arrive after `start()`.
+  // registration are resolved in `ɵruntime.start()` — not at construction —
+  // so an adapter added via `ɵruntime.addAdapter` after `createChannel` can
+  // still supply the persistence backend (see `resolveBackend`). Nothing
+  // reads these before the first event, which can only arrive after
+  // `ɵruntime.start()`.
   let backend: StateStore | undefined;
   let transcripts: Transcripts | undefined;
   let registry: ActionRegistry | undefined;
@@ -439,7 +451,7 @@ export function createChannel<
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
-        "channel not started: call channel.start() before handling events",
+        "channel not started: the runner must start the channel (channel.ɵruntime.start()) before handling events",
       );
     }
     const deps: ThreadDeps = {
@@ -781,19 +793,156 @@ export function createChannel<
     get transcripts() {
       if (!transcripts) {
         throw new Error(
-          "channel.transcripts is available after channel.start()",
+          "channel.transcripts is available after the runner starts the channel (channel.ɵruntime.start())",
         );
       }
       return transcripts;
     },
-    addAdapter(adapter) {
-      if (started) {
-        throw new Error(
-          "channel.addAdapter must be called before channel.start()",
+    ɵruntime: {
+      addAdapter(adapter) {
+        if (started) {
+          throw new Error(
+            "channel.ɵruntime.addAdapter must be called before channel.ɵruntime.start()",
+          );
+        }
+        assertExclusive([...adapters, adapter]);
+        adapters.push(adapter);
+      },
+      async start() {
+        // Idempotent: a second start() must not re-resolve the backend and
+        // rebuild Transcripts/Telemetry/ActionRegistry or re-call adapter.start()
+        // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
+        // and real adapters would connect/port-bind twice.
+        if (started) return;
+        started = true;
+        assertExclusive(adapters);
+        // Resolve persistence now that all adapters (including any attached via
+        // addAdapter) are known, then build the transcript store, action
+        // registry, and register components against it.
+        backend = resolveBackend(cfg.adapter, adapters);
+        transcripts = new Transcripts(backend, cfg.transcripts ?? {});
+        const tel = new ChannelTelemetry({
+          backend,
+          packageName: pkg.name,
+          packageVersion: pkg.version,
+        });
+        telemetry = tel;
+        const registryInstance = new ActionRegistry({
+          store: opts.actionStore ?? kvActionStore(backend),
+        });
+        registry = registryInstance;
+        for (const c of opts.components ?? []) {
+          if (!c.name) {
+            console.warn(
+              "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
+            );
+            continue;
+          }
+          registryInstance.registerComponent(
+            c.name,
+            c as unknown as ComponentFn,
+          );
+        }
+        toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
+        tel.capture("oss.channel.configured", {
+          platforms: adapters.map((a) => normalizePlatform(a.platform)),
+          adapterCount: adapters.length,
+          store: storeKind(backend),
+          hasComponents: (opts.components?.length ?? 0) > 0,
+          componentsCount: opts.components?.length ?? 0,
+          toolsCount: toolMap.size,
+          commandsCount: commandHandlers.size,
+          contextCount: context.length,
+          transcripts: !!cfg.transcripts,
+          identity: !!cfg.identity,
+        });
+        // Isolate per-adapter startup failures: one adapter rejecting (e.g.
+        // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
+        // token, a port already in use) must NOT crash the channel or prevent the
+        // other adapters from starting. Log + degrade, never throw.
+        const startResults = await Promise.allSettled(
+          adapters.map((a) => a.start(makeSink(a), { channelName: opts.name })),
         );
-      }
-      assertExclusive([...adapters, adapter]);
-      adapters.push(adapter);
+        const startedPlatforms: string[] = [];
+        const failedPlatforms: string[] = [];
+        startResults.forEach((r, i) => {
+          const rawPlatform = adapters[i]!.platform;
+          // Raw label for the human-facing log; normalized label for telemetry.
+          const platform = normalizePlatform(rawPlatform);
+          if (r.status === "rejected") {
+            failedPlatforms.push(platform);
+            console.error(
+              `[channel] adapter "${rawPlatform}" failed to start:`,
+              r.reason,
+            );
+            tel.capture("oss.channel.start_failed", {
+              platform,
+              errorClass: errorClass(r.reason),
+            });
+          } else {
+            startedPlatforms.push(platform);
+          }
+        });
+        if (startedPlatforms.length > 0) {
+          tel.capture("oss.channel.started", {
+            platforms: startedPlatforms,
+            startedCount: startedPlatforms.length,
+            failedCount: failedPlatforms.length,
+            hasMentionHandler: mentionHandlers.length > 0,
+            hasMessageHandler: messageHandlers.length > 0,
+            interruptHandlers: interruptHandlers.size,
+            commandsCount: commandHandlers.size,
+            toolsCount: toolMap.size,
+          });
+        }
+        // A channel that has adapters but where NONE started is dead — surface an
+        // error so the runtime reports status "error", not a false "online". A
+        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
+        // `started` guard so a caller can retry after fixing the misconfiguration.
+        if (adapters.length > 0 && startedPlatforms.length === 0) {
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
+          );
+        }
+        // Hand declared commands to adapters that register them up front (e.g.
+        // Discord); adapters without `registerCommands` are skipped. Per-adapter
+        // failures are isolated the same way as start().
+        const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
+        if (commandSpecs.length > 0) {
+          const registerResults = await Promise.allSettled(
+            adapters.map((a) => a.registerCommands?.(commandSpecs)),
+          );
+          registerResults.forEach((r, i) => {
+            if (r.status === "rejected") {
+              console.error(
+                `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
+                r.reason,
+              );
+            }
+          });
+        }
+      },
+      async stop() {
+        // Clear the started flag so a later start() is a real restart (re-resolve
+        // backend, rebuild components, reconnect adapters) rather than a silent
+        // no-op. The idempotency guard in start() only exists to block a DOUBLE
+        // start() while running — not a legitimate start→stop→start cycle.
+        started = false;
+        // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
+        // must not prevent the others from being stopped.
+        const stopResults = await Promise.allSettled(
+          adapters.map((a) => a.stop()),
+        );
+        stopResults.forEach((r, i) => {
+          if (r.status === "rejected") {
+            console.error(
+              `[channel] adapter "${adapters[i]!.platform}" failed to stop:`,
+              r.reason,
+            );
+          }
+        });
+      },
     },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
@@ -872,128 +1021,6 @@ export function createChannel<
     },
     tool(t) {
       toolMap.set(t.name, t);
-    },
-    async start() {
-      // Idempotent: a second start() must not re-resolve the backend and
-      // rebuild Transcripts/Telemetry/ActionRegistry or re-call adapter.start()
-      // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
-      // and real adapters would connect/port-bind twice.
-      if (started) return;
-      started = true;
-      assertExclusive(adapters);
-      // Resolve persistence now that all adapters (including any attached via
-      // addAdapter) are known, then build the transcript store, action
-      // registry, and register components against it.
-      backend = resolveBackend(cfg.adapter, adapters);
-      transcripts = new Transcripts(backend, cfg.transcripts ?? {});
-      const tel = new ChannelTelemetry({
-        backend,
-        packageName: pkg.name,
-        packageVersion: pkg.version,
-      });
-      telemetry = tel;
-      const registryInstance = new ActionRegistry({
-        store: opts.actionStore ?? kvActionStore(backend),
-      });
-      registry = registryInstance;
-      for (const c of opts.components ?? []) {
-        if (!c.name) {
-          console.warn(
-            "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
-          );
-          continue;
-        }
-        registryInstance.registerComponent(c.name, c as unknown as ComponentFn);
-      }
-      toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
-      tel.capture("oss.channel.configured", {
-        platforms: adapters.map((a) => normalizePlatform(a.platform)),
-        adapterCount: adapters.length,
-        store: storeKind(backend),
-        hasComponents: (opts.components?.length ?? 0) > 0,
-        componentsCount: opts.components?.length ?? 0,
-        toolsCount: toolMap.size,
-        commandsCount: commandHandlers.size,
-        contextCount: context.length,
-        transcripts: !!cfg.transcripts,
-        identity: !!cfg.identity,
-      });
-      // Isolate per-adapter startup failures: one adapter rejecting (e.g.
-      // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
-      // token, a port already in use) must NOT crash the channel or prevent the
-      // other adapters from starting. Log + degrade, never throw.
-      const startResults = await Promise.allSettled(
-        adapters.map((a) => a.start(makeSink(a), { channelName: opts.name })),
-      );
-      const startedPlatforms: string[] = [];
-      const failedPlatforms: string[] = [];
-      startResults.forEach((r, i) => {
-        const rawPlatform = adapters[i]!.platform;
-        // Raw label for the human-facing log; normalized label for telemetry.
-        const platform = normalizePlatform(rawPlatform);
-        if (r.status === "rejected") {
-          failedPlatforms.push(platform);
-          console.error(
-            `[channel] adapter "${rawPlatform}" failed to start:`,
-            r.reason,
-          );
-          tel.capture("oss.channel.start_failed", {
-            platform,
-            errorClass: errorClass(r.reason),
-          });
-        } else {
-          startedPlatforms.push(platform);
-        }
-      });
-      if (startedPlatforms.length > 0) {
-        tel.capture("oss.channel.started", {
-          platforms: startedPlatforms,
-          startedCount: startedPlatforms.length,
-          failedCount: failedPlatforms.length,
-          hasMentionHandler: mentionHandlers.length > 0,
-          hasMessageHandler: messageHandlers.length > 0,
-          interruptHandlers: interruptHandlers.size,
-          commandsCount: commandHandlers.size,
-          toolsCount: toolMap.size,
-        });
-      }
-      // Hand declared commands to adapters that register them up front (e.g.
-      // Discord); adapters without `registerCommands` are skipped. Per-adapter
-      // failures are isolated the same way as start().
-      const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
-      if (commandSpecs.length > 0) {
-        const registerResults = await Promise.allSettled(
-          adapters.map((a) => a.registerCommands?.(commandSpecs)),
-        );
-        registerResults.forEach((r, i) => {
-          if (r.status === "rejected") {
-            console.error(
-              `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
-              r.reason,
-            );
-          }
-        });
-      }
-    },
-    async stop() {
-      // Clear the started flag so a later start() is a real restart (re-resolve
-      // backend, rebuild components, reconnect adapters) rather than a silent
-      // no-op. The idempotency guard in start() only exists to block a DOUBLE
-      // start() while running — not a legitimate start→stop→start cycle.
-      started = false;
-      // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
-      // must not prevent the others from being stopped.
-      const stopResults = await Promise.allSettled(
-        adapters.map((a) => a.stop()),
-      );
-      stopResults.forEach((r, i) => {
-        if (r.status === "rejected") {
-          console.error(
-            `[channel] adapter "${adapters[i]!.platform}" failed to stop:`,
-            r.reason,
-          );
-        }
-      });
     },
   };
   return channel;

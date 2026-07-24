@@ -579,6 +579,29 @@ export async function runConversation(
     );
 
     try {
+      // skipSend baseline hoist: on a `skipSend` turn, `preFill` ITSELF issues
+      // the run (it clicks a sample button that dispatches
+      // `agent.addMessage` + `copilotkit.runAgent`), so the run-start / bubble
+      // baselines MUST be snapshotted BEFORE preFill. A fast in-process runtime
+      // (e.g. built-in-agent) fires RUN_STARTED synchronously during preFill;
+      // capturing `baselineRunStartCount` AFTER preFill (the normal position)
+      // then observes an already-incremented count, making the primary
+      // done-signal gate `runStartCount > baselineRunStartCount` impossible to
+      // satisfy → a healthy turn false-reds with `done-signal-missing`. Slower
+      // runtimes never hit this (RUN_STARTED lands after the capture), so the
+      // pre-preFill snapshot is strictly correct for every runtime. Non-skipSend
+      // turns are unaffected: their `preFill` never starts a run, so the
+      // original post-preFill capture below still reflects only prior-turn runs.
+      let skipSendBaselineCount: number | null = null;
+      let skipSendBaselineRunStartCount: number | null = null;
+      if (turn.skipSend) {
+        skipSendBaselineCount = await countAssistantMessages(
+          page as unknown as PlaywrightPage,
+        );
+        skipSendBaselineRunStartCount = (await readCopilotRunning(page))
+          .runStartCount;
+      }
+
       if (turn.preFill) {
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — running preFill hook`,
@@ -644,9 +667,9 @@ export async function runConversation(
       // sendTurnMessage so the assistant can't have started streaming yet
       // (the user message hasn't been submitted), guaranteeing the
       // snapshot reflects only prior-turn bubbles.
-      const baselineCount = await countAssistantMessages(
-        page as unknown as PlaywrightPage,
-      );
+      const baselineCount =
+        skipSendBaselineCount ??
+        (await countAssistantMessages(page as unknown as PlaywrightPage));
 
       // Multi-step run-start baseline for the PRIMARY DOM done-signal. Snapshot
       // the page-side `runStartCount` BEFORE `sendTurnMessage` — SAME ordering
@@ -658,8 +681,9 @@ export async function runConversation(
       // fast agent fires RUN_STARTED before the settle wait begins (capturing
       // it inside `waitForTurnComplete`, which runs AFTER the send, would be
       // racy and could kill the PRIMARY signal on fast turns).
-      const baselineRunStartCount = (await readCopilotRunning(page))
-        .runStartCount;
+      const baselineRunStartCount =
+        skipSendBaselineRunStartCount ??
+        (await readCopilotRunning(page)).runStartCount;
 
       // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
       // the pre-send testid counts so the settle gate can detect a NEW render

@@ -39,7 +39,7 @@ export function createOguiAgent() {
         }),
       );
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools,

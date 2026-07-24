@@ -184,20 +184,20 @@ export async function startChannels(
       const { source, egress, renderSink, store } = opts.resolveTransport(
         channel.name!,
       );
-      channel.addAdapter(
+      channel.ɵruntime.addAdapter(
         intelligenceAdapter({ source, egress, renderSink, store }),
       );
-      await channel.start();
+      await channel.ɵruntime.start();
       startedChannels.push(channel);
     }
   } catch (err) {
-    await Promise.allSettled(startedChannels.map((c) => c.stop()));
+    await Promise.allSettled(startedChannels.map((c) => c.ɵruntime.stop()));
     throw err;
   }
   return {
     metadata,
     async stop() {
-      await Promise.all(opts.channels.map((c) => c.stop()));
+      await Promise.all(opts.channels.map((c) => c.ɵruntime.stop()));
     },
   };
 }
