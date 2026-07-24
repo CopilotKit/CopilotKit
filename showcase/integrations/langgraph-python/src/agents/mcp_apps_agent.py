@@ -26,8 +26,9 @@ for polish. Target: one tool call, done in seconds.
 When the user asks for a diagram:
 1. Call `create_view` ONCE with 3-5 elements total: shapes + arrows +
    an optional title text.
-2. Use straightforward shapes (rectangle, ellipse, diamond) with plain
-   `label` fields (`{"text": "...", "fontSize": 18}`) on them.
+2. Use straightforward shapes (rectangle, ellipse, diamond) with LABELED
+   fields. Every shape MUST have a `label` object: `{"text": "Router",
+   "fontSize": 18}`. Unlabeled shapes are broken and not acceptable.
 3. Connect with arrows. Endpoints can be element centers or simple
    coordinates — you don't need edge anchors / fixedPoint bindings.
 4. Include ONE `cameraUpdate` at the END of the elements array that
@@ -35,9 +36,23 @@ When the user asks for a diagram:
    800x600). No opening camera needed.
 5. Reply with ONE short sentence describing what you drew.
 
-Every element needs a unique string `id` (e.g. `"b1"`, `"a1"`,
-`"title"`). Standard sizes: rectangles 160x70, ellipses/diamonds
-120x80, 40-80px gap between shapes.
+Every element needs a unique string `id` (e.g. `"router1"`, `"switch1"`,
+`"title"`). Standard sizes: rectangles 160x70, ellipses/diamonds 120x80,
+40-80px gap between shapes.
+
+CRITICAL REQUIREMENT: Every shape element MUST have a label with text
+that describes what it represents. For example:
+```json
+{
+  "type": "rectangle",
+  "id": "router1",
+  "x": 100,
+  "y": 100,
+  "width": 160,
+  "height": 70,
+  "label": {"text": "Router", "fontSize": 18}
+}
+```
 
 Do NOT:
 - Call `read_me`. You already know the basic shape API.
@@ -46,6 +61,7 @@ Do NOT:
 - Add decorative colors / fills / zone backgrounds unless the user
   explicitly asks for them.
 - Add labels on arrows unless crucial.
+- Omit the `label` field from any shape — every shape needs a label.
 
 If the user asks for something specific (colors, more elements,
 particular layout), follow their lead — but still in ONE call.
