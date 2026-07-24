@@ -33,4 +33,37 @@ describe("Angular source content", () => {
     );
     expect(JSON.stringify(content)).not.toMatch(/hashbrown/i);
   });
+
+  it("extracts named documentation regions without exposing marker comments", () => {
+    const content = buildAngularSourceContent(showcaseRoot);
+
+    expect(content.regions["frontend-tool-registration"]).toEqual(
+      expect.objectContaining({
+        file: "features/tools/tool-feature-model.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["frontend-tool-registration"]?.content).toContain(
+      'name: "change_background"',
+    );
+    expect(content.regions["agent-config-context"]).toEqual(
+      expect.objectContaining({
+        file: "features/app-settings/app-settings-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["agent-config-context"]?.content).toContain(
+      "connectAgentContext(this.configContext)",
+    );
+    expect(content.regions["subagent-delegation-state"]).toEqual(
+      expect.objectContaining({
+        file: "features/agent-state/agent-state-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["subagent-delegation-state"]?.content).toContain(
+      "readDelegations(this.agentStore().state())",
+    );
+    expect(JSON.stringify(content.files)).not.toContain("@region[");
+  });
 });

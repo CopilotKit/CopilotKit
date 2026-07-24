@@ -74,6 +74,7 @@ app.use(
 );
 ```
 
+<FrontendOnly frontend="react">
 On the frontend, opt into the matching transport with the `useSingleEndpoint`
 prop:
 
@@ -91,6 +92,24 @@ single-route mode but the frontend is making multi-route requests (or vice
 versa), every call 404s. Set `useSingleEndpoint` on `<CopilotKit>` whenever the
 runtime uses `mode: "single-route"`.
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+The Angular SDK negotiates the transport from the runtime's `/info` response.
+Point `provideCopilotKit` at the base endpoint; no second route configuration is
+needed:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+})
+```
+
+<Callout type="warn">
+The `/info` route must remain reachable so the Angular client can discover the
+runtime transport and registered agents.
+</Callout>
+</FrontendOnly>
 
 ## CORS
 

@@ -17,6 +17,7 @@ import type {
   FrameworkOverviewData,
   OpsPlatformCTAData,
 } from "@/data/frameworks/types";
+import type { FrontendId } from "@/lib/frontend-options";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -28,6 +29,14 @@ export interface FrameworkOverviewProps {
    * because the data record's `guideLink` embeds the primary variant's slug.
    */
   currentFramework: string;
+  /**
+   * Optional public route prefix for nested docs surfaces such as
+   * `/angular/langgraph-python`. Framework links are rewritten into this
+   * prefix after variant normalization.
+   */
+  hrefPrefix?: string;
+  /** Frontend selected by the route, used for framework-sensitive copy. */
+  frontendOverride?: FrontendId;
   /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
@@ -117,6 +126,8 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
 export function FrameworkOverview({
   data,
   currentFramework,
+  hrefPrefix,
+  frontendOverride,
   afterFeatures,
   iconOverride,
 }: FrameworkOverviewProps) {
@@ -127,12 +138,25 @@ export function FrameworkOverview({
     subheader,
     guideLink: rawGuideLink,
     initCommand,
-    supportedFeatures = [],
+    supportedFeatures: rawSupportedFeatures = [],
     architectureImage,
     architectureVideo,
     liveDemos = [],
     cta,
   } = data;
+  const supportedFeatures =
+    frontendOverride === "angular"
+      ? rawSupportedFeatures.map((feature) => ({
+          ...feature,
+          description: feature.description.replace(
+            /\bReact components?\b/g,
+            (match) =>
+              match.endsWith("s")
+                ? "Angular components"
+                : "an Angular component",
+          ),
+        }))
+      : rawSupportedFeatures;
 
   // Derive the primary variant's slug from the data record's own links —
   // typically the path segment after the leading `/` of `guideLink`
@@ -140,7 +164,17 @@ export function FrameworkOverview({
   // rewrite *away from* so that variant users land on their own variant's
   // sub-pages.
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
+  const link = (href: string) => {
+    const rewritten = rewriteHref(href, fromSlug, currentFramework);
+    if (!hrefPrefix || !rewritten.startsWith("/")) return rewritten;
+
+    const frameworkPrefix = `/${currentFramework}`;
+    if (rewritten === frameworkPrefix) return hrefPrefix;
+    if (rewritten.startsWith(`${frameworkPrefix}/`)) {
+      return `${hrefPrefix}${rewritten.slice(frameworkPrefix.length)}`;
+    }
+    return rewritten;
+  };
 
   // Frameworks whose init is the generic top-level command get the unified
   // two-command recommendation (matching the home hero). Frameworks with

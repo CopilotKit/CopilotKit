@@ -2,6 +2,7 @@
 title: "AG-UI Event Inspector"
 description: "Inspect AG-UI events in real time with the VSCode extension"
 icon: "lucide/Activity"
+frontend: universal
 ---
 The AG-UI Event Inspector gives you a live view of every event flowing between your CopilotKit runtime and client. Instead of sprinkling `console.log` statements through your agent code, you can watch the full AG-UI event stream in a filterable, color-coded panel inside VS Code.
 
@@ -93,6 +94,14 @@ Click any event row to expand the full JSON payload in the detail panel. This sh
 | **State** | Teal | `STATE_SNAPSHOT`, `STATE_DELTA` | Agent state snapshots and incremental updates |
 | **Activity/UI** | Yellow | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA` | UI activity indicators and progress updates |
 
+<FrontendOnly frontend="react">
 <Callout type="info">
   For console-level debug logging and programmatic error handling in your app, see [Error Debugging](/troubleshooting/error-debugging). If you're debugging a render prop rather than a runtime event stream, the [Hook Explorer](/troubleshooting/hook-explorer) is the offline, render-first complement to this tool.
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+<Callout type="info">
+  For application-level debugging, use the [Angular troubleshooting guide](/guides/troubleshooting). For component and tool-renderer examples, use the [Angular feature examples](/features).
+</Callout>
+</FrontendOnly>

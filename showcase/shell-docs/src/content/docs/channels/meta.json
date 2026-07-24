@@ -1,5 +1,8 @@
 {
   "title": "Channels SDK",
   "icon": "lucide/Bot",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": ["index", "persistence", "transcripts"]
 }

@@ -37,10 +37,10 @@ test("canonicalizes React guidance routes to the React root", () => {
   );
 });
 
-test("renders backend docs for non-Angular frontend routes with a backend slug", () => {
-  expect(pageSource).toContain(
-    'if (activeBackendFramework && framework !== "angular")',
-  );
+test("renders backend docs for every frontend route with a backend slug", () => {
+  expect(pageSource).toContain("resolveAngularDoc(");
+  expect(pageSource).toContain("getAngularDocsNavTree(");
+  expect(pageSource).toContain("if (activeBackendFramework) {");
   expect(pageSource).toContain("scopedFramework = activeBackendFramework");
   expect(pageSource).toContain("scopedSlugHrefPrefix = frontendRoutePath(");
   expect(pageSource).toContain("frameworkOverride={scopedFramework}");
@@ -54,15 +54,20 @@ test("renders backend docs for non-Angular frontend routes with a backend slug",
 
 test("keeps frontend root pages available under frontend/backend routes", () => {
   const frontendRootIndex = pageSource.indexOf(
-    "if (!activeFrontendSlugPath) {\n      return (\n        <FrontendQuickstartDocsPage",
+    "if (!activeFrontendSlugPath) {",
   );
   const backendScopingIndex = pageSource.indexOf(
-    'if (activeBackendFramework && framework !== "angular") {\n      scopedFramework = activeBackendFramework',
+    "if (activeBackendFramework) {\n      scopedFramework = activeBackendFramework",
   );
 
   expect(frontendRootIndex).toBeGreaterThan(-1);
   expect(backendScopingIndex).toBeGreaterThan(-1);
   expect(frontendRootIndex).toBeLessThan(backendScopingIndex);
+  expect(pageSource).toContain(
+    'framework === "angular" && activeBackendFramework',
+  );
+  expect(pageSource).toContain("<FrameworkRootPage");
+  expect(pageSource).toContain("<FrontendQuickstartDocsPage");
 });
 
 test("keeps frontend guidance pages available under frontend/backend routes", () => {
@@ -70,7 +75,7 @@ test("keeps frontend guidance pages available under frontend/backend routes", ()
     "if (isFrontendGuidanceSlug(activeFrontendSlugPath))",
   );
   const backendScopingIndex = pageSource.indexOf(
-    'if (activeBackendFramework && framework !== "angular") {\n      scopedFramework = activeBackendFramework',
+    "if (activeBackendFramework) {\n      scopedFramework = activeBackendFramework",
   );
 
   expect(guidanceIndex).toBeGreaterThan(-1);
@@ -80,6 +85,9 @@ test("keeps frontend guidance pages available under frontend/backend routes", ()
 });
 
 test("uses backend metadata for frontend routes that include a backend slug", () => {
+  expect(pageSource).toMatch(
+    /framework === "angular" && activeFrontendSlugPath[\s\S]*resolveAngularDoc\(/,
+  );
   expect(pageSource).toContain("frameworkMetadata(");
   expect(pageSource).toMatch(
     /frameworkMetadata\(\s*activeBackendFramework,\s*activeFrontendSlugPath/s,

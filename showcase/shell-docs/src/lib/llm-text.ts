@@ -47,6 +47,10 @@ import {
   walkMdx,
 } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
+import angularSourceContent from "@/data/angular-source-content.json";
+import { filterFrontendScopedBlocks } from "./toc";
+import type { FrontendId } from "./frontend-options";
+import { resolveDocsHref } from "./docs-link-rewrite";
 
 interface Region {
   file: string;
@@ -70,6 +74,15 @@ interface DemoRecord {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
+
+const angularRegions = (
+  angularSourceContent as {
+    regions: Record<
+      string,
+      { file: string; language: string; content: string }
+    >;
+  }
+).regions;
 
 // Preferred framework for cross-framework `<Snippet />` resolution when
 // the caller hasn't picked one (i.e. `/<slug>.md` without a framework
@@ -563,6 +576,25 @@ function expandSnippets(
   });
 }
 
+/** Resolve Angular-authored docs snippets from the canonical Showcase app. */
+function expandAngularSnippets(body: string): string {
+  return body.replace(
+    /<AngularSnippet\b([\s\S]*?)\/>/g,
+    (_match, inner: string) => {
+      const region = /\bregion\s*=\s*["']([^"']+)["']/.exec(inner)?.[1];
+      const source = region ? angularRegions[region] : undefined;
+      if (!source) {
+        return `<!-- Angular Showcase snippet skipped: missing region ${region ?? "(none)"} -->`;
+      }
+      const header = fileHeaderComment(source.language, source.file);
+      return fenceFor(
+        source.language,
+        header ? `${header}\n${source.content}` : source.content,
+      );
+    },
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -578,6 +610,41 @@ function stripInlineDemos(body: string): string {
         : "\n<!-- interactive demo -->\n";
     },
   );
+}
+
+function rewriteAngularLinks(body: string, page: LlmPage): string {
+  const parts = page.url.split("/").filter(Boolean);
+  if (parts[0] !== "angular") return body;
+
+  const backendSlugs = new Set(
+    getIntegrations().map((integration) => integration.slug),
+  );
+  const backend = parts[1] && backendSlugs.has(parts[1]) ? parts[1] : null;
+  const slugHrefPrefix = backend ? `/angular/${backend}` : "/angular";
+  const options = {
+    slugHrefPrefix,
+    frameworkOverride: backend ?? ROOT_FRAMEWORK,
+  };
+  const rewrite = (href: string): string =>
+    resolveDocsHref(href, options) ?? href;
+
+  return body
+    .split(/(```[\s\S]*?```)/g)
+    .map((chunk, index) => {
+      if (index % 2 === 1) return chunk;
+      return chunk
+        .replace(
+          /(\]\()((?:\/(?!\/))[^\s)]+)(\))/g,
+          (_match, open: string, href: string, close: string) =>
+            `${open}${rewrite(href)}${close}`,
+        )
+        .replace(
+          /(\bhref\s*=\s*["'])((?:\/(?!\/))[^"']+)(["'])/g,
+          (_match, open: string, href: string, close: string) =>
+            `${open}${rewrite(href)}${close}`,
+        );
+    })
+    .join("");
 }
 
 /**
@@ -596,7 +663,7 @@ function stripInlineDemos(body: string): string {
  */
 export function renderPageToLlmText(
   page: LlmPage,
-  options: { framework?: string } = {},
+  options: { framework?: string; frontend?: FrontendId } = {},
 ): string {
   const raw = readSource(page);
   if (!raw) return "";
@@ -624,13 +691,24 @@ export function renderPageToLlmText(
   //    renderer uses for the live HTML view.
   body = inlineSnippets(body, page.loadSlug);
 
+  // Imported snippets can contain frontend-scoped branches of their own.
+  // Filter after inlining so raw Markdown output follows the same frontend
+  // selection as the live MDX component tree.
+  body = filterFrontendScopedBlocks(body, options.frontend);
+
   // 2) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);
 
-  // 3) Drop `<InlineDemo />`.
+  // 3) Resolve regions from the canonical Angular Showcase app.
+  body = expandAngularSnippets(body);
+
+  // 4) Drop `<InlineDemo />`.
   body = stripInlineDemos(body);
 
-  // 4) Prepend an H1 (and description blockquote) so consumers always
+  // 5) Keep raw Markdown links in the same Angular surface as the live page.
+  body = rewriteAngularLinks(body, page);
+
+  // 6) Prepend an H1 (and description blockquote) so consumers always
   //    get a clear page title — frontmatter alone wouldn't survive the
   //    strip step.
   const header: string[] = [`# ${title}`];

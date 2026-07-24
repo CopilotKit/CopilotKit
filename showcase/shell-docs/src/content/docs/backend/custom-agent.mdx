@@ -150,8 +150,8 @@ export default copilotEndpoint;
 </Tab>
 </Tabs>
 
-The frontend setup is the same as [BuiltInAgent](/quickstart). Wrap your app with
-`<CopilotKit>` and add a chat component.
+The frontend setup is the same as [BuiltInAgent](/quickstart): configure the
+CopilotKit provider and add a chat component.
 
 ## How It Works
 
@@ -215,7 +215,8 @@ const agent = new BuiltInAgent({
 });
 ```
 
-`convertToolsToVercelAITools` converts the frontend-defined tools (from `useFrontendTool`) into AI SDK's `ToolSet` format automatically.
+`convertToolsToVercelAITools` converts frontend-defined tools into AI SDK's
+`ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
@@ -367,14 +368,14 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const systemParts: string[] = ["You are a helpful assistant."];
 
-    // Add context from the frontend (useAgentContext)
+    // Add context supplied by the frontend
     if (input.context?.length) {
       for (const ctx of input.context) {
         systemParts.push(`${ctx.description}:\n${ctx.value}`);
       }
     }
 
-    // Add shared application state (useCoAgent, etc.)
+    // Add shared application state
     if (input.state && Object.keys(input.state).length > 0) {
       systemParts.push(
         `Application State:\n${JSON.stringify(input.state, null, 2)}`,
@@ -496,13 +497,27 @@ const agent = new BuiltInAgent({
 </Tab>
 </Tabs>
 
-Forward props from the frontend using the `CopilotKit` provider's `properties` prop:
+Forward properties from the frontend provider:
 
+<FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 <CopilotKit properties={{ model: "anthropic/claude-sonnet-4", temperature: 0.3 }}>
   <CopilotChat />
 </CopilotKit>
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  properties: {
+    model: "anthropic/claude-sonnet-4",
+    temperature: 0.3,
+  },
+})
+```
+</FrontendOnly>
 
 ## Helper Utilities
 

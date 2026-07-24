@@ -5,6 +5,7 @@ import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
 import { agentIdForRoute } from "../../feature-agent";
 import type { ShowcaseMessage } from "./headless-chat.types";
 
+// @region[headless-chat-controller]
 /** Signal-first controller shared by the two native Angular headless demos. */
 export abstract class HeadlessChatController {
   private readonly copilotKit = inject(CopilotKit);
@@ -57,6 +58,7 @@ export abstract class HeadlessChatController {
     }
   }
 }
+// @endregion[headless-chat-controller]
 
 function createMessageId(): string {
   return (

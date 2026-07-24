@@ -3,6 +3,7 @@ import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
@@ -65,6 +66,7 @@ export async function GET(
 
   const body = renderPageToLlmText(resolved.page, {
     framework: resolved.framework,
+    ...(resolved.frontend ? { frontend: resolved.frontend } : {}),
   });
   if (!body) {
     return new NextResponse("Not found", { status: 404 });
@@ -81,6 +83,7 @@ export async function GET(
 interface ResolvedPage {
   page: LlmPage;
   framework?: string;
+  frontend?: FrontendPageId;
 }
 
 type FrontendPageId = Exclude<FrontendId, "react">;
@@ -128,6 +131,7 @@ function resolvePage(slug: string[]): ResolvedPage | null {
           framework: activeBackendFramework,
         },
         framework: activeBackendFramework,
+        frontend,
       };
     }
 
@@ -146,15 +150,40 @@ function resolvePage(slug: string[]): ResolvedPage | null {
           framework: activeBackendFramework,
         },
         framework: activeBackendFramework,
+        frontend,
+      };
+    }
+
+    if (frontend === "angular") {
+      const resolution = resolveAngularDoc(
+        activeBackendFramework ?? null,
+        frontendRest,
+      );
+      if (!resolution) return null;
+      const doc = loadDoc(resolution.contentSlugPath);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: resolution.contentSlugPath,
+          framework: resolution.framework,
+        },
+        framework: resolution.framework,
+        frontend,
       };
     }
 
     if (activeBackendFramework) {
-      return resolveFrameworkScopedPage(
+      const resolved = resolveFrameworkScopedPage(
         activeBackendFramework,
         frontendRest || "index",
         url,
       );
+      return resolved ? { ...resolved, frontend } : null;
     }
 
     const contentSlug = (() => {
@@ -176,6 +205,7 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         framework: activeBackendFramework,
       },
       framework: activeBackendFramework,
+      frontend,
     };
   }
 

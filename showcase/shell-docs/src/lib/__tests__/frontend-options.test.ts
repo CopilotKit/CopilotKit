@@ -27,9 +27,13 @@ import {
   getFrontendQuickstartNavTree,
   getFrontendUsingTheseDocsPath,
 } from "../frontend-page-content";
-import { loadDoc } from "../docs-render";
+import { buildBreadcrumbs, loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { resolveFrontendDocPage } from "../frontend-doc-policy";
+import {
+  getAngularDocsNavTree,
+  resolveAngularDoc,
+} from "../angular-doc-navigation";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import type * as PageTree from "fumadocs-core/page-tree";
 
@@ -66,6 +70,7 @@ const angularGuideSlugs = [
   "guides/human-in-the-loop",
   "guides/shared-state",
   "guides/threads-memory-attachments-headless",
+  "guides/troubleshooting",
 ] as const;
 
 test("keeps React as the full docs surface and routes other frontends to their guides", () => {
@@ -209,10 +214,10 @@ test("maps every non-React frontend to an MDX guide page", () => {
   expect(isFrontendEarlyAccess("react")).toBe(false);
 });
 
-test("gives Angular a standalone feature guide without React fallback", () => {
+test("gives Angular native guides plus shared product documentation", () => {
   const guidance = loadDoc(getFrontendGuidanceContentSlug("angular"));
   const pageUrls = collectPageUrls(
-    navTreeToPageTree(getFrontendQuickstartNavTree("angular"), "/angular"),
+    navTreeToPageTree(getAngularDocsNavTree(null), "/angular"),
   );
 
   expect(guidance?.source).not.toMatch(/React/i);
@@ -234,9 +239,16 @@ test("gives Angular a standalone feature guide without React fallback", () => {
       contentSlugPath: "frontends/angular/features",
     }),
   );
-  expect(resolveFrontendDocPage("angular", "concepts/architecture")).toEqual({
-    status: "not-found",
-  });
+  expect(resolveAngularDoc(null, "concepts/architecture")).toEqual(
+    expect.objectContaining({
+      contentSlugPath: "concepts/architecture",
+      framework: "built-in-agent",
+      source: "shared",
+    }),
+  );
+  expect(pageUrls).toContain("/angular/concepts/architecture");
+  expect(pageUrls).toContain("/angular/backend/copilot-runtime");
+  expect(pageUrls).toContain("/angular/premium/intelligence-platform");
   expect(getFrontendCanonicalSlug("angular", "docs-status")).toBe(
     "using-these-docs",
   );
@@ -244,7 +256,7 @@ test("gives Angular a standalone feature guide without React fallback", () => {
 
 test("publishes Angular task guides in unscoped and backend-scoped routes", () => {
   const pageUrls = collectPageUrls(
-    navTreeToPageTree(getFrontendQuickstartNavTree("angular"), "/angular"),
+    navTreeToPageTree(getAngularDocsNavTree(null), "/angular"),
   );
 
   for (const slug of angularGuideSlugs) {
@@ -261,6 +273,72 @@ test("publishes Angular task guides in unscoped and backend-scoped routes", () =
       `/angular/langgraph-python/${slug}`,
     );
   }
+});
+
+test("keeps Angular backend docs in context without a frontend-backend copy tree", () => {
+  const prefix = "/angular/langgraph-python";
+  const pageUrls = collectPageUrls(
+    navTreeToPageTree(getAngularDocsNavTree("langgraph-python"), prefix),
+  );
+
+  expect(pageUrls).toContain(prefix);
+  expect(pageUrls).toContain(`${prefix}/quickstart`);
+  expect(pageUrls).toContain(`${prefix}/concepts/architecture`);
+  expect(pageUrls).toContain(`${prefix}/backend/copilot-runtime`);
+  expect(pageUrls).toContain(`${prefix}/premium/intelligence-platform`);
+  expect(pageUrls).toContain(`${prefix}/auth`);
+  expect(pageUrls).toContain(`${prefix}/guides/frontend-tools-generative-ui`);
+  expect(resolveAngularDoc("langgraph-python", "auth")).toEqual(
+    expect.objectContaining({
+      contentSlugPath: "frontends/angular/auth",
+      framework: "langgraph-python",
+      source: "angular",
+    }),
+  );
+});
+
+test("canonicalizes React-only frontend topics to Angular-native task guides", () => {
+  expect(getFrontendCanonicalSlug("angular", "frontend-tools")).toBe(
+    "guides/frontend-tools-generative-ui",
+  );
+  expect(
+    getFrontendCanonicalSlug(
+      "angular",
+      "prebuilt-components/copilot-threads-drawer",
+    ),
+  ).toBe("guides/threads-memory-attachments-headless");
+  expect(getFrontendCanonicalSlug("angular", "premium/overview")).toBe(
+    "premium/overview",
+  );
+  expect(
+    getFrontendCanonicalSlug(
+      "angular",
+      "(other)/contributing/code-contributions",
+    ),
+  ).toBe("contributing/code-contributions");
+  expect(
+    getFrontendCanonicalSlug("angular", "generative-ui/a2ui/styling"),
+  ).toBe("guides/frontend-tools-generative-ui");
+  expect(getFrontendCanonicalSlug("angular", "deploy-agentcore")).toBe(
+    "backend/copilot-runtime",
+  );
+  expect(
+    getFrontendCanonicalSlug("angular", "a2a/generative-ui/declarative-a2ui"),
+  ).toBe("guides/frontend-tools-generative-ui");
+});
+
+test("does not link breadcrumbs for section-only paths", () => {
+  const breadcrumbs = buildBreadcrumbs("backend/copilot-runtime", {
+    rootLabel: "Docs",
+    rootHref: "/angular",
+    slugHrefPrefix: "/angular",
+  });
+
+  expect(breadcrumbs).toEqual([
+    { label: "Docs", href: "/angular" },
+    { label: "Runtime", href: null },
+    { label: "Copilot Runtime", href: null },
+  ]);
 });
 
 test("routes frontend sidebars to the most specific reference docs available", () => {

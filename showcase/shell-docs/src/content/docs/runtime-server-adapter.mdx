@@ -2,6 +2,8 @@
 title: "Deploy to any runtime"
 icon: "lucide/Server"
 description: Deploy the CopilotKit runtime on any backend framework — Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more.
+frontend:
+  kind: universal
 ---
 
 The CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
@@ -988,16 +990,35 @@ When using `credentials: true`, you must specify an explicit origin — wildcard
 
 Once your runtime is running, point your frontend at it:
 
+<FrontendOnly frontend="react">
 ```tsx
 <CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
+</FrontendOnly>
 
-For same-origin deployments (e.g. Next.js, React Router, TanStack Start), use a relative path:
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "http://localhost:4000/api/copilotkit",
+})
+```
 
+For same-origin deployments, use a relative path:
+
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+})
+```
+</FrontendOnly>
+
+<FrontendOnly frontend="react">
+For same-origin deployments, use a relative path:
 ```tsx
 <CopilotKit runtimeUrl="/api/copilotkit">
   <YourApp />
 </CopilotKit>
 ```
+</FrontendOnly>

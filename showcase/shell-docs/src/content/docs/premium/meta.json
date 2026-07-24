@@ -1,5 +1,8 @@
 {
   "title": "Intelligence Platform",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "overview",
     "managed-intelligence-platform",

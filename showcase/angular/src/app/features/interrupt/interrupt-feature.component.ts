@@ -107,6 +107,7 @@ import type { InterruptSlot } from "./interrupt-payload";
     </main>
   `,
 })
+// @region[interrupt-controller]
 export class InterruptFeatureComponent {
   private readonly route = inject(ActivatedRoute);
   protected readonly feature =
@@ -136,3 +137,4 @@ export class InterruptFeatureComponent {
     this.controller.cancel().catch(() => undefined);
   }
 }
+// @endregion[interrupt-controller]

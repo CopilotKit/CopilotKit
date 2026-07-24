@@ -5,7 +5,7 @@ description: How CopilotKit lets agents drive UI — the primitives it ships, wh
 doc_type: explanation
 ---
 
-Generative UI in CopilotKit is the set of primitives that let an agent decide what appears on the screen — from rendering a specific React component you've built, to composing layouts from a catalog, to embedding sandboxed UI shipped by an MCP server.
+Generative UI in CopilotKit is the set of primitives that let an agent decide what appears on the screen — from rendering a specific application component you've built, to composing layouts from a catalog, to embedding sandboxed UI shipped by an MCP server.
 
 ## What CopilotKit ships
 
@@ -13,16 +13,36 @@ Six primitives. Each one solves a different problem.
 
 | Primitive | What it does |
 |---|---|
-| **[Components as Tools](/generative-ui/tool-based)** | Register a React component with `useComponent`; the agent calls it as a tool and CopilotKit renders it inline with typed props. |
-| **[Tool Call Rendering](/generative-ui/tool-rendering)** | Wrap your agent's existing backend tool calls in custom UI cards with `useRenderTool` (live status, arguments, results). |
+| **[Components as Tools](/generative-ui/tool-based)** | Register an application component as a frontend tool; the agent calls it and CopilotKit renders it inline with typed inputs. |
+| **[Tool Call Rendering](/generative-ui/tool-rendering)** | Map your agent's existing backend tool calls to custom UI cards showing live status, arguments, and results. |
 | **[State Rendering](/generative-ui/state-rendering)** | Subscribe to the agent's streamed state and re-render UI as values arrive. |
 | **[Reasoning](/generative-ui/reasoning)** | Render the model's reasoning tokens inline as a first-class message type (default card, or fully custom). |
 | **[A2UI](/generative-ui/a2ui)** | Render UI from a declarative schema the agent emits, composed against a catalog you register. Two flavors: [Dynamic Schema](/generative-ui/a2ui/dynamic-schema) (LLM generates the schema) and [Fixed Schema](/generative-ui/a2ui/fixed-schema) (you author the schema, agent supplies data). |
 | **[MCP Apps](/generative-ui/mcp-apps)** | Embed UI that an MCP server ships alongside its tools, rendered in a sandboxed iframe. No frontend renderer required. |
 
+<FrontendOnly frontend="react">
+### React API
+
+Use `useComponent` to register a React component as a frontend tool. Use
+`useRenderTool` when the tool runs on the backend and React only controls how
+the call appears.
+
 <Callout type="info">
   **Prefer to learn by building?** [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) is a free DeepLearning.AI short course taught by CopilotKit's CEO. It walks through the Generative UI patterns end-to-end with React, LangChain, and AG-UI.
 </Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+### Angular API
+
+Pass a standalone Angular component to `registerFrontendTool` when the tool
+runs in the browser. Use `registerRenderToolCall` when the tool runs on the
+backend and Angular only controls how the call appears.
+
+<Callout type="info">
+  **Prefer to learn by building?** Follow [Frontend tools and generative UI](/angular/guides/frontend-tools-generative-ui) for a complete Angular example with typed tools, standalone renderer components, A2UI, Open Generative UI, and MCP Apps.
+</Callout>
+</FrontendOnly>
 
 ## Pick one
 
@@ -30,7 +50,7 @@ Match the row that sounds like your situation:
 
 | You want to… | Use |
 |---|---|
-| Let the agent render a specific React component you've already built | **[Components as Tools](/generative-ui/tool-based)** |
+| Let the agent render a specific application component you've already built | **[Components as Tools](/generative-ui/tool-based)** |
 | Brand the cards CopilotKit draws for your agent's existing backend tools | **[Tool Call Rendering](/generative-ui/tool-rendering)** |
 | Update UI as the agent's state changes (progress, drafts, dashboards) | **[State Rendering](/generative-ui/state-rendering)** |
 | Surface the model's thinking chain in the chat | **[Reasoning](/generative-ui/reasoning)** |
@@ -39,7 +59,9 @@ Match the row that sounds like your situation:
 
 ## How the primitives compare
 
-These primitives sit along a spectrum from author-controlled to agent-invented. Same React app, same runtime, same AG-UI protocol — the choice is per-feature, not per-product.
+These primitives sit along a spectrum from author-controlled to
+agent-invented. Same frontend application, same runtime, same AG-UI protocol —
+the choice is per-feature, not per-product.
 
 - **Controlled** — you wrote the component; the agent only picks *which* one to render and *what data* to pass. Highest predictability, highest engineering cost per capability. *Components as Tools, Tool Call Rendering, State Rendering, Reasoning.*
 - **Declarative** — the agent emits a structured spec; the frontend composes from a catalog you registered. Creativity inside a guardrail. *A2UI (Dynamic and Fixed Schema).*
@@ -51,7 +73,7 @@ These primitives sit along a spectrum from author-controlled to agent-invented. 
   <Card
     title="Components as Tools"
     href="/generative-ui/tool-based"
-    description="Register a React component as a tool the agent can call."
+    description="Register an application component as a tool the agent can call."
   />
   <Card
     title="Tool Call Rendering"
