@@ -189,7 +189,10 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
     '.comparisons | length\' "$RUNNER_TEMP/angular-audit-parity.json")" = "660"',
   );
   expect(workflow).toContain(
-    '.summary[\\"react-only\\"]\' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"',
+    '.summary["react-only"]\' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"',
+  );
+  expect(workflow).toContain(
+    'Angular regressions: \\(.summary["angular-regression"])',
   );
   expect(workflow).not.toContain(
     '.summary.failed "$RUNNER_TEMP/angular-audit-final.json")" = "0"',

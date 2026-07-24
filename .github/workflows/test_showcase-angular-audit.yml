@@ -442,7 +442,7 @@ jobs:
             --pull-request "$RUNNER_TEMP/angular-audit-final.json" \
             --output "$RUNNER_TEMP/angular-audit-parity.json"
           test "$(jq '.comparisons | length' "$RUNNER_TEMP/angular-audit-parity.json")" = "660"
-          test "$(jq '.summary[\"react-only\"]' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"
+          test "$(jq '.summary["react-only"]' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"
 
       - name: Publish audit summary
         if: always()
@@ -459,7 +459,7 @@ jobs:
               echo
               echo "### Current-revision parity"
               echo
-              jq -r '"- Paired passes: \(.summary.passed)\n- Angular regressions: \(.summary[\"angular-regression\"])\n- Shared failures: \(.summary[\"shared-failure\"])\n- Angular improvements: \(.summary[\"angular-improvement\"])\n- React-only cells: \(.summary[\"react-only\"])\n- Identity mismatches: \(.summary[\"identity-mismatch\"])\n- Missing counterparts: \(.summary[\"missing-counterpart\"])"' "$RUNNER_TEMP/angular-audit-parity.json"
+              jq -r '"- Paired passes: \(.summary.passed)\n- Angular regressions: \(.summary["angular-regression"])\n- Shared failures: \(.summary["shared-failure"])\n- Angular improvements: \(.summary["angular-improvement"])\n- React-only cells: \(.summary["react-only"])\n- Identity mismatches: \(.summary["identity-mismatch"])\n- Missing counterparts: \(.summary["missing-counterpart"])"' "$RUNNER_TEMP/angular-audit-parity.json"
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
