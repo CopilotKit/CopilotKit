@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import {
   CreditCard,
+  Receipt,
   HelpCircle,
   LayoutDashboard,
   RotateCcw,
@@ -31,7 +32,11 @@ import { useAuthContext } from "@/components/auth-context";
 import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { useAgentContext } from "@copilotkit/react-core/v2";
+import {
+  useAgentContext,
+  useCopilotChatConfiguration,
+} from "@copilotkit/react-core/v2";
+import { useChatInbox } from "@/components/chat/chat-inbox-context";
 import { usePathname } from "next/navigation";
 import { IDENTITY } from "@/lib/identity";
 import { useCanvas } from "@/components/canvas/canvas-context";
@@ -155,6 +160,21 @@ export function LayoutComponent({
   });
   const { activeSurfaceId, clear } = useCanvas();
 
+  // When the chat panel is open the CopilotSidebar already pushes the body by
+  // the conversation width; when the persistent thread rail is also expanded
+  // we push the page content an extra rail-width (300px) so the rail never
+  // covers page content. Desktop-only (the rail is hidden on mobile).
+  const { isInboxOpen } = useChatInbox();
+  const chatConfig = useCopilotChatConfiguration();
+  const railVisible = isInboxOpen && (chatConfig?.isModalOpen ?? false);
+  const padClass = railVisible
+    ? glassActive
+      ? "md:pr-[684px]"
+      : "md:pr-[300px]"
+    : glassActive
+      ? "md:pr-96"
+      : "";
+
   const handleReset = async () => {
     // Native confirm keeps the booth tool dependency-free and reliable; a stray
     // click can't nuke the demo mid-show.
@@ -168,9 +188,13 @@ export function LayoutComponent({
     try {
       const res = await fetch("/api/v1/dev/reset", { method: "POST" });
       if (res.ok) {
-        // Full reload -> pristine client slate (fresh transactions, cleared
-        // canvas, new thread on next message).
-        window.location.reload();
+        // Hard navigate to the BARE ROOT, not reload(): reload keeps whatever
+        // route + query params were on screen (e.g. /dashboard?tab=transactions
+        // or ?operation=change-pin), so a reset would land mid-demo instead of
+        // at the top. Assigning "/" gives a pristine client slate (fresh
+        // transactions, cleared canvas, new thread on next message) AND the
+        // clean starting URL the demo should always open on.
+        window.location.assign("/");
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
@@ -189,7 +213,7 @@ export function LayoutComponent({
     <div
       className={cn(
         "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
-        glassActive && "md:pr-96",
+        padClass,
       )}
     >
       {/* Floating icon rail. */}
@@ -208,6 +232,12 @@ export function LayoutComponent({
               icon={LayoutDashboard}
               label="Dashboard"
               active={pathname.startsWith("/dashboard")}
+            />
+            <NavItem
+              href="/charges"
+              icon={Receipt}
+              label="Charges"
+              active={pathname.startsWith("/charges")}
             />
             <NavItem
               href="/"

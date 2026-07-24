@@ -3,10 +3,12 @@ import {
   useAgentContext,
   useComponent,
   useHumanInTheLoop,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { usePathname, useRouter } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
+import { CHARGE_CATEGORIES } from "@/app/charges/charges-data";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
@@ -206,6 +208,65 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           </Button>
         </div>
       );
+    },
+  });
+
+  // Charges page: navigate + pre-filter + stack-rank. Fire-and-forget (no
+  // confirm) — opening a filtered list is safe. The page reads these as URL
+  // params (?sort=&top=&category=&status=&vendor=&from=&to=) so the on-screen
+  // controls reflect exactly what the agent chose. "the 10 most expensive
+  // charges" => { sort: "amount_desc", top: 10 }.
+  useFrontendTool({
+    name: "showCharges",
+    description: `Open the Charges page pre-filtered and sorted, then stack-ranked. Use for asks like "show me the 10 most expensive charges", "which charges are over limit", or "marketing charges in May". Set sort/top/filters accordingly.`,
+    parameters: z.object({
+      sort: z
+        .enum(["amount_desc", "amount_asc", "date_desc", "date_asc"])
+        .optional()
+        .describe(
+          "Sort order. 'most/least expensive' => amount_desc/amount_asc; 'newest/oldest' => date_desc/date_asc.",
+        ),
+      top: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Show only the top N rows after sorting (e.g. 10)."),
+      categories: z
+        .array(z.string())
+        .optional()
+        .describe(
+          `Filter to these categories (exact names): ${CHARGE_CATEGORIES.join(", ")}.`,
+        ),
+      statuses: z
+        .array(z.enum(["approved", "pending", "flagged", "over-limit"]))
+        .optional()
+        .describe("Filter to these statuses."),
+      vendor: z
+        .string()
+        .optional()
+        .describe("Only charges whose merchant contains this text."),
+      from: z
+        .string()
+        .optional()
+        .describe("Only charges on/after this ISO date (yyyy-mm-dd)."),
+      to: z
+        .string()
+        .optional()
+        .describe("Only charges on/before this ISO date (yyyy-mm-dd)."),
+    }),
+    handler: async ({ sort, top, categories, statuses, vendor, from, to }) => {
+      const params = new URLSearchParams();
+      if (sort) params.set("sort", sort);
+      if (top) params.set("top", String(top));
+      if (categories?.length) params.set("category", categories.join(","));
+      if (statuses?.length) params.set("status", statuses.join(","));
+      if (vendor) params.set("vendor", vendor);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      const qs = params.toString();
+      router.push(qs ? `/charges?${qs}` : "/charges");
+      return `Opened the Charges page${qs ? ` (${qs})` : ""}.`;
     },
   });
 

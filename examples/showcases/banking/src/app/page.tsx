@@ -27,6 +27,7 @@ import { useSearchParams } from "next/navigation";
 import { CardsPageOperations } from "@/components/copilot-context";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 import { ApprovalButtons } from "@/components/approval-buttons";
+import { useReportToCopilot } from "@/components/wow/use-ask-copilot";
 
 interface ChangePinState {
   newPin: string;
@@ -62,6 +63,7 @@ export default function Page() {
     assignPolicyToCard,
     addNoteToTransaction,
   } = useCreditCards();
+  const reportToCopilot = useReportToCopilot();
 
   useEffect(() => {
     const operationNameToMethod: Partial<
@@ -82,12 +84,20 @@ export default function Page() {
     pin?: string;
     cardId?: string;
   }) => {
+    const resolvedCardId = cardId ?? state.cardId!;
     dispatch({ loading: true });
     await changePin({
       pin: pin ?? state.newPin,
-      cardId: cardId ?? state.cardId!,
+      cardId: resolvedCardId,
     });
     dispatch({ loading: false, newPin: "", cardId: null, dialogOpen: false });
+    // Close the loop: the PIN was entered in the app's own dialog (not the
+    // chat), so surface an agent confirmation on screen that it saw the change.
+    const card = cards.find((c) => c.id === resolvedCardId);
+    const label = card ? `${card.type} ending ${card.last4}` : "your card";
+    reportToCopilot(
+      `Done — I saw you update the PIN on the ${label} in the app. Your new PIN is set; you're all good.`,
+    );
   };
 
   const handleAddCard = async (

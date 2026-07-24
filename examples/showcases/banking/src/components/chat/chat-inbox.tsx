@@ -1,35 +1,43 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Archive, ArrowLeft, Inbox, Plus, Trash2 } from "lucide-react";
+import { Archive, PanelRightClose, Plus, Trash2 } from "lucide-react";
 import { useThreads } from "@copilotkit/react-core/v2";
 
 import { cn } from "@/lib/utils";
 import { useChatInbox } from "./chat-inbox-context";
 
-const UNTITLED_LABEL = "New conversation";
+const UNTITLED_LABEL = "New chat";
+const BUCKET_ORDER = [
+  "Today",
+  "Yesterday",
+  "Previous 7 Days",
+  "Older",
+] as const;
+type Bucket = (typeof BUCKET_ORDER)[number];
 
 /**
- * Inbox-style conversation list that paints over the docked chat panel's chat
- * area. It is rendered as a sibling of the `CopilotSidebar` (not inside the
- * chat view) so it can cover the full panel without being clipped, and is
- * positioned to exactly overlap the docked panel on the right edge.
+ * Persistent, ChatGPT-style thread rail docked to the LEFT of the conversation
+ * (so the whole chat experience stays on the right edge). New-chat button on
+ * top, the conversation list grouped by recency, hover archive/delete, and a
+ * collapse control. Rendered as a sibling of the `CopilotSidebar` and offset by
+ * the conversation's width so the two sit flush.
  *
- * Visibility is driven by two pieces of shared state:
- *  - `isInboxOpen` from {@link useChatInbox} (toggled by the panel header), and
- *  - `panelOpen` passed by the parent (the sidebar's modal-open state),
- * so the inbox only shows while the panel itself is open.
+ * Visible when the panel is open AND the rail is expanded (`isInboxOpen`); the
+ * panel header's toggle collapses/expands it.
  */
 export function ChatInbox({
   panelOpen,
   showArchived,
   onShowArchivedChange,
   width,
+  offset,
 }: {
   panelOpen: boolean;
   showArchived: boolean;
   onShowArchivedChange: (next: boolean) => void;
   width: number;
+  offset: number;
 }) {
   const {
     isInboxOpen,
@@ -70,63 +78,154 @@ export function ChatInbox({
     });
   };
 
+  // Group newest-first threads into recency buckets (ChatGPT-style headings).
+  const grouped = new Map<Bucket, typeof threads>();
+  for (const thread of threads) {
+    const b = bucketFor(thread.lastRunAt ?? thread.updatedAt);
+    if (!grouped.has(b)) grouped.set(b, []);
+    grouped.get(b)!.push(thread);
+  }
+
   return (
     <aside
       data-testid="chat-inbox"
       aria-label="Conversations"
       aria-hidden={!visible}
-      style={{ "--inbox-width": `${width}px` } as CSSProperties}
+      style={
+        {
+          "--rail-width": `${width}px`,
+          right: `${offset}px`,
+        } as CSSProperties
+      }
       className={cn(
-        "fixed top-0 right-0 z-[1300] flex h-[100dvh] max-h-screen w-full flex-col",
-        "w-full md:w-[var(--inbox-width)]",
-        "border-l border-hairline bg-surface text-ink shadow-lift",
+        "fixed top-0 z-[1200] hidden h-[100dvh] max-h-screen w-[var(--rail-width)] flex-col md:flex",
+        "border-r border-hairline bg-surface-muted/70 text-ink backdrop-blur",
         "transition-[opacity,transform] duration-200 ease-out",
         visible
           ? "translate-x-0 opacity-100"
-          : "pointer-events-none translate-x-2 opacity-0",
+          : "pointer-events-none translate-x-3 opacity-0",
       )}
     >
-      {/* Inbox header — mirrors the panel header height so it sits flush. */}
-      <header className="flex h-[68px] flex-shrink-0 items-center justify-between gap-2 border-b border-hairline px-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-indigo dark:text-brand-violet">
-            <Inbox className="h-[18px] w-[18px]" />
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold leading-tight tracking-tight text-ink">
-              Conversations
-            </p>
-            <p className="truncate text-xs leading-tight text-ink-muted">
-              {threads.length}{" "}
-              {threads.length === 1 ? "conversation" : "conversations"}
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          aria-label="Back to chat"
-          title="Back to chat"
-          data-testid="chat-inbox-back"
-          onClick={closeInbox}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface dark:hover:text-brand-violet"
-        >
-          <ArrowLeft className="h-[18px] w-[18px]" />
-        </button>
-      </header>
-
-      {/* New conversation + archived toggle. */}
-      <div className="flex items-center gap-2 px-4 pb-2 pt-3">
+      {/* Top: New chat + collapse */}
+      <div className="flex items-center gap-2 px-3 pb-2 pt-3">
         <button
           type="button"
           data-testid="inbox-new-conversation"
           onClick={startNewConversation}
-          className="brand-gradient inline-flex flex-1 items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-semibold text-surface shadow-[0_8px_20px_hsl(252_83%_60%/0.28)] transition-transform hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex flex-1 items-center gap-2 rounded-xl border border-hairline bg-surface px-3 py-2.5 text-sm font-semibold text-ink shadow-soft transition-colors hover:border-brand/40 hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:hover:text-brand-violet"
         >
           <Plus className="h-4 w-4" />
-          New conversation
+          New chat
+        </button>
+        <button
+          type="button"
+          aria-label="Collapse conversations"
+          title="Collapse conversations"
+          data-testid="chat-inbox-back"
+          onClick={closeInbox}
+          className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:hover:text-brand-violet"
+        >
+          <PanelRightClose className="h-[18px] w-[18px]" />
         </button>
       </div>
-      <label className="flex cursor-pointer select-none items-center gap-2 px-4 pb-2 text-xs font-medium text-ink-muted">
+
+      {/* List */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-3">
+        {isLoading && threads.length === 0 ? (
+          <RailEmpty title="Loading…" message="Fetching your conversations." />
+        ) : threads.length === 0 ? (
+          <RailEmpty
+            title="No conversations yet"
+            message="Start a new chat with the copilot."
+          />
+        ) : (
+          <>
+            {BUCKET_ORDER.filter((b) => grouped.has(b)).map((bucket) => (
+              <div key={bucket} className="mb-1">
+                <p className="px-2 pb-1 pt-2 text-[0.68rem] font-semibold uppercase tracking-wide text-ink-muted">
+                  {bucket}
+                </p>
+                <div className="flex flex-col gap-0.5">
+                  {grouped.get(bucket)!.map((thread) => {
+                    const title = thread.name ?? UNTITLED_LABEL;
+                    const selected = thread.id === selectedThreadId;
+                    return (
+                      <div
+                        key={thread.id}
+                        data-testid="inbox-thread-row"
+                        className="group relative"
+                      >
+                        <button
+                          type="button"
+                          aria-current={selected ? "true" : undefined}
+                          onClick={() => selectConversation(thread.id)}
+                          className={cn(
+                            "flex w-full items-center rounded-lg py-2 pl-2.5 pr-[4.25rem] text-left text-sm transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
+                            selected
+                              ? "bg-brand-soft font-semibold text-brand-indigo dark:text-brand-violet"
+                              : "text-ink hover:bg-surface",
+                            thread.archived && "opacity-60",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "truncate",
+                              !thread.name && "text-ink-muted",
+                            )}
+                          >
+                            {title}
+                          </span>
+                          {thread.archived && (
+                            <span className="ml-1.5 flex-none rounded-full bg-surface-muted px-1.5 py-0.5 text-[0.55rem] font-semibold uppercase text-ink-muted">
+                              Arch
+                            </span>
+                          )}
+                        </button>
+                        <div className="pointer-events-none absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
+                          {!thread.archived && (
+                            <button
+                              type="button"
+                              aria-label={`Archive ${title}`}
+                              title="Archive"
+                              onClick={() => handleArchive(thread.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo dark:hover:text-brand-violet"
+                            >
+                              <Archive className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Delete ${title}`}
+                            title="Delete"
+                            onClick={() => handleDelete(thread.id, title)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-negative transition-colors hover:bg-negative-soft"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            {hasMoreThreads && (
+              <button
+                type="button"
+                disabled={isFetchingMoreThreads}
+                onClick={() => fetchMoreThreads?.()}
+                className="mx-2 mt-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-ink-muted transition-colors hover:bg-surface hover:text-brand-indigo disabled:opacity-60 dark:hover:text-brand-violet"
+              >
+                {isFetchingMoreThreads ? "Loading…" : "Show more"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Footer: archived toggle */}
+      <label className="flex cursor-pointer select-none items-center gap-2 border-t border-hairline px-3 py-2.5 text-xs font-medium text-ink-muted">
         <input
           type="checkbox"
           checked={showArchived}
@@ -135,123 +234,14 @@ export function ChatInbox({
         />
         Show archived
       </label>
-
-      {/* List. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2.5 pb-4 pt-1">
-        {isLoading && threads.length === 0 ? (
-          <InboxEmpty
-            title="Loading conversations…"
-            message="Fetching your recent conversations."
-          />
-        ) : threads.length === 0 ? (
-          <InboxEmpty
-            title="No conversations yet"
-            message="Start a new conversation to chat with the copilot."
-          />
-        ) : (
-          <>
-            {threads.map((thread) => {
-              const title = thread.name ?? UNTITLED_LABEL;
-              const selected = thread.id === selectedThreadId;
-              return (
-                <div
-                  key={thread.id}
-                  data-testid="inbox-thread-row"
-                  className="group relative"
-                >
-                  <button
-                    type="button"
-                    aria-current={selected ? "true" : undefined}
-                    onClick={() => selectConversation(thread.id)}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-2xl py-2.5 pl-3 pr-[5.5rem] text-left transition-colors",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
-                      selected
-                        ? "bg-brand-soft shadow-[inset_0_0_0_1px_hsl(var(--brand)/0.25)]"
-                        : "hover:bg-brand-soft/60",
-                      thread.archived && "opacity-60",
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "h-8 w-1 flex-none rounded-full",
-                        selected
-                          ? "bg-gradient-to-b from-brand-violet to-brand-indigo"
-                          : "bg-hairline",
-                      )}
-                    />
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <span
-                        className={cn(
-                          "flex items-center gap-1.5 truncate text-sm font-semibold tracking-tight",
-                          thread.name
-                            ? selected
-                              ? "text-brand-indigo dark:text-brand-violet"
-                              : "text-ink"
-                            : "font-medium text-ink-muted",
-                        )}
-                      >
-                        <span className="truncate">{title}</span>
-                        {thread.archived && (
-                          <span className="flex-none rounded-full bg-surface-muted px-1.5 py-0.5 text-[0.6rem] font-semibold text-ink-muted">
-                            Archived
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate text-xs text-ink-muted">
-                        {formatRelativeTime(
-                          thread.lastRunAt ?? thread.updatedAt,
-                        )}
-                      </span>
-                    </span>
-                  </button>
-                  <div className="pointer-events-none absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100">
-                    {!thread.archived && (
-                      <button
-                        type="button"
-                        aria-label={`Archive ${title}`}
-                        title="Archive"
-                        onClick={() => handleArchive(thread.id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand dark:hover:text-brand-violet"
-                      >
-                        <Archive className="h-4 w-4" />
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Delete ${title}`}
-                      title="Delete"
-                      onClick={() => handleDelete(thread.id, title)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-negative transition-colors hover:bg-negative-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {hasMoreThreads && (
-              <button
-                type="button"
-                disabled={isFetchingMoreThreads}
-                onClick={() => fetchMoreThreads?.()}
-                className="mt-1 inline-flex w-full items-center justify-center rounded-xl border border-hairline bg-surface-muted px-3 py-2 text-sm font-semibold text-ink-muted transition-colors hover:border-brand/30 hover:bg-brand-soft hover:text-brand-indigo disabled:opacity-60 dark:hover:text-brand-violet"
-              >
-                {isFetchingMoreThreads ? "Loading…" : "Load more"}
-              </button>
-            )}
-          </>
-        )}
-      </div>
     </aside>
   );
 }
 
-function InboxEmpty({ title, message }: { title: string; message: string }) {
+function RailEmpty({ title, message }: { title: string; message: string }) {
   return (
-    <div className="flex flex-1 items-center justify-center p-6">
-      <div className="flex max-w-[15rem] flex-col items-start gap-2 rounded-2xl border border-hairline bg-surface-muted/90 p-4">
+    <div className="flex flex-1 items-center justify-center p-5">
+      <div className="flex max-w-[15rem] flex-col items-start gap-1.5 rounded-xl border border-hairline bg-surface/80 p-3.5">
         <p className="text-sm font-bold text-ink">{title}</p>
         <p className="text-xs leading-relaxed text-ink-muted">{message}</p>
       </div>
@@ -259,25 +249,21 @@ function InboxEmpty({ title, message }: { title: string; message: string }) {
   );
 }
 
-/**
- * Compact relative timestamp ("just now", "3h ago", "2d ago", or a date).
- */
-function formatRelativeTime(iso: string): string {
+/** Recency bucket for a ChatGPT-style grouped list. */
+function bucketFor(iso: string): Bucket {
   const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "Updated recently";
-  const diffMs = Date.now() - then;
-  const sec = Math.round(diffMs / 1000);
-  if (sec < 45) return "just now";
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.round(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-  }).format(then);
+  if (Number.isNaN(then)) return "Older";
+  const now = new Date();
+  const startToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  ).getTime();
+  const day = 86_400_000;
+  if (then >= startToday) return "Today";
+  if (then >= startToday - day) return "Yesterday";
+  if (then >= startToday - 7 * day) return "Previous 7 Days";
+  return "Older";
 }
 
 export default ChatInbox;

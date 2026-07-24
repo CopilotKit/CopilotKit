@@ -10,11 +10,15 @@ import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
 import { IDENTITY } from "@/lib/identity";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
+import { DemoSuggestionsView } from "./demo-suggestions";
 
 /** Docked panel width on desktop (px). Mobile falls back to full width.
  * Sized so the always-on suggestion pills flow two-per-row instead of
  * stacking into a single tall column. */
-const PANEL_WIDTH = 560;
+const PANEL_WIDTH = 480;
+/** ChatGPT-style persistent thread rail, docked to the LEFT of the
+ * conversation (so the whole thing stays on the right). */
+const RAIL_WIDTH = 300;
 
 /**
  * The docked chat experience: a right-side `CopilotSidebar` that pushes page
@@ -41,26 +45,16 @@ export function ChatPanel({ threadId }: { threadId: string }) {
   const configuration = useCopilotChatConfiguration();
   const panelOpen = configuration?.isModalOpen ?? false;
 
-  // Start the docked panel CLOSED for a clean dashboard first impression.
-  //
-  // `CopilotSidebar` accepts `defaultOpen={false}`, but it cannot win here: the
-  // v1 `CopilotKit` bridge (this app uses the v1 export) mounts its own
-  // top-level `CopilotChatConfigurationProvider` with `isModalDefaultOpen`
-  // hard-commented-out, so it defaults the modal OPEN (true) and that value
-  // cascades DOWN through every nested chat provider via their parent→child
-  // sync. There is no bridge prop to change that default, so we correct it once
-  // on mount. `ChatPanel` reads the wrapper-level provider, which has no
-  // explicit default and therefore delegates its setter to the bridge — so this
-  // one call flips the root closed and the change cascades to the sidebar. A ref
-  // guard makes it a one-time action; the floating toggle still opens the panel
-  // freely afterward, and `useLayoutEffect` runs before paint so it never
-  // flashes open.
+  // Start the docked panel OPEN so the copilot (and its suggestion bubbles) is
+  // front-and-center the moment the app loads. Force it once on mount via the
+  // configuration setter (the provider chain's default can be inconsistent); a
+  // ref guard keeps it one-time so the user can still close it freely after.
   const setModalOpen = configuration?.setModalOpen;
-  const didCloseRef = useRef(false);
+  const didInitRef = useRef(false);
   useLayoutEffect(() => {
-    if (didCloseRef.current) return;
-    didCloseRef.current = true;
-    setModalOpen?.(false);
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    setModalOpen?.(true);
   }, [setModalOpen]);
 
   return (
@@ -70,7 +64,7 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         threadId={threadId}
         position="right"
         width={PANEL_WIDTH}
-        defaultOpen={false}
+        defaultOpen={true}
         // The `header` slot is typed as `SlotValue<typeof CopilotModalHeader>`,
         // which expects a component carrying CopilotModalHeader's namespace
         // statics (Title/CloseButton). A plain replacement component does not
@@ -78,6 +72,25 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         // own slot tests use for custom headers. `renderSlot` renders any
         // component reference at runtime.
         header={ChatPanelHeader as CopilotSidebarProps["header"]}
+        // Custom suggestion pills: same seven registered via
+        // useConfigureSuggestions, but this slot owns what each click does —
+        // #3 (change PIN) navigates to the app's own dialog instead of the
+        // agent, and #6 (Q2 report) rides a real PDF attachment so the model
+        // reads the invoice. The other five delegate to the framework's normal
+        // suggestion send. See demo-suggestions.tsx.
+        suggestionView={
+          DemoSuggestionsView as CopilotSidebarProps["suggestionView"]
+        }
+        // Multimodal attachments: officers can drop a PDF (e.g. a vendor
+        // invoice) or an image into the composer. With no custom onUpload the
+        // built-in handler base64-encodes the file and sends it as a document
+        // part on the message, so gpt-5.4 can read it — e.g. "prep the Q2
+        // report" then augments the report with the uploaded invoice's figures.
+        attachments={{
+          enabled: true,
+          accept: "application/pdf,image/*",
+          maxSize: 20 * 1024 * 1024,
+        }}
         labels={{
           modalHeaderTitle: IDENTITY.assistant,
           welcomeMessageText: IDENTITY.greeting,
@@ -87,7 +100,8 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         panelOpen={panelOpen}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
-        width={PANEL_WIDTH}
+        width={RAIL_WIDTH}
+        offset={PANEL_WIDTH}
       />
     </>
   );

@@ -79,6 +79,15 @@ export interface NewCardRequest {
 
 // A copilot-generated report artifact, filed in the dashboard's Reports tab.
 // Narrative fields come from the agent; id/createdAt are server-set.
+/** Spend drawn from an attached document (e.g. an uploaded invoice) that the
+ * report folds INTO its charts on top of the live ledger figures. `team` should
+ * match an expense policy type when possible so it lands in the right segment. */
+export interface ReportAddition {
+  team: string;
+  amount: number;
+  label?: string;
+}
+
 export interface Report {
   id: string;
   title: string;
@@ -86,6 +95,9 @@ export interface Report {
   highlights: string[];
   createdAt: string;
   createdBy: string;
+  /** Optional spend pulled from an attached document, merged into the report's
+   * Spend Breakdown + Income vs Expenses charts. */
+  additions?: ReportAddition[];
 }
 
 export function generateUniqueId() {

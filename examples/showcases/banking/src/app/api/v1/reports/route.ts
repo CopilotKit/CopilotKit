@@ -17,6 +17,20 @@ export const POST = async (req: Request) => {
     typeof body?.createdBy === "string" && body.createdBy.trim()
       ? body.createdBy.trim()
       : "Copilot";
+  const additions = Array.isArray(body?.additions)
+    ? body.additions
+        .filter(
+          (a: unknown): a is { team: string; amount: number; label?: string } =>
+            !!a &&
+            typeof (a as { team?: unknown }).team === "string" &&
+            typeof (a as { amount?: unknown }).amount === "number",
+        )
+        .map((a: { team: string; amount: number; label?: string }) => ({
+          team: a.team,
+          amount: a.amount,
+          label: typeof a.label === "string" ? a.label : undefined,
+        }))
+    : undefined;
 
   if (!title || !summary) {
     return new Response(
@@ -25,6 +39,12 @@ export const POST = async (req: Request) => {
     );
   }
 
-  const report = store.addReport({ title, summary, highlights, createdBy });
+  const report = store.addReport({
+    title,
+    summary,
+    highlights,
+    createdBy,
+    ...(additions && additions.length ? { additions } : {}),
+  });
   return new Response(JSON.stringify(report), { status: 201 });
 };

@@ -2,8 +2,58 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FileText, Sparkles } from "lucide-react";
-import type { Report } from "@/app/api/v1/data";
+import type { Report, ExpensePolicy, Transaction } from "@/app/api/v1/data";
 import useCreditCards from "@/app/actions";
+
+/**
+ * Fold a report's document-sourced additions (e.g. figures pulled from an
+ * uploaded invoice) INTO the live ledger figures, so the report's charts show
+ * the augmented picture: add spend onto the matching policy segment (or a new
+ * segment) for the breakdown, and add an equivalent expense for income-vs-
+ * expenses. Reports with no additions render the live figures unchanged.
+ */
+function augmentForReport(
+  report: Report,
+  policies: ExpensePolicy[],
+  transactions: Transaction[],
+): { policies: ExpensePolicy[]; transactions: Transaction[] } {
+  const additions = report.additions ?? [];
+  if (!additions.length) return { policies, transactions };
+
+  const byTeam = new Map<string, number>();
+  for (const a of additions)
+    byTeam.set(a.team, (byTeam.get(a.team) ?? 0) + a.amount);
+
+  const augPolicies: ExpensePolicy[] = policies.map((p) =>
+    byTeam.has(p.type) ? { ...p, spent: p.spent + byTeam.get(p.type)! } : p,
+  );
+  for (const [team, amount] of byTeam) {
+    if (!policies.some((p) => p.type === team)) {
+      augPolicies.push({
+        id: `add-${team}`,
+        type: team as ExpensePolicy["type"],
+        limit: 0,
+        spent: amount,
+      });
+    }
+  }
+
+  const augTransactions: Transaction[] = [
+    ...transactions,
+    ...additions.map(
+      (a, i) =>
+        ({
+          id: `add-tx-${report.id}-${i}`,
+          title: a.label ?? `${a.team} (attached document)`,
+          amount: -Math.abs(a.amount),
+          date: report.createdAt,
+          status: "approved",
+        }) as Transaction,
+    ),
+  ];
+
+  return { policies: augPolicies, transactions: augTransactions };
+}
 import {
   SpendBreakdownChart,
   IncomeExpenseChart,
@@ -69,42 +119,46 @@ export function ReportsView() {
 
   return (
     <div className="space-y-5">
-      {reports.map((report) => (
-        <article
-          key={report.id}
-          data-testid="report-card"
-          className="space-y-4 rounded-2xl border border-hairline bg-surface p-6 shadow-soft"
-        >
-          <header className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-lg font-semibold text-ink">{report.title}</h3>
-            <p className="text-xs text-ink-muted">
-              {new Date(report.createdAt).toLocaleString()} · {report.createdBy}
-            </p>
-          </header>
-          <p className="text-sm leading-relaxed text-ink">{report.summary}</p>
-          {report.highlights.length > 0 && (
-            <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
-              {report.highlights.map((highlight) => (
-                <li key={highlight}>{highlight}</li>
-              ))}
-            </ul>
-          )}
-          <div className="grid gap-5 border-t border-hairline pt-4 md:grid-cols-2">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Spend breakdown
+      {reports.map((report) => {
+        const chart = augmentForReport(report, policies, transactions);
+        return (
+          <article
+            key={report.id}
+            data-testid="report-card"
+            className="space-y-4 rounded-2xl border border-hairline bg-surface p-6 shadow-soft"
+          >
+            <header className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-lg font-semibold text-ink">{report.title}</h3>
+              <p className="text-xs text-ink-muted">
+                {new Date(report.createdAt).toLocaleString()} ·{" "}
+                {report.createdBy}
               </p>
-              <SpendBreakdownChart policies={policies} />
+            </header>
+            <p className="text-sm leading-relaxed text-ink">{report.summary}</p>
+            {report.highlights.length > 0 && (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
+                {report.highlights.map((highlight) => (
+                  <li key={highlight}>{highlight}</li>
+                ))}
+              </ul>
+            )}
+            <div className="grid gap-5 border-t border-hairline pt-4 md:grid-cols-2">
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  Spend breakdown
+                </p>
+                <SpendBreakdownChart policies={chart.policies} />
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+                  Income vs expenses
+                </p>
+                <IncomeExpenseChart transactions={chart.transactions} />
+              </div>
             </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Income vs expenses
-              </p>
-              <IncomeExpenseChart transactions={transactions} />
-            </div>
-          </div>
-        </article>
-      ))}
+          </article>
+        );
+      })}
       <div className="flex justify-end">
         <button
           type="button"

@@ -3,9 +3,15 @@ import { LayoutComponent } from "@/components/layout";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
+  defineToolCallRenderer,
+  ToolCallStatus,
   useConfigureSuggestions,
-  type ReactActivityMessageRenderer,
 } from "@copilotkit/react-core/v2";
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+import { Check, Loader2, Wrench } from "lucide-react";
 import { z } from "zod";
 import { catalog } from "@/a2ui/catalog";
 import { CanvasProvider } from "@/components/canvas/canvas-context";
@@ -16,7 +22,6 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
-import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
 import { GlassEngineProvider } from "@/components/glass-engine-context";
 import { InspectorStoreProvider } from "@/lib/inspector/store";
@@ -71,6 +76,87 @@ const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
   },
 ];
 
+// Human-readable labels for the tool-call chips. Anything not listed falls back
+// to a prettified version of the raw tool name.
+const TOOL_LABELS: Record<string, string> = {
+  recall_memory: "Recalling from long-term memory",
+  save_memory: "Saving to long-term memory",
+  createReport: "Filing the report",
+  render_report: "Building the report on the canvas",
+  generateSandboxedUi: "Generating an interactive UI",
+  showCharges: "Opening the charges page",
+  showTransactions: "Pulling up transactions",
+  showPendingApprovals: "Loading the approvals queue",
+};
+
+function prettifyToolName(name: string): string {
+  const spaced = name
+    // Drop MCP namespacing (e.g. "mcp__intelligence__recall_memory") so the
+    // fallback label reads cleanly.
+    .replace(/^mcp[_]+(intelligence[_]+)?/i, "")
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+// Resolve the display label for a tool call. Matches on `includes` so that
+// MCP-namespaced names (e.g. "mcp__intelligence__recall_memory") still map to
+// the friendly label for "recall_memory".
+function resolveToolLabel(name: string): string {
+  for (const key of Object.keys(TOOL_LABELS)) {
+    if (name === key || name.includes(key)) return TOOL_LABELS[key];
+  }
+  return prettifyToolName(name);
+}
+
+/**
+ * A small, always-visible chip for EVERY tool the agent calls — the wildcard
+ * ("*") tool-call renderer. CopilotKit only falls back to this for tool calls
+ * that have no exact renderer of their own, so it surfaces the otherwise
+ * invisible ones (recall_memory / save_memory from the Intelligence memory MCP,
+ * createReport, render_report, generateSandboxedUi) while the charts and HITL
+ * cards keep their own rich renders. It's what makes "show the tool calls"
+ * literally true in the transcript: a spinner while running, a check when done.
+ */
+function ToolCallChip({
+  name,
+  status,
+}: {
+  name: string;
+  status: ToolCallStatus;
+}) {
+  const label = resolveToolLabel(name);
+  const done = status === ToolCallStatus.Complete;
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-ink shadow-soft">
+      <span className="flex h-4 w-4 items-center justify-center text-brand-indigo dark:text-brand-violet">
+        {done ? (
+          <Check className="h-3.5 w-3.5" />
+        ) : (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        )}
+      </span>
+      <Wrench className="h-3 w-3 text-ink-muted" aria-hidden />
+      <span className="uppercase tracking-wide text-ink-muted">tool</span>
+      <span aria-hidden className="text-ink-muted">
+        ·
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+// Module-level stable array — CopilotKitProvider requires a stable
+// `renderToolCalls` reference across renders.
+const TOOL_CALL_RENDERERS: ReactToolCallRenderer<unknown>[] = [
+  defineToolCallRenderer({
+    name: "*",
+    render: ({ name, status }) => <ToolCallChip name={name} status={status} />,
+  }),
+];
+
 // Static suggestion pills — the demo's full use-case catalog, available at
 // ALL times (`available: "always"`), not just the welcome screen: the demo
 // must stay fully click-drivable after every exchange, with zero typing.
@@ -116,101 +202,127 @@ corporate banking dashboard. Match its aesthetic:
   hardcode white backgrounds.
 - Keep it calm, precise, and enterprise-appropriate — this is a finance tool.`;
 
+// A small library of suggestion pills. Each context below picks 3-4 of these,
+// so the copilot only ever offers what's relevant to where the officer is —
+// not one long undifferentiated wall of pills.
+const PILL = {
+  approveGoogleAds: {
+    // BEAT 1 — the teachable over-limit ask (Marketing policy trips the gate).
+    title: "Approve the $5,000 Google Ads charge",
+    message: "Approve the $5,000 Google Ads charge on the Marketing policy.",
+  },
+  reviewPending: {
+    // BEAT 2 setup — surfaces the pending, over-limit charges for the demo.
+    title: "Review my pending transactions",
+    message: "Show me my pending transactions.",
+  },
+  awsCharge: {
+    // BEAT 3 — recall / generalization to a DIFFERENT over-limit charge.
+    title: "How should I handle the $15,000 AWS charge?",
+    message:
+      "The $15,000 AWS charge is over its policy limit. How should I handle it?",
+  },
+  approvalsExplain: {
+    title: "How do approvals work?",
+    message: "Explain how an over-limit charge gets cleared and approved.",
+  },
+  spendingTrend: {
+    title: "Show the spending trend",
+    message: "Show me the spending trend over time.",
+  },
+  budgetsNearLimit: {
+    title: "Budgets near their limit?",
+    message:
+      "Show me budget usage by policy — which ones are close to or over their limit?",
+  },
+  whereMoney: {
+    title: "Where is the money going?",
+    message: "Where is the money going? Break down spend by team.",
+  },
+  cashFlow: {
+    title: "How's our cash flow?",
+    message: "Compare our income vs expenses — how is our cash flow?",
+  },
+  spendExplorer: {
+    title: "Build an interactive spend explorer",
+    message:
+      "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
+  },
+  q2Report: {
+    title: "Prep the Q2 spend report",
+    message:
+      "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.",
+  },
+  buildCanvasReport: {
+    title: "Build a spend report on the canvas",
+    message:
+      "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
+  },
+  addCard: {
+    title: "Add an expense card",
+    message: "Add a new expense card",
+  },
+  changePin: {
+    title: "Change my card PIN",
+    message: "I want to change the PIN on my Visa card.",
+  },
+  inviteMember: {
+    title: "Invite a team member",
+    message: "Invite a new member to my team.",
+  },
+  topExpensiveCharges: {
+    title: "Show me the 10 most expensive charges",
+    message: "Show me the 10 most expensive charges.",
+  },
+  chargesOverLimit: {
+    title: "Which charges are over limit?",
+    message: "Which charges are over their policy limit? Show them ranked.",
+  },
+  askScreen: {
+    title: "What's on my screen?",
+    message:
+      "Look at the page I'm on right now and tell me what's on screen — the key elements and the figures shown.",
+  },
+  favoriteFood: {
+    title: "What's my favorite food?",
+    message: "What's my favorite food?",
+  },
+  approveAws: {
+    // Self-learning trigger: AWS is over its policy limit, so with no saved
+    // procedure the agent offers to record how the officer clears it (the
+    // teach → demonstrate → save arc), then recalls it for future charges.
+    title: "Approve the $15,000 AWS charge",
+    message: "Approve the $15,000 AWS charge.",
+  },
+} as const;
+
+type Pill = { title: string; message: string };
+
+// A fixed, curated demo set — the SAME bubbles everywhere, independent of
+// where the officer is in the app. Ordered to walk the capabilities end to end:
+//   1. show a chart
+//   2. change something in the app, driven by the agent
+//   3. change a card PIN (entered in the app UI, not typed into the chat)
+//   4. ask about the elements on the current screen
+//   5. the 10 most expensive charges (navigate + stack-rank)
+//   6. generate + file the Q2 report
+//   7. recall a fact from long-term memory
+//   8. approve the over-limit AWS charge (triggers the self-learning teach arc)
+const DEMO_SUGGESTIONS: Pill[] = [
+  PILL.spendingTrend,
+  PILL.addCard,
+  PILL.changePin,
+  PILL.askScreen,
+  PILL.topExpensiveCharges,
+  PILL.q2Report,
+  PILL.favoriteFood,
+  PILL.approveAws,
+];
+
 function BankingSuggestions() {
   useConfigureSuggestions({
     available: "always",
-    suggestions: [
-      {
-        // BEAT 1 — the teachable ask. Seed t-1: Google Ads, -$5,000, Marketing
-        // policy (limit $5,000 / spent $500 → approving always trips
-        // OVER_POLICY_LIMIT). Pre-learning the agent stalls here correctly;
-        // post-learning the same ask succeeds. Leads the welcome screen.
-        title: "Approve the $5,000 Google Ads charge",
-        message:
-          "Approve the $5,000 Google Ads charge on the Marketing policy.",
-      },
-      {
-        // BEAT 2 setup — surfaces the pending charges (all three are over their
-        // policy limit) via showTransactions, the unconditional-render tool
-        // that is reliable in every mode. The officer files a policy exception
-        // inline on a row to demonstrate the unlock; that is the recorded
-        // demonstration the writer agent distills into /knowledge.
-        title: "Review my pending transactions",
-        message: "Show me my pending transactions.",
-      },
-      {
-        // BEAT 3 — recall / generalization. On a fresh thread after the
-        // demonstration is distilled, the agent should apply the learned
-        // procedure to a DIFFERENT over-limit charge it was never explicitly
-        // taught (seed t-2: AWS, -$15,000, Engineering policy, limit $15,000 /
-        // spent $1,500), proving transferable memory, not per-row memorization.
-        title: "How should I handle the $15,000 AWS charge?",
-        message:
-          "The $15,000 AWS charge is over its policy limit. How should I handle it?",
-      },
-      {
-        // Breadth — a clean non-arc capability (the generative-UI card flow).
-        title: "Add an expense card",
-        message: "Add a new expense card",
-      },
-      // ── A2UI report canvas ───────────────────────────────────────────────
-      {
-        title: "Build a spend report on the canvas",
-        message:
-          "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
-      },
-      // ── Gen-UI charts ────────────────────────────────────────────────────
-      {
-        title: "Show the spending trend",
-        message: "Show me the spending trend over time.",
-      },
-      {
-        title: "Budgets near their limit?",
-        message:
-          "Show me budget usage by policy — which ones are close to or over their limit?",
-      },
-      {
-        title: "Where is the money going?",
-        message: "Where is the money going? Break down spend by team.",
-      },
-      {
-        title: "How's our cash flow?",
-        message: "Compare our income vs expenses — how is our cash flow?",
-      },
-      // ── Open Generative UI (custom interactive surfaces) ─────────────────
-      {
-        // OGUI-only: an interactive explorer the fixed catalog can't express.
-        // "interactive"/"explorer" (not "build") is what routes this to
-        // generateSandboxedUi; figures come from the sandbox functions.
-        title: "Build an interactive spend explorer",
-        message:
-          "Build an interactive spend explorer I can filter and play with — pull the real transactions and policies.",
-      },
-      {
-        title: "Prototype a cash-flow what-if calculator",
-        message:
-          "Prototype an interactive what-if calculator for our cash flow using our real income and expense figures.",
-      },
-      {
-        title: "How do approvals work?",
-        message: "Explain how an over-limit charge gets cleared and approved.",
-      },
-      // ── Work product ─────────────────────────────────────────────────────
-      {
-        title: "Prep the Q2 spend report",
-        message:
-          "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.",
-      },
-      // ── Cross-page operations (navigateToPageAndPerform fallbacks) ──────
-      {
-        title: "Change my card PIN",
-        message: "I want to change the PIN on my Visa card.",
-      },
-      {
-        title: "Invite a team member",
-        message: "Invite a new member to my team.",
-      },
-    ],
+    suggestions: DEMO_SUGGESTIONS,
   });
   return null;
 }
@@ -246,6 +358,11 @@ export function CopilotKitWrapper({
       // the surface itself renders full-screen in <ReportCanvas/>.
       a2ui={{ catalog }}
       renderActivityMessages={A2UI_RENDERERS}
+      // Wildcard tool-call chip: renders a visible "tool · <label>" pill for
+      // every tool call that has no richer renderer of its own — recall_memory,
+      // save_memory, createReport, render_report, etc. This is what makes the
+      // agent's tool use visible in the transcript ("show the tool calls").
+      renderToolCalls={TOOL_CALL_RENDERERS}
       openGenerativeUI={{
         sandboxFunctions,
         designSkill: NORTHWIND_DESIGN_SKILL,
@@ -310,7 +427,6 @@ export function CopilotKitWrapper({
                     <CopilotContext>{children}</CopilotContext>
                   </LayoutComponent>
                   <ChatPanel threadId={threadId} />
-                  <ProactiveNotice />
                   <ReportCopilotTools />
                 </CanvasProvider>
                 {/* Mount the pane (and its AG-UI subscription) ONLY where the

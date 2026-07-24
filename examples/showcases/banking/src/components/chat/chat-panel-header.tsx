@@ -1,8 +1,9 @@
 "use client";
 
-import { MessagesSquare, SquarePen, X } from "lucide-react";
+import { MessagesSquare, Paperclip, SquarePen, X } from "lucide-react";
 import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
 
+import { stageInvoiceAttachment } from "./attach-invoice";
 import { cn } from "@/lib/utils";
 import { IDENTITY } from "@/lib/identity";
 import { useChatInbox } from "./chat-inbox-context";
@@ -61,7 +62,14 @@ export function ChatPanelHeader() {
 
       <div className="flex flex-shrink-0 items-center gap-1">
         <HeaderIconButton
-          label={isInboxOpen ? "Back to chat" : "Conversations"}
+          label="Attach Q2 invoice"
+          onClick={() => void stageInvoiceAttachment()}
+          testId="chat-header-attach-invoice"
+        >
+          <Paperclip className="h-[18px] w-[18px]" />
+        </HeaderIconButton>
+        <HeaderIconButton
+          label={isInboxOpen ? "Hide conversations" : "Show conversations"}
           active={isInboxOpen}
           onClick={toggleInbox}
           testId="chat-inbox-toggle"

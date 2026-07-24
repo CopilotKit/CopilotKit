@@ -283,11 +283,12 @@ export function MemoryTab() {
         </section>
       )}
 
-      <section aria-label="Recalled memories">
-        {/* "Recalled", NOT "All": this is top-k semantic recall, not a complete
-            enumeration. No absolute count — the UI must not claim completeness. */}
+      <section aria-label="Stored memories">
+        {/* A complete enumeration of everything stored for this user (all scopes
+            and kinds), via app-api's GET /api/memories — not a top-k recall, so
+            the count is the real total. */}
         <h3 className="mb-1.5 text-xs font-semibold text-ink">
-          Recalled memories
+          Stored memories ({memories.length})
         </h3>
         {listError ? (
           <p className="text-[11px] text-negative">
