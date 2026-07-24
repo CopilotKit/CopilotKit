@@ -195,20 +195,27 @@ export async function renderWeeklyPulse(
   thread: ShowcaseThread,
 ): Promise<string> {
   const p = await fetchPulse();
+  // Lead with a text summary (see renderPrRadar) — captions the images and lets
+  // a later turn see this was already handled.
+  await thread.post(
+    `*Weekly OSS pulse* — ${REPO}, past 7 days${p.live ? "" : " · sample data"}`,
+  );
   await thread.post(<PulseCard {...p} />, {
     filename: "pulse.png",
     title: "Weekly OSS pulse",
     width: 760,
     height: 260,
   });
+  // LineChart is SVG at its own width/height — size it to the post canvas so it
+  // fills the image instead of sitting in a corner.
   await thread.post(
     <LineChart
       title={`${NPM_PKG} downloads / day${sampleTag(p.live)}`}
       data={p.downloads}
+      width={760}
+      height={360}
     />,
-    {
-      filename: "downloads.png",
-    },
+    { filename: "downloads.png", width: 760, height: 360 },
   );
   await thread.post(
     <BarChart
@@ -218,7 +225,7 @@ export async function renderWeeklyPulse(
         { label: "closed", value: p.issuesClosed },
       ]}
     />,
-    { filename: "issues.png" },
+    { filename: "issues.png", width: 760, height: 400 },
   );
   return p.live
     ? `Posted the weekly pulse — ${compact(p.weeklyDownloads)} downloads, ${p.stars} stars.`

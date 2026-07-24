@@ -168,7 +168,7 @@ icon: "lucide/Component"
     | `BarChart` | palette cycles per bar: `colors[i]` | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
     | `StackedBar` | palette cycles per **series** (stack segment): `colors[s]` — every bar shares the same segment colors | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
     | `PieChart` | palette cycles per slice: `colors[i]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
-    | `LineChart` | single color: `colors[0]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (drawn inside the `<svg>`, doesn't add height) |
+    | `LineChart` | single color: `colors[0]` | white, via `style` | SVG plot + HTML axes, `width`/`height` set the total image | yes (HTML heading above the plot; also draws an HTML y-axis + x-axis, so the plotted area is smaller than `width`×`height`) |
     | `Scatter` | single color: `colors[0]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
     | `Sparkline` | single color: `colors[0]` | transparent (no hardcoded color) | SVG, `width`/`height` set the canvas | no |
     | `Meter` | single color: `colors[0]` | transparent (no hardcoded color) | box model; `width` ignored, `height` sets the bar's thickness | no |
@@ -177,6 +177,7 @@ icon: "lucide/Component"
 
     - **Colors:** Takumi does not resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on box-model charts), so the default palette is a **fixed** set of hex values, not your shadcn `--chart-1..5` tokens. Pass your own `colors` prop to theme a chart explicitly. Note that `StackedBar`'s `colors[n]` indexes the *n*th series, not the *n*th bar — a multi-entry `colors` array gives you one color per stack segment, repeated identically across every bar.
     - **Background:** `BarChart`, `StackedBar`, `LineChart`, `PieChart`, and `Scatter` default to a white background set via an inline `style.backgroundColor`. Inline `style` always wins over a CSS class, so theming these five via `className` (e.g. a `bg-card` utility class) has **no effect** — override with the `style` prop instead, e.g. `style={{ backgroundColor: "#0f172a" }}`. `Meter`'s root is transparent (no hardcoded background), so a `className`/`style` background on it shows through — but its unfilled track is a fixed `#e5e7eb` gray that a background override does not recolor. `Sparkline` has no hardcoded background anywhere in its markup.
+    - **Value labels & axes:** `BarChart` and `StackedBar` print each bar's value (compacted, e.g. `1.2k`) above it; `LineChart` renders a title, a 5-tick y-axis scale, and a per-point x-axis label. **All chart text is HTML**, not SVG `<text>` — Takumi rasterizes HTML text but not text drawn inside an `<svg>`, so labels are HTML elements laid out around the SVG plot and honor `labelClassName`.
     - **`gridColor`/`showGrid`:** only apply to `LineChart` and `Scatter`.
     - **Scaling:** `LineChart` and `Sparkline` scale the y-axis to the data's own min/max rather than anchoring at zero. `Scatter` scales **both** x and y to the point extent (and centers a degenerate axis — e.g. all points sharing one x value). None of these force a zero baseline; include a zero-valued datum in the series if you need one.
     - **Negative values:** `BarChart` clamps a negative value to a zero-height bar (it assumes non-negative input). `StackedBar` clamps a negative segment to zero height *and* distorts the remaining segments' proportions within that bar (their percentages are computed against the bar's true total, then clipped to the bar's box) — pass non-negative values to `StackedBar`.
@@ -203,6 +204,6 @@ The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/exampl
 
 - **PR review radar** (`/prs`) — a card of the oldest open PRs with age-coloured badges + a PRs-by-age bar chart, from GitHub's public API (no token).
 - **Weekly OSS pulse** (`/pulse`) — a KPI card (stars · npm downloads · open issues) + a downloads line chart + an issues bar chart, from GitHub + npm.
-- **Linear cycle standup** (`/standup`) — a progress card + a status pie chart (with a matching colour legend baked into the card) + a load-per-assignee bar chart, from Linear.
+- **Linear cycle standup** (`/standup`) — a per-team progress card (one labelled progress meter per team) + a done-vs-remaining stacked bar comparing scope across teams, from Linear.
 
 The shadcn look is a single token stylesheet fed once via `render.stylesheets`; each feature reads live data and falls back to labelled sample data so it always runs. It's a concrete template for wiring your own dashboards.
