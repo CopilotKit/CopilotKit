@@ -1,4 +1,4 @@
-# Maestro demo flow — AI + Finance Tracker (CopilotKit React Native)
+# Maestro demo flow — Personal Finance Copilot (CopilotKit React Native)
 # Headline UX for the demo recording:
 #   1. tab tour (Dashboard → Accounts → Transactions → Budgets)
 #   2. add a transaction by chat, approved via human-in-the-loop ("Add expense")
@@ -6,7 +6,7 @@
 #   4. back to Budgets to show the write landed
 #
 # Run:  maestro test .maestro/demo.yaml   (booted iOS sim + Metro + runtime up)
-appId: org.reactjs.native.example.ReactDemo
+appId: ai.copilotkit.examples.personalfinance
 ---
 - launchApp
 

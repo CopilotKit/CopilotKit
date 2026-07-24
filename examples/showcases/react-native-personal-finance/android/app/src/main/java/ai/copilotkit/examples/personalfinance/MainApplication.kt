@@ -1,4 +1,4 @@
-package com.reactdemo
+package ai.copilotkit.examples.personalfinance
 
 import android.app.Application
 import com.facebook.react.PackageList

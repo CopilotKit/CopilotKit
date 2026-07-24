@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.reactdemo"
+    namespace "ai.copilotkit.examples.personalfinance"
     defaultConfig {
-        applicationId "com.reactdemo"
+        applicationId "ai.copilotkit.examples.personalfinance"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

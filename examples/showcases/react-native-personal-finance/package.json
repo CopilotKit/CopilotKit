@@ -1,5 +1,5 @@
 {
-  "name": "ReactDemo",
+  "name": "personal-finance-copilot",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@copilotkit/react-native": "^1.59.2",
-    "@react-native/new-app-screen": "0.85.3",
     "react": "19.2.3",
     "react-native": "0.85.3",
     "react-native-image-picker": "^8.2.1",

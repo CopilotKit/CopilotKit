@@ -11,7 +11,7 @@
 # `inputText` state stays empty and Send's onPress reads "". The
 # `onSubmitEditing` callback on the TextInput is wired to read text from
 # `e.nativeEvent.text` (the native value), so the Enter-key path works.
-appId: org.reactjs.native.example.ReactDemo
+appId: ai.copilotkit.examples.personalfinance
 ---
 - launchApp
 - extendedWaitUntil:
