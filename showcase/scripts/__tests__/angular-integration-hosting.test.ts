@@ -156,6 +156,7 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   );
   expect(workflow).toContain("--min-shards 4");
   expect(workflow).toContain("--max-shards 4");
+  expect(workflow).toContain("Start four isolated fixture sidecars");
   expect(workflow).toContain("Start four isolated integration containers");
   expect(workflow).toContain(
     "Run isolated Chromium phases with fresh fixture state",
@@ -165,6 +166,11 @@ test("keeps the exhaustive Angular audit opt-in, complete, and fail-closed", asy
   expect(workflow).toContain("run_frontend_phase angular");
   expect(workflow).toContain("frontend-matrix-ci.ts merge-shard");
   expect(workflow).toContain("for shard in 0 1 2 3");
+  expect(workflow).toContain("fixture_port=$((4010 + shard))");
+  expect(workflow).toContain(
+    'OPENAI_BASE_URL="http://host.docker.internal:$fixture_port/v1"',
+  );
+  expect(workflow).toContain('"$RUNNER_TEMP/aimock-$shard.pid"');
   expect(workflow).toContain("--host 0.0.0.0");
   expect(workflow).not.toContain("--host 127.0.0.1");
   expect(workflow).toContain('--feature-contract-revision "$SOURCE_SHA"');

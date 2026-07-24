@@ -157,26 +157,36 @@ jobs:
             "angular-audit-$INTEGRATION:$SOURCE_SHA" \
             > "$RUNNER_TEMP/container-image-revision.txt"
 
-      - name: Start the branch-local fixture sidecar
+      - name: Start four isolated fixture sidecars
         run: |
-          showcase/scripts/node_modules/.bin/llmock \
-            --port 4010 \
-            --host 0.0.0.0 \
-            --metrics \
-            --fixtures showcase/aimock/shared \
-            --fixtures showcase/aimock/d4 \
-            --fixtures showcase/aimock/d5-recorded \
-            --fixtures showcase/aimock/d6 \
-            --validate-on-load \
-            > "$RUNNER_TEMP/aimock.log" 2>&1 &
-          echo "$!" > "$RUNNER_TEMP/aimock.pid"
+          for shard in 0 1 2 3; do
+            port=$((4010 + shard))
+            showcase/scripts/node_modules/.bin/llmock \
+              --port "$port" \
+              --host 0.0.0.0 \
+              --metrics \
+              --fixtures showcase/aimock/shared \
+              --fixtures showcase/aimock/d4 \
+              --fixtures showcase/aimock/d5-recorded \
+              --fixtures showcase/aimock/d6 \
+              --validate-on-load \
+              > "$RUNNER_TEMP/aimock-$shard.log" 2>&1 &
+            echo "$!" > "$RUNNER_TEMP/aimock-$shard.pid"
+          done
           for _ in $(seq 1 30); do
-            if curl --fail --silent --max-time 2 http://127.0.0.1:4010/__aimock/health > /dev/null; then
+            ready=0
+            for shard in 0 1 2 3; do
+              port=$((4010 + shard))
+              if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/__aimock/health" > /dev/null; then
+                ready=$((ready + 1))
+              fi
+            done
+            if [ "$ready" = "4" ]; then
               exit 0
             fi
             sleep 1
           done
-          echo "Branch-local fixture sidecar did not become ready" >&2
+          echo "One or more branch-local fixture sidecars did not become ready" >&2
           exit 1
 
       - name: Start four isolated integration containers
@@ -188,18 +198,19 @@ jobs:
           echo "SECRET_SENTINEL=$SECRET_SENTINEL" >> "$GITHUB_ENV"
           for shard in 0 1 2 3; do
             port=$((10000 + shard))
+            fixture_port=$((4010 + shard))
             docker run --detach \
               --name "angular-audit-integration-$shard" \
               --add-host host.docker.internal:host-gateway \
               --publish "$port:10000" \
               --env OPENAI_API_KEY=sk-mock \
-              --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
+              --env OPENAI_BASE_URL="http://host.docker.internal:$fixture_port/v1" \
               --env ANTHROPIC_API_KEY=sk-mock-anthropic \
-              --env ANTHROPIC_BASE_URL=http://host.docker.internal:4010 \
+              --env ANTHROPIC_BASE_URL="http://host.docker.internal:$fixture_port" \
               --env GOOGLE_API_KEY=fake-gemini-key \
-              --env GOOGLE_GEMINI_BASE_URL=http://host.docker.internal:4010 \
-              --env SPRING_AI_OPENAI_BASE_URL=http://host.docker.internal:4010 \
-              --env AIMOCK_URL=http://host.docker.internal:4010 \
+              --env GOOGLE_GEMINI_BASE_URL="http://host.docker.internal:$fixture_port" \
+              --env SPRING_AI_OPENAI_BASE_URL="http://host.docker.internal:$fixture_port" \
+              --env AIMOCK_URL="http://host.docker.internal:$fixture_port" \
               --env GitHubToken=gh-mock-ci \
               --env "SHOWCASE_PROOF_SECRET=$SECRET_SENTINEL" \
               --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
@@ -264,33 +275,45 @@ jobs:
             done
           }
 
-          start_fixture_sidecar() {
-            showcase/scripts/node_modules/.bin/llmock \
-              --port 4010 \
-              --host 0.0.0.0 \
-              --metrics \
-              --fixtures showcase/aimock/shared \
-              --fixtures showcase/aimock/d4 \
-              --fixtures showcase/aimock/d5-recorded \
-              --fixtures showcase/aimock/d6 \
-              --validate-on-load \
-              > "$RUNNER_TEMP/aimock-angular.log" 2>&1 &
-            echo "$!" > "$RUNNER_TEMP/aimock.pid"
+          start_fixture_sidecars() {
+            for shard in 0 1 2 3; do
+              port=$((4010 + shard))
+              showcase/scripts/node_modules/.bin/llmock \
+                --port "$port" \
+                --host 0.0.0.0 \
+                --metrics \
+                --fixtures showcase/aimock/shared \
+                --fixtures showcase/aimock/d4 \
+                --fixtures showcase/aimock/d5-recorded \
+                --fixtures showcase/aimock/d6 \
+                --validate-on-load \
+                > "$RUNNER_TEMP/aimock-angular-$shard.log" 2>&1 &
+              echo "$!" > "$RUNNER_TEMP/aimock-$shard.pid"
+            done
             for _ in $(seq 1 30); do
-              if curl --fail --silent --max-time 2 http://127.0.0.1:4010/__aimock/health > /dev/null; then
+              ready=0
+              for shard in 0 1 2 3; do
+                port=$((4010 + shard))
+                if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/__aimock/health" > /dev/null; then
+                  ready=$((ready + 1))
+                fi
+              done
+              if [ "$ready" = "4" ]; then
                 return 0
               fi
               sleep 1
             done
-            echo "Reset fixture sidecar did not become ready" >&2
+            echo "One or more reset fixture sidecars did not become ready" >&2
             return 1
           }
 
           run_frontend_phase react
-          fixture_pid=$(cat "$RUNNER_TEMP/aimock.pid")
-          kill "$fixture_pid"
-          wait "$fixture_pid" 2>/dev/null || true
-          if ! start_fixture_sidecar; then
+          for shard in 0 1 2 3; do
+            fixture_pid=$(cat "$RUNNER_TEMP/aimock-$shard.pid")
+            kill "$fixture_pid"
+            wait "$fixture_pid" 2>/dev/null || true
+          done
+          if ! start_fixture_sidecars; then
             exit 1
           fi
           run_frontend_phase angular
@@ -322,9 +345,11 @@ jobs:
             fi
             docker rm --force "angular-audit-integration-$shard" 2>/dev/null || true
           done
-          if [ -f "$RUNNER_TEMP/aimock.pid" ]; then
-            kill "$(cat "$RUNNER_TEMP/aimock.pid")" 2>/dev/null || true
-          fi
+          for shard in 0 1 2 3; do
+            if [ -f "$RUNNER_TEMP/aimock-$shard.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/aimock-$shard.pid")" 2>/dev/null || true
+            fi
+          done
           exit "$leaked"
 
       - name: Upload exact-cell evidence
