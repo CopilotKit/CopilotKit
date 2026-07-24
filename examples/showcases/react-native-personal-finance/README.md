@@ -153,6 +153,41 @@ The agent can chain tools — try compound asks:
 
 ---
 
+## Guided demo — a 5-act walkthrough
+
+A narrative flow for showing the app off end to end — ideal for a recording or a live demo. Each line is a prompt to type in the **🤖 Assistant** tab; the acts build from grounded reads to multi-tool turns.
+
+### Act 1 — Orient (grounded reads → generative UI, no walls of text)
+
+- _"Show me my balances"_ → balance pills, incl. the **EUR** Travel Fund → sets up the multi-currency story.
+- _"Where did my money go this month?"_ → the **SVG donut chart**. This is the headline "controlled graph in chat" moment — lead with energy here.
+- _"What were my biggest expenses?"_ → a **ranked table** (#, expense, amount).
+- _"How am I doing on budgets this month?"_ → per-category rows with **spent / limit** and over-budget tinting.
+
+### Act 2 — Act on it (the "you propose, I approve" story)
+
+- _"I spent $12.50 on coffee at Blue Bottle this morning, paid with Checking"_ → an **Add expense** approval card → tap **Approve** → the card resolves and confirms Checking's new balance inline.
+- _"Bump my groceries budget to $700"_ → an **Apply** card showing the **before → after** diff ($600 → $700).
+- _"Set a $150/month budget for Health"_ → a **Save budget** card (creates a _new_ budget — shows it's not just edits).
+
+> **Point to make while demoing:** every write is gated by a human — nothing touches the books until you tap **Approve**.
+
+### Act 3 — International / multi-currency
+
+- _"Add a €40 dinner at Trattoria Napoli to Travel Fund yesterday"_ → same approval card, **EUR + a past date** — and notice it never silently converts currencies.
+- _"Open a GBP savings account called London Flat with £3,000"_ → a **Create account** card in a third currency.
+
+### Act 4 — Multimodal climax (the receipt)
+
+Tap **📎**, attach any receipt photo → a **receipt-preview card** (thumbnail + extracted merchant / amount / currency / date / category) → the agent then proposes an **Add expense** card pre-filled from the photo → **Approve**.
+
+### Act 5 — Agentic, multi-tool turns (the closer)
+
+- _"What's my net worth, and how am I doing on budgets?"_ → two cards in one turn.
+- _"Add a $9 lunch on Amex, then show me Amex's balance"_ → a write **and** a read chained in a single turn, ending on the updated balance.
+
+---
+
 ## Architecture overview
 
 ```
