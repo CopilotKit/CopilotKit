@@ -553,8 +553,9 @@ describe("CopilotChatConfigurationProvider", () => {
     it("respects hasExplicitThreadId={false} even when a threadId prop is present (v1 bridge case)", () => {
       // The v1 <CopilotKit> wrapper always pipes a UUID through as `threadId`
       // (from ThreadsProvider). Without this override the provider would
-      // mis-infer the UUID as explicit, causing /connect to 404 and the
-      // welcome screen to stay hidden for fresh empty chats.
+      // mis-infer the UUID as explicit, causing /connect to 404 against a
+      // thread the backend has never seen. Welcome-screen gating no longer
+      // depends on this flag, but /connect routing still does.
       render(
         <CopilotChatConfigurationProvider
           threadId="auto-minted-uuid"

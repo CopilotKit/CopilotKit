@@ -42,16 +42,23 @@ function renderWithKit(ui: React.ReactNode, agent: TrackingAgent) {
 }
 
 /**
- * Regression coverage for fix/welcome-not-showing-at-all.
+ * Regression coverage for fix/welcome-not-showing-at-all and the follow-up
+ * fix that decouples welcome-screen gating from thread origin.
  *
- * The underlying bug: the v1 <CopilotKit> wrapper pipes a ThreadsProvider-
- * minted UUID through to CopilotChatConfigurationProvider as `threadId`.
- * CopilotChat previously treated any non-empty providedThreadId as "caller
- * supplied a real backend thread" and (a) fired /connect (→ 404 for an
- * auto-minted UUID) and (b) suppressed the welcome screen forever. The
- * fix threads an `hasExplicitThreadId` signal through the provider chain;
- * these tests pin the contract that /connect and welcome-screen gating
- * now follow that signal rather than `!!threadId`.
+ * History: the v1 <CopilotKit> wrapper pipes a ThreadsProvider-minted UUID
+ * through to CopilotChatConfigurationProvider as `threadId`. CopilotChat
+ * previously treated any non-empty providedThreadId as "caller supplied a
+ * real backend thread" and (a) fired /connect (→ 404 for an auto-minted UUID)
+ * and (b) suppressed the welcome screen forever. The first fix threaded an
+ * `hasExplicitThreadId` signal through the provider chain so /connect only
+ * fires for genuinely explicit threads.
+ *
+ * The follow-up: welcome-screen gating no longer keys on thread origin. Any
+ * empty thread renders the welcome state — including a caller-minted UUID
+ * (premint-on-mount is the standard pattern for apps that manage their own
+ * thread state). Welcome-screen visibility is now driven purely by message
+ * emptiness; `welcomeScreen={false}` remains the escape hatch for
+ * consumers that want to suppress it.
  */
 describe("CopilotChat welcome / connect integration", () => {
   beforeEach(() => {
@@ -96,7 +103,7 @@ describe("CopilotChat welcome / connect integration", () => {
   });
 
   describe("explicit threadId via CopilotChat prop", () => {
-    it("calls connectAgent with that threadId and suppresses the welcome screen", async () => {
+    it("calls connectAgent with that threadId; welcome screen returns once the empty thread settles", async () => {
       const agent = new TrackingAgent();
       agent.agentId = DEFAULT_AGENT_ID;
 
@@ -110,14 +117,17 @@ describe("CopilotChat welcome / connect integration", () => {
         TrackingAgent.connectCalls.some((c) => c.threadId === "real-thread"),
       ).toBe(true);
 
-      // Welcome screen is suppressed even after connect resolves, because the
-      // thread was caller-picked (hasExplicitThreadId=true).
-      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+      // Welcome-screen gating is now driven by message emptiness, not thread
+      // origin. TrackingAgent.connectAgent resolves with no messages, so once
+      // isConnecting flips back to false the welcome screen returns.
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
     });
   });
 
   describe("explicit threadId via wrapping CopilotChatConfigurationProvider", () => {
-    it("inherits explicitness from the provider and connects", async () => {
+    it("inherits explicitness from the provider and connects; empty thread keeps welcome state", async () => {
       const agent = new TrackingAgent();
       agent.agentId = DEFAULT_AGENT_ID;
 
@@ -135,12 +145,16 @@ describe("CopilotChat welcome / connect integration", () => {
       expect(
         TrackingAgent.connectCalls.some((c) => c.threadId === "from-config"),
       ).toBe(true);
-      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+      // The empty post-connect thread renders the welcome state. Thread
+      // origin no longer suppresses the greeting on its own.
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
     });
   });
 
   describe("thread switch between two explicit threads", () => {
-    it("keeps the welcome screen hidden across the switch", async () => {
+    it("hides the welcome screen during the switch but restores it when the empty target settles", async () => {
       const agent = new TrackingAgent();
       agent.agentId = DEFAULT_AGENT_ID;
 
@@ -154,9 +168,11 @@ describe("CopilotChat welcome / connect integration", () => {
           TrackingAgent.connectCalls.some((c) => c.threadId === "thread-a"),
         ).toBe(true);
       });
-      // After thread-a's connect resolves, welcome must still be hidden
-      // because the thread is caller-picked.
-      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+      // thread-a is empty after connect; welcome screen returns once the
+      // connect-in-flight gate releases.
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
 
       rerender(
         <CopilotKitProvider
@@ -169,7 +185,7 @@ describe("CopilotChat welcome / connect integration", () => {
       );
 
       // During the switch (lastConnected="thread-a" !== "thread-b") isConnecting
-      // is true — welcome must not flash.
+      // is true — welcome must not flash mid-switch.
       expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
 
       await waitFor(() => {
@@ -177,8 +193,11 @@ describe("CopilotChat welcome / connect integration", () => {
           TrackingAgent.connectCalls.some((c) => c.threadId === "thread-b"),
         ).toBe(true);
       });
-      // And after thread-b's connect resolves.
-      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+      // thread-b is also empty after connect; the welcome state returns
+      // once isConnecting releases.
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
     });
   });
 });
