@@ -58,6 +58,35 @@ test("shares one in-flight Runtime entitlement lookup per client", async () => {
 
     expect(first).toEqual(ACTIVE_ENTITLEMENTS);
     expect(second).toEqual(ACTIVE_ENTITLEMENTS);
+    expect(first).not.toBe(second);
+    if (first.status === "ready" && second.status === "ready") {
+      expect(first.entitlement).not.toBe(second.entitlement);
+      expect(first.entitlement.features).not.toBe(second.entitlement.features);
+      expect(first.entitlement.limits).not.toBe(second.entitlement.limits);
+    }
+    expect(fetchMock).toHaveBeenCalledOnce();
+  } finally {
+    teardown();
+  }
+});
+
+test("isolates cached Runtime entitlements from caller mutation", async () => {
+  const { client, fetchMock, teardown } = setup();
+
+  try {
+    const first = await client.getRuntimeEntitlements();
+    expect(first.status).toBe("ready");
+    if (first.status !== "ready") {
+      throw new Error("Expected a ready Runtime entitlement");
+    }
+    first.entitlement.active = false;
+    first.entitlement.features.threads = false;
+    first.entitlement.limits.forged = 1;
+
+    const second = await client.getRuntimeEntitlements();
+
+    expect(second).toEqual(ACTIVE_ENTITLEMENTS);
+    expect(second).not.toBe(first);
     expect(fetchMock).toHaveBeenCalledOnce();
   } finally {
     teardown();
@@ -147,6 +176,41 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
   } finally {
     teardown();
     vi.useRealTimers();
+  }
+});
+
+test("isolates cached Runtime entitlement errors from caller mutation", async () => {
+  const { client, fetchMock, teardown } = setup();
+  fetchMock.mockRejectedValueOnce(new Error("temporary dependency failure"));
+
+  try {
+    const first = await client
+      .getRuntimeEntitlements()
+      .catch((error: unknown) => error);
+    expect(first).toMatchObject({
+      message: "Runtime entitlement request failed",
+      status: 502,
+      retryable: true,
+    });
+    Object.assign(first as object, {
+      message: "forged success",
+      status: 200,
+      retryable: false,
+    });
+
+    const second = await client
+      .getRuntimeEntitlements()
+      .catch((error: unknown) => error);
+
+    expect(second).toMatchObject({
+      message: "Runtime entitlement request failed",
+      status: 502,
+      retryable: true,
+    });
+    expect(second).not.toBe(first);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  } finally {
+    teardown();
   }
 });
 

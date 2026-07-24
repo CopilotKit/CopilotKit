@@ -108,6 +108,39 @@ export class PlatformRequestError extends Error {
   }
 }
 
+/** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
+function cloneRuntimeEntitlementResponse(
+  response: RuntimeEntitlementResponse,
+): RuntimeEntitlementResponse {
+  if (response.status === "ready") {
+    return {
+      status: "ready",
+      entitlement: {
+        ...response.entitlement,
+        features: { ...response.entitlement.features },
+        limits: { ...response.entitlement.limits },
+      },
+    };
+  }
+
+  return {
+    status: response.status,
+    error: { ...response.error },
+  };
+}
+
+/** Copy a cached Error while preserving its concrete type and own fields. */
+function cloneRuntimeEntitlementError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return Object.create(
+    Object.getPrototypeOf(error),
+    Object.getOwnPropertyDescriptors(error),
+  ) as Error;
+}
+
 /**
  * Client for the CopilotKit Intelligence Platform REST API.
  *
@@ -589,7 +622,8 @@ export class CopilotKitIntelligence {
    * The network request is bounded, never retried, and strictly validates the
    * private App API transport before normalizing it to the public response
    * union. Validation and timeout failures use stable messages that do not
-   * expose rejected upstream payloads.
+   * expose rejected upstream payloads. Each caller receives an isolated copy
+   * of the cached response or error.
    *
    * @returns The validated Runtime entitlement response.
    * @throws {@link PlatformRequestError} for non-OK, malformed, network, or
@@ -601,42 +635,46 @@ export class CopilotKitIntelligence {
       this.#runtimeEntitlementsCache &&
       now < this.#runtimeEntitlementsCache.expiresAt
     ) {
-      return this.#runtimeEntitlementsCache.response;
+      return cloneRuntimeEntitlementResponse(
+        this.#runtimeEntitlementsCache.response,
+      );
     }
     if (
       this.#runtimeEntitlementsFailure &&
       now < this.#runtimeEntitlementsFailure.expiresAt
     ) {
-      throw this.#runtimeEntitlementsFailure.error;
+      throw cloneRuntimeEntitlementError(
+        this.#runtimeEntitlementsFailure.error,
+      );
     }
 
-    if (this.#runtimeEntitlementsInFlight) {
-      return this.#runtimeEntitlementsInFlight;
-    }
-
-    const request = this.#fetchRuntimeEntitlements()
-      .then((response) => {
-        this.#runtimeEntitlementsFailure = undefined;
-        this.#runtimeEntitlementsCache = {
-          response,
-          expiresAt:
-            Date.now() +
-            (grantsRuntimeAccess(response)
-              ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
-              : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
-        };
-        return response;
-      })
-      .catch((error: unknown) => {
-        this.#runtimeEntitlementsFailure = {
-          error,
-          expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
-        };
-        throw error;
-      });
+    const request =
+      this.#runtimeEntitlementsInFlight ??
+      this.#fetchRuntimeEntitlements()
+        .then((response) => {
+          this.#runtimeEntitlementsFailure = undefined;
+          this.#runtimeEntitlementsCache = {
+            response,
+            expiresAt:
+              Date.now() +
+              (grantsRuntimeAccess(response)
+                ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+                : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+          };
+          return response;
+        })
+        .catch((error: unknown) => {
+          this.#runtimeEntitlementsFailure = {
+            error,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          throw error;
+        });
     this.#runtimeEntitlementsInFlight = request;
     try {
-      return await request;
+      return cloneRuntimeEntitlementResponse(await request);
+    } catch (error) {
+      throw cloneRuntimeEntitlementError(error);
     } finally {
       if (this.#runtimeEntitlementsInFlight === request) {
         this.#runtimeEntitlementsInFlight = undefined;
