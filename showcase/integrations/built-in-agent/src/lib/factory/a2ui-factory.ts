@@ -27,6 +27,18 @@ revenue, headcount by team, signups per month). \`generate_a2ui\` takes a \
 single \`brief\` argument summarising what the UI should communicate. Keep \
 chat replies to one short sentence; let the UI do the talking.`;
 
+/**
+ * Defensively unwrap a fenced code block (```json … ``` or ``` … ```) that the
+ * secondary LLM may wrap its JSON in, despite the system prompt asking for no
+ * fences. Returns the inner text trimmed; a non-fenced string is returned
+ * as-is (trimmed).
+ */
+function stripJsonFences(text: string): string {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  return (fence ? fence[1] : trimmed).trim();
+}
+
 function createSurfaceOp(
   surfaceId: string,
   catalogId: string = BASIC_CATALOG_ID,
@@ -148,15 +160,22 @@ async function runA2uiDesignAttempt(
   systemPrompt: string,
   parentAbortController: AbortController,
 ): Promise<A2uiAttemptResult> {
+  // NOTE: no `response_format: { type: "json_object" }` here. TanStack AI's
+  // OpenAI adapter (`openaiText`) targets the *Responses* API
+  // (`client.responses.create()`), which does NOT accept the Chat-Completions
+  // `response_format` param — passing it makes the call return an EMPTY string
+  // (verified against real OpenAI), so the secondary LLM produced no schema and
+  // the surface never painted. JSON-only output is instead enforced by
+  // SECONDARY_LLM_INSTRUCTIONS ("Output ONLY a single JSON object … no code
+  // fences"), the same approach the byoc-hashbrown / byoc-json-render factories
+  // use. `stripJsonFences` below defensively unwraps a ```json … ``` block in
+  // case the model adds one anyway.
   const text = await chat({
     adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
     messages: [{ role: "user", content: brief }],
     systemPrompts: [systemPrompt],
     stream: false,
     abortController: parentAbortController,
-    modelOptions: {
-      response_format: { type: "json_object" },
-    },
   });
 
   // A non-string `chat()` return cannot be parsed and must not be
@@ -179,7 +198,7 @@ async function runA2uiDesignAttempt(
     data?: Record<string, unknown>;
   };
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(stripJsonFences(text));
   } catch {
     return { ok: false, error: "Secondary LLM returned non-JSON output" };
   }
