@@ -1,0 +1,119 @@
+# telemetry / runtime fragment
+#
+# Regenerates the `CopilotKit.runtime` telemetry-registry fragment and opens a
+# path-limited PR against CopilotKit/oss-path-to-production whenever a stable
+# monorepo release publishes (that's when @copilotkit/runtime ships). The
+# emitter is content-gated: if the runtime event set is unchanged, the fragment
+# is left untouched and create-pull-request opens nothing — so this only PRs
+# when the runtime's telemetry actually changed.
+name: telemetry / runtime fragment
+
+on:
+  # A stable monorepo release. Scoped-package releases tag "<scope>/v..."; the
+  # monorepo (which carries @copilotkit/runtime) tags "vX.Y.Z" — no slash.
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telemetry-runtime-fragment
+  cancel-in-progress: false
+
+jobs:
+  fragment:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'release' &&
+        github.event.release.prerelease == false &&
+        !contains(github.event.release.tag_name, '/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # GitHub rejects secrets.* in an `if:`, so surface the registry App ID as an
+    # env var and gate the mint step on it — the workflow self-skips when the
+    # registry App secrets aren't configured on this repo.
+    env:
+      REGISTRY_APP_ID: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
+    steps:
+      - name: Checkout CopilotKit
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cross-repo token, least privilege: NO explicit owner (defaults to the
+      # app installation's owner) + bare `repositories` scopes the token to this
+      # one repo; contents+pull-requests write and nothing else.
+      - name: Mint token for oss-path-to-production
+        if: env.REGISTRY_APP_ID != ''
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.TELEMETRY_REGISTRY_APP_ID }}
+          private-key: ${{ secrets.TELEMETRY_REGISTRY_APP_PRIVATE_KEY }}
+          repositories: oss-path-to-production
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Checkout oss-path-to-production
+        if: steps.token.outputs.token != ''
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: CopilotKit/oss-path-to-production
+          token: ${{ steps.token.outputs.token }}
+          path: p2p
+          persist-credentials: false
+
+      - name: Generate runtime fragment
+        if: steps.token.outputs.token != ''
+        run: pnpm tsx scripts/telemetry/emit-fragment.ts --surface runtime --out p2p/telemetry-registry/fragments/CopilotKit.runtime.json
+
+      # Regenerate the canonical alongside the fragment — the registry's reconcile
+      # CI rejects a stale telemetry-events.json, so a fragment-only PR fails.
+      # Use the registry's own pnpm (its packageManager field).
+      - name: Setup pnpm for registry
+        if: steps.token.outputs.token != ''
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          package_json_file: p2p/package.json
+
+      - name: Reconcile registry
+        if: steps.token.outputs.token != ''
+        working-directory: p2p
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm reconcile
+
+      - name: Open fragment PR
+        if: steps.token.outputs.token != ''
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ steps.token.outputs.token }}
+          path: p2p
+          add-paths: |
+            telemetry-registry/fragments/CopilotKit.runtime.json
+            telemetry-registry/telemetry-events.json
+          base: main
+          branch: telemetry/copilotkit-runtime
+          delete-branch: true
+          commit-message: "chore(telemetry): update CopilotKit.runtime fragment"
+          title: "chore(telemetry): update CopilotKit.runtime fragment"
+          body: |
+            Automated update of the `CopilotKit.runtime` telemetry-registry fragment,
+            emitted from the CopilotKit runtime type catalog on a stable release.
+
+            Reconcile (telemetry-reconcile) will fold this into `telemetry-events.json`.
