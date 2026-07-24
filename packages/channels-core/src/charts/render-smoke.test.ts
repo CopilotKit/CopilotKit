@@ -38,11 +38,11 @@ function countColoredPixels(png: Buffer): number {
 }
 
 /**
- * Counts pixels close to the first palette color (`#6366f1` = rgb 99/102/241),
- * skipping transparent pixels. Every chart draws its primary data mark in
- * `palette[0]`, so this is a real assertion that the DATA rendered visibly —
- * unlike `countColoredPixels`, which is satisfied by gray grid/track chrome
- * (`#e5e7eb`) alone and would pass even if the data itself were invisible.
+ * Counts pixels close to the first palette color (brand purple `#5a3cd1` =
+ * rgb 90/60/209), skipping transparent pixels. Every chart draws its primary
+ * data mark in `palette[0]`, so this is a real assertion that the DATA rendered
+ * visibly — unlike `countColoredPixels`, which is satisfied by gray grid/track
+ * chrome (`#e5e7eb`) alone and would pass even if the data itself were invisible.
  */
 function countPaletteColorPixels(png: Buffer): number {
   const decoded = PNG.sync.read(png);
@@ -55,9 +55,9 @@ function countPaletteColorPixels(png: Buffer): number {
     const a = decoded.data[i + 3] ?? 0;
     if (a < 128) continue;
     if (
-      Math.abs(r - 99) < TOLERANCE &&
-      Math.abs(g - 102) < TOLERANCE &&
-      Math.abs(b - 241) < TOLERANCE
+      Math.abs(r - 90) < TOLERANCE &&
+      Math.abs(g - 60) < TOLERANCE &&
+      Math.abs(b - 209) < TOLERANCE
     ) {
       count++;
     }
