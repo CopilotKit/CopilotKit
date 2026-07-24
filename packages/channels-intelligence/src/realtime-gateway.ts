@@ -62,11 +62,16 @@ export interface ConnectRealtimeGatewayOptions {
  *   rejoin transitions back to `online` (self-healing a transient outage without
  *   a process restart) and re-arms the window so a genuinely fresh drop episode
  *   can transition back to `reconnecting`.
+ * - `fenced`: app-api superseded this listener activation generation. Terminal
+ *   for this Channel; Phoenix receives a clean close and does not auto-rejoin it.
  */
 export type RealtimeGatewayConnectionState =
   | "online"
   | "reconnecting"
-  | "gave_up";
+  | "gave_up"
+  | "fenced";
+
+const LISTENER_FENCED_EVENT = "channel.listener_fenced.v1";
 
 /**
  * Signals that a join was rejected because the declared channel/provider is not
@@ -206,6 +211,8 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    *   outage do NOT re-emit `reconnecting`. NOT terminal — a later SUCCESSFUL
    *   rejoin transitions back to `online` (a transient outage self-heals) and
    *   re-arms the window so a fresh drop episode can transition to `reconnecting`.
+   * - an explicit `channel.listener_fenced.v1` gateway event → terminal `fenced`;
+   *   the following clean Phoenix close is not reported as reconnecting.
    *
    * Our own {@link disconnect} is silent (it is not a drop). Distinct from
    * {@link onClose}, which is a single per-episode drop breadcrumb; this observer
@@ -276,6 +283,10 @@ export async function connectRealtimeGateway(
   // Set true when the give-up window fires; suppresses further `reconnecting`
   // emissions until a successful rejoin (`enterOnline`) clears it.
   let gaveUp = false;
+  // A generation-fenced Channel is terminal. Phoenix deliberately does not
+  // auto-rejoin a clean `phx_close`, and this latch prevents a later socket
+  // callback from misreporting that terminal close as a reconnecting outage.
+  let listenerFenced = false;
   const clearGiveUpTimer = (): void => {
     if (giveUpTimer !== undefined) {
       clearTimeout(giveUpTimer);
@@ -297,7 +308,7 @@ export async function connectRealtimeGateway(
     }
   };
   const enterReconnecting = (): void => {
-    if (closingIntentionally) return;
+    if (closingIntentionally || listenerFenced) return;
     // Sticky give-up: once the window has fired we stay `gave_up` while Phoenix
     // keeps retrying a dead link, so a failed retry during the SAME outage must
     // NOT re-enter `reconnecting`. Only a successful rejoin (`enterOnline`)
@@ -317,6 +328,7 @@ export async function connectRealtimeGateway(
     emitState("reconnecting");
   };
   const enterOnline = (): void => {
+    if (listenerFenced) return;
     // A successful (re)join heals the outage: clear the sticky latch and the
     // give-up timer so a FUTURE drop episode re-arms its own bounded window and
     // can transition `reconnecting` → `gave_up` again.
@@ -411,6 +423,14 @@ export async function connectRealtimeGateway(
   socket.onError(() => {
     notifyClose();
     enterReconnecting();
+  });
+  // The gateway sends this immediately before cleanly closing a superseded
+  // Channel. Record the terminal reason before Phoenix dispatches `phx_close`
+  // so the close hook below cannot imply that an auto-rejoin will occur.
+  channel.on(LISTENER_FENCED_EVENT, () => {
+    listenerFenced = true;
+    clearGiveUpTimer();
+    emitState("fenced");
   });
   // A CHANNEL-level close/error is ALSO non-sendable: Phoenix can error and
   // rejoin a channel while the socket stays open (so the socket handlers above
