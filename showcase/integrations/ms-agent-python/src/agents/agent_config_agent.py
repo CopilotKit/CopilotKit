@@ -7,8 +7,8 @@ per turn.
 The CopilotKit provider's ``properties`` prop is wired through the runtime as
 ``forwardedProps`` on each AG-UI run. Because Microsoft Agent Framework agents
 store their system prompt in ``default_options["instructions"]``, we subclass
-``AgentFrameworkAgent`` and intercept ``run`` to swap in a freshly-built
-instruction string for the duration of each invocation.
+``AgentFrameworkAgent`` and intercept ``run`` to pass a freshly-built
+instruction string as request-local run options.
 
 Invalid or missing values fall back to the corresponding ``DEFAULT_*``
 constant -- this function never raises so the demo can't deadlock on a bad
@@ -24,6 +24,7 @@ from typing import Any, Literal
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
+from agents._request_scoped_instructions import run_with_request_instructions
 
 Tone = Literal["professional", "casual", "enthusiastic"]
 Expertise = Literal["beginner", "intermediate", "expert"]
@@ -99,8 +100,8 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
     """AgentFrameworkAgent that rebuilds its system prompt per request.
 
     Overrides ``run`` to read ``forwardedProps`` from the AG-UI input
-    and temporarily replace the wrapped agent's ``instructions`` option before
-    delegating to the standard orchestrator chain.
+    and pass it as request-local ``instructions`` before delegating to the
+    standard orchestrator chain. The wrapped singleton agent is never mutated.
     """
 
     async def run(  # type: ignore[override]
@@ -112,22 +113,10 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
             props["tone"], props["expertise"], props["response_length"]
         )
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
-            async for event in super().run(input_data):
-                yield event
-            return
-
-        previous_instructions = options.get("instructions")
-        options["instructions"] = system_prompt
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        async for event in run_with_request_instructions(
+            self, input_data, system_prompt
+        ):
+            yield event
 
 
 def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFrameworkAgent:
