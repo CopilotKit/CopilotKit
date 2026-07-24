@@ -166,6 +166,73 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     expect(capturedAgent!.threadId).toBe("second-thread");
   });
 
+  it("honors an explicit threadId prop even without a CopilotChatConfigurationProvider", () => {
+    // Headless usage (e.g. the React Native demo) has no chat-configuration
+    // provider in the tree. Before the fix the `threadId` prop was silently
+    // dropped and the agent shipped its own auto-minted UUID; the prop must now
+    // land on the agent so runs address the intended thread.
+    const propThreadId = "prop-supplied-thread-id";
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe() {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        threadId: propThreadId,
+      });
+      capturedAgent = agent;
+      return null;
+    }
+
+    render(<Probe />);
+
+    expect(capturedAgent).not.toBeNull();
+    expect(capturedAgent!.threadId).toBe(propThreadId);
+  });
+
+  it("prefers the threadId prop over the chat configuration's threadId", () => {
+    // Precedence: an explicit prop always wins over the surrounding config.
+    const propThreadId = "prop-thread";
+    const configThreadId = "config-thread";
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe() {
+      const { agent } = useAgent({
+        agentId: "test-agent",
+        threadId: propThreadId,
+      });
+      capturedAgent = agent;
+      return null;
+    }
+
+    render(
+      <CopilotChatConfigurationProvider threadId={configThreadId}>
+        <Probe />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(capturedAgent).not.toBeNull();
+    expect(capturedAgent!.threadId).toBe(propThreadId);
+  });
+
+  it("re-syncs agent.threadId when the threadId prop changes", () => {
+    let capturedAgent: AbstractAgent | null = null;
+
+    function Probe({ threadId }: { threadId: string }) {
+      const { agent } = useAgent({ agentId: "test-agent", threadId });
+      capturedAgent = agent;
+      return null;
+    }
+
+    const { rerender } = render(<Probe threadId="first-prop-thread" />);
+    expect(capturedAgent!.threadId).toBe("first-prop-thread");
+
+    act(() => {
+      rerender(<Probe threadId="second-prop-thread" />);
+    });
+
+    expect(capturedAgent!.threadId).toBe("second-prop-thread");
+  });
+
   it("is a no-op when no CopilotChatConfigurationProvider is in scope", () => {
     // Headless / pure-v2 use without any configuration provider — useAgent
     // should leave the agent's auto-minted threadId alone instead of throwing.

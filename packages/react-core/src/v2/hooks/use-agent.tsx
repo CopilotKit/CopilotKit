@@ -28,6 +28,19 @@ export interface UseAgentProps {
    * chat configuration's agentId, then the global default.
    */
   agentId?: string;
+  /**
+   * Thread to scope the agent's run to. When provided, this threadId is written
+   * onto the underlying agent so `/agent/run`, `/agent/connect`, and
+   * `/agent/stop` address this thread. Resolution precedence: this property,
+   * then the surrounding chat configuration's threadId (when it is an explicit,
+   * caller-chosen thread — see `CopilotChatConfigurationProvider`).
+   *
+   * When omitted, behavior is unchanged: the threadId is sourced from the chat
+   * configuration if present, otherwise the agent keeps its auto-minted UUID.
+   * Useful for headless usage (e.g. React Native) where there is no
+   * `<CopilotChatConfigurationProvider>` in the tree to supply the thread.
+   */
+  threadId?: string;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by
@@ -54,7 +67,12 @@ export interface UseAgentProps {
   throttleMs?: number;
 }
 
-export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
+export function useAgent({
+  agentId,
+  threadId,
+  updates,
+  throttleMs,
+}: UseAgentProps = {}) {
   // Resolve agentId mirroring CopilotChat's precedence: an explicit prop wins,
   // then the surrounding chat configuration's agentId, then the global default.
   // Without the chat-config fallback, a useAgent() consumer rendered inside a
@@ -239,20 +257,28 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
 
-  // Propagate the caller-supplied threadId from the chat configuration onto
-  // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId
-  // is passed, so without this sync the agent ships its own random UUID in
-  // /agent/run, /agent/connect, /agent/stop — diverging from the threadId the
-  // app code reads via useThreads/useCopilotChatConfiguration. Gated on
-  // hasExplicitThreadId so a ThreadsProvider-minted placeholder UUID doesn't
-  // overwrite the auto-minted agent UUID (both are random and useless to the
-  // backend; the explicit gate keeps the agent's UUID stable across renders).
+  // Propagate the caller-supplied threadId onto the agent. AbstractAgent's
+  // constructor auto-mints a UUID when no threadId is passed, so without this
+  // sync the agent ships its own random UUID in /agent/run, /agent/connect,
+  // /agent/stop — diverging from the threadId the app code intends.
+  //
+  // Resolution precedence:
+  //   1. An explicit `threadId` prop always wins. This lets headless callers
+  //      (e.g. React Native) scope the run to a thread without a
+  //      <CopilotChatConfigurationProvider> in the tree.
+  //   2. Otherwise fall back to the chat configuration's threadId, gated on
+  //      hasExplicitThreadId so a ThreadsProvider-minted placeholder UUID
+  //      doesn't overwrite the auto-minted agent UUID (both are random and
+  //      useless to the backend; the explicit gate keeps the agent's UUID
+  //      stable across renders).
   const configThreadId = chatConfig?.threadId;
   const configHasExplicitThreadId = chatConfig?.hasExplicitThreadId;
+  const resolvedThreadId =
+    threadId ?? (configHasExplicitThreadId ? configThreadId : undefined);
   useEffect(() => {
-    if (!configHasExplicitThreadId || !configThreadId) return;
-    agent.threadId = configThreadId;
-  }, [agent, configThreadId, configHasExplicitThreadId]);
+    if (!resolvedThreadId) return;
+    agent.threadId = resolvedThreadId;
+  }, [agent, resolvedThreadId]);
 
   return {
     agent,
