@@ -124,7 +124,7 @@ vi.mock("../lib/pb", () => {
     collection: (_name: string) => ({
       // getList serves three callers:
       //   - heartbeat ping       → getList(1, 1, …)            (perPage 1)
-      //   - supplemental signal  → NO `fields` projection      (see below)
+      //   - supplemental signal  → `fields` INCLUDING `signal`  (see below)
       //   - bulk initial fetch   → getList(page, PB_PAGE_SIZE, …) per page
       // The bulk fetch issues page 1 first, then fans out pages 2..N
       // concurrently. To prove the merge is order-safe, a test can set

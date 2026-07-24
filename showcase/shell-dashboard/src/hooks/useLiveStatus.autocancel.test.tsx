@@ -90,19 +90,32 @@ function readPbListRequest(url: URL): PbListRequest {
  * `true` when this request is the hook's SUPPLEMENTAL signal fetch rather than
  * a bulk fan-out page.
  *
- * Discriminated by the ABSENCE of a `fields` projection — the same convention
- * the sibling mocked suite (`useLiveStatus.test.tsx`) uses, and the one
- * property that structurally separates the two: the bulk fetch ALWAYS sends
- * `STATUS_LIST_FIELDS`, while the supplemental fetch sends NO projection
- * because bringing `signal` back is its entire purpose. (Discriminating on a
- * filter substring instead is unreliable — the supplemental filter is a UNION
- * whose comm-error clause is dropped for a dimension scope outside
+ * Discriminated by `signal` BEING IN the `fields` projection — the same
+ * convention the sibling mocked suite (`useLiveStatus.test.tsx`) uses, and the
+ * one property that structurally separates the two: the bulk fetch always
+ * projects `signal` AWAY (`STATUS_LIST_FIELDS`), while bringing `signal` back is
+ * the supplemental fetch's entire purpose (`STATUS_SIGNAL_FIELDS`).
+ *
+ * NOT the absence of a projection, which is what this helper used to test: the
+ * supplemental fetch is now PROJECTED too (`STATUS_LIST_FIELDS + signal`, to
+ * drop the columns PocketBase adds and nothing reads), so "no `fields`" would
+ * misclassify it as a bulk page and then fail the "every bulk page projects
+ * `signal` away" assertion. Asking whether `signal` was requested is the durable
+ * property — it survives both a projection being added to the supplemental fetch
+ * and the bulk projection changing width. (Discriminating on a filter substring
+ * instead is unreliable — the supplemental filter is a UNION whose comm-error
+ * clause is dropped for a dimension scope outside
  * `FLEET_COMM_AGGREGATE_DIMENSIONS`, which is exactly the scope these tests
- * use.) Callers must test the perPage-1 heartbeat ping FIRST: it also sends no
- * projection.
+ * use.) The perPage-1 heartbeat ping sends no projection, so it can never be
+ * mistaken for the supplemental fetch here; the `perPage > 1` conjunct is kept
+ * anyway so callers' three-way split stays explicit.
  */
 function isSupplementalRequest(req: PbListRequest): boolean {
-  return req.perPage > 1 && req.fields === null;
+  return (
+    req.perPage > 1 &&
+    req.fields !== null &&
+    req.fields.split(",").includes("signal")
+  );
 }
 
 /** Thrown when a fake server meets a filter clause the evaluator can't model. */
@@ -448,7 +461,10 @@ const ALL_ROWS = Array.from({ length: TOTAL_ROWS }, (_, i) => makeRow(i));
 // issues, so the test can assert the lightweight projection (`fields=`) and
 // `skipTotal` are actually sent on the wire. Reset per test.
 const initialFetchQueries: URLSearchParams[] = [];
-/** The supplemental signal fetch's queries (unprojected — see the split below). */
+/**
+ * The supplemental signal fetch's queries — projected, but WITH `signal`, which
+ * is what separates them from the bulk pages (see the split below).
+ */
 const supplementalQueries: URLSearchParams[] = [];
 
 /**
@@ -468,8 +484,9 @@ function startPbServer(): Promise<{ server: Server; url: string }> {
     const req = readPbListRequest(url);
     // Split the wire instrumentation three ways. The perPage=1 heartbeat ping
     // is ignored, and the SUPPLEMENTAL signal fetch is recorded SEPARATELY from
-    // the bulk pages (it deliberately sends NO `fields` projection, so folding
-    // it in would fail the "every bulk page projects `signal` away" assertion).
+    // the bulk pages (it deliberately asks for `signal` in its projection, so
+    // folding it in would fail the "every bulk page projects `signal` away"
+    // assertion).
     if (req.perPage > 1) {
       const q = new URLSearchParams(url.searchParams);
       if (isSupplementalRequest(req)) {
