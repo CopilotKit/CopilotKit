@@ -716,11 +716,20 @@ describe("AnthropicAdapter - same-role coalescing", () => {
   });
 
   it("merges TextMessage(assistant) + ActionExecutionMessage into a single Anthropic assistant message", async () => {
-    const systemMsg = new TextMessage("system", "You are a helpful assistant.");
-    const userMsg = new TextMessage("user", "Look something up for me.");
+    const systemMsg = new TextMessage({
+      role: Role.system,
+      content: "You are a helpful assistant.",
+    });
+    const userMsg = new TextMessage({
+      role: Role.user,
+      content: "Look something up for me.",
+    });
     // A prior assistant turn that had both a text preamble and a tool call.
     // CopilotKit stores these as separate messages.
-    const assistantText = new TextMessage("assistant", "Let me check that.");
+    const assistantText = new TextMessage({
+      role: Role.assistant,
+      content: "Let me check that.",
+    });
     const toolExec = new ActionExecutionMessage({
       id: "tool-abc",
       name: "lookup",
@@ -730,7 +739,10 @@ describe("AnthropicAdapter - same-role coalescing", () => {
       actionExecutionId: "tool-abc",
       result: "Found it.",
     });
-    const userFollowUp = new TextMessage("user", "Thanks, what did you find?");
+    const userFollowUp = new TextMessage({
+      role: Role.user,
+      content: "Thanks, what did you find?",
+    });
 
     await adapter.process({
       threadId: "t1",
@@ -746,7 +758,6 @@ describe("AnthropicAdapter - same-role coalescing", () => {
         {
           name: "lookup",
           description: "look up",
-          parameters: [],
           jsonSchema: '{"type":"object","properties":{}}',
         },
       ],
@@ -780,10 +791,19 @@ describe("AnthropicAdapter - same-role coalescing", () => {
   });
 
   it("does not merge alternating user/assistant messages (no regression)", async () => {
-    const systemMsg = new TextMessage("system", "You are helpful.");
-    const user1 = new TextMessage("user", "Hi");
-    const asst1 = new TextMessage("assistant", "Hello!");
-    const user2 = new TextMessage("user", "How are you?");
+    const systemMsg = new TextMessage({
+      role: Role.system,
+      content: "You are helpful.",
+    });
+    const user1 = new TextMessage({ role: Role.user, content: "Hi" });
+    const asst1 = new TextMessage({
+      role: Role.assistant,
+      content: "Hello!",
+    });
+    const user2 = new TextMessage({
+      role: Role.user,
+      content: "How are you?",
+    });
 
     await adapter.process({
       threadId: "t2",
