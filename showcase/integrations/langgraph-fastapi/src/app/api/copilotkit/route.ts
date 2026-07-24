@@ -40,10 +40,24 @@ const ROUTE_DEBUG =
   process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
   process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
-function createAgent(graphId: string = "sample_agent") {
+function createAgent(
+  graphId: string = "sample_agent",
+  options: { recursionLimit?: number } = {},
+) {
+  // LangGraph's `recursion_limit` defaults to 25 (langchain_core), and
+  // `with_config` in Python doesn't propagate when the graph is invoked via
+  // the langgraph server's runs API — the `.with_config(...)` wrapper on the
+  // graph object isn't visible to the assistant config the server builds per
+  // run. Bake the limit into `assistantConfig` here so it travels with every
+  // run we kick off through this route. Without this, multi-step graphs like
+  // `gen_ui_agent` (which walks ~15 supersteps of set_steps calls, more once
+  // prior turns accumulate in the thread) hit the default 25 mid-run and the
+  // final state-publishing tool call never streams — the state card then
+  // shows stale content from the previous pill. Mirrors langgraph-python.
   return new LangGraphAgent({
     deploymentUrl: `${AGENT_URL}/`,
     graphId,
+    assistantConfig: { recursion_limit: options.recursionLimit ?? 100 },
   });
 }
 
@@ -51,7 +65,6 @@ const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
@@ -76,6 +89,13 @@ agents["tool-rendering-reasoning-chain"] = createAgent(
 );
 agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
 agents["reasoning-default-render"] = createAgent("reasoning_agent");
+
+// Agentic Generative UI — dedicated `gen_ui_agent` graph. The agent defines
+// its own `steps` state + a `set_steps` tool the model calls to publish plan
+// progress; the frontend subscribes via `useAgent`. Previously this name fell
+// through the neutral-assistant loop to `sample_agent`, which has no `steps`
+// state or `set_steps` tool, so the demo never rendered a progress card.
+agents["gen-ui-agent"] = createAgent("gen_ui_agent");
 
 // Interrupt variants — share the dedicated `interrupt_agent` graph that uses
 // langgraph's `interrupt()` primitive inside `schedule_meeting`.

@@ -7,6 +7,7 @@
   },
   "graphs": {
     "sample_agent": "./src/agents/src/agent.py:graph",
+    "gen_ui_agent": "./src/agents/src/gen_ui_agent.py:graph",
     "beautiful_chat": "./src/agents/src/beautiful_chat.py:graph",
     "headless_complete": "./src/agents/src/headless_complete.py:graph",
     "multimodal": "./src/agents/src/multimodal_agent.py:graph",
