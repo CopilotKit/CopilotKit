@@ -46,6 +46,19 @@ export function extent(nums: readonly number[]): { min: number; max: number } {
 }
 
 /**
+ * Compact number for axis/value labels: 1_500 → "1.5k", 2_400_000 → "2.4M",
+ * smaller values rounded to an integer. Keeps labels short so they don't
+ * overflow a bar or the y-axis gutter.
+ */
+export function formatCompact(n: number): string {
+  const v = finiteOr0(n);
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${(v / 1_000).toFixed(1)}k`;
+  return String(Math.round(v));
+}
+
+/**
  * Styling knobs shared by every chart component. Not every field is honored
  * by every chart: BarChart/StackedBar fill their container and ignore both
  * `width` and `height`; Meter also fills its container width-wise and

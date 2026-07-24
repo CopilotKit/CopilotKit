@@ -1,6 +1,11 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
+import {
+  DEFAULT_CHART_COLORS,
+  extent,
+  finiteOr0,
+  formatCompact,
+} from "./types.js";
 import type { ChartDatum, ChartStyleProps } from "./types.js";
 
 export interface BarChartProps extends ChartStyleProps {
@@ -71,6 +76,16 @@ export function BarChart(props: BarChartProps): ReactElement {
               height: "100%",
             },
           },
+          // Value label above the bar — gives the chart a readable y-value
+          // without a full axis.
+          h(
+            "div",
+            {
+              className: labelClassName,
+              style: { fontSize: 12, fontWeight: 600, marginBottom: 4 },
+            },
+            formatCompact(finiteOr0(d.value)),
+          ),
           h("div", {
             style: {
               width: "100%",

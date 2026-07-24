@@ -211,7 +211,7 @@ matching `render_*` tool). Both paths share one `render*` fn.
 | -------------------- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
 | **PR review radar**  | `/prs` · "show the PR radar" | GitHub PRs (public, no token) | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart            |
 | **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
-| **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | progress card + status pie (with legend) + load-per-assignee bar                |
+| **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | per-team progress card (a meter per team) + done-vs-remaining stacked bar       |
 
 The shadcn look comes from a single token stylesheet fed once to
 `createChannel({ render: { stylesheets: [shadcnCss] } })` (`app/showcase/theme.ts`);

@@ -1,6 +1,11 @@
 import { createElement as h } from "react";
 import type { ReactElement } from "react";
-import { DEFAULT_CHART_COLORS, extent, finiteOr0 } from "./types.js";
+import {
+  DEFAULT_CHART_COLORS,
+  extent,
+  finiteOr0,
+  formatCompact,
+} from "./types.js";
 import type { ChartStyleProps } from "./types.js";
 
 export interface StackedDatum {
@@ -77,6 +82,15 @@ export function StackedBar(props: StackedBarProps): ReactElement {
               height: "100%",
             },
           },
+          // Total value above the stack — a readable y-value without an axis.
+          h(
+            "div",
+            {
+              className: labelClassName,
+              style: { fontSize: 12, fontWeight: 600, marginBottom: 4 },
+            },
+            formatCompact(totals[i]!),
+          ),
           h(
             "div",
             {
