@@ -1,365 +1,174 @@
-"""Tests for middleware emission of AG-UI tool call events for intercepted SDK Actions.
+"""End-to-end coverage for intercepted SDK Action tool-call emission.
 
-Covers:
-  - When aafter_model intercepts SDK Action tool calls, copilotkit_manually_emit_tool_call
-    custom events are dispatched for each intercepted call
-  - When no tool calls are intercepted, no custom events are dispatched
-  - Multiple intercepted tool calls each produce their own custom event
-  - The custom event payload matches the format expected by LangGraphAGUIAgent._dispatch_event()
-  - Sync after_model path works unchanged (no event emission from sync path)
+Covers the real LangChain `create_agent(..., tools=[])` path the regression
+was reported against:
+
+  - current main emits no AG-UI TOOL_CALL_* events for intercepted SDK Actions
+  - this branch emits exactly one TOOL_CALL_START/ARGS/END triple
+  - `after_agent` still restores the tool call into the final snapshot without
+    causing a duplicate stream emission
 """
 
-from __future__ import annotations
-
 import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
+from typing import Any
+from unittest.mock import patch
 
-import pytest
-from langchain_core.messages import AIMessage, HumanMessage
+from ag_ui.core import EventType, MessagesSnapshotEvent, Tool, UserMessage
+from ag_ui_langgraph import LangGraphAgent as AGUIBase
+from ag_ui.core.types import RunAgentInput
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import AIMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langgraph.checkpoint.memory import InMemorySaver
+from pydantic import Field
 
-from copilotkit.copilotkit_lg_middleware import CopilotKitMiddleware
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture
-def middleware():
-    """Create a fresh middleware instance for each test."""
-    return CopilotKitMiddleware()
+from copilotkit import CopilotKitMiddleware
+from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
-def _make_tool_call(
-    name: str,
-    args: dict | None = None,
-    tool_call_id: str | None = None,
-) -> dict:
-    """Create a proper tool call dict for langchain AIMessage."""
-    return {
-        "type": "tool_call",
-        "name": name,
-        "args": args or {},
-        "id": tool_call_id or f"call_{name}",
-    }
+class BoundFakeToolModel(BaseChatModel):
+    """Minimal fake chat model that supports `bind_tools()` for `create_agent()`."""
+
+    responses: list[AIMessage]
+    i: int = 0
+    bound_tools: list[Any] = Field(default_factory=list)
+
+    def bind_tools(self, tools, **kwargs):
+        return self.__class__(
+            responses=self.responses,
+            i=self.i,
+            bound_tools=list(tools),
+        )
+
+    @property
+    def _llm_type(self) -> str:
+        return "bound-fake-tool-model"
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        response = self.responses[self.i]
+        if self.i < len(self.responses) - 1:
+            self.i += 1
+        return ChatResult(generations=[ChatGeneration(message=response)])
 
 
-def _make_state(
-    *,
-    ai_message: AIMessage | None = None,
-    actions: list[dict] | None = None,
-) -> dict:
-    """Build a state dict for testing."""
-    messages = [HumanMessage("hi")]
-    if ai_message:
-        messages.append(ai_message)
-
-    return {
-        "messages": messages,
-        "copilotkit": {
-            "actions": actions or [],
+def _frontend_tool() -> Tool:
+    return Tool(
+        name="ask_user_name",
+        description="Frontend SDK Action",
+        parameters={
+            "type": "object",
+            "properties": {"prompt": {"type": "string"}},
+            "required": ["prompt"],
         },
-    }
-
-
-# ---------------------------------------------------------------------------
-# Tests: no interception
-# ---------------------------------------------------------------------------
-
-
-def test_aafter_model_no_frontend_tools_is_noop(middleware):
-    """When no frontend tools exist, aafter_model returns None."""
-
-    async def _run():
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[_make_tool_call("backend_only", tool_call_id="1")],
-            ),
-            actions=[],
-        )
-        runtime = MagicMock(name="runtime")
-
-        with patch("langgraph.config.get_config", return_value=MagicMock()):
-            result = await middleware.aafter_model(state, runtime)
-
-        assert result is None
-
-    asyncio.run(_run())
-
-
-def test_aafter_model_no_tool_calls_is_noop(middleware):
-    """When the AIMessage has no tool calls, aafter_model returns None."""
-
-    async def _run():
-        state = _make_state(
-            ai_message=AIMessage(content="Just a response, no tools"),
-            actions=[{"function": {"name": "navigate"}}],
-        )
-        runtime = MagicMock(name="runtime")
-
-        with patch("langgraph.config.get_config", return_value=MagicMock()):
-            result = await middleware.aafter_model(state, runtime)
-
-        assert result is None
-
-    asyncio.run(_run())
-
-
-def test_aafter_model_only_backend_tools_is_noop(middleware):
-    """When all tool calls are backend tools (not frontend actions), no dispatch occurs."""
-
-    async def _run():
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[
-                    _make_tool_call("backend_search", {"q": "hi"}, tool_call_id="1")
-                ],
-            ),
-            actions=[{"function": {"name": "navigate"}}],
-        )
-        runtime = MagicMock(name="runtime")
-
-        with patch("langgraph.config.get_config", return_value=MagicMock()):
-            with patch(
-                "langchain_core.callbacks.manager.adispatch_custom_event",
-                new_callable=AsyncMock,
-            ) as mock_dispatch:
-                result = await middleware.aafter_model(state, runtime)
-
-        assert result is None
-        mock_dispatch.assert_not_called()
-
-    asyncio.run(_run())
-
-
-# ---------------------------------------------------------------------------
-# Tests: interception with event dispatch
-# ---------------------------------------------------------------------------
-
-
-def test_aafter_model_emits_event_for_single_intercepted_tool_call(middleware):
-    """When a single tool call matches a frontend action, emit a custom event."""
-
-    async def _run():
-        frontend_call = _make_tool_call("navigate", {"path": "/x"}, tool_call_id="2")
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[frontend_call],
-                id="ai-1",
-            ),
-            actions=[{"function": {"name": "navigate"}}],
-        )
-        runtime = MagicMock(name="runtime")
-        mock_config = MagicMock()
-
-        with patch("langgraph.config.get_config", return_value=mock_config):
-            with patch(
-                "langchain_core.callbacks.manager.adispatch_custom_event",
-                new_callable=AsyncMock,
-            ) as mock_dispatch:
-                result = await middleware.aafter_model(state, runtime)
-
-        # Verify the result has the intercepted call stored
-        assert result is not None
-        intercepted = result["copilotkit"]["intercepted_tool_calls"]
-        assert len(intercepted) == 1
-        assert intercepted[0]["name"] == "navigate"
-        assert intercepted[0]["id"] == "2"
-
-        # Verify the custom event was dispatched
-        mock_dispatch.assert_called_once()
-        args, kwargs = mock_dispatch.call_args
-        assert len(args) == 2
-        assert args[0] == "copilotkit_manually_emit_tool_call"
-        assert args[1] == {
-            "name": "navigate",
-            "args": {"path": "/x"},
-            "id": "2",
-        }
-        assert kwargs.get("config") is mock_config
-
-    asyncio.run(_run())
-
-
-def test_aafter_model_emits_events_for_multiple_intercepted_tool_calls(middleware):
-    """When multiple tool calls match frontend actions, emit a custom event for each."""
-
-    async def _run():
-        backend_call = _make_tool_call("backend_search", {"q": "hi"}, tool_call_id="1")
-        frontend_call_1 = _make_tool_call("navigate", {"path": "/x"}, tool_call_id="2")
-        frontend_call_2 = _make_tool_call(
-            "update_context", {"ctx": "val"}, tool_call_id="3"
-        )
-
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[backend_call, frontend_call_1, frontend_call_2],
-                id="ai-1",
-            ),
-            actions=[
-                {"function": {"name": "navigate"}},
-                {"function": {"name": "update_context"}},
-            ],
-        )
-        runtime = MagicMock(name="runtime")
-        mock_config = MagicMock()
-
-        with patch("langgraph.config.get_config", return_value=mock_config):
-            with patch(
-                "langchain_core.callbacks.manager.adispatch_custom_event",
-                new_callable=AsyncMock,
-            ) as mock_dispatch:
-                result = await middleware.aafter_model(state, runtime)
-
-        # Verify the result has both intercepted calls stored
-        assert result is not None
-        intercepted = result["copilotkit"]["intercepted_tool_calls"]
-        assert len(intercepted) == 2
-        assert intercepted[0]["id"] == "2"
-        assert intercepted[1]["id"] == "3"
-
-        # Verify two custom events were dispatched
-        assert mock_dispatch.call_count == 2
-
-        # First event payload
-        first_args, first_kwargs = mock_dispatch.call_args_list[0]
-        assert first_args[0] == "copilotkit_manually_emit_tool_call"
-        assert first_args[1] == {
-            "name": "navigate",
-            "args": {"path": "/x"},
-            "id": "2",
-        }
-
-        # Second event payload
-        second_args, second_kwargs = mock_dispatch.call_args_list[1]
-        assert second_args[0] == "copilotkit_manually_emit_tool_call"
-        assert second_args[1] == {
-            "name": "update_context",
-            "args": {"ctx": "val"},
-            "id": "3",
-        }
-
-    asyncio.run(_run())
-
-
-def test_aafter_model_event_payload_format_matches_agui_handler(middleware):
-    """Verify the custom event payload format matches LangGraphAGUIAgent expectation."""
-
-    async def _run():
-        # The AG-UI handler expects: {"name": str, "args": dict, "id": str}
-        # This test ensures we emit exactly that format.
-        frontend_call = _make_tool_call(
-            "my_action", {"key1": "value1", "key2": 42}, tool_call_id="tool-123"
-        )
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[frontend_call],
-                id="ai-1",
-            ),
-            actions=[{"function": {"name": "my_action"}}],
-        )
-        runtime = MagicMock(name="runtime")
-        mock_config = MagicMock()
-
-        with patch("langgraph.config.get_config", return_value=mock_config):
-            with patch(
-                "langchain_core.callbacks.manager.adispatch_custom_event",
-                new_callable=AsyncMock,
-            ) as mock_dispatch:
-                await middleware.aafter_model(state, runtime)
-
-        mock_dispatch.assert_called_once()
-        args, kwargs = mock_dispatch.call_args
-        payload = args[1]
-
-        # Verify all required fields are present
-        assert "name" in payload
-        assert "args" in payload
-        assert "id" in payload
-
-        # Verify the types
-        assert isinstance(payload["name"], str)
-        assert isinstance(payload["args"], dict)
-        assert isinstance(payload["id"], str)
-
-        # Verify the values are correct
-        assert payload["name"] == "my_action"
-        assert payload["args"] == {"key1": "value1", "key2": 42}
-        assert payload["id"] == "tool-123"
-
-    asyncio.run(_run())
-
-
-def test_aafter_model_handles_missing_optional_fields_in_call(middleware):
-    """When a tool call is missing optional fields, use sensible defaults."""
-
-    async def _run():
-        # Tool calls may not always have all fields populated during construction
-        # Here we'll test with a minimal dict structure
-        frontend_call = {"name": "action_no_id", "id": "", "args": {}}
-        state = _make_state(
-            ai_message=AIMessage(
-                content="",
-                tool_calls=[frontend_call],
-                id="ai-1",
-            ),
-            actions=[{"function": {"name": "action_no_id"}}],
-        )
-        runtime = MagicMock(name="runtime")
-        mock_config = MagicMock()
-
-        with patch("langgraph.config.get_config", return_value=mock_config):
-            with patch(
-                "langchain_core.callbacks.manager.adispatch_custom_event",
-                new_callable=AsyncMock,
-            ) as mock_dispatch:
-                await middleware.aafter_model(state, runtime)
-
-        # Should succeed and dispatch with defaults for missing fields
-        mock_dispatch.assert_called_once()
-        args, kwargs = mock_dispatch.call_args
-        payload = args[1]
-        assert payload["name"] == "action_no_id"
-        assert payload["args"] == {}
-        assert payload["id"] == ""
-
-    asyncio.run(_run())
-
-
-# ---------------------------------------------------------------------------
-# Tests: Backward compatibility — sync after_model unchanged
-# ---------------------------------------------------------------------------
-
-
-def test_after_model_sync_unchanged(middleware):
-    """The sync after_model path should work unchanged (no custom events)."""
-    frontend_call = _make_tool_call("navigate", {"path": "/x"}, tool_call_id="2")
-    state = _make_state(
-        ai_message=AIMessage(
-            content="",
-            tool_calls=[frontend_call],
-            id="ai-1",
-        ),
-        actions=[{"function": {"name": "navigate"}}],
     )
-    runtime = MagicMock(name="runtime")
 
-    # Call the sync method directly
-    result = middleware.after_model(state, runtime)
 
-    # Verify it works as before: returns the intercepted state
-    assert result is not None
-    intercepted = result["copilotkit"]["intercepted_tool_calls"]
-    assert len(intercepted) == 1
-    assert intercepted[0]["name"] == "navigate"
-    assert intercepted[0]["id"] == "2"
-    # And the AIMessage now has no tool calls
-    last_msg = result["messages"][-1]
-    assert isinstance(last_msg, AIMessage)
-    assert len(last_msg.tool_calls) == 0
+def _collect_intercepted_tool_run():
+    model = BoundFakeToolModel(
+        responses=[
+            AIMessage(
+                content="",
+                id="ai-1",
+                tool_calls=[
+                    {
+                        "id": "tc-1",
+                        "name": "ask_user_name",
+                        "args": {"prompt": "what is your name?"},
+                    }
+                ],
+            )
+        ]
+    )
+    graph = create_agent(
+        model=model,
+        tools=[],
+        middleware=[CopilotKitMiddleware()],
+        checkpointer=InMemorySaver(),
+    )
+    agent = LangGraphAGUIAgent(name="test", graph=graph)
+    run_input = RunAgentInput(
+        threadId="t1",
+        runId="r1",
+        state={},
+        messages=[UserMessage(id="u1", content="hi")],
+        tools=[_frontend_tool()],
+        context=[],
+        forwardedProps={},
+    )
+
+    async def _run():
+        dispatched = []
+        yielded = []
+        original = AGUIBase._dispatch_event
+
+        def _track(self_inner, event):
+            dispatched.append(event)
+            return original(self_inner, event)
+
+        with patch.object(AGUIBase, "_dispatch_event", new=_track):
+            async for event in agent.run(run_input):
+                yielded.append(event)
+
+        return dispatched, yielded
+
+    return asyncio.run(_run())
+
+
+def test_intercepted_sdk_action_emits_single_tool_call_triple_end_to_end():
+    dispatched, _ = _collect_intercepted_tool_run()
+
+    tool_call_starts = [
+        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_START
+    ]
+    tool_call_args = [
+        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_ARGS
+    ]
+    tool_call_ends = [
+        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_END
+    ]
+    manual_emit_events = [
+        event
+        for event in dispatched
+        if getattr(event, "type", None) == EventType.CUSTOM
+        and getattr(event, "name", None) == "copilotkit_manually_emit_tool_call"
+    ]
+
+    assert len(manual_emit_events) == 1
+    assert len(tool_call_starts) == 1
+    assert len(tool_call_args) == 1
+    assert len(tool_call_ends) == 1
+
+    assert tool_call_starts[0].tool_call_id == "tc-1"
+    assert tool_call_args[0].tool_call_id == "tc-1"
+    assert tool_call_args[0].delta == '{"prompt": "what is your name?"}'
+    assert tool_call_ends[0].tool_call_id == "tc-1"
+
+
+def test_after_agent_restores_tool_call_without_duplicate_stream_events():
+    dispatched, yielded = _collect_intercepted_tool_run()
+
+    final_snapshot = next(
+        event
+        for event in reversed(yielded)
+        if isinstance(event, MessagesSnapshotEvent)
+    )
+    assistant_message = final_snapshot.messages[-1]
+
+    tool_call_ids = [
+        event.tool_call_id
+        for event in dispatched
+        if getattr(event, "type", None) in {
+            EventType.TOOL_CALL_START,
+            EventType.TOOL_CALL_ARGS,
+            EventType.TOOL_CALL_END,
+        }
+    ]
+
+    assert len(tool_call_ids) == 3
+    assert tool_call_ids == ["tc-1", "tc-1", "tc-1"]
+
+    assert len(assistant_message.tool_calls) == 1
+    assert assistant_message.tool_calls[0].id == "tc-1"
+    assert assistant_message.tool_calls[0].function.name == "ask_user_name"
+    assert assistant_message.tool_calls[0].function.arguments == '{"prompt": "what is your name?"}'
