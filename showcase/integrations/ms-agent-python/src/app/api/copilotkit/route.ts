@@ -510,6 +510,11 @@ function createGenUiAgent() {
 }
 
 function createReadonlyContextAgent() {
+  // Middleware converts `context` to a per-request system message to avoid
+  // concurrency issues. The Python agent's singleton `default_options`
+  // is shared across requests, so mutating it (as the Python override did)
+  // causes cross-request pollution. This middleware injects context as a
+  // message, which is request-scoped and thread-safe.
   const agent = createAgent("/readonly-state-agent-context");
 
   agent.use(
