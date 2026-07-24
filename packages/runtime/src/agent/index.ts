@@ -201,6 +201,11 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const openai = createOpenAI({
         apiKey: apiKey || process.env.OPENAI_API_KEY!,
+        // Honor an OpenAI-COMPATIBLE endpoint (Azure OpenAI, OpenRouter, a gateway,
+        // vLLM/LM Studio/Ollama, etc.) via the standard OPENAI_BASE_URL env var.
+        // Undefined when unset, so the provider falls back to its default
+        // (api.openai.com) — fully backward compatible.
+        baseURL: process.env.OPENAI_BASE_URL,
       });
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
       return openai(model);
@@ -211,6 +216,8 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const anthropic = createAnthropic({
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
+        // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
+        baseURL: process.env.ANTHROPIC_BASE_URL,
       });
       // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
       return anthropic(model);
@@ -223,6 +230,8 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const google = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_API_KEY!,
+        // Honor a custom Google-compatible endpoint via GOOGLE_GENERATIVE_AI_BASE_URL (see OpenAI note).
+        baseURL: process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
