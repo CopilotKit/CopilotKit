@@ -121,7 +121,7 @@ public sealed class IntelligenceClient : IDisposable
                 metadata = await InstallAsync(paths, projection, cancellationToken).ConfigureAwait(false);
             }
 
-            await WriteJsonAtomicAsync(paths.Pointer, new CachePointer(1, projection.SkillSetHash, projection.ETag, projection), cancellationToken).ConfigureAwait(false);
+            await WriteJsonAtomicAsync(paths.Pointer, CachePointerDocument.From(projection), cancellationToken).ConfigureAwait(false);
             return Result(directory, metadata, projection, CacheFreshness.Fresh);
         }
         finally
@@ -195,7 +195,7 @@ public sealed class IntelligenceClient : IDisposable
                 cachedSkills.Add(new CachedSkillMetadata(entry.SkillId, entry.VersionId, entry.Position, root, manifest));
             }
 
-            var metadata = new CacheMetadata(1, paths.NamespaceHash, projection, cachedSkills);
+            var metadata = CacheMetadataDocument.From(new CacheMetadata(1, paths.NamespaceHash, projection, cachedSkills));
             await WriteNewFileAsync(Path.Combine(staging, MetadataFile), JsonSerializer.SerializeToUtf8Bytes(metadata, JsonOptions), cancellationToken).ConfigureAwait(false);
             await VerifySetAsync(staging, paths.NamespaceHash, projection.LearningContainerId, projection.SkillSetHash, cancellationToken).ConfigureAwait(false);
             var target = Path.Combine(paths.Sets, projection.SkillSetHash);
@@ -258,8 +258,7 @@ public sealed class IntelligenceClient : IDisposable
                 var unixType = (entry.ExternalAttributes >> 16) & 0xF000;
                 if (unixType == 0xA000 || (!isDirectory && unixType != 0 && unixType != 0x8000))
                     throw Error("Links and special files are forbidden", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
-                var collision = checkedPath.Normalize(NormalizationForm.FormC).ToUpperInvariant();
-                if (!collisions.Add(collision))
+                if (!collisions.Add(UnicodeDefaultCaseFolding.FoldNormalized(checkedPath)))
                     throw Error("ZIP path collision detected", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
                 if (isDirectory) continue;
                 if (entry.Length > _limits.MaxFileBytes)
@@ -290,9 +289,8 @@ public sealed class IntelligenceClient : IDisposable
     {
         try
         {
-            var metadata = await ReadJsonAsync<CacheMetadata>(Path.Combine(directory, MetadataFile), cancellationToken).ConfigureAwait(false);
-            if (metadata.SchemaVersion != 1 || metadata.ProjectNamespaceSha256 != namespaceHash)
-                throw Error("Cache metadata identity mismatch");
+            var document = await ReadJsonAsync<CacheMetadataDocument>(Path.Combine(directory, MetadataFile), cancellationToken).ConfigureAwait(false);
+            var metadata = document.Validated(namespaceHash);
             ValidateProjection(metadata.Projection, learningContainerId);
             if (expectedHash is not null && metadata.Projection.SkillSetHash != expectedHash)
                 throw Error("Cache set hash mismatch");
@@ -375,7 +373,7 @@ public sealed class IntelligenceClient : IDisposable
             ValidateRelativePath(file.Path);
             if (string.IsNullOrEmpty(file.Role) || string.IsNullOrEmpty(file.MediaType) || file.ByteLength < 0 || !ValidHash(file.RawSha256))
                 throw Error("Invalid artifact file manifest", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
-            if (!collisions.Add(file.Path.Normalize(NormalizationForm.FormC).ToUpperInvariant()))
+            if (!collisions.Add(UnicodeDefaultCaseFolding.FoldNormalized(file.Path)))
                 throw Error("Artifact manifest path collision", IntelligenceErrorCode.BlobIntegrityFailure, "validation");
         }
         if (!manifest.Files.Any(file => file.Path == "SKILL.md"))
@@ -446,7 +444,7 @@ public sealed class IntelligenceClient : IDisposable
     private static async Task ThrowResponseAsync(HttpResponseMessage response, string pointerPath, CancellationToken cancellationToken)
     {
         var status = (int)response.StatusCode;
-        if (status is 401 or 403 or 404 or 410) File.Delete(pointerPath);
+        if (status is 401 or 403 or 404 or 410) DeletePointer(pointerPath);
         CanonicalErrorResponse? canonical = null;
         try
         {
@@ -462,7 +460,7 @@ public sealed class IntelligenceClient : IDisposable
             string.IsNullOrEmpty(canonical.TraceId))
             throw Error($"Registry returned a non-canonical HTTP {status} error", IntelligenceErrorCode.RegistryUnrecoverable, "dependency", status: status, retryable: status >= 500);
         if (canonical.Error.Code is "LEARNING_REGISTRY_UNRECOVERABLE" or "LEARNING_CONTAINER_ARCHIVED" or "LEARNING_CONTAINER_PROJECT_MISMATCH" or "LEARNING_CONTAINER_NOT_FOUND")
-            File.Delete(pointerPath);
+            DeletePointer(pointerPath);
         throw new IntelligenceSdkException(canonical.Error.Message, canonical.Error.Code,
             canonical.Error.Category, canonical.Error.Retryable.Value, status, canonical.RequestId, canonical.TraceId);
     }
@@ -501,8 +499,9 @@ public sealed class IntelligenceClient : IDisposable
 
     private async Task<CachePointer> ReadPointerAsync(string path, string learningContainerId, CancellationToken cancellationToken)
     {
-        var pointer = await ReadJsonAsync<CachePointer>(path, cancellationToken).ConfigureAwait(false);
-        if (pointer.SchemaVersion != 1 || string.IsNullOrEmpty(pointer.ETag) || pointer.SkillSetHash != pointer.Projection.SkillSetHash || pointer.ETag != pointer.Projection.ETag)
+        var document = await ReadJsonAsync<CachePointerDocument>(path, cancellationToken).ConfigureAwait(false);
+        var pointer = document.Validated();
+        if (pointer.SkillSetHash != pointer.Projection.SkillSetHash || pointer.ETag != pointer.Projection.ETag)
             throw Error("Invalid current cache pointer");
         ValidateProjection(pointer.Projection, learningContainerId);
         return pointer;
@@ -598,10 +597,151 @@ public sealed class IntelligenceClient : IDisposable
         if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
     }
 
+    /// <summary>
+    /// Invalidates the cache pointer with the same no-throw-on-absent semantics
+    /// as the TypeScript SDK's <c>rm(pointerPath, { force: true })</c>. A cold
+    /// cache has no container directory at all, so a bare <c>File.Delete</c>
+    /// throws <see cref="DirectoryNotFoundException"/> and escapes before the
+    /// canonical error envelope can be parsed into a typed failure.
+    /// </summary>
+    private static void DeletePointer(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception error) when (error is DirectoryNotFoundException or FileNotFoundException)
+        {
+            // An absent pointer is already the desired post-invalidation state.
+        }
+    }
+
     private sealed record CachePaths(string NamespaceHash, string Container, string Sets, string Pointer);
     private sealed record CachePointer(int SchemaVersion, string SkillSetHash, string ETag, SkillSetProjection Projection);
     private sealed record CachedSkillMetadata(string SkillId, string VersionId, int Position, string RootDirectory, SkillArtifactManifest Manifest);
     private sealed record CacheMetadata(int SchemaVersion, string ProjectNamespaceSha256, SkillSetProjection Projection, List<CachedSkillMetadata> Skills);
+
+    /// <summary>
+    /// On-disk shape of <c>.copilotkit-current.json</c>. The cache is untrusted
+    /// input, so every member is nullable and validated: without that, a
+    /// missing or explicitly null <c>projection</c> is deserialized as null and
+    /// dereferenced, and the resulting <see cref="NullReferenceException"/>
+    /// escapes the <see cref="IntelligenceSdkException"/> recovery handler that
+    /// owes the caller an unconditional refetch.
+    /// </summary>
+    private sealed class CachePointerDocument
+    {
+        [JsonRequired, JsonPropertyName("schemaVersion")]
+        public int SchemaVersion { get; set; }
+
+        [JsonRequired, JsonPropertyName("skillSetHash")]
+        public string? SkillSetHash { get; set; }
+
+        [JsonPropertyName("etag")]
+        public string? ETag { get; set; }
+
+        /// <summary>
+        /// Pointers written by SDK versions that spelled this member
+        /// <c>eTag</c> instead of the canonical <c>etag</c> the TypeScript and
+        /// Python SDKs share. Reading it keeps an existing on-disk cache usable
+        /// instead of forcing a silent reinstall; it is never written back.
+        /// </summary>
+        [JsonPropertyName("eTag"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? LegacyETag { get; set; }
+
+        [JsonRequired, JsonPropertyName("projection")]
+        public SkillSetProjection? Projection { get; set; }
+
+        public static CachePointerDocument From(SkillSetProjection projection) =>
+            new()
+            {
+                SchemaVersion = 1,
+                SkillSetHash = projection.SkillSetHash,
+                ETag = projection.ETag,
+                Projection = projection,
+            };
+
+        public CachePointer Validated()
+        {
+            var etag = string.IsNullOrEmpty(ETag) ? LegacyETag : ETag;
+            if (SchemaVersion != 1 || string.IsNullOrEmpty(SkillSetHash) || string.IsNullOrEmpty(etag) || Projection is null)
+                throw Error("Invalid current cache pointer");
+            return new CachePointer(SchemaVersion, SkillSetHash, etag, Projection);
+        }
+    }
+
+    /// <summary>Untrusted on-disk shape of <c>.copilotkit-skill-set.json</c>.</summary>
+    private sealed class CacheMetadataDocument
+    {
+        [JsonRequired, JsonPropertyName("schemaVersion")]
+        public int SchemaVersion { get; set; }
+
+        [JsonRequired, JsonPropertyName("projectNamespaceSha256")]
+        public string? ProjectNamespaceSha256 { get; set; }
+
+        [JsonRequired, JsonPropertyName("projection")]
+        public SkillSetProjection? Projection { get; set; }
+
+        [JsonRequired, JsonPropertyName("skills")]
+        public List<CachedSkillDocument>? Skills { get; set; }
+
+        public static CacheMetadataDocument From(CacheMetadata metadata) =>
+            new()
+            {
+                SchemaVersion = metadata.SchemaVersion,
+                ProjectNamespaceSha256 = metadata.ProjectNamespaceSha256,
+                Projection = metadata.Projection,
+                Skills = metadata.Skills.Select(CachedSkillDocument.From).ToList(),
+            };
+
+        public CacheMetadata Validated(string namespaceHash)
+        {
+            if (SchemaVersion != 1 || ProjectNamespaceSha256 != namespaceHash || Projection is null || Skills is null)
+                throw Error("Cache metadata identity mismatch");
+            return new CacheMetadata(
+                SchemaVersion,
+                ProjectNamespaceSha256,
+                Projection,
+                Skills.Select(skill => skill.Validated()).ToList());
+        }
+    }
+
+    /// <summary>Untrusted on-disk shape of one cached skill record.</summary>
+    private sealed class CachedSkillDocument
+    {
+        [JsonRequired, JsonPropertyName("skillId")]
+        public string? SkillId { get; set; }
+
+        [JsonRequired, JsonPropertyName("versionId")]
+        public string? VersionId { get; set; }
+
+        [JsonRequired, JsonPropertyName("position")]
+        public int Position { get; set; }
+
+        [JsonRequired, JsonPropertyName("rootDirectory")]
+        public string? RootDirectory { get; set; }
+
+        [JsonRequired, JsonPropertyName("manifest")]
+        public SkillArtifactManifest? Manifest { get; set; }
+
+        public static CachedSkillDocument From(CachedSkillMetadata skill) =>
+            new()
+            {
+                SkillId = skill.SkillId,
+                VersionId = skill.VersionId,
+                Position = skill.Position,
+                RootDirectory = skill.RootDirectory,
+                Manifest = skill.Manifest,
+            };
+
+        public CachedSkillMetadata Validated()
+        {
+            if (string.IsNullOrEmpty(SkillId) || string.IsNullOrEmpty(VersionId) ||
+                string.IsNullOrEmpty(RootDirectory) || Manifest is null)
+                throw Error("Cache skill metadata mismatch");
+            return new CachedSkillMetadata(SkillId, VersionId, Position, RootDirectory, Manifest);
+        }
+    }
     private sealed record ArchiveFile(string ArchivePath, byte[] Bytes);
     private sealed record ResolvedLimits(long MaxBundleBytes, int MaxFiles, long MaxFileBytes, long MaxUncompressedBytes, int MaxPathLength)
     {

@@ -15,6 +15,20 @@ public sealed class IntelligenceClientTests : IDisposable
     private const string ContainerId = "55555555-5555-4555-8555-555555555555";
     private const string SkillId = "99999999-9999-4999-8999-999999999999";
     private const string VersionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    private static readonly string[] MultiSkillIds =
+    [
+        SkillId,
+        "88888888-8888-4888-8888-888888888888",
+        "77777777-7777-4777-8777-777777777777",
+        "66666666-6666-4666-8666-666666666666",
+    ];
+    private static readonly string[] MultiVersionIds =
+    [
+        VersionId,
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    ];
     private readonly string _cacheRoot = Path.Combine(Path.GetTempPath(), $"copilotkit-dotnet-{Guid.NewGuid():N}");
 
     [Fact]
@@ -93,22 +107,58 @@ public sealed class IntelligenceClientTests : IDisposable
         using (var online = GoldenClient(new QueueHandler(Json(golden["projection"]!), Bytes(archive)), golden))
             await online.GetAsync(golden["identity"]!["learningContainerId"]!.GetValue<string>());
 
-        var conflict = golden["errors"]!["canonicalConflict"]!.AsObject();
-        using (var conflicting = GoldenClient(new QueueHandler(Json(
-            conflict["body"]!, (HttpStatusCode)conflict["status"]!.GetValue<int>())), golden))
+        // Both scenarios are driven from errors.*.invalidatesCache rather than a
+        // hardcoded expectation, so the shared fixture field is what decides.
+        foreach (var key in new[] { "canonicalConflict", "canonicalDenial" })
         {
-            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => conflicting.GetAsync(ContainerId));
-            Assert.Equal(conflict["body"]!["error"]!["code"]!.GetValue<string>(), error.Code);
-            Assert.Equal(conflict["body"]!["requestId"]!.GetValue<string>(), error.RequestId);
-            Assert.Equal(CacheFreshness.Cached, (await conflicting.GetCachedAsync(ContainerId)).Freshness);
+            var scenario = golden["errors"]![key]!.AsObject();
+            var invalidatesCache = Assert.IsType<bool>(scenario["invalidatesCache"]!.GetValue<bool>());
+            using var client = GoldenClient(new QueueHandler(Json(
+                scenario["body"]!, (HttpStatusCode)scenario["status"]!.GetValue<int>())), golden);
+
+            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+            Assert.Equal(scenario["body"]!["error"]!["code"]!.GetValue<string>(), error.Code);
+            Assert.Equal(scenario["body"]!["requestId"]!.GetValue<string>(), error.RequestId);
+
+            if (invalidatesCache)
+            {
+                var cacheError = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetCachedAsync(ContainerId));
+                Assert.Equal(IntelligenceErrorCodes.CacheCorrupt, cacheError.Code);
+            }
+            else
+            {
+                Assert.Equal(
+                    golden["expectations"]!["explicitCacheFreshness"]!.GetValue<string>(),
+                    (await client.GetCachedAsync(ContainerId)).Freshness.ToString().ToLowerInvariant());
+            }
+        }
+    }
+
+    [Fact]
+    public async Task GoldenSecondUnconditional304UsesTheSharedCanonicalCode()
+    {
+        var golden = GoldenRegistryFixture();
+        var archive = Convert.FromBase64String(golden["bundle"]!["base64"]!.GetValue<string>());
+        var containerId = golden["identity"]!["learningContainerId"]!.GetValue<string>();
+        using (var online = GoldenClient(new QueueHandler(Json(golden["projection"]!), Bytes(archive)), golden))
+        {
+            var installed = await online.GetAsync(containerId);
+            Directory.Delete(installed.Directory, recursive: true);
         }
 
-        var denial = golden["errors"]!["canonicalDenial"]!.AsObject();
-        using var denied = GoldenClient(new QueueHandler(Json(
-            denial["body"]!, (HttpStatusCode)denial["status"]!.GetValue<int>())), golden);
-        var deniedError = await Assert.ThrowsAsync<IntelligenceSdkException>(() => denied.GetAsync(ContainerId));
-        Assert.Equal(denial["body"]!["error"]!["code"]!.GetValue<string>(), deniedError.Code);
-        await Assert.ThrowsAsync<IntelligenceSdkException>(() => denied.GetCachedAsync(ContainerId));
+        var handler = new QueueHandler(
+            new HttpResponseMessage(HttpStatusCode.NotModified),
+            new HttpResponseMessage(HttpStatusCode.NotModified));
+        using var client = GoldenClient(handler, golden);
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(containerId));
+
+        Assert.Equal(
+            golden["expectations"]!["secondUnconditional304Code"]!.GetValue<string>(),
+            error.Code);
+        Assert.Equal("internal", error.Category);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.Empty(handler.Requests[1].Headers.IfNoneMatch);
     }
 
     [Fact]
@@ -232,6 +282,107 @@ public sealed class IntelligenceClientTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAsync_InstallsOrdersAndNamesEverySkillInAMultiSkillProjection()
+    {
+        var fixture = CreateMultiFixture(count: 3);
+        var responses = new List<HttpResponseMessage> { Json(fixture.Projection) };
+        responses.AddRange(fixture.Archives.Select(Bytes));
+        var handler = new QueueHandler([.. responses]);
+        using var client = Client(handler);
+
+        var installed = await client.GetAsync(ContainerId);
+
+        Assert.Equal(4, handler.Requests.Count);
+        Assert.Equal(3, installed.Skills.Count);
+        Assert.Equal([0, 1, 2], installed.Skills.Select(skill => skill.Position));
+        Assert.Equal(MultiSkillIds.Take(3), installed.Skills.Select(skill => skill.SkillId));
+        Assert.Equal(MultiVersionIds.Take(3), installed.Skills.Select(skill => skill.VersionId));
+        for (var index = 0; index < installed.Skills.Count; index++)
+        {
+            Assert.Equal(
+                Path.Combine(installed.Directory, "skills", $"{index:D6}-{MultiSkillIds[index]}", $"skill-{index}"),
+                installed.Skills[index].Directory);
+            Assert.Equal(
+                $"# Skill {index}\n",
+                await File.ReadAllTextAsync(Path.Combine(installed.Skills[index].Directory, "SKILL.md")));
+            Assert.Equal(
+                $"reference {index}\n",
+                await File.ReadAllTextAsync(Path.Combine(installed.Skills[index].Directory, "reference.md")));
+        }
+    }
+
+    [Fact]
+    public async Task GetAsync_KeepsMultiSkillIndexAlignmentAcrossAVerified304()
+    {
+        var fixture = CreateMultiFixture(count: 3);
+        var responses = new List<HttpResponseMessage> { Json(fixture.Projection) };
+        responses.AddRange(fixture.Archives.Select(Bytes));
+        InstalledSkillSet first;
+        using (var initial = Client(new QueueHandler([.. responses])))
+            first = await initial.GetAsync(ContainerId);
+
+        using var conditional = Client(new QueueHandler(new HttpResponseMessage(HttpStatusCode.NotModified)));
+        var revalidated = await conditional.GetAsync(ContainerId);
+
+        Assert.Equal(CacheFreshness.Fresh, revalidated.Freshness);
+        Assert.Equal(first.Skills, revalidated.Skills);
+        Assert.Equal(MultiSkillIds.Take(3), revalidated.Projection.Entries.Select(entry => entry.SkillId));
+    }
+
+    [Fact]
+    public async Task GetAsync_RepairsOneCorruptSkillOfAMultiSkillSetFromFreshBytes()
+    {
+        var fixture = CreateMultiFixture(count: 3);
+        var responses = new List<HttpResponseMessage> { Json(fixture.Projection) };
+        responses.AddRange(fixture.Archives.Select(Bytes));
+        using (var initial = Client(new QueueHandler([.. responses])))
+        {
+            var installed = await initial.GetAsync(ContainerId);
+            await File.WriteAllTextAsync(
+                Path.Combine(installed.Skills[2].Directory, "reference.md"), "corrupt");
+        }
+
+        var repairing = new List<HttpResponseMessage>
+        {
+            new(HttpStatusCode.NotModified),
+            Json(fixture.Projection),
+        };
+        repairing.AddRange(fixture.Archives.Select(Bytes));
+        var handler = new QueueHandler([.. repairing]);
+        using var client = Client(handler);
+        var repaired = await client.GetAsync(ContainerId);
+
+        Assert.Equal(5, handler.Requests.Count);
+        Assert.Empty(handler.Requests[1].Headers.IfNoneMatch);
+        Assert.Equal(
+            "reference 2\n",
+            await File.ReadAllTextAsync(Path.Combine(repaired.Skills[2].Directory, "reference.md")));
+    }
+
+    [Fact]
+    public async Task GetAsync_RejectsMultiSkillProjectionOrderingAndIdentityViolations()
+    {
+        var invalid = new (string Name, JsonObject Projection)[]
+        {
+            ("duplicate skill ids", CreateMultiFixture(
+                count: 3,
+                skillIds: [MultiSkillIds[0], MultiSkillIds[1], MultiSkillIds[0]]).Projection),
+            ("position gaps", CreateMultiFixture(count: 3, positions: [0, 2, 3]).Projection),
+            ("out-of-order positions", CreateMultiFixture(count: 3, positions: [0, 2, 1]).Projection),
+            ("a repeated position", CreateMultiFixture(count: 3, positions: [0, 1, 1]).Projection),
+            ("a non-zero first position", CreateMultiFixture(count: 3, positions: [1, 2, 3]).Projection),
+        };
+
+        foreach (var (name, projection) in invalid)
+        {
+            using var client = Client(new QueueHandler(Json(projection)));
+            var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+            Assert.Equal(IntelligenceErrorCodes.CacheCorrupt, error.Code);
+            Assert.False(string.IsNullOrEmpty(name));
+        }
+    }
+
+    [Fact]
     public async Task GetAsync_RejectsProjectionIdentityAndOrderMismatches()
     {
         foreach (var projection in new[]
@@ -276,6 +427,135 @@ public sealed class IntelligenceClientTests : IDisposable
             using var client = Client(new QueueHandler(Json(fixture.Projection), Bytes(fixture.Archive)), new IntelligenceSdkLimits(MaxFileBytes: 100));
             await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
         }
+    }
+
+    /// <summary>
+    /// ToUpperInvariant applies simple case mapping, so it neither expands
+    /// U+00DF to "ss" nor folds U+0130 nor expands the U+FB01 ligature. The
+    /// conformance corpus declares every one of these path pairs invalid, and
+    /// the SDK must reject them with full Unicode Default Case Folding.
+    /// </summary>
+    [Theory]
+    [InlineData("references/Straße.txt", "references/STRASSE.txt")]
+    [InlineData("references/İ.txt", "references/i̇.txt")]
+    [InlineData("ﬁle.md", "file.md")]
+    [InlineData("SKILL2.md", "skill2.md")]
+    public async Task GetAsync_RejectsUnicodeDefaultCaseFoldPathCollisions(string left, string right)
+    {
+        var files = new[]
+        {
+            ("safe/SKILL.md", Encoding.UTF8.GetBytes("# Skill\n")),
+            ($"safe/{left}", Encoding.UTF8.GetBytes("a")),
+            ($"safe/{right}", Encoding.UTF8.GetBytes("b")),
+        };
+
+        // The manifest is checked before any bundle byte is fetched, so a
+        // colliding manifest must be refused without touching the archive.
+        var manifestFixture = CreateFixture(files, manifestOrder: [right, left, "SKILL.md"]);
+        using (var manifestClient = Client(new QueueHandler(Json(manifestFixture.Projection), Bytes(manifestFixture.Archive))))
+        {
+            var manifestError = await Assert.ThrowsAsync<IntelligenceSdkException>(() => manifestClient.GetAsync(ContainerId));
+            Assert.Equal(IntelligenceErrorCodes.BlobIntegrityFailure, manifestError.Code);
+            Assert.Equal("Artifact manifest path collision", manifestError.Message);
+        }
+
+        // With the manifest listing only SKILL.md the ZIP-level collision check
+        // is the one that has to fire, before any file is written to disk.
+        var archiveFixture = CreateFixture(files, manifestOrder: ["SKILL.md"]);
+        using var archiveClient = Client(new QueueHandler(Json(archiveFixture.Projection), Bytes(archiveFixture.Archive)));
+        var archiveError = await Assert.ThrowsAsync<IntelligenceSdkException>(() => archiveClient.GetAsync(ContainerId));
+        Assert.Equal(IntelligenceErrorCodes.BlobIntegrityFailure, archiveError.Code);
+        Assert.Equal("ZIP path collision detected", archiveError.Message);
+    }
+
+    /// <summary>
+    /// A cold cache has no container directory, so invalidating the pointer with
+    /// a bare File.Delete throws DirectoryNotFoundException and escapes before
+    /// the canonical error envelope is parsed into a typed failure.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized)]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Gone)]
+    public async Task GetAsync_OnColdCacheSurfacesTheTypedErrorFor4xxStatuses(HttpStatusCode status)
+    {
+        using var client = Client(new QueueHandler(Json(new JsonObject
+        {
+            ["error"] = new JsonObject
+            {
+                ["code"] = "LEARNING_CONTAINER_PROJECT_MISMATCH",
+                ["message"] = "Canonical Learning Platform error.",
+                ["category"] = "permission",
+                ["retryable"] = false,
+            },
+            ["requestId"] = "request-cold",
+            ["traceId"] = "trace-cold",
+        }, status)));
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetAsync(ContainerId));
+
+        Assert.Equal("LEARNING_CONTAINER_PROJECT_MISMATCH", error.Code);
+        Assert.Equal("permission", error.Category);
+        Assert.Equal("request-cold", error.RequestId);
+        Assert.Equal((int)status, error.Status);
+    }
+
+    /// <summary>
+    /// A pointer whose projection is missing or null must fail as a typed SDK
+    /// error so that GetAsync's recovery handler still runs the mandatory
+    /// unconditional refetch instead of escaping with a NullReferenceException.
+    /// </summary>
+    [Theory]
+    [InlineData("{\"schemaVersion\":1,\"skillSetHash\":\"$HASH\",\"etag\":\"\\\"registry-1\\\"\"}")]
+    [InlineData("{\"schemaVersion\":1,\"skillSetHash\":\"$HASH\",\"etag\":\"\\\"registry-1\\\"\",\"projection\":null}")]
+    [InlineData("{\"schemaVersion\":1,\"skillSetHash\":\"$HASH\",\"eTag\":\"\\\"registry-1\\\"\"}")]
+    public async Task CorruptPointerFailsTypedAndStillForcesTheUnconditionalRefetch(string pointerJson)
+    {
+        var fixture = CreateFixture();
+        var container = Path.Combine(_cacheRoot, "v1", Sha(Encoding.UTF8.GetBytes("project-a")), ContainerId);
+        Directory.CreateDirectory(container);
+        await File.WriteAllTextAsync(
+            Path.Combine(container, ".copilotkit-current.json"),
+            pointerJson.Replace("$HASH", new string('b', 64), StringComparison.Ordinal));
+        using var client = Client(new QueueHandler(Json(fixture.Projection), Bytes(fixture.Archive)));
+
+        var error = await Assert.ThrowsAsync<IntelligenceSdkException>(() => client.GetCachedAsync(ContainerId));
+        Assert.Equal(IntelligenceErrorCodes.CacheCorrupt, error.Code);
+
+        var recovered = await client.GetAsync(ContainerId);
+        Assert.Equal(CacheFreshness.Fresh, recovered.Freshness);
+        Assert.Single(recovered.Skills);
+    }
+
+    /// <summary>
+    /// The pointer file name and layout are shared with the TypeScript and
+    /// Python SDKs, so the ETag member must be written as the canonical
+    /// lowercase "etag" while a legacy "eTag" file stays readable.
+    /// </summary>
+    [Fact]
+    public async Task PointerUsesTheCanonicalLowercaseEtagAndStillReadsALegacyOne()
+    {
+        var fixture = CreateFixture();
+        using (var initial = Client(new QueueHandler(Json(fixture.Projection), Bytes(fixture.Archive))))
+            await initial.GetAsync(ContainerId);
+        var pointerPath = Path.Combine(
+            _cacheRoot, "v1", Sha(Encoding.UTF8.GetBytes("project-a")), ContainerId, ".copilotkit-current.json");
+        var pointer = JsonNode.Parse(await File.ReadAllTextAsync(pointerPath))!.AsObject();
+
+        Assert.Contains("etag", pointer.Select(pair => pair.Key), StringComparer.Ordinal);
+        Assert.DoesNotContain("eTag", pointer.Select(pair => pair.Key), StringComparer.Ordinal);
+
+        var etag = pointer["etag"]!.GetValue<string>();
+        pointer.Remove("etag");
+        pointer["eTag"] = etag;
+        await File.WriteAllTextAsync(pointerPath, pointer.ToJsonString());
+        using var legacy = Client(new QueueHandler(new HttpResponseMessage(HttpStatusCode.NotModified)));
+
+        var cached = await legacy.GetCachedAsync(ContainerId);
+
+        Assert.Equal(CacheFreshness.Cached, cached.Freshness);
+        Assert.Single(cached.Skills);
     }
 
     [Fact]
@@ -523,6 +803,97 @@ public sealed class IntelligenceClientTests : IDisposable
         return new Fixture(archive, projection);
     }
 
+    /// <summary>
+    /// Builds a projection carrying more than one ordered skill, each with its own
+    /// root directory, bundle bytes, and manifest. Single-entry fixtures cannot
+    /// reach the per-entry install loop's second iteration, the duplicate-skillId
+    /// branch, non-zero <c>{Position:D6}</c> directory names, or the index
+    /// alignment in ValidateProjection and AssertProjectionMatchesCachedSkills.
+    /// </summary>
+    private static MultiFixture CreateMultiFixture(
+        int count = 3,
+        IReadOnlyList<int>? positions = null,
+        IReadOnlyList<string>? skillIds = null)
+    {
+        var ids = skillIds ?? MultiSkillIds.Take(count).ToArray();
+        var order = positions ?? Enumerable.Range(0, ids.Count).ToArray();
+        var archives = new List<byte[]>();
+        var entries = new JsonArray();
+        for (var index = 0; index < ids.Count; index++)
+        {
+            var root = $"skill-{index}";
+            var skill = Encoding.UTF8.GetBytes($"# Skill {index}\n");
+            var reference = Encoding.UTF8.GetBytes($"reference {index}\n");
+            var archive = Zip([($"{root}/SKILL.md", skill), ($"{root}/reference.md", reference)]);
+            archives.Add(archive);
+            var manifest = new JsonObject
+            {
+                ["manifestVersion"] = 1,
+                ["agentSkillsProfile"] = "agentskills:v1",
+                ["files"] = new JsonArray(
+                    new JsonObject
+                    {
+                        ["path"] = "SKILL.md",
+                        ["role"] = "instructions",
+                        ["mediaType"] = "text/markdown",
+                        ["byteLength"] = skill.Length,
+                        ["rawSha256"] = Sha(skill),
+                    },
+                    new JsonObject
+                    {
+                        ["path"] = "reference.md",
+                        ["role"] = "resource",
+                        ["mediaType"] = "text/markdown",
+                        ["byteLength"] = reference.Length,
+                        ["rawSha256"] = Sha(reference),
+                    }),
+                ["bundleSha256"] = Sha(archive),
+                ["bundleByteLength"] = archive.Length,
+                ["provenance"] = new JsonObject(),
+            };
+            manifest["manifestSha256"] = Sha(Encoding.UTF8.GetBytes(Canonical(manifest)));
+            entries.Add(new JsonObject
+            {
+                ["skillId"] = ids[index],
+                ["versionId"] = MultiVersionIds[index],
+                ["position"] = order[index],
+                ["name"] = $"Skill {index}",
+                ["description"] = null,
+                ["bundleLocator"] = new JsonObject
+                {
+                    ["schemaVersion"] = 1,
+                    ["backendId"] = "primary",
+                    ["provider"] = "awsS3",
+                    ["resource"] = "skill-bundles",
+                    ["key"] = $"objects/skill-{index}.zip",
+                    ["providerVersion"] = null,
+                    ["etag"] = null,
+                    ["applicationSha256"] = Sha(archive),
+                    ["providerChecksum"] = null,
+                    ["byteLength"] = archive.Length,
+                    ["contentType"] = "application/zip",
+                },
+                ["bundleSha256"] = Sha(archive),
+                ["manifestSha256"] = manifest["manifestSha256"]!.GetValue<string>(),
+                ["bundleByteLength"] = archive.Length,
+                ["approvalMethod"] = "manual",
+                ["manifest"] = manifest,
+            });
+        }
+        var projection = new JsonObject
+        {
+            ["schemaVersion"] = 1,
+            ["learningContainerId"] = ContainerId,
+            ["registryRevision"] = "revision-1",
+            ["skillSetHash"] = Sha(Encoding.UTF8.GetBytes(string.Join(":", archives.Select(Sha)))),
+            ["etag"] = "\"registry-1\"",
+            ["entries"] = entries,
+            ["publishedAt"] = "2026-07-16T18:00:00.000Z",
+            ["revoked"] = false,
+        };
+        return new MultiFixture([.. archives], projection);
+    }
+
     private static byte[] Zip(IEnumerable<(string Path, byte[] Bytes)> files)
     {
         using var output = new MemoryStream();
@@ -547,6 +918,8 @@ public sealed class IntelligenceClientTests : IDisposable
     private static string Sha(byte[] value) => Convert.ToHexString(SHA256.HashData(value)).ToLowerInvariant();
 
     private sealed record Fixture(byte[] Archive, JsonObject Projection);
+
+    private sealed record MultiFixture(byte[][] Archives, JsonObject Projection);
 
     private sealed class QueueHandler(params HttpResponseMessage[] responses) : HttpMessageHandler
     {
