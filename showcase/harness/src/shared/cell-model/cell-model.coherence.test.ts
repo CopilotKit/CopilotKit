@@ -21,9 +21,12 @@
  *          surface as a product-red badge — the I-class coherence bug)
  *  - INV6  d6Effective ∈ {green, red, amber} ⟹ achieved>=5        (D6 gated on a
  *          contiguous-green ladder through D5, §4d)
- *  - INV7  chip==gray ∧ some depth pill reads red ⟹ EVERY contributing red row
- *          carries POSITIVE infra evidence                        (fail-safe
- *          polarity — see below)
+ *  - INV7  chip==gray ∧ !isStaleCell ∧ some depth pill reads red ⟹ EVERY red row
+ *          THIS CELL contributes from carries POSITIVE infra evidence
+ *                                                                 (fail-safe
+ *          polarity — see below; the `isStaleCell` carve-out and the
+ *          per-cell quantification are both load-bearing, see
+ *          `assertChipStripCoherent`)
  *
  * INV7 is the invariant whose ABSENCE let a long-lived misreport ship. INV1–INV6
  * only relate `chipColor` to the other CHIP-side outputs; none of them inspects
@@ -53,8 +56,20 @@ import {
   rankOfState,
   RED_RANK,
 } from "./cell-model.contribution.js";
-import type { CellModel } from "./cell-model.js";
-import type { LiveStatusMap } from "./live-status.js";
+import type { CellModel, CellModelInput } from "./cell-model.js";
+import type {
+  LiveStatusMap,
+  StarterLevel,
+  State,
+  StatusRow,
+} from "./live-status.js";
+import {
+  keyFor,
+  mergeRowsToMap,
+  CATALOG_TO_D5_KEY,
+  STARTER_LEVELS,
+} from "./live-status.js";
+import { E2E_STALE_AFTER_MS } from "./staleness.js";
 import { FIXTURES, NOW } from "./cell-model.equivalence-fixtures.js";
 
 type Coherable = Pick<
@@ -117,9 +132,45 @@ function assertCoherent(label: string, m: Coherable): void {
 }
 
 /**
+ * The status-row keys ONE cell's chip and depth strip are derived from — the
+ * same keyspace `buildCellModel` collects: D1 `health`, D2 `agent`, D3 `e2e`,
+ * D4 `chat`/`tools`, and the D5/D6 per-cell families fanned out through
+ * `CATALOG_TO_D5_KEY` (or the four `starter:<column>/<level>` rows on the
+ * starter axis, whose cells carry no depth strip at all).
+ *
+ * INV7 quantifies over exactly these rows. `live` is a WHOLE-MATRIX map, so a
+ * red row in it may belong to a completely different column or feature; such a
+ * row contributes nothing to this cell's chip and therefore says nothing about
+ * whether this cell's gray chip is honest. Reading it would make INV7 fail on
+ * unrelated map contents.
+ */
+function contributingKeys(input: CellModelInput): string[] {
+  if (input.probeAxis === "starter") {
+    return (STARTER_LEVELS as readonly StarterLevel[]).map((level) =>
+      keyFor("starter", input.slug, level),
+    );
+  }
+  // Mirrors `buildCellModel`'s empty-string→null normalization.
+  const featureId = input.featureId === "" ? null : input.featureId;
+  const keys = [keyFor("health", input.slug), keyFor("agent", input.slug)];
+  // A null-feature (liveness-only) cell has no D3+ rungs.
+  if (featureId === null) return keys;
+  keys.push(
+    keyFor("e2e", input.slug, featureId),
+    keyFor("chat", input.slug),
+    keyFor("tools", input.slug),
+  );
+  for (const ft of CATALOG_TO_D5_KEY[featureId] ?? []) {
+    keys.push(keyFor("d5", input.slug, ft), keyFor("d6", input.slug, ft));
+  }
+  return keys;
+}
+
+/**
  * INV7 — CHIP/STRIP coherence with the fail-safe polarity. Needs the input rows
- * (not just the model) because the legitimate gray-over-a-red case is defined by
- * POSITIVE infra evidence in the rows' `signal` blobs.
+ * and the cell's `input` (not just the model) because the legitimate
+ * gray-over-a-red case is defined by POSITIVE infra evidence in the rows'
+ * `signal` blobs, and only THIS cell's rows can supply it.
  *
  * A gray chip means "no live verdict to show". It is only honest above a red
  * depth pill when every contributing red row actually SAYS the failure was
@@ -130,20 +181,45 @@ function assertChipStripCoherent(
   label: string,
   m: CellModel,
   live: LiveStatusMap,
+  input: CellModelInput,
 ): void {
   // A pill can be null entirely (an unsupported column has no strip at all).
   const stripReadsRed = [m.d3, m.d4, m.d5, m.d6].some(
     (lvl) => lvl !== null && lvl.exists && lvl.status === "red",
   );
   if (m.chipColor !== "gray" || !stripReadsRed) return;
-  const redRows = [...live.values()].filter(
-    (r) => rankOfState(r.state) >= RED_RANK,
-  );
+
+  // U8 EXEMPTION (§7.2/§6.4). `buildCellModel` force-grays an ALL-STALE cell on
+  // every path (`if (isStaleCell && chipColor !== "gray") chipColor = "gray"`,
+  // agent + starter + null-feature), deliberately folding ANY stale colour —
+  // red INCLUDED — to the "re-sweep pending" gray. That gray is a RECENCY claim
+  // about the whole cell, not an infra attribution for the red pill, so
+  // gray-over-red is the INTENDED rendering here and owes no infra evidence.
+  // Without this carve-out INV7 fails every legitimate all-stale-with-a-red
+  // cell; the current fixture variants are green/degraded only, so the hole is
+  // latent rather than firing.
+  if (m.isStaleCell) return;
+
+  const redRows = contributingKeys(input)
+    .map((k) => live.get(k))
+    .filter(
+      (r): r is StatusRow =>
+        r !== undefined && rankOfState(r.state) >= RED_RANK,
+    );
+  // The strip can only read red because a CONTRIBUTING row folded red, so an
+  // empty set here means `contributingKeys` has drifted from the engine's
+  // keyspace and the invariant has gone vacuous — fail loudly instead of
+  // silently passing everything.
+  expect(
+    redRows.length,
+    `${label}: INV7 strip reads red but no contributing red row was found — ` +
+      `\`contributingKeys\` has drifted from the keyspace buildCellModel collects.`,
+  ).toBeGreaterThan(0);
   for (const r of redRows) {
     expect(
       signalHasInfraErrorClass(r.signal),
       `${label}: INV7 gray chip over a red pill requires POSITIVE infra ` +
-        `evidence on every red row — ${r.key} has none (signal ${
+        `evidence on every contributing red row — ${r.key} has none (signal ${
           r.signal === undefined
             ? "STRIPPED (pending)"
             : JSON.stringify(r.signal)
@@ -157,7 +233,7 @@ describe("cell-model coherence — cross-field invariants over the fixture matri
     it(`coheres for fixture: ${f.name}`, () => {
       const m = buildCellModel(f.live, f.input, NOW);
       assertCoherent(f.name, m);
-      assertChipStripCoherent(f.name, m, f.live);
+      assertChipStripCoherent(f.name, m, f.live, f.input);
     });
   }
 });
@@ -177,7 +253,13 @@ describe("cell-model coherence — null-feature D1/D2 contiguity", () => {
         : contribution === "FAIL_FRESH"
           ? "red"
           : null,
-    freshestAgeMs: 0,
+    // Match the real classifier's shape: `classifyRung` reports
+    // `freshestAgeMs: null` for a rung it classifies ABSENT (no rows at all, or
+    // a fold that produced no state) — there is no observation to age. Only a
+    // rung with a datable contributing row ever carries a number, so a
+    // synthetic ABSENT with `0` ("swept just now") is a shape the engine never
+    // produces.
+    freshestAgeMs: contribution === "ABSENT" ? null : 0,
   });
 
   it("absent D1 + green D2 → gray chip AND achieved 0 (contiguity broken at D1)", () => {
@@ -205,5 +287,164 @@ describe("cell-model coherence — null-feature D1/D2 contiguity", () => {
     expect(r.chipColor).toBe("green");
     expect(r.achievedDepth).toBe(2);
     assertCoherent("null-feature-all-green", r);
+  });
+});
+
+// ── INV7's own soundness: quantification scope + the U8 stale exemption ─────
+//
+// The fixture matrix in `FIXTURES` happens to contain no all-stale cell with a
+// red row and no cross-cell rows, so INV7's two soundness holes are invisible
+// there. These cases exercise them DIRECTLY: the first two must PASS (they are
+// legitimate renderings that INV7 must not flag), and the last group must FAIL
+// (INV7 must keep its teeth on a genuine chip/strip incoherence).
+describe("cell-model coherence — INV7 soundness (scope + stale exemption)", () => {
+  const SLUG = "acme";
+  const OTHER_SLUG = "zeta";
+  const FEATURE = "agentic-chat";
+  const FRESH_AT = new Date(NOW - 60_000).toISOString();
+  const STALE_AT = new Date(NOW - E2E_STALE_AFTER_MS - 60_000).toISOString();
+
+  function mkRow(
+    key: string,
+    state: State,
+    opts: { observedAt?: string; signal?: unknown } = {},
+  ): StatusRow {
+    const observed = opts.observedAt ?? FRESH_AT;
+    const [dimension = ""] = key.split(":");
+    const isRed = state === "red";
+    return {
+      id: `id-${key}`,
+      key,
+      dimension,
+      state,
+      signal: "signal" in opts ? opts.signal : null,
+      observed_at: observed,
+      transitioned_at: observed,
+      fail_count: isRed ? 3 : 0,
+      first_failure_at: isRed ? observed : null,
+    };
+  }
+
+  const input: CellModelInput = {
+    slug: SLUG,
+    featureId: FEATURE,
+    isSupported: true,
+    isWired: true,
+  };
+
+  /**
+   * The full agent ladder for `acme/agentic-chat`, every rung green, with the
+   * D5 row replaced by `d5Row`. `observedAt` ages EVERY row uniformly so the
+   * caller can produce an all-stale (U8) cell.
+   */
+  function ladder(d5Row: StatusRow, observedAt: string): StatusRow[] {
+    return [
+      mkRow(keyFor("health", SLUG), "green", { observedAt }),
+      mkRow(keyFor("agent", SLUG), "green", { observedAt }),
+      mkRow(keyFor("e2e", SLUG, FEATURE), "green", { observedAt }),
+      mkRow(keyFor("chat", SLUG), "green", { observedAt }),
+      mkRow(keyFor("tools", SLUG), "green", { observedAt }),
+      d5Row,
+      mkRow(keyFor("d6", SLUG, FEATURE), "green", { observedAt }),
+    ];
+  }
+
+  it("PASSES an all-stale cell whose red row has NO infra evidence (U8 force-gray)", () => {
+    const live = mergeRowsToMap(
+      ladder(
+        mkRow(keyFor("d5", SLUG, FEATURE), "red", { observedAt: STALE_AT }),
+        STALE_AT,
+      ),
+    );
+    const m = buildCellModel(live, input, NOW);
+    // Precondition: this really IS the shape INV7 inspects — U8 force-grayed a
+    // chip that the classifier coloured red, over a strip that still reads red.
+    expect(m.isStaleCell).toBe(true);
+    expect(m.chipColor).toBe("gray");
+    expect(m.d5?.status).toBe("red");
+    // The gray is a RECENCY claim about the whole cell ("re-sweep pending"),
+    // not an infra claim about the red pill — so no infra evidence is owed.
+    assertChipStripCoherent("stale-red-no-infra", m, live, input);
+  });
+
+  it("PASSES a legitimately-gray infra cell when an UNRELATED cell's row is red", () => {
+    const live = mergeRowsToMap(
+      ladder(
+        mkRow(keyFor("d5", SLUG, FEATURE), "red", {
+          signal: { errorClass: "driver-error" },
+        }),
+        FRESH_AT,
+      ),
+      // A red row belonging to a DIFFERENT column. It contributes nothing to
+      // `acme/agentic-chat` and says nothing about whether ITS gray is honest.
+      [mkRow(keyFor("e2e", OTHER_SLUG, FEATURE), "red")],
+    );
+    const m = buildCellModel(live, input, NOW);
+    expect(m.isStaleCell).toBe(false);
+    expect(m.chipColor).toBe("gray");
+    expect(m.d5?.status).toBe("red");
+    assertChipStripCoherent("infra-gray-with-unrelated-red", m, live, input);
+  });
+
+  it("PASSES the same infra cell with no unrelated rows (control)", () => {
+    const live = mergeRowsToMap(
+      ladder(
+        mkRow(keyFor("d5", SLUG, FEATURE), "red", {
+          signal: { errorClass: "driver-error" },
+        }),
+        FRESH_AT,
+      ),
+    );
+    const m = buildCellModel(live, input, NOW);
+    expect(m.chipColor).toBe("gray");
+    assertChipStripCoherent("infra-gray-control", m, live, input);
+  });
+
+  // ── Teeth: INV7 must still FAIL a genuine gray-over-red incoherence. The
+  //    engine no longer produces one (that is the PR's fix), so the chip is
+  //    perturbed to gray on an otherwise-real model — exactly the regression
+  //    INV7 exists to catch.
+  const teethCases: Array<{ name: string; signal: unknown }> = [
+    { name: "signal STRIPPED (pending attribution)", signal: undefined },
+    { name: "signal present but not infra-classed", signal: null },
+    {
+      name: "signal carries a PRODUCT error class",
+      signal: { errorClass: "assertion-failed" },
+    },
+  ];
+  for (const tc of teethCases) {
+    it(`FAILS a non-stale gray chip over a red D5 pill — ${tc.name}`, () => {
+      const live = mergeRowsToMap(
+        ladder(
+          mkRow(keyFor("d5", SLUG, FEATURE), "red", { signal: tc.signal }),
+          FRESH_AT,
+        ),
+      );
+      const real = buildCellModel(live, input, NOW);
+      expect(real.isStaleCell).toBe(false);
+      expect(real.d5?.status).toBe("red");
+      const perturbed: CellModel = { ...real, chipColor: "gray" };
+      expect(() =>
+        assertChipStripCoherent("teeth-d5", perturbed, live, input),
+      ).toThrow(/INV7/);
+    });
+  }
+
+  it("FAILS a non-stale gray chip over a red D3 pill (teeth in another family)", () => {
+    const live = mergeRowsToMap([
+      mkRow(keyFor("health", SLUG), "green"),
+      mkRow(keyFor("agent", SLUG), "green"),
+      mkRow(keyFor("e2e", SLUG, FEATURE), "red", { signal: undefined }),
+      mkRow(keyFor("chat", SLUG), "green"),
+      mkRow(keyFor("tools", SLUG), "green"),
+      mkRow(keyFor("d5", SLUG, FEATURE), "green"),
+      mkRow(keyFor("d6", SLUG, FEATURE), "green"),
+    ]);
+    const real = buildCellModel(live, input, NOW);
+    expect(real.d3?.status).toBe("red");
+    const perturbed: CellModel = { ...real, chipColor: "gray" };
+    expect(() =>
+      assertChipStripCoherent("teeth-d3", perturbed, live, input),
+    ).toThrow(/INV7/);
   });
 });
