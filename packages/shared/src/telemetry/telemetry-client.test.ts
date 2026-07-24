@@ -260,24 +260,27 @@ describe("v1 TelemetryClient", () => {
     expect(segmentTrackMock).toHaveBeenCalledTimes(1);
   });
 
-  test("header-invalid standalone identity stays anonymously sampled", async () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-    const client = makeClient({ sampleRate: 0.05 });
-    client.setTelemetryIdentity({
-      telemetryId: "bad\nid",
-    });
+  test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
+    "header-invalid standalone identity %j stays anonymously sampled",
+    async (invalidTelemetryId) => {
+      const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+      const client = makeClient({ sampleRate: 0.05 });
+      client.setTelemetryIdentity({
+        telemetryId: invalidTelemetryId,
+      });
 
-    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+      await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
-    expect(randomSpy).toHaveBeenCalledTimes(1);
-    expect(lambdaSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        licenseToken: undefined,
-        telemetryId: undefined,
-      }),
-    );
-    expect(segmentTrackMock).toHaveBeenCalledTimes(1);
-  });
+      expect(randomSpy).toHaveBeenCalledTimes(1);
+      expect(lambdaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          licenseToken: undefined,
+          telemetryId: undefined,
+        }),
+      );
+      expect(segmentTrackMock).toHaveBeenCalledTimes(1);
+    },
+  );
 
   test("legacy license identity bypasses sampling for both sinks with the effective rate", async () => {
     const telemetryId = "legacy-telemetry-id";

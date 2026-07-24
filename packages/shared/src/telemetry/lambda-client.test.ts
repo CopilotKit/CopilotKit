@@ -287,7 +287,14 @@ test.each(["", " \t "])(
   },
 );
 
-test.each(["bad\nid", "bad\rid"])(
+test.each([
+  "bad\nid",
+  "bad\rid",
+  "bad\u0000id",
+  "bad\u0001id",
+  "bad\u007fid",
+  "tenant-🚀",
+])(
   "header-invalid standalone identity %j sends anonymously instead of dropping the event",
   async (invalidTelemetryId) => {
     const { readRequest, teardown } = setupCapturedRequest();

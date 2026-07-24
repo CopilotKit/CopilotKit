@@ -51,8 +51,9 @@ export interface LambdaSendOptions {
  *
  * Empty and whitespace-only values are unconfigured placeholders and must not
  * suppress a later identity source. Leading and trailing HTTP spaces and tabs
- * are removed before the selected value is stored or sent. Values containing
- * carriage returns or line feeds are invalid HTTP field values and are skipped.
+ * are removed before the selected value is stored or sent. Values outside the
+ * HTTP field-value byte range are skipped so Fetch can still send the event
+ * anonymously.
  *
  * @internal
  */
@@ -60,17 +61,39 @@ export function firstNonBlankTelemetryId(
   ...candidates: ReadonlyArray<string | undefined>
 ): string | undefined {
   for (const candidate of candidates) {
-    if (candidate === undefined || /[\r\n]/.test(candidate)) {
+    if (candidate === undefined) {
       continue;
     }
 
     const normalized = candidate.replace(/^[\t ]+|[\t ]+$/g, "");
-    if (normalized.trim().length > 0) {
+    if (normalized.trim().length > 0 && isValidHttpFieldValue(normalized)) {
       return normalized;
     }
   }
 
   return undefined;
+}
+
+/**
+ * Check the byte domain Fetch can carry in an HTTP field value.
+ *
+ * HTTP field values permit horizontal tabs, visible ASCII, and obs-text bytes.
+ * Other controls, DEL, and code points outside ByteString make Fetch reject.
+ */
+function isValidHttpFieldValue(value: string): boolean {
+  for (const character of value) {
+    const codePoint = character.codePointAt(0);
+    if (
+      codePoint !== 0x09 &&
+      (codePoint === undefined ||
+        codePoint < 0x20 ||
+        codePoint === 0x7f ||
+        codePoint > 0xff)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // These fields aren't used by the telemetry service, so we strip them

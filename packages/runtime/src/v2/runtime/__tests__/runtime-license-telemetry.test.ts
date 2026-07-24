@@ -285,8 +285,18 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
     expectedIdentity: {},
   },
   {
-    label: "header-invalid standalone identity sends anonymously",
+    label: "newline-containing standalone identity sends anonymously",
     telemetryId: "bad\nid",
+    expectedIdentity: {},
+  },
+  {
+    label: "NUL-containing standalone identity sends anonymously",
+    telemetryId: "bad\u0000id",
+    expectedIdentity: {},
+  },
+  {
+    label: "non-ByteString standalone identity sends anonymously",
+    telemetryId: "tenant-🚀",
     expectedIdentity: {},
   },
 ];
