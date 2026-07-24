@@ -45,6 +45,7 @@ class CopilotKitProperties(TypedDict):
     # Private state for CopilotKit middleware
     intercepted_tool_calls: Any
     original_ai_message_id: Any
+    original_tool_calls: Any
 
 
 class CopilotKitState(MessagesState):
