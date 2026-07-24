@@ -10,6 +10,7 @@ import type {
   Thread as ThreadInterface,
   EmojiValue,
   EphemeralResult,
+  ReactElementLike,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
@@ -25,6 +26,17 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { StateStore } from "./state/state-store.js";
 import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
+import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
+import type { PostImageOptions } from "@copilotkit/channels-ui";
+import { resolveArbitraryElement } from "./render/detect.js";
+
+async function defaultRenderImage(
+  node: unknown,
+  cfg: ResolvedRenderConfig,
+): Promise<Uint8Array> {
+  const { renderJsxToPng } = await import("./render/takumi.js");
+  return renderJsxToPng(node, cfg);
+}
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
@@ -63,6 +75,16 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
+  render?: RenderConfig;
+  /**
+   * Test seam: override the image renderer. Defaults to a lazy import of the
+   * Takumi render module, so `takumi-js` loads only when an image is posted.
+   */
+  renderImage?: (
+    node: unknown,
+    cfg: ResolvedRenderConfig,
+  ) => Promise<Uint8Array>;
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
@@ -106,14 +128,67 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  async post(ui: Renderable): Promise<MessageRef> {
-    const bound = await this.bindForPost(ui);
+  async post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    const el = resolveArbitraryElement(ui);
+    if (el) return this.postImage(el, opts);
+    const bound = await this.bindForPost(ui as Renderable);
     const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
     await this.bindReaction(ref.id, bound);
     return ref;
   }
 
+  /**
+   * Render a resolved React element to a PNG via the configured (or default
+   * lazy Takumi) renderer, then upload it through `postFile`.
+   */
+  private async postImage(
+    node: unknown,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    // Fail fast BEFORE the (expensive) render if the surface can't upload files
+    // at all — no point rasterizing a PNG we could never post.
+    if (!this.deps.adapter.postFile) {
+      throw new Error(
+        `post(image): ${this.platform} does not support file upload`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    const cfg: ResolvedRenderConfig = {
+      fonts: opts?.fonts ?? g.fonts ?? [],
+      stylesheets: opts?.stylesheets ?? g.stylesheets ?? [],
+      width: opts?.width ?? g.width ?? 720,
+      height: opts?.height ?? g.height ?? 480,
+    };
+    const renderFn = this.deps.renderImage ?? defaultRenderImage;
+    const bytes = await renderFn(node, cfg);
+    const res = await this.postFile({
+      bytes,
+      filename: opts?.filename ?? "image.png",
+      title: opts?.title,
+      altText: opts?.altText,
+    });
+    if (!res.ok) {
+      throw new Error(
+        `post(image): upload failed — ${res.error ?? "unknown error"}`,
+      );
+    }
+    if (!res.fileId) {
+      console.warn(
+        "[channel] postFile succeeded without a fileId; returning an empty message ref",
+      );
+    }
+    return { id: res.fileId ?? "" };
+  }
+
   async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
+    if (resolveArbitraryElement(ui)) {
+      throw new Error(
+        "thread.update does not support arbitrary JSX (an image post can't be edited in place). Post a new image instead.",
+      );
+    }
     const bound = await this.bindForPost(ui);
     await this.deps.adapter.update(ref, bound.root);
     await this.bindReaction(ref.id, bound);
@@ -217,6 +292,11 @@ export class Thread implements ThreadInterface {
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
+    if (resolveArbitraryElement(ui)) {
+      throw new Error(
+        "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
+      );
+    }
     const adapter = this.deps.adapter;
     if (!adapter.postEphemeral) {
       return {
@@ -278,6 +358,11 @@ export class Thread implements ThreadInterface {
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
   async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+    if (resolveArbitraryElement(ui)) {
+      throw new Error(
+        "thread.awaitChoice does not support arbitrary JSX — it needs interactive channel components (e.g. Button/Select). Use thread.post to send an image.",
+      );
+    }
     const p = new Promise<T>((resolve) =>
       this.deps.registerWaiter(
         this.deps.conversationKey,

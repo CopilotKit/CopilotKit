@@ -83,7 +83,10 @@ export interface Thread {
    * on this; no code reads it yet (forward-declared for that work).
    */
   readonly supportsBlockingChoice?: boolean;
-  post(ui: Renderable): Promise<MessageRef>;
+  post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef>;
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   /**
@@ -198,3 +201,35 @@ export type MessageReactionHandler = (
   emoji: EmojiValue,
   reaction: MessageReaction,
 ) => void | Promise<void>;
+
+/**
+ * A React element (or React-element-shaped object) recognized structurally by
+ * its `$$typeof` brand (see `resolveArbitraryElement` in
+ * @copilotkit/channels-core render/detect). Channel-core routes these to the
+ * image path.
+ */
+export interface ReactElementLike {
+  $$typeof: symbol;
+  type: unknown;
+  props: Record<string, unknown>;
+  key?: unknown;
+}
+
+/** A font registered for image rendering (Takumi has no system fonts). */
+export interface RenderFont {
+  name: string;
+  data: Uint8Array | ArrayBuffer;
+  weight?: number;
+  style?: "normal" | "italic";
+}
+
+/** Per-post overrides + upload metadata for an image post. */
+export interface PostImageOptions {
+  fonts?: ReadonlyArray<RenderFont>;
+  stylesheets?: string[];
+  width?: number;
+  height?: number;
+  filename?: string;
+  title?: string;
+  altText?: string;
+}

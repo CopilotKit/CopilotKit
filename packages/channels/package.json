@@ -52,6 +52,10 @@
       "types": "./dist/ui.d.ts",
       "import": "./dist/ui.js"
     },
+    "./charts": {
+      "types": "./dist/charts.d.ts",
+      "import": "./dist/charts.js"
+    },
     "./slack": {
       "types": "./dist/slack.d.ts",
       "import": "./dist/slack.js"
@@ -117,9 +121,17 @@
     "vitest": "^4.1.3"
   },
   "peerDependencies": {
+    "react": ">=18",
+    "takumi-js": "*",
     "vitest": "^4.0.0"
   },
   "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "takumi-js": {
+      "optional": true
+    },
     "vitest": {
       "optional": true
     }

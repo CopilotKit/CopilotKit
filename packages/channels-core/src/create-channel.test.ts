@@ -1130,3 +1130,16 @@ describe("createChannel slash commands", () => {
     expect(channel.adapters).toEqual([fake]);
   });
 });
+
+describe("createChannel render config", () => {
+  it("accepts a render config without throwing and starts", async () => {
+    const adapter = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [adapter],
+      render: { stylesheets: [".card{color:red}"], width: 800 },
+    });
+    await channel.start();
+    expect(adapter.started).toBe(true);
+    await channel.stop();
+  });
+});

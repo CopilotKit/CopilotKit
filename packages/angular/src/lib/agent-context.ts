@@ -1,5 +1,5 @@
 import { effect, inject, Injector, runInInjectionContext } from "@angular/core";
-import { Context } from "@ag-ui/client";
+import type { Context } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
 
 export interface ConnectAgentContextConfig {

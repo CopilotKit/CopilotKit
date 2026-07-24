@@ -1,26 +1,26 @@
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import type { FrontendTool, CopilotRuntimeTransport } from "@copilotkit/core";
 import {
-  FrontendTool,
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
-  CopilotRuntimeTransport,
-  type CopilotKitCoreGetSuggestionsResult,
-  type IntelligenceRuntimeInfo,
-  type RuntimeLicenseStatus,
-  type SuggestionsConfig,
-  type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
+import type {
+  CopilotKitCoreGetSuggestionsResult,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  SuggestionsConfig,
+  ThreadEndpointRuntimeInfo,
+} from "@copilotkit/core";
+import type { Signal, WritableSignal } from "@angular/core";
 import {
   Injectable,
   Injector,
-  Signal,
-  WritableSignal,
   computed,
   runInInjectionContext,
   signal,
   inject,
 } from "@angular/core";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopConfig,
   RenderToolCallConfig,
@@ -35,9 +35,9 @@ import {
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "@copilotkit/a2ui-renderer/web-components";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
 import {
   ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
-  RenderActivityMessageConfig,
   anyActivityContentSchema,
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
@@ -56,8 +56,8 @@ import {
   GENERATE_SANDBOXED_UI_TOOL_NAME,
   GenerateSandboxedUiArgsSchema,
   OPEN_GENERATIVE_UI_ACTIVITY_TYPE,
-  type GenerateSandboxedUiArgs,
 } from "./open-generative-ui";
+import type { GenerateSandboxedUiArgs } from "./open-generative-ui";
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";

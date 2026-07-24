@@ -1,19 +1,21 @@
-import {
-  Component,
-  ContentChild,
+import type {
   TemplateRef,
   Type,
-  ViewChild,
-  ElementRef,
-  ChangeDetectionStrategy,
   ChangeDetectorRef,
-  ViewEncapsulation,
-  computed,
-  signal,
   OnInit,
   OnChanges,
   OnDestroy,
   AfterViewInit,
+} from "@angular/core";
+import {
+  Component,
+  ContentChild,
+  ViewChild,
+  ElementRef,
+  ChangeDetectionStrategy,
+  ViewEncapsulation,
+  computed,
+  signal,
   input,
   output,
   inject,
@@ -29,7 +31,7 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";

@@ -47,9 +47,9 @@ import {
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
+import { loadBrandRender } from "./render/brand.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
-import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -78,6 +78,9 @@ async function main() {
   const adapters: PlatformAdapter[] = [];
   const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
+  // CopilotKit brand render config: the compiled Tailwind stylesheet + Plus
+  // Jakarta Sans, fed to every image post so cards/charts render on-brand.
+  const brand = await loadBrandRender();
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
     adapters.push(
@@ -154,7 +157,7 @@ async function main() {
     // routes there); locally it defaults to 3000. Fail loud on a malformed
     // PORT rather than letting `Number("abc")` → NaN reach `server.listen()`.
     const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-    if (!Number.isInteger(port) || port < 0) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       console.error(
         `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
       );
@@ -211,6 +214,15 @@ async function main() {
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.
     commands: appCommands,
+    // Takumi image rendering config, CopilotKit-branded. `brand.stylesheets` is
+    // the compiled Tailwind sheet (styles/brand.css) whose classes the cards use;
+    // `brand.fonts` is Plus Jakarta Sans (the brand typeface) loaded from
+    // assets/fonts. Charts render in the brand data-viz palette by default.
+    render: {
+      width: 760,
+      stylesheets: brand.stylesheets,
+      fonts: brand.fonts,
+    },
   });
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
@@ -232,7 +244,9 @@ async function main() {
       console.error("[channel] agent run failed", err);
       await thread
         .post("Sorry — I hit an error handling that. Please try again.")
-        .catch(() => {});
+        .catch((postErr: unknown) =>
+          console.error("[channel] failed to post agent error", postErr),
+        );
     }
   });
 
@@ -267,13 +281,24 @@ async function main() {
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
-    await bot.stop();
-    // Tear down the shared headless browser used for chart/diagram rendering.
-    await closeBrowser();
-    process.exit(0);
+    let exitCode = 0;
+    try {
+      await bot.stop();
+    } catch (err) {
+      console.error("[channel] error stopping channel", err);
+      exitCode = 1;
+    }
+    process.exit(exitCode);
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  // A failed shutdown must not vanish — log it and exit nonzero.
+  const runShutdown = (signal: string): void => {
+    shutdown(signal).catch((err: unknown) => {
+      console.error(`[channel] fatal during ${signal} shutdown`, err);
+      process.exit(1);
+    });
+  };
+  process.on("SIGINT", () => runShutdown("SIGINT"));
+  process.on("SIGTERM", () => runShutdown("SIGTERM"));
 }
 
 // Fail loud, not silent: surface any stray async error (e.g. a throw deep in an

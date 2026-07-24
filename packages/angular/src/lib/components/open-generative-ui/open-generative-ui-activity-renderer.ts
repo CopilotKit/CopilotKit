@@ -3,7 +3,6 @@ import {
   Component,
   DestroyRef,
   ElementRef,
-  type OnChanges,
   afterRenderEffect,
   computed,
   inject,
@@ -12,6 +11,7 @@ import {
   viewChild,
   InjectionToken,
 } from "@angular/core";
+import type { OnChanges } from "@angular/core";
 import type { AbstractAgent, ActivityMessage } from "@ag-ui/client";
 import type { API } from "@jetbrains/websandbox/dist/types";
 import type { ActivityRenderer } from "../../activity-renderer";
@@ -28,9 +28,11 @@ import {
   parseOpenGenerativeUIContent,
   resolveWebsandboxConstructor,
   shouldFlushOpenGenerativeUIImmediately,
-  type WebsandboxConstructor,
-  type WebsandboxInstance,
-  type WebsandboxModuleShape,
+} from "./open-generative-ui-renderer-utils";
+import type {
+  WebsandboxConstructor,
+  WebsandboxInstance,
+  WebsandboxModuleShape,
 } from "./open-generative-ui-renderer-utils";
 
 export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER = new InjectionToken<

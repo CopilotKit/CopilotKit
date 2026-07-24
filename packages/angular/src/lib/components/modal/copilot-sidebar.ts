@@ -1,12 +1,11 @@
 import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { DOCUMENT, NgComponentOutlet, NgTemplateOutlet } from "@angular/common";
+import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  ElementRef,
   PLATFORM_ID,
-  Type,
   afterNextRender,
   computed,
   effect,

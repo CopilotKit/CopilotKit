@@ -1,6 +1,7 @@
-import { inject, InjectionToken, Provider } from "@angular/core";
-import { AbstractAgent } from "@ag-ui/client";
-import {
+import type { Provider } from "@angular/core";
+import { inject, InjectionToken } from "@angular/core";
+import type { AbstractAgent } from "@ag-ui/client";
+import type {
   ClientTool,
   FrontendToolConfig,
   HumanInTheLoopConfig,

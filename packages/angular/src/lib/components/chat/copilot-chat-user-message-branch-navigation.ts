@@ -8,9 +8,9 @@ import {
 } from "@angular/core";
 
 import { ChevronLeft, ChevronRight, CopilotIcon } from "../icons/copilot-icon";
-import { type CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
+import type { CopilotChatUserMessageOnSwitchToBranchProps } from "./copilot-chat-user-message.types";
 import { cn } from "../../utils";
-import { UserMessage } from "@ag-ui/core";
+import type { UserMessage } from "@ag-ui/core";
 
 @Component({
   selector: "copilot-chat-user-message-branch-navigation",

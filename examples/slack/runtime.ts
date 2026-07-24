@@ -168,22 +168,11 @@ const SYSTEM_PROMPT = [
   "  read_thread tool to fetch the messages first — never invent thread content.",
   "",
   "Files & visuals: uploaded files arrive in the message as content you can",
-  "read — images and PDFs directly, and CSV/JSON/text as decoded text. When a",
-  "user uploads data and wants a chart, parse it and call render_chart with a",
-  "Chart.js config OBJECT — pick a sensible type (bar/line/pie) and inline the",
-  "data. When the user wants the data itself shown as a table (not a chart),",
-  "call render_table with columns + rows (each row an array of cell values in",
-  "column order; set a column's align to 'right' for numeric columns). When",
-  "asked to diagram a flow/architecture/timeline, call render_diagram with",
-  "Mermaid source. render_chart and render_diagram post an image; render_table",
-  "posts a Slack table. If render_diagram returns an error, fix the Mermaid and",
-  "retry. These are read/reply actions — no confirm_write needed.",
-  "- render_chart / render_diagram post a TITLED image themselves (a caption",
-  "  header followed by the image). Do NOT narrate the act with a separate",
-  '  "Charting `file.csv`…" line or a "rendered above/below" sentence — that',
-  "  text lands AFTER the image and reads out of order. Let the titled image be",
-  "  the answer; if you must reply, ONE short past-tense clause naming the file",
-  '  is enough (e.g. "Charted `incidents-2026.csv`.").',
+  "read — images and PDFs directly, and CSV/JSON/text as decoded text. When the",
+  "user wants the data shown as a table, call render_table with columns + rows",
+  "(each row an array of cell values in column order; set a column's align to",
+  "'right' for numeric columns). This is a read/reply action — no confirm_write",
+  "needed.",
   "- If more than one file is in the thread and the request doesn't make clear",
   "  which one to use, ASK which file (list them by name) instead of guessing.",
   "",
@@ -197,6 +186,12 @@ const SYSTEM_PROMPT = [
   "  'creator' is the bot — assignee is how you attribute work to the requester.)",
   "Never assume every request is from the same person; always use the requester",
   "named in context. If their email isn't in context, say so rather than guessing.",
+  "",
+  "LATEST REQUEST ONLY. Act on the user's MOST RECENT message only. Earlier",
+  "requests in the thread were already handled (their cards/images were posted",
+  "and a short confirmation line precedes each) — NEVER re-run a render tool for",
+  "a request from an earlier turn. If the latest message asks for one thing, call",
+  "exactly one tool.",
   "",
   "RENDERING — THIS IS A HARD RULE. Whenever your answer contains structured",
   "output, you MUST call the matching render tool and let IT draw the card. Do",
@@ -212,7 +207,9 @@ const SYSTEM_PROMPT = [
   "- An incident / outage           -> show_incident (id, title, severity SEV1|SEV2|SEV3,",
   "                                    summary) — an interactive card with Acknowledge/Escalate",
   "- A set of links / runbooks      -> show_links (heading + links:[{label,url}])",
-  "- A chart from data              -> render_chart;   a flow/architecture/timeline -> render_diagram",
+  "- PR review radar / open PRs to review    -> render_pr_radar (no args)",
+  "- Weekly OSS pulse / stars/downloads/issues -> render_weekly_pulse (no args)",
+  "- Cycle standup / per-team cycle progress -> render_standup (no args)",
   "If the user explicitly asks for a card/table/incident/status/links, calling the",
   "tool IS the whole answer — never describe what the card 'would' contain in prose.",
   "Your text message alongside a rendered card MUST be empty or ONE short line (e.g.",
@@ -230,7 +227,7 @@ const SYSTEM_PROMPT = [
   "(create_issue, update_issue, create_page, …). ONLY before such a write, call the",
   "confirm_write tool with a one-line summary and wait for approval; perform the",
   "write only if confirmed. Rendering a card/table (issue_list, issue_card,",
-  "show_incident, show_status, show_links, render_table, render_chart/diagram) and",
+  "show_incident, show_status, show_links, render_table) and",
   "any read (search/list/get) are NOT writes — never gate them, and never add an",
   "'I'll need approval' disclaimer to a pure render or read.",
 ].join("\n");
@@ -330,6 +327,15 @@ const listener = createCopilotNodeListener({
 });
 
 const port = Number(process.env["PORT"] ?? 8200);
+// Fail loud on a malformed PORT rather than letting `Number("abc")` → NaN
+// (or an out-of-range value) reach `server.listen()` and silently bind a
+// random/wrong port that still comes up "healthy".
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(
+    `Invalid PORT: "${process.env["PORT"]}" is not a valid port number`,
+  );
+  process.exit(1);
+}
 createServer(listener).listen(port, () => {
   console.log(
     `[slack-runtime] listening on http://localhost:${port}/api/copilotkit/agent/triage/run`,

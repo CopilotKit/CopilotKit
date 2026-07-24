@@ -40,7 +40,6 @@ import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
-import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
   const v = process.env[name];
@@ -90,6 +89,13 @@ async function main() {
     tools: [...appTools, ...defaultSlackTools],
     context: [...appContext, ...defaultSlackContext],
     commands: appCommands,
+    // Takumi JSX image rendering config. No `fonts`/`googleFonts` (the latter
+    // can trigger a network fetch and hang tests/CI) — Takumi's built-in Latin
+    // covers this demo. The `charts` components render in color from their own
+    // fixed hex palette (no stylesheet needed), and `MrrCard` uses inline styles.
+    render: {
+      width: 720,
+    },
   });
 
   // Turn + feature handlers — identical to the native example (app/index.ts).
@@ -161,6 +167,15 @@ async function main() {
     basePath: "/api/copilotkit",
   });
   const port = Number(process.env.PORT ?? 8300);
+  // Fail loud on a malformed PORT rather than letting `Number("abc")` → NaN
+  // (or an out-of-range value) reach `server.listen()` and silently bind a
+  // random/wrong port that still comes up "healthy".
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    console.error(
+      `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
+    );
+    process.exit(1);
+  }
   createServer(listener).listen(port, () => {
     console.log(
       `[channel] started managed Channel "${channelName}" (listener on :${port})`,
@@ -176,14 +191,6 @@ async function main() {
       console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;
     }
-    // Browser teardown is best-effort, but still surface a failure rather than
-    // swallow it silently.
-    await closeBrowser().catch((err: unknown) =>
-      console.error(
-        "[channel] browser cleanup failed (continuing shutdown)",
-        err,
-      ),
-    );
     process.exit(exitCode);
   };
   // A failed shutdown must not vanish — log it and exit nonzero.

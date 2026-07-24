@@ -1,8 +1,12 @@
+import type {
+  TemplateRef,
+  Type,
+  AfterViewInit,
+  OnDestroy,
+} from "@angular/core";
 import {
   Component,
   input,
-  TemplateRef,
-  Type,
   output,
   ViewChild,
   ElementRef,
@@ -10,8 +14,6 @@ import {
   ViewEncapsulation,
   signal,
   computed,
-  AfterViewInit,
-  OnDestroy,
   inject,
   ChangeDetectorRef,
   afterNextRender,
@@ -25,7 +27,7 @@ import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
 import { ScrollPosition } from "../../scroll-position";
 import { ChatState } from "../../chat-state";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";

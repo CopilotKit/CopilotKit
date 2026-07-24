@@ -14,8 +14,8 @@ import { provideCopilotKit } from "../../../config";
 import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
-  type CopilotChatConfiguration,
 } from "../../../chat-configuration";
+import type { CopilotChatConfiguration } from "../../../chat-configuration";
 
 @Component({
   selector: "test-assistant-message",

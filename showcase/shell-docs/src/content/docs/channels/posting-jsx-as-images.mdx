@@ -1,0 +1,231 @@
+---
+title: Posting arbitrary JSX as images
+description: Post any app component — a shadcn card, a dashboard tile, a chart — to a thread with thread.post(<X/>). Arbitrary JSX renders to an image via Takumi (no browser); channels-ui JSX keeps rendering natively.
+icon: "lucide/Component"
+---
+
+**Where you're starting from:** `thread.post` only understands the `@copilotkit/channels` JSX vocabulary (`<Message>`, `<Header>`, `<Section>`, …). A styled dashboard card or any other component from your own app has no way onto the thread short of screenshotting it yourself.
+
+**Where you're headed:** `thread.post(<MrrCard/>)` just works — the SDK renders your app's own React component to a PNG (fonts and compiled CSS included) and uploads it, no wrapper or extra API required. Native channel components keep rendering exactly as before.
+
+<Callout type="warn" title="Install react and takumi-js first">
+  `react` and `takumi-js` are **optional peer dependencies** of `@copilotkit/channels`/`@copilotkit/channels-core` — they aren't pulled in automatically. The chart components and image rendering hard-require them at runtime, so install both before using either:
+
+  ```bash
+  pnpm add react takumi-js
+  ```
+
+  Without them, importing `@copilotkit/channels/charts` or posting arbitrary JSX fails with a module-not-found error.
+</Callout>
+
+<Steps>
+  <Step>
+    ### How it's routed
+
+    `thread.post` classifies whatever you pass it by **where it's authored**, not by inspecting it at call time:
+
+    - A **plain React element built in an ordinary app file** (react-pragma, e.g. `<div>`, a shadcn card, `<MrrCard/>`) → routed straight to the **image** path via [Takumi](https://github.com/takumi-rs/takumi) and uploaded through the existing `postFile` path. The component is not called to "peek" at it — a plain element goes to the image renderer as-is.
+    - A `@copilotkit/channels` component (`<Message>`, `<Button>`, …), or your own component **referenced under the channels JSX pragma** (or branded as a channels-ui component) that returns channel nodes (e.g. an `IssueCard` that returns `<Message>…</Message>`) → the engine calls the component, inspects what it returns, and renders **natively**, unchanged.
+
+    ```tsx
+    // Native — authored under the channels pragma (or branded), still renders
+    // as real Block Kit / Adaptive Cards
+    await thread.post(
+      <Message accent="#16a34a">
+        <Header>Deploy complete</Header>
+        <Section>Shipped <b>v2.4.0</b> to production.</Section>
+      </Message>,
+    );
+
+    // Arbitrary app JSX — a plain React element from an app file, routed to an
+    // image automatically, no wrapper needed
+    await thread.post(<MrrCard value="$48,200" delta={12} />);
+    ```
+
+    The "call the component and inspect its output" check only happens for components referenced under the channels pragma; a plain element authored in an app (react-pragma) file never gets called — it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (e.g. one that calls a hook) is treated as native rather than crashing the classifier — a branded component is never invoked during classification in the first place, since it already routes native by virtue of being branded. Classification may invoke an unbranded component an extra time (peek, then bind on the native path), so components referenced under the channels pragma must be pure / side-effect-free.
+
+    <Callout type="info" title="One post, one route">
+      A single `post()` call is either native IR or one image — you can't mix native components and image output in the same message. Call `post()` twice if you need both.
+    </Callout>
+  </Step>
+  <Step>
+    ### Configure fonts and styling once
+
+    Takumi is a static, browser-free rasterizer with **no system fonts** — only a built-in Latin (Geist) fallback. Register your app's fonts and compiled CSS once on `createChannel({ render })`, and every image post picks them up:
+
+    ```ts title="bot.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { readFileSync } from "node:fs";
+
+    const bot = createChannel({
+      adapters: [/* ... */],
+      agent: (threadId) => /* ... */,
+      render: {
+        fonts: [
+          { name: "Inter", data: readFileSync("./fonts/Inter-Regular.woff2"), weight: 400 },
+          { name: "Inter", data: readFileSync("./fonts/Inter-SemiBold.woff2"), weight: 600 },
+        ],
+        stylesheets: [readFileSync("./styles/global.css", "utf8")], // compiled Tailwind
+        width: 720, // default canvas width; height is 480 unless you set one
+      },
+    });
+    ```
+
+    `stylesheets` accepts your compiled CSS as plain strings — class selectors and `@media` resolve. This example loads it with `node:fs` (consistent with the fonts above) so it runs as-is under Node/tsx. If your build already emits the compiled CSS as an importable string (e.g. Vite's `?inline` suffix), that's a **bundler-only** variant — it won't run under plain `tsx`/`node`:
+
+    ```ts title="bot.ts (bundler-only variant, e.g. Vite)"
+    import appCss from "./styles/global.css?inline"; // compiled Tailwind, resolved by the bundler
+
+    // ...same createChannel call as above, with stylesheets: [appCss]
+    ```
+
+    <Callout type="warn" title="No fonts configured means Latin-only">
+      Takumi can't detect missing glyphs ahead of render, so the SDK warns once when no `fonts` are configured — non-Latin text will drop from the image. Any other Takumi render error is surfaced (not swallowed), so a broken font or stylesheet fails loudly instead of silently.
+    </Callout>
+  </Step>
+  <Step>
+    ### Override per post
+
+    Every `render` field can be overridden for a single post — useful for a wider dashboard, a taller card, or an extra font just for that message:
+
+    ```tsx
+    await thread.post(<WideDashboard data={rows} />, { width: 1200 });
+    await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
+    await thread.post(<MrrCard value="$48,200" delta={12} />, {
+      filename: "mrr.png",
+      title: "MRR",
+      altText: "Monthly recurring revenue card",
+    });
+    ```
+
+    `filename`, `title`, and `altText` are upload metadata passed straight through to `postFile` — they don't affect rendering.
+  </Step>
+  <Step>
+    ### Built-in chart components
+
+    `@copilotkit/channels/charts` ships a set of presentational chart components that render through the same image path — no Recharts, no Chart.js, no DOM:
+
+    - **Box-model:** `BarChart`, `StackedBar`, `Meter`
+    - **SVG-based:** `LineChart`, `PieChart`, `Scatter`, `Sparkline`
+
+    ```tsx
+    import { BarChart, LineChart, PieChart, Sparkline } from "@copilotkit/channels/charts";
+
+    // Uses the fixed default palette: #6366f1, #22c55e, #f59e0b, #ef4444, #06b6d4
+    await thread.post(
+      <BarChart
+        title="Signups / day"
+        data={[
+          { label: "Mon", value: 120 },
+          { label: "Tue", value: 240 },
+          { label: "Wed", value: 180 },
+        ]}
+      />,
+    );
+
+    // Styled with an explicit line color + a dark card background. `LineChart`
+    // is single-color (see note below), so `colors` takes exactly one entry.
+    await thread.post(
+      <LineChart
+        title="MRR trend"
+        data={mrrSeries}
+        colors={["#2563eb"]}
+        gridColor="#334155"
+        style={{ backgroundColor: "#0f172a" }}
+        labelClassName="text-muted-foreground text-xs"
+        showGrid
+      />,
+    );
+
+    // Multi-color example: BarChart and PieChart cycle the palette per bar/slice,
+    // so a multi-entry `colors` array actually produces multiple colors. (StackedBar
+    // instead cycles per series/segment — see the table below.)
+    await thread.post(
+      <PieChart
+        title="Traffic by source"
+        data={[
+          { label: "Organic", value: 55 },
+          { label: "Referral", value: 25 },
+          { label: "Direct", value: 20 },
+        ]}
+        colors={["#2563eb", "#16a34a", "#f59e0b"]}
+      />,
+    );
+
+    // Inline sparkline inside your own arbitrary card
+    await thread.post(
+      <div className="p-4 flex items-center gap-3">
+        <span>Latency</span>
+        <Sparkline data={p95} width={120} height={28} colors={["#dc2626"]} />
+      </div>,
+    );
+    ```
+
+    **Authoring cards:** write host tags (`<div>`, `<span>`, `<svg>`, …) and chart/app components (`<Sparkline/>`, `<BarChart/>`, your own components) as plain JSX — no `createElement` needed. The channels JSX runtime compiles the whole tree to nodes, and the image renderer materializes it to React for Takumi. (The `charts` components themselves are authored with `createElement` only because they live in `.ts` files, where JSX isn't available.)
+
+    Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` — but which fields actually do something is per-chart, not universal:
+
+    | Chart | Color model | Default background | Size props | Title |
+    | --- | --- | --- | --- | --- |
+    | `BarChart` | palette cycles per bar: `colors[i]` | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
+    | `StackedBar` | palette cycles per **series** (stack segment): `colors[s]` — every bar shares the same segment colors | white, via `style` | box model, fills container (`width`/`height` ignored) | yes |
+    | `PieChart` | palette cycles per slice: `colors[i]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
+    | `LineChart` | single color: `colors[0]` | white, via `style` | SVG plot + HTML axes, `width`/`height` set the total image | yes (HTML heading above the plot; also draws an HTML y-axis + x-axis, so the plotted area is smaller than `width`×`height`) |
+    | `Scatter` | single color: `colors[0]` | white, via `style` | SVG, `width`/`height` set the canvas | yes (renders as a heading above the `<svg>`, so the image is a little taller than `height`) |
+    | `Sparkline` | single color: `colors[0]` | transparent (no hardcoded color) | SVG, `width`/`height` set the canvas | no |
+    | `Meter` | single color: `colors[0]` | transparent (no hardcoded color) | box model; `width` ignored, `height` sets the bar's thickness | no |
+
+    A few things worth calling out explicitly:
+
+    - **Colors:** Takumi does not resolve CSS `var()`/theme tokens for SVG `stroke`/`fill` (or for `backgroundColor` on box-model charts), so the default palette is a **fixed** set of hex values, not your shadcn `--chart-1..5` tokens. Pass your own `colors` prop to theme a chart explicitly. Note that `StackedBar`'s `colors[n]` indexes the *n*th series, not the *n*th bar — a multi-entry `colors` array gives you one color per stack segment, repeated identically across every bar.
+    - **Background:** `BarChart`, `StackedBar`, `LineChart`, `PieChart`, and `Scatter` default to a white background set via an inline `style.backgroundColor`. Inline `style` always wins over a CSS class, so theming these five via `className` (e.g. a `bg-card` utility class) has **no effect** — override with the `style` prop instead, e.g. `style={{ backgroundColor: "#0f172a" }}`. `Meter`'s root is transparent (no hardcoded background), so a `className`/`style` background on it shows through — but its unfilled track is a fixed `#e5e7eb` gray that a background override does not recolor. `Sparkline` has no hardcoded background anywhere in its markup.
+    - **Value labels & axes:** `BarChart` and `StackedBar` print each bar's value (compacted, e.g. `1.2k`) above it; `LineChart` renders a title, a 5-tick y-axis scale, and a per-point x-axis label. **All chart text is HTML**, not SVG `<text>` — Takumi rasterizes HTML text but not text drawn inside an `<svg>`, so labels are HTML elements laid out around the SVG plot and honor `labelClassName`.
+    - **`gridColor`/`showGrid`:** only apply to `LineChart` and `Scatter`.
+    - **Scaling:** `LineChart` and `Sparkline` scale the y-axis to the data's own min/max rather than anchoring at zero. `Scatter` scales **both** x and y to the point extent (and centers a degenerate axis — e.g. all points sharing one x value). None of these force a zero baseline; include a zero-valued datum in the series if you need one.
+    - **Negative values:** `BarChart` clamps a negative value to a zero-height bar (it assumes non-negative input). `StackedBar` clamps a negative segment to zero height *and* distorts the remaining segments' proportions within that bar (their percentages are computed against the bar's true total, then clipped to the bar's box) — pass non-negative values to `StackedBar`.
+
+    These are separate from the existing **native** `<Chart>` component, which still renders as a real Block Kit/Adaptive Card chart where the surface supports it. The `charts` components are for image output styled with your own CSS.
+
+    Charts default to the **CopilotKit brand data-viz palette** (purple · mint · blue · orange · …); pass a `colors` prop to override per chart.
+  </Step>
+  <Step>
+    ### Ready-made tools: `render_chart` and `render_diagram`
+
+    `@copilotkit/channels/charts` also ships two ready-made **channel tools**, so an agent can turn structured data into a visual with no bespoke code — spread them into `createChannel({ tools })`:
+
+    - **`chartTool`** (`render_chart`) — the agent passes `{ kind: "bar" | "line" | "pie" | "stacked" | "scatter", data, title }` and it posts the chart as an image. Point it at a parsed CSV and "chart this" just works.
+    - **`diagramTool`** (`render_diagram`) — the agent passes `{ nodes, edges, direction }` and it posts a layered flow diagram (boxes + arrows). Good for a process, pipeline, or architecture. Layered layout, not arbitrary graph auto-routing (Takumi has no JS layout engine).
+
+    ```ts
+    import { chartTool, diagramTool } from "@copilotkit/channels/charts";
+
+    createChannel({ tools: [chartTool, diagramTool /* , …your tools */] });
+
+    // User: "here's a CSV of signups by month — chart it"
+    // → the agent parses it and calls
+    //   render_chart({ kind: "bar", title: "Signups", data: [{ label: "Jan", value: 120 }, …] })
+    ```
+  </Step>
+  <Step>
+    ### Know the limits
+
+    Takumi is a **static SSR rasterizer** — it calls your components with server-render semantics, not a real browser. Keep this in mind:
+
+    - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid all measure or paint the live DOM (`useEffect`, canvas, layout measurement) — none of that runs under Takumi. Use the built-in `charts` components (or your own pure-presentational markup) instead.
+    - **`update()` and `postEphemeral()` don't accept arbitrary JSX.** An uploaded image can't be edited in place, so both throw a clear error if you pass them a React element or an unbranded component that returns one — post a new image instead of trying to update an existing one.
+    - **Image posts are file-backed.** They return a `MessageRef` like any other post, but with more limited edit support than a native message.
+    - **The canvas has a fixed size.** It defaults to 720×480; pass `width`/`height` (globally via `render`, or per post) for anything else.
+  </Step>
+</Steps>
+
+**You've reached point B.** Arbitrary app components render to images alongside your native channel UI, styled with your own fonts and compiled CSS, with no browser anywhere in the process.
+
+## A worked example
+
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this end-to-end for three "run it in your own Slack" features, each a CopilotKit-branded card plus charts, and each triggerable **both** by a slash command and by prompt (the agent calls the matching `render_*` tool — both share one `render*` fn):
+
+- **PR review radar** (`/prs`) — a card of the oldest open PRs with age-coloured badges + a PRs-by-age bar chart, from GitHub's public API (no token).
+- **Weekly OSS pulse** (`/pulse`) — a KPI card (stars · npm downloads · open issues) + a downloads line chart + an issues bar chart, from GitHub + npm.
+- **Linear cycle standup** (`/standup`) — a per-team progress card (one labelled progress meter per team) + a done-vs-remaining stacked bar comparing scope across teams, from Linear.
+
+The brand look is a **compiled Tailwind stylesheet** (`pnpm build:css`) plus **Plus Jakarta Sans**, fed once via `render.stylesheets`/`render.fonts` — cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It's a concrete template for wiring your own dashboards, and it registers `chartTool`/`diagramTool` so you can also just ask for an ad-hoc chart or diagram.

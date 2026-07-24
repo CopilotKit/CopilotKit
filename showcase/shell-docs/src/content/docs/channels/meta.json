@@ -1,5 +1,5 @@
 {
   "title": "Channels SDK",
   "icon": "lucide/Bot",
-  "pages": ["index", "persistence", "transcripts"]
+  "pages": ["index", "persistence", "transcripts", "posting-jsx-as-images"]
 }

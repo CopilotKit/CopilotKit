@@ -1,10 +1,6 @@
-import {
-  DestroyRef,
-  ElementRef,
-  afterRenderEffect,
-  inject,
-  type Signal,
-} from "@angular/core";
+import type { ElementRef } from "@angular/core";
+import { DestroyRef, afterRenderEffect, inject } from "@angular/core";
+import type { Signal } from "@angular/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   Catalog,

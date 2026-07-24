@@ -1,6 +1,6 @@
 import { NgComponentOutlet } from "@angular/common";
 import { Component, inject, input } from "@angular/core";
-import {
+import type {
   AssistantMessage,
   Message,
   ToolCall,
@@ -8,7 +8,7 @@ import {
 } from "@ag-ui/client";
 import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
-import {
+import type {
   FrontendToolConfig,
   HumanInTheLoopToolCall,
   HumanInTheLoopConfig,
