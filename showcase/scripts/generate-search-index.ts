@@ -13,6 +13,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { buildAngularFeatureSearchEntries } from "./lib/angular-feature-search";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 // MDX docs content now lives in shell-docs. shell-docs consumes the index
@@ -23,6 +25,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SHELL_DOCS_DIR = path.join(ROOT, "shell-docs", "src");
 const SHELL_DIR = path.join(ROOT, "shell", "src");
 const CONTENT_ROOT = SHELL_DOCS_DIR;
+const SHARED_DIR = path.join(ROOT, "shared");
 const OUTPUT_PATHS = [
   path.join(SHELL_DOCS_DIR, "data", "search-index.json"),
   path.join(SHELL_DIR, "data", "search-index.json"),
@@ -356,6 +359,19 @@ function main() {
       `[generate-search-index] all scan directories missing — emitting static-pages stub only. Missing: ${scanDirsMissing.join(", ")}`,
     );
   }
+
+  const frontendRegistry = JSON.parse(
+    fs.readFileSync(path.join(SHARED_DIR, "frontend-registry.json"), "utf-8"),
+  );
+  const featureRegistry = JSON.parse(
+    fs.readFileSync(path.join(SHARED_DIR, "feature-registry.json"), "utf-8"),
+  );
+  const angularFeatureEntries = buildAngularFeatureSearchEntries(
+    frontendRegistry,
+    featureRegistry,
+  );
+  entries.push(...angularFeatureEntries);
+  console.log(`  Angular features: ${angularFeatureEntries.length} entries`);
 
   // Write (dual-emit to shell-docs + shell)
   const json = JSON.stringify(entries, null, 2) + "\n";

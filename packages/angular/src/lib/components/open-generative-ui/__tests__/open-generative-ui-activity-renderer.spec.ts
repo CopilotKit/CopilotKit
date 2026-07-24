@@ -142,6 +142,32 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     ).not.toBeNull();
   });
 
+  it("does not create a preview after its sandbox loader becomes stale", async () => {
+    let resolveLoader!: (value: { create: typeof mockCreate }) => void;
+    mockLoadWebsandbox.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLoader = resolve;
+      }),
+    );
+    setContent(fixture, {
+      cssComplete: true,
+      html: ["<body><p>Old preview"],
+      htmlComplete: false,
+    });
+    await flushSandboxImport(fixture);
+
+    setContent(fixture, { generating: true });
+    resolveLoader({ create: mockCreate });
+    await flushSandboxImport(fixture);
+
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="open-generative-ui-preview-sandbox"]',
+      ),
+    ).toBeNull();
+  });
+
   it("creates a final sandbox when HTML is complete", async () => {
     setContent(fixture, {
       css: ".metric { color: blue; }",

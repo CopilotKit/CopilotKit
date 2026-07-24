@@ -8,8 +8,8 @@ and what state updates the middleware emits):
   the agent's own tools when the model is called. When there are no frontend
   tools the request reaches the model unchanged.
 * App context from ``state["copilotkit"]["context"]`` (or ``runtime.context``)
-  becomes a ``SystemMessage`` containing ``"App Context:\\n<json>"``. Empty
-  context is a no-op. Re-running ``before_agent`` does not duplicate the note.
+  is appended to ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``.
+  Empty context is a no-op. ``before_agent`` does not mutate message history.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
   ToolNode does not try to execute them; ``after_agent`` re-attaches them
   before the run ends.
@@ -64,7 +64,7 @@ def _make_request(
         system_message=system_message,
         tools=tools if tools is not None else [],
         state=state if state is not None else {"messages": []},
-        runtime=MagicMock(name="runtime"),
+        runtime=MagicMock(name="runtime", context=None),
     )
 
 
@@ -373,6 +373,52 @@ def test_expose_state_allowlist_never_surfaces_forwarded_headers():
 
 
 # ---------------------------------------------------------------------------
+# App Context system prompt injection
+# ---------------------------------------------------------------------------
+
+
+def test_wrap_model_call_appends_app_context_to_existing_system_message():
+    middleware = CopilotKitMiddleware()
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("previous turn")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        },
+        messages=[HumanMessage("previous turn")],
+        system_message=SystemMessage(content="You are a helpful assistant."),
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is not None
+    body = seen.system_message.content
+    assert isinstance(body, str)
+    assert "You are a helpful assistant." in body
+    assert "App Context:" in body
+    assert "admin" in body
+    assert body.index("You are a helpful assistant.") < body.index("App Context:")
+    assert all(
+        "App Context:" not in (m.content if isinstance(m.content, str) else "")
+        for m in seen.messages
+    )
+
+
+def test_before_agent_does_not_inject_app_context_into_message_state():
+    middleware = CopilotKitMiddleware()
+    state = {
+        "messages": [HumanMessage("hi")],
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
+    }
+    runtime = MagicMock(name="runtime", context=None)
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
 # Async wrapper parity
 # ---------------------------------------------------------------------------
 
@@ -408,16 +454,15 @@ def test_async_wrap_mirrors_sync_behavior_for_state_and_tools():
 
 
 # ---------------------------------------------------------------------------
-# before_agent — App Context injection
+# App Context injection
 # ---------------------------------------------------------------------------
 
 
-def _system_contents(messages: list[Any]) -> list[str]:
-    return [
-        m.content if isinstance(m.content, str) else str(m.content)
-        for m in messages
-        if isinstance(m, SystemMessage)
-    ]
+def _system_message_text(request: ModelRequest) -> str:
+    assert request.system_message is not None
+    content = request.system_message.content
+    assert isinstance(content, str)
+    return content
 
 
 def test_before_agent_no_context_returns_no_update():
@@ -430,23 +475,25 @@ def test_before_agent_no_context_returns_no_update():
     assert result is None
 
 
-def test_before_agent_injects_app_context_system_message():
+def test_wrap_model_call_injects_app_context_system_message():
     middleware = CopilotKitMiddleware()
-    state = {
-        "messages": [HumanMessage("hi")],
-        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
-    }
-    runtime = MagicMock(name="runtime", context=None)
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("hi")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        }
+    )
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("admin" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "App Context:" in body
+    assert "admin" in body
 
 
-def test_before_agent_idempotent_does_not_duplicate_context():
+def test_before_agent_repeated_calls_do_not_mutate_messages():
     middleware = CopilotKitMiddleware()
     state = {
         "messages": [HumanMessage("hi")],
@@ -457,25 +504,20 @@ def test_before_agent_idempotent_does_not_duplicate_context():
     first = middleware.before_agent(state, runtime) or state
     second = middleware.before_agent(first, runtime) or first
 
-    sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
-    app_context_messages = [
-        m
-        for m in sys_messages
-        if isinstance(m.content, str) and m.content.startswith("App Context:")
-    ]
-    assert len(app_context_messages) == 1
+    assert first is state
+    assert second is state
+    assert second["messages"] == [HumanMessage("hi")]
 
 
-def test_before_agent_uses_runtime_context_when_state_context_empty():
+def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(name="runtime", context="route=/dashboard")
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = "route=/dashboard"
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("/dashboard" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "/dashboard" in body
 
 
 def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
@@ -518,36 +560,33 @@ def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context()
     )
 
 
-def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
+def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
     """When ``runtime.context`` contains both a genuine app key AND the
     transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
-    system message must still be injected with the real key, but the forwarded
+    system note must still be injected with the real key, but the forwarded
     headers must be filtered out.
     """
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(
-        name="runtime",
-        context={
-            "user_tier": "pro",
-            "copilotkit_forwarded_headers": {
-                "x-aimock-context": "showcase/d6",
-            },
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "user_tier": "pro",
+        "copilotkit_forwarded_headers": {
+            "x-aimock-context": "showcase/d6",
         },
-    )
+    }
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
+    body = _system_message_text(seen)
     # The genuine app context is still surfaced.
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("user_tier" in s and "pro" in s for s in sys_contents)
+    assert "App Context:" in body
+    assert "user_tier" in body
+    assert "pro" in body
     # The transport-layer wrapper is stripped from the rendered prompt.
-    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+    assert "copilotkit_forwarded_headers" not in body, (
         "copilotkit_forwarded_headers must be filtered out of the App Context message"
     )
-    assert not any("x-aimock-context" in s for s in sys_contents), (
+    assert "x-aimock-context" not in body, (
         "forwarded header values must never appear in a system prompt"
     )
 

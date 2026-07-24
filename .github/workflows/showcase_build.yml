@@ -16,6 +16,11 @@ on:
     paths:
       - "showcase/**"
       - "examples/integrations/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/angular/**"
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-components/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
   workflow_dispatch:
@@ -92,6 +97,7 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+      needs_angular: ${{ steps.build-matrix.outputs.needs_angular }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -109,6 +115,13 @@ jobs:
             workflow_config:
               - '.github/workflows/showcase_build.yml'
               - '.github/workflows/showcase_build_check.yml'
+            angular:
+              - 'showcase/angular/**'
+              - 'packages/a2ui-renderer/**'
+              - 'packages/angular/**'
+              - 'packages/core/**'
+              - 'packages/shared/**'
+              - 'packages/web-components/**'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
@@ -274,7 +287,14 @@ jobs:
               (.filter_key as $fk | select(
               $dispatch == "all" or
               ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
-              ($dispatch == "" and (($changes | index("workflow_config") != null) or ($changes | index($fk) != null)))
+              ($dispatch == "" and (
+                ($changes | index("workflow_config") != null) or
+                ($changes | index($fk) != null) or
+                (($changes | index("angular") != null) and (
+                  (.context | startswith("showcase/integrations/")) or
+                  .dispatch_name == "shell"
+                ))
+              ))
             ))]
           ')
 
@@ -303,6 +323,7 @@ jobs:
           esac
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "needs_angular=$(echo "$MATRIX" | jq -r 'any(.[]; (.context | startswith("showcase/integrations/")))')" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
@@ -349,8 +370,53 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: npx tsx showcase/scripts/verify-railway-image-refs.ts
 
+  # Build one browser bundle for every selected integration image. Staging
+  # redeploys these GHCR images directly; production promotion pins the same
+  # tested image digest, so both environments receive this exact artifact.
+  build-angular:
+    name: Build canonical Angular browser artifact
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        run: pnpm nx build @copilotkit/showcase-angular-host
+
+      - name: Upload canonical Angular browser artifact
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: showcase-angular-browser-${{ github.sha }}
+          path: showcase/angular/dist/showcase-angular/browser
+          if-no-files-found: error
+          retention-days: 1
+
   build:
-    needs: [detect-changes, check-lockfile, verify-image-refs]
+    needs: [detect-changes, check-lockfile, verify-image-refs, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
@@ -382,11 +448,18 @@ jobs:
           lfs: true
           persist-credentials: false
 
+      - name: Download canonical Angular browser artifact
+        if: startsWith(matrix.service.context, 'showcase/integrations/')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: showcase-angular-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/showcase-angular-browser
+
       - name: Setup Depot
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -415,6 +488,8 @@ jobs:
           echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
 
       - name: Copy shared modules into build context
+        env:
+          ANGULAR_BROWSER: ${{ runner.temp }}/showcase-angular-browser
         run: |
           set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
@@ -451,6 +526,11 @@ jobs:
               fi
             fi
           done
+
+          if [ -L "$CONTEXT/public/angular" ]; then
+            source showcase/scripts/cli/_common.sh
+            stage_angular "$CONTEXT" "$ANGULAR_BROWSER"
+          fi
 
       - name: Build and push
         if: ${{ matrix.service.skip_build != true }}
@@ -656,7 +736,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

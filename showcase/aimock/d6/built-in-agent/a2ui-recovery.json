@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / a2ui-recovery (A2UI error recovery)",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-07-23",
+    "_note": "BIA's a2ui-recovery reuses the declarative-gen-ui agent factory (showcase/integrations/built-in-agent/src/lib/factory/a2ui-factory.ts, createDeclarativeGenUIAgent) behind /api/copilotkit-a2ui-recovery with a2ui.injectA2UITool=false. Flow per pill mirrors gen-ui-declarative: (1) outer agent emits generate_a2ui with a {brief} arg (matched by the unique per-pill userMessage + turnIndex parity; even=outer toolcall); (2) the tool body runs a SECONDARY LLM (response_format=json_object, no tools) seeded with the brief, which returns a flat A2UI catalog JSON {surfaceId,catalogId,components,data}; the factory validates+wraps it into an a2ui_operations container that the A2UI middleware paints; (3) the outer agent emits a short narration (odd turnIndex). The probe (d5-a2ui-recovery.ts) sends HEAL first (turn 1 -> turnIndex 0/1) then EXHAUST (turn 2 -> turnIndex 2/3). HEAL: secondary returns a valid Column+2 Metric surface -> paints declarative-metric x2, no failure card. EXHAUST: secondary returns an empty-components surface so the factory rejects it; parity target is the middleware's a2ui_recovery_exhausted 'failed' card. No `context` match on the secondary entries would 404 in a real browser, but the harness sends x-aimock-context so context-scoped entries are safe here; the per-pill prompts are unique so userMessage alone disambiguates."
+  },
+  "fixtures": [
+    {
+      "_comment": "HEAL pill - SECONDARY LLM (json_object): returns a VALID flat A2UI surface, a Column root with two Metric tiles -> declarative-metric x2. Matched by the brief substring + responseFormat; listed before the outer entry (outer call is NOT json_object).",
+      "match": {
+        "userMessage": "Q2 revenue summary",
+        "responseFormat": "json_object",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+      }
+    },
+    {
+      "_comment": "EXHAUST pill - SECONDARY LLM (json_object): returns a surface with NO components so the factory's output validation rejects it (parity target: the recovery loop exhausts and the middleware paints the a2ui_recovery_exhausted 'failed' card).",
+      "match": {
+        "userMessage": "report that keeps failing validation",
+        "responseFormat": "json_object",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "{\"surfaceId\":\"recovery-demo-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[],\"data\":{}}"
+      }
+    },
+    {
+      "_comment": "HEAL pill - outer agent emits generate_a2ui (turn 1, turnIndex 0 = first assistant action). Brief echoes 'Q2 revenue summary' so the secondary entry above matches.",
+      "match": {
+        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bia_recover_heal_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"brief\":\"Q2 revenue summary with revenue and win-rate metric tiles\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL pill - outer agent narration after the healed surface paints (turn 1, turnIndex 1).",
+      "match": {
+        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "turnIndex": 1,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your Q2 revenue summary."
+      }
+    },
+    {
+      "_comment": "EXHAUST pill - outer agent emits generate_a2ui (turn 2, turnIndex 2 = even/outer toolcall). Brief echoes 'report that keeps failing validation' so the secondary entry matches.",
+      "match": {
+        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "turnIndex": 2,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bia_recover_exhaust_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"brief\":\"report that keeps failing validation on every attempt\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST pill - outer agent narration after the recovery exhausts (turn 2, turnIndex 3 = odd/narration).",
+      "match": {
+        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "turnIndex": 3,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      }
+    }
+  ]
+}

@@ -2,11 +2,6 @@
 
 Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`. This page explains the full lifecycle of that thread on the client: how the id is created, how prior history is restored when a conversation loads, how to switch between threads or start a new one, and where CopilotKit's threads end and your agent framework's own persistence (e.g. a LangGraph checkpointer) begins.
 
-It complements the other threads docs:
-- [Headless Threads](/headless-threads) — the `useThreads` API for listing/renaming/archiving/deleting.
-- [Threads & Persistence Architecture](/premium/threads-explained) — the server-side event-replay model.
-- [Multi-conversation chat](/tutorials/multi-conversation-chat) — an end-to-end sidebar tutorial.
-
 <Callout type="info">
   This page describes the **v2** hooks and components imported from `@copilotkit/react-core/v2`. The v1 API (`useCopilotChat`, `initialMessages`, the v1 `useThreads`) behaves differently; see the [v1 vs v2 notes](#v1-vs-v2) at the end.
 </Callout>
@@ -76,6 +71,44 @@ function MyComponent() {
 <Callout type="info">
   There is no v2 `useCopilotChat` hook and no v2 `initialMessages` prop. Read messages from `useAgent().agent.messages` and mutate with `agent.setMessages(...)` / `agent.addMessage(...)`. (`initialMessages` still exists on the **v1** `useCopilotChat` hook; see [below](#v1-vs-v2).)
 </Callout>
+
+## Scope Rich Threads to the signed-in user
+
+Your application owns end-user authentication. For an Intelligence-enabled
+Runtime, implement `identifyUser(request)` with the server-verified session or
+token from your auth provider and return a stable user `id` and `name`:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  identifyUser: async (request) => {
+    const session = await verifyAppSession(request); // Your server-side auth.
+    if (!session?.user) throw new Error("Unauthorized");
+
+    return {
+      id: session.user.id,
+      name: session.user.name,
+    };
+  },
+});
+```
+
+Enterprise Intelligence combines that application user identity with the
+selected project when it scopes thread lists, subscriptions, history, rename,
+archive, unarchive, and delete operations. The project Runtime API key is a
+separate credential: keep it on the server and do not use the developer who
+created that key as the application user.
+
+<Callout type="warn">
+  A static `identifyUser` value is suitable only for a single-user demo. In a
+  multi-user application, every request must resolve the authenticated
+  application user or those users will share the same thread scope.
+</Callout>
+
+See [Authentication](/auth) for forwarding and verifying your provider's auth
+context. `identifyUser` is the additional Runtime contract that assigns the
+verified application user to Rich Threads.
 
 ## Switching threads and starting new ones
 
@@ -166,8 +199,24 @@ A LangGraph checkpointer (an `AsyncPostgresSaver` + `compile(checkpointer=...)`)
 
 The bridge between the two is the `threadId`: when you pass an explicit CopilotKit `threadId`, it's forwarded to the backend as the AG-UI `threadId`, which your framework can use directly as (or map to) its own checkpoint/thread id.
 
+### Future runs can remain durable in both places
+
+After historical import, future conversations that run through CopilotKit are
+written to Enterprise Intelligence as Rich Threads. If your LangGraph agent
+continues using a durable checkpointer or LangGraph Platform, those same runs
+also continue through LangGraph's native persistence. The same applies to an ADK
+agent that remains connected to a durable session service with retained
+sessions. This lets you keep native framework storage and analytics while users
+get replay, generative UI, multimodal history, and realtime continuity through
+CopilotKit.
+
+This is coordinated persistence during future CopilotKit-mediated runs, not
+general database replication. CopilotKit lifecycle actions such as rename,
+archive, and delete apply to the Enterprise Intelligence thread; they do not
+rename, archive, or delete records in the native framework store.
+
 <Callout type="info">
-  See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing threads](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
+  See [LangGraph persistence](/integrations/langgraph/advanced/persistence/message-persistence) for the framework-native (checkpointer) side, and [Importing and synchronizing thread history](/threads-import) for bringing existing framework conversations into the platform store. (LangGraph *Platform* requires thread ids to be UUIDs, which CopilotKit's auto-minted ids already are.)
 </Callout>
 
 ## MCP Apps activity and history
@@ -186,4 +235,4 @@ Practically, MCP App UI restores the same way the rest of the conversation does:
 - [Headless Threads](/headless-threads) — the full `useThreads` API
 - [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, realtime sync
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a chat-history sidebar
-- [Importing threads](/threads-import) — bring existing framework conversations into the platform
+- [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform and keep future runs continuous

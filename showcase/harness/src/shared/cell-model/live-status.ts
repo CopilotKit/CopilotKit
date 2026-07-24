@@ -439,6 +439,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agent-config": ["agent-config"],
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
   // Reasoning family — both demos route through `reasoning-display`.
   "reasoning-custom": ["reasoning-display"],
   "reasoning-default": ["reasoning-display"],
@@ -463,6 +464,9 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "declarative-hashbrown": ["byoc"],
   "declarative-json-render": ["byoc"],
   voice: ["voice"],
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**
@@ -498,8 +502,11 @@ function worstStateRank(state: string): number {
  * Effective state for staleness folding: a green row whose `observed_at` is
  * older than `maxAgeMs` folds in as `degraded`, so a frozen-green driver can
  * never win the all-green tie and mask a fresh-green sibling. Only green is
- * downgraded — a stale red/degraded row already signals a problem. Mirrors
- * `cell-model.ts`'s per-row stale-green downgrade.
+ * downgraded — a stale red/degraded row already signals a problem. Uses the
+ * same per-row stale-green downgrade as the V2 `foldFamily`
+ * (cell-model.contribution.ts) — but note foldFamily applies the downgrade to
+ * RANKING only and returns the RAW winner row, whereas the badge resolvers
+ * below rewrite the returned `.state` (see resolveD5Row).
  */
 function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
   return row.state === "green" && isStale(row, now, maxAgeMs)
@@ -526,8 +533,13 @@ function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
  *
  * Returns the EFFECTIVE (stale-downgraded) winner row — a stale-green
  * winner comes back with `state: "degraded"`, matching the rank that made
- * it win the fold, so `.state` never contradicts the resolution (mirrors
- * `resolveD5` in cell-model.ts and `buildBadge` below). Exported for tests.
+ * it win the fold, so `.state` never contradicts the resolution (as
+ * `buildBadge` below also does). NOTE: this is a DELIBERATE divergence from
+ * the V2 cell-model pipeline (`foldFamily`/`testLevelFromFold`), which
+ * surfaces the RAW winner `.state` on `TestLevel.row` and keeps the downgrade
+ * only in the classified contribution. This badge resolver and the CellModel
+ * therefore report a different `.row.state` for the same stale-green winner
+ * ON PURPOSE — do not "reconcile" them. Exported for tests.
  */
 export function resolveD5Row(
   live: LiveStatusMap,
@@ -537,7 +549,7 @@ export function resolveD5Row(
 ): StatusRow | null {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
   // Unmapped / empty-map feature: no 1P test exists, so return null (gray
-  // no-data badge) to match cell-model.ts `resolveD5` (returns exists:false)
+  // no-data badge) to match the legacy `resolveD5` (returns exists:false)
   // and depth-utils.ts `isD5Green` (returns false). There is NO direct-key
   // fallback — a feature with real D5 coverage must be in CATALOG_TO_D5_KEY.
   // A direct `d5:<slug>/<featureId>` fallback was removed because it could
@@ -548,11 +560,11 @@ export function resolveD5Row(
     return null;
   }
   // Per-sub-row stale-green→degraded fold applied BEFORE the worst-state
-  // comparison (mirrors cell-model.ts `resolveD5`): any stale-green sub-row
+  // comparison (mirrors the legacy `resolveD5`): any stale-green sub-row
   // folds in as degraded so it can never win the all-green tie and mask a
   // fresh-green sibling. D5 uses the e2e (6h) window.
   //
-  // STRICT on missing sub-rows (mirrors cell-model.ts `resolveD5` and
+  // STRICT on missing sub-rows (mirrors the legacy `resolveD5` and
   // depth-utils.ts `isD5Green`'s `every(...)`): a multi-key family is credited
   // green ONLY when EVERY mapped sub-row is present. A missing mapped sub-row
   // (`anyMissing`) forces the family out of green and resolves to `null`
@@ -573,7 +585,7 @@ export function resolveD5Row(
       worstStateRank(eff) > worstStateRank(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so the returned `.state` agrees
-      // with the rank that won the fold — mirrors cell-model.ts `resolveD5`.
+      // with the rank that won the fold — mirrors the legacy `resolveD5`.
       worst = eff === row.state ? row : { ...row, state: eff };
       worstState = eff;
     }
@@ -663,7 +675,8 @@ export function resolveD6Row(
  * (`d4-chat-roundtrip.ts`) writes `chat:<slug>` / `tools:<slug>` rows once
  * per integration.
  *
- * Mirrors `resolveD4` in cell-model.ts, including its EXPECTATION MAPPING:
+ * Matches origin/main's legacy `resolveD4` (since replaced by the V2
+ * `foldFamily`/`classifyRung` pipeline), including its EXPECTATION MAPPING:
  *   - `chat:<slug>` is producer-UNCONDITIONAL (written for every probed
  *     integration). A green/degraded fold with the chat row MISSING is an
  *     unverified family and collapses to `null` (no-data → gray badge). A
@@ -712,7 +725,7 @@ export function resolveD4Row(
   }
 
   // STRICT on the UNCONDITIONAL row: a missing `chat:<slug>` collapses a
-  // below-red fold to no-data (mirrors cell-model.ts resolveD4 and the
+  // below-red fold to no-data (mirrors the legacy resolveD4 and the
   // D5/D6 anyMissing collapse). Rank-based so out-of-vocab states survive.
   if (
     !chatRow &&
@@ -817,10 +830,8 @@ export type StarterFailureClass = (typeof STARTER_FAILURE_CLASSES)[number];
  * SOFT (transient) failure classes that earn two-miss tolerance. `smoke-failed`
  * is deliberately ABSENT — a real content regression is a hard red.
  */
-const SOFT_STARTER_FAILURE_CLASSES: ReadonlySet<StarterFailureClass> = new Set([
-  "transport-error",
-  "aborted",
-]);
+export const SOFT_STARTER_FAILURE_CLASSES: ReadonlySet<StarterFailureClass> =
+  new Set(["transport-error", "aborted"]);
 
 /** Type guard for a valid StarterFailureClass. */
 export function isStarterFailureClass(
@@ -857,7 +868,7 @@ export function starterErrorClassFromSignal(
  * `fail_count >= 2` is "two+ consecutive misses — confirmed". A SOFT failure
  * flips red only once the count crosses this threshold.
  */
-const SOFT_MISS_TOLERANCE_THRESHOLD = 2;
+export const SOFT_MISS_TOLERANCE_THRESHOLD = 2;
 
 /**
  * Resolve the `starter:<columnSlug>/<level>` row for one starter sub-cell.

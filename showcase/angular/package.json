@@ -1,0 +1,45 @@
+{
+  "name": "@copilotkit/showcase-angular-host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "pnpm --dir ../scripts generate-registry && node scripts/stage-demo-assets.mjs",
+    "build:dependencies": "pnpm --filter @copilotkit/shared --filter @copilotkit/core --filter @copilotkit/a2ui-renderer --filter @copilotkit/web-components --filter @copilotkit/angular --workspace-concurrency=1 run build",
+    "build": "pnpm run build:browser",
+    "build:browser": "pnpm run build:dependencies && pnpm run generate && ng build --stats-json && node scripts/check-performance-budget.mjs && node scripts/check-browser-artifact.mjs",
+    "record:performance": "node scripts/record-performance-baseline.mjs",
+    "test": "pnpm run test:node && pnpm run test:angular",
+    "test:angular": "pnpm run build:dependencies && pnpm run generate && ng test --watch=false",
+    "test:node": "pnpm run generate && vitest run",
+    "typecheck": "pnpm run build:dependencies && pnpm run generate && tsc --noEmit -p tsconfig.app.json"
+  },
+  "dependencies": {
+    "@a2ui/web_core": "0.9.0",
+    "@angular/cdk": "21.2.14",
+    "@angular/common": "21.2.18",
+    "@angular/core": "21.2.18",
+    "@angular/platform-browser": "21.2.18",
+    "@angular/router": "21.2.18",
+    "@copilotkit/a2ui-renderer": "workspace:*",
+    "@copilotkit/angular": "workspace:*",
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "@copilotkit/web-components": "workspace:*",
+    "rxjs": "^7.8.1",
+    "lit": "^3.3.2",
+    "tslib": "^2.8.1",
+    "zod": "^3.25.75",
+    "zod-to-json-schema": "^3.24.1"
+  },
+  "devDependencies": {
+    "@angular/build": "21.2.14",
+    "@angular/cli": "21.2.14",
+    "@angular/compiler": "21.2.18",
+    "@angular/compiler-cli": "21.2.18",
+    "@types/node": "^22.5.1",
+    "jsdom": "^24.0.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.3"
+  }
+}
