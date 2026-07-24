@@ -13,6 +13,7 @@
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
+    "packages/intelligence/conformance/**",
     "**/package.json"
   ]
 }
