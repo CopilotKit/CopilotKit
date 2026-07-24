@@ -97,24 +97,22 @@ function runtimeInfoResponse(info: RuntimeInfo): Response {
   });
 }
 
-/** Create a Runtime response promise whose completion the test controls. */
-function deferredRuntimeInfoResponse(): {
-  promise: Promise<Response>;
-  resolve: (response: Response) => void;
+/** Create a value promise whose completion the test controls. */
+function deferredValue<T>(label: string): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
 } {
-  let resolveResponse: ((response: Response) => void) | undefined;
-  const promise = new Promise<Response>((resolve) => {
-    resolveResponse = resolve;
+  let resolveValue: ((value: T) => void) | undefined;
+  const promise = new Promise<T>((resolve) => {
+    resolveValue = resolve;
   });
   return {
     promise,
-    resolve(response) {
-      if (!resolveResponse) {
-        throw new Error(
-          "Deferred Runtime response resolved before initialization",
-        );
+    resolve(value) {
+      if (!resolveValue) {
+        throw new Error(`Deferred ${label} resolved before initialization`);
       }
-      resolveResponse(response);
+      resolveValue(value);
     },
   };
 }
@@ -345,6 +343,52 @@ test("retries a transient Runtime entitlement result once without a reconnect", 
   }
 });
 
+test("retries after a slow connected subscriber releases the first request", async () => {
+  vi.useFakeTimers();
+  const connectedSubscriber = deferredValue<void>("connected subscriber");
+  const { core, fetchMock, teardown } = setupCore(
+    runtimeInfoResponse(
+      runtimeInfo({
+        licenseStatus: "unknown",
+        runtimeEntitlements: retryableRuntimeEntitlements,
+      }),
+    ),
+    runtimeInfoResponse(runtimeInfo()),
+  );
+  let blockConnectedNotification = true;
+  const subscription = core.subscribe({
+    onRuntimeConnectionStatusChanged: ({ status }) => {
+      if (
+        blockConnectedNotification &&
+        status === CopilotKitCoreRuntimeConnectionStatus.Connected
+      ) {
+        blockConnectedNotification = false;
+        return connectedSubscriber.promise;
+      }
+    },
+  });
+
+  try {
+    await vi.waitFor(() => {
+      expect(core.runtimeEntitlementRetryPending).toBe(true);
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+
+    connectedSubscriber.resolve();
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(core.runtimeEntitlementRetryPending).toBe(false);
+    });
+  } finally {
+    subscription.unsubscribe();
+    teardown();
+    vi.useRealTimers();
+  }
+});
+
 test("does not retry a non-retryable Runtime entitlement result", async () => {
   vi.useFakeTimers();
   const { core, fetchMock, teardown } = setupCore(
@@ -462,7 +506,7 @@ test("settles a bounded entitlement retry when the retry request fails", async (
 
 test("ignores stale Runtime authority and retries after the connection target changes", async () => {
   vi.useFakeTimers();
-  const staleResponse = deferredRuntimeInfoResponse();
+  const staleResponse = deferredValue<Response>("Runtime response");
   const fetchMock = vi.fn<typeof globalThis.fetch>();
   fetchMock
     .mockImplementationOnce(() => staleResponse.promise)
@@ -514,6 +558,81 @@ test("ignores stale Runtime authority and retries after the connection target ch
       licenseStatus: "expiring",
       runtimeEntitlements: refreshedRuntimeEntitlements,
     });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  }
+});
+
+test("ignores an old Runtime response after reconnecting to the same target", async () => {
+  vi.useFakeTimers();
+  const staleResponse = deferredValue<Response>("Runtime response");
+  const fetchMock = vi.fn<typeof globalThis.fetch>();
+  fetchMock
+    .mockImplementationOnce(() => staleResponse.promise)
+    .mockResolvedValueOnce(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "expiring",
+          runtimeEntitlements: refreshedRuntimeEntitlements,
+          version: "B",
+        }),
+      ),
+    )
+    .mockResolvedValueOnce(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "valid",
+          runtimeEntitlements: initialRuntimeEntitlements,
+          version: "A-new",
+        }),
+      ),
+    );
+  vi.stubGlobal("window", {});
+  vi.stubGlobal("fetch", fetchMock);
+  const core = new CopilotKitCore({
+    runtimeUrl: "https://a.example",
+    runtimeTransport: "rest",
+  });
+
+  try {
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    core.setRuntimeUrl("https://b.example");
+    await vi.waitFor(() => {
+      expect(core.runtimeVersion).toBe("B");
+    });
+
+    core.setRuntimeUrl("https://a.example");
+    await vi.waitFor(() => {
+      expect(core.runtimeVersion).toBe("A-new");
+    });
+
+    staleResponse.resolve(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "unknown",
+          runtimeEntitlements: retryableRuntimeEntitlements,
+          version: "A-old",
+        }),
+      ),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(fetchMock.mock.calls.map(([input]) => input)).toEqual([
+      "https://a.example/info",
+      "https://b.example/info",
+      "https://a.example/info",
+    ]);
+    expect(core.runtimeVersion).toBe("A-new");
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "valid",
+      runtimeEntitlements: initialRuntimeEntitlements,
+    });
+    expect(core.runtimeEntitlementRetryPending).toBe(false);
   } finally {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
