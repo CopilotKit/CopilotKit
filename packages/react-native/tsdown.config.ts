@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 export default defineConfig({
   entry: [
     "src/index.ts",
+    "src/headless.ts",
     "src/components/index.ts",
     "src/polyfills.ts",
     "src/polyfills/streams.ts",

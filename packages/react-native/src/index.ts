@@ -14,18 +14,17 @@
  * ```
  */
 
-// Auto-install polyfills so consumers don't need a manual import.
-// Must run before any CopilotKit code that relies on ReadableStream / fetch streaming.
-import "./polyfills";
+// Headless surface: provider + platform-agnostic hooks + core/AG-UI types.
+// This also side-effect-imports "./polyfills" (as its first statement), so the
+// polyfills install before any chat-UI module below is evaluated. The prebuilt
+// chat components + useAttachments are layered on top here; consumers who don't
+// need them (and want to skip the @gorhom/bottom-sheet + expo-* native deps)
+// can import from "@copilotkit/react-native/headless" instead.
+export * from "./headless";
 
-// React Native provider (no web dependencies)
-export { CopilotKitProvider } from "./CopilotKitProvider";
-export type { CopilotKitNativeProviderProps } from "./CopilotKitProvider";
-
-// Provider props alias (mirrors web's CopilotKitProviderProps)
-export type { CopilotKitNativeProviderProps as CopilotKitProviderProps } from "./CopilotKitProvider";
-
-// Headless chat components (no DOM, consumer provides UI)
+// Prebuilt chat components (import @gorhom/bottom-sheet; not in the
+// /headless entry). Consumers who don't need these can import the provider
+// and hooks from "@copilotkit/react-native/headless" instead.
 export { CopilotChat, useCopilotChatContext } from "./CopilotChat";
 export type { CopilotChatProps, CopilotChatContextValue } from "./CopilotChat";
 export { CopilotModal } from "./CopilotModal";
@@ -49,80 +48,11 @@ export type {
 export { CopilotPopup } from "./CopilotPopup";
 export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 
-// Re-export context and hooks from react-core (platform-agnostic)
-export {
-  useCopilotKit,
-  useLicenseContext,
-  CopilotKitContext,
-  type CopilotKitContextValue,
-} from "@copilotkit/react-core/v2/context";
-
-// Re-export hooks that work without web deps
-// These consume the CopilotKitContext which our provider sets
-export {
-  useAgent,
-  useFrontendTool,
-  useComponent,
-  useHumanInTheLoop,
-  useInterrupt,
-  useSuggestions,
-  useConfigureSuggestions,
-  useAgentContext,
-  useThreads,
-  useCapabilities,
-  defineToolCallRenderer,
-  CopilotChatDefaultLabels,
-  type UseAgentUpdate,
-  type UseInterruptConfig,
-  type AgentContextInput,
-  type JsonSerializable,
-  type Thread,
-  type UseThreadsInput,
-  type UseThreadsResult,
-  type CopilotChatLabels,
-  type CopilotChatConfigurationValue,
-  type InterruptEvent,
-  type InterruptHandlerProps,
-  type InterruptRenderProps,
-  type Interrupt,
-  type ResumeEntry,
-  type ResumeStatus,
-  type ReactFrontendTool,
-  type ReactHumanInTheLoop,
-  type RenderToolInProgressProps,
-  type RenderToolExecutingProps,
-  type RenderToolCompleteProps,
-} from "@copilotkit/react-core/v2/headless";
-
-// useRenderToolCall — web-specific (depends on DOM elements via DefaultToolCallRenderer)
-// useRenderCustomMessages — web-specific (tightly coupled to web chat UI rendering pipeline)
-// useRenderActivityMessage — web-specific (tightly coupled to web chat UI rendering pipeline)
-// useDefaultRenderTool — web-specific (DefaultToolCallRenderer uses <div>, <svg>, etc.)
-
-// Re-export core types commonly needed
-export type {
-  CopilotKitCoreRuntimeConnectionStatus,
-  CopilotKitCoreErrorCode,
-  Suggestion,
-  FrontendTool,
-  ToolCallStatus,
-} from "@copilotkit/core";
-
-// Re-export AG-UI types for consumer convenience (matches web SDK surface)
-export type {
-  Message,
-  AssistantMessage as AssistantMessageType,
-  ToolCall,
-  ToolMessage,
-  AbstractAgent,
-  AgentCapabilities,
-} from "@ag-ui/client";
-
-// Render tool hook (React Native version with render registry integration)
-export { useRenderTool } from "./hooks/useRenderTool";
-export type { UseRenderToolOptions } from "./hooks/useRenderTool";
-export {
-  RenderToolProvider,
-  useRenderToolRegistry,
-} from "./hooks/RenderToolContext";
-export type { RenderToolProps } from "./hooks/RenderToolContext";
+// The provider, platform-agnostic hooks (useAgent / useFrontendTool / ...),
+// core + AG-UI types, and the render-tool registry are re-exported from
+// "./headless" above (`export * from "./headless"`).
+//
+// Deliberately NOT re-exported (web-specific, from @copilotkit/react-core/v2):
+//   useRenderToolCall     — depends on DOM elements via DefaultToolCallRenderer
+//   useRenderCustomMessages / useRenderActivityMessage — web chat UI pipeline
+//   useDefaultRenderTool  — DefaultToolCallRenderer uses <div>, <svg>, etc.
