@@ -57,6 +57,16 @@ export interface LicenseContextValue {
   getLimit: (feature: string) => number | null;
 }
 
+/** Read a record value without traversing its prototype chain. */
+function getOwnRecordValue<Value>(
+  record: Readonly<Record<string, Value>>,
+  key: string,
+): Value | undefined {
+  return Object.prototype.hasOwnProperty.call(record, key)
+    ? record[key]
+    : undefined;
+}
+
 /**
  * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
@@ -87,10 +97,14 @@ export function createLicenseContextValue(
     license: null,
     checkFeature: (feature) =>
       readyEntitlement
-        ? (activeEntitlement?.features[feature] ?? false)
+        ? activeEntitlement
+          ? (getOwnRecordValue(activeEntitlement.features, feature) ?? false)
+          : false
         : featuresEnabled,
     getLimit: (feature) =>
-      activeEntitlement ? (activeEntitlement.limits[feature] ?? null) : null,
+      activeEntitlement
+        ? (getOwnRecordValue(activeEntitlement.limits, feature) ?? null)
+        : null,
   };
 }
 

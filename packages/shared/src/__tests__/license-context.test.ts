@@ -71,3 +71,20 @@ test("license context denies features and limits for a ready inactive entitlemen
   expect(ctx.checkFeature("chat")).toBe(false);
   expect(ctx.getLimit("threads")).toBeNull();
 });
+
+test("license context ignores inherited feature and limit keys", () => {
+  const ctx = createLicenseContextValue("valid", {
+    status: "ready",
+    entitlement: {
+      active: true,
+      source: "managedOrgSubscription",
+      features: {},
+      limits: {},
+    },
+  });
+
+  for (const feature of ["toString", "constructor"]) {
+    expect(ctx.checkFeature(feature)).toBe(false);
+    expect(ctx.getLimit(feature)).toBeNull();
+  }
+});
