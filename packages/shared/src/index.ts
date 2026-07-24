@@ -47,7 +47,7 @@ import type {
  * Frontend providers create their own context using this shape.
  */
 export interface LicenseContextValue {
-  /** Server-reported license status from the runtime's /info endpoint. Null until known. */
+  /** Effective license status after structured entitlement precedence. Null until known. */
   status: RuntimeLicenseStatus | null;
   /** The license payload if available. Always null on the client; the payload stays server-side. */
   license: LicensePayload | null;
@@ -71,32 +71,49 @@ function getOwnRecordValue<Value>(
  * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
  *
- * A ready structured entitlement is authoritative. Active entitlements supply
- * feature grants and limits; inactive entitlements deny every feature and
- * limit. Older runtimes that report only a status retain the legacy behavior:
- * features are enabled unless the status is "expired" or "invalid", and no
- * limits are reported. This is inlined here to avoid importing the full
- * license-verifier bundle (which depends on Node's `crypto`) into browser
- * bundles.
+ * A ready managed entitlement is authoritative in both directions. A ready
+ * active self-hosted entitlement is also authoritative, while an inactive
+ * self-hosted response preserves the legacy signed-license fallback. Active
+ * entitlements supply feature grants and limits; authoritative inactive
+ * entitlements deny every feature and limit. Older runtimes that report only a
+ * status retain the legacy behavior: features are enabled unless the status is
+ * "expired" or "invalid", and no limits are reported. This is inlined here to
+ * avoid importing the full license-verifier bundle (which depends on Node's
+ * `crypto`) into browser bundles.
  */
 export function createLicenseContextValue(
   status: RuntimeLicenseStatus | null | undefined,
   runtimeEntitlements?: RuntimeEntitlementResponse,
 ): LicenseContextValue {
-  const resolvedStatus = status ?? null;
-  const featuresEnabled =
-    resolvedStatus !== "expired" && resolvedStatus !== "invalid";
   const readyEntitlement =
     runtimeEntitlements?.status === "ready"
       ? runtimeEntitlements.entitlement
       : null;
-  const activeEntitlement = readyEntitlement?.active ? readyEntitlement : null;
+  const hasUsableSelfHostedLegacyFallback =
+    readyEntitlement &&
+    !readyEntitlement.active &&
+    readyEntitlement.source === "selfHostedDeploymentLicense" &&
+    (status === "valid" || status === "expiring");
+  const featureAuthority =
+    readyEntitlement && !hasUsableSelfHostedLegacyFallback
+      ? readyEntitlement
+      : null;
+  const activeEntitlement = featureAuthority?.active ? featureAuthority : null;
+  const resolvedStatus = activeEntitlement
+    ? "valid"
+    : readyEntitlement?.source === "managedOrgSubscription"
+      ? "none"
+      : featureAuthority
+        ? (status ?? "none")
+        : (status ?? null);
+  const featuresEnabled =
+    resolvedStatus !== "expired" && resolvedStatus !== "invalid";
 
   return {
     status: resolvedStatus,
     license: null,
     checkFeature: (feature) =>
-      readyEntitlement
+      featureAuthority
         ? activeEntitlement
           ? (getOwnRecordValue(activeEntitlement.features, feature) ?? false)
           : false

@@ -866,9 +866,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     hasNonReadyRuntimeEntitlement &&
     !runtimeEntitlementRetryInProgress &&
     !hasLegacyRuntimeEntitlementFallback;
-  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
-    ? undefined
-    : runtimeLicenseStatus;
   const licenseContextValue = useMemo<LicenseContextValue>(() => {
     const runtimeLicenseContext = createLicenseContextValue(
       runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
@@ -891,6 +888,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     runtimeEntitlements,
     runtimeLicenseStatus,
   ]);
+  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
+    ? undefined
+    : (licenseContextValue.status ?? undefined);
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>

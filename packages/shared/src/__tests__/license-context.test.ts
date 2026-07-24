@@ -72,6 +72,58 @@ test("license context denies features and limits for a ready inactive entitlemen
   expect(ctx.getLimit("threads")).toBeNull();
 });
 
+test.each(["valid", "expiring"] as RuntimeLicenseStatus[])(
+  "license context preserves a %s legacy fallback for an inactive self-hosted entitlement",
+  (status) => {
+    const ctx = createLicenseContextValue(status, {
+      status: "ready",
+      entitlement: {
+        active: false,
+        source: "selfHostedDeploymentLicense",
+        features: {
+          threads: false,
+        },
+        limits: {
+          threads: 0,
+        },
+      },
+    });
+
+    expect(ctx.status).toBe(status);
+    expect(ctx.checkFeature("threads")).toBe(true);
+    expect(ctx.getLimit("threads")).toBeNull();
+  },
+);
+
+test.each([
+  { status: undefined, expectedStatus: "none" },
+  { status: "none", expectedStatus: "none" },
+  { status: "expired", expectedStatus: "expired" },
+  { status: "invalid", expectedStatus: "invalid" },
+  { status: "unknown", expectedStatus: "unknown" },
+] as const)(
+  "license context denies an inactive self-hosted entitlement with $status legacy status",
+  ({ status, expectedStatus }) => {
+    const ctx = createLicenseContextValue(status, {
+      status: "ready",
+      entitlement: {
+        active: false,
+        source: "selfHostedDeploymentLicense",
+        features: {
+          threads: true,
+        },
+        limits: {
+          threads: 25,
+        },
+      },
+    });
+
+    expect(ctx.status).toBe(expectedStatus);
+    expect(ctx.checkFeature("threads")).toBe(false);
+    expect(ctx.getLimit("threads")).toBeNull();
+  },
+);
+
 test("license context ignores inherited feature and limit keys", () => {
   const ctx = createLicenseContextValue("valid", {
     status: "ready",

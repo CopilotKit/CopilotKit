@@ -320,6 +320,97 @@ test("managed entitlements load the drawer when threads are granted", async () =
   }
 });
 
+test.each([
+  { label: "missing", licenseStatus: undefined },
+  { label: "invalid", licenseStatus: "invalid" as const },
+  { label: "expired", licenseStatus: "expired" as const },
+])(
+  "an active managed entitlement overrides a $label legacy status",
+  async ({ licenseStatus }) => {
+    const { dispose } = setupDrawerTest({
+      ...managedRuntimeInfo(true),
+      licenseStatus,
+    });
+
+    try {
+      render(
+        <CopilotKitProvider runtimeUrl="/api">
+          <CopilotChatConfigurationProvider>
+            <ThreadsFeatureProbe />
+            <CopilotThreadsDrawer />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(useThreadsMock).toHaveBeenLastCalledWith(
+          expect.objectContaining({ enabled: true }),
+        );
+        expect(
+          screen.getByTestId("threads-feature-authority").textContent,
+        ).toBe("status:valid threads:true");
+        const drawer = document.querySelector<CopilotKitThreadsDrawerElement>(
+          COPILOTKIT_THREADS_DRAWER_TAG,
+        );
+        expect(drawer?.licensed).toBe(true);
+      });
+
+      expect(
+        screen.queryByText(
+          /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
+        ),
+      ).toBeNull();
+    } finally {
+      dispose();
+    }
+  },
+);
+
+test.each(["valid", "expiring"] as const)(
+  "an inactive self-hosted entitlement preserves a %s legacy drawer fallback",
+  async (licenseStatus) => {
+    const { dispose } = setupDrawerTest({
+      ...managedRuntimeInfo(false),
+      licenseStatus,
+      runtimeEntitlements: {
+        status: "ready",
+        entitlement: {
+          active: false,
+          source: "selfHostedDeploymentLicense",
+          features: { threads: false },
+          limits: {},
+        },
+      },
+    });
+
+    try {
+      render(
+        <CopilotKitProvider runtimeUrl="/api">
+          <CopilotChatConfigurationProvider>
+            <ThreadsFeatureProbe />
+            <CopilotThreadsDrawer />
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(useThreadsMock).toHaveBeenLastCalledWith(
+          expect.objectContaining({ enabled: true }),
+        );
+        expect(
+          screen.getByTestId("threads-feature-authority").textContent,
+        ).toBe(`status:${licenseStatus} threads:true`);
+        const drawer = document.querySelector<CopilotKitThreadsDrawerElement>(
+          COPILOTKIT_THREADS_DRAWER_TAG,
+        );
+        expect(drawer?.licensed).toBe(true);
+      });
+    } finally {
+      dispose();
+    }
+  },
+);
+
 test("changing Runtime targets removes the previous thread grant while the next target is pending", async () => {
   const nextRuntimeResponse = deferredValue<Response>("next Runtime response");
   const { dispose, fetchMock } = setupDrawerTest(managedRuntimeInfo(true));
