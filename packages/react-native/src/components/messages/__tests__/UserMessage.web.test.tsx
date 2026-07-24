@@ -1,5 +1,5 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("react-native", () => {
@@ -37,15 +37,33 @@ vi.mock("react-native", () => {
 import { UserMessage } from "../UserMessage";
 
 describe("UserMessage on React Native Web", () => {
-  it("renders markdown through the real web renderer", () => {
+  it("renders markdown through the real web renderer", async () => {
     const { container } = render(
-      <UserMessage content="Hello **web** — [docs](https://example.com)" />,
+      <UserMessage
+        content={[
+          "Hello **web** — [docs](https://example.com)",
+          "",
+          "> quoted text",
+          "",
+          "| Key | Value |",
+          "| --- | --- |",
+          "| A | B |",
+        ].join("\n")}
+      />,
     );
 
-    expect(container.querySelector("strong")?.textContent).toBe("web");
+    await waitFor(() => {
+      expect(container.querySelector("strong")?.textContent).toBe("web");
+    });
     expect(container.querySelector("a")?.textContent).toBe("docs");
     expect(container.querySelector("a")?.getAttribute("href")).toBe(
       "https://example.com",
+    );
+    expect(container.querySelector("blockquote")?.style.backgroundColor).toBe(
+      "rgb(0, 76, 153)",
+    );
+    expect(container.querySelector("table")?.style.color).toBe(
+      "rgb(255, 255, 255)",
     );
   });
 });

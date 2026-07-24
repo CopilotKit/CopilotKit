@@ -1,10 +1,8 @@
 import type { CSSProperties } from "react";
-import React, { useMemo } from "react";
+import React, { lazy, Suspense, useMemo } from "react";
 import type { Components } from "react-markdown";
-import ReactMarkdown from "react-markdown";
 import { Platform } from "react-native";
 import { StreamdownText } from "react-native-streamdown";
-import remarkGfm from "remark-gfm";
 
 /**
  * Style object accepted by `react-native-enriched-markdown` (and therefore
@@ -98,6 +96,24 @@ export const defaultMarkdownStyles: MarkdownStyle = {
   },
 };
 
+interface WebMarkdownProps {
+  components: Components;
+  content: string;
+}
+
+const WebMarkdown = lazy(async () => {
+  const [{ default: ReactMarkdown }, { default: remarkGfm }] =
+    await Promise.all([import("react-markdown"), import("remark-gfm")]);
+
+  return {
+    default: ({ components, content }: WebMarkdownProps) => (
+      <ReactMarkdown components={components} remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+    ),
+  };
+});
+
 function toWebStyle(
   style: Record<string, unknown> | undefined,
 ): CSSProperties | undefined {
@@ -107,10 +123,12 @@ function toWebStyle(
     bulletColor: _bulletColor,
     markerColor: _markerColor,
     gapWidth,
+    borderWidth,
     ...cssStyle
   } = style;
   return {
     ...cssStyle,
+    ...(borderWidth !== undefined ? { borderStyle: "solid", borderWidth } : {}),
     ...(underline ? { textDecorationLine: "underline" } : {}),
     ...(gapWidth !== undefined ? { paddingLeft: gapWidth } : {}),
   } as CSSProperties;
@@ -140,7 +158,14 @@ export function CopilotMarkdown({
   const webComponents = useMemo<Components>(
     () => ({
       p: ({ node: _node, ...props }) => (
-        <p {...props} style={toWebStyle(mergedStyles.paragraph)} />
+        <p
+          {...props}
+          style={{
+            ...toWebStyle(mergedStyles.paragraph),
+            overflowWrap: "anywhere",
+            whiteSpace: "pre-wrap",
+          }}
+        />
       ),
       h1: ({ node: _node, ...props }) => (
         <h1 {...props} style={toWebStyle(mergedStyles.h1)} />
@@ -190,7 +215,57 @@ export function CopilotMarkdown({
         <code {...props} style={toWebStyle(mergedStyles.code)} />
       ),
       pre: ({ node: _node, ...props }) => (
-        <pre {...props} style={toWebStyle(mergedStyles.codeBlock)} />
+        <pre
+          {...props}
+          style={{
+            ...toWebStyle(mergedStyles.codeBlock),
+            boxSizing: "border-box",
+            maxWidth: "100%",
+            overflowX: "auto",
+          }}
+        />
+      ),
+      table: ({ node: _node, ...props }) => (
+        <div style={{ maxWidth: "100%", overflowX: "auto" }}>
+          <table
+            {...props}
+            style={{
+              ...toWebStyle(mergedStyles.paragraph),
+              borderCollapse: "collapse",
+              width: "100%",
+            }}
+          />
+        </div>
+      ),
+      th: ({ node: _node, ...props }) => (
+        <th
+          {...props}
+          style={{
+            border: "1px solid currentColor",
+            padding: "4px 8px",
+            textAlign: "left",
+          }}
+        />
+      ),
+      td: ({ node: _node, ...props }) => (
+        <td
+          {...props}
+          style={{
+            border: "1px solid currentColor",
+            padding: "4px 8px",
+          }}
+        />
+      ),
+      img: ({ node: _node, ...props }) => (
+        // oxlint-disable-next-line next/no-img-element -- React Native Web needs a DOM image renderer.
+        <img
+          {...props}
+          style={{
+            display: "block",
+            height: "auto",
+            maxWidth: "100%",
+          }}
+        />
       ),
     }),
     [mergedStyles],
@@ -198,9 +273,21 @@ export function CopilotMarkdown({
 
   if (Platform.OS === "web") {
     return (
-      <ReactMarkdown components={webComponents} remarkPlugins={[remarkGfm]}>
-        {content}
-      </ReactMarkdown>
+      <Suspense
+        fallback={
+          <span
+            style={{
+              ...toWebStyle(mergedStyles.paragraph),
+              overflowWrap: "anywhere",
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {content}
+          </span>
+        }
+      >
+        <WebMarkdown components={webComponents} content={content} />
+      </Suspense>
     );
   }
 

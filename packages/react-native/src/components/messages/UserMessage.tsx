@@ -55,6 +55,17 @@ const userMarkdownStyles: MarkdownStyle = {
     color: USER_TEXT_COLOR,
     backgroundColor: "#004C99",
   },
+  codeBlock: {
+    ...defaultMarkdownStyles.codeBlock,
+    color: USER_TEXT_COLOR,
+    backgroundColor: "#004C99",
+  },
+  blockquote: {
+    ...defaultMarkdownStyles.blockquote,
+    color: USER_TEXT_COLOR,
+    backgroundColor: "#004C99",
+    borderColor: "#80BFFF",
+  },
 };
 
 /**
