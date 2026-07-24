@@ -71,54 +71,106 @@ Use state rendering when you want to:
   <Step>
     ### Emit state updates from your agent
 
-    Use `copilotkit_emit_state` to push intermediate state to the frontend before a node finishes.
+    Create a progress-reporting tool and use `StateStreamingMiddleware` to automatically emit state updates when the tool is called.
 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
         ```python title="agent.py"
-        import asyncio
-        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
-        from langchain_core.runnables import RunnableConfig
+        from langchain_core.tools import tool # [!code highlight]
+        from deepagents import create_deep_agent
+        from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem # [!code highlight]
 
-        # Inside a custom tool or middleware hook where you have access to state and config:
-        async def emit_research_progress(state: AgentState, config: RunnableConfig):
-            state["searches"] = [
-                {"query": "Initial research", "done": False},
-                {"query": "Retrieving sources", "done": False},
-                {"query": "Forming an answer", "done": False},
-            ]
-            await copilotkit_emit_state(config, state) # [!code highlight]
+        # Define a tool for reporting research progress
+        @tool # [!code highlight]
+        def report_research_progress(searches: list[dict]): # [!code highlight]
+            """Report progressive research state updates to the user. # [!code highlight]
+            
+            Args: # [!code highlight]
+                searches: List of search queries with their completion status # [!code highlight]
+                    Each item should have 'query' (str) and 'done' (bool) fields # [!code highlight]
+            """ # [!code highlight]
+            pass  # State emission is handled automatically by StateStreamingMiddleware # [!code highlight]
 
-            for search in state["searches"]:
-                await asyncio.sleep(1)
-                search["done"] = True
-                await copilotkit_emit_state(config, state) # [!code highlight]
+        # Create the Deep Agent with state streaming middleware
+        agent = create_deep_agent( # [!code highlight]
+            model="openai:gpt-4o",
+            tools=[report_research_progress], # [!code highlight]
+            middleware=[ # [!code highlight]
+                CopilotKitMiddleware(),
+                StateStreamingMiddleware( # [!code highlight]
+                    StateItem( # [!code highlight]
+                        state_key="searches",  # State key to update # [!code highlight]
+                        tool="report_research_progress",  # Tool that triggers the update # [!code highlight]
+                        tool_argument="searches"  # Tool argument containing the state value # [!code highlight]
+                    ) # [!code highlight]
+                ), # [!code highlight]
+            ],
+            system_prompt="""You are a research assistant. As you work, report your progress # [!code highlight]
+            using report_research_progress with a list of searches showing what you're working on. # [!code highlight]
+            Update the 'done' field to true as you complete each step.""", # [!code highlight]
+        )
         ```
+
+        The `StateStreamingMiddleware` automatically emits state updates to the frontend whenever the agent calls `report_research_progress`.
       </Tab>
       <Tab value="TypeScript">
         ```ts title="agent.ts"
-        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { tool } from "@langchain/core/tools"; // [!code highlight]
+        import { z } from "zod";
+        import { createDeepAgent } from "deepagents";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
+        import { stateStreamingMiddleware, stateItem } from "@copilotkit/sdk-js/langgraph-middlewares"; // [!code highlight]
 
-        // Inside a custom graph node function that has access to state and config:
-        async function chatNode(state: any, config: any) {
-            state.searches = [
-                { query: "Initial research", done: false },
-                { query: "Retrieving sources", done: false },
-                { query: "Forming an answer", done: false },
-            ];
-            await copilotkitEmitState(config, state); // [!code highlight]
+        // Define a tool for reporting research progress
+        const reportResearchProgress = tool( // [!code highlight]
+          async (args) => args, // [!code highlight]
+          { // [!code highlight]
+            name: "report_research_progress", // [!code highlight]
+            description: "Report progressive research state updates to the user.", // [!code highlight]
+            schema: z.object({ // [!code highlight]
+              searches: z.array( // [!code highlight]
+                z.object({ // [!code highlight]
+                  query: z.string().describe("The research query"), // [!code highlight]
+                  done: z.boolean().describe("Whether this step is complete"), // [!code highlight]
+                }) // [!code highlight]
+              ), // [!code highlight]
+            }), // [!code highlight]
+          } // [!code highlight]
+        ); // [!code highlight]
 
-            for (const search of state.searches) {
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                search.done = true;
-                await copilotkitEmitState(config, state); // [!code highlight]
-            }
-
-            // ... rest of your node logic
-        }
+        // Create the Deep Agent with state streaming middleware
+        const agent = createDeepAgent({ // [!code highlight]
+          model: "openai:gpt-4o",
+          tools: [reportResearchProgress], // [!code highlight]
+          middleware: [ // [!code highlight]
+            copilotkitMiddleware,
+            stateStreamingMiddleware( // [!code highlight]
+              stateItem({ // [!code highlight]
+                stateKey: "searches",  // State key to update // [!code highlight]
+                tool: "report_research_progress",  // Tool that triggers the update // [!code highlight]
+                toolArgument: "searches",  // Tool argument containing the state value // [!code highlight]
+              }) // [!code highlight]
+            ), // [!code highlight]
+          ],
+          systemPrompt: `You are a research assistant. As you work, report your progress // [!code highlight]
+            using report_research_progress with a list of searches showing what you're working on. // [!code highlight]
+            Update the 'done' field to true as you complete each step.`, // [!code highlight]
+        });
         ```
+
+        The `stateStreamingMiddleware` automatically emits state updates to the frontend whenever the agent calls `report_research_progress`.
       </Tab>
     </Tabs>
+
+    <Callout type="info" title="How State Streaming Works">
+      **Deep Agents** uses `StateStreamingMiddleware` to automatically emit state updates when specific tools are called:
+
+      1. **Define a progress tool** — Create a tool that the agent calls to report progress (e.g., `report_research_progress`)
+      2. **Add StateStreamingMiddleware** — Maps the tool's arguments to state keys so state is automatically emitted when the tool is called
+      3. **Instruct the agent** — Use your system prompt to tell the agent when and how to call the progress tool
+
+      The middleware handles all state emission automatically - you don't need to manually call `copilotkit_emit_state()` in your tools.
+    </Callout>
   </Step>
   <Step>
     ### Render state in the UI
