@@ -35,8 +35,10 @@ function isFnTypeNode(v: unknown): v is {
  * - A `{type: fn}` node whose fn is a first-party channels-ui component
  *   (branded) → native, no peek.
  * - Any other `{type: fn}` node → peek: call the fn once; if it returns a React
- *   element the component is app JSX (→ image); if it returns channel nodes, or
- *   throws (e.g. it uses React hooks), it is a native component (→ null, native).
+ *   element the component is app JSX (→ image) (unless that returned element's
+ *   own `type` is a branded channels-ui component → native); if it returns
+ *   channel nodes, or throws (e.g. it uses React hooks), it is a native
+ *   component (→ null, native).
  *
  * Peeking calls a presentational component once for classification; the native
  * path then calls it again during binding. This double call is acceptable for
@@ -64,8 +66,14 @@ export function resolveArbitraryElement(v: unknown): object | null {
         if (typeof ot === "function" && isChannelComponent(ot)) return null;
         return out as object;
       }
-    } catch {
-      /* couldn't render statically → fall through to the native path */
+    } catch (err) {
+      // A throw here (e.g. the component uses React hooks) means it can't be
+      // statically classified → route native. Logged at debug so a genuine
+      // component bug is still discoverable rather than fully silent.
+      console.debug(
+        `[channel] resolveArbitraryElement: peek of <${(v as { type?: { name?: string } }).type?.name ?? "component"}> threw; routing native`,
+        err,
+      );
     }
   }
   return null;

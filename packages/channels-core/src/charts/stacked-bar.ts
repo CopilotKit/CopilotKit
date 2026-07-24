@@ -5,7 +5,7 @@ import type { ChartStyleProps } from "./types.js";
 
 export interface StackedDatum {
   label: string;
-  /** One value per series (series i uses colors[i]). */
+  /** One value per series (series i uses colors[i % colors.length], wrapping when there are more series than colors). */
   values: number[];
 }
 export interface StackedBarProps extends ChartStyleProps {
