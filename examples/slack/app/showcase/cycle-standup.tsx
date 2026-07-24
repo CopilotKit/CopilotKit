@@ -142,7 +142,7 @@ function teamRow(t: TeamProgress): ChannelNode {
 export function StandupCard(s: Standup): ChannelNode {
   const teams = s.teams.slice(0, 8);
   return (
-    <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg rounded-2xl font-brand">
+    <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg font-brand">
       <div className="flex flex-row items-center justify-between w-full">
         <span className="text-2xl font-bold text-brand-ink">
           Cycle progress by team

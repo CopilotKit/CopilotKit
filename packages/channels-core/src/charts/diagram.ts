@@ -174,11 +174,15 @@ export function FlowDiagram(props: FlowDiagramProps): ReactElement {
     "div",
     {
       className,
+      // Fill the whole post canvas so the background covers it and the flow
+      // centers, instead of the diagram sizing to content in the top-left corner.
       style: {
         display: "flex",
         flexDirection: "column",
         gap: 12,
         padding: 24,
+        width: "100%",
+        height: "100%",
         backgroundColor: "#ffffff",
         ...style,
       },

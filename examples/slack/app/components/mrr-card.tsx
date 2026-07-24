@@ -17,7 +17,7 @@ export interface MrrCardProps {
 export function MrrCard({ value, delta }: MrrCardProps): ChannelNode {
   const up = delta >= 0;
   return (
-    <div className="flex flex-col gap-2 w-full h-full p-8 bg-brand-bg rounded-2xl font-brand">
+    <div className="flex flex-col gap-2 w-full h-full p-8 bg-brand-bg font-brand">
       <span className="text-base text-brand-muted">
         Monthly recurring revenue
       </span>
