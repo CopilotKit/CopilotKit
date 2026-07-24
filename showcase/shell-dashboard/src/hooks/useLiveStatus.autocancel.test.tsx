@@ -625,12 +625,12 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
       // it must reach the wire even for a dimension scope OUTSIDE the comm-error
       // aggregate set (this hook is scoped to "smoke"). Asserted here on the
       // REAL SDK against a real socket, because the sibling mocked suite cannot
-      // see the actual query string. Unprojected is load-bearing: with a
-      // `fields=` list PocketBase would omit `signal` and the classifier would
-      // be back to guessing why a rung failed.
+      // see the actual query string. Asking for `signal` is load-bearing: without
+      // it in the projection PocketBase omits the blob and the classifier is back
+      // to guessing why a rung failed.
       expect(supplementalQueries.length).toBeGreaterThan(0);
       for (const q of supplementalQueries) {
-        expect(q.get("fields")).toBeNull();
+        expect((q.get("fields") ?? "").split(",")).toContain("signal");
         expect(q.get("filter")).toContain('state != "green"');
         // Real-SDK quoting: `pb.filter()` wraps a string param in SINGLE
         // quotes. Asserted on the wire because the sibling mocked suite's

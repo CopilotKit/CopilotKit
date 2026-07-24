@@ -145,24 +145,33 @@ vi.mock("../lib/pb", () => {
             }
             return pageResponse(1, 1);
           }
-          // Supplemental signal fetch, identified by the ABSENCE of a `fields`
-          // projection — the one property that structurally distinguishes it
-          // from the bulk fetch (which ALWAYS sends STATUS_LIST_FIELDS), and the
-          // very reason it exists: it is the request that brings `signal` back.
+          // Supplemental signal fetch, identified by a projection that INCLUDES
+          // `signal` — it is the one request that asks for the heavy blob, which
+          // is the very reason it exists, while the bulk fetch always projects
+          // `signal` away (STATUS_LIST_FIELDS).
           //
-          // This used to discriminate on the filter containing `key !~`. That
-          // marker is no longer reliable: the filter is now a union whose
-          // comm-error clause (the only part carrying `key !~`) is dropped when
-          // the hook is scoped to a dimension outside the aggregate set, leaving
-          // a supplemental request the old check silently misclassified as a
-          // BULK page — corrupting the fan-out instrumentation below.
+          // Two earlier discriminators were both wrong, and both failed by
+          // misclassifying a supplemental request as a BULK page — silently
+          // corrupting the fan-out instrumentation below:
+          //   - `filter` containing `key !~`: that marker disappears when the
+          //     hook is scoped to a dimension outside the comm-error aggregate
+          //     set, because the clause carrying it is dropped;
+          //   - the ABSENCE of any `fields` projection: the supplemental fetch
+          //     now sends one of its own (STATUS_LIST_FIELDS + `signal`, so the
+          //     response is a complete StatusRow without PocketBase's undeclared
+          //     columns).
+          // Presence of `signal` in the projection is the property that actually
+          // defines this request, so it is what we key on.
           //
           // Served from a dedicated fixture VERBATIM (full rows, signal
           // included) and deliberately NOT recorded into the bulk-fetch
           // instrumentation (initialPageRequestOrder / initialPageOpts /
           // lastInitialGetListOpts) so the fan-out order/count assertions keep
           // targeting the bulk fetch alone.
-          if (opts?.fields === undefined) {
+          if (
+            opts?.fields === undefined ||
+            opts.fields.split(",").includes("signal")
+          ) {
             mockState.getListCalls += 1;
             mockState.commFetchCalls += 1;
             mockState.lastCommFetchOpts = opts;
@@ -903,8 +912,11 @@ describe("useLiveStatus", () => {
       expect(opts.filter).toContain('dimension = "e2e-demos"');
       expect(opts.filter).toContain('dimension = "d5-single-pill-e2e"');
       expect(opts.filter).toContain('key !~ "%/%"');
-      // Full rows: NO fields projection — signal must come back.
-      expect(opts.fields).toBeUndefined();
+      // `signal` must come back — that is the whole point of the request. The
+      // projection names it explicitly rather than omitting `fields` entirely,
+      // which also drops PocketBase's undeclared columns; see
+      // STATUS_SIGNAL_FIELDS in useLiveStatus.ts.
+      expect(opts.fields?.split(",")).toContain("signal");
     });
 
     it("a supplemental row OLDER than its bulk twin does NOT regress the newer bulk row (CF8 F3)", async () => {
@@ -990,8 +1002,8 @@ describe("useLiveStatus", () => {
       // Still a UNION with the comm-error clause, not a replacement for it: a
       // GREEN aggregate row can carry an active comm-error blob.
       expect(opts.filter).toContain('key !~ "%/%"');
-      // And still unprojected, or `signal` would not come back at all.
-      expect(opts.fields).toBeUndefined();
+      // And the projection still carries `signal`, or the whole fetch is moot.
+      expect(opts.fields?.split(",")).toContain("signal");
     });
   });
 });
