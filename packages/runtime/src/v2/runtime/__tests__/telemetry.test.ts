@@ -13,6 +13,9 @@ const baseInstanceEvent: RuntimeInstanceCreatedInfo = {
 const legacyLicenseToken = `header.${Buffer.from(
   '{"telemetry_id":"legacy-license-id"}',
 ).toString("base64url")}.sig`;
+const malformedLegacyLicenseToken = `header.${Buffer.from(
+  '{"telemetry_id":"legacy-license-id"}',
+).toString("base64url")}$.sig`;
 const callerSampleRate = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;
 const callerTelemetryDisabled = process.env.COPILOTKIT_TELEMETRY_DISABLED;
 const callerDoNotTrack = process.env.DO_NOT_TRACK;
@@ -112,6 +115,21 @@ describe("V2 telemetry identity sampling", () => {
       licenseToken: legacyLicenseToken,
       telemetryId: undefined,
     });
+  });
+
+  test("illegal base64url license payload cannot bypass sampleRate 0", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 0,
+    });
+    client.setLicenseToken(malformedLegacyLicenseToken);
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy).not.toHaveBeenCalled();
   });
 
   test.each(["", " \t "])(

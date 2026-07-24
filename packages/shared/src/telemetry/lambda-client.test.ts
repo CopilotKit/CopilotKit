@@ -5,6 +5,29 @@ const EXPECTED_TELEMETRY_SINK_URL =
   process.env.COPILOTKIT_TELEMETRY_URL ??
   "https://telemetry.copilotkit.ai/ingest";
 const TELEMETRY_ID_HEADER = "x-copilotkit-telemetry-id";
+const LEGACY_IDENTITY_PAYLOAD = Buffer.from(
+  JSON.stringify({ telemetry_id: "legacy-telemetry-id" }),
+).toString("base64url");
+const INVALID_BASE64URL_PAYLOADS = [
+  {
+    label: "a dollar sign",
+    payload: `${LEGACY_IDENTITY_PAYLOAD}$`,
+  },
+  {
+    label: "a space",
+    payload: `${LEGACY_IDENTITY_PAYLOAD} `,
+  },
+  {
+    label: "a line break",
+    payload: `${LEGACY_IDENTITY_PAYLOAD}\n`,
+  },
+  {
+    label: "an impossible length",
+    payload: `${Buffer.from(JSON.stringify({ telemetry_id: "xx" })).toString(
+      "base64url",
+    )}A`,
+  },
+] as const;
 
 test("normalizes surrounding HTTP whitespace in a legacy license identity", () => {
   const telemetryId = "\t legacy-telemetry-id \t";
@@ -31,6 +54,22 @@ test("decodes a UTF-8 legacy identity in the browser fallback", () => {
     vi.unstubAllGlobals();
   }
 });
+
+test.each(INVALID_BASE64URL_PAYLOADS)(
+  "rejects a legacy payload with $label in Node and the browser fallback",
+  ({ payload }) => {
+    const token = `header.${payload}.sig`;
+
+    expect(parseTelemetryIdFromLicense(token)).toBeNull();
+
+    vi.stubGlobal("Buffer", undefined);
+    try {
+      expect(parseTelemetryIdFromLicense(token)).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  },
+);
 
 /**
  * Captures the telemetry request without replacing fetch with an untyped mock.
@@ -97,6 +136,30 @@ test.each(["bad\nid", "bad\u0000id", "tenant-🚀"])(
 
       expect(readRequest().rawTelemetryIdHeader).toBeUndefined();
     } finally {
+      teardown();
+    }
+  },
+);
+
+test.each(INVALID_BASE64URL_PAYLOADS)(
+  "legacy payload with $label sends anonymously in Node and the browser fallback",
+  async ({ payload }) => {
+    const { readRequest, teardown } = setupCapturedRequest();
+    const sendMalformedToken = () =>
+      send({
+        event: "oss.runtime.instance_created",
+        licenseToken: `header.${payload}.sig`,
+      });
+
+    try {
+      await sendMalformedToken();
+      expect(readRequest().rawTelemetryIdHeader).toBeUndefined();
+
+      vi.stubGlobal("Buffer", undefined);
+      await sendMalformedToken();
+      expect(readRequest().rawTelemetryIdHeader).toBeUndefined();
+    } finally {
+      vi.unstubAllGlobals();
       teardown();
     }
   },

@@ -24,6 +24,14 @@ function jwtWith(payload: {
   return `header.${b64}.sig`;
 }
 
+/** Builds a token whose payload contains an illegal base64url character. */
+function malformedJwtWithTelemetryId(telemetryId: string): string {
+  const payload = Buffer.from(JSON.stringify({ telemetry_id: telemetryId }))
+    .toString("base64url")
+    .concat("$");
+  return `header.${payload}.sig`;
+}
+
 type TelemetryIdentityMode =
   | { label: "standalone"; telemetryId: string }
   | { label: "legacy license"; licenseToken: string }
@@ -505,6 +513,19 @@ describe("v1 TelemetryClient", () => {
     client.setLicenseToken("not-a-jwt");
     await client.capture("oss.runtime.instance_created", baseInstanceEvent);
 
+    expect(lambdaSpy).not.toHaveBeenCalled();
+    expect(segmentTrackMock).not.toHaveBeenCalled();
+  });
+
+  test("illegal base64url license payload cannot bypass sampleRate 0", async () => {
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const client = makeClient({ sampleRate: 0 });
+
+    client.setLicenseToken(malformedJwtWithTelemetryId("legacy-telemetry-id"));
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(randomSpy).toHaveBeenCalledTimes(1);
     expect(lambdaSpy).not.toHaveBeenCalled();
     expect(segmentTrackMock).not.toHaveBeenCalled();
   });

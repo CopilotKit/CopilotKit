@@ -130,16 +130,19 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = parts[1];
+    if (!/^[A-Za-z0-9_-]+$/.test(payload) || payload.length % 4 === 1) {
+      return null;
+    }
+
+    let b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padding = (4 - (b64.length % 4)) % 4;
     b64 += "=".repeat(padding);
     const json =
       typeof Buffer !== "undefined"
         ? Buffer.from(b64, "base64").toString("utf8")
         : new TextDecoder().decode(
-            Uint8Array.from(atob(b64), (character) =>
-              character.charCodeAt(0),
-            ),
+            Uint8Array.from(atob(b64), (character) => character.charCodeAt(0)),
           );
     const decoded = JSON.parse(json) as { telemetry_id?: unknown };
     const telemetryId =
