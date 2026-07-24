@@ -340,3 +340,50 @@ test("a persistent retryable outage becomes terminal after the bounded retry", a
     vi.useRealTimers();
   }
 });
+
+test("a failed retry request becomes terminal after the bounded retry", async () => {
+  vi.useFakeTimers();
+  const { dispose, fetchMock } = setupDrawerTest(retryableRuntimeInfo());
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <ThreadsFeatureProbe />
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await flushPromiseUpdates();
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const pendingDrawer =
+      document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+    expect(pendingDrawer?.loading).toBe(true);
+    expect(pendingDrawer?.licensed).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(useThreadsMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+    const terminalDrawer =
+      document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+    expect(terminalDrawer?.loading).toBe(false);
+    expect(terminalDrawer?.licensed).toBe(false);
+    expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
+      "status:unknown threads:false",
+    );
+  } finally {
+    dispose();
+    vi.useRealTimers();
+  }
+});

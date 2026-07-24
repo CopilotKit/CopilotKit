@@ -419,6 +419,47 @@ test("bounds automatic recovery to one retry for a persistent outage", async () 
   }
 });
 
+test("settles a bounded entitlement retry when the retry request fails", async () => {
+  vi.useFakeTimers();
+  const { core, fetchMock, teardown } = setupCore(
+    runtimeInfoResponse(
+      runtimeInfo({
+        licenseStatus: "unknown",
+        runtimeEntitlements: retryableRuntimeEntitlements,
+      }),
+    ),
+    new Response("Runtime unavailable", {
+      status: 503,
+      headers: { "content-type": "text/plain" },
+    }),
+  );
+
+  try {
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Error,
+      );
+    });
+
+    expect(core.runtimeEntitlementRetryPending).toBe(false);
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "unknown",
+      runtimeEntitlements: retryableRuntimeEntitlements,
+    });
+  } finally {
+    teardown();
+    vi.useRealTimers();
+  }
+});
+
 test("ignores stale Runtime authority and retries after the connection target changes", async () => {
   vi.useFakeTimers();
   const staleResponse = deferredRuntimeInfoResponse();

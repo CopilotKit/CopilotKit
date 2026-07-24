@@ -690,10 +690,11 @@ export class AgentRegistry {
         return;
       }
 
-      if (
+      const boundedEntitlementRetryFailed =
         this._runtimeEntitlementRetryTimer === undefined &&
-        this._runtimeEntitlementRetryAttemptedKey === key
-      ) {
+        this._runtimeEntitlementRetryAttemptedKey === key &&
+        this._runtimeEntitlementRetryPendingKey === key;
+      if (boundedEntitlementRetryFailed) {
         this._runtimeEntitlementRetryPendingKey = undefined;
       }
       this._runtimeConnectionStatus =
@@ -707,8 +708,14 @@ export class AgentRegistry {
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
-      this._licenseStatus = undefined;
-      this._runtimeEntitlements = undefined;
+      // A failed bounded retry must settle the authority that caused it. Keep
+      // that retryable result so consumers can distinguish terminal denial
+      // from the initial loading window. Other connection failures still clear
+      // stale Runtime authority.
+      if (!boundedEntitlementRetryFailed) {
+        this._licenseStatus = undefined;
+        this._runtimeEntitlements = undefined;
+      }
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
