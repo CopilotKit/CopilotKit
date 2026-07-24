@@ -47,21 +47,30 @@ export interface LambdaSendOptions {
 }
 
 /**
- * Return the first configured standalone telemetry identity without rewriting it.
+ * Return the first configured standalone telemetry identity in HTTP form.
  *
  * Empty and whitespace-only values are unconfigured placeholders and must not
- * suppress a later identity source. A nonblank value remains opaque: trimming
- * is used only for the presence check, and the original string is returned.
+ * suppress a later identity source. Leading and trailing HTTP spaces and tabs
+ * are removed before the selected value is stored or sent. Values containing
+ * carriage returns or line feeds are invalid HTTP field values and are skipped.
  *
  * @internal
  */
 export function firstNonBlankTelemetryId(
   ...candidates: ReadonlyArray<string | undefined>
 ): string | undefined {
-  return candidates.find(
-    (candidate): candidate is string =>
-      candidate !== undefined && candidate.trim().length > 0,
-  );
+  for (const candidate of candidates) {
+    if (candidate === undefined || /[\r\n]/.test(candidate)) {
+      continue;
+    }
+
+    const normalized = candidate.replace(/^[\t ]+|[\t ]+$/g, "");
+    if (normalized.trim().length > 0) {
+      return normalized;
+    }
+  }
+
+  return undefined;
 }
 
 // These fields aren't used by the telemetry service, so we strip them
@@ -106,13 +115,13 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
         ? atob(b64)
         : Buffer.from(b64, "base64").toString("utf8");
     const decoded = JSON.parse(json) as { telemetry_id?: unknown };
-    return (
-      firstNonBlankTelemetryId(
-        typeof decoded.telemetry_id === "string"
-          ? decoded.telemetry_id
-          : undefined,
-      ) ?? null
-    );
+    const telemetryId =
+      typeof decoded.telemetry_id === "string"
+        ? decoded.telemetry_id
+        : undefined;
+    return telemetryId !== undefined && telemetryId.trim().length > 0
+      ? telemetryId
+      : null;
   } catch {
     return null;
   }

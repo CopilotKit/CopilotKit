@@ -269,11 +269,11 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
     expectedIdentity: {},
   },
   {
-    label: "opaque nonblank explicit telemetryId bytes without trimming",
-    telemetryId: " explicit-telemetry-id ",
+    label: "explicit telemetryId normalized for HTTP transport",
+    telemetryId: "\t explicit-telemetry-id \t",
     environmentTelemetryId: "environment-telemetry-id",
     licenseToken: LEGACY_IDENTITY_TOKEN,
-    expectedIdentity: { telemetryId: " explicit-telemetry-id " },
+    expectedIdentity: { telemetryId: "explicit-telemetry-id" },
   },
   {
     label: "legacy license when no standalone identity exists",
@@ -282,6 +282,11 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
   },
   {
     label: "anonymous identity when no identity source exists",
+    expectedIdentity: {},
+  },
+  {
+    label: "header-invalid standalone identity sends anonymously",
+    telemetryId: "bad\nid",
     expectedIdentity: {},
   },
 ];
@@ -379,16 +384,13 @@ test.each(runtimeConstructorIdentityCases)(
         sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
         sampleWeight: 1 / effectiveSampleRate,
       });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
-      const expectedHeaders = new Headers();
       const expectedTelemetryId =
         identityCase.expectedIdentity.telemetryId ??
         parseTelemetryIdFromLicense(identityCase.expectedIdentity.licenseToken);
-      if (expectedTelemetryId !== null && expectedTelemetryId !== undefined) {
-        expectedHeaders.set("X-CopilotKit-Telemetry-Id", expectedTelemetryId);
-      }
       expect(headers.get("X-CopilotKit-Telemetry-Id")).toBe(
-        expectedHeaders.get("X-CopilotKit-Telemetry-Id"),
+        expectedTelemetryId ?? null,
       );
     } finally {
       restore();

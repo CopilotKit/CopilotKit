@@ -1,35 +1,63 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { send } from "./lambda-client";
+import { parseTelemetryIdFromLicense, send } from "./lambda-client";
 
 const EXPECTED_TELEMETRY_SINK_URL =
   process.env.COPILOTKIT_TELEMETRY_URL ??
   "https://telemetry.copilotkit.ai/ingest";
 const TELEMETRY_ID_HEADER = "x-copilotkit-telemetry-id";
 
+test("preserves nonblank legacy license identity bytes", () => {
+  const telemetryId = "\t legacy-telemetry-id \t";
+  const payload = Buffer.from(
+    JSON.stringify({ telemetry_id: telemetryId }),
+  ).toString("base64url");
+
+  expect(parseTelemetryIdFromLicense(`header.${payload}.sig`)).toBe(
+    telemetryId,
+  );
+});
+
 /**
  * Captures the telemetry request without replacing fetch with an untyped mock.
  */
 function setupCapturedRequest() {
+  let capturedRequest:
+    | {
+        bodyText: string;
+        headers: Record<string, string>;
+        rawTelemetryIdHeader: string | undefined;
+        url: string;
+      }
+    | undefined;
   const fetchMock = vi
     .spyOn(globalThis, "fetch")
-    .mockResolvedValue(new Response("", { status: 202 }));
+    .mockImplementation((input, init) => {
+      if (typeof init?.body !== "string") {
+        throw new Error("Expected telemetry request body to be a string");
+      }
+      if (
+        init.headers === undefined ||
+        init.headers instanceof Headers ||
+        Array.isArray(init.headers)
+      ) {
+        throw new Error("Expected telemetry request headers to be a record");
+      }
+
+      capturedRequest = {
+        bodyText: init.body,
+        headers: Object.fromEntries(new Headers(init.headers).entries()),
+        rawTelemetryIdHeader:
+          init.headers["X-CopilotKit-Telemetry-Id"] ?? undefined,
+        url: String(input),
+      };
+      return Promise.resolve(new Response("", { status: 202 }));
+    });
 
   const readRequest = () => {
-    const call = fetchMock.mock.calls.at(-1);
-    if (!call) {
-      throw new Error("Expected telemetry send to call fetch");
+    if (!capturedRequest) {
+      throw new Error("Expected telemetry send to reach fetch successfully");
     }
-
-    const [input, init] = call;
-    if (typeof init?.body !== "string") {
-      throw new Error("Expected telemetry request body to be a string");
-    }
-
-    return {
-      bodyText: init.body,
-      headers: Object.fromEntries(new Headers(init.headers).entries()),
-      url: String(input),
-    };
+    return capturedRequest;
   };
 
   return {
@@ -155,6 +183,12 @@ const lambdaIdentityTransportCases = [
     expectedTelemetryId: "explicit-telemetry-id",
   },
   {
+    label: "normalized standalone identity over a legacy license identity",
+    explicitTelemetryId: "\t explicit-telemetry-id \t",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "explicit-telemetry-id",
+  },
+  {
     label: "legacy license identity without a standalone identity",
     explicitTelemetryId: undefined,
     licenseTelemetryId: "license-telemetry-id",
@@ -169,6 +203,12 @@ const lambdaIdentityTransportCases = [
   {
     label: "legacy license identity with a whitespace-only standalone identity",
     explicitTelemetryId: " \t ",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with a header-invalid standalone identity",
+    explicitTelemetryId: "bad\nid",
     licenseTelemetryId: "license-telemetry-id",
     expectedTelemetryId: "license-telemetry-id",
   },
@@ -194,8 +234,9 @@ test.each(lambdaIdentityTransportCases)(
         telemetryId: explicitTelemetryId,
       });
 
-      const { bodyText, headers, url } = readRequest();
+      const { bodyText, headers, rawTelemetryIdHeader, url } = readRequest();
       expect(url).toBe(EXPECTED_TELEMETRY_SINK_URL);
+      expect(rawTelemetryIdHeader).toBe(expectedTelemetryId);
       expect(headers).toEqual({
         "content-type": "application/json",
         [TELEMETRY_ID_HEADER]: expectedTelemetryId,
@@ -240,6 +281,26 @@ test.each(["", " \t "])(
       });
 
       expect(readRequest().headers[TELEMETRY_ID_HEADER]).toBeUndefined();
+    } finally {
+      teardown();
+    }
+  },
+);
+
+test.each(["bad\nid", "bad\rid"])(
+  "header-invalid standalone identity %j sends anonymously instead of dropping the event",
+  async (invalidTelemetryId) => {
+    const { readRequest, teardown } = setupCapturedRequest();
+
+    try {
+      await send({
+        event: "oss.runtime.instance_created",
+        telemetryId: invalidTelemetryId,
+      });
+
+      const { headers, rawTelemetryIdHeader } = readRequest();
+      expect(rawTelemetryIdHeader).toBeUndefined();
+      expect(headers[TELEMETRY_ID_HEADER]).toBeUndefined();
     } finally {
       teardown();
     }
