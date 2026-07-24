@@ -6,10 +6,9 @@
  * from GitHub's public REST API and npm's public downloads API (no token); on
  * failure it falls back to sample data and says so.
  */
-import { createElement as h } from "react";
-import type { ReactElement } from "react";
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart, LineChart } from "@copilotkit/channels/charts";
 import { GEIST } from "./theme.js";
 import {
@@ -111,30 +110,33 @@ async function fetchPulse(): Promise<Pulse> {
   }
 }
 
-function kpi(label: string, value: string): ReactElement {
-  return h(
-    "div",
-    {
-      className: "inset",
-      style: {
+function kpi(label: string, value: string): ChannelNode {
+  return (
+    <div
+      className="inset"
+      style={{
         display: "flex",
         flexDirection: "column",
         gap: 6,
         flexGrow: 1,
         padding: 18,
-      },
-    },
-    h("span", { className: "kpi-label", style: { fontSize: 14 } }, label),
-    h("span", { className: "kpi-value", style: { fontSize: 34 } }, value),
+      }}
+    >
+      <span className="kpi-label" style={{ fontSize: 14 }}>
+        {label}
+      </span>
+      <span className="kpi-value" style={{ fontSize: 34 }}>
+        {value}
+      </span>
+    </div>
   );
 }
 
-export function PulseCard(p: Pulse): ReactElement {
-  return h(
-    "div",
-    {
-      className: "card",
-      style: {
+export function PulseCard(p: Pulse): ChannelNode {
+  return (
+    <div
+      className="card"
+      style={{
         display: "flex",
         flexDirection: "column",
         gap: 16,
@@ -142,52 +144,44 @@ export function PulseCard(p: Pulse): ReactElement {
         height: "100%",
         padding: 28,
         fontFamily: GEIST,
-      },
-    },
-    h(
-      "div",
-      {
-        style: {
+      }}
+    >
+      <div
+        style={{
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-        },
-      },
-      h(
-        "span",
-        { className: "title", style: { fontSize: 24 } },
-        "Weekly OSS pulse",
-      ),
-      h(
-        "span",
-        {
-          className: p.live ? "badge badge-green" : "badge badge-amber",
-          style: { fontSize: 12, padding: "4px 12px" },
-        },
-        p.live ? "live · github + npm" : "sample data",
-      ),
-    ),
-    h(
-      "span",
-      { className: "muted", style: { fontSize: 14 } },
-      `${REPO} · past 7 days`,
-    ),
-    h(
-      "div",
-      {
-        style: {
+        }}
+      >
+        <span className="title" style={{ fontSize: 24 }}>
+          Weekly OSS pulse
+        </span>
+        <span
+          className={p.live ? "badge badge-green" : "badge badge-amber"}
+          style={{ fontSize: 12, padding: "4px 12px" }}
+        >
+          {p.live ? "live · github + npm" : "sample data"}
+        </span>
+      </div>
+      <span
+        className="muted"
+        style={{ fontSize: 14 }}
+      >{`${REPO} · past 7 days`}</span>
+      <div
+        style={{
           display: "flex",
           flexDirection: "row",
           gap: 14,
           width: "100%",
-        },
-      },
-      kpi("Stars", compact(p.stars)),
-      kpi("Weekly downloads", compact(p.weeklyDownloads)),
-      kpi("Open issues", compact(p.openIssues)),
-    ),
+        }}
+      >
+        {kpi("Stars", compact(p.stars))}
+        {kpi("Weekly downloads", compact(p.weeklyDownloads))}
+        {kpi("Open issues", compact(p.openIssues))}
+      </div>
+    </div>
   );
 }
 

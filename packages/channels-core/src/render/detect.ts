@@ -30,8 +30,9 @@ function isFnTypeNode(v: unknown): v is {
  * Resolve a `post()` argument to the React element that must be rendered as an
  * image, or `null` when it belongs on the native channel path.
  *
- * - A React element (app JSX authored in a react-pragma file) → image as-is,
- *   UNLESS its `type` is a branded channels-ui component (then native).
+ * - A React element (host-tag app JSX, or app JSX authored in a react-pragma
+ *   file) → image as-is, UNLESS its `type` is a branded channels-ui component
+ *   (then native).
  * - A `{type: fn}` node whose fn is a first-party channels-ui component
  *   (branded) → native, no peek.
  * - Any other `{type: fn}` node → peek: call the fn once; if it returns a React
@@ -40,14 +41,14 @@ function isFnTypeNode(v: unknown): v is {
  *   channel nodes, or throws (e.g. it uses React hooks), it is a native
  *   component (→ null, native).
  *
+ * Host tags (`<div>`) compile to React elements under the channels JSX runtime,
+ * so they route via the React-element branch above — that's what distinguishes
+ * them from the string-typed channel vocabulary (`{type: "section"}`), which
+ * stays native.
+ *
  * Peeking calls a presentational component once for classification; the native
  * path then calls it again during binding. This double call is acceptable for
  * the pure, presentational components this targets.
- *
- * The peek recognizes a component that returns a single React element (the
- * leaf-presentational contract); a component that returns another unbranded
- * component *node* (a `{type: fn}` node, not a rendered element) is not
- * re-peeked and is routed native.
  */
 export function resolveArbitraryElement(v: unknown): object | null {
   if (isReactElement(v)) {

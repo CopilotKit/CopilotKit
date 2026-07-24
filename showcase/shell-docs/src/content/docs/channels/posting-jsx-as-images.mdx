@@ -161,6 +161,8 @@ icon: "lucide/Component"
     );
     ```
 
+    **Authoring cards:** write host tags (`<div>`, `<span>`, `<svg>`, …) and chart/app components (`<Sparkline/>`, `<BarChart/>`, your own components) as plain JSX — no `createElement` needed. The channels JSX runtime compiles the whole tree to nodes, and the image renderer materializes it to React for Takumi. (The `charts` components themselves are authored with `createElement` only because they live in `.ts` files, where JSX isn't available.)
+
     Every chart component shares the same `ChartStyleProps`: `className`, `style`, `width`, `height`, `colors`, `gridColor`, `labelClassName`, `title`, and `showGrid` — but which fields actually do something is per-chart, not universal:
 
     | Chart | Color model | Default background | Size props | Title |
