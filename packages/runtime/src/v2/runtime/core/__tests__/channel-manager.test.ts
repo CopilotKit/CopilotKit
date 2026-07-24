@@ -711,6 +711,28 @@ describe("ChannelManager", () => {
     expect(mgr.status().overall).toBe("stopped");
   });
 
+  it("a direct channel whose adapters ALL fail to start reads 'error', not a false 'online'", async () => {
+    // Regression for the false-`online` defect: ɵruntime.start() used to swallow
+    // adapter start failures and resolve, so the manager reported `online` on a
+    // dead bot. Now an all-failed start rejects → the manager surfaces `error`.
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const adapter = new FakeAdapter({ platform: "slack", failStart: true });
+    const direct = createChannel({ name: "sales", adapters: [adapter] });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+
+    // A dead channel must not resolve ready() clean, and must not read `online`.
+    await expect(mgr.ready()).rejects.toBeDefined();
+    expect(mgr.status().channels).toEqual({ sales: "error" });
+    expect(mgr.status().overall).toBe("error");
+
+    await mgr.stop();
+  });
+
   it("still enforces unique names across all declared channels, including direct ones", () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const mgr = new ChannelManager({

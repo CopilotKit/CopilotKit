@@ -59,7 +59,10 @@ describe("createChannel telemetry wiring", () => {
         Object.assign(new Error("xoxb-SECRET token bad"), { code: "EAUTH" }),
       );
     const bot2 = createChannel({ adapters: [bad] });
-    await bot2.ɵruntime.start();
+    // All adapters failed → start() rejects (the channel is dead; the runtime
+    // reports status "error"). The start_failed telemetry is still captured
+    // before the throw.
+    await expect(bot2.ɵruntime.start()).rejects.toThrow(/failed to start/i);
     const f = capture.mock.calls.find(
       (c) => c[0] === "oss.channel.start_failed",
     );

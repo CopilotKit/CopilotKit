@@ -895,6 +895,16 @@ export function createChannel<
             toolsCount: toolMap.size,
           });
         }
+        // A channel that has adapters but where NONE started is dead — surface an
+        // error so the runtime reports status "error", not a false "online". A
+        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
+        // `started` guard so a caller can retry after fixing the misconfiguration.
+        if (adapters.length > 0 && startedPlatforms.length === 0) {
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
+          );
+        }
         // Hand declared commands to adapters that register them up front (e.g.
         // Discord); adapters without `registerCommands` are skipped. Per-adapter
         // failures are isolated the same way as start().
