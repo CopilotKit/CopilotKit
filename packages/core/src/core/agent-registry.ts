@@ -454,7 +454,11 @@ export class AgentRegistry {
       return inFlight.promise;
     }
 
-    const promise = this.performRuntimeConnection();
+    const promise = this.performRuntimeConnection({
+      key,
+      runtimeUrl: this._runtimeUrl,
+      transport: this._runtimeTransport,
+    });
     this._connectionInFlight = { key, promise };
     void promise.finally(() => {
       if (this._connectionInFlight?.promise === promise) {
@@ -467,6 +471,11 @@ export class AgentRegistry {
   /** Return the stable key used to scope connection and entitlement retries. */
   private runtimeConnectionKey(): string {
     return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+  }
+
+  /** Return whether a connection attempt still owns the active Runtime state. */
+  private isCurrentRuntimeConnection(key: string): boolean {
+    return this.runtimeConnectionKey() === key;
   }
 
   /** Cancel a pending entitlement retry and allow a new connection to retry. */
@@ -483,7 +492,12 @@ export class AgentRegistry {
    */
   private updateRuntimeEntitlementRetry(
     runtimeEntitlements: RuntimeEntitlementResponse | undefined,
+    key: string,
   ): void {
+    if (!this.isCurrentRuntimeConnection(key)) {
+      return;
+    }
+
     if (
       runtimeEntitlements?.status === "ready" ||
       runtimeEntitlements?.error.retryable !== true
@@ -492,7 +506,6 @@ export class AgentRegistry {
       return;
     }
 
-    const key = this.runtimeConnectionKey();
     if (
       this._runtimeEntitlementRetryTimer !== undefined ||
       this._runtimeEntitlementRetryAttemptedKey === key
@@ -516,8 +529,16 @@ export class AgentRegistry {
     }, RUNTIME_ENTITLEMENT_RETRY_DELAY_MS);
   }
 
-  private async performRuntimeConnection(): Promise<void> {
-    if (!this.runtimeUrl) {
+  private async performRuntimeConnection({
+    key,
+    runtimeUrl,
+    transport,
+  }: {
+    key: string;
+    runtimeUrl: string | undefined;
+    transport: CopilotRuntimeTransport;
+  }): Promise<void> {
+    if (!runtimeUrl) {
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Disconnected;
       this._runtimeVersion = undefined;
@@ -537,6 +558,9 @@ export class AgentRegistry {
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       );
+      if (!this.isCurrentRuntimeConnection(key)) {
+        return;
+      }
       await this.notifyAgentsChanged();
       return;
     }
@@ -546,9 +570,19 @@ export class AgentRegistry {
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
+    if (!this.isCurrentRuntimeConnection(key)) {
+      return;
+    }
 
     try {
-      const runtimeInfoResponse = await this.fetchRuntimeInfo();
+      const runtimeInfoResponse = await this.fetchRuntimeInfo({
+        key,
+        runtimeUrl,
+        transport,
+      });
+      if (!this.isCurrentRuntimeConnection(key)) {
+        return;
+      }
       const {
         version,
         ...runtimeInfo
@@ -590,7 +624,7 @@ export class AgentRegistry {
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
-              runtimeUrl: this.runtimeUrl,
+              runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
               description: description,
               transport: this._runtimeTransport,
@@ -630,14 +664,22 @@ export class AgentRegistry {
       this._runtimeEntitlements = runtimeInfoResponse.runtimeEntitlements;
       this.updateRuntimeEntitlementRetry(
         runtimeInfoResponse.runtimeEntitlements,
+        key,
       );
       this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
+      if (!this.isCurrentRuntimeConnection(key)) {
+        return;
+      }
       await this.notifyAgentsChanged();
     } catch (error) {
+      if (!this.isCurrentRuntimeConnection(key)) {
+        return;
+      }
+
       this._runtimeConnectionStatus =
         CopilotKitCoreRuntimeConnectionStatus.Error;
       this._runtimeVersion = undefined;
@@ -662,7 +704,7 @@ export class AgentRegistry {
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
       logger.warn(
-        `Failed to load runtime info (${this.runtimeUrl}/info): ${message}`,
+        `Failed to load runtime info (${runtimeUrl}/info): ${message}`,
       );
       const runtimeError =
         error instanceof Error ? error : new Error(String(error));
@@ -670,17 +712,21 @@ export class AgentRegistry {
         error: runtimeError,
         code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
         context: {
-          runtimeUrl: this.runtimeUrl,
+          runtimeUrl,
         },
       });
     }
   }
 
-  private async fetchRuntimeInfo(): Promise<RuntimeInfo> {
-    if (!this.runtimeUrl) {
-      throw new Error("Runtime URL is not set");
-    }
-
+  private async fetchRuntimeInfo({
+    key,
+    runtimeUrl,
+    transport,
+  }: {
+    key: string;
+    runtimeUrl: string;
+    transport: CopilotRuntimeTransport;
+  }): Promise<RuntimeInfo> {
     const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess)
       .headers;
     const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
@@ -689,16 +735,21 @@ export class AgentRegistry {
       ...baseHeaders,
     };
 
-    if (this._runtimeTransport === "single") {
-      return this.fetchRuntimeInfoSingle(headers, credentials);
+    if (transport === "single") {
+      return this.fetchRuntimeInfoSingle(headers, credentials, runtimeUrl);
     }
 
-    if (this._runtimeTransport === "auto") {
-      return this.fetchRuntimeInfoAutoDetect(headers, credentials);
+    if (transport === "auto") {
+      return this.fetchRuntimeInfoAutoDetect(
+        headers,
+        credentials,
+        runtimeUrl,
+        key,
+      );
     }
 
     // REST transport
-    const response = await fetch(`${this.runtimeUrl}/info`, {
+    const response = await fetch(`${runtimeUrl}/info`, {
       headers,
       ...(credentials ? { credentials } : {}),
     });
@@ -713,11 +764,12 @@ export class AgentRegistry {
   private async fetchRuntimeInfoSingle(
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
+    runtimeUrl: string,
   ): Promise<RuntimeInfo> {
     if (!headers["Content-Type"]) {
       headers["Content-Type"] = "application/json";
     }
-    const response = await fetch(this.runtimeUrl!, {
+    const response = await fetch(runtimeUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({ method: "info" }),
@@ -738,10 +790,12 @@ export class AgentRegistry {
   private async fetchRuntimeInfoAutoDetect(
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
+    runtimeUrl: string,
+    key: string,
   ): Promise<RuntimeInfo> {
     // Try REST first (GET /info)
     try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
+      const response = await fetch(`${runtimeUrl}/info`, {
         headers: { ...headers },
         ...(credentials ? { credentials } : {}),
       });
@@ -749,8 +803,11 @@ export class AgentRegistry {
       // 404/405 means the endpoint doesn't exist; other non-2xx errors
       // (500, 403, etc.) should also fall through to single-endpoint.
       if (response.status >= 200 && response.status < 300) {
-        this._runtimeTransport = "rest";
-        return (await response.json()) as RuntimeInfo;
+        const runtimeInfo = (await response.json()) as RuntimeInfo;
+        if (this.isCurrentRuntimeConnection(key)) {
+          this._runtimeTransport = "rest";
+        }
+        return runtimeInfo;
       }
       // Non-2xx — try single-endpoint below
     } catch {
@@ -760,8 +817,11 @@ export class AgentRegistry {
     const result = await this.fetchRuntimeInfoSingle(
       { ...headers },
       credentials,
+      runtimeUrl,
     );
-    this._runtimeTransport = "single";
+    if (this.isCurrentRuntimeConnection(key)) {
+      this._runtimeTransport = "single";
+    }
     return result;
   }
 

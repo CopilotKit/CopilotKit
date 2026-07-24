@@ -97,6 +97,28 @@ function runtimeInfoResponse(info: RuntimeInfo): Response {
   });
 }
 
+/** Create a Runtime response promise whose completion the test controls. */
+function deferredRuntimeInfoResponse(): {
+  promise: Promise<Response>;
+  resolve: (response: Response) => void;
+} {
+  let resolveResponse: ((response: Response) => void) | undefined;
+  const promise = new Promise<Response>((resolve) => {
+    resolveResponse = resolve;
+  });
+  return {
+    promise,
+    resolve(response) {
+      if (!resolveResponse) {
+        throw new Error(
+          "Deferred Runtime response resolved before initialization",
+        );
+      }
+      resolveResponse(response);
+    },
+  };
+}
+
 /** Create an isolated browser-like Core with ordered Runtime responses. */
 function setupCore(...responses: [Response, ...Response[]]) {
   const fetchMock = vi.fn();
@@ -390,6 +412,67 @@ test("bounds automatic recovery to one retry for a persistent outage", async () 
     });
   } finally {
     teardown();
+    vi.useRealTimers();
+  }
+});
+
+test("ignores stale Runtime authority and retries after the connection target changes", async () => {
+  vi.useFakeTimers();
+  const staleResponse = deferredRuntimeInfoResponse();
+  const fetchMock = vi.fn<typeof globalThis.fetch>();
+  fetchMock
+    .mockImplementationOnce(() => staleResponse.promise)
+    .mockResolvedValueOnce(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "expiring",
+          runtimeEntitlements: refreshedRuntimeEntitlements,
+          version: "B",
+        }),
+      ),
+    );
+  vi.stubGlobal("window", {});
+  vi.stubGlobal("fetch", fetchMock);
+  const core = new CopilotKitCore({
+    runtimeUrl: "https://a.example",
+    runtimeTransport: "rest",
+  });
+
+  try {
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    core.setRuntimeUrl("https://b.example");
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(core.runtimeVersion).toBe("B");
+    });
+
+    staleResponse.resolve(
+      runtimeInfoResponse(
+        runtimeInfo({
+          licenseStatus: "unknown",
+          runtimeEntitlements: retryableRuntimeEntitlements,
+          version: "A",
+        }),
+      ),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.map(([input]) => input)).toEqual([
+      "https://a.example/info",
+      "https://b.example/info",
+    ]);
+    expect(core.runtimeVersion).toBe("B");
+    expect(readRuntimeAuthority(core)).toEqual({
+      licenseStatus: "expiring",
+      runtimeEntitlements: refreshedRuntimeEntitlements,
+    });
+  } finally {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   }
 });
