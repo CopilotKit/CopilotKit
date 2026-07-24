@@ -283,7 +283,8 @@ createServer(listener).listen(channelPort, "127.0.0.1", () => {
 // Drive readiness through the runtime's Channel control instead of a
 // (now-removed) bot.start(): resolves once the direct Teams adapter's transport
 // is up.
-await listener.channels?.ready();
+// Bound startup so a wedged adapter connect can't hang readiness forever.
+await listener.channels?.ready({ timeoutMs: 30_000 });
 
 console.log(
   `Teams demo bot listening at http://localhost:${port}/api/messages`,

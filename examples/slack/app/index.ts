@@ -329,7 +329,8 @@ async function main() {
   // Drive readiness through the runtime's Channel control instead of a
   // (now-removed) bot.start(): resolves once every direct adapter's transport is
   // up across all active platforms.
-  await listener.channels?.ready();
+  // Bound startup so a wedged adapter connect can't hang readiness forever.
+  await listener.channels?.ready({ timeoutMs: 30_000 });
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
