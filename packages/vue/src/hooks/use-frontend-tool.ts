@@ -1,18 +1,25 @@
 /**
- * V1 compatibility wrapper for useFrontendTool.
+ * V1 compatibility wrapper for `useFrontendTool`.
  *
- * Accepts the legacy Parameter[] format and converts to Zod via getZodParameters,
- * then delegates to the v2 composable.
+ * Accepts the legacy `Parameter[]` format and preserves the React v1 handler,
+ * dependency, result, and render normalization before delegating to Vue v2.
+ *
+ * @example
+ * ```ts
+ * useFrontendTool({
+ *   name: "sayHello",
+ *   parameters: [{ name: "name", type: "string" }],
+ *   handler: ({ name }) => `Hello, ${name}`,
+ * });
+ * ```
  */
-import type { WatchSource } from "vue";
-import {
-  type Parameter,
-  type MappedParameterTypes,
-  getZodParameters,
-  parseJson,
-} from "@copilotkit/shared";
+import { h } from "vue";
+import type { WatchSource, VNodeChild, Component } from "vue";
+import type { MappedParameterTypes, Parameter } from "@copilotkit/shared";
+import { getZodParameters, parseJson } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
-import type { VueFrontendTool } from "../v2/types";
+import type { FrontendActionRender } from "./use-copilot-action";
+import type { VueToolCallRendererRenderProps } from "../v2/types";
 
 export interface UseFrontendToolArgs<T extends Parameter[] | [] = []> {
   name: string;
@@ -21,56 +28,91 @@ export interface UseFrontendToolArgs<T extends Parameter[] | [] = []> {
   handler?: (args: MappedParameterTypes<T>) => unknown | Promise<unknown>;
   followUp?: boolean;
   available?: "disabled" | "enabled";
-  render?: VueFrontendTool<MappedParameterTypes<T>>["render"];
-  agentId?: string;
+  render?: FrontendActionRender<T>;
 }
 
-export function useFrontendTool<const T extends Parameter[] = []>(
+type LegacyUseFrontendToolArgs<T extends Parameter[] | []> = Omit<
+  UseFrontendToolArgs<T>,
+  "render"
+> & {
+  render: (
+    props: VueToolCallRendererRenderProps<MappedParameterTypes<T>>,
+  ) => VNodeChild;
+};
+
+type AnyUseFrontendToolArgs<T extends Parameter[] | []> =
+  | UseFrontendToolArgs<T>
+  | LegacyUseFrontendToolArgs<T>;
+
+type NormalizedRender =
+  | ((props: { result?: unknown }) => VNodeChild | null)
+  | Component;
+
+function normalizeLatestRender<T extends Parameter[] | []>(
+  tool: AnyUseFrontendToolArgs<T>,
+): NormalizedRender {
+  return (props: { result?: unknown }) => {
+    const render = tool.render;
+    if (typeof render === "undefined") return null;
+    if (typeof render === "string") return render;
+    const renderProps =
+      typeof props.result === "string"
+        ? { ...props, result: parseJson(props.result, props.result) }
+        : props;
+    if (typeof render === "function") {
+      return (render as (props: unknown) => VNodeChild)(renderProps) ?? null;
+    }
+    return h(render as Component, renderProps);
+  };
+}
+
+export function useFrontendTool<const T extends Parameter[] | [] = []>(
   tool: UseFrontendToolArgs<T>,
-  deps?: WatchSource<unknown>[],
-) {
-  const {
-    name,
-    description,
-    parameters,
-    handler,
-    followUp,
-    available,
-    render,
-    agentId,
-  } = tool;
-  const zodParameters = getZodParameters(parameters);
+  dependencies?: WatchSource<unknown>[],
+): void;
+export function useFrontendTool<const T extends Parameter[] | [] = []>(
+  tool: LegacyUseFrontendToolArgs<T>,
+  dependencies?: WatchSource<unknown>[],
+): void;
+export function useFrontendTool<const T extends Parameter[] | [] = []>(
+  tool: AnyUseFrontendToolArgs<T>,
+  dependencies?: WatchSource<unknown>[],
+): void {
+  const normalizedRender = normalizeLatestRender(tool);
+  const normalizedHandler = (args: MappedParameterTypes<T>) =>
+    tool.handler?.(args);
 
-  // Wrap the v1 handler (single-arg) to match v2's (args, context) => Promise<unknown> signature
-  const normalizedHandler = handler
-    ? (args: MappedParameterTypes<T>) => Promise.resolve(handler(args))
-    : undefined;
-
-  // Wrap render to parse JSON-string results before passing them to the
-  // user's render function — matches the v1 React behavior. If render is a
-  // Component rather than a function, leave it unchanged.
-  const normalizedRender =
-    typeof render === "function"
-      ? (props: { result?: unknown }) => {
-          const renderProps =
-            typeof props.result === "string"
-              ? { ...props, result: parseJson(props.result, props.result) }
-              : props;
-          return (render as (p: unknown) => unknown)(renderProps);
-        }
-      : render;
+  // Keep the adapter live so dependency-triggered Vue registrations observe
+  // the current v1 action fields, just as React reads the latest render's
+  // configuration. The v2 hook reads these getters when it re-registers.
+  const registeredTool = {
+    get name() {
+      return tool.name;
+    },
+    get description() {
+      return tool.description;
+    },
+    get parameters() {
+      return getZodParameters(tool.parameters);
+    },
+    get handler() {
+      return tool.handler ? normalizedHandler : undefined;
+    },
+    get followUp() {
+      return tool.followUp;
+    },
+    get render() {
+      return tool.render === undefined ? undefined : normalizedRender;
+    },
+    get available() {
+      return tool.available === undefined
+        ? undefined
+        : tool.available !== "disabled";
+    },
+  };
 
   useFrontendToolV2<MappedParameterTypes<T>>(
-    {
-      name,
-      description,
-      parameters: zodParameters,
-      handler: normalizedHandler,
-      followUp,
-      render: normalizedRender,
-      available: available === undefined ? undefined : available !== "disabled",
-      agentId,
-    },
-    deps,
+    registeredTool as never,
+    dependencies,
   );
 }
