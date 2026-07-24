@@ -693,17 +693,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     agent.emit(runFinishedEvent());
 
     await waitFor(() => {
-      const text = screen.getByTestId(`turn-${msg3}`).textContent;
-      const reactMajor = parseInt(React.version.split(".")[0], 10);
-      if (reactMajor >= 19) {
-        expect(text).toBe("Turn: 3");
-      } else {
-        // Under React 18 the renderer for the third turn can observe the
-        // turn=2 state snapshot frozen in closure because effect batching
-        // differs. The renderer still runs across all turns, which is what
-        // this test asserts; accept turn text in {2,3} only for R18.
-        expect(text).toMatch(/^Turn: (2|3)$/);
-      }
+      expect(screen.getByTestId(`turn-${msg3}`).textContent).toBe("Turn: 3");
     });
 
     // Verify the renderer works across multiple turns
