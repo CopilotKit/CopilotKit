@@ -28,6 +28,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
+from .unicode_default_case_folding import (
+    unicode_default_case_fold,
+    unicode_default_case_fold_normalized,
+)
+
 
 class IntelligenceError(RuntimeError):
     """Base class for Intelligence registry failures."""
@@ -216,6 +221,16 @@ _ERROR_CATEGORIES = frozenset(
 _BLOB_PROVIDERS = frozenset(
     {"awsS3", "googleCloudStorage", "azureBlob", "s3Compatible"}
 )
+# SkillBundleV1 archives are bounded identically in TypeScript, Python, and C#.
+# Only stored and deflate members are accepted; every other method (including
+# LZMA, bzip2, and zstd) is refused before any member is read.
+_ALLOWED_COMPRESSION = frozenset({zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED})
+_DEFAULT_MAX_ARCHIVE_BYTES = 50 * 1024 * 1024
+_DEFAULT_MAX_ARCHIVE_ENTRIES = 10_000
+_DEFAULT_MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
+_DEFAULT_MAX_FILES = 1_000
+_DEFAULT_MAX_FILE_BYTES = 10 * 1024 * 1024
+_DEFAULT_MAX_PATH_LENGTH = 512
 
 
 def _lock_for(path: Path) -> threading.Lock:
@@ -369,6 +384,9 @@ class _Skills:
         max_archive_bytes: int,
         max_archive_entries: int,
         max_uncompressed_bytes: int,
+        max_files: int,
+        max_file_bytes: int,
+        max_path_length: int,
     ) -> None:
         self._api_key = _required_string(api_key, "api_key")
         self._project_namespace = _required_string(
@@ -381,6 +399,9 @@ class _Skills:
         self._max_archive_bytes = max_archive_bytes
         self._max_archive_entries = max_archive_entries
         self._max_uncompressed_bytes = max_uncompressed_bytes
+        self._max_files = max_files
+        self._max_file_bytes = max_file_bytes
+        self._max_path_length = max_path_length
 
     def get(self, learning_container_id: str) -> IntelligenceSkillSet:
         container = self._container_id(learning_container_id)
@@ -394,7 +415,10 @@ class _Skills:
                 response = self._request_projection(container, None)
                 if response.status == 304:
                     self._block(container, "invalid-304")
-                    raise IntelligenceIntegrityError(
+                    # The shared golden fixture pins this to LEARNING_SDK_CACHE_CORRUPT
+                    # in the "internal" category; the TypeScript and C# SDKs agree.
+                    # IntelligenceCacheMissError carries exactly that code/category.
+                    raise IntelligenceCacheMissError(
                         "Registry returned 304 without a complete verified cache entry"
                     )
         if response.status != 200:
@@ -684,11 +708,13 @@ class _Skills:
                 part in {"", ".", ".."} for part in pure.parts
             ):
                 raise IntelligenceIntegrityError("Unsafe manifest file path")
+            if len(path) > self._max_path_length:
+                raise IntelligenceIntegrityError(f"Unsafe artifact path: {path!r}")
             _required_string(file.get("role"), "manifest.file.role")
             _required_string(file.get("mediaType"), "manifest.file.mediaType")
             _valid_integer(file.get("byteLength"), "manifest.file.byteLength")
             _valid_hash(file.get("rawSha256"), "manifest.file.rawSha256")
-            collision = unicodedata.normalize("NFC", path).casefold()
+            collision = unicode_default_case_fold_normalized(path)
             if collision in collisions:
                 raise IntelligenceIntegrityError("Colliding manifest file paths")
             collisions.add(collision)
@@ -739,12 +765,15 @@ class _Skills:
         members = archive.infolist()
         if not members or len(members) > self._max_archive_entries:
             raise IntelligenceIntegrityError("Skill archive entry bound exceeded")
-        total = sum(member.file_size for member in members)
-        if total > self._max_uncompressed_bytes:
-            raise IntelligenceIntegrityError("Skill archive expansion bound exceeded")
+        # TypeScript and C# bound the central directory at maxFiles + 1 so that a
+        # single root directory entry never costs a file slot.
+        if len(members) > self._max_files + 1:
+            raise IntelligenceIntegrityError("Invalid or oversized ZIP directory")
         roots: set[str] = set()
         collisions: set[str] = set()
         safe: list[zipfile.ZipInfo] = []
+        total = 0
+        files = 0
         for member in members:
             name = member.filename
             if not name or "\\" in name or "\x00" in name:
@@ -752,6 +781,8 @@ class _Skills:
             raw_parts = name.rstrip("/").split("/")
             if not raw_parts or any(part in {"", ".", ".."} for part in raw_parts):
                 raise IntelligenceIntegrityError("Unsafe ZIP member path")
+            if len(name.rstrip("/")) > self._max_path_length:
+                raise IntelligenceIntegrityError(f"Unsafe artifact path: {name!r}")
             path = PurePosixPath(name)
             if path.is_absolute() or any(
                 part in {"", ".", ".."} for part in path.parts
@@ -759,9 +790,11 @@ class _Skills:
                 raise IntelligenceIntegrityError("Unsafe ZIP member path")
             if path.parts[0].endswith(":"):
                 raise IntelligenceIntegrityError("Absolute ZIP member path")
+            if member.compress_type not in _ALLOWED_COMPRESSION:
+                raise IntelligenceIntegrityError("Unsupported ZIP compression method")
             roots.add(path.parts[0])
             collision_key = "/".join(
-                unicodedata.normalize("NFC", part).casefold() for part in path.parts
+                unicode_default_case_fold_normalized(part) for part in path.parts
             ).rstrip("/")
             if collision_key in collisions:
                 raise IntelligenceIntegrityError(
@@ -774,7 +807,20 @@ class _Skills:
                 raise IntelligenceIntegrityError(
                     "ZIP links and special files are forbidden"
                 )
+            if not member.is_dir():
+                if member.file_size > self._max_file_bytes:
+                    raise IntelligenceIntegrityError(
+                        "Bundle file exceeds the configured byte limit"
+                    )
+                files += 1
+                total += member.file_size
+                if total > self._max_uncompressed_bytes:
+                    raise IntelligenceIntegrityError(
+                        "Skill archive expansion bound exceeded"
+                    )
             safe.append(member)
+        if files > self._max_files:
+            raise IntelligenceIntegrityError("Bundle contains too many files")
         if len(roots) != 1:
             raise IntelligenceIntegrityError("Skill archive must have exactly one root")
         root = next(iter(roots))
@@ -787,7 +833,7 @@ class _Skills:
         self, contents: bytes, destination: Path
     ) -> tuple[str, list[dict[str, Any]]]:
         if len(contents) > self._max_archive_bytes:
-            raise IntelligenceIntegrityError("Skill archive byte bound exceeded")
+            raise IntelligenceIntegrityError("Bundle exceeds the configured byte limit")
         try:
             with zipfile.ZipFile(io.BytesIO(contents)) as archive:
                 members, root = self._safe_members(archive)
@@ -809,6 +855,11 @@ class _Skills:
                         }
                     )
                 return root, files
+        except IntelligenceError:
+            # IntelligenceError subclasses RuntimeError, so without this the
+            # generic handler below relabels every specific bound violation
+            # raised by _safe_members as "Invalid skill ZIP archive".
+            raise
         except (zipfile.BadZipFile, RuntimeError, OSError) as error:
             raise IntelligenceIntegrityError("Invalid skill ZIP archive") from error
 
@@ -817,7 +868,7 @@ class _Skills:
     ) -> IntelligenceSkillSet:
         payload, raw_entries = self._decode_projection(container, response.body)
         entries = [self._entry(raw, index) for index, raw in enumerate(raw_entries)]
-        skill_ids = [entry["skill_id"].casefold() for entry in entries]
+        skill_ids = [unicode_default_case_fold(entry["skill_id"]) for entry in entries]
         if len(skill_ids) != len(set(skill_ids)):
             raise IntelligenceIntegrityError("Duplicate skill identities in projection")
         set_hash = payload["skillSetHash"]
@@ -958,9 +1009,10 @@ class _Skills:
             skill_id = _safe_component(
                 _valid_uuid(entry.get("skillId"), "skillId"), "skillId"
             )
-            if skill_id.casefold() in seen_skills:
+            skill_key = unicode_default_case_fold(skill_id)
+            if skill_key in seen_skills:
                 raise IntelligenceIntegrityError("Duplicate cached skill identity")
-            seen_skills.add(skill_id.casefold())
+            seen_skills.add(skill_key)
             version_id = _valid_uuid(entry.get("versionId"), "versionId")
             projected = self._entry(projected_entries[position], position)
             if (
@@ -987,7 +1039,11 @@ class _Skills:
                     part in {"", ".", ".."} for part in pure.parts
                 ):
                     raise IntelligenceIntegrityError("Unsafe cached file path")
-                key = unicodedata.normalize("NFC", relative).casefold()
+                if len(relative) > self._max_path_length:
+                    raise IntelligenceIntegrityError(
+                        f"Unsafe artifact path: {relative!r}"
+                    )
+                key = unicode_default_case_fold_normalized(relative)
                 if key in collision_keys:
                     raise IntelligenceIntegrityError("Colliding cached file paths")
                 collision_keys.add(key)
@@ -1157,12 +1213,25 @@ class CopilotKitIntelligence:
         cache_dir: str | os.PathLike[str] = ".copilotkit/intelligence",
         transport: Transport | None = None,
         skills_path: str = _DEFAULT_PATH,
-        max_archive_bytes: int = 50 * 1024 * 1024,
-        max_archive_entries: int = 10_000,
-        max_uncompressed_bytes: int = 100 * 1024 * 1024,
+        max_archive_bytes: int = _DEFAULT_MAX_ARCHIVE_BYTES,
+        max_archive_entries: int = _DEFAULT_MAX_ARCHIVE_ENTRIES,
+        max_uncompressed_bytes: int = _DEFAULT_MAX_UNCOMPRESSED_BYTES,
+        max_files: int = _DEFAULT_MAX_FILES,
+        max_file_bytes: int = _DEFAULT_MAX_FILE_BYTES,
+        max_path_length: int = _DEFAULT_MAX_PATH_LENGTH,
         timeout: float = 30.0,
     ) -> None:
-        if min(max_archive_bytes, max_archive_entries, max_uncompressed_bytes) <= 0:
+        if (
+            min(
+                max_archive_bytes,
+                max_archive_entries,
+                max_uncompressed_bytes,
+                max_files,
+                max_file_bytes,
+                max_path_length,
+            )
+            <= 0
+        ):
             raise ValueError("Archive bounds must be positive")
         self.skills = _Skills(
             api_key=api_key,
@@ -1174,6 +1243,9 @@ class CopilotKitIntelligence:
             max_archive_bytes=max_archive_bytes,
             max_archive_entries=max_archive_entries,
             max_uncompressed_bytes=max_uncompressed_bytes,
+            max_files=max_files,
+            max_file_bytes=max_file_bytes,
+            max_path_length=max_path_length,
         )
 
 

@@ -3,6 +3,7 @@ import base64
 import hashlib
 import io
 import json
+import shutil
 import stat
 import threading
 import time
@@ -770,6 +771,140 @@ def test_zip_path_root_case_and_unicode_violations_fail_loudly(tmp_path, bad_fil
             response(projection([(BAD, VERSION_ONE, bundle(bad_files))]))
         )
         client(tmp_path, transport).skills.get(CONTAINER)
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ("references/Straße.txt", "references/STRASSE.txt"),
+        ("references/İ.txt", "references/i̇.txt"),
+        ("ﬁle.md", "file.md"),
+        ("SKILL2.md", "skill2.md"),
+    ],
+)
+def test_unicode_default_case_fold_path_collisions_are_rejected(tmp_path, left, right):
+    """Every one of these pairs is declared invalid by the conformance corpus."""
+    archive = bundle(
+        {"root/SKILL.md": "# Skill", f"root/{left}": "a", f"root/{right}": "b"}
+    )
+    payload = projection([(INTRO, VERSION_ONE, archive)])
+
+    with pytest.raises(IntelligenceIntegrityError) as raised:
+        client(tmp_path, QueueTransport(response(payload))).skills.get(CONTAINER)
+
+    assert raised.value.code == "LEARNING_BLOB_INTEGRITY_FAILURE"
+    assert raised.value.category == "validation"
+
+
+@pytest.mark.parametrize(
+    ("name", "files", "compression", "message"),
+    [
+        (
+            "per-file byte bound",
+            {"root/SKILL.md": "# Skill", "root/big.bin": "A" * 2_048},
+            zipfile.ZIP_STORED,
+            "Bundle file exceeds the configured byte limit",
+        ),
+        (
+            "file count bound",
+            {"root/SKILL.md": "# Skill", **{f"root/f{n}.txt": "x" for n in range(8)}},
+            zipfile.ZIP_STORED,
+            "Invalid or oversized ZIP directory",
+        ),
+        (
+            "compression allowlist",
+            {"root/SKILL.md": "# Skill"},
+            zipfile.ZIP_LZMA,
+            "Unsupported ZIP compression method",
+        ),
+        (
+            "path length bound",
+            {"root/SKILL.md": "# Skill", "root/" + "d/" * 40 + "x.txt": "z"},
+            zipfile.ZIP_STORED,
+            "Unsafe artifact path",
+        ),
+    ],
+)
+def test_zip_bounds_match_the_typescript_and_dotnet_sdks(
+    tmp_path, name, files, compression, message
+):
+    """Python enforced only the total-archive bounds; TS and C# also bound
+    per-file bytes, file count, compression method, and path length."""
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression) as archive:
+        for member, contents in files.items():
+            archive.writestr(member, contents)
+    payload = projection([(INTRO, VERSION_ONE, output.getvalue())])
+
+    with pytest.raises(IntelligenceIntegrityError, match=message) as raised:
+        client(
+            tmp_path,
+            QueueTransport(response(payload)),
+            max_files=4,
+            max_file_bytes=1_024,
+            max_path_length=64,
+        ).skills.get(CONTAINER)
+
+    assert raised.value.code == "LEARNING_BLOB_INTEGRITY_FAILURE"
+    assert name
+
+
+def test_default_zip_bounds_equal_the_shared_v1_limits(tmp_path):
+    """The defaults, not just explicit overrides, must match TypeScript and C#."""
+    sdk = client(tmp_path, QueueTransport())
+
+    assert sdk.skills._max_archive_bytes == 50 * 1024 * 1024
+    assert sdk.skills._max_uncompressed_bytes == 100 * 1024 * 1024
+    assert sdk.skills._max_files == 1_000
+    assert sdk.skills._max_file_bytes == 10 * 1024 * 1024
+    assert sdk.skills._max_path_length == 512
+
+
+def test_second_unconditional_304_uses_the_shared_golden_code(tmp_path):
+    golden = golden_registry_fixture()
+    payload = projection([(INTRO, VERSION_ONE, bundle())])
+    installed = client(tmp_path, QueueTransport(response(payload))).skills.get(
+        CONTAINER
+    )
+    shutil.rmtree(installed.path)
+    transport = QueueTransport(
+        IntelligenceResponse(304, {}, b""), IntelligenceResponse(304, {}, b"")
+    )
+
+    with pytest.raises(IntelligenceError) as raised:
+        client(tmp_path, transport).skills.get(CONTAINER)
+
+    assert raised.value.code == golden["expectations"]["secondUnconditional304Code"]
+    assert raised.value.category == "internal"
+    assert len(transport.requests) == 2
+    assert "If-None-Match" not in transport.requests[1].headers
+
+
+@pytest.mark.parametrize("scenario", ["canonicalConflict", "canonicalDenial"])
+def test_golden_invalidates_cache_field_decides_cached_consumption(tmp_path, scenario):
+    """Drives the assertion from errors.*.invalidatesCache instead of restating it."""
+    golden = golden_registry_fixture()
+    expected = golden["errors"][scenario]
+    assert isinstance(expected["invalidatesCache"], bool)
+    payload = projection([(INTRO, VERSION_ONE, bundle())])
+    client(tmp_path, QueueTransport(response(payload))).skills.get(CONTAINER)
+    sdk = client(
+        tmp_path,
+        QueueTransport(response(expected["body"], status=expected["status"])),
+    )
+
+    with pytest.raises(IntelligenceError) as raised:
+        sdk.skills.get(CONTAINER)
+    assert raised.value.code == expected["body"]["error"]["code"]
+
+    if expected["invalidatesCache"]:
+        with pytest.raises(IntelligenceCacheMissError):
+            sdk.skills.get_cached(CONTAINER)
+    else:
+        assert (
+            sdk.skills.get_cached(CONTAINER).freshness
+            == golden["expectations"]["explicitCacheFreshness"]
+        )
 
 
 def test_zip_links_missing_skill_md_and_archive_bounds_are_rejected(tmp_path):
