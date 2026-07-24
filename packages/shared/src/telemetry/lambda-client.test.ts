@@ -104,7 +104,7 @@ function setupCapturedRequest() {
           init.headers["X-CopilotKit-Telemetry-Id"] ?? undefined,
         url: String(input),
       };
-      return Promise.resolve(new Response("", { status: 202 }));
+      return Promise.resolve(new Response(null, { status: 202 }));
     });
 
   const readRequest = () => {
