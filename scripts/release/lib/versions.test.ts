@@ -6,7 +6,9 @@ import {
   parseSemver,
   computeNextStableVersion,
   computePrereleaseVersion,
+  resolvePrereleaseId,
   bumpPackages,
+  findCrossScopeWorkspaceDeps,
   getPackagesForScope,
 } from "./versions.js";
 
@@ -118,28 +120,49 @@ describe("computeNextStableVersion", () => {
   });
 });
 
+describe("resolvePrereleaseId", () => {
+  it("uses the supplied suffix verbatim", () => {
+    expect(resolvePrereleaseId("fix-user-issue")).toBe("fix-user-issue");
+  });
+
+  it("falls back to a unix timestamp", () => {
+    expect(resolvePrereleaseId()).toMatch(/^\d+$/);
+    expect(resolvePrereleaseId("")).toMatch(/^\d+$/);
+  });
+});
+
 describe("computePrereleaseVersion", () => {
   it("appends canary tag with timestamp when no suffix given", () => {
     const result = computePrereleaseVersion("1.55.2");
-    expect(result).toMatch(/^1\.55\.2-canary\.\d+$/);
+    expect(result).toMatch(/^1\.55\.3-canary\.\d+$/);
   });
 
   it("appends canary tag with custom suffix", () => {
     expect(computePrereleaseVersion("1.55.2", "fix-user-issue")).toBe(
-      "1.55.2-canary.fix-user-issue",
+      "1.55.3-canary.fix-user-issue",
     );
   });
 
-  it("uses the base version as-is (no bump)", () => {
+  // A stable release leaves the working tree on the version it published, so
+  // basing the canary on that version would publish a prerelease BELOW the
+  // release it was cut from — unreachable by any dependent range, and a `canary`
+  // dist-tag pointing behind `latest`.
+  it("bumps the patch so the canary sorts above the released version", () => {
     expect(computePrereleaseVersion("1.55.2", "test")).toBe(
-      "1.55.2-canary.test",
+      "1.55.3-canary.test",
     );
-    expect(computePrereleaseVersion("2.0.0", "test")).toBe("2.0.0-canary.test");
+    expect(computePrereleaseVersion("2.0.0", "test")).toBe("2.0.1-canary.test");
+    expect(computePrereleaseVersion("0.2.1", "test")).toBe("0.2.2-canary.test");
   });
 
-  it("strips existing prerelease before appending", () => {
+  // An existing prerelease means the tree is ALREADY on an unreleased version;
+  // bumping again would skip it.
+  it("reuses the base version when it already carries a prerelease", () => {
     expect(computePrereleaseVersion("1.55.2-canary.old", "new")).toBe(
       "1.55.2-canary.new",
+    );
+    expect(computePrereleaseVersion("1.56.0-alpha.1", "new")).toBe(
+      "1.56.0-canary.new",
     );
   });
 });
@@ -234,5 +257,60 @@ describe("bumpPackages", () => {
       "@copilotkit/react-core",
       "@copilotkit/shared",
     ]);
+  });
+});
+
+// Mirrors the real @copilotkit/runtime -> @copilotkit/channels-intelligence edge:
+// a package in one release scope carrying a workspace: dep on a package owned by
+// another. pnpm pack pins those to the working-tree version, so a canary of only
+// the depending scope ships against the OTHER scope's last stable release.
+describe("findCrossScopeWorkspaceDeps", () => {
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "release-test-"));
+    const packagesDir = path.join(tmpDir, "packages");
+
+    const write = (dir: string, pkg: Record<string, unknown>) => {
+      const target = path.join(packagesDir, dir);
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, "package.json"), JSON.stringify(pkg));
+    };
+
+    write("shared", { name: "@copilotkit/shared", version: "1.55.2" });
+    write("react-core", {
+      name: "@copilotkit/react-core",
+      version: "1.55.2",
+      dependencies: {
+        "@copilotkit/shared": "workspace:*",
+        "@copilotkit/angular": "workspace:^",
+        "some-third-party": "^1.0.0",
+      },
+      devDependencies: { "@copilotkit/angular": "workspace:*" },
+    });
+    write("angular", { name: "@copilotkit/angular", version: "0.2.0" });
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("reports the version a dependency outside the published scopes pins to", () => {
+    expect(findCrossScopeWorkspaceDeps(["monorepo"])).toEqual([
+      {
+        from: "@copilotkit/react-core",
+        dep: "@copilotkit/angular",
+        depScope: "angular",
+        resolvesTo: "0.2.0",
+      },
+    ]);
+  });
+
+  it("reports nothing once every scope on the edge is published together", () => {
+    expect(findCrossScopeWorkspaceDeps(["monorepo", "angular"])).toEqual([]);
+  });
+
+  it("ignores in-scope deps and third-party ranges", () => {
+    const found = findCrossScopeWorkspaceDeps(["monorepo"]);
+    expect(found.map((edge) => edge.dep)).not.toContain("@copilotkit/shared");
+    expect(found.map((edge) => edge.dep)).not.toContain("some-third-party");
   });
 });

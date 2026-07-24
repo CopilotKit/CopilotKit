@@ -76,15 +76,44 @@ export function computeNextStableVersion(
   }
 }
 
+/**
+ * Resolve the identifier that separates one canary from the next: the
+ * maintainer-supplied suffix, else a unix timestamp.
+ *
+ * Resolve this ONCE per publish run and pass it to every
+ * {@link computePrereleaseVersion} call, so a multi-scope canary ships one
+ * recognizable set of versions (`1.63.3-canary.1784916581` +
+ * `0.2.2-canary.1784916581`) instead of per-scope timestamps that drift by
+ * however long each scope took to bump.
+ */
+export function resolvePrereleaseId(suffix?: string): string {
+  return suffix || String(Math.floor(Date.now() / 1000));
+}
+
+/**
+ * Compute the version a canary publishes under: the next UNRELEASED version
+ * plus `-<prereleaseTag>.<id>`.
+ *
+ * The base has to be the next version rather than the current one. A stable
+ * release leaves the working tree sitting on the version it just published, so
+ * appending `-canary` to that produces a prerelease semver sorts BELOW the
+ * release it was cut from (`0.2.1-canary.17849… < 0.2.1`). Two things break as
+ * a result: the `canary` dist-tag advertises something older than `latest`, and
+ * no dependent range can ever resolve the canary, since npm admits prereleases
+ * only for a range naming that same major.minor.patch. Bumping the patch first
+ * keeps every canary above the last stable release.
+ *
+ * A working tree already carrying a prerelease is already sitting on an
+ * unreleased version, so its base is used as-is — the same rule
+ * {@link computeNextStableVersion} applies.
+ */
 export function computePrereleaseVersion(
   currentVersion: string,
   suffix?: string,
 ): string {
-  const v = parseSemver(currentVersion);
-  const config = loadConfig();
-  const tag = config.prereleaseTag;
-  const id = suffix || String(Math.floor(Date.now() / 1000));
-  return `${v.major}.${v.minor}.${v.patch}-${tag}.${id}`;
+  const base = computeNextStableVersion(currentVersion, "patch");
+  const tag = loadConfig().prereleaseTag;
+  return `${base}-${tag}.${resolvePrereleaseId(suffix)}`;
 }
 
 /** Get all publishable packages in the order configured for a release scope. */
@@ -154,4 +183,76 @@ export function bumpPackages(
   }
 
   return updated;
+}
+
+/** A published dependency edge that leaves the set of scopes being published. */
+export interface CrossScopeDependency {
+  /** Package being published. */
+  from: string;
+  /** Its `workspace:` dependency, owned by a scope that is NOT being published. */
+  dep: string;
+  /** The scope that owns `dep`. */
+  depScope: ReleaseScope;
+  /** Version `pnpm pack` will rewrite the workspace protocol to. */
+  resolvesTo: string;
+}
+
+/**
+ * Find dependency edges that leave `scopes`: a package being published whose
+ * `workspace:` dependency belongs to a scope that ISN'T.
+ *
+ * `pnpm pack` resolves the workspace protocol against the working tree, so every
+ * such edge is pinned to the dependency's CURRENT version — for a scope that was
+ * not bumped in this run, its last stable release. The published artifact then
+ * only composes with that release, even when the commit being canaried changed
+ * both sides of the edge. Callers surface these so the pin is a visible choice
+ * rather than a silent one.
+ *
+ * Only `dependencies`/`peerDependencies`/`optionalDependencies` are considered —
+ * devDependencies never constrain a consumer's install.
+ */
+export function findCrossScopeWorkspaceDeps(
+  scopes: ReleaseScope[],
+): CrossScopeDependency[] {
+  const config = loadConfig();
+  const scopeByPackage = new Map<string, ReleaseScope>();
+  for (const [scope, scopeConfig] of Object.entries(config.scopes)) {
+    for (const name of scopeConfig.packages) {
+      scopeByPackage.set(name, scope as ReleaseScope);
+    }
+  }
+
+  const publishing = new Set(scopes);
+  const found: CrossScopeDependency[] = [];
+
+  for (const scope of scopes) {
+    for (const p of getPackagesForScope(scope)) {
+      for (const depField of [
+        "dependencies",
+        "peerDependencies",
+        "optionalDependencies",
+      ] as const) {
+        const deps = p.pkg[depField] as Record<string, string> | undefined;
+        if (!deps) continue;
+        for (const [dep, range] of Object.entries(deps)) {
+          if (!range.startsWith("workspace:")) continue;
+          const depScope = scopeByPackage.get(dep);
+          if (!depScope || publishing.has(depScope)) continue;
+          found.push({
+            from: p.name,
+            dep,
+            depScope,
+            resolvesTo: JSON.parse(
+              fs.readFileSync(
+                path.join(findPackageDir(dep), "package.json"),
+                "utf8",
+              ),
+            ).version,
+          });
+        }
+      }
+    }
+  }
+
+  return found;
 }
