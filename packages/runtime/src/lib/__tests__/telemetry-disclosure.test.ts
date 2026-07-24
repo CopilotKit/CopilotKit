@@ -37,7 +37,8 @@ describe("logRuntimeTelemetryDisclosure", () => {
 
     expect(consoleInfoSpy).toHaveBeenCalledTimes(1);
     const [message] = consoleInfoSpy.mock.calls[0]!;
-    expect(message).toMatch(/anonymous telemetry/i);
+    expect(message).toMatch(/\btelemetry enabled\b/i);
+    expect(message).not.toMatch(/\banonymous telemetry\b/i);
     expect(message).toMatch(/COPILOTKIT_TELEMETRY_DISABLED/);
   });
 
