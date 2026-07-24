@@ -19,8 +19,11 @@ import {
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
 import { RecipeCard } from "./recipe-card";
-import { INITIAL_RECIPE } from "./types";
-import type { RecipeAgentState, RecipeData } from "./types";
+import {
+  INITIAL_RECIPE,
+  type RecipeAgentState,
+  type RecipeData,
+} from "./types";
 
 export default function SharedStateReadDemo() {
   return (

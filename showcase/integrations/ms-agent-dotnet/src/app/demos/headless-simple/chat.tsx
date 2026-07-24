@@ -26,6 +26,7 @@ import { EmptyState } from "./empty-state";
 import { TypingIndicator } from "./typing-indicator";
 
 export function Chat() {
+  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
@@ -39,8 +40,16 @@ export function Chat() {
       content: trimmed,
     });
     setInput("");
-    void copilotkit.runAgent({ agent }).catch(() => {});
+    void copilotkit.runAgent({ agent }).catch((err) => {
+      // The Headless Simple demo is the canonical "two hooks, your
+      // design system" example users copy-paste as a starting point.
+      // Silently swallowing errors here would model broken practice;
+      // log so a network failure / runtime error / transport disconnect
+      // surfaces in the console for the developer.
+      console.error("[ms-agent-dotnet:headless-simple] runAgent failed", err);
+    });
   };
+  // @endregion[use-agent-simple]
 
   // Render only plain user/assistant text — Simple skips tool/system/etc.
   const visible = agent.messages.flatMap((m) => {
@@ -79,6 +88,7 @@ export function Chat() {
           ) : (
             <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
+                {/* @region[message-list-simple] */}
                 {visible.map((m) =>
                   m.role === "user" ? (
                     <UserBubble key={m.id} content={m.content} />
@@ -86,6 +96,7 @@ export function Chat() {
                     <AssistantBubble key={m.id} content={m.content} />
                   ),
                 )}
+                {/* @endregion[message-list-simple] */}
                 {showTyping && <TypingIndicator />}
               </div>
             </ScrollArea>

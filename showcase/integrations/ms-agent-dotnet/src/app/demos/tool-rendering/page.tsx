@@ -23,12 +23,13 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard } from "./flight-list-card";
-import type { Flight } from "./flight-list-card";
+import { FlightListCard, type Flight } from "./flight-list-card";
 import { StockCard } from "./stock-card";
 import { D20Card } from "./d20-card";
-import { CustomCatchallRenderer } from "./custom-catchall-renderer";
-import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import {
+  CustomCatchallRenderer,
+  type CatchallToolStatus,
+} from "./custom-catchall-renderer";
 import { parseJsonResult } from "../_shared/parse-json-result";
 import { useSuggestions } from "./suggestions";
 

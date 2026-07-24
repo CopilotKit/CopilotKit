@@ -9,9 +9,11 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
-import type { Delegation } from "./delegation-log";
-import { SubAgentActivityCard } from "./subagent-activity-card";
-import type { SubAgentToolStatus } from "./subagent-activity-card";
+import { Delegation } from "./delegation-log";
+import {
+  SubAgentActivityCard,
+  type SubAgentToolStatus,
+} from "./subagent-activity-card";
 import { DemoLayout } from "./demo-layout";
 import { inferActiveSubAgent } from "./active-subagent";
 import { useSubagentsSuggestions } from "./suggestions";
@@ -33,6 +35,8 @@ function DemoContent() {
     agentId: "subagents",
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
+
+  useSubagentsSuggestions();
 
   // @region[subagent-tool-renderers]
   // Per-tool renderers — one for each sub-agent tool the supervisor can
@@ -93,8 +97,6 @@ function DemoContent() {
   const agentState = agent.state as SubagentsAgentState | undefined;
   const delegations = agentState?.delegations ?? [];
   const isRunning = agent.isRunning;
-  useSubagentsSuggestions(isRunning);
-
   const activeSubAgent = isRunning
     ? inferActiveSubAgent(delegations, agent.messages)
     : null;
