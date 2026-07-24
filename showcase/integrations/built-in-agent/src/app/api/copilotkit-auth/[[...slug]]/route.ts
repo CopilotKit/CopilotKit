@@ -18,7 +18,7 @@ import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
-  agents: { default: createBuiltInAgent() },
+  agents: { "auth-demo": createBuiltInAgent() },
   runner: new InMemoryAgentRunner(),
 });
 

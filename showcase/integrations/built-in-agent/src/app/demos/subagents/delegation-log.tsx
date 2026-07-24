@@ -2,16 +2,6 @@
 
 import React from "react";
 
-// Mirrors the LangGraph-Python reference demo's `delegation-log.tsx`.
-// Renders the side-panel delegation log + the always-visible role
-// indicator chips that the e2e suite anchors on
-// (`[data-testid="subagent-indicator-<role>"]`).
-//
-// Built-in-agent's backend does not (yet) expose a `delegations` slot
-// on agent state, so callers pass an empty list — the indicators still
-// render so the page-load test can assert they exist. The entry list
-// becomes populated once the backend wires a `delegations` reducer.
-
 export type SubAgentName =
   | "research_agent"
   | "writing_agent"
@@ -21,7 +11,7 @@ export interface Delegation {
   id: string;
   sub_agent: SubAgentName;
   task: string;
-  status: "running" | "completed" | "failed";
+  status: "completed";
   result: string;
 }
 
@@ -52,12 +42,15 @@ const SUB_AGENT_STYLE: Record<
   },
 };
 
-const STATUS_BADGE: Record<Delegation["status"], string> = {
-  running: "text-[#5B5BD6]",
-  completed: "text-[#189370]",
-  failed: "text-[#D14343]",
-};
-
+// @region[delegation-log-frontend]
+/**
+ * Live delegation log — renders the `delegations` slot of agent state.
+ *
+ * Each entry corresponds to one invocation of a sub-agent. The list
+ * grows in real time as the supervisor fans work out to its children.
+ * The parent header shows how many sub-agents have been called and
+ * whether the supervisor is still running.
+ */
 // Fixed list of the three sub-agent roles the supervisor can call.
 // Rendered as always-visible indicator chips at the top of the log
 // (regardless of whether the supervisor has delegated yet) so the user
@@ -156,9 +149,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
                       <span>{style.label}</span>
                     </span>
                   </div>
-                  <span
-                    className={`text-[10px] uppercase tracking-[0.12em] font-semibold ${STATUS_BADGE[d.status]}`}
-                  >
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
                     {d.status}
                   </span>
                 </div>
@@ -177,3 +168,4 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
     </div>
   );
 }
+// @endregion[delegation-log-frontend]

@@ -18,10 +18,9 @@
       }
     },
     {
-      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
+      "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands. NO turnIndex: turn 2 has 1 prior assistant message (turnIndex 1), so a spurious turnIndex:0 here dropped the match and the turn never completed (dom-missing). Canonical fixtures omit turnIndex so any turn matches (mirrors LGP).",
       "match": {
         "userMessage": "healthier with more vegetables",
-        "turnIndex": 0,
         "context": "built-in-agent"
       },
       "response": {

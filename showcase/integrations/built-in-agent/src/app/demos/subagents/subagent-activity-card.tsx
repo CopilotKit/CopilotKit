@@ -5,20 +5,13 @@ import React from "react";
 import type { SubAgentName } from "./delegation-log";
 
 // In-chat activity card for a single sub-agent invocation. Rendered
-// inline in the assistant message stream via the per-tool
-// `useComponent` registrations in `page.tsx`. Mirrors the
-// `SubAgentActivityCard` in the LangGraph-Python reference demo so the
-// D6 testid surface (`subagent-card-<role>`, `subagent-activity-task`,
-// `subagent-result`, `subagent-status`) is identical across both
-// integrations.
+// inline in the assistant message stream via `useRenderTool` so the
+// user can SEE which sub-agent is running and what task it received,
+// without having to look at the side panel.
 //
-// The card props mirror the existing built-in-agent surface
-// (`{ name, status, parameters, result }`) so the page.tsx
-// registrations can pass `useComponent` render props through
-// unchanged. `subAgent` is supplied per-registration in page.tsx and
-// is the load-bearing role identifier — the testid is keyed off it,
-// not off `name`, so the card renders a stable role testid even when
-// `useComponent` does not forward the tool name to render props.
+// One card per supervisor → sub-agent tool call. Status walks
+// inProgress → executing → complete as the supervisor streams the
+// tool args, the sub-agent runs, and the ToolMessage comes back.
 
 export type SubAgentToolStatus = "inProgress" | "executing" | "complete";
 
@@ -28,8 +21,8 @@ const SUB_AGENT_META: Record<
     label: string;
     role: string;
     emoji: string;
-    accent: string;
-    chip: string;
+    accent: string; // border + bg
+    chip: string; // badge tone
   }
 > = {
   research_agent: {
@@ -55,6 +48,13 @@ const SUB_AGENT_META: Record<
   },
 };
 
+export interface SubAgentActivityCardProps {
+  subAgent: SubAgentName;
+  task: string | undefined;
+  status: SubAgentToolStatus;
+  result: string | undefined;
+}
+
 // Map the backend tool name (`research_agent`, `writing_agent`,
 // `critique_agent`) to the short role used in test selectors. The
 // per-role `[data-testid="subagent-card-<role>"]` testid is the stable
@@ -65,89 +65,16 @@ const ROLE_TESTID: Record<SubAgentName, "researcher" | "writer" | "critic"> = {
   critique_agent: "critic",
 };
 
-export interface SubAgentActivityCardProps {
-  /** Required — supplied per `useComponent` registration in page.tsx. */
-  subAgent: SubAgentName;
-  /** Tool name as seen on the wire (forwarded from useComponent when available). */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  name?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  status?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  parameters?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result?: any;
-  /** Some renderers pass `task` directly instead of `parameters.task`. */
-  task?: string;
-}
-
-function normalizeStatus(raw: unknown): SubAgentToolStatus {
-  if (raw === "complete" || raw === "executing" || raw === "inProgress") {
-    return raw;
-  }
-  return "executing";
-}
-
-function describeStatus(status: SubAgentToolStatus): string {
-  switch (status) {
-    case "inProgress":
-      return "starting";
-    case "executing":
-      return "running";
-    case "complete":
-      return "done";
-  }
-}
-
 export function SubAgentActivityCard({
   subAgent,
-  status: rawStatus,
-  parameters,
+  task,
+  status,
   result,
-  task: taskProp,
 }: SubAgentActivityCardProps) {
   const meta = SUB_AGENT_META[subAgent];
-  const status = normalizeStatus(rawStatus);
   const done = status === "complete";
   const running = !done;
   const roleTestId = `subagent-card-${ROLE_TESTID[subAgent]}`;
-
-  const task: string | undefined =
-    typeof taskProp === "string"
-      ? taskProp
-      : typeof parameters?.task === "string"
-        ? parameters.task
-        : undefined;
-
-  // Built-in-agent returns the sub-agent body as a JSON-encoded string
-  // (`{ role, text }`). If we get a string, try to parse and prefer the
-  // `text` field; fall back to the raw string. Non-string results
-  // (objects) are stringified for display.
-  let resultText: string | undefined;
-  if (typeof result === "string") {
-    const trimmed = result.trim();
-    if (trimmed) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (parsed && typeof parsed === "object" && "text" in parsed) {
-          resultText =
-            typeof (parsed as { text: unknown }).text === "string"
-              ? ((parsed as { text: string }).text as string)
-              : JSON.stringify((parsed as { text: unknown }).text);
-        } else {
-          resultText = trimmed;
-        }
-      } catch {
-        resultText = trimmed;
-      }
-    }
-  } else if (result != null) {
-    try {
-      resultText = JSON.stringify(result);
-    } catch {
-      resultText = String(result);
-    }
-  }
 
   return (
     <div
@@ -195,7 +122,7 @@ export function SubAgentActivityCard({
               data-subagent-result-role={ROLE_TESTID[subAgent]}
               className="rounded-lg border border-[#E9E9EF] bg-white p-2.5 text-xs text-[#010507] whitespace-pre-wrap"
             >
-              {resultText && resultText.length > 0 ? resultText : "(empty)"}
+              {result?.trim() ? result : "(empty)"}
             </div>
           ) : (
             <p className="inline-flex items-center gap-2 text-xs italic text-[#57575B]">
@@ -243,4 +170,15 @@ function StatusBadge({
       {label}
     </span>
   );
+}
+
+function describeStatus(status: SubAgentToolStatus): string {
+  switch (status) {
+    case "inProgress":
+      return "starting";
+    case "executing":
+      return "running";
+    case "complete":
+      return "done";
+  }
 }

@@ -42,6 +42,31 @@ require_env() {
 
 # ── Docker / Compose helpers ─────────────────────────────────────────────────
 
+stage_angular() {
+  local pkg_dir="${1:?integration context required}"
+  local default_source="$SHOWCASE_ROOT/angular/dist/showcase-angular/browser"
+  local angular_source="${2:-$default_source}"
+  local angular_link="$pkg_dir/public/angular"
+
+  [ -L "$angular_link" ] || return 0
+
+  if [ ! -d "$angular_source" ]; then
+    if [ "$angular_source" != "$default_source" ]; then
+      die "Missing staged Angular browser artifact: $angular_source"
+    fi
+    pnpm --dir "$SHOWCASE_ROOT/angular" build
+  fi
+
+  local integration_id
+  integration_id="$(basename "${pkg_dir%/}")"
+  rm "$angular_link"
+  mkdir -p "$angular_link"
+  cp -R "$angular_source/." "$angular_link/"
+  printf '%s\n' \
+    "globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({\"frontendId\":\"angular\",\"integrationId\":\"$integration_id\"});" \
+    > "$angular_link/runtime-config.js"
+}
+
 stage_shared() {
   # Dereference tools/, shared-tools/, and _shared/ symlinks into real copies
   # so Docker COPY can follow them (Docker build contexts can't traverse
@@ -63,6 +88,11 @@ stage_shared() {
         fi
       fi
     done
+
+    # Angular is built once, then the same static artifact is materialized
+    # inside each selected integration context. The staged manifest contains
+    # only the frontend and integration IDs; all API traffic stays same-origin.
+    stage_angular "$pkg_dir"
   done
 }
 
@@ -70,7 +100,7 @@ restore_symlinks() {
   # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
   # stage_shared. The integrations/*/_shared glob also matches the canonical
   # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared 2>/dev/null || true)
+  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular 2>/dev/null || true)
 }
 
 slug_to_container() {

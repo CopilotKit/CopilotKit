@@ -39,6 +39,10 @@ __pycache__/
 
 docs/next-env.d.ts
 showcase/shell-docs/next-env.d.ts
+showcase/angular/public/demo-files/
+showcase/angular/public/mcp-apps-sandbox.html
+showcase/angular/src/app/generated/
+showcase/angular/.staged-angular-package/
 
 # Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
 showcase/integrations/*/shared_python/

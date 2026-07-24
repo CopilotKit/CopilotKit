@@ -7,9 +7,9 @@ description: "Angular function for registering a client-side frontend tool with 
 
 `registerFrontendTool` registers a client-side tool with CopilotKit. When the agent decides to call the tool, the provided `handler` function executes in the browser, and the value it resolves to is surfaced back to the agent as the tool result. Optionally, you can supply a `component` (a standalone Angular component) to render custom UI in the chat that shows the tool call's progress and result.
 
-You call `registerFrontendTool` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately, and CopilotKit removes it automatically when the owning component or service is destroyed. Parameter schemas are defined with a [Standard Schema](https://standardschema.dev) such as a [Zod](https://zod.dev) object, which is used for both validation and type inference of the handler's arguments.
+You call `registerFrontendTool` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id. Parameter schemas use a [Standard Schema](https://standardschema.dev), such as a [Zod](https://zod.dev) object, for the advertised tool schema and TypeScript inference. Runtime arguments are JSON-parsed but are not validated against that schema.
 
-This is the Angular equivalent of React's `useFrontendTool()`. The handler runs inside the same injector that registered the tool, so it can call `inject()` to reach your other Angular services.
+The handler runs inside the same injector that registered the tool, so it can call `inject()` to reach your other Angular services.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -35,8 +35,9 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
 
   <PropertyReference name="name" type="string" required>
     A unique name for the tool. The agent references this name when it decides
-    to call the tool. Registering another tool with the same name (for the same
-    `agentId`) adds a second registration, so use distinct names per tool.
+    to call the tool. Core skips a second tool with the same name and `agentId`,
+    although Angular still appends its frontend-tool render config. Avoid
+    duplicate keys.
   </PropertyReference>
 
   <PropertyReference name="description" type="string" required>
@@ -46,9 +47,10 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
 
   <PropertyReference name="parameters" type="StandardSchemaV1<unknown, Args>" required>
     A [Standard Schema](https://standardschema.dev) (for example a Zod object)
-    that defines the tool's input parameters. The schema drives both validation
-    and the type inference of the `handler` arguments. For a tool that takes no
-    parameters, pass an empty object schema such as `z.object({})`.
+    that defines the advertised tool input schema and drives type inference for
+    the `handler` arguments. Runtime arguments are JSON-parsed and cast to
+    `Args`; this helper does not validate them against the schema. For a tool
+    that takes no parameters, pass an empty object schema such as `z.object({})`.
   </PropertyReference>
 
   <PropertyReference
@@ -57,7 +59,7 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
     required
   >
     An async function that runs when the agent calls the tool. It receives the
-    validated, typed `args` and a `context` object, and runs inside the
+    parsed `args` cast to the inferred type and a `context` object, and runs inside the
     injection context that registered the tool, so you can call `inject()`
     inside it. The resolved value is returned to the agent as the tool result.
 
@@ -69,10 +71,10 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
       The agent instance that invoked the tool.
     </PropertyReference>
 
-    <PropertyReference name="context.signal" type="AbortSignal">
-      An `AbortSignal` that is aborted when the user stops the agent. Long
-      running handlers can check `signal.aborted` or pass `signal` to `fetch`
-      to cancel cooperatively.
+    <PropertyReference name="context.signal" type="AbortSignal | undefined">
+      An optional `AbortSignal` for the active run. When present, it is aborted
+      when the user stops the agent. Check that it exists before reading
+      `signal.aborted` or pass it as an optional `fetch` signal.
     </PropertyReference>
   </PropertyReference>
 
@@ -97,13 +99,16 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
 
 ## Return Value
 
-`registerFrontendTool` returns `void`. It performs the registration as a side effect and wires up automatic cleanup.
+`registerFrontendTool` returns `void`. It performs the registration as a side effect and wires up name-and-agent-id cleanup for the owning injector.
 
 ## Behavior
 
 - **Immediate registration.** The tool is added to CopilotKit as soon as the function runs, so call it during construction or field initialization, not inside an event handler.
 - **Runs in the injection context.** The `handler` is invoked with `runInInjectionContext` using the injector that registered the tool, so `inject()` works inside it.
-- **Automatic cleanup.** CopilotKit removes the tool when the owning component or service is destroyed, using the same `name` and `agentId` you registered with. There is no manual unregister step.
+- **Cleanup by key.** When the owning component or service is destroyed,
+  CopilotKit removes frontend tools, human-in-the-loop tools, and tool-call
+  renderers with the same `name` and optional `agentId`. Registrations sharing
+  that key are removed together.
 - **Optional renderer.** When you pass a `component`, it is registered alongside the tool so the chat can render the tool call's progress and result.
 
 ## Usage
