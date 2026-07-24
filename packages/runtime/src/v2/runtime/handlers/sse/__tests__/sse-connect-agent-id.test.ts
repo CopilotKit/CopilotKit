@@ -79,6 +79,46 @@ describe("handleSseConnect → debug envelope agentId", () => {
 });
 
 /**
+ * Regression guard: `handleSseConnect` must forward the route-resolved
+ * `agentId` into the `runner.connect` request so custom runners can
+ * hydrate messages from it when the cache is empty.
+ */
+describe("handleSseConnect → agentId in runner.connect call", () => {
+  it("forwards agentId into the runner.connect request", async () => {
+    const event: BaseEvent = {
+      type: EventType.RUN_STARTED,
+      threadId: "t-1",
+      runId: "r-1",
+    } as BaseEvent;
+
+    const connectSpy = vi.fn(() => of(event));
+    const fakeRuntime = {
+      debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
+      runner: { connect: connectSpy },
+    } as any;
+
+    const response = handleSseConnect({
+      runtime: fakeRuntime,
+      request: new Request("http://localhost/agent/weather-agent/connect", {
+        method: "POST",
+      }),
+      agentId: "weather-agent",
+      threadId: "t-1",
+    });
+
+    const reader = response.body!.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+
+    expect(connectSpy).toHaveBeenCalledTimes(1);
+    expect(connectSpy.mock.calls[0][0].agentId).toBe("weather-agent");
+  });
+});
+
+/**
  * Regression guard for issue #5712 on the /connect path. `handleSseConnect`
  * used to forward raw inbound `authorization`/`x-*` headers straight to
  * `runner.connect`, ignoring server-configured `agent.headers` entirely — so
