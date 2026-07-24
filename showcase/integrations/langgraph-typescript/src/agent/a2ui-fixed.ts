@@ -9,6 +9,8 @@
  * Ported from `src/agents/a2ui_fixed.py`.
  */
 
+import { makeChatOpenAI } from "./openai-headers";
+
 // @region[backend-render-operations]
 // @region[backend-schema-json-load]
 import { readFileSync } from "fs";
@@ -16,10 +18,11 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
   START,
@@ -27,7 +30,6 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { makeChatOpenAI } from "./openai-headers";
 
 import {
   convertActionsToDynamicStructuredTools,

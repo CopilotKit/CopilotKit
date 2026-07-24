@@ -34,7 +34,7 @@ const SYSTEM_PROMPT =
 
 // @region[agent-context-setup]
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
+  const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0 });
 
   // Inject read-only context from useAgentContext / useCopilotReadable.
   // Mirrors the `createAppContextBeforeAgent` logic in CopilotKitMiddleware:
@@ -69,8 +69,41 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 }
 // @endregion[agent-context-setup]
 
+// Showcase-specific wrapper: uses makeChatOpenAI for aimock header forwarding.
+// The chatNode above (inside the region) uses the public ChatOpenAI API for docs.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
+  const model = makeChatOpenAI(config, { model: "gpt-5.4" });
+
+  const appContext = state.copilotkit?.context;
+  const isEmptyContext =
+    !appContext ||
+    (typeof appContext === "string" && appContext.trim() === "") ||
+    (typeof appContext === "object" && Object.keys(appContext).length === 0);
+
+  const systemMessages: SystemMessage[] = [
+    new SystemMessage({ content: SYSTEM_PROMPT }),
+  ];
+
+  if (!isEmptyContext) {
+    const contextContent =
+      typeof appContext === "string"
+        ? appContext
+        : JSON.stringify(appContext, null, 2);
+    systemMessages.push(
+      new SystemMessage({ content: `App Context:\n${contextContent}` }),
+    );
+  }
+
+  const response = await model.invoke(
+    [...systemMessages, ...state.messages],
+    config,
+  );
+
+  return { messages: response };
+}
+
 const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
+  .addNode("chat_node", chatNodeWithHeaders)
   .addEdge(START, "chat_node")
   .addEdge("chat_node", "__end__");
 

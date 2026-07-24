@@ -11,6 +11,8 @@
  * the system prompt from three small rulebooks before invoking the model.
  */
 
+import { makeChatOpenAI } from "./openai-headers";
+
 // @region[agent-config-setup]
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AIMessage } from "@langchain/core/messages";
@@ -22,7 +24,6 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { makeChatOpenAI } from "./openai-headers";
 
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
@@ -151,6 +152,25 @@ function buildSystemPrompt(props: ResolvedProps): string {
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  const model = new ChatOpenAI({
+    model: "gpt-4o-mini",
+    temperature: 0.4,
+  });
+  const props = readConfig(state, config);
+  const systemPrompt = buildSystemPrompt(props);
+
+  const response = (await model.invoke(
+    [new SystemMessage({ content: systemPrompt }), ...state.messages],
+    config,
+  )) as AIMessage;
+
+  return { messages: response };
+}
+// @endregion[agent-config-setup]
+
+// Showcase-specific wrapper: uses makeChatOpenAI for aimock header forwarding.
+// The chatNode above (inside the region) uses the public ChatOpenAI API for docs.
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
   const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     temperature: 0.4,
@@ -167,11 +187,10 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
 }
 
 const workflow = new StateGraph(AgentStateAnnotation)
-  .addNode("chat_node", chatNode)
+  .addNode("chat_node", chatNodeWithHeaders)
   .addEdge(START, "chat_node")
   .addEdge("chat_node", "__end__");
 
 const memory = new MemorySaver();
 
 export const graph = workflow.compile({ checkpointer: memory });
-// @endregion[agent-config-setup]
