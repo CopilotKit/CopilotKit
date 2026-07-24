@@ -1,0 +1,4 @@
+
+# local secrets (real OpenAI key for prod-parity testing) — never commit
+.env
+.env*.local
