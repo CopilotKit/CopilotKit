@@ -272,6 +272,9 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     {
       input: "verify the css theme rendering",
       assertions: buildChatCssAssertion(),
+      completeOnMount: {
+        testIds: ["copilot-assistant-message"],
+      },
     },
   ];
 }

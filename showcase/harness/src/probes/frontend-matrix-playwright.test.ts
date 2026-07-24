@@ -26,6 +26,26 @@ describe("frontend matrix Playwright execution", () => {
     ).toBe("settle-text-unstable");
     expect(
       conversationFailureSummary(
+        "waitForTurnComplete: reason=dom-missing, runsFinished=1",
+      ),
+    ).toBe("settle-dom-missing");
+    expect(
+      conversationFailureSummary(
+        "waitForTurnComplete: reason=sse-missing, runsFinished=0",
+      ),
+    ).toBe("settle-sse-missing");
+    expect(
+      conversationFailureSummary(
+        "waitForTurnComplete: reason=surface-missing, count=1",
+      ),
+    ).toBe("settle-surface-missing");
+    expect(
+      conversationFailureSummary(
+        "waitForTurnComplete: reason=done-signal-missing, count=1",
+      ),
+    ).toBe("settle-done-signal-missing");
+    expect(
+      conversationFailureSummary(
         'gen-ui-agent-pill: Observed: ["private generated response"]',
       ),
     ).toBe("rendered-content-mismatch");

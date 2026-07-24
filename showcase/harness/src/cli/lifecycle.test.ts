@@ -5,10 +5,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // are available inside the factory closures. We capture every
 // `docker compose ...` invocation by recording execFileSync calls.
 // ---------------------------------------------------------------------------
-const { execFileSyncMock, execSyncMock, existsSyncMock } = vi.hoisted(() => ({
+const {
+  execFileSyncMock,
+  execSyncMock,
+  existsSyncMock,
+  readdirSyncMock,
+  lstatSyncMock,
+  readlinkSyncMock,
+  statSyncMock,
+  rmSyncMock,
+  cpSyncMock,
+  writeFileSyncMock,
+} = vi.hoisted(() => ({
   execFileSyncMock: vi.fn(),
   execSyncMock: vi.fn(),
   existsSyncMock: vi.fn(),
+  readdirSyncMock: vi.fn(),
+  lstatSyncMock: vi.fn(),
+  readlinkSyncMock: vi.fn(),
+  statSyncMock: vi.fn(),
+  rmSyncMock: vi.fn(),
+  cpSyncMock: vi.fn(),
+  writeFileSyncMock: vi.fn(),
 }));
 
 vi.mock("node:child_process", () => ({
@@ -23,7 +41,13 @@ vi.mock("node:fs", () => {
   // for health checks; provide stub ports for any slug the up() tests use.
   const api = {
     existsSync: (...args: unknown[]) => existsSyncMock(...args),
-    readdirSync: vi.fn(() => []),
+    readdirSync: (...args: unknown[]) => readdirSyncMock(...args),
+    lstatSync: (...args: unknown[]) => lstatSyncMock(...args),
+    readlinkSync: (...args: unknown[]) => readlinkSyncMock(...args),
+    statSync: (...args: unknown[]) => statSyncMock(...args),
+    rmSync: (...args: unknown[]) => rmSyncMock(...args),
+    cpSync: (...args: unknown[]) => cpSyncMock(...args),
+    writeFileSync: (...args: unknown[]) => writeFileSyncMock(...args),
     readFileSync: vi.fn(() =>
       JSON.stringify({
         "langgraph-python": 10001,
@@ -35,7 +59,7 @@ vi.mock("node:fs", () => {
   return { default: api, ...api };
 });
 
-import { rebuild, up } from "./lifecycle.js";
+import { down, rebuild, stageSharedModules, up } from "./lifecycle.js";
 
 /** Pull out the compose argv (after the `-f <file>` prefix) for each call. */
 function composeCalls(): string[][] {
@@ -50,10 +74,57 @@ beforeEach(() => {
   execFileSyncMock.mockReset();
   execSyncMock.mockReset();
   existsSyncMock.mockReset();
+  readdirSyncMock.mockReset();
+  lstatSyncMock.mockReset();
+  readlinkSyncMock.mockReset();
+  statSyncMock.mockReset();
+  rmSyncMock.mockReset();
+  cpSyncMock.mockReset();
+  writeFileSyncMock.mockReset();
   // No integrations dir → stageSharedModules() is a no-op.
   existsSyncMock.mockReturnValue(false);
+  readdirSyncMock.mockReturnValue([]);
   // Default: compose returns empty string.
   execFileSyncMock.mockReturnValue("");
+});
+
+describe("stageSharedModules() — Angular browser artifact", () => {
+  it("materializes the Angular browser build inside each integration context", () => {
+    existsSyncMock.mockImplementation((candidate: unknown) => {
+      const value = String(candidate);
+      return (
+        value.endsWith("/showcase/integrations") ||
+        value.endsWith("/showcase/angular/dist/showcase-angular/browser")
+      );
+    });
+    readdirSyncMock.mockReturnValue([
+      {
+        name: "langgraph-python",
+        isDirectory: () => true,
+      },
+    ]);
+    lstatSyncMock.mockImplementation((candidate: unknown) => ({
+      isSymbolicLink: () => String(candidate).endsWith("/public/angular"),
+    }));
+
+    stageSharedModules();
+
+    expect(rmSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/integrations\/langgraph-python\/public\/angular$/),
+    );
+    expect(cpSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(/angular\/dist\/showcase-angular\/browser$/),
+      expect.stringMatching(/integrations\/langgraph-python\/public\/angular$/),
+      { recursive: true },
+    );
+    expect(writeFileSyncMock).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /integrations\/langgraph-python\/public\/angular\/runtime-config\.js$/,
+      ),
+      expect.stringContaining('"integrationId":"langgraph-python"'),
+      "utf-8",
+    );
+  });
 });
 
 describe("rebuild() — targeted slugs", () => {
@@ -98,6 +169,21 @@ describe("rebuild() — targeted slugs", () => {
     );
     expect(recreateCall).toContain("a");
     expect(recreateCall).toContain("b");
+  });
+});
+
+describe("down() — targeted slugs", () => {
+  it("loads the infra profile so integration dependencies resolve", async () => {
+    await down(["ag2"]);
+
+    expect(composeCalls()).toContainEqual([
+      "--profile",
+      "infra",
+      "--profile",
+      "ag2",
+      "stop",
+      "ag2",
+    ]);
   });
 });
 

@@ -1,0 +1,476 @@
+name: test / showcase Angular audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  build-angular:
+    name: Build canonical Angular browser
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact build dependencies
+        run: pnpm --filter @copilotkit/showcase-angular-host... --filter @copilotkit/showcase-scripts --filter @copilotkit/showcase-harness install --frozen-lockfile --ignore-scripts
+
+      - name: Capture exact source SHA
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the canonical Angular artifact once
+        run: pnpm nx run @copilotkit/showcase-angular-host:build --skip-nx-cache
+
+      - name: Check host and staging contracts
+        run: pnpm nx run @copilotkit/showcase-scripts:test -- __tests__/angular-integration-hosting.test.ts
+
+      - name: Upload the canonical browser artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-audit-browser
+          path: showcase/angular/dist/showcase-angular/browser
+          if-no-files-found: error
+          retention-days: 30
+
+  matrix:
+    name: Chromium pairs / ${{ matrix.integration }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit' }}
+    needs: build-angular
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        integration:
+          - ag2
+          - agno
+          - built-in-agent
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - ms-agent-python
+          - pydantic-ai
+          - spring-ai
+          - strands
+          - strands-typescript
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-angular.outputs.source_sha }}
+          persist-credentials: false
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact audit dependencies
+        run: pnpm --filter @copilotkit/showcase-harness --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
+      - name: Download the canonical Angular artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: angular-audit-browser
+          path: showcase/angular/dist/showcase-angular/browser
+
+      - name: Install Chromium
+        run: pnpm --dir showcase/harness exec playwright install --with-deps chromium
+
+      - name: Generate the complete integration plan
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          pnpm --dir showcase/scripts exec tsx generate-registry.ts
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts plan \
+            --integration "$INTEGRATION" \
+            --min-shards 4 \
+            --max-shards 4 \
+            --output "$RUNNER_TEMP/angular-audit-plan.json"
+
+      - name: Stage shared sources and the Angular artifact
+        run: |
+          source showcase/scripts/cli/_common.sh
+          stage_shared
+
+      - name: Build the existing integration image
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --tag "angular-audit-$INTEGRATION:$SOURCE_SHA" \
+            "showcase/integrations/$INTEGRATION"
+          docker image inspect \
+            --format '{{.Id}}' \
+            "angular-audit-$INTEGRATION:$SOURCE_SHA" \
+            > "$RUNNER_TEMP/container-image-revision.txt"
+
+      - name: Start four isolated fixture sidecars
+        run: |
+          for shard in 0 1 2 3; do
+            port=$((4010 + shard))
+            showcase/scripts/node_modules/.bin/llmock \
+              --port "$port" \
+              --host 0.0.0.0 \
+              --metrics \
+              --fixtures showcase/aimock/shared \
+              --fixtures showcase/aimock/d4 \
+              --fixtures showcase/aimock/d5-recorded \
+              --fixtures showcase/aimock/d6 \
+              --validate-on-load \
+              > "$RUNNER_TEMP/aimock-$shard.log" 2>&1 &
+            echo "$!" > "$RUNNER_TEMP/aimock-$shard.pid"
+          done
+          for _ in $(seq 1 30); do
+            ready=0
+            for shard in 0 1 2 3; do
+              port=$((4010 + shard))
+              if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/__aimock/health" > /dev/null; then
+                ready=$((ready + 1))
+              fi
+            done
+            if [ "$ready" = "4" ]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "One or more branch-local fixture sidecars did not become ready" >&2
+          exit 1
+
+      - name: Start four isolated integration containers
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          SECRET_SENTINEL="angular-audit-secret-$SOURCE_SHA"
+          echo "SECRET_SENTINEL=$SECRET_SENTINEL" >> "$GITHUB_ENV"
+          for shard in 0 1 2 3; do
+            port=$((10000 + shard))
+            fixture_port=$((4010 + shard))
+            docker run --detach \
+              --name "angular-audit-integration-$shard" \
+              --add-host host.docker.internal:host-gateway \
+              --publish "$port:10000" \
+              --env OPENAI_API_KEY=sk-mock \
+              --env OPENAI_BASE_URL="http://host.docker.internal:$fixture_port/v1" \
+              --env ANTHROPIC_API_KEY=sk-mock-anthropic \
+              --env ANTHROPIC_BASE_URL="http://host.docker.internal:$fixture_port" \
+              --env GOOGLE_API_KEY=fake-gemini-key \
+              --env GOOGLE_GEMINI_BASE_URL="http://host.docker.internal:$fixture_port" \
+              --env SPRING_AI_OPENAI_BASE_URL="http://host.docker.internal:$fixture_port" \
+              --env AIMOCK_URL="http://host.docker.internal:$fixture_port" \
+              --env GitHubToken=gh-mock-ci \
+              --env "SHOWCASE_PROOF_SECRET=$SECRET_SENTINEL" \
+              --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
+              "angular-audit-$INTEGRATION:$SOURCE_SHA"
+          done
+          for _ in $(seq 1 90); do
+            ready=0
+            for shard in 0 1 2 3; do
+              port=$((10000 + shard))
+              if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/api/health" > /dev/null; then
+                ready=$((ready + 1))
+              fi
+            done
+            if [ "$ready" = "4" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          for shard in 0 1 2 3; do
+            docker logs "angular-audit-integration-$shard"
+          done
+          echo "One or more integration containers did not become ready" >&2
+          exit 1
+
+      - name: Run isolated Chromium phases with fresh fixture state
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
+          status=0
+
+          run_frontend_phase() {
+            frontend="$1"
+            mkdir -p "$RUNNER_TEMP/angular-audit-phases"
+
+            run_shard() {
+              shard="$1"
+              port=$((10000 + shard))
+              pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+                --plan "$RUNNER_TEMP/angular-audit-plan.json" \
+                --shard-index "$shard" \
+                --frontend "$frontend" \
+                --integration "$INTEGRATION" \
+                --integration-base-url "http://127.0.0.1:$port" \
+                --source-commit "$SOURCE_SHA" \
+                --container-image-revision "$IMAGE_REVISION" \
+                --fixture-revision "$SOURCE_SHA" \
+                --feature-contract-revision "$SOURCE_SHA" \
+                --concurrency 1 \
+                --output "$RUNNER_TEMP/angular-audit-phases/$frontend-$shard.json"
+            }
+
+            # Four memory-heavy backend containers plus four Chromium instances
+            # can starve completed SSE streams long enough to create random
+            # settle misses. Pydantic's multimodal payload is especially
+            # sensitive to that contention. Each shard still has its own
+            # container and fixture sidecar; execute these browsers serially so
+            # the evidence is deterministic. Other integrations retain
+            # four-way parallelism.
+            if [ "$INTEGRATION" = "spring-ai" ] || [ "$INTEGRATION" = "pydantic-ai" ]; then
+              for shard in 0 1 2 3; do
+                if ! run_shard "$shard" > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1; then
+                  status=1
+                fi
+              done
+            else
+              pids=()
+              for shard in 0 1 2 3; do
+                run_shard "$shard" > "$RUNNER_TEMP/browser-$frontend-shard-$shard.log" 2>&1 &
+                pids+=("$!")
+              done
+              for pid in "${pids[@]}"; do
+                if ! wait "$pid"; then
+                  status=1
+                fi
+              done
+            fi
+            for shard in 0 1 2 3; do
+              sed -n '1,240p' "$RUNNER_TEMP/browser-$frontend-shard-$shard.log"
+            done
+          }
+
+          start_fixture_sidecars() {
+            for shard in 0 1 2 3; do
+              port=$((4010 + shard))
+              showcase/scripts/node_modules/.bin/llmock \
+                --port "$port" \
+                --host 0.0.0.0 \
+                --metrics \
+                --fixtures showcase/aimock/shared \
+                --fixtures showcase/aimock/d4 \
+                --fixtures showcase/aimock/d5-recorded \
+                --fixtures showcase/aimock/d6 \
+                --validate-on-load \
+                > "$RUNNER_TEMP/aimock-angular-$shard.log" 2>&1 &
+              echo "$!" > "$RUNNER_TEMP/aimock-$shard.pid"
+            done
+            for _ in $(seq 1 30); do
+              ready=0
+              for shard in 0 1 2 3; do
+                port=$((4010 + shard))
+                if curl --fail --silent --max-time 2 "http://127.0.0.1:$port/__aimock/health" > /dev/null; then
+                  ready=$((ready + 1))
+                fi
+              done
+              if [ "$ready" = "4" ]; then
+                return 0
+              fi
+              sleep 1
+            done
+            echo "One or more reset fixture sidecars did not become ready" >&2
+            return 1
+          }
+
+          run_frontend_phase react
+          for shard in 0 1 2 3; do
+            fixture_pid=$(cat "$RUNNER_TEMP/aimock-$shard.pid")
+            kill "$fixture_pid"
+            wait "$fixture_pid" 2>/dev/null || true
+          done
+          if ! start_fixture_sidecars; then
+            exit 1
+          fi
+          run_frontend_phase angular
+
+          for shard in 0 1 2 3; do
+            pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts merge-shard \
+              --inputs "$RUNNER_TEMP/angular-audit-phases/react-$shard.json,$RUNNER_TEMP/angular-audit-phases/angular-$shard.json" \
+              --output "$RUNNER_TEMP/angular-audit-$INTEGRATION-$shard.json"
+          done
+          exit "$status"
+
+      - name: Validate complete shard evidence
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          test "$(find "$RUNNER_TEMP" -maxdepth 1 -name "angular-audit-$INTEGRATION-*.json" -type f | wc -l | tr -d ' ')" = "4"
+          test "$(jq -s '[.[].summary.total] | add > 0' "$RUNNER_TEMP"/angular-audit-"$INTEGRATION"-*.json)" = "true"
+
+      - name: Stop branch-local services and scan logs
+        if: always()
+        run: |
+          leaked=0
+          for shard in 0 1 2 3; do
+            log_file="$RUNNER_TEMP/integration-$shard.log"
+            docker logs "angular-audit-integration-$shard" > "$log_file" 2>&1 || true
+            if [ -n "${SECRET_SENTINEL:-}" ] && grep --fixed-strings --quiet "$SECRET_SENTINEL" "$log_file"; then
+              echo "Secret sentinel leaked into integration shard $shard logs" >&2
+              leaked=1
+            fi
+            docker rm --force "angular-audit-integration-$shard" 2>/dev/null || true
+          done
+          for shard in 0 1 2 3; do
+            if [ -f "$RUNNER_TEMP/aimock-$shard.pid" ]; then
+              kill "$(cat "$RUNNER_TEMP/aimock-$shard.pid")" 2>/dev/null || true
+            fi
+          done
+          exit "$leaked"
+
+      - name: Upload exact-cell evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-audit-matrix-${{ matrix.integration }}
+          path: ${{ runner.temp }}/angular-audit-${{ matrix.integration }}-*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-audit-logs-${{ matrix.integration }}
+          path: ${{ runner.temp }}/*.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  aggregate:
+    name: Classify 1,296 cells and require Angular parity
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event.label.name == 'angular-audit') }}
+    needs: [build-angular, matrix]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.build-angular.outputs.source_sha }}
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact report dependencies
+        run: pnpm --filter @copilotkit/showcase-harness --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
+      - name: Generate the complete frontend registry
+        run: pnpm --dir showcase/scripts exec tsx generate-registry.ts
+
+      - name: Download every exact-cell artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: angular-audit-matrix-*
+          path: ${{ runner.temp }}/angular-audit-artifacts
+          merge-multiple: true
+
+      - name: Aggregate and classify the complete parity matrix
+        env:
+          SOURCE_SHA: ${{ needs.build-angular.outputs.source_sha }}
+        run: |
+          test "$(find "$RUNNER_TEMP/angular-audit-artifacts" -name '*.json' -type f | wc -l | tr -d ' ')" = "80"
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts aggregate \
+            --artifacts "$RUNNER_TEMP/angular-audit-artifacts" \
+            --output "$RUNNER_TEMP/angular-audit-final.json" \
+            --timings-output "$RUNNER_TEMP/angular-audit-timings.json"
+          test "$(jq -r .sourceCommit "$RUNNER_TEMP/angular-audit-final.json")" = "$SOURCE_SHA"
+          test "$(jq -r .fixtureRevision "$RUNNER_TEMP/angular-audit-final.json")" = "$SOURCE_SHA"
+          test "$(jq -r .featureContractRevision "$RUNNER_TEMP/angular-audit-final.json")" = "$SOURCE_SHA"
+          test "$(jq -r .summary.total "$RUNNER_TEMP/angular-audit-final.json")" = "1296"
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts pair \
+            --pull-request "$RUNNER_TEMP/angular-audit-final.json" \
+            --output "$RUNNER_TEMP/angular-audit-parity.json"
+          test "$(jq '.comparisons | length' "$RUNNER_TEMP/angular-audit-parity.json")" = "660"
+          test "$(jq '.summary["react-only"]' "$RUNNER_TEMP/angular-audit-parity.json")" = "24"
+
+      - name: Publish audit summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/angular-audit-final.json" ]; then
+            {
+              echo "## Angular Showcase parity audit"
+              echo
+              jq -r '"- Exact cells: \(.summary.total)\n- Passed: \(.summary.passed)\n- Failed: \(.summary.failed)\n- Source: `\(.sourceCommit)`"' "$RUNNER_TEMP/angular-audit-final.json"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$RUNNER_TEMP/angular-audit-parity.json" ]; then
+            {
+              echo
+              echo "### Current-revision parity"
+              echo
+              jq -r '"- Paired passes: \(.summary.passed)\n- Angular regressions: \(.summary["angular-regression"])\n- Shared failures: \(.summary["shared-failure"])\n- Angular improvements: \(.summary["angular-improvement"])\n- React-only cells: \(.summary["react-only"])\n- Identity mismatches: \(.summary["identity-mismatch"])\n- Missing counterparts: \(.summary["missing-counterpart"])"' "$RUNNER_TEMP/angular-audit-parity.json"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload complete audit evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: angular-audit-final
+          path: |
+            ${{ runner.temp }}/angular-audit-final.json
+            ${{ runner.temp }}/angular-audit-parity.json
+            ${{ runner.temp }}/angular-audit-timings.json
+          if-no-files-found: warn
+          retention-days: 90

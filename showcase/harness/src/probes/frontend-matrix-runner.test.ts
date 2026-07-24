@@ -5,6 +5,7 @@ import {
   buildMeasuredShardPlan,
   createFrontendMatrixArtifact,
   executeFrontendMatrixShard,
+  mergeFrontendMatrixShardArtifacts,
   percentile,
 } from "./frontend-matrix-runner.js";
 import type { FrontendCellExecutor } from "./frontend-matrix-runner.js";
@@ -30,6 +31,31 @@ const CELLS: FrontendMatrixCell[] = [
     integration: "mastra",
     feature: "frontend-tools",
     featureTypes: ["frontend-tools"],
+  },
+];
+
+const PAIRED_CELLS: FrontendMatrixCell[] = [
+  ...CELLS,
+  {
+    id: "react/langgraph-python/beautiful-chat",
+    frontend: "react",
+    integration: "langgraph-python",
+    feature: "beautiful-chat",
+    featureTypes: ["beautiful-chat-toggle-theme", "beautiful-chat-pie-chart"],
+  },
+  {
+    id: "react/mastra/frontend-tools",
+    frontend: "react",
+    integration: "mastra",
+    feature: "frontend-tools",
+    featureTypes: ["frontend-tools"],
+  },
+  {
+    id: "angular/mastra/agentic-chat",
+    frontend: "angular",
+    integration: "mastra",
+    feature: "agentic-chat",
+    featureTypes: ["agentic-chat"],
   },
 ];
 
@@ -65,6 +91,38 @@ describe("frontend matrix CI runner", () => {
     );
     expect(first.shards[0]?.estimatedDurationMs).toBe(50_000);
     expect(first.shards[1]?.estimatedDurationMs).toBe(20_000);
+  });
+
+  it("keeps React and Angular counterparts adjacent on one shard", () => {
+    const plan = buildMeasuredShardPlan(PAIRED_CELLS, {
+      targetDurationMs: 40_000,
+      minimumShardCount: 2,
+      maximumShardCount: 2,
+      defaultProbeDurationMs: 10_000,
+      measuredCellDurationsMs: {},
+    });
+
+    const pairOrders: string[][] = [];
+    for (const feature of [
+      "beautiful-chat",
+      "frontend-tools",
+      "agentic-chat",
+    ]) {
+      const ids = PAIRED_CELLS.filter((cell) => cell.feature === feature).map(
+        (cell) => cell.id,
+      );
+      const containing = plan.shards.filter((shard) =>
+        ids.every((id) => shard.cellIds.includes(id)),
+      );
+      expect(containing).toHaveLength(1);
+      const shard = containing[0]!;
+      const positions = ids.map((id) => shard.cellIds.indexOf(id)).sort();
+      expect(positions[1]! - positions[0]!).toBe(1);
+      pairOrders.push(shard.cellIds.slice(positions[0], positions[1]! + 1));
+    }
+
+    expect(pairOrders.some((ids) => ids[0]?.startsWith("angular/"))).toBe(true);
+    expect(pairOrders.some((ids) => ids[0]?.startsWith("react/"))).toBe(true);
   });
 
   it("executes every cell once and never retries a deterministic failure", async () => {
@@ -158,6 +216,90 @@ describe("frontend matrix CI runner", () => {
     expect(percentile([10, 20, 30, 40], 0.95)).toBe(40);
   });
 
+  it("merges isolated frontend phases into one logical shard", () => {
+    const createPhase = (
+      cell: FrontendMatrixCell,
+      startedAt: string,
+      finishedAt: string,
+    ) =>
+      createFrontendMatrixArtifact({
+        sourceCommit: "abc123",
+        containerImageRevision: "sha256:image",
+        fixtureRevision: "fixture123",
+        featureContractRevision: "contract123",
+        shardIndex: 1,
+        shardCount: 4,
+        startedAt,
+        finishedAt,
+        results: [
+          {
+            cell,
+            status: "passed",
+            durationMs: 10,
+            probes: cell.featureTypes.map((featureType, index) => ({
+              featureType,
+              status: "passed",
+              durationMs: 10,
+              testId: `phase-${cell.frontend}-${index}`,
+            })),
+          },
+        ],
+      });
+
+    const react = PAIRED_CELLS.find(
+      (cell) => cell.frontend === "react" && cell.feature === "beautiful-chat",
+    )!;
+    const angular = PAIRED_CELLS.find(
+      (cell) =>
+        cell.frontend === "angular" && cell.feature === "beautiful-chat",
+    )!;
+    const merged = mergeFrontendMatrixShardArtifacts([
+      createPhase(
+        react,
+        "2026-07-23T01:00:00.000Z",
+        "2026-07-23T01:01:00.000Z",
+      ),
+      createPhase(
+        angular,
+        "2026-07-23T01:02:00.000Z",
+        "2026-07-23T01:03:00.000Z",
+      ),
+    ]);
+
+    expect(merged.startedAt).toBe("2026-07-23T01:00:00.000Z");
+    expect(merged.finishedAt).toBe("2026-07-23T01:03:00.000Z");
+    expect(merged.summary).toMatchObject({ total: 2, passed: 2, failed: 0 });
+    expect(merged.cells.map((cell) => cell.frontend)).toEqual([
+      "react",
+      "angular",
+    ]);
+  });
+
+  it("rejects overlapping frontend phase evidence", () => {
+    const phase = createFrontendMatrixArtifact({
+      sourceCommit: "abc123",
+      containerImageRevision: "sha256:image",
+      fixtureRevision: "fixture123",
+      featureContractRevision: "contract123",
+      shardIndex: 0,
+      shardCount: 1,
+      startedAt: "2026-07-23T01:00:00.000Z",
+      finishedAt: "2026-07-23T01:01:00.000Z",
+      results: [
+        {
+          cell: CELLS[0]!,
+          status: "passed",
+          durationMs: 10,
+          probes: [],
+        },
+      ],
+    });
+
+    expect(() => mergeFrontendMatrixShardArtifacts([phase, phase])).toThrow(
+      /duplicate frontend phase cell/i,
+    );
+  });
+
   it("removes page content, runtime URLs, and diagnostics from CI evidence", () => {
     const cell = CELLS[1]!;
     const artifact = createFrontendMatrixArtifact({
@@ -186,6 +328,7 @@ describe("frontend matrix CI runner", () => {
               durationMs: 500,
               testId: "fm-private",
               errorClass: "assertion",
+              failureReason: "settle-dom-missing",
               error: "tool payload",
               diagnostics: { fixture: "private fixture content" },
             },
@@ -214,6 +357,7 @@ describe("frontend matrix CI runner", () => {
           durationMs: 500,
           testId: "fm-private",
           errorClass: "assertion",
+          failureReason: "settle-dom-missing",
         },
       ],
     });

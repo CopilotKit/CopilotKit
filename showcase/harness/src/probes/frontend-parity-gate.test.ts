@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  evaluateCurrentFrontendParity,
   evaluateFrontendParity,
   frontendParityCellsFromAggregate,
 } from "./frontend-parity-gate.js";
@@ -196,5 +197,74 @@ describe("evaluateFrontendParity", () => {
 
     expect(report.passed).toBe(false);
     expect(report.comparisons[0].outcome).toBe("missing-result");
+  });
+});
+
+describe("evaluateCurrentFrontendParity", () => {
+  it.each([
+    ["passed", "passed", true, "passed"],
+    ["passed", "failed", false, "angular-regression"],
+    ["failed", "failed", true, "shared-failure"],
+    ["failed", "passed", true, "angular-improvement"],
+  ] as const)(
+    "React %s and Angular %s yields %s / %s",
+    (react, angular, passed, outcome) => {
+      const report = evaluateCurrentFrontendParity({
+        sourceCommit: PR_COMMIT,
+        cells: [
+          cell("react", react, PR_COMMIT),
+          cell("angular", angular, PR_COMMIT),
+        ],
+      });
+
+      expect(report.passed).toBe(passed);
+      expect(report.comparisons[0]?.outcome).toBe(outcome);
+    },
+  );
+
+  it("allows a React-only catalog cell", () => {
+    const report = evaluateCurrentFrontendParity({
+      sourceCommit: PR_COMMIT,
+      cells: [cell("react", "passed", PR_COMMIT)],
+    });
+
+    expect(report).toMatchObject({
+      passed: true,
+      summary: { "react-only": 1 },
+    });
+  });
+
+  it("blocks an Angular cell without a React counterpart", () => {
+    const report = evaluateCurrentFrontendParity({
+      sourceCommit: PR_COMMIT,
+      cells: [cell("angular", "passed", PR_COMMIT)],
+    });
+
+    expect(report).toMatchObject({
+      passed: false,
+      summary: { "missing-counterpart": 1 },
+    });
+  });
+
+  it("blocks counterpart cells that did not share exact evidence identity", () => {
+    const report = evaluateCurrentFrontendParity({
+      sourceCommit: PR_COMMIT,
+      cells: [
+        cell("react", "passed", PR_COMMIT),
+        cell("angular", "passed", PR_COMMIT, {
+          containerImageRevision: "sha256:different",
+        }),
+      ],
+    });
+
+    expect(report).toMatchObject({
+      passed: false,
+      comparisons: [
+        {
+          outcome: "identity-mismatch",
+          blockingReasons: ["container image revision differs"],
+        },
+      ],
+    });
   });
 });
