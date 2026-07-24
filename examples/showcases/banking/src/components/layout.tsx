@@ -188,9 +188,13 @@ export function LayoutComponent({
     try {
       const res = await fetch("/api/v1/dev/reset", { method: "POST" });
       if (res.ok) {
-        // Full reload -> pristine client slate (fresh transactions, cleared
-        // canvas, new thread on next message).
-        window.location.reload();
+        // Hard navigate to the BARE ROOT, not reload(): reload keeps whatever
+        // route + query params were on screen (e.g. /dashboard?tab=transactions
+        // or ?operation=change-pin), so a reset would land mid-demo instead of
+        // at the top. Assigning "/" gives a pristine client slate (fresh
+        // transactions, cleared canvas, new thread on next message) AND the
+        // clean starting URL the demo should always open on.
+        window.location.assign("/");
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
