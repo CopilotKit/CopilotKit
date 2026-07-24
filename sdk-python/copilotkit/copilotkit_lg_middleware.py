@@ -873,8 +873,30 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        # Delegate to sync implementation
-        return self.after_model(state, runtime)
+        # Get the base interception result from the sync implementation
+        result = self.after_model(state, runtime)
+        if result is None:
+            return None
+
+        # Emit custom events for intercepted tool calls so the AG-UI event stream
+        # can pick them up and emit corresponding TOOL_CALL_* events to the frontend.
+        intercepted = (result.get("copilotkit") or {}).get("intercepted_tool_calls", [])
+        if intercepted:
+            from langchain_core.callbacks.manager import adispatch_custom_event
+            from langgraph.config import get_config
+
+            config = get_config()
+            for call in intercepted:
+                await adispatch_custom_event(
+                    "copilotkit_manually_emit_tool_call",
+                    {
+                        "name": call.get("name", ""),
+                        "args": call.get("args", {}),
+                        "id": call.get("id", ""),
+                    },
+                    config=config,
+                )
+        return result
 
     # Restore frontend tool calls to AIMessage before agent exits
     def after_agent(
