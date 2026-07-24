@@ -56,14 +56,21 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
 
 ### The bot (`app/index.ts`)
 
-The core shape is `createChannel` + one or more adapters, an `onMention` handler,
-and `start()`. The snippet below is an **abridged, single-platform sketch** —
-the real `app/index.ts` builds the adapter list from whichever secrets are
-present (Slack, Discord, and/or Telegram) and adds graceful shutdown; read the
-file for the full multi-platform wiring:
+The core shape is `createChannel` + one or more adapters + an `onMention`
+handler, then you **declare the Channel on the Intelligence runtime**, which owns
+its lifecycle. A Channel runs ONLY through the Intelligence runtime: the platform
+adapters stay direct (they keep their own credentials), but the runtime starts
+them — there is no `bot.start()`/`bot.stop()`. The snippet below is an
+**abridged, single-platform sketch** — the real `app/index.ts` builds the adapter
+list from whichever secrets are present (Slack, Discord, Telegram, and/or
+WhatsApp) and adds graceful shutdown; read the file for the full multi-platform
+wiring:
 
 ```ts
+import { createServer } from "node:http";
 import { createChannel } from "@copilotkit/channels";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import {
   slack,
   defaultSlackTools,
@@ -74,6 +81,7 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 
 const bot = createChannel({
+  name: "triage", // every declared Channel needs a unique name
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -105,7 +113,28 @@ bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({ context: senderContext(message.user) });
 });
 
-await bot.start();
+// A Channel runs only through the Intelligence runtime, which OWNS its
+// lifecycle — it starts the direct Slack adapter for us.
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
+  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!, // or derive from apiUrl
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+const runtime = new CopilotRuntime({
+  agents: {}, // the Channel supplies its own agent
+  intelligence,
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }), // demo stub
+  channels: [bot],
+});
+
+// Mounting the listener activates the Channel (starting its adapters) and
+// exposes `.channels` for readiness + shutdown — no bot.start()/bot.stop().
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+createServer(listener).listen(8300, "127.0.0.1");
+await listener.channels?.ready();
 ```
 
 The runnable Slack example keeps DMs and the assistant pane conversational, but
@@ -293,6 +322,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
+#   COPILOTKIT_INTELLIGENCE_URL / COPILOTKIT_API_KEY  (REQUIRED — owns the Channel; free tier)
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
 #   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
@@ -302,8 +332,11 @@ cp .env.example .env
 #   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-Linear and Notion are independent — set only the ones you want; the agent
-wires up whichever credentials are present.
+A Channel runs only through the Intelligence runtime, so
+`COPILOTKIT_INTELLIGENCE_URL` + `COPILOTKIT_API_KEY` are **required** (free tier).
+The platform adapters stay direct — the runtime that owns the Channel starts each
+of them for you. Linear and Notion are independent — set only the ones you want;
+the agent wires up whichever credentials are present.
 
 ### 3. Notion MCP sidecar (only if using Notion)
 
