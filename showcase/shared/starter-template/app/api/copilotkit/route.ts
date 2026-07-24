@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  CopilotKitIntelligence,
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { handle } from "hono/vercel";
 
 const AGENT_URL =
   process.env.AGENT_URL ||
@@ -17,8 +18,21 @@ if (!process.env.AGENT_URL && !process.env.LANGGRAPH_DEPLOYMENT_URL) {
   );
 }
 
+const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
+const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
+const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+
+const intelligenceEnabled = Boolean(
+  intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
+);
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
+console.log(
+  `[copilotkit/route] Intelligence mode: ${
+    intelligenceEnabled ? "enabled" : "disabled (OSS)"
+  }`,
+);
 
 function createAgent(graphId: string = "sample_agent") {
   return new LangGraphAgent({
@@ -47,46 +61,29 @@ for (const name of agentNames) {
   agents[name] = createAgent();
 }
 
-export const POST = async (req: NextRequest) => {
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime: new CopilotRuntime({
-        // @ts-expect-error -- type wrapping mismatch, fixed in source pending release
-        agents,
-      }),
-    });
+const runtime = new CopilotRuntime({
+  agents,
+  // Conditionally configure intelligence when all three env vars are present
+  ...(intelligenceEnabled
+    ? {
+        intelligence: new CopilotKitIntelligence({
+          apiKey: intelligenceApiKey!,
+          apiUrl: intelligenceApiUrl!,
+          wsUrl: intelligenceWsUrl!,
+        }),
+        // Demo stub — replace with real auth-derived user identity for multi-user deployments
+        identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+      }
+    : { runner: new InMemoryAgentRunner() }),
+});
 
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    console.error("[copilotkit/route] ERROR:", error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-};
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-export const GET = async () => {
-  let agentStatus = "unknown";
-  try {
-    const res = await fetch(`${AGENT_URL}/health`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    agentStatus = res.ok ? "reachable" : `error (${res.status})`;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    agentStatus = `unreachable (${msg})`;
-  }
-
-  const topStatus = agentStatus.startsWith("unreachable") ? "degraded" : "ok";
-
-  return NextResponse.json({
-    status: topStatus,
-    agent_url: AGENT_URL,
-    agent_status: agentStatus,
-    env: {
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-      NODE_ENV: process.env.NODE_ENV,
-    },
-  });
-};
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
