@@ -149,7 +149,7 @@ async function runA2uiDesignAttempt(
   parentAbortController: AbortController,
 ): Promise<A2uiAttemptResult> {
   const text = await chat({
-    adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+    adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
     messages: [{ role: "user", content: brief }],
     systemPrompts: [systemPrompt],
     stream: false,
@@ -397,7 +397,7 @@ function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
       );
 
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [generateA2ui],
