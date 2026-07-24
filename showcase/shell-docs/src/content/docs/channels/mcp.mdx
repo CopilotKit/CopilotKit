@@ -80,6 +80,7 @@ channel.onMessage(async ({ thread, message }) => {
 // tier available). `ready()` activates it.
 const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
 const runtime = new CopilotRuntime({
+  agents: {},
   intelligence: new CopilotKitIntelligence({
     apiUrl,
     wsUrl: apiUrl.replace(/^http/, "ws"),
@@ -91,6 +92,7 @@ const runtime = new CopilotRuntime({
 
 const listener = createCopilotNodeListener({ runtime });
 await listener.channels?.ready();
+// Mount the listener on an HTTP server to keep the process running (see the Quickstart).
 ```
 
 Now when a user asks the bot something that needs an MCP tool, the agent calls

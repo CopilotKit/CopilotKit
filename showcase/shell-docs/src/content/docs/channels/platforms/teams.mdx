@@ -63,6 +63,7 @@ channel.onMessage(async ({ thread, message }) => {
 // channel.start() yourself. `ready()` activates it.
 const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
 const runtime = new CopilotRuntime({
+  agents: {},
   intelligence: new CopilotKitIntelligence({
     apiUrl,
     wsUrl: apiUrl.replace(/^http/, "ws"),
