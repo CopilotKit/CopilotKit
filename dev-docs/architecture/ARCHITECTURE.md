@@ -1,6 +1,6 @@
 # CopilotKit Architecture Guide
 
-CopilotKit lets you add AI agents to your app. You write hooks (React/Angular) or use the core API (vanilla JS), CopilotKit handles the rest — connecting your UI to any AI agent framework.
+CopilotKit lets you add AI agents to your app. You use framework-native bindings (React, Angular, or Svelte) or the core API (vanilla JS), and CopilotKit handles the rest — connecting your UI to any AI agent framework.
 
 ---
 
@@ -9,7 +9,7 @@ CopilotKit lets you add AI agents to your app. You write hooks (React/Angular) o
 ```mermaid
 graph TB
     subgraph Your App
-        A[React / Angular / Vanilla JS]
+        A[React / Angular / Svelte / Vanilla JS]
     end
 
     subgraph Your Server
@@ -93,6 +93,7 @@ sequenceDiagram
 | ------------------------------------------ | ------------------------------------------------------- |
 | [React Setup](setup-react.md)              | Provider, hooks, chat UI — full React integration       |
 | [Angular Setup](setup-angular.md)          | DI tokens, services, signals — full Angular integration |
+| [Svelte Setup](setup-svelte.md)            | Provider, runes, reactive bindings, and chat UI         |
 | [Vanilla JS Setup](setup-vanilla.md)       | CopilotKitCore API without any framework                |
 | [Runtime / Backend](setup-runtime.md)      | Express/Hono endpoints, agents, runners, middleware     |
 | [Multi-Agent Patterns](multi-agent.md)     | Multiple agents, routing, agent-specific tools          |
@@ -117,12 +118,14 @@ graph BT
         core["@copilotkit/core<br/><i>CopilotKitCore orchestrator</i>"]
         reactcore["@copilotkit/react-core<br/><i>Provider + hooks</i>"]
         reactui["@copilotkit/react-ui<br/><i>Chat, Popup, Sidebar</i>"]
+        svelte["@copilotkit/svelte<br/><i>Svelte 5 provider + runes + UI</i>"]
         reacttextarea["@copilotkit/react-textarea<br/><i>AI text editing</i>"]
         gql["@copilotkit/runtime-client-gql<br/><i>urql GraphQL client</i>"]
         runtime["@copilotkit/runtime<br/><i>Express/Hono server + AgentRunner + Built-in agent</i>"]
 
         core --> shared
         reactcore --> core
+        svelte --> core
         reactcore --> gql
         reactui --> reactcore
         reacttextarea --> reactcore

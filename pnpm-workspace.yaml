@@ -10,6 +10,7 @@ packages:
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
   - "examples/showcases/banking"
+  - "examples/v2/svelte/*"
   - "examples/slack"
   - "examples/teams"
   - "!examples/v1/_legacy"
