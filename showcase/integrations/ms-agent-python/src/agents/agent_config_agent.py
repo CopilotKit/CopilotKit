@@ -18,7 +18,6 @@ payload.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from textwrap import dedent
 from typing import Any, Literal
 
 from ag_ui.core import BaseEvent
@@ -122,21 +121,13 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
 def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFrameworkAgent:
     """Instantiate the Agent Config demo agent.
 
-    The base MS Agent Framework ``Agent`` carries only a neutral fallback
-    instruction. The real behavioural steering happens in the per-request
-    instruction string applied by ``AgentConfigFrameworkAgent.run``.
+    The base MS Agent Framework ``Agent`` is intentionally instruction-less.
+    The complete instruction is applied once per request by
+    ``AgentConfigFrameworkAgent.run``.
     """
     base_agent = Agent(
         client=chat_client,
         name="agent_config",
-        instructions=dedent(
-            """
-            You are a helpful assistant. Follow the tone, expertise level, and
-            response-length directives provided in the system message for each
-            turn. If no directive is provided, use professional / intermediate
-            / concise defaults.
-            """.strip()
-        ),
         tools=[],
     )
 

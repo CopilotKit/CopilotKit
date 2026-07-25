@@ -73,14 +73,11 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
         input_data: dict[str, Any],
     ) -> AsyncGenerator[BaseEvent, None]:
         context_prompt = build_context_system_message(input_data.get("context"))
-        if not context_prompt:
-            async for event in super().run(input_data):
-                yield event
-            return
+        instructions = SYSTEM_PROMPT
+        if context_prompt:
+            instructions = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
 
-        async for event in run_with_request_instructions(
-            self, input_data, f"{SYSTEM_PROMPT}\n\n{context_prompt}"
-        ):
+        async for event in run_with_request_instructions(self, input_data, instructions):
             yield event
 
 
@@ -91,7 +88,6 @@ def create_readonly_state_agent_context(
     base_agent = Agent(
         client=chat_client,
         name="readonly_state_agent_context",
-        instructions=SYSTEM_PROMPT,
         tools=[],
     )
 

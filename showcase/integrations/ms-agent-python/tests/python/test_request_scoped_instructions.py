@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import sys
-import types
+
+import pytest
 
 from agents._request_scoped_instructions import (
     _InstructionScopedAgent,
@@ -61,60 +61,45 @@ def test_request_scoped_instructions_do_not_mutate_shared_defaults():
     }
 
 
-def test_run_with_request_instructions_scopes_concurrent_runs(monkeypatch):
+def test_run_with_request_instructions_scopes_concurrent_runs():
     seen_runs: list[dict] = []
+    wrapper: _PublicWrapper | None = None
 
-    async def fake_run_agent_stream(
-        input_data,
-        agent,
-        config,
-        pending_approvals=None,
-    ):
-        await asyncio.sleep(input_data["delay"])
-        result = await agent.run(
-            options=input_data["options"],
-            delay=input_data["delay"],
-        )
-        run_options = agent.calls[-1]
-        seen_runs.append(
-            {
-                "input": input_data["name"],
-                "default_instructions": agent.default_options["instructions"],
-                "run_options": run_options,
-                "config": config,
-                "pending_approvals": pending_approvals,
-            }
-        )
-        yield result
+    class _PublicWrapper:
+        def __init__(self, agent):
+            self.agent = agent
+            self.shared_state = {"approval": "pending"}
 
-    ag_ui_module = types.ModuleType("agent_framework_ag_ui")
-    ag_ui_module.__path__ = []
-    agent_run_module = types.ModuleType("agent_framework_ag_ui._agent_run")
-    agent_run_module.run_agent_stream = fake_run_agent_stream
-    monkeypatch.setitem(sys.modules, "agent_framework_ag_ui", ag_ui_module)
-    monkeypatch.setitem(
-        sys.modules,
-        "agent_framework_ag_ui._agent_run",
-        agent_run_module,
-    )
+        async def run(self, input_data):
+            assert wrapper is not None
+            assert self is not wrapper
+            assert self.shared_state is wrapper.shared_state
+            agent = self.agent
+            await asyncio.sleep(input_data["delay"])
+            result = await agent.run(
+                options=input_data["options"],
+                delay=input_data["delay"],
+            )
+            run_options = agent.calls[-1]
+            seen_runs.append(
+                {
+                    "input": input_data["name"],
+                    "default_instructions": agent.default_options["instructions"],
+                    "run_options": run_options,
+                }
+            )
+            yield result
 
     async def run() -> tuple[list[str], list[dict], list[dict]]:
         shared_agent = _StubAgent()
-        wrapper = types.SimpleNamespace(
-            agent=shared_agent,
-            config={"config": True},
-            _pending_approvals={"approval": "pending"},
-        )
+        nonlocal wrapper
+        wrapper = _PublicWrapper(shared_agent)
 
         first_events, second_events = await asyncio.gather(
             _collect_events(
                 run_with_request_instructions(
                     wrapper,
-                    {
-                        "name": "first",
-                        "options": {"store": True},
-                        "delay": 0.02,
-                    },
+                    {"name": "first", "options": {"store": True}, "delay": 0.02},
                     "<first>",
                 )
             ),
@@ -136,10 +121,7 @@ def test_run_with_request_instructions_scopes_concurrent_runs(monkeypatch):
     events, runs, calls = asyncio.run(run())
 
     assert sorted(events) == ["<first>", "<second>"]
-
-    runs_by_instruction = {
-        run["default_instructions"]: run for run in runs
-    }
+    runs_by_instruction = {run["default_instructions"]: run for run in runs}
     assert runs_by_instruction["<first>"]["run_options"] == {
         "store": True,
         "instructions": "<first>",
@@ -151,12 +133,47 @@ def test_run_with_request_instructions_scopes_concurrent_runs(monkeypatch):
     assert {
         run["default_instructions"] for run in runs
     } == {"<first>", "<second>"}
-    assert all(run["config"] == {"config": True} for run in runs)
-    assert all(run["pending_approvals"] == {"approval": "pending"} for run in runs)
 
     calls_by_instruction = {call["instructions"]: call for call in calls}
     assert calls_by_instruction["<first>"]["store"] is True
     assert calls_by_instruction["<second>"]["metadata"] == {"request": 2}
+
+
+def test_run_with_request_instructions_supports_beta_public_entry_point():
+    seen: list[str] = []
+
+    class _BetaWrapper:
+        def __init__(self, agent):
+            self.agent = agent
+
+        async def run_agent(self, input_data):
+            seen.append(self.agent.default_options["instructions"])
+            yield input_data["event"]
+
+    async def run():
+        wrapper = _BetaWrapper(_StubAgent())
+        return [
+            event
+            async for event in run_with_request_instructions(
+                wrapper, {"event": "ok"}, "<beta>"
+            )
+        ]
+
+    assert asyncio.run(run()) == ["ok"]
+    assert seen == ["<beta>"]
+
+
+def test_instructionless_default_produces_one_final_instruction():
+    """Exercise Agent Framework's real merge semantics, not a local fake."""
+    agents_module = pytest.importorskip("agent_framework._agents")
+    merge_options = agents_module._merge_options
+
+    final_options = merge_options({}, {"instructions": "<request>"})
+
+    assert final_options["instructions"] == "<request>"
+    assert "<fallback>\n<request>" == merge_options(
+        {"instructions": "<fallback>"}, {"instructions": "<request>"}
+    )["instructions"]
 
 
 async def _collect_events(stream):

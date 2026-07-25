@@ -10,6 +10,7 @@ request. This module keeps the shared agent immutable and overlays
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from copy import copy
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -54,14 +55,21 @@ async def run_with_request_instructions(
     input_data: dict[str, Any],
     instructions: str,
 ) -> AsyncGenerator[BaseEvent, None]:
-    """Delegate to ``wrapper`` with instructions scoped to this run only."""
-    from agent_framework_ag_ui._agent_run import run_agent_stream  # type: ignore
+    """Run a request-local agent through the adapter's public API.
 
-    scoped_agent = _InstructionScopedAgent(wrapper.agent, instructions)
-    async for event in run_agent_stream(
-        input_data,
-        scoped_agent,
-        wrapper.config,
-        pending_approvals=wrapper._pending_approvals,
-    ):
+    ``AgentFrameworkAgent`` changed its public entry point from ``run_agent``
+    to ``run`` during its beta period. A shallow wrapper clone preserves its
+    configuration and internal state while substituting only the agent for this
+    invocation; the shared singleton remains untouched.
+    """
+    scoped_wrapper = copy(wrapper)
+    scoped_wrapper.agent = _InstructionScopedAgent(wrapper.agent, instructions)
+
+    run = getattr(scoped_wrapper, "run", None) or getattr(
+        scoped_wrapper, "run_agent", None
+    )
+    if run is None:
+        raise TypeError("AgentFrameworkAgent exposes neither run nor run_agent")
+
+    async for event in run(input_data):
         yield event
