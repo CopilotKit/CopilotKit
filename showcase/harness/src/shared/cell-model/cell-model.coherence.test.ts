@@ -21,12 +21,17 @@
  *          surface as a product-red badge — the I-class coherence bug)
  *  - INV6  d6Effective ∈ {green, red, amber} ⟹ achieved>=5        (D6 gated on a
  *          contiguous-green ladder through D5, §4d)
- *  - INV7  chip==gray ∧ !isStaleCell ∧ some depth pill reads red ⟹ EVERY red row
- *          THIS CELL contributes from carries POSITIVE infra evidence
- *                                                                 (fail-safe
- *          polarity — see below; the `isStaleCell` carve-out and the
- *          per-cell quantification are both load-bearing, see
- *          `assertChipStripCoherent`)
+ *  - INV7  chip==gray ∧ !isStaleCell ∧ no ladder gap below the red pill ∧ some
+ *          depth pill reads red ⟹ EVERY red row THIS CELL contributes carries
+ *          POSITIVE infra evidence                                (fail-safe
+ *          polarity — see below; the per-cell quantification and BOTH
+ *          carve-outs — U8 all-stale, and the I1 ladder gap — are
+ *          load-bearing, see `assertChipStripCoherent`)
+ *
+ * INV7's SCOPE: the AGENT axis only. A starter cell has no depth strip, so the
+ * precondition is structurally unsatisfiable there and INV7 gives the starter
+ * axis NO coverage — asserted, not assumed, by `INV7 does not reach the starter
+ * axis` at the foot of this file.
  *
  * INV7 is the invariant whose ABSENCE let a long-lived misreport ship. INV1–INV6
  * only relate `chipColor` to the other CHIP-side outputs; none of them inspects
@@ -150,19 +155,34 @@ function assertCoherent(label: string, m: Coherable): void {
  * The status-row keys ONE cell's chip and depth strip are derived from — the
  * same keyspace `buildCellModel` collects: D1 `health`, D2 `agent`, D3 `e2e`,
  * D4 `chat`/`tools`, and the D5/D6 per-cell families fanned out through
- * `CATALOG_TO_D5_KEY` (or the four `starter:<column>/<level>` rows on the
- * starter axis, whose cells carry no depth strip at all).
+ * `CATALOG_TO_D5_KEY`.
  *
  * INV7 quantifies over exactly these rows. `live` is a WHOLE-MATRIX map, so a
  * red row in it may belong to a completely different column or feature; such a
  * row contributes nothing to this cell's chip and therefore says nothing about
  * whether this cell's gray chip is honest. Reading it would make INV7 fail on
  * unrelated map contents.
+ *
+ * STARTER AXIS — DELIBERATELY UNSUPPORTED, and INV7 has NO starter coverage.
+ * This function used to return the four `starter:<column>/<level>` keys, which
+ * read as coverage the invariant does not have: a starter cell carries no depth
+ * strip at all (`buildStarterCellModelV2` returns `NOT_WIRED_LEVEL` — `exists:
+ * false`, `status: null` — for d3-d6), so `stripReadsRed` is false for EVERY
+ * starter cell however red its rows are, and `assertChipStripCoherent`
+ * short-circuits before it ever gets here. The branch was therefore
+ * unreachable. It is a throw instead of a silent fallthrough so that IF the
+ * starter axis ever grows a depth strip, INV7 fails loudly and demands the
+ * keyspace back rather than quietly measuring the agent keyspace of a cell that
+ * has none. `INV7 does not reach the starter axis` (below) pins the structural
+ * reason and fails if it stops holding.
  */
 function contributingKeys(input: CellModelInput): string[] {
   if (input.probeAxis === "starter") {
-    return (STARTER_LEVELS as readonly StarterLevel[]).map((level) =>
-      keyFor("starter", input.slug, level),
+    throw new Error(
+      "INV7 has no coverage of the starter axis: a starter cell has no depth " +
+        "strip, so the invariant's precondition cannot hold and this keyspace " +
+        "is unreachable. If a starter cell reached here the axis has gained a " +
+        "strip — restore the starter keyspace and give INV7 real coverage.",
     );
   }
   // Mirrors `buildCellModel`'s empty-string→null normalization.
@@ -182,6 +202,66 @@ function contributingKeys(input: CellModelInput): string[] {
 }
 
 /**
+ * The status-row keys of ONE agent-axis ladder rung, or `null` when the rung is
+ * structurally absent for this cell (D5/D6 on a D5-unmapped feature — those are
+ * never attached as rungs, so `scanWorst` skips them without breaking).
+ * Mirrors `collectAgentLadder`'s per-rung gather.
+ */
+function rungKeys(
+  input: CellModelInput,
+  depth: 3 | 4 | 5,
+): readonly string[] | null {
+  const featureId = input.featureId === "" ? null : input.featureId;
+  if (featureId === null) return null; // null-feature cell: no D3+ rungs
+  if (depth === 3) return [keyFor("e2e", input.slug, featureId)];
+  if (depth === 4)
+    return [keyFor("chat", input.slug), keyFor("tools", input.slug)];
+  const d5 = CATALOG_TO_D5_KEY[featureId];
+  if (!d5 || d5.length === 0) return null; // D5 unmapped ⇒ no D5 rung at all
+  return d5.map((ft) => keyFor("d5", input.slug, ft));
+}
+
+/**
+ * The depth at which the chip's ladder walk STOPPED for want of any
+ * observation — i.e. the rung `scanWorst` folds as `ABSENT` and `break`s on
+ * (invariant I1, `cell-model.combine.ts`), or `null` if the walk never broke.
+ *
+ * `scanWorst` walks D3→D4→D5 and breaks at the FIRST `ABSENT`/`STUB` rung, so
+ * the shallowest such rung IS the break point. And for a D3/D4/D5 rung,
+ * `classifyRung` yields `ABSENT` EXACTLY when the rung has no present row:
+ * its other `ABSENT` return needs `foldFamily().worstState === null`, which is
+ * unreachable with rows present (the first row always sets `worstState`). So
+ * "no row for any of the rung's keys" is an exact test for the break, not an
+ * approximation — deliberately NOT the strip's `status === null`, which also
+ * covers the `anyExpectedMissing` → `NO_DATA` collapse (a rung that does have
+ * an observation, and does NOT stop the walk).
+ */
+function ladderGapDepth(
+  live: LiveStatusMap,
+  input: CellModelInput,
+): 3 | 4 | 5 | null {
+  for (const depth of [3, 4, 5] as const) {
+    const keys = rungKeys(input, depth);
+    if (keys === null) continue;
+    if (keys.every((k) => live.get(k) === undefined)) return depth;
+  }
+  return null;
+}
+
+/** Shallowest depth whose pill renders red, or `null` if the strip has none. */
+function redPillDepth(m: CellModel): 3 | 4 | 5 | 6 | null {
+  for (const [depth, lvl] of [
+    [3, m.d3],
+    [4, m.d4],
+    [5, m.d5],
+    [6, m.d6],
+  ] as const) {
+    if (lvl !== null && lvl.exists && lvl.status === "red") return depth;
+  }
+  return null;
+}
+
+/**
  * INV7 — CHIP/STRIP coherence with the fail-safe polarity. Needs the input rows
  * and the cell's `input` (not just the model) because the legitimate
  * gray-over-a-red case is defined by POSITIVE infra evidence in the rows'
@@ -191,18 +271,23 @@ function contributingKeys(input: CellModelInput): string[] {
  * depth pill when every contributing red row actually SAYS the failure was
  * infra. A red row with a stripped `signal` says nothing at all — that is a
  * PENDING attribution, and must surface as red/amber, not gray.
+ *
+ * `opts.ladderGapAllowance` exists ONLY so a test can re-run the same input with
+ * the I1 allowance disabled and prove the allowance is what passed it (the
+ * mutation proof lives in the suite instead of in a reviewer's scratch edit).
+ * Production callers never pass it.
  */
 function assertChipStripCoherent(
   label: string,
   m: CellModel,
   live: LiveStatusMap,
   input: CellModelInput,
+  opts: { ladderGapAllowance?: boolean } = {},
 ): void {
+  const { ladderGapAllowance = true } = opts;
   // A pill can be null entirely (an unsupported column has no strip at all).
-  const stripReadsRed = [m.d3, m.d4, m.d5, m.d6].some(
-    (lvl) => lvl !== null && lvl.exists && lvl.status === "red",
-  );
-  if (m.chipColor !== "gray" || !stripReadsRed) return;
+  const redDepth = redPillDepth(m);
+  if (m.chipColor !== "gray" || redDepth === null) return;
 
   // U8 EXEMPTION (§7.2/§6.4). `buildCellModel` force-grays an ALL-STALE cell on
   // every path (`if (isStaleCell && chipColor !== "gray") chipColor = "gray"`,
@@ -214,6 +299,40 @@ function assertChipStripCoherent(
   // cell; the current fixture variants are green/degraded only, so the hole is
   // latent rather than firing.
   if (m.isStaleCell) return;
+
+  // I1 LADDER-GAP ALLOWANCE (round-2 a8 / round-1 a4(iii)). `scanWorst`
+  // (`cell-model.combine.ts`) walks D3→D4→D5 and STOPS at the first rung with
+  // no observation, folding it as `ABSENT`: *"a gap grays the cell — rungs above
+  // the gap are not contiguous, I1"*. So when the gap is strictly BELOW the
+  // shallowest red pill, the chip's verdict was decided at the gap and the red
+  // rung was never consulted at all. That gray is a NO-DATA claim about the
+  // ladder's contiguity, not an infra attribution for the red above it, so no
+  // infra evidence is owed and INV7 must not fire — before this allowance it
+  // false-failed on the ordinary shape "no `e2e:` row + red `chat:<slug>`"
+  // (`e2e` rows come from a separate sweep; `chat:`/`tools:` are
+  // integration-scoped and shared by every feature cell of the column).
+  //
+  // KNOWN GAP, DELIBERATELY NOT ASSERTED. The engine's I1 break is itself a
+  // masking bug: a fresh product-red above a gap renders gray (an exhaustive
+  // sweep put it at 19,328 of 279,936 rung combinations, none infra-justified).
+  // Fixing it means `break` → `continue` in `scanWorst`, which REVERSES I1,
+  // re-verdicts cells across the matrix and needs its own golden-master
+  // re-freeze and live value test — it is tracked as its own change (round-2
+  // d4), and `combine.ts` is untouched by this PR. INV7 is therefore silent
+  // about the residual masking ON PURPOSE, and only about that: the allowance
+  // is one-directional (a gap ABOVE the red excuses nothing, because the walk
+  // DID reach the red) and it never fires without a witness rung.
+  //
+  // `redPillDepth` deliberately reports the SHALLOWEST red pill, so a strip with
+  // a red BELOW the gap and another ABOVE it is NOT excused — the lower red was
+  // consulted, and the gray does owe evidence for it.
+  //
+  // TWO-SIDED: `PASSES a gray chip over a red pill ABOVE a ladder gap` pins the
+  // engine behaviour excused here. When the gap-break is fixed its chip stops
+  // being gray and that test fails loudly — the signal to delete this block
+  // rather than let it excuse a shape the engine no longer produces.
+  const gapDepth = ladderGapAllowance ? ladderGapDepth(live, input) : null;
+  if (gapDepth !== null && gapDepth < redDepth) return;
 
   const redRows = contributingKeys(input)
     .map((k) => live.get(k))
@@ -415,10 +534,12 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
     assertChipStripCoherent("infra-gray-control", m, live, input);
   });
 
-  // ── Teeth: INV7 must still FAIL a genuine gray-over-red incoherence. The
-  //    engine no longer produces one (that is the PR's fix), so the chip is
-  //    perturbed to gray on an otherwise-real model — exactly the regression
-  //    INV7 exists to catch.
+  // ── Teeth: INV7 must still FAIL a genuine gray-over-red incoherence.
+  //    The polarity flip removes the class this PR is about (a red grayed for
+  //    want of a `signal` blob), so for THAT class the chip has to be perturbed
+  //    to gray on an otherwise-real model. Other masking mechanisms survive it
+  //    and need no perturbation at all — see the unperturbed teeth case at the
+  //    foot of this describe.
   const teethCases: Array<{ name: string; signal: unknown }> = [
     { name: "signal STRIPPED (pending attribution)", signal: undefined },
     { name: "signal present but not infra-classed", signal: null },
@@ -461,5 +582,226 @@ describe("cell-model coherence — INV7 soundness (scope + stale exemption)", ()
     expect(() =>
       assertChipStripCoherent("teeth-d3", perturbed, live, input),
     ).toThrow(/INV7/);
+  });
+
+  // ── The I1 LADDER-GAP allowance (a8 / round-1 a4(iii)). ───────────────────
+  //
+  // `ladder()` above always emits every rung, so the fixture matrix and the
+  // cases above never produce the shape below: a rung with NO row at all,
+  // strictly under a fresh product-red rung. `scanWorst` stops at the
+  // row-less rung (I1), so the red above it never reaches the chip and the
+  // chip renders the gap's gray. INV7 must not read that gray as an infra
+  // attribution for a red it provably never consulted.
+
+  /**
+   * `acme/agentic-chat` with NO `e2e:` row (the D3 rung has no observation at
+   * all) and a fresh, sustained, PRODUCT-class red `chat:acme` (D4). Both legs
+   * are ordinary production shapes: `e2e` rows are emitted by a separate sweep
+   * that can simply not have run for a feature, and `chat:`/`tools:` are
+   * integration-scoped, so one red `chat:` row is shared by every feature cell
+   * of the column.
+   */
+  function gapLadderRows(): StatusRow[] {
+    return [
+      mkRow(keyFor("health", SLUG), "green"),
+      mkRow(keyFor("agent", SLUG), "green"),
+      // D3: NO `e2e:acme/agentic-chat` row — the ladder gap.
+      mkRow(keyFor("chat", SLUG), "red", {
+        signal: { errorClass: "conversation-error" },
+      }),
+      mkRow(keyFor("tools", SLUG), "green"),
+      mkRow(keyFor("d5", SLUG, FEATURE), "green"),
+      mkRow(keyFor("d6", SLUG, FEATURE), "green"),
+    ];
+  }
+
+  it("PASSES a gray chip over a red pill ABOVE a ladder gap (I1 allowance)", () => {
+    const live = mergeRowsToMap(gapLadderRows());
+    const m = buildCellModel(live, input, NOW);
+
+    // ── CANARY (two-sidedness). These five assertions pin the engine
+    //    behaviour the allowance exists to excuse. If the `scanWorst`
+    //    gap-break is ever changed so a red above a gap reaches the chip
+    //    (the `break`→`continue` fix tracked as round-2 d4), the chip here
+    //    stops being gray and THIS assertion fails loudly — which is the
+    //    signal to delete the allowance in `assertChipStripCoherent` rather
+    //    than let it go on silently excusing a shape the engine no longer
+    //    produces.
+    expect(
+      m.chipColor,
+      "I1 gap-break canary: the engine no longer grays a red above a ladder " +
+        "gap — re-examine (and probably delete) the LADDER-GAP allowance in " +
+        "`assertChipStripCoherent`.",
+    ).toBe("gray");
+    expect(m.d3?.status, "D3 has no row ⇒ no verdict").toBe(null);
+    expect(m.d4?.status, "D4 folded the red chat row").toBe("red");
+    expect(m.isStaleCell, "not the U8 exemption — every row is fresh").toBe(
+      false,
+    );
+    // The red row carries a PRODUCT class, so the infra branch cannot excuse
+    // it: without the gap allowance INV7 has nothing to fall back on.
+    expect(signalHasInfraErrorClass(m.d4?.row?.signal)).toBe(false);
+
+    // GREEN: the allowance recognises the gap and passes the shape.
+    assertChipStripCoherent("i1-gap-over-red", m, live, input);
+
+    // MUTATION PROOF: with the allowance disabled, this exact shape throws —
+    // so the allowance (not some other early return) is what passes it.
+    expect(() =>
+      assertChipStripCoherent("i1-gap-over-red", m, live, input, {
+        ladderGapAllowance: false,
+      }),
+    ).toThrow(/INV7/);
+  });
+
+  it("FAILS when the gap is ABOVE the red pill (the allowance is one-directional)", () => {
+    // D3 red with NO infra evidence, D5 row-less. A gap exists — but it is
+    // ABOVE the red, so `scanWorst` DID consult the red and the gray is an
+    // attribution for it. This is the non-gap-induced incoherence class, and
+    // it proves `gapDepth < redPillDepth` is load-bearing rather than "any gap
+    // anywhere excuses everything".
+    const live = mergeRowsToMap([
+      mkRow(keyFor("health", SLUG), "green"),
+      mkRow(keyFor("agent", SLUG), "green"),
+      mkRow(keyFor("e2e", SLUG, FEATURE), "red", { signal: undefined }),
+      mkRow(keyFor("chat", SLUG), "green"),
+      mkRow(keyFor("tools", SLUG), "green"),
+      // NO d5 row — a gap at D5, i.e. ABOVE the red D3.
+      mkRow(keyFor("d6", SLUG, FEATURE), "green"),
+    ]);
+    const real = buildCellModel(live, input, NOW);
+    expect(real.d3?.status).toBe("red");
+    expect(real.d5?.status, "D5 has no row ⇒ a gap, but above the red").toBe(
+      null,
+    );
+    const perturbed: CellModel = { ...real, chipColor: "gray" };
+    expect(() =>
+      assertChipStripCoherent("teeth-gap-above-red", perturbed, live, input),
+    ).toThrow(/INV7/);
+  });
+
+  it("FAILS a gray chip over a red pill when the ladder is GAPLESS (non-gap incoherence)", () => {
+    // Every rung has a row; the red D4 is fresh, sustained and product-class.
+    // Nothing about this shape is a contiguity claim, so INV7 must fire — the
+    // allowance must not have widened into "gray over red is always fine".
+    const live = mergeRowsToMap([
+      mkRow(keyFor("health", SLUG), "green"),
+      mkRow(keyFor("agent", SLUG), "green"),
+      mkRow(keyFor("e2e", SLUG, FEATURE), "green"),
+      mkRow(keyFor("chat", SLUG), "red", {
+        signal: { errorClass: "conversation-error" },
+      }),
+      mkRow(keyFor("tools", SLUG), "green"),
+      mkRow(keyFor("d5", SLUG, FEATURE), "green"),
+      mkRow(keyFor("d6", SLUG, FEATURE), "green"),
+    ]);
+    const real = buildCellModel(live, input, NOW);
+    expect(real.d3?.status, "no gap: D3 has a verdict").toBe("green");
+    expect(real.d4?.status).toBe("red");
+    const perturbed: CellModel = { ...real, chipColor: "gray" };
+    expect(() =>
+      assertChipStripCoherent("teeth-gapless-d4", perturbed, live, input),
+    ).toThrow(/INV7/);
+  });
+
+  it("FAILS on UNPERTURBED engine output: an infra-red D4 grays a product-red D6", () => {
+    // The sharpest teeth case, because nothing is perturbed. `scanWorst` folds
+    // D3→D5 only, so a red D6 never reaches the chip; an INFRA_RED_FRESH D4
+    // (gray severity) therefore decides the chip while the D6 pill still
+    // renders a fresh, sustained PRODUCT red. The ladder is GAPLESS — every
+    // rung has an observation — so the I1 allowance does not apply and must
+    // not: this is a real red rendered as benign, which is precisely what INV7
+    // is for. It is a DIFFERENT masking mechanism from the I1 gap-break (round-2
+    // d4) and from the `signal`-polarity class this PR fixes; both live in
+    // `combine.ts`/`cell-model.contribution.ts` and are out of this PR's scope,
+    // so the engine still emits this shape today.
+    //
+    // If that ever changes, `expect(m.chipColor).toBe("gray")` fails loudly and
+    // this case should be re-derived rather than deleted — INV7's teeth on
+    // unperturbed output are the whole point of keeping it.
+    const live = mergeRowsToMap([
+      mkRow(keyFor("health", SLUG), "green"),
+      mkRow(keyFor("agent", SLUG), "green"),
+      mkRow(keyFor("e2e", SLUG, FEATURE), "green"),
+      mkRow(keyFor("chat", SLUG), "red", {
+        signal: { errorClass: "driver-error" },
+      }),
+      mkRow(keyFor("tools", SLUG), "green"),
+      mkRow(keyFor("d5", SLUG, FEATURE), "green"),
+      mkRow(keyFor("d6", SLUG, FEATURE), "red", {
+        signal: { errorClass: "assertion-failed" },
+      }),
+    ]);
+    const m = buildCellModel(live, input, NOW);
+    expect(m.chipColor).toBe("gray");
+    expect(m.isStaleCell).toBe(false);
+    expect(m.d6?.status).toBe("red");
+    // GAPLESS: every rung of the chip's scan has an observation.
+    expect(m.d3?.status).toBe("green");
+    expect(m.d4?.status).toBe("red");
+    expect(m.d5?.status).toBe("green");
+    // No perturbation — INV7 rejects the model the engine actually built.
+    expect(() =>
+      assertChipStripCoherent("teeth-unperturbed-d6", m, live, input),
+    ).toThrow(/INV7/);
+  });
+});
+
+// ── INV7's reach: the STARTER axis is STRUCTURALLY out of scope ─────────────
+//
+// b24: `contributingKeys` used to carry a `probeAxis === "starter"` branch,
+// which read as starter coverage INV7 does not have. A starter cell has no
+// depth strip at all (`buildStarterCellModelV2` returns `NOT_WIRED_LEVEL` for
+// d3-d6), so `stripReadsRed` is false for EVERY starter cell and INV7's
+// precondition can never hold — no matter how red the starter rows are. Rather
+// than imply coverage through unreachable code, the branch is now a loud throw
+// and this test pins the structural reason it is unreachable: if the starter
+// axis ever grows a depth strip, this test fails and the branch must come back.
+describe("cell-model coherence — INV7 does not reach the starter axis", () => {
+  const COL = "acme";
+  const FRESH_AT = new Date(NOW - 60_000).toISOString();
+
+  const starterInput: CellModelInput = {
+    slug: COL,
+    featureId: "starter",
+    isSupported: true,
+    isWired: true,
+    probeAxis: "starter",
+  };
+
+  it("a hard-red starter cell exposes NO depth strip, so INV7 never engages", () => {
+    const live = mergeRowsToMap(
+      (STARTER_LEVELS as readonly StarterLevel[]).map((level) => ({
+        id: `id-starter-${level}`,
+        key: keyFor("starter", COL, level),
+        dimension: "starter",
+        state: "red" as State,
+        signal: { errorClass: "assertion-failed" },
+        observed_at: FRESH_AT,
+        transitioned_at: FRESH_AT,
+        fail_count: 9,
+        first_failure_at: FRESH_AT,
+      })),
+    );
+    const m = buildCellModel(live, starterInput, NOW);
+    expect(m.chipColor).toBe("red");
+    // The structural reason INV7 is inapplicable: no pill can read red.
+    for (const [name, lvl] of [
+      ["d3", m.d3],
+      ["d4", m.d4],
+      ["d5", m.d5],
+      ["d6", m.d6],
+    ] as const) {
+      expect(lvl, `${name} exists on a starter cell?`).not.toBeNull();
+      expect(lvl?.exists, `starter ${name}.exists`).toBe(false);
+      expect(lvl?.status, `starter ${name}.status`).toBe(null);
+    }
+    // So INV7 short-circuits on `!stripReadsRed` and never reaches
+    // `contributingKeys` — which would throw if it did.
+    assertChipStripCoherent("starter-hard-red", m, live, starterInput);
+  });
+
+  it("`contributingKeys` refuses a starter input rather than imply coverage", () => {
+    expect(() => contributingKeys(starterInput)).toThrow(/starter axis/);
   });
 });
