@@ -1,11 +1,26 @@
 {
   "expectedRemoteSlug": "CopilotKit/CopilotKit",
+  "measuredAt": "938be2accf2ae42d12003618bcd9ebd3d514609c",
+  "pendingSources": [
+    {
+      "ref": "fix/6156-pb-evaluator-fidelity (unit Q2)",
+      "commit": null,
+      "status": "IN FLIGHT — not yet a commit, so nothing can be anchored against it.",
+      "seeds": "The PB query evaluator's fidelity holes, each of which is a mutation of `shell-dashboard/src/hooks/__tests__/pb-query-eval.ts` against the autocancel + bounds suites: single-quoted string literals (the real SDK's quoting) rejected by `tokenize`; a parse throw escaping the node:http handler so no response is written; `applyPbSort` silently no-opping on `-key`; case-SENSITIVE `like()` where PB's LIKE is not; `_` in a pattern suppressing PB's implicit `%…%` wrap; `comparePbField` comparing fail_count as strings so \"10\" < \"2\". Seed from round-2-slot-5-b F1/F2/F4/F7 and round-2-slot-6-a F2/F3."
+    },
+    {
+      "ref": "fix/6156-inv7-gap-carveout (unit Q3)",
+      "commit": "49bf40943f",
+      "status": "MEASURED, NOT SEEDABLE — the carve-out it adds does not exist at this manifest's `measuredAt`, so an entry targeting it would fail the anchor pre-flight. Verified against 49bf40943f: none of the 21 existing entries change verdict there, so Q3 neither closes nor opens any gap this manifest tracks.",
+      "seeds": "Two entries once it lands: (1) delete the ladder-gap carve-out and assert only the new I1-shape test fails — Q3's own red-green; (2) flip the in-suite `opts.ladderGapAllowance` switch to `false` and assert the carve-out's tests fail, which pins the switch as load-bearing rather than dead configuration."
+    }
+  ],
   "suites": {
     "dashboard-hooks": {
       "package": "showcase/shell-dashboard",
       "vitestBin": "node_modules/.bin/vitest",
-      "timeoutMs": 180000,
-      "requires": "`npm run pretest` (generate-registry + probe-docs) must have produced src/data/*.json, or every suite fails as a load error. Scope stays under src/ on purpose: tests/runtime-env-switch.spike.test.ts stalls a bare `vitest run` for ~25 min at 0% CPU."
+      "timeoutMs": 600000,
+      "requires": "`npm run pretest` (generate-registry + probe-docs) must have produced src/data/*.json, or every suite fails as a load error. Scope stays under src/ on purpose: tests/runtime-env-switch.spike.test.ts stalls a bare `vitest run` for ~25 min at 0% CPU (0.0% CPU, never spawns its `next build`). The 10-minute timeout is deliberately far above the ~5s these jsdom suites take unloaded: on a busy machine they have been measured 3-6x slower, and one run died at 161s without writing its JSON report at all, so a tight bound produces false FATALs rather than findings. It still sits well below the spike test's hang."
     },
     "harness-cell-model": {
       "package": "showcase/harness",
@@ -129,6 +144,17 @@
         "kind": "coverage-gap",
         "reason": "`EXPECTED_MAX_INITIAL_PAGES = 20` is documented as a drift pin, but every assertion is an UPPER bound (`toBeLessThanOrEqual(20)`, `not.toContain(21)`), so `length <= 20` and `max <= 20` hold at any smaller cap. The `console.warn`/`status === \"error\"` assertions still fire because the runaway server serves 40 full pages either way.",
         "closedBy": "Assert EQUALITY, not a bound: `expect(runawaySupplementalPages).toEqual(Array.from({length: EXPECTED_MAX_INITIAL_PAGES}, (_, i) => i + 1))`, and export `MAX_INITIAL_FETCH_PAGES` so the \"MUST match\" comment is mechanical. Owned by the concurrent fetch-bounds agent."
+      },
+      "ratchet": {
+        "measuredAt": "67c2c8c5c4",
+        "ref": "fix/6156-truncated-boundary (unit Q1)",
+        "expect": "kill",
+        "mustFail": [
+          "useLiveStatus supplemental fetch — page bound pins the cap MECHANICALLY to the implementation constant, in both directions",
+          "useLiveStatus supplemental fetch — page bound stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound",
+          "useLiveStatus bulk fetch — page bound fails loud never requests past the cap, and surfaces an error instead of a partial matrix"
+        ],
+        "note": "Q1 gives the cap a TWO-SIDED guard and adds a test that pins it mechanically to the implementation constant, growing the bounds suite 6 → 7 tests. Measured on that branch: 3 of the 7 fail at cap 10 (and the same 3 at cap 5), where all 6 passed before."
       }
     },
     {
@@ -149,6 +175,17 @@
         "kind": "coverage-gap",
         "reason": "Identical one-sided-bound hole to page-cap/halved-to-10. Kept as a separate entry because a partial fix that merely tightens the bound (e.g. `>= 10`) would close one and not the other, and the gate should say which.",
         "closedBy": "Same equality pin as page-cap/halved-to-10."
+      },
+      "ratchet": {
+        "measuredAt": "67c2c8c5c4",
+        "ref": "fix/6156-truncated-boundary (unit Q1)",
+        "expect": "kill",
+        "mustFail": [
+          "useLiveStatus supplemental fetch — page bound pins the cap MECHANICALLY to the implementation constant, in both directions",
+          "useLiveStatus supplemental fetch — page bound stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound",
+          "useLiveStatus bulk fetch — page bound fails loud never requests past the cap, and surfaces an error instead of a partial matrix"
+        ],
+        "note": "Closed by the same two-sided guard as page-cap/halved-to-10, and by the same 3 tests — so the fix is not a bound that was merely tightened to some other one-sided value."
       }
     },
     {
@@ -299,6 +336,15 @@
         "kind": "coverage-gap",
         "reason": "In every `pos-d*-red-signal-unknown` fixture EVERY row of the affected family is red-with-`signal: undefined`, so the red-row scope and the family scope coincide and the widening is invisible across all 56 baseline entries. The source comment calls this scoping 'deliberately and load-bearingly so' — at golden-master level nothing pins it.",
         "closedBy": "The heterogeneous-family fixtures in convergence-audit lever 7: a D4 `{chat: green with the `signal` key OMITTED, tools: red infra}` entry separates the two scopes. Owned by the concurrent fixture/golden-master agent."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-d4-green-stripped-infra-red"
+        ],
+        "note": "Q4 adds exactly the heterogeneous fixture this gap called for, and it is the ONLY new failure — the golden master grows 57 → 62 entries and one of them separates the red-row scope from the family scope."
       }
     },
     {
@@ -319,6 +365,15 @@
         "kind": "coverage-gap",
         "reason": "Every red family in the fixture matrix is HOMOGENEOUS — each variant builder maps one uniform row shape over all keys of a rung — so no fixture anywhere contains two red rows with DIFFERENT `fail_count`s, and MAX and MIN agree on all 56 entries. The source doc at `:329-339` calls MAX load-bearing ('taking the minimum would let one fresh sibling re-arm tolerance for an already-confirmed failure').",
         "closedBy": "A heterogeneous D4 fixture `{chat: red fc1, tools: red fc3}` (convergence-audit lever 7). NOTE: `aggregation/failcount-min-not-max` proves the hand-written unit suite DOES catch this, so the gap is golden-master-only, not total."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-d4-red-failcount-max"
+        ],
+        "note": "Q4's `hetero-d4-red-failcount-max` fixture is a D4 family with two reds at DIFFERENT fail_counts, which is exactly what MAX and MIN disagree on. One new fixture, one new failure."
       }
     },
     {
@@ -363,6 +418,15 @@
         "kind": "coverage-gap",
         "reason": "`starterSweep` only ever reds index 0 and every other variant builder is homogeneous, so a family mixing a soft-class red with a hard-class red does not exist anywhere in the matrix — and the quantifiers agree on every family that does. Slot 7a scoped this claim to the 56 golden-master entries; measured here, ALL 198 tests in the cell-model directory stay green, so the gap is total, not golden-master-only.",
         "closedBy": "A heterogeneous starter fixture `{health: red transport-error, agent: red smoke-failed}` (convergence-audit lever 7) plus a direct `foldFamily` unit test over a mixed soft/hard red pair."
+      },
+      "ratchet": {
+        "measuredAt": "3c1177838f",
+        "ref": "fix/6156-fixture-coverage-polarity (unit Q4)",
+        "expect": "kill",
+        "mustFail": [
+          "buildCellModel — golden-master identity matches baseline for fixture: hetero-starter-mixed-soft-hard"
+        ],
+        "note": "Q4's `hetero-starter-mixed-soft-hard` fixture is the mixed soft/hard starter family that separates the EVERY and ANY quantifiers. Note the scope here is the whole cell-model directory (208 tests at Q4), so this closes the TOTAL gap, not just the golden-master one."
       }
     },
     {

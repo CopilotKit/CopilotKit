@@ -90,8 +90,37 @@ export interface Mutant {
    */
   mustFail?: string[];
   knownGap?: MutantKnownGap;
+  ratchet?: MutantRatchet;
   /** Optional per-mutant override of the suite timeout, in milliseconds. */
   timeoutMs?: number;
+}
+
+/**
+ * A SECOND declared state for the same mutation, measured at a different commit.
+ *
+ * A manifest entry cannot target code that does not exist at its own HEAD (the
+ * anchor pre-flight refuses), so an entry seeded from a base branch records the
+ * base's outcome in `expect` — while the fix that closes the gap is already
+ * measured on its own branch. `ratchet` carries that second measurement, so the
+ * manifest documents the RATCHET rather than only the current state, and the
+ * gate stays truthful on both sides of the merge.
+ *
+ * The runner accepts EITHER declared state and reports which one the tree is
+ * in. That is not laxity: an outcome matching neither is still fatal, and both
+ * states name their failing tests exactly. What it buys is that the entry does
+ * not have to be edited in lockstep with someone else's merge.
+ */
+export interface MutantRatchet {
+  /** Commit the alternative state was MEASURED at — not inferred, measured. */
+  measuredAt: string;
+  /** Human ref for that commit (branch name, unit id). */
+  ref: string;
+  /** Must differ from the entry's `expect`, or it is not a ratchet. */
+  expect: MutantExpectation;
+  mustFail?: string[];
+  knownGap?: MutantKnownGap;
+  /** What changed, and what to do once this state becomes the only one. */
+  note: string;
 }
 
 export interface MutationSuite {
@@ -108,6 +137,24 @@ export interface MutationSuite {
   requires?: string;
 }
 
+/**
+ * A fix or branch that WILL contribute mutations, recorded because it cannot
+ * contribute them yet.
+ *
+ * An entry can only target code that exists at the manifest's own HEAD — the
+ * anchor pre-flight refuses otherwise — so a guard added on an unmerged branch
+ * has nowhere to live until that branch lands. Without this list the knowledge
+ * evaporates exactly the way the hand-written mutations did.
+ */
+export interface PendingSource {
+  ref: string;
+  /** Commit if it exists, or `null` while the work is still in flight. */
+  commit: string | null;
+  status: string;
+  /** What mutations to add once it lands. */
+  seeds: string;
+}
+
 export interface MutationManifest {
   /**
    * `owner/name` the origin remote MUST resolve to. The runner edits source by
@@ -116,8 +163,11 @@ export interface MutationManifest {
    * repo) aborts instead of mutating the wrong tree.
    */
   expectedRemoteSlug: string;
+  /** The commit every entry's base state was measured at. */
+  measuredAt: string;
   suites: Record<string, MutationSuite>;
   mutants: Mutant[];
+  pendingSources?: PendingSource[];
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +196,20 @@ export function validateManifest(m: MutationManifest): string[] {
   const errors: string[] = [];
   if (typeof m.expectedRemoteSlug !== "string" || !m.expectedRemoteSlug) {
     errors.push("`expectedRemoteSlug` must be a non-empty string");
+  }
+  if (typeof m.measuredAt !== "string" || !m.measuredAt) {
+    errors.push(
+      "`measuredAt` must name the commit the base states were measured at",
+    );
+  }
+  for (const [i, p] of (m.pendingSources ?? []).entries()) {
+    const at = `pendingSources[${i}]`;
+    if (!p.ref) errors.push(`${at}: missing \`ref\``);
+    if (p.commit !== null && !p.commit) {
+      errors.push(`${at}: \`commit\` must be a commit or explicitly null`);
+    }
+    if (!p.status) errors.push(`${at}: missing \`status\``);
+    if (!p.seeds) errors.push(`${at}: missing \`seeds\``);
   }
   if (!m.suites || Object.keys(m.suites).length === 0) {
     errors.push("`suites` must declare at least one suite");
@@ -195,42 +259,72 @@ export function validateManifest(m: MutationManifest): string[] {
     if (!Array.isArray(mut.scope) || mut.scope.length === 0) {
       errors.push(`${at}: \`scope\` must be a non-empty array`);
     }
-    if (mut.expect === "kill") {
-      if (!Array.isArray(mut.mustFail) || mut.mustFail.length === 0) {
+    errors.push(...validateState(at, mut));
+    if (mut.ratchet) {
+      const r = mut.ratchet;
+      errors.push(...validateState(`${at} ratchet`, r));
+      if (!r.measuredAt) {
         errors.push(
-          `${at}: \`expect: "kill"\` requires a non-empty \`mustFail\``,
+          `${at} ratchet: missing \`measuredAt\` — a ratchet state must name ` +
+            `the commit it was MEASURED at, never an assumed one`,
         );
       }
-      if (mut.knownGap) {
+      if (!r.ref) errors.push(`${at} ratchet: missing \`ref\``);
+      if (!r.note) errors.push(`${at} ratchet: missing \`note\``);
+      if (r.expect === mut.expect) {
         errors.push(
-          `${at}: \`knownGap\` is meaningless with \`expect: "kill"\``,
+          `${at} ratchet: \`expect\` is "${r.expect}", the same as the entry's ` +
+            `— a ratchet must record a DIFFERENT outcome or it says nothing`,
         );
       }
-    } else if (mut.expect === "survive") {
-      if (mut.mustFail && mut.mustFail.length > 0) {
-        errors.push(
-          `${at}: \`expect: "survive"\` must not declare \`mustFail\` tests`,
-        );
-      }
-      if (!mut.knownGap?.reason || !mut.knownGap?.closedBy) {
-        errors.push(
-          `${at}: \`expect: "survive"\` requires \`knownGap.reason\` and ` +
-            `\`knownGap.closedBy\` — an entry may not claim a guard is ` +
-            `toothless without saying why and what closes it`,
-        );
-      }
-      if (
-        mut.knownGap &&
-        mut.knownGap.kind !== "coverage-gap" &&
-        mut.knownGap.kind !== "by-design"
-      ) {
-        errors.push(
-          `${at}: \`knownGap.kind\` must be "coverage-gap" or "by-design"`,
-        );
-      }
-    } else {
-      errors.push(`${at}: \`expect\` must be "kill" or "survive"`);
     }
+  }
+  return errors;
+}
+
+/** Shared shape rules for a declared state (the entry itself, or its ratchet). */
+function validateState(
+  at: string,
+  s: {
+    expect: MutantExpectation;
+    mustFail?: string[];
+    knownGap?: MutantKnownGap;
+  },
+): string[] {
+  const errors: string[] = [];
+  if (s.expect === "kill") {
+    if (!Array.isArray(s.mustFail) || s.mustFail.length === 0) {
+      errors.push(
+        `${at}: \`expect: "kill"\` requires a non-empty \`mustFail\``,
+      );
+    }
+    if (s.knownGap) {
+      errors.push(`${at}: \`knownGap\` is meaningless with \`expect: "kill"\``);
+    }
+  } else if (s.expect === "survive") {
+    if (s.mustFail && s.mustFail.length > 0) {
+      errors.push(
+        `${at}: \`expect: "survive"\` must not declare \`mustFail\` tests`,
+      );
+    }
+    if (!s.knownGap?.reason || !s.knownGap?.closedBy) {
+      errors.push(
+        `${at}: \`expect: "survive"\` requires \`knownGap.reason\` and ` +
+          `\`knownGap.closedBy\` — an entry may not claim a guard is ` +
+          `toothless without saying why and what closes it`,
+      );
+    }
+    if (
+      s.knownGap &&
+      s.knownGap.kind !== "coverage-gap" &&
+      s.knownGap.kind !== "by-design"
+    ) {
+      errors.push(
+        `${at}: \`knownGap.kind\` must be "coverage-gap" or "by-design"`,
+      );
+    }
+  } else {
+    errors.push(`${at}: \`expect\` must be "kill" or "survive"`);
   }
   return errors;
 }
@@ -335,6 +429,11 @@ export type Verdict =
   | "SURVIVED_AS_DECLARED"
   /** expect:survive, something failed. The manifest is stale — promote it. */
   | "GAP_CLOSED"
+  /**
+   * The entry's base state no longer holds, but its measured `ratchet` state
+   * does — the tree is on the far side of the fix that closed the gap.
+   */
+  | "RATCHET_ADVANCED"
   /** The scope did not produce a usable measurement (load/transform error). */
   | "ERROR"
   /** The scope was not green before mutation, so nothing can be concluded. */
@@ -391,11 +490,51 @@ export function classify(
       detail: "the scope reported zero tests; check `scope` paths",
     };
   }
+  // The entry's own declared state is checked first. If it does not hold and
+  // the entry carries a measured `ratchet`, the tree may simply be on the far
+  // side of that fix — so the alternative state is checked too, and reported by
+  // name. An outcome matching NEITHER declared state stays fatal.
+  const primary = evaluateState(mut, mut, run, opts);
+  if (!primary.fatal || !mut.ratchet) return primary;
+
+  const alternative = evaluateState(mut, mut.ratchet, run, opts);
+  if (alternative.fatal) {
+    return {
+      ...primary,
+      detail:
+        `${primary.detail}\n    …and this does NOT match the ratchet state ` +
+        `measured at ${mut.ratchet.measuredAt} (${mut.ratchet.ref}) either: ` +
+        `${alternative.detail}`,
+    };
+  }
+  return {
+    verdict: "RATCHET_ADVANCED",
+    fatal: false,
+    detail:
+      `this tree is on the far side of ${mut.ratchet.ref} ` +
+      `(${mut.ratchet.measuredAt}): the entry's base state no longer holds, ` +
+      `and the RATCHET state does — ${alternative.detail}. ${mut.ratchet.note} ` +
+      `Once the base state is unreachable (the fix is on main), collapse this ` +
+      `entry onto its ratchet and delete the \`ratchet\` block.`,
+  };
+}
+
+/** Check one declared state (the entry's own, or its ratchet) against a run. */
+function evaluateState(
+  mut: Mutant,
+  state: {
+    expect: MutantExpectation;
+    mustFail?: string[];
+    knownGap?: MutantKnownGap;
+  },
+  run: RunMeasurement,
+  opts: { allowFixed?: boolean },
+): Classification {
   const failed = new Set(
     run.tests.filter((t) => t.status === "failed").map((t) => t.fullName),
   );
 
-  if (mut.expect === "survive") {
+  if (state.expect === "survive") {
     if (failed.size === 0) {
       return {
         verdict: "SURVIVED_AS_DECLARED",
@@ -403,8 +542,8 @@ export function classify(
         detail:
           `${run.tests.length} test(s) still green under the mutation, as the ` +
           `manifest declares. ` +
-          `${mut.knownGap!.kind === "by-design" ? "BY DESIGN" : "TOOTHLESS"}: ` +
-          `${mut.knownGap!.reason} (closed by: ${mut.knownGap!.closedBy})`,
+          `${state.knownGap!.kind === "by-design" ? "BY DESIGN" : "TOOTHLESS"}: ` +
+          `${state.knownGap!.reason} (closed by: ${state.knownGap!.closedBy})`,
       };
     }
     return {
@@ -418,7 +557,7 @@ export function classify(
     };
   }
 
-  const declared = mut.mustFail ?? [];
+  const declared = state.mustFail ?? [];
   const unknown = declared.filter(
     (name) => !run.tests.some((t) => t.fullName === name),
   );

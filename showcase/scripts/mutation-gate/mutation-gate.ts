@@ -308,13 +308,18 @@ function runVitest(
   return new Promise((resolve) => {
     const child = spawn(path.join(cwd, vitestBin), args, {
       cwd,
-      stdio: ["ignore", "ignore", "pipe"],
+      // Capture BOTH streams: when vitest dies without writing its JSON (it
+      // does, under enough machine load) the only account of why is on one of
+      // them, and a non-measurement reported without its cause is useless.
+      stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, CI: "1", FORCE_COLOR: "0" },
     });
-    let stderr = "";
-    child.stderr.on("data", (d: Buffer) => {
-      stderr += d.toString();
-    });
+    let output = "";
+    const collect = (d: Buffer) => {
+      output += d.toString();
+    };
+    child.stdout.on("data", collect);
+    child.stderr.on("data", collect);
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
@@ -325,11 +330,22 @@ function runVitest(
       clearTimeout(timer);
       const measurement = timedOut
         ? { tests: [], loadErrors: [], timedOut: true }
-        : readMeasurement(outFile, stderr);
+        : readMeasurement(outFile, output, code);
       rmSync(outDir, { recursive: true, force: true });
       resolve({ ...measurement, exitCode: code });
     });
   });
+}
+
+/**
+ * A verdict that reflects the MACHINE rather than the code. Vitest killed by
+ * its own internal timeouts under load, or a scope that overran the wall clock,
+ * says nothing about whether the guard has teeth — so these are retried once
+ * before they are allowed to fail the gate. Retrying a real SURVIVED would be
+ * corner-cutting; retrying a non-measurement is just refusing to guess.
+ */
+function isNonMeasurement(v: Verdict): boolean {
+  return v === "ERROR" || v === "TIMEOUT";
 }
 
 interface VitestJson {
@@ -342,14 +358,17 @@ interface VitestJson {
   }>;
 }
 
-function readMeasurement(outFile: string, stderr: string): RunMeasurement {
+function readMeasurement(
+  outFile: string,
+  output: string,
+  exitCode: number | null,
+): RunMeasurement {
   if (!existsSync(outFile)) {
     return {
       tests: [],
       loadErrors: [
-        `vitest produced no JSON output${
-          stderr ? `; stderr: ${firstLine(stderr)}` : ""
-        }`,
+        `vitest exited ${exitCode} without writing its JSON report` +
+          (output ? `: ${firstLine(output)}` : " and printed nothing"),
       ],
       timedOut: false,
     };
@@ -394,13 +413,14 @@ function firstLine(s: string): string {
 // ---------------------------------------------------------------------------
 
 const GLYPH: Record<Verdict, string> = {
-  KILLED: "KILLED  ",
+  KILLED: "KILLED",
   SURVIVED: "SURVIVED",
   SURVIVED_AS_DECLARED: "TOOTHLESS",
   GAP_CLOSED: "GAP-CLOSED",
-  ERROR: "ERROR   ",
+  RATCHET_ADVANCED: "RATCHETED",
+  ERROR: "ERROR",
   BASELINE_DIRTY: "BASE-RED",
-  TIMEOUT: "TIMEOUT ",
+  TIMEOUT: "TIMEOUT",
 };
 
 interface Row {
@@ -428,13 +448,24 @@ function report(rows: Row[]): void {
   const toothless = rows.filter(
     (r) => r.cls.verdict === "SURVIVED_AS_DECLARED",
   );
+  const ratcheted = rows.filter((r) => r.cls.verdict === "RATCHET_ADVANCED");
   process.stdout.write(
     `\n${rows.length} mutant(s): ` +
       `${rows.filter((r) => r.cls.verdict === "KILLED").length} killed, ` +
       `${toothless.length} declared-toothless, ` +
+      `${ratcheted.length} ratcheted, ` +
       `${fatal.length} FATAL\n`,
   );
 
+  if (ratcheted.length > 0) {
+    process.stdout.write(
+      `\nRATCHET ADVANCED (a declared gap has been CLOSED — good news, but the ` +
+        `manifest now carries a state it no longer needs)\n`,
+    );
+    for (const r of ratcheted) {
+      process.stdout.write(`  ${r.mutant.id}\n    ${r.cls.detail}\n`);
+    }
+  }
   if (toothless.length > 0) {
     process.stdout.write(
       `\nDECLARED-TOOTHLESS GUARDS (known gaps, tracked in the manifest)\n`,
@@ -466,7 +497,15 @@ function listManifest(m: MutationManifest): void {
         (mut.expect === "kill"
           ? `  mustFail   ${mut.mustFail!.length} test(s)\n`
           : `  knownGap   ${mut.knownGap!.reason}\n` +
-            `  closedBy   ${mut.knownGap!.closedBy}\n`),
+            `  closedBy   ${mut.knownGap!.closedBy}\n`) +
+        (mut.ratchet
+          ? `  ratchet    → ${mut.ratchet.expect}` +
+            (mut.ratchet.expect === "kill"
+              ? ` (${mut.ratchet.mustFail!.length} test(s))`
+              : "") +
+            ` measured at ${mut.ratchet.measuredAt} (${mut.ratchet.ref})\n` +
+            `             ${mut.ratchet.note}\n`
+          : ""),
     );
   }
 }
@@ -541,9 +580,11 @@ async function main(): Promise<void> {
   // Untracked files are noted but tolerated — the showcase packages need
   // gitignored generated artifacts (`src/data/*.json`) present for the suites
   // to load at all, so demanding a virgin tree would make the gate unrunnable.
+  // `--check` only READS (validate + resolve anchors), so it is allowed on a
+  // dirty tree — it is the check you most want while editing the manifest.
   const status = git(repoRoot, ["status", "--porcelain", "-uno"]);
   if (!status.ok) fail("`git status` failed", 2);
-  if (status.out !== "") {
+  if (status.out !== "" && !opts.check) {
     fail(
       `REFUSING TO RUN — ${status.out.split("\n").length} tracked file(s) are ` +
         `modified. This gate rewrites tracked source and reverts it, so ` +
@@ -657,26 +698,52 @@ async function main(): Promise<void> {
   }
 
   // --- the run ------------------------------------------------------------
+  /** Apply, measure, revert, classify. Reverts even if vitest plumbing throws. */
+  const attempt = async (
+    mut: Mutant,
+    s: (typeof manifest.suites)[string],
+  ): Promise<Classification> => {
+    let run: RunMeasurement;
+    try {
+      mutator.apply(mut);
+      run = await runVitest(
+        path.join(repoRoot, s.package),
+        s.vitestBin,
+        mut.scope,
+        mut.timeoutMs ?? s.timeoutMs,
+      );
+    } finally {
+      mutator.revert();
+    }
+    return classify(mut, run, { allowFixed: opts.allowFixed });
+  };
+
   const rows: Row[] = [];
   for (const mut of selected) {
     if (interrupted) break;
     const s = manifest.suites[mut.suite]!;
     process.stdout.write(`\n▸ ${mut.id}  (expect ${mut.expect})\n`);
     const started = Date.now();
-    let cls: Classification;
-    try {
-      mutator.apply(mut);
-      const run = await runVitest(
-        path.join(repoRoot, s.package),
-        s.vitestBin,
-        mut.scope,
-        mut.timeoutMs ?? s.timeoutMs,
+    // One retry, and ONLY for a non-measurement. Every attempt applies and
+    // reverts within itself, so a retry re-mutates from a verified clean tree
+    // rather than stacking on the previous attempt. Retrying a real SURVIVED
+    // would be corner-cutting; retrying a non-measurement refuses to guess.
+    const MAX_ATTEMPTS = 2;
+    let cls = await attempt(mut, s);
+    for (let n = 2; isNonMeasurement(cls.verdict) && n <= MAX_ATTEMPTS; n++) {
+      process.stdout.write(
+        `  ${cls.verdict} on attempt ${n - 1} — a non-measurement, not a ` +
+          `result; retrying.\n    ${cls.detail}\n`,
       );
-      cls = classify(mut, run, { allowFixed: opts.allowFixed });
-    } finally {
-      // Unconditional: an exception in apply(), a throw from vitest plumbing,
-      // or a normal completion all land here before the next mutant.
-      mutator.revert();
+      cls = await attempt(mut, s);
+      if (!isNonMeasurement(cls.verdict)) {
+        cls = {
+          ...cls,
+          detail:
+            `${cls.detail} [measured on attempt ${n}; earlier attempt(s) ` +
+            `were non-measurements — treat the timing below as unreliable]`,
+        };
+      }
     }
     const ms = Date.now() - started;
     process.stdout.write(`  ${GLYPH[cls.verdict].trim()} — ${cls.detail}\n`);
