@@ -485,7 +485,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
         followUp: tool.followUp,
         ...(tool.agentId && { agentId: tool.agentId }),
         handler: async (_args, context) => {
-          return new Promise((resolve) => {
+          return new Promise((resolve, reject) => {
             const toolCallId = context?.toolCall?.id;
             if (!toolCallId) {
               console.warn(
@@ -495,21 +495,28 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               return;
             }
 
+            const signal = context.signal;
+            const abort = () => {
+              humanInTheLoopResolversRef.current.delete(toolCallId);
+              reject(new Error("Human-in-the-loop interaction aborted"));
+            };
+            const cleanup = () => {
+              signal?.removeEventListener("abort", abort);
+            };
             const finish = (result: unknown) => {
+              cleanup();
               humanInTheLoopResolversRef.current.delete(toolCallId);
               resolve(result);
             };
 
             humanInTheLoopResolversRef.current.set(toolCallId, finish);
 
-            if (context.signal?.aborted) {
-              finish(undefined);
+            if (signal?.aborted) {
+              abort();
               return;
             }
 
-            context.signal?.addEventListener("abort", () => finish(undefined), {
-              once: true,
-            });
+            signal?.addEventListener("abort", abort, { once: true });
           });
         },
       };
