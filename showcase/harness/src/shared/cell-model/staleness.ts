@@ -33,7 +33,7 @@ export const E2E_STALE_AFTER_MS = 6 * 60 * 60 * 1000;
  * green D4 row older than this window is downgraded to `degraded` (amber) so
  * the staleness surfaces, mirroring the D3/D5/D6 downgrade. Not env-tunable.
  */
-export const D4_STALE_AFTER_MS = 60 * 60 * 1000;
+export const D4_STALE_AFTER_MS = 600 * 60 * 1000;
 
 /**
  * Staleness window for the D1/D2 (liveness — `health:<slug>`/`agent:<slug>`)

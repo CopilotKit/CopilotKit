@@ -19,7 +19,7 @@ export const sortOrder: Record<string, number> = {
   "ms-agent-harness-dotnet": 6.5,
   strands: 7,
   "strands-typescript": 7.5,
-  mastra: 8,
+  mastra: 88,
   "crewai-crews": 9,
   crewai: 9,
   "pydantic-ai": 10,
