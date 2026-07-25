@@ -138,35 +138,35 @@ jobs:
           # checked pre-merge.
           #
           # Fields carried over: dispatch_name, filter_key, context, image,
-          # timeout, lfs, build_args_*, dockerfile.
+          # timeout, build_args_*, dockerfile.
           # Fields omitted (not needed for build-only): railway_id, health_path.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
-            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
-            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
-            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
           ]'
 
           CHANGES="${FILTER_CHANGES:-[]}"
@@ -255,7 +255,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          lfs: ${{ matrix.service.lfs }}
+          # Uniform `lfs: true`, matching showcase_build.yml. Every integration
+          # ships LFS-tracked demo assets under public/ (demo-files/*.png|*.pdf,
+          # demo-audio/*.wav per the repo-root .gitattributes). Without the
+          # fetch these check out as ~130-byte pointer stubs and get COPYed into
+          # the image as text, so this job would "successfully" build an image
+          # whose multimodal demo is broken — the exact failure showcase_build.yml
+          # already fixed for the deploy path. Hardcoded rather than read from
+          # `matrix.service.lfs` so a new integration is covered automatically,
+          # with no per-slot flag to forget.
+          lfs: true
           persist-credentials: false
 
       - name: Download canonical Angular browser artifact
