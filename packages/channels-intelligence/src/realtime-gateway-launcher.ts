@@ -70,7 +70,11 @@ export interface StartChannelsWithGatewaySessionOptions {
   session: RealtimeGatewaySession;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
   scope: ChannelRealtimeScope;
-  /** Stable runtime instance id (`rti_…`), echoed on every envelope. */
+  /**
+   * One live Channel activation id (`rti_…`), echoed on every envelope.
+   * Unique across concurrent replicas, stable across reconnects for this
+   * activation, and re-minted on process/ChannelManager restart.
+   */
   runtimeInstanceId: string;
   /** Intelligence app-api HTTP base URL — enables file/history parity on the
    * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
@@ -133,7 +137,7 @@ export async function startChannelsWithGatewaySession(
   const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
     onStateChange(
-      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
     ): void;
   }>;
   // Call the seams ON the session (not via detached references) so a
@@ -149,7 +153,9 @@ export async function startChannelsWithGatewaySession(
       ...(observableSession.onStateChange
         ? {
             onStateChange: (
-              cb: (state: "online" | "reconnecting" | "gave_up") => void,
+              cb: (
+                state: "online" | "reconnecting" | "gave_up" | "fenced",
+              ) => void,
             ) => observableSession.onStateChange!(cb),
           }
         : {}),
@@ -167,7 +173,10 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   apiKey: string;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
   scope: ChannelRealtimeScope;
-  /** Stable runtime instance id (`rti_…`). */
+  /**
+   * One live Channel activation id (`rti_…`). Must be unique across concurrent
+   * replicas; reuse it only for transport reconnects of this activation.
+   */
   runtimeInstanceId: string;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
@@ -290,7 +299,7 @@ export async function startChannelsOverRealtimeGateway(
     // so they stay correct even if that helper's internals change.
     onClose: (cb: () => void) => session.onClose(cb),
     onStateChange: (
-      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
     ) => session.onStateChange(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the
