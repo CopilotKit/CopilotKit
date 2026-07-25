@@ -28,9 +28,24 @@
  *
  * These tests drive the REAL hook against the REAL PocketBase SDK over a real
  * socket (the sibling mocked suite cannot observe wire-level pagination or an
- * HTTP-level failure), and the fake endpoints EVALUATE `filter` / `fields` /
- * `sort` for real (see `__tests__/pb-query-eval.ts`) so a response is a function
- * of the query the hook actually sent rather than of fixture layout.
+ * HTTP-level failure).
+ *
+ * EVERY fake endpoint below — all three of them, on both their bulk and their
+ * supplemental legs — answers through the ONE shared evaluator
+ * (`__tests__/pb-query-eval.ts`, whose semantics are verified against a real
+ * PocketBase server), so `filter`, `sort`, `fields` and `skipTotal` are all
+ * honoured and a response is a function of the query the hook actually sent
+ * rather than of fixture layout. Two of them previously ignored `filter`
+ * outright while this preamble claimed otherwise, which meant a widened
+ * supplemental filter was invisible to the cap tests. The page-cap servers
+ * SYNTHESIZE their pages (an unbounded page stream is the point, and no fixture
+ * array can hold one), so they pass `alreadyPaged` — the slice is theirs, the
+ * filter and projection are still the evaluator's.
+ *
+ * A query the evaluator cannot model comes back as the real server's own 400
+ * carrying the parse message, never as an exception out of the request handler:
+ * that throw sends NO response, so the hook hangs and the test dies on a 20 s
+ * `waitFor` timeout with the parse message nowhere in sight.
  */
 import {
   describe,
@@ -54,12 +69,16 @@ import {
   FLEET_COMM_ERROR_SIGNAL_KEY,
 } from "../lib/live-status";
 import {
-  matchesPbFilter,
-  applyPbFields,
-  applyPbSort,
+  readPbListRequest,
+  classifyPbListRequest,
+  evaluatePbList,
+  PB_PER_PAGE_CLAMP,
 } from "./__tests__/pb-query-eval";
+import type { PbRow, PbListRequest } from "./__tests__/pb-query-eval";
 
-const PER_PAGE_CLAMP = 500;
+// PocketBase's server-side `perPage` ceiling, imported rather than restated so
+// the fakes and the evaluator that clamps for them cannot drift apart.
+const PER_PAGE_CLAMP = PB_PER_PAGE_CLAMP;
 
 /**
  * The supplemental fetch's page cap. MUST match `MAX_INITIAL_FETCH_PAGES` in
@@ -70,27 +89,17 @@ const PER_PAGE_CLAMP = 500;
  */
 const EXPECTED_MAX_INITIAL_PAGES = 20;
 
-/** Which of the hook's three list callers issued this request? */
-function classifyRequest(
-  q: URLSearchParams,
-): "heartbeat" | "supplemental" | "bulk" {
-  if (Number(q.get("perPage") ?? "0") === 1) return "heartbeat";
-  const fields = q.get("fields");
-  // The supplemental fetch is THE request that brings `signal` back — it either
-  // sends no projection at all (pre-fix) or a projection that INCLUDES `signal`
-  // (post-fix). The bulk fetch always sends a projection that omits it. This
-  // discriminator therefore holds across the change under test, which is what
-  // lets the same assertions run red and green.
-  if (fields === null || fields.split(",").includes("signal")) {
-    return "supplemental";
-  }
-  return "bulk";
-}
-
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
   res.setHeader("content-type", "application/json");
   res.end(JSON.stringify(body));
+}
+
+/** Send an already-serialized body (what `evaluatePbList` returns). */
+function sendRaw(res: ServerResponse, status: number, body: string): void {
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json");
+  res.end(body);
 }
 
 // ---------------------------------------------------------------------------
@@ -116,22 +125,19 @@ const runawayBulkPages: number[] = [];
  * done with one shared fixture (the supplemental result is a subset of the
  * collection, so a fixture big enough to unbound one unbounds both).
  */
-const RUNAWAY_BULK_ROWS: Record<string, unknown>[] = Array.from(
-  { length: 3 },
-  (_, i) => ({
-    id: `b${i}`,
-    key: `smoke:runaway/f${i}`,
-    dimension: "smoke",
-    state: "red",
-    signal: { note: "bulk" },
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
-    fail_count: 3,
-    first_failure_at: "2026-04-20T00:00:00Z",
-  }),
-);
+const RUNAWAY_BULK_ROWS: PbRow[] = Array.from({ length: 3 }, (_, i) => ({
+  id: `b${i}`,
+  key: `smoke:runaway/f${i}`,
+  dimension: "smoke",
+  state: "red",
+  signal: { note: "bulk" },
+  observed_at: "2026-04-20T00:00:00Z",
+  transitioned_at: "2026-04-20T00:00:00Z",
+  fail_count: 3,
+  first_failure_at: "2026-04-20T00:00:00Z",
+}));
 
-function synthNonGreenPage(page: number): Record<string, unknown>[] {
+function synthNonGreenPage(page: number): PbRow[] {
   if (page > RUNAWAY_FULL_PAGES) return [];
   return Array.from({ length: PER_PAGE_CLAMP }, (_, i) => {
     const n = (page - 1) * PER_PAGE_CLAMP + i;
@@ -156,34 +162,39 @@ function startRunawayServer(): Promise<{ server: Server; url: string }> {
       sendJson(res, 404, { message: "not found" });
       return;
     }
-    const q = url.searchParams;
-    const page = Number(q.get("page") ?? "1");
-    const kind = classifyRequest(q);
+    let listReq: PbListRequest;
+    try {
+      listReq = readPbListRequest(url);
+    } catch (err) {
+      // A malformed `page`/`perPage` is the real server's 400, not a silently
+      // empty page (which the hook would read as "end of collection").
+      sendJson(res, 400, {
+        code: 400,
+        message: err instanceof Error ? err.message : String(err),
+        data: {},
+      });
+      return;
+    }
+    const kind = classifyPbListRequest(listReq);
     if (kind === "heartbeat") {
       sendJson(res, 200, { page: 1, perPage: 1, items: [] });
       return;
     }
     if (kind === "supplemental") {
-      runawaySupplementalPages.push(page);
-      sendJson(res, 200, {
-        page,
-        perPage: PER_PAGE_CLAMP,
-        items: synthNonGreenPage(page).map((r) =>
-          applyPbFields(r, q.get("fields")),
-        ),
+      runawaySupplementalPages.push(listReq.page);
+      // `alreadyPaged`: this leg SYNTHESIZES the requested page (the unbounded
+      // stream is the point), so the slice is ours — but `filter`, `sort`,
+      // `fields` and `skipTotal` are still evaluated, so a supplemental filter
+      // that stopped selecting these rows, or widened past them, is visible.
+      const out = evaluatePbList(synthNonGreenPage(listReq.page), listReq, {
+        alreadyPaged: true,
       });
+      sendRaw(res, out.status, out.body);
       return;
     }
-    runawayBulkPages.push(page);
-    const matched = applyPbSort(
-      RUNAWAY_BULK_ROWS.filter((r) => matchesPbFilter(q.get("filter"), r)),
-      q.get("sort"),
-    );
-    sendJson(res, 200, {
-      page,
-      perPage: PER_PAGE_CLAMP,
-      items: matched.map((r) => applyPbFields(r, q.get("fields"))),
-    });
+    runawayBulkPages.push(listReq.page);
+    const out = evaluatePbList(RUNAWAY_BULK_ROWS, listReq);
+    sendRaw(res, out.status, out.body);
   });
   return new Promise((resolve) => {
     srv.listen(0, "127.0.0.1", () => {
@@ -282,8 +293,18 @@ function startHonestServer(): Promise<{ server: Server; url: string }> {
       return;
     }
     const q = url.searchParams;
-    const page = Number(q.get("page") ?? "1");
-    const kind = classifyRequest(q);
+    let listReq: PbListRequest;
+    try {
+      listReq = readPbListRequest(url);
+    } catch (err) {
+      sendJson(res, 400, {
+        code: 400,
+        message: err instanceof Error ? err.message : String(err),
+        data: {},
+      });
+      return;
+    }
+    const kind = classifyPbListRequest(listReq);
     if (kind === "heartbeat") {
       sendJson(res, 200, { page: 1, perPage: 1, items: [] });
       return;
@@ -301,20 +322,15 @@ function startHonestServer(): Promise<{ server: Server; url: string }> {
     } else {
       honest.bulkQueries.push(new URLSearchParams(q));
     }
-    const matched = applyPbSort(
-      HONEST_ROWS.filter((r) => matchesPbFilter(q.get("filter"), r)),
-      q.get("sort"),
-    );
-    const start = (page - 1) * PER_PAGE_CLAMP;
-    const slice = matched.slice(start, start + PER_PAGE_CLAMP);
-    if (kind === "supplemental") {
-      honest.supplementalServedKeys.push(...slice.map((r) => String(r.key)));
+    const out = evaluatePbList(HONEST_ROWS, listReq);
+    if (out.status === 200 && kind === "supplemental") {
+      // The keys the filter ACTUALLY selected — the selectivity oracle. Records
+      // duplicates too, so a row served twice is visible to a length check.
+      honest.supplementalServedKeys.push(
+        ...out.items.map((r) => String(r.key)),
+      );
     }
-    sendJson(res, 200, {
-      page,
-      perPage: PER_PAGE_CLAMP,
-      items: slice.map((r) => applyPbFields(r, q.get("fields"))),
-    });
+    sendRaw(res, out.status, out.body);
   });
   return new Promise((resolve) => {
     srv.listen(0, "127.0.0.1", () => {
@@ -476,25 +492,36 @@ function startRunawayBulkServer(): Promise<{ server: Server; url: string }> {
       sendJson(res, 404, { message: "not found" });
       return;
     }
-    const q = url.searchParams;
-    const page = Number(q.get("page") ?? "1");
-    const kind = classifyRequest(q);
+    let listReq: PbListRequest;
+    try {
+      listReq = readPbListRequest(url);
+    } catch (err) {
+      sendJson(res, 400, {
+        code: 400,
+        message: err instanceof Error ? err.message : String(err),
+        data: {},
+      });
+      return;
+    }
+    const kind = classifyPbListRequest(listReq);
     if (kind === "heartbeat") {
       sendJson(res, 200, { page: 1, perPage: 1, items: [] });
       return;
     }
     if (kind === "supplemental") {
-      sendJson(res, 200, { page, perPage: PER_PAGE_CLAMP, items: [] });
+      // Terminates immediately: this server isolates the BULK loop's bound.
+      // Still routed through the evaluator so the empty page carries the
+      // `skipTotal` envelope shape the hook actually receives.
+      const out = evaluatePbList([], listReq, { alreadyPaged: true });
+      sendRaw(res, out.status, out.body);
       return;
     }
-    runawayBulkOnlyPages.push(page);
-    sendJson(res, 200, {
-      page,
-      perPage: PER_PAGE_CLAMP,
-      items: synthNonGreenPage(page).map((r) =>
-        applyPbFields(r, q.get("fields")),
-      ),
+    runawayBulkOnlyPages.push(listReq.page);
+    // `alreadyPaged` for the same reason as the runaway supplemental leg.
+    const out = evaluatePbList(synthNonGreenPage(listReq.page), listReq, {
+      alreadyPaged: true,
     });
+    sendRaw(res, out.status, out.body);
   });
   return new Promise((resolve) => {
     srv.listen(0, "127.0.0.1", () => {

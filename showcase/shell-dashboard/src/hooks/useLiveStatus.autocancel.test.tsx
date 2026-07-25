@@ -23,10 +23,11 @@
  * the SSE subscribe path).
  *
  * The fake servers answer a list request the way REAL PocketBase does — they
- * honour `filter`, `fields`, `sort` and `skipTotal` (see the fidelity helpers
- * below). That is load-bearing, not cosmetic: see the block comment on
- * `matchesPbFilter` for the regression that a filter-IGNORING fake server
- * silently caused.
+ * honour `filter`, `fields`, `sort` and `skipTotal`, via the ONE shared
+ * evaluator in `__tests__/pb-query-eval.ts` (whose semantics are verified
+ * against a real PocketBase server). That is load-bearing, not cosmetic: see
+ * that module's WHY THIS EXISTS block for the dropped-tail regression a
+ * filter-IGNORING fake server silently caused.
  */
 import {
   describe,
@@ -44,386 +45,28 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 // ---------------------------------------------------------------------------
-// PocketBase list-endpoint FIDELITY helpers, shared by every fake server below.
+// PocketBase list-endpoint FIDELITY, shared by every fake server below.
 //
 // Real PocketBase applies `filter`, then `sort`, then the page slice, then the
 // `fields` projection, and omits the COUNT(*) envelope when `skipTotal` is set.
-// The fakes here must do the same. See `matchesPbFilter` for WHY that is
-// load-bearing rather than cosmetic.
+// `evaluatePbList` does exactly that, and answers a query it cannot model with
+// the same 400 the real server sends rather than throwing (a throw inside a
+// `createServer` handler sends no response at all, so the hook hangs and the
+// test dies on a 20 s `waitFor` timeout instead of reporting the parse
+// message).
+//
+// This file used to carry its OWN ~300-line copy of that evaluator, which
+// disagreed with the shared module on quoting, LIKE semantics, numeric ordering
+// and sort direction. There is now exactly one, verified against a real
+// PocketBase server — see `__tests__/pb-query-eval.ts`. Honouring the query is
+// load-bearing, not cosmetic: see the WHY THIS EXISTS block there for the
+// dropped-tail guard a filter-IGNORING fake silently disarmed.
 // ---------------------------------------------------------------------------
-
-/** The parsed shape of a PocketBase `getList` request's query string. */
-interface PbListRequest {
-  page: number;
-  perPage: number;
-  /** `null` when the client sent no filter (⇒ match every row). */
-  filter: string | null;
-  /** `null` when the client sent no `fields` projection (⇒ return full rows). */
-  fields: string | null;
-  sort: string | null;
-  skipTotal: boolean;
-}
-
-/** An absent OR empty query param means "not sent" for our purposes. */
-function blankToNull(v: string | null): string | null {
-  return v === null || v === "" ? null : v;
-}
-
-function readPbListRequest(url: URL): PbListRequest {
-  const q = url.searchParams;
-  const skipTotal = q.get("skipTotal");
-  return {
-    page: Number(q.get("page") ?? "1"),
-    // PB clamps perPage server-side regardless of what the client asked for.
-    perPage: Math.min(
-      Number(q.get("perPage") ?? String(PER_PAGE_CLAMP)),
-      PER_PAGE_CLAMP,
-    ),
-    filter: blankToNull(q.get("filter")),
-    fields: blankToNull(q.get("fields")),
-    sort: blankToNull(q.get("sort")),
-    skipTotal: skipTotal === "1" || skipTotal === "true",
-  };
-}
-
-/**
- * `true` when this request is the hook's SUPPLEMENTAL signal fetch rather than
- * a bulk fan-out page.
- *
- * Discriminated by `signal` BEING IN the `fields` projection — the same
- * convention the sibling mocked suite (`useLiveStatus.test.tsx`) uses, and the
- * one property that structurally separates the two: the bulk fetch always
- * projects `signal` AWAY (`STATUS_LIST_FIELDS`), while bringing `signal` back is
- * the supplemental fetch's entire purpose (`STATUS_SIGNAL_FIELDS`).
- *
- * NOT the absence of a projection, which is what this helper used to test: the
- * supplemental fetch is now PROJECTED too (`STATUS_LIST_FIELDS + signal`, to
- * drop the columns PocketBase adds and nothing reads), so "no `fields`" would
- * misclassify it as a bulk page and then fail the "every bulk page projects
- * `signal` away" assertion. Asking whether `signal` was requested is the durable
- * property — it survives both a projection being added to the supplemental fetch
- * and the bulk projection changing width. (Discriminating on a filter substring
- * instead is unreliable — the supplemental filter is a UNION whose comm-error
- * clause is dropped for a dimension scope outside
- * `FLEET_COMM_AGGREGATE_DIMENSIONS`, which is exactly the scope these tests
- * use.) The perPage-1 heartbeat ping sends no projection, so it can never be
- * mistaken for the supplemental fetch here; the `perPage > 1` conjunct is kept
- * anyway so callers' three-way split stays explicit.
- */
-function isSupplementalRequest(req: PbListRequest): boolean {
-  return (
-    req.perPage > 1 &&
-    req.fields !== null &&
-    req.fields.split(",").includes("signal")
-  );
-}
-
-/** Thrown when a fake server meets a filter clause the evaluator can't model. */
-class PbFilterParseError extends Error {}
-
-interface FilterCursor {
-  src: string;
-  at: number;
-}
-
-function skipFilterWs(c: FilterCursor): void {
-  while (c.at < c.src.length && /\s/.test(c.src[c.at]!)) c.at += 1;
-}
-
-/**
- * Reads a PocketBase filter VALUE: a single- or double-quoted string (inner
- * quotes backslash-escaped, which is what `pb.filter()` emits — it wraps string
- * params in SINGLE quotes and escapes any embedded `'` as `\'`), or a bare
- * number/boolean literal (`pb.filter()` leaves those unquoted).
- */
-function readFilterValue(c: FilterCursor): string {
-  skipFilterWs(c);
-  const quote = c.src[c.at];
-  if (quote === "'" || quote === '"') {
-    c.at += 1;
-    let out = "";
-    while (c.at < c.src.length && c.src[c.at] !== quote) {
-      if (c.src[c.at] === "\\") {
-        c.at += 1;
-        out += c.src[c.at] ?? "";
-        c.at += 1;
-        continue;
-      }
-      out += c.src[c.at];
-      c.at += 1;
-    }
-    if (c.src[c.at] !== quote) {
-      throw new PbFilterParseError(`unterminated string in filter: ${c.src}`);
-    }
-    c.at += 1;
-    return out;
-  }
-  let out = "";
-  while (c.at < c.src.length && /[^\s)&|]/.test(c.src[c.at]!)) {
-    out += c.src[c.at];
-    c.at += 1;
-  }
-  if (out === "") {
-    throw new PbFilterParseError(
-      `expected a value at offset ${c.at} in filter: ${c.src}`,
-    );
-  }
-  return out;
-}
-
-function readFilterIdentifier(c: FilterCursor): string {
-  skipFilterWs(c);
-  let out = "";
-  while (c.at < c.src.length && /[A-Za-z0-9_.]/.test(c.src[c.at]!)) {
-    out += c.src[c.at];
-    c.at += 1;
-  }
-  if (out === "") {
-    throw new PbFilterParseError(
-      `expected a field name at offset ${c.at} in filter: ${c.src}`,
-    );
-  }
-  return out;
-}
-
-// Longest-first so `!=` is never mis-read as `!` + `=`.
-const PB_FILTER_OPERATORS = ["!=", ">=", "<=", "!~", "=", "~", ">", "<"];
-
-function readFilterOperator(c: FilterCursor): string {
-  skipFilterWs(c);
-  for (const op of PB_FILTER_OPERATORS) {
-    if (c.src.startsWith(op, c.at)) {
-      c.at += op.length;
-      return op;
-    }
-  }
-  throw new PbFilterParseError(
-    `expected an operator at offset ${c.at} in filter: ${c.src}`,
-  );
-}
-
-/**
- * PocketBase's `~` / `!~` are SQL `LIKE`: `%` matches any run of characters,
- * `_` matches exactly one, matching is case-insensitive, and a pattern with NO
- * `%` is auto-wrapped in `%…%` ("contains"). `key !~ "%/%"` therefore means
- * "the key contains no slash" — the clause that restricts the comm-error
- * supplemental clause to integration-level AGGREGATE keys.
- */
-function pbLikeMatches(value: string, pattern: string): boolean {
-  const wrapped = pattern.includes("%") ? pattern : `%${pattern}%`;
-  const rx = [...wrapped]
-    .map((ch) =>
-      ch === "%"
-        ? ".*"
-        : ch === "_"
-          ? "."
-          : ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-    )
-    .join("");
-  return new RegExp(`^${rx}$`, "i").test(value);
-}
-
-function comparePbField(
-  actual: unknown,
-  op: string,
-  expected: string,
-): boolean {
-  const a = actual === null || actual === undefined ? "" : String(actual);
-  switch (op) {
-    case "=":
-      return a === expected;
-    case "!=":
-      return a !== expected;
-    case "~":
-      return pbLikeMatches(a, expected);
-    case "!~":
-      return !pbLikeMatches(a, expected);
-    case ">":
-      return a > expected;
-    case ">=":
-      return a >= expected;
-    case "<":
-      return a < expected;
-    case "<=":
-      return a <= expected;
-    default:
-      throw new PbFilterParseError(`unsupported operator ${op}`);
-  }
-}
-
-// `a && b` / `a || b` / `(…)` / `field <op> value`. Both sides of an operator
-// are always evaluated (never short-circuited) because the parser and the
-// evaluator share one pass — skipping a branch would desynchronize the cursor.
-function evalFilterPrimary(
-  c: FilterCursor,
-  row: Record<string, unknown>,
-): boolean {
-  skipFilterWs(c);
-  if (c.src[c.at] === "(") {
-    c.at += 1;
-    const inner = evalFilterOr(c, row);
-    skipFilterWs(c);
-    if (c.src[c.at] !== ")") {
-      throw new PbFilterParseError(
-        `unbalanced parenthesis in filter: ${c.src}`,
-      );
-    }
-    c.at += 1;
-    return inner;
-  }
-  const field = readFilterIdentifier(c);
-  const op = readFilterOperator(c);
-  const value = readFilterValue(c);
-  return comparePbField(row[field], op, value);
-}
-
-function evalFilterAnd(c: FilterCursor, row: Record<string, unknown>): boolean {
-  let acc = evalFilterPrimary(c, row);
-  for (;;) {
-    skipFilterWs(c);
-    if (!c.src.startsWith("&&", c.at)) return acc;
-    c.at += 2;
-    const rhs = evalFilterPrimary(c, row);
-    acc = acc && rhs;
-  }
-}
-
-function evalFilterOr(c: FilterCursor, row: Record<string, unknown>): boolean {
-  let acc = evalFilterAnd(c, row);
-  for (;;) {
-    skipFilterWs(c);
-    if (!c.src.startsWith("||", c.at)) return acc;
-    c.at += 2;
-    const rhs = evalFilterAnd(c, row);
-    acc = acc || rhs;
-  }
-}
-
-/**
- * Evaluates a PocketBase `?filter=` expression against one row.
- *
- * WHY THIS EXISTS — the regression it closes. PR #6156 made the SUPPLEMENTAL
- * `signal` fetch UNCONDITIONAL (it dropped the "skip when the dimension scope
- * is outside the comm-error aggregate set" early return and widened the filter
- * to `state != "green"`). The fake servers in this file used to IGNORE `filter`
- * entirely, so that now-always-issued fetch was answered with the ENTIRE
- * dataset — and `fetchInitial` APPENDS every supplemental row the bulk pages
- * did not carry. A filter-ignoring server therefore silently REPAIRED whatever
- * rows the bulk pagination dropped, which disarmed the #4504 dropped-tail
- * guards this whole file exists to hold: mutating the merge to drop the ENTIRE
- * short page kept all three tests GREEN.
- *
- * Honouring the filter is what puts the teeth back. These fixtures are all
- * `state: "green"`, and the hook's supplemental filter for an out-of-aggregate
- * dimension scope is `dimension = 'smoke' && (state != "green")` — which
- * matches NOTHING. The bulk fan-out is then on its own and any dropped tail is
- * fatal, as it must be.
- *
- * The grammar covered is exactly what `useLiveStatus` emits (`=`/`!=`/`~`/`!~`
- * plus `&&`/`||`/parens over quoted or bare literals). Anything else THROWS
- * rather than degrading to "match everything" — a silently-unparsed clause
- * would put us straight back into the masking bug, so the fake fails loud.
- */
-function matchesPbFilter(
-  row: Record<string, unknown>,
-  filter: string | null,
-): boolean {
-  if (filter === null) return true;
-  const c: FilterCursor = { src: filter, at: 0 };
-  const verdict = evalFilterOr(c, row);
-  skipFilterWs(c);
-  if (c.at !== filter.length) {
-    throw new PbFilterParseError(
-      `trailing input at offset ${c.at} in filter: ${filter}`,
-    );
-  }
-  return verdict;
-}
-
-/**
- * Applies PocketBase's `?fields=` projection: only the listed keys survive.
- * Load-bearing here because the bulk initial fetch projects the heavy `signal`
- * blob away (`STATUS_LIST_FIELDS`) — a fake that returns full rows to the bulk
- * fetch is how the CF7-F3 cold-load overlay bug stayed invisible to the
- * sibling suite.
- */
-function projectPbFields(
-  row: Record<string, unknown>,
-  fields: string | null,
-): Record<string, unknown> {
-  if (fields === null) return row;
-  const allow = fields
-    .split(",")
-    .map((f) => f.trim())
-    .filter((f) => f !== "");
-  const out: Record<string, unknown> = {};
-  for (const key of allow) {
-    if (key in row) out[key] = row[key];
-  }
-  return out;
-}
-
-/** PocketBase's `?sort=` (single key, optional `-` for DESC). */
-function sortPbRows(
-  rows: readonly Record<string, unknown>[],
-  sort: string,
-): Record<string, unknown>[] {
-  const desc = sort.startsWith("-");
-  const key = desc ? sort.slice(1) : sort.replace(/^\+/, "");
-  return [...rows].sort((a, b) => {
-    const av = String(a[key] ?? "");
-    const bv = String(b[key] ?? "");
-    const cmp = av < bv ? -1 : av > bv ? 1 : 0;
-    return desc ? -cmp : cmp;
-  });
-}
-
-/** The rows of `dataset` this request's `filter` selects (pre-pagination). */
-function pbMatchingRows(
-  dataset: readonly Record<string, unknown>[],
-  req: PbListRequest,
-): Record<string, unknown>[] {
-  return dataset.filter((row) => matchesPbFilter(row, req.filter));
-}
-
-/** The page slice of already-filtered rows, ordered by the request's `sort`. */
-function pbPageSlice(
-  matching: readonly Record<string, unknown>[],
-  req: PbListRequest,
-): Record<string, unknown>[] {
-  const ordered =
-    req.sort === null ? [...matching] : sortPbRows(matching, req.sort);
-  const start = (req.page - 1) * req.perPage;
-  return ordered.slice(start, start + req.perPage);
-}
-
-/**
- * Serializes a PocketBase list response: `fields`-projected items, and the
- * COUNT(*) envelope (`totalItems`/`totalPages`) ONLY when the client did not
- * ask to skip it. Honouring `skipTotal` is what forces the hook to paginate by
- * `items.length` rather than a `totalPages` it can no longer see.
- */
-function pbListBody(
-  items: readonly Record<string, unknown>[],
-  req: PbListRequest,
-  matchedTotal: number,
-): string {
-  const projected = items.map((row) => projectPbFields(row, req.fields));
-  if (req.skipTotal) {
-    return JSON.stringify({
-      page: req.page,
-      perPage: req.perPage,
-      items: projected,
-    });
-  }
-  return JSON.stringify({
-    page: req.page,
-    perPage: req.perPage,
-    totalItems: matchedTotal,
-    totalPages: Math.max(1, Math.ceil(matchedTotal / req.perPage)),
-    items: projected,
-  });
-}
+import {
+  readPbListRequest,
+  classifyPbListRequest,
+  evaluatePbList,
+} from "./__tests__/pb-query-eval";
 
 // Total rows the fake server serves, spread across PB's 500-row page clamp.
 // 1300 rows → 3 pages (500 + 500 + 300). The server honours `skipTotal` (it
@@ -433,7 +76,6 @@ function pbListBody(
 // out the next concurrent wave; pages 2 & 3 land in flight together — exactly
 // the scenario the SDK's same-path auto-cancellation breaks.
 const TOTAL_ROWS = 1300;
-const PER_PAGE_CLAMP = 500;
 // Per-page artificial latency. Long enough that pages 2 & 3 are GENUINELY
 // in flight simultaneously, so the SDK's same-path auto-cancel actually
 // fires (a zero-delay server might resolve page 2 before page 3 is even
@@ -470,8 +112,8 @@ const supplementalQueries: URLSearchParams[] = [];
 /**
  * Minimal but FAITHFUL PocketBase list endpoint: honours `?page=`/`?perPage=`
  * (clamped to 500, like real PB), `?filter=`, `?fields=`, `?sort=` and
- * `?skipTotal=` (see the fidelity helpers above), and delays each response by
- * PAGE_DELAY_MS so concurrent fan-out pages overlap on the wire.
+ * `?skipTotal=` (all via the shared `evaluatePbList`), and delays each response
+ * by PAGE_DELAY_MS so concurrent fan-out pages overlap on the wire.
  */
 function startPbServer(): Promise<{ server: Server; url: string }> {
   const server = createServer((rawReq, res) => {
@@ -489,29 +131,27 @@ function startPbServer(): Promise<{ server: Server; url: string }> {
     // assertion).
     if (req.perPage > 1) {
       const q = new URLSearchParams(url.searchParams);
-      if (isSupplementalRequest(req)) {
+      if (classifyPbListRequest(req) === "supplemental") {
         supplementalQueries.push(q);
       } else {
         initialFetchQueries.push(q);
       }
     }
-    let body: string;
-    try {
-      const matching = pbMatchingRows(ALL_ROWS, req);
-      body = pbListBody(pbPageSlice(matching, req), req, matching.length);
-    } catch (err) {
-      // A filter clause the evaluator cannot model is a HARD failure, never a
-      // silent match-everything (see `matchesPbFilter`). Surface it as a 400 so
-      // the SDK rejects, the hook lands in "error", and the test fails loudly
-      // with the parse message rather than passing on a fake's blind spot.
-      res.statusCode = 400;
-      res.end(JSON.stringify({ message: String(err) }));
+    // A filter clause the evaluator cannot model is a HARD failure, never a
+    // silent match-everything: `evaluatePbList` returns the real server's own
+    // 400 carrying the parse message, so the SDK rejects and the hook lands in
+    // "error" instead of the test passing on a fake's blind spot.
+    const out = evaluatePbList(ALL_ROWS, req);
+    if (out.status !== 200) {
+      res.statusCode = out.status;
+      res.setHeader("content-type", "application/json");
+      res.end(out.body);
       return;
     }
     // Delay so concurrent fan-out pages are genuinely in flight together.
     setTimeout(() => {
       res.setHeader("content-type", "application/json");
-      res.end(body);
+      res.end(out.body);
     }, PAGE_DELAY_MS);
   });
   return new Promise((resolve) => {
@@ -660,8 +300,8 @@ describe("useLiveStatus (real PocketBase SDK — auto-cancellation regression)",
       // ends after one empty page. That is what keeps it from masking a bulk
       // pagination bug: `fetchInitial` appends supplemental rows the bulk pages
       // missed, so a filter-ignoring fake would silently repair a dropped tail
-      // (see `matchesPbFilter`). ALL 1300 rows above therefore came from the
-      // bulk fan-out alone.
+      // (see `__tests__/pb-query-eval.ts`). ALL 1300 rows above therefore came
+      // from the bulk fan-out alone.
       expect(supplementalQueries).toHaveLength(1);
       expect(supplementalQueries[0]!.get("page")).toBe("1");
     } finally {
@@ -734,24 +374,22 @@ function startMidwaveServer(): Promise<{ server: Server; url: string }> {
     }
     const req = readPbListRequest(url);
     if (req.perPage > 1) {
-      if (isSupplementalRequest(req)) {
+      if (classifyPbListRequest(req) === "supplemental") {
         midwaveSupplementalPages.push(req.page);
       } else {
         midwaveRequestedPages.push(req.page);
       }
     }
-    let body: string;
-    try {
-      const matching = pbMatchingRows(MIDWAVE_ROWS, req);
-      body = pbListBody(pbPageSlice(matching, req), req, matching.length);
-    } catch (err) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({ message: String(err) }));
+    const out = evaluatePbList(MIDWAVE_ROWS, req);
+    if (out.status !== 200) {
+      res.statusCode = out.status;
+      res.setHeader("content-type", "application/json");
+      res.end(out.body);
       return;
     }
     setTimeout(() => {
       res.setHeader("content-type", "application/json");
-      res.end(body);
+      res.end(out.body);
     }, PAGE_DELAY_MS);
   });
   return new Promise((resolve) => {
@@ -957,7 +595,7 @@ function startFirstElemServer(): Promise<{ server: Server; url: string }> {
       return;
     }
     const req = readPbListRequest(url);
-    const supplemental = isSupplementalRequest(req);
+    const supplemental = classifyPbListRequest(req) === "supplemental";
     if (req.perPage > 1) {
       if (supplemental) {
         firstElemSupplementalPages.push(req.page);
@@ -965,28 +603,26 @@ function startFirstElemServer(): Promise<{ server: Server; url: string }> {
         firstElemRequestedPages.push(req.page);
       }
     }
-    let body: string;
-    try {
-      // ADVERSARIAL leg (see the block comment above): a BULK request for the
-      // page past the short page is answered with POISON rows instead of the
-      // empty slice real PB would return, so a merge that does not stop at the
-      // short page is observable. Everything else — including the supplemental
-      // fetch — is answered faithfully.
-      if (!supplemental && req.page >= FIRSTELEM_POISON_FROM_PAGE) {
-        const poison = pbMatchingRows(FIRSTELEM_POISON_ROWS, req);
-        body = pbListBody(poison.slice(0, req.perPage), req, poison.length);
-      } else {
-        const matching = pbMatchingRows(FIRSTELEM_ROWS, req);
-        body = pbListBody(pbPageSlice(matching, req), req, matching.length);
-      }
-    } catch (err) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({ message: String(err) }));
+    // ADVERSARIAL leg (see the block comment above): a BULK request for the
+    // page past the short page is answered with POISON rows instead of the
+    // empty slice real PB would return, so a merge that does not stop at the
+    // short page is observable. Everything else — including the supplemental
+    // fetch — is answered faithfully. `alreadyPaged` serves the poison set
+    // WHICHEVER page was asked for (it is smaller than one page), while still
+    // evaluating `filter`/`sort`/`fields` on it.
+    const out =
+      !supplemental && req.page >= FIRSTELEM_POISON_FROM_PAGE
+        ? evaluatePbList(FIRSTELEM_POISON_ROWS, req, { alreadyPaged: true })
+        : evaluatePbList(FIRSTELEM_ROWS, req);
+    if (out.status !== 200) {
+      res.statusCode = out.status;
+      res.setHeader("content-type", "application/json");
+      res.end(out.body);
       return;
     }
     setTimeout(() => {
       res.setHeader("content-type", "application/json");
-      res.end(body);
+      res.end(out.body);
     }, PAGE_DELAY_MS);
   });
   return new Promise((resolve) => {
