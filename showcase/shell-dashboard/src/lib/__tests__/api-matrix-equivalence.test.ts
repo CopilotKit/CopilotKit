@@ -32,6 +32,7 @@ import { catalogCellToInput } from "../../../../harness/src/shared/cell-model/ca
 import {
   keyFor,
   mergeRowsToMap,
+  CATALOG_TO_D5_KEY,
 } from "../../../../harness/src/shared/cell-model/live-status";
 import type {
   StatusRow,
@@ -187,22 +188,60 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
   const e2eKey = keyFor("e2e", SLUG, FEATURE);
   const chatKey = keyFor("chat", SLUG);
   const toolsKey = keyFor("tools", SLUG);
+  const healthKey = keyFor("health", SLUG);
+  const agentKey = keyFor("agent", SLUG);
+
+  /**
+   * GREEN-FRESH rows for every rung this cell reads OTHER than D3/D4 — D1
+   * `health`, D2 `agent`, and the D5/D6 per-pill families.
+   *
+   * This scaffold is LOAD-BEARING for the gray assertions below, not decoration.
+   * Without it those rungs classify `ABSENT`, and `ABSENT` is ALSO gray — so
+   * `expect(chip).toBe("gray")` was satisfied by `worseOf(ABSENT, NO_DATA)`
+   * regardless of which of the two gray-producing kinds actually won, i.e. the
+   * assertion named the infra path while being pinned by the no-data path. With
+   * the scaffold the ONLY non-green contribution in each fixture is the rung
+   * under test, so a gray chip can come from `INFRA_RED_FRESH` and nothing else
+   * (and a red chip from `FAIL_FRESH` and nothing else). Mirrors `greenBase(F)`
+   * in the harness-side `cell-model-v2.test.ts`.
+   *
+   * `signal` is threaded so the cold-load variants can strip the GREEN siblings
+   * too — the supplemental fetch restores `signal` for `state != "green"` only,
+   * so a stripped green is exactly what the browser holds on first paint.
+   */
+  function greenScaffold(signal: unknown): StatusRow[] {
+    const rows = [
+      row(healthKey, "green", signal),
+      row(agentKey, "green", signal),
+    ];
+    for (const ft of CATALOG_TO_D5_KEY[FEATURE] ?? []) {
+      rows.push(row(keyFor("d5", SLUG, ft), "green", signal));
+      rows.push(row(keyFor("d6", SLUG, ft), "green", signal));
+    }
+    return rows;
+  }
 
   it("full signal → RED (server / api); stripped signal (browser cold-load) → RED too", () => {
     // Server / API state: full `signal` on every row (so the red-row-scoped
     // `fold.redSignalKnown` is true).
-    const fullSignal = mergeRowsToMap([
-      row(e2eKey, "red", { errorDesc: "assertion failed: wrong answer" }),
-      row(chatKey, "green", null),
-      row(toolsKey, "green", null),
-    ]);
+    const fullSignal = mergeRowsToMap(
+      [
+        row(e2eKey, "red", { errorDesc: "assertion failed: wrong answer" }),
+        row(chatKey, "green", null),
+        row(toolsKey, "green", null),
+      ],
+      greenScaffold(null),
+    );
     // Browser cold-load state: the bulk initial fetch PROJECTS `signal` away
     // (signal === undefined → `fold.redSignalKnown` false) on the red rung.
-    const stripped = mergeRowsToMap([
-      row(e2eKey, "red", undefined),
-      row(chatKey, "green", undefined),
-      row(toolsKey, "green", undefined),
-    ]);
+    const stripped = mergeRowsToMap(
+      [
+        row(e2eKey, "red", undefined),
+        row(chatKey, "green", undefined),
+        row(toolsKey, "green", undefined),
+      ],
+      greenScaffold(undefined),
+    );
 
     const serverChip = buildCellModel(fullSignal, input, NOW).chipColor;
     const coldLoadChip = buildCellModel(stripped, input, NOW).chipColor;
@@ -246,6 +285,7 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
       row(e2eKey, "green", null),
       row(chatKey, "green", null),
       row(toolsKey, "red", { errorClass: "driver-error" }),
+      ...greenScaffold(null),
     ];
     const fullSignal = mergeRowsToMap(serverRows);
     const stripped = mergeRowsToMap(
@@ -254,8 +294,10 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
       ),
     );
 
-    const serverChip = buildCellModel(fullSignal, input, NOW).chipColor;
-    const coldLoadChip = buildCellModel(stripped, input, NOW).chipColor;
+    const serverModel = buildCellModel(fullSignal, input, NOW);
+    const coldLoadModel = buildCellModel(stripped, input, NOW);
+    const serverChip = serverModel.chipColor;
+    const coldLoadChip = coldLoadModel.chipColor;
     const apiChip = computeMatrix(fullSignal, [cell], NOW)[0]!.chipColor;
 
     // Every contributing RED row is positively infra-attributed → gray.
@@ -266,6 +308,59 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
     expect(coldLoadChip).toBe("gray");
     expect(coldLoadChip).toBe(serverChip);
     expect(apiChip).toBe(serverChip);
+
+    // The gray is INFRA-SOURCED, not no-data. Every other rung is green-fresh
+    // (see `greenScaffold`), and the D4 pill reads RED on both surfaces — so
+    // this is the "gray chip over a present red pill" rendering the U7 infra
+    // branch exists to produce, and the assertions above cannot be satisfied by
+    // an `ABSENT` rung standing in for the infra classification.
+    for (const m of [serverModel, coldLoadModel]) {
+      expect(m.d4).not.toBeNull();
+      expect(m.d4!.exists).toBe(true);
+      expect(m.d4!.status).toBe("red");
+      expect(m.d3!.status).toBe("green");
+      expect(m.d5!.status).toBe("green");
+    }
+  });
+
+  // The D1/D2 leg of the same flip, and the WIDEST case it has: `health:<slug>`
+  // and `agent:<slug>` are INTEGRATION-scoped, so one stripped-`signal` red
+  // there re-verdicts EVERY feature cell of the column at once. Under the
+  // pre-flip polarity the rung classified NO_DATA, §F treated it as NON-GATING,
+  // and the browser painted a confident GREEN at achieved 6 over a dead service
+  // while `/api/matrix` (always full `signal`) reported RED — a whole-column
+  // false green, which is the worst failure direction a health dashboard has.
+  it("D1/D2: a stripped-`signal` liveness red does not drift api-vs-browser (whole-column case)", () => {
+    const serverRows = [
+      row(e2eKey, "green", null),
+      row(chatKey, "green", null),
+      row(toolsKey, "green", null),
+      ...greenScaffold(null),
+      // Overwrites the scaffold's green `health` row (mergeRowsToMap is
+      // last-write-wins on a duplicate key with the same core fields).
+      row(healthKey, "red", { errorDesc: "probe never answered" }),
+    ];
+    const fullSignal = mergeRowsToMap(serverRows);
+    const stripped = mergeRowsToMap(
+      serverRows.map((r) => ({ ...r, signal: undefined })),
+    );
+
+    const serverModel = buildCellModel(fullSignal, input, NOW);
+    const coldLoadModel = buildCellModel(stripped, input, NOW);
+    const apiChip = computeMatrix(fullSignal, [cell], NOW)[0]!.chipColor;
+
+    expect(serverModel.chipColor).toBe("red");
+    expect(coldLoadModel.chipColor).toBe("red");
+    expect(coldLoadModel.chipColor).toBe(serverModel.chipColor);
+    expect(apiChip).toBe(serverModel.chipColor);
+
+    // The §F gate collapses the ladder on BOTH surfaces — not just the chip.
+    // Pre-flip the cold-load read was `achieved 6 / isRegression false`, i.e. a
+    // green depth-6 cell over a dead integration.
+    for (const m of [serverModel, coldLoadModel]) {
+      expect(m.achievedDepth).toBe(0);
+      expect(m.isRegression).toBe(true);
+    }
   });
 
   it("an INFRA red still grays — the gray path requires POSITIVE evidence", () => {
@@ -273,11 +368,20 @@ describe("fail-safe polarity — a stripped `signal` never grays a real red (§1
     // and positively attributes every red to an INFRA error class, the rung
     // still classifies INFRA_RED_FRESH → gray. The flip widens RED only for the
     // can't-tell case; it does not collapse the infra distinction itself.
-    const infraSignal = mergeRowsToMap([
-      row(e2eKey, "red", { errorClass: "driver-error" }),
-      row(chatKey, "green", null),
-      row(toolsKey, "green", null),
-    ]);
-    expect(buildCellModel(infraSignal, input, NOW).chipColor).toBe("gray");
+    const infraSignal = mergeRowsToMap(
+      [
+        row(e2eKey, "red", { errorClass: "driver-error" }),
+        row(chatKey, "green", null),
+        row(toolsKey, "green", null),
+      ],
+      greenScaffold(null),
+    );
+    const m = buildCellModel(infraSignal, input, NOW);
+    expect(m.chipColor).toBe("gray");
+    // Same discriminator as the D4 case: with every other rung green-fresh the
+    // gray can only be the U7 infra classification, and it sits over a D3 pill
+    // that still reads RED.
+    expect(m.d3!.status).toBe("red");
+    expect(m.d4!.status).toBe("green");
   });
 });

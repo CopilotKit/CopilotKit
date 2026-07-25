@@ -12,6 +12,16 @@
  * presence/freshness axis, the D6 soft-parity top, the D5-unmapped ceiling, and
  * the starter axis.
  *
+ * HETEROGENEITY IS PART OF THE CONTRACT. Most builders here map ONE uniform row
+ * shape over ALL keys of a rung, which makes every FAMILY-level fold
+ * (`foldFamily`'s MAX over `fail_count`, its EVERY over the soft failure class,
+ * and its RED-ROW-scoped `signal`-provenance flag) a no-op at golden-master
+ * level — a uniform set has nothing to aggregate. `heterogeneousFamilySweep`
+ * and `hetero-starter-mixed-soft-hard` exist solely to break that uniformity, so
+ * a regression in the fold ARITHMETIC (not just in the per-row rules) shows up
+ * here. When adding a variant, prefer one that makes two rows of a family
+ * DIFFER over one that restates a uniform shape.
+ *
  * NOTE: the `feature === null` liveness-only path is NOT in this matrix. The
  * unified `buildCellModel` supports it, but a `keyFor`-derived fixture cannot
  * represent a null `featureId`; that path is proven exclusively in
@@ -323,6 +333,96 @@ function livenessSweep(): Fixture[] {
       row(keyFor("health", SLUG), "green"),
       row(keyFor("agent", SLUG), "red"),
     ]),
+    // ── The fail-safe polarity flip's WIDEST case, pinned deliberately ──────
+    //
+    // A red D1/D2 row whose `signal` key was PROJECTED AWAY (`undefined`, the
+    // browser's bulk-fetch shape) over a fully green D3-D6 ladder. Under the
+    // pre-flip `!signalKnown → NO_DATA` polarity this classified NO_DATA, §F
+    // treated it as NON-GATING, and the cell painted GREEN at achieved 6 with
+    // `isRegression: false`. Under the flip it classifies `FAIL_FRESH`, the §F
+    // liveness gate fires, and the cell reads red / achieved 0 / regressed.
+    //
+    // That is the change's highest-blast-radius verdict move — `health:<slug>`
+    // and `agent:<slug>` are INTEGRATION-scoped, so one such row re-verdicts
+    // every feature cell of the column — and it is an UNMASKING (a dead service
+    // that used to paint a confident green depth-6 now paints red), not a green
+    // regression. It is also the shape the PR's cold-load window produces on
+    // every page load until the supplemental `state != "green"` fetch lands.
+    //
+    // The `pos-d*-red-signal-unknown` variants do NOT cover it: that variant is
+    // only applied by `positionSweep`, i.e. D3-D6. And `liveness-fresh-red-d1`
+    // /`-d2` above cannot cover it either — `row()` defaults `signal` to `null`,
+    // and `null !== undefined`, so those rows classified `FAIL_FRESH` under the
+    // OLD polarity too and are identical across the change. Without the two
+    // fixtures below, re-widening the polarity leaves the whole D1/D2 leg of the
+    // golden master byte-identical.
+    mk("liveness-red-signal-unknown-d1", [
+      row(keyFor("health", SLUG), "red", { signal: undefined }),
+      row(keyFor("agent", SLUG), "green"),
+    ]),
+    mk("liveness-red-signal-unknown-d2", [
+      row(keyFor("health", SLUG), "green"),
+      row(keyFor("agent", SLUG), "red", { signal: undefined }),
+    ]),
+  ];
+}
+
+// ── HETEROGENEOUS families: two red rows of a family that DIFFER ───────────
+//
+// Every other builder in this file maps ONE uniform row shape over ALL keys of
+// a rung (`rungKeys(p, f).map((k) => row(k, …))`), and the two multi-key sweeps
+// red exactly one sub-row with plain green siblings. So before these fixtures no
+// family anywhere in the matrix contained two DIFFERING red rows, and no family
+// contained a green row whose `signal` key was absent — which made three
+// explicitly-load-bearing family folds invisible at golden-master level:
+// `maxNonInfraRedFailCount`'s MAX, `allRedSoftClass`'s EVERY quantifier, and
+// `redSignalKnown`'s RED-ROW scope. Measured: mutating `Math.max`→`Math.min`,
+// `every`→`any`, and the provenance flag back to family scope each left all 56
+// pre-existing entries byte-identical.
+//
+// These three fixtures are the minimum that makes each fold observable. They
+// are deliberately NOT named `pos-<rung>-<suffix>`: the per-leg symmetry guard
+// in `ladder-single-source.test.ts` requires every `pos-*` suffix to appear on
+// all four rung positions, and these shapes are rung-specific by construction
+// (D4 is the only two-key ladder family; the soft-class quantifier only has a
+// consumer on the starter axis).
+function heterogeneousFamilySweep(): Fixture[] {
+  const chatKey = keyFor("chat", SLUG);
+  const toolsKey = keyFor("tools", SLUG);
+  const greenD3 = row(keyFor("e2e", SLUG, F_SINGLE), "green");
+  const greenTop = (CATALOG_TO_D5_KEY[F_SINGLE] ?? []).flatMap((ft) => [
+    row(keyFor("d5", SLUG, ft), "green"),
+    row(keyFor("d6", SLUG, ft), "green"),
+  ]);
+  const mk = (name: string, d4: StatusRow[]): Fixture => ({
+    name,
+    input: wired(F_SINGLE),
+    live: mergeRowsToMap(livenessRows("green", FRESH), [greenD3], d4, greenTop),
+  });
+  return [
+    // MAX-vs-MIN over `fail_count`. Two non-infra reds on the two-key D4 family
+    // with DIFFERENT counts, straddling D4_FIRST_STRIKE_THRESHOLD = 2. MAX(1,3)
+    // = 3 is NOT below the threshold → `FAIL_FRESH` → red, isRegression true.
+    // MIN(1,3) = 1 IS below it → `FIRST_STRIKE_FRESH` → amber, isRegression
+    // false: the fresh `chat` blip would re-arm tolerance for the already-
+    // confirmed `tools` failure, which is exactly what the MAX doc forbids.
+    mk("hetero-d4-red-failcount-max", [
+      row(chatKey, "red", { failCount: 1 }),
+      row(toolsKey, "red", { failCount: 3 }),
+    ]),
+    // RED-ROW SCOPE of the `signal`-provenance flag, on the production shape
+    // `classifyRung` cites verbatim: D4 = green `chat` + infra-red `tools`, read
+    // through the browser's cold-load projection. The supplemental fetch
+    // restores `signal` for `state != "green"` ONLY, so the red row arrives WITH
+    // its infra attribution and the green sibling arrives WITHOUT one. Red-row
+    // scoped → `redSignalKnown` true → `INFRA_RED_FRESH` → gray, matching
+    // `/api/matrix` (which always reads full signal). A FAMILY-scoped flag reads
+    // false because of the green row the infra branch never looks at, skips the
+    // U7 gray, and paints red — the §11.4 api-vs-browser drift.
+    mk("hetero-d4-green-stripped-infra-red", [
+      row(chatKey, "green", { signal: undefined }),
+      row(toolsKey, "red", { signal: { errorClass: "driver-error" } }),
+    ]),
   ];
 }
 
@@ -477,6 +577,36 @@ function starterSweep(): Fixture[] {
       starterRows((l, i) => (i === 0 ? null : row(k(l), "green"))),
     ),
     mk("starter-empty", []),
+    // ── HETEROGENEOUS starter family: a SOFT red beside a HARD red ──────────
+    //
+    // The EVERY quantifier in `allRedSoftClass` only differs from ANY on a
+    // family carrying both classes, and every other entry in this sweep reds
+    // index 0 alone. `transport-error` is SOFT (earns two-miss tolerance);
+    // `smoke-failed` is deliberately HARD ("a real content regression is a hard
+    // red"). Both reds sit at `fail_count: 1`, i.e. below
+    // SOFT_MISS_TOLERANCE_THRESHOLD = 2, so the fail-count leg of the
+    // first-strike rule is satisfied and the SOFT-CLASS leg is the only thing
+    // deciding the verdict. With EVERY the family is not all-soft → no
+    // de-amplification → red. With ANY the soft `health` miss alone would re-arm
+    // tolerance for the hard `agent` content regression → amber.
+    mk(
+      "hetero-starter-mixed-soft-hard",
+      starterRows((l, i) => {
+        if (i === 0) {
+          return row(k(l), "red", {
+            signal: { errorClass: "transport-error" },
+            failCount: 1,
+          });
+        }
+        if (i === 1) {
+          return row(k(l), "red", {
+            signal: { errorClass: "smoke-failed" },
+            failCount: 1,
+          });
+        }
+        return row(k(l), "green");
+      }),
+    ),
   ];
 }
 
@@ -488,6 +618,7 @@ export const FIXTURES: Fixture[] = [
   ...BASE_FIXTURES,
   ...positionSweep(),
   ...livenessSweep(),
+  ...heterogeneousFamilySweep(),
   ...d6SoftParitySweep(),
   ...unmappedD5Sweep(),
   ...multiKeyD5Sweep(),
