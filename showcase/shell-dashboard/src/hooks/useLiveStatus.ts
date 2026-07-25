@@ -79,13 +79,8 @@ const INITIAL_FANOUT_BATCH = 2;
 // go of the main thread. `matrix.ts` has carried an equivalent guard for this
 // reason; these two did not.
 //
-// SIZED AS A RUNAWAY GUARD, NOT A BUDGET. The `status` collection is ~3100 rows
-// = ~7 pages, so 20 pages (10,000 rows) is ~3x headroom: it never truncates a
-// legitimate read, including the degenerate incident case where EVERY row is
-// non-green and the supplemental fetch has to cover the whole collection
-// (measured against production: 7 pages, 1.73 MB). That headroom matters
-// because truncation is not free on either path — see the ASYMMETRIC handling
-// at the two call sites:
+// SIZED AS A RUNAWAY GUARD, NOT A BUDGET. Truncation is not free on either
+// path — see the ASYMMETRIC handling at the two call sites:
 //
 //   - SUPPLEMENTAL: truncation DEGRADES (warn + use what we have). The rows we
 //     did not reach simply arrive without `signal`, and `classifyRung`'s
@@ -95,7 +90,39 @@ const INITIAL_FANOUT_BATCH = 2;
 //     would render as no-data gray, i.e. silently hidden failures. Hitting the
 //     cap here means the server is not paginating sanely, so we fail loud into
 //     the existing retry chain rather than paint a partial matrix as complete.
-const MAX_INITIAL_FETCH_PAGES = 20;
+//
+// So the value is chosen against TWO bounds, and 20 is the smallest round
+// number that satisfies both:
+//
+//   LOWER BOUND — it must never cut a legitimate read short, at any fleet
+//   health. The largest legitimate read is not the ~7 pages the collection
+//   occupies today (~3100 rows; the supplemental worst case, EVERY row
+//   non-green, is that same 7 pages / 1.73 MB measured against production) —
+//   it is that worst case times however much the collection grows before
+//   anyone revisits this constant. `status` grows as integrations × features ×
+//   dimensions, i.e. with the catalog, so a cap set at the measured worst case
+//   would start throwing the moment the catalog roughly doubled. 20 pages
+//   (10,000 rows) is ~3x the measured worst case: it absorbs a 3x catalog
+//   without a false truncation, which is well past any plausible growth
+//   between reviews of this file.
+//
+//   UPPER BOUND — it must bound the damage a misbehaving server can do. The
+//   cap replaces "unbounded request storm" with "at most 21 requests / ~10,000
+//   rows, then a decision", so it has to stay small enough that walking the
+//   whole budget is survivable on the main thread. Raising it trades directly
+//   against that: at 100 pages a runaway server buys 50,000 rows of parsing
+//   before the loop gives up.
+//
+// Both bounds are about the RUNAWAY case only. It is NOT a first-paint budget:
+// the happy path reads ~7 pages and stops on a short page, so the cap and the
+// lookahead in `paginateStatusPages` are both inert at production scale.
+//
+// Exported so `useLiveStatus.supplemental-bounds.test.tsx` can pin it
+// MECHANICALLY (`expect(MAX_INITIAL_FETCH_PAGES).toBe(EXPECTED_MAX_INITIAL_PAGES)`)
+// instead of restating the number and hoping the two stay in step. That guard is
+// deliberately two-sided: LOWERING the cap is as much a silent behavior change
+// as raising it, and an upper-bound-only assertion would wave it through.
+export const MAX_INITIAL_FETCH_PAGES = 20;
 // `fields` projection for the SUPPLEMENTAL signal fetch: the bulk projection
 // PLUS `signal`, i.e. exactly the declared `StatusRow` shape and nothing else.
 //
@@ -207,6 +234,152 @@ function supplementalRowIsOlder(full: StatusRow, bulkRow: StatusRow): boolean {
   const bulkTs = Date.parse(bulkRow.observed_at);
   if (Number.isNaN(fullTs) || Number.isNaN(bulkTs)) return false;
   return fullTs < bulkTs;
+}
+
+/**
+ * Reads ONE page of the `status` collection and returns just its rows. The
+ * per-request query (`filter` / `fields` / `sort` / `skipTotal` /
+ * `requestKey`) is baked in by whoever builds the reader, so
+ * `paginateStatusPages` never has to know which of the two initial fetches it
+ * is driving — and the lookahead below asks the SAME question as the read it
+ * terminates, by construction rather than by remembering to.
+ */
+type StatusPageReader = (page: number) => Promise<StatusRow[]>;
+
+/** Result of `paginateStatusPages`; see there for what `truncated` means. */
+export interface StatusPagesResult {
+  rows: StatusRow[];
+  /**
+   * `true` IFF rows exist past the page cap that this read did NOT return.
+   * PROVEN by a lookahead read, never inferred from cap exhaustion.
+   */
+  truncated: boolean;
+}
+
+/**
+ * LENGTH-bounded, wave-concurrent, PAGE-CAPPED paged read of the `status`
+ * collection — the single pagination implementation shared by BOTH initial
+ * fetches (bulk projected rows, and the supplemental signal rows).
+ *
+ *   1. Fetch page 1 alone (a short page 1 means a single-page result — no
+ *      fan-out, so a small collection never over-fetches).
+ *   2. While the last page came back FULL, fan out the next wave of
+ *      `INITIAL_FANOUT_BATCH` pages CONCURRENTLY. Stop at the FIRST short
+ *      page in a wave, appending pages up to AND INCLUDING it — PocketBase
+ *      pagination is monotonic, so every page issued after the short one in
+ *      the same wave is past the end. This merge is correct for ANY batch
+ *      size (guarding the #4504 over-fetch-past-end regression if the
+ *      constant is retuned) and is ordered by ARRAY INDEX, so the result is
+ *      deterministic page order regardless of which response resolves first.
+ *   3. Never RETAIN a page beyond `MAX_INITIAL_FETCH_PAGES`, and report
+ *      whether rows were left UNREAD so the CALLER can decide what that means
+ *      (they differ — see the constant's doc).
+ *
+ * This was two separate loops. The bulk one had the wave/short-page/merge
+ * guards; the supplemental one was a bare `for(;;)` with none of them and no
+ * cap. Sharing one implementation makes that parity structural instead of
+ * something two comment blocks have to promise each other.
+ *
+ * WHAT `truncated` MEANS. Exactly one thing: "there are rows we did not read."
+ * Not "the cap was reached", not "the last page was full" — those are evidence,
+ * and on their own they are not conclusive. This loop learns where the
+ * collection ENDS only from a SHORT page (`skipTotal: true` drops
+ * `totalItems`/`totalPages`), so a collection of exactly
+ * `MAX_INITIAL_FETCH_PAGES × INITIAL_PAGE_SIZE` rows is read COMPLETELY and
+ * still ends on a FULL page — from inside the loop, indistinguishable from a
+ * collection with more to give. Equating "cap exhausted with a full last page"
+ * with truncation is therefore a FALSE POSITIVE at that exact row count, and on
+ * the BULK path truncation THROWS: the dashboard would go offline
+ * deterministically and PERMANENTLY at exactly 10,000 rows — on every retry and
+ * every reload, because the condition is a pure function of the row count.
+ * `matrix.ts` carried the same false-outage class server-side (any full final
+ * page read as truncation, so any 500-boundary took `/api/matrix` down) and
+ * fixed it by consulting `totalItems`.
+ *
+ * HOW IT IS ESTABLISHED. This path has no totals to consult, so it PROVES the
+ * claim instead: on cap exhaustion with a full last page it issues exactly ONE
+ * LOOKAHEAD read of page `MAX_INITIAL_FETCH_PAGES + 1`, whose ROWS ARE
+ * DISCARDED and only whose EMPTINESS is load-bearing. Empty ⇒ the collection
+ * ended exactly on the cap page ⇒ the read is COMPLETE. Non-empty ⇒ there
+ * really is more ⇒ truncated.
+ *
+ * WHY A LOOKAHEAD AND NOT `skipTotal: false`. Asking page 1 for totals (the
+ * `matrix.ts` shape) puts a COUNT(*) on the FIRST-PAINT critical path of EVERY
+ * load — precisely the overhead `skipTotal: true` was set to drop — in order to
+ * disambiguate a case that can only arise after `MAX_INITIAL_FETCH_PAGES`
+ * consecutive full pages. It would also make completeness depend on a count
+ * taken at a different instant than the pages, which is its own false-positive
+ * source under concurrent inserts. The lookahead puts the entire cost on the
+ * pathological path: it is UNREACHABLE at production scale (~7 pages, ends on a
+ * short page), and where it does fire the read is already ~3x the collection, so
+ * one more request is a rounding error against the 20 that preceded it. It
+ * carries the caller's own projection so it is the same request shape as the
+ * pages around it.
+ *
+ * A FAILED lookahead leaves the question open, so it fails SAFE: unproven
+ * completeness is reported as `truncated`. That keeps the bulk caller's
+ * fail-loud posture (never paint a partial matrix as complete, which is the
+ * masking polarity this whole file is fighting) and costs the supplemental
+ * caller nothing but a spurious warning.
+ *
+ * Exported for the DIRECT unit assertions in
+ * `useLiveStatus.page-cap-boundary.test.tsx`: the `truncated` contract is a
+ * property of this function, and pinning it here — rather than only through the
+ * hook's observable state — is what keeps the boundary case covered without a
+ * 10,000-row fixture per assertion.
+ */
+export async function paginateStatusPages(
+  readPage: StatusPageReader,
+): Promise<StatusPagesResult> {
+  const pages: StatusRow[][] = [];
+  const first = await readPage(1);
+  pages.push(first);
+  let lastPageFull = first.length === INITIAL_PAGE_SIZE;
+  let nextPage = 2;
+  let truncated = false;
+  while (lastPageFull) {
+    // Build the wave from pages within the cap only. An EMPTY wave means the
+    // cap is exhausted while the last page was still full — the ambiguous case
+    // the lookahead below exists to resolve.
+    const wave: Promise<StatusRow[]>[] = [];
+    for (
+      let i = 0;
+      i < INITIAL_FANOUT_BATCH && nextPage + i <= MAX_INITIAL_FETCH_PAGES;
+      i++
+    ) {
+      wave.push(readPage(nextPage + i));
+    }
+    if (wave.length === 0) {
+      // `nextPage` is exactly `MAX_INITIAL_FETCH_PAGES + 1` here — no wave ever
+      // contains an out-of-cap page, so the counter cannot overshoot the cap by
+      // more than the single page that ended the loop, for any batch size.
+      try {
+        const lookahead = await readPage(MAX_INITIAL_FETCH_PAGES + 1);
+        truncated = lookahead.length > 0;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[useLiveStatus] page-cap lookahead failed; reporting the read as " +
+            "truncated because completeness is unproven",
+          { page: MAX_INITIAL_FETCH_PAGES + 1, err },
+        );
+        truncated = true;
+      }
+      break;
+    }
+    const waveResults = await Promise.all(wave);
+    const shortIdx = waveResults.findIndex(
+      (items) => items.length < INITIAL_PAGE_SIZE,
+    );
+    const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
+    for (let i = 0; i <= lastIdx; i++) {
+      pages.push(waveResults[i]!);
+    }
+    // The wave ended the collection iff it contained a short page.
+    lastPageFull = shortIdx === -1;
+    nextPage += wave.length;
+  }
+  return { rows: pages.flat(), truncated };
 }
 
 /**
@@ -643,77 +816,22 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     }
 
     /**
-     * LENGTH-bounded, wave-concurrent, PAGE-CAPPED paged read of the `status`
-     * collection — the single pagination implementation shared by BOTH initial
-     * fetches (bulk projected rows, and the supplemental signal rows).
-     *
-     *   1. Fetch page 1 alone (a short page 1 means a single-page result — no
-     *      fan-out, so a small collection never over-fetches).
-     *   2. While the last page came back FULL, fan out the next wave of
-     *      `INITIAL_FANOUT_BATCH` pages CONCURRENTLY. Stop at the FIRST short
-     *      page in a wave, appending pages up to AND INCLUDING it — PocketBase
-     *      pagination is monotonic, so every page issued after the short one in
-     *      the same wave is past the end. This merge is correct for ANY batch
-     *      size (guarding the #4504 over-fetch-past-end regression if the
-     *      constant is retuned) and is ordered by ARRAY INDEX, so the result is
-     *      deterministic page order regardless of which response resolves first.
-     *   3. Never issue a page beyond `MAX_INITIAL_FETCH_PAGES`; report whether
-     *      that cap cut the read short so the CALLER can decide what a
-     *      truncated read means (they differ — see the constant's doc).
-     *
-     * This was two separate loops. The bulk one had the wave/short-page/merge
-     * guards; the supplemental one was a bare `for(;;)` with none of them and no
-     * cap. Sharing one implementation makes that parity structural instead of
-     * something two comment blocks have to promise each other.
-     *
-     * `truncated` is `true` only when the cap stopped a read that had MORE to
-     * give (the last page fetched was full) — not when the collection simply
-     * ended on page `MAX_INITIAL_FETCH_PAGES`.
+     * `listOpts` → page-reader adapter over `paginateStatusPages` (module
+     * level), which owns the wave/short-page/merge/cap algorithm and the
+     * `truncated` contract — read that doc for all of it. Every page of a given
+     * read, INCLUDING the terminal lookahead, goes out with the SAME
+     * `listOpts`, which is the point of injecting a reader rather than passing
+     * the options down: the lookahead cannot drift from the read it terminates.
      */
     async function fetchStatusPages(
       listOpts: Record<string, unknown>,
-    ): Promise<{ rows: StatusRow[]; truncated: boolean }> {
-      const pages: StatusRow[][] = [];
-      const first = await pb
-        .collection("status")
-        .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
-      pages.push(first.items);
-      let lastPageFull = first.items.length === INITIAL_PAGE_SIZE;
-      let nextPage = 2;
-      let truncated = false;
-      while (lastPageFull) {
-        // Build the wave from pages within the cap only. An EMPTY wave means the
-        // cap is exhausted while the last page was still full ⇒ there are rows
-        // we are deliberately not reading.
-        const wave: Promise<{ items: StatusRow[] }>[] = [];
-        for (
-          let i = 0;
-          i < INITIAL_FANOUT_BATCH && nextPage + i <= MAX_INITIAL_FETCH_PAGES;
-          i++
-        ) {
-          wave.push(
-            pb
-              .collection("status")
-              .getList<StatusRow>(nextPage + i, INITIAL_PAGE_SIZE, listOpts),
-          );
-        }
-        if (wave.length === 0) {
-          truncated = true;
-          break;
-        }
-        const waveResults = await Promise.all(wave);
-        const shortIdx = waveResults.findIndex(
-          (result) => result.items.length < INITIAL_PAGE_SIZE,
-        );
-        const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
-        for (let i = 0; i <= lastIdx; i++) {
-          pages.push(waveResults[i]!.items);
-        }
-        // The wave ended the collection iff it contained a short page.
-        lastPageFull = shortIdx === -1;
-        nextPage += wave.length;
-      }
-      return { rows: pages.flat(), truncated };
+    ): Promise<StatusPagesResult> {
+      return paginateStatusPages(async (page) => {
+        const result = await pb
+          .collection("status")
+          .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts);
+        return result.items;
+      });
     }
 
     /**
@@ -864,12 +982,18 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         // Unlike the supplemental read, a truncated BULK read cannot degrade
         // gracefully: the rows we never fetched are whole cells, and a missing
         // cell renders as no-data GRAY — a silently hidden failure, the exact
-        // polarity this PR exists to eliminate. Reaching the cap means the
-        // server is not paginating sanely, so fail into connect()'s retry chain
-        // and, ultimately, an honest offline banner.
+        // polarity this PR exists to eliminate. Rows genuinely remaining past
+        // the cap means the server is not paginating sanely, so fail into
+        // connect()'s retry chain and, ultimately, an honest offline banner.
+        //
+        // This fires ONLY on a PROVEN (or unprovable — see the lookahead's
+        // fail-safe) truncation, never on a complete read that happens to end on
+        // the cap page. That distinction is the difference between an honest
+        // banner and a permanent false outage at exactly
+        // `MAX_INITIAL_FETCH_PAGES × INITIAL_PAGE_SIZE` rows.
         throw new Error(
           `[useLiveStatus] bulk initial fetch exceeded ${MAX_INITIAL_FETCH_PAGES} pages ` +
-            `(${bulk.length} rows) without reaching the end of the collection`,
+            `(${bulk.length} rows) and rows remain unread past the cap`,
         );
       }
       // Merge the supplemental signal-bearing rows over their projected bulk
