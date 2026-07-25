@@ -578,7 +578,11 @@ describe("(3) per-cell D6 vs aggregate precedence (c64aebc42)", () => {
 
 describe("(4) depth chip rendering D0..D6 × wired/unwired", () => {
   // chipColorToClass mapping is the pure contract; assert each color.
-  const colors: ChipColor[] = ["green", "amber", "red", "gray"];
+  // DERIVED from `CHIP_CLASS`, which is `Record<ChipColor, string>` and so is
+  // already compiler-complete over the union: a new `ChipColor` reds `tsc` at
+  // CHIP_CLASS and then flows into this loop, instead of quietly skipping the
+  // new colour the way the previous hand-copied literal did.
+  const colors = Object.keys(CHIP_CLASS) as ChipColor[];
   for (const color of colors) {
     it(`chipColorToClass('${color}') → ${CHIP_CLASS[color]}`, () => {
       expect(chipColorToClass(color)).toBe(CHIP_CLASS[color]);

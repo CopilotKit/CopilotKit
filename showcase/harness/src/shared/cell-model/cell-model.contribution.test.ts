@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { StatusRow, State } from "./live-status.js";
 import {
+  ALL_CONTRIBUTION_KINDS,
   CHIP_SEVERITY,
   worseOf,
   severityIndex,
@@ -8,10 +9,8 @@ import {
   firstStrikeConfig,
   D4_FIRST_STRIKE_THRESHOLD,
   classifyRung,
-  type RawRung,
-  type RungKind,
-  type ContributionKind,
 } from "./cell-model.contribution.js";
+import type { RawRung, RungKind } from "./cell-model.contribution.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
 
 const NOW = Date.parse("2026-06-04T12:00:00.000Z");
@@ -91,18 +90,12 @@ describe("contribution lattices + config", () => {
   });
 
   it("severityIndex is defined (>= 0) for EVERY kind — no kind sorts worst-but-gray (fail-safe polarity)", () => {
-    const ALL: ContributionKind[] = [
-      "UNSUPPORTED",
-      "STUB",
-      "ABSENT",
-      "NO_DATA",
-      "GREEN_FRESH",
-      "STALE_DEGRADED",
-      "FIRST_STRIKE_FRESH",
-      "INFRA_RED_FRESH",
-      "FAIL_FRESH",
-    ];
-    for (const k of ALL) {
+    // DERIVED, not hand-copied: `ALL_CONTRIBUTION_KINDS` comes from the
+    // engine's `satisfies Record<ContributionKind, true>` completeness registry,
+    // so a kind added to the union either lands in this loop automatically or
+    // reds `tsc` at the registry. The previous literal list here claimed to
+    // cover "EVERY kind" but was a snapshot — a new kind escaped it silently.
+    for (const k of ALL_CONTRIBUTION_KINDS) {
       // Never -1: an unrecognized kind must not sort as the WORST in a fold
       // and then render gray (masking a real red). `severityKind` is exhaustive.
       expect(severityIndex(k)).toBeGreaterThanOrEqual(0);

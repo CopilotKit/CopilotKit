@@ -11,8 +11,14 @@
  */
 import { describe, it, expect } from "vitest";
 import type { StatusRow, State } from "./live-status.js";
-import { keyFor, mergeRowsToMap, CATALOG_TO_D5_KEY } from "./live-status.js";
-import { buildCellModel, type CellModelInput } from "./cell-model.js";
+import {
+  keyFor,
+  mergeRowsToMap,
+  CATALOG_TO_D5_KEY,
+  STARTER_LEVELS,
+} from "./live-status.js";
+import { buildCellModel } from "./cell-model.js";
+import type { CellModelInput } from "./cell-model.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
 
 const NOW = Date.parse("2026-06-04T12:00:00.000Z");
@@ -151,7 +157,10 @@ describe("§7 §C: first-strike de-amplification", () => {
 
   it("starter soft-miss fail_count 1 → amber chip", () => {
     const col = "langgraph-python";
-    const levels = ["health", "agent", "chat", "interaction"];
+    // DERIVED from the real constant, not a literal copy: the engine keys
+    // starter sub-rows off `STARTER_LEVELS`, so a level added there is probed
+    // here too instead of leaving this scenario silently short a sub-row.
+    const levels = STARTER_LEVELS;
     const live = mergeRowsToMap(
       levels.map((lvl, i) =>
         i === 0
