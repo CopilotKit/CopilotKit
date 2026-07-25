@@ -1,3 +1,4 @@
+import type { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
@@ -22,8 +23,14 @@ export function isTelemetryDisabled(): boolean {
 }
 
 export class TelemetryClient {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  segment: any | undefined;
+  segment: Analytics | undefined;
+  // Resolves once the lazy segment import has settled (loaded or failed).
+  // `capture()` awaits this before checking `this.segment` so a fast-exit
+  // process (e.g. a short-lived CLI) can't fire capture() before the import
+  // resolves and silently drop the event. Defaults to an already-resolved
+  // promise so capture() is a no-op await when telemetry is disabled (the
+  // constructor returns early without ever assigning a real promise).
+  private segmentReady: Promise<void> = Promise.resolve();
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
   // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
@@ -75,9 +82,17 @@ export class TelemetryClient {
 
     // Lazy dynamic import so that @segment/analytics-node (which pulls in
     // Node.js built-ins like stream, http, url, https, zlib) is never
-    // evaluated at module parse time in browser / Vite builds. If the
-    // import fails (e.g. in a browser context), Segment is silently skipped.
-    import("@segment/analytics-node")
+    // evaluated at module parse time in browser / Vite builds. The
+    // `@vite-ignore` comment stops Vite's optimizeDeps esbuild scanner from
+    // statically discovering and pre-bundling this specifier — without it,
+    // the scanner still walks into @segment/analytics-node's Node built-in
+    // requires at dev-server start and reproduces the "externalized for
+    // browser compatibility" warning this change is meant to eliminate.
+    // If the import fails (e.g. in a browser context), Segment is silently
+    // skipped and telemetry falls back to the lambda sink only. capture()
+    // awaits `segmentReady` before checking `this.segment`, so callers never
+    // race the import.
+    this.segmentReady = import(/* @vite-ignore */ "@segment/analytics-node")
       .then(({ Analytics }) => {
         this.segment = new Analytics({ writeKey });
       })
@@ -149,6 +164,11 @@ export class TelemetryClient {
       packageVersion: this.packageVersion,
       licenseToken: this.licenseToken ?? undefined,
     });
+
+    // Wait for the lazy segment import to settle before checking
+    // `this.segment`, so a capture() firing right after construction can't
+    // race the import and silently drop the event.
+    await this.segmentReady;
 
     if (this.segment) {
       this.segment.track({
