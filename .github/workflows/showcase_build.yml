@@ -556,17 +556,35 @@ jobs:
           SERVICE: ${{ matrix.service.dispatch_name }}
           BUILD_STATUS: ${{ job.status }}
         run: |
-          # job.status is one of: success, failure, cancelled. Normalize
-          # cancelled→skipped to match the BuildOutcome contract in
+          # job.status is one of: success, failure, cancelled — mapped
+          # 1:1 onto the BuildOutcome contract in
           # showcase/scripts/lib/build-outputs.ts. We deliberately do NOT
           # write to $GITHUB_OUTPUT — matrix-slot outputs are not
           # aggregable across slots in GitHub Actions, so we publish the
           # per-slot result as an artifact instead. The downstream
           # aggregator job downloads every `build-result-*` artifact.
+          #
+          # `cancelled` used to be laundered into `skipped` here. That one
+          # line is what made a partially-cancelled fleet build silent:
+          # this slot's result is the ONLY place the cancellation is
+          # recorded, because GitHub's own status functions cannot see it
+          # downstream. Proven on run 30166429073 (a purpose-built probe:
+          # matrix leg killed by `timeout-minutes` → job.status=cancelled,
+          # rollup `needs.*.result`=cancelled, yet BOTH `if: cancelled()`
+          # and `if: failure()` evaluated FALSE in dependent jobs). With
+          # `cancelled` collapsed to `skipped` it was indistinguishable
+          # from a slot that legitimately never built, so nothing could
+          # alert and nothing could red the run. Keep it distinct.
+          #
+          # The `*)` catch-all stays as a defensive fallback in case
+          # GitHub ever introduces a fourth job.status value; `skipped` is
+          # the conservative choice because it is excluded from both the
+          # redeploy success-set and the cancelled-slot alert.
           case "$BUILD_STATUS" in
-            success) STATUS=success ;;
-            failure) STATUS=failure ;;
-            *)       STATUS=skipped ;;
+            success)   STATUS=success ;;
+            failure)   STATUS=failure ;;
+            cancelled) STATUS=cancelled ;;
+            *)         STATUS=skipped ;;
           esac
           mkdir -p "$RUNNER_TEMP/build-result"
           printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
@@ -808,6 +826,14 @@ jobs:
     outputs:
       results: ${{ steps.collect.outputs.results }}
       any_success: ${{ steps.collect.outputs.any_success }}
+      # `any_cancelled` / `cancelled_services` are the ONLY downstream
+      # signal that one or more build slots were cancelled (in practice:
+      # killed by `timeout-minutes`). They are derived from the per-slot
+      # artifacts, NOT from GitHub's status functions, because those
+      # cannot see a leg-level cancellation — see the comment on the
+      # `notify-cancelled-builds` job below for the measured proof.
+      any_cancelled: ${{ steps.collect.outputs.any_cancelled }}
+      cancelled_services: ${{ steps.collect.outputs.cancelled_services }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -846,8 +872,9 @@ jobs:
           # The aggregator script (showcase/scripts/aggregate-build-results.ts)
           # reads them, merges via the shared helper (mergeBuildResultFiles),
           # writes $OUTPUT_DIR/results.json, and appends `results` +
-          # `any_success` to $GITHUB_OUTPUT. The contract (service +
-          # status enum) is enforced in one place (build-outputs.ts).
+          # `any_success` + `any_cancelled` + `cancelled_services` to
+          # $GITHUB_OUTPUT. The contract (service + status enum) is
+          # enforced in one place (build-outputs.ts).
           npx tsx showcase/scripts/aggregate-build-results.ts
 
       - name: Upload aggregated build-results artifact
@@ -1229,6 +1256,94 @@ jobs:
           payload: |
             { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
+  notify-cancelled-builds:
+    name: Notify cancelled/timed-out build slots
+    needs: [detect-changes, build, aggregate-build-results]
+    # ── Why this job exists ───────────────────────────────────────────────
+    #
+    # A PARTIALLY-CANCELLED fleet build used to be indistinguishable from a
+    # clean one, in BOTH directions: no alert, and no post-deploy verify.
+    # Observed on build run 30162773601 (merge of #6160): 5 of 28 slots were
+    # killed by `timeout-minutes`, 23 built and were redeployed to staging,
+    # `redeploy-staging` SUCCEEDED and uploaded `redeploy-summary` — and
+    # then:
+    #   - `notify` was SKIPPED, so no Slack alert fired, and
+    #   - the run rolled up to conclusion `cancelled`, which failed
+    #     showcase_deploy.yml's `conclusion == 'success'` gate, so the
+    #     staging redeploy was never verified.
+    # A real, partial, unverified staging deploy looked exactly like a
+    # silent success.
+    #
+    # The reason no existing guard caught it is that GitHub's status
+    # functions are blind to a leg-level cancellation. Measured on purpose-
+    # built probe run 30166429073 (matrix leg killed by `timeout-minutes`,
+    # sibling leg green):
+    #   job.status of the killed leg .... cancelled
+    #   needs.<matrix>.result (rollup) .. cancelled
+    #   `if: cancelled()` ............... SKIPPED  (i.e. evaluated FALSE)
+    #   `if: failure()` ................. SKIPPED  (i.e. evaluated FALSE)
+    #   pre-fix `notify` condition ...... SKIPPED  ← the bug
+    #   post-fix `notify` condition ..... RAN      ← the fix
+    #   workflow run conclusion ......... cancelled
+    # This matches the docs: `cancelled()` "returns true if the workflow was
+    # canceled" (workflow-scoped, not job-scoped), and `failure()` "returns
+    # true if any ancestor job fails" — a CANCELLED ancestor did not FAIL.
+    # So `failure() || cancelled()` would NOT have fixed this; the signal
+    # has to come from the per-slot build results.
+    #
+    # This job does the two things a cancelled slot must do:
+    #   1. RED THE RUN (step 1 exits 1) so the conclusion becomes `failure`
+    #      instead of `cancelled`. That is honest — a slot killed by its
+    #      timeout budget is a failure, not a cancellation — and it makes
+    #      the incomplete build visible on the commit status. It does NOT
+    #      block verification: showcase_deploy.yml no longer requires
+    #      `conclusion == 'success'` (it self-gates on the presence of the
+    #      redeploy-summary artifact instead), so the subset that really
+    #      shipped still gets probed.
+    #   2. ALERT, naming the affected services so the run can be re-run
+    #      with "Re-run failed jobs" without re-reading 28 job logs.
+    #
+    # `!cancelled()` is retained as the intentional-vs-flake discriminator:
+    # a human cancelling the whole RUN makes `cancelled()` TRUE and keeps
+    # this silent, while a leg-level timeout leaves it FALSE (proven above)
+    # so the alert still fires. Belt and braces: on a run-level cancel
+    # `aggregate-build-results` is itself skipped by its own `!cancelled()`
+    # guard, so `any_cancelled` would be '' rather than 'true' anyway.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.aggregate-build-results.outputs.any_cancelled == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Mark workflow red (build incomplete)
+        env:
+          CANCELLED_SERVICES: ${{ needs.aggregate-build-results.outputs.cancelled_services }}
+        run: |
+          echo "::error::Build INCOMPLETE — these slots were cancelled (typically killed by timeout-minutes) and pushed NO image: ${CANCELLED_SERVICES}"
+          echo "Those services were correctly excluded from the staging redeploy (matrix ∩ build-success), so staging still serves their previous :latest."
+          echo "Re-run the failed jobs on this run to finish the fleet."
+          exit 1
+      - name: Slack #oss-alerts
+        # `always()` so the alert still goes out after step 1 deliberately
+        # exits non-zero to red the run.
+        if: always() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({5}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
+          payload: |
+            { "text": ${{ toJSON(format(':warning: *Showcase build INCOMPLETE — slots cancelled*{5}Cancelled (no image pushed): `{4}`{5}Staging keeps the previous :latest for those services.{5}Commit: `{0}` by {1}{5}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, needs.aggregate-build-results.outputs.cancelled_services, fromJSON('"\n"'))) }} }
+
   notify:
     name: Notify on failure
     # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
@@ -1275,10 +1390,25 @@ jobs:
         redeploy-staging,
         redeploy-staging-starters,
       ]
+    #
+    # The third clause, `any_cancelled == 'true'`, closes the partial-cancel
+    # hole: with SOME slots green, `failure()` is false (a cancelled ancestor
+    # did not fail) and `any_success` is 'true', so the first two clauses both
+    # go false and this job was SKIPPED on a genuinely incomplete build — see
+    # `notify-cancelled-builds` above for the measured proof (probe run
+    # 30166429073) and the production incident (run 30162773601). This clause
+    # also restores the PR comment on that path, which is the only place the
+    # merge author gets told. It cannot add noise to a clean run: a build with
+    # no cancelled slot emits `any_cancelled=false`, and a build with no
+    # changes skips the aggregator entirely so the output is '' — neither
+    # equals 'true'. `notify-cancelled-builds` fires alongside this job on
+    # that path; two alerts for one event is the same convention already used
+    # by `notify-all-builds-failed` + this job, and matches the alert SOP.
     if: >-
       ${{ !cancelled()
           && (failure()
-              || needs.aggregate-build-results.outputs.any_success == 'false') }}
+              || needs.aggregate-build-results.outputs.any_success == 'false'
+              || needs.aggregate-build-results.outputs.any_cancelled == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -1302,6 +1432,11 @@ jobs:
             { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
+        env:
+          # Non-empty only on the partial-cancel path, where the generic
+          # "the build failed" wording would be wrong (most slots built and
+          # were redeployed; a subset was killed mid-build).
+          CANCELLED_SERVICES: ${{ needs.aggregate-build-results.outputs.cancelled_services }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -1315,12 +1450,27 @@ jobs:
               console.log('No merged PR found for this commit — skipping comment');
               return;
             }
+            const cancelled = (process.env.CANCELLED_SERVICES || '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
             const marker = '<!-- showcase-build-failure -->';
             const body = [
               marker,
-              `### :x: Showcase Build Failed`,
+              cancelled.length > 0
+                ? `### :warning: Showcase Build Incomplete`
+                : `### :x: Showcase Build Failed`,
               ``,
-              `The Docker build triggered by this PR's merge failed.`,
+              cancelled.length > 0
+                ? [
+                    `The Docker build triggered by this PR's merge did not finish for every service.`,
+                    `These slots were cancelled (typically killed by \`timeout-minutes\`) and pushed **no** image, so staging still serves their previous \`:latest\`:`,
+                    ``,
+                    cancelled.map(s => `- \`${s}\``).join('\n'),
+                    ``,
+                    `Everything else built and was redeployed. Use **Re-run failed jobs** on the run to finish the fleet.`,
+                  ].join('\n')
+                : `The Docker build triggered by this PR's merge failed.`,
               ``,
               `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `**Commit:** \`${context.sha.slice(0, 8)}\``,
