@@ -156,7 +156,9 @@ backend_tools = [
 # Extract tool names from backend_tools for comparison
 backend_tool_names = [tool.name for tool in backend_tools]
 
-MAX_AUTOMATIC_PLAN_CONTINUES = 8
+# Keep this below LangGraph's default recursion limit: tool cycles consume two
+# graph steps each (chat_node -> tool_node -> chat_node).
+MAX_AUTOMATIC_PLAN_ITERATIONS = 8
 
 # Frontend tool allowlist to keep tool count under API limits and avoid noise
 FRONTEND_TOOL_ALLOWLIST = set(
@@ -608,7 +610,74 @@ async def chat_node(
     except Exception:
         plan_updates = {}
 
-    # only route to tool node if tool is not in the tools list
+    # 5. If there are remaining steps, auto-continue; otherwise end the graph.
+    try:
+        effective_steps = plan_updates.get("planSteps", plan_steps)
+        effective_plan_status = plan_updates.get("planStatus", plan_status)
+        has_remaining = bool(effective_steps) and any(
+            (s.get("status") not in ("completed", "failed")) for s in effective_steps
+        )
+    except Exception:
+        effective_steps = plan_steps
+        effective_plan_status = plan_status
+        has_remaining = False
+
+    # This is a per-invocation limit, not a consecutive no-tool-call limit.
+    # Backend tools route back through chat_node, so resetting this counter on
+    # every tool call would allow a tool-spinning model to hit LangGraph's
+    # recursion limit before this workflow can terminate cleanly.
+    if (
+        effective_steps
+        and effective_plan_status != "completed"
+        and plan_continue_count >= MAX_AUTOMATIC_PLAN_ITERATIONS - 1
+    ):
+        all_steps_completed = all(
+            step.get("status") == "completed" for step in effective_steps
+        )
+        terminal_plan_status = "completed" if all_steps_completed else "failed"
+        terminal_plan_steps = effective_steps
+        if not all_steps_completed:
+            terminal_plan_steps = []
+            for step in effective_steps:
+                copied_step = dict(step)
+                if copied_step.get("status") not in ("completed", "failed"):
+                    copied_step["status"] = "failed"
+                    copied_step["note"] = (
+                        "Stopped after repeated automatic retries without plan progress."
+                    )
+                terminal_plan_steps.append(copied_step)
+
+        terminal_message = (
+            "All plan steps are complete, so I'm marking the plan completed "
+            "and ending the automatic follow-up instead of retrying again."
+            if all_steps_completed
+            else (
+                "I couldn't complete the plan automatically after several retries. "
+                "The unfinished steps have been marked failed so the workflow can stop cleanly. "
+                "Please retry with clearer instructions or adjust the plan."
+            )
+        )
+
+        return Command(
+            goto=END,
+            update={
+                "messages": [AIMessage(content=terminal_message)],
+                "items": state.get("items", []),
+                "globalTitle": state.get("globalTitle", ""),
+                "globalDescription": state.get("globalDescription", ""),
+                "itemsCreated": state.get("itemsCreated", 0),
+                "lastAction": state.get("lastAction", ""),
+                "planSteps": terminal_plan_steps,
+                "currentStepIndex": plan_updates.get(
+                    "currentStepIndex", current_step_index
+                ),
+                "planStatus": terminal_plan_status,
+                "planContinuationCount": 0,
+                "__last_tool_guidance": None,
+            },
+        )
+
+    # Only route to tool node if the response includes a backend tool call.
     if route_to_tool_node(response):
         print("routing to tool node")
         return Command(
@@ -625,23 +694,11 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
-                "planContinuationCount": 0,
+                "planContinuationCount": plan_continue_count + 1,
                 # guidance for follow-up after tool execution
                 "__last_tool_guidance": "If a deletion tool reports success (deleted:ID), acknowledge deletion even if the item no longer exists afterwards.",
             },
         )
-
-    # 5. If there are remaining steps, auto-continue; otherwise end the graph.
-    try:
-        effective_steps = plan_updates.get("planSteps", plan_steps)
-        effective_plan_status = plan_updates.get("planStatus", plan_status)
-        has_remaining = bool(effective_steps) and any(
-            (s.get("status") not in ("completed", "failed")) for s in effective_steps
-        )
-    except Exception:
-        effective_steps = plan_steps
-        effective_plan_status = plan_status
-        has_remaining = False
 
     # Determine if this response contains frontend tool calls that must be delivered to the client
     try:
@@ -679,44 +736,6 @@ async def chat_node(
         )
 
     if has_remaining and effective_plan_status != "completed":
-        if plan_continue_count >= MAX_AUTOMATIC_PLAN_CONTINUES - 1:
-            failed_steps = []
-            for step in effective_steps:
-                copied_step = dict(step)
-                if copied_step.get("status") not in ("completed", "failed"):
-                    copied_step["status"] = "failed"
-                    copied_step["note"] = (
-                        "Stopped after repeated automatic retries without plan progress."
-                    )
-                failed_steps.append(copied_step)
-
-            return Command(
-                goto=END,
-                update={
-                    "messages": [
-                        AIMessage(
-                            content=(
-                                "I couldn't complete the plan automatically after several retries. "
-                                "The unfinished steps have been marked failed so the workflow can stop cleanly. "
-                                "Please retry with clearer instructions or adjust the plan."
-                            )
-                        )
-                    ],
-                    "items": state.get("items", []),
-                    "globalTitle": state.get("globalTitle", ""),
-                    "globalDescription": state.get("globalDescription", ""),
-                    "itemsCreated": state.get("itemsCreated", 0),
-                    "lastAction": state.get("lastAction", ""),
-                    "planSteps": failed_steps,
-                    "currentStepIndex": plan_updates.get(
-                        "currentStepIndex", current_step_index
-                    ),
-                    "planStatus": "failed",
-                    "planContinuationCount": 0,
-                    "__last_tool_guidance": None,
-                },
-            )
-
         # Auto-continue; include response only if it carries frontend tool calls
         return Command(
             goto="chat_node",
@@ -752,33 +771,6 @@ async def chat_node(
         plan_marked_completed = False
 
     if all_steps_completed and not plan_marked_completed:
-        if plan_continue_count >= MAX_AUTOMATIC_PLAN_CONTINUES - 1:
-            return Command(
-                goto=END,
-                update={
-                    "messages": [
-                        AIMessage(
-                            content=(
-                                "All plan steps are complete, so I'm marking the plan completed "
-                                "and ending the automatic follow-up instead of retrying again."
-                            )
-                        )
-                    ],
-                    "items": state.get("items", []),
-                    "globalTitle": state.get("globalTitle", ""),
-                    "globalDescription": state.get("globalDescription", ""),
-                    "itemsCreated": state.get("itemsCreated", 0),
-                    "lastAction": state.get("lastAction", ""),
-                    "planSteps": effective_steps,
-                    "currentStepIndex": plan_updates.get(
-                        "currentStepIndex", current_step_index
-                    ),
-                    "planStatus": "completed",
-                    "planContinuationCount": 0,
-                    "__last_tool_guidance": None,
-                },
-            )
-
         return Command(
             goto="chat_node",
             update={
