@@ -86,8 +86,37 @@ const PER_PAGE_CLAMP = PB_PER_PAGE_CLAMP;
  * constant is a conscious decision that shows up as a failing test rather than
  * a silently widened first-paint budget (same posture as the
  * `STATUS_LIST_FIELDS` drift guard in `live-status.test.ts`).
+ *
+ * The pin is TWO-SIDED, and deliberately so. An upper-bound-only guard
+ * (`toBeLessThanOrEqual`) waves through a cap that was LOWERED, which is just as
+ * much a silent behavior change: it moves the cap toward the legitimate read and
+ * starts truncating real collections. Measured on the pre-fix suite, the cap
+ * could be halved to 10 or cut to 5 with all 6 tests still green. So the cap is
+ * asserted (a) MECHANICALLY against the exported constant, and (b) as the EXACT
+ * multiset of pages each loop requested — never as a bound, which is also why
+ * the `Math.max(...pages)` form is gone: `Math.max()` of an empty array is
+ * `-Infinity`, so those assertions also passed when the loop never ran at all.
  */
 const EXPECTED_MAX_INITIAL_PAGES = 20;
+
+/**
+ * The pages a loop requests when it walks the WHOLE cap: 1..cap, whose rows are
+ * retained, plus the ONE terminal lookahead at cap+1, whose rows are discarded
+ * and only whose emptiness is load-bearing (see `paginateStatusPages` — that
+ * lookahead is what stops a COMPLETE read that happens to end on the cap page
+ * from being reported as truncated).
+ *
+ * Compared as a SORTED copy because pages within a fan-out wave are issued
+ * concurrently, so the order the server records them in is not guaranteed — and,
+ * on the fail-loud bulk path, as a sorted copy of the DISTINCT pages, because the
+ * throw sends the whole loop back through connect()'s retry chain. The equality
+ * still has full teeth either way: a different cap changes the length, and an
+ * empty recording fails outright.
+ */
+const PAGES_THROUGH_LOOKAHEAD = Array.from(
+  { length: EXPECTED_MAX_INITIAL_PAGES + 1 },
+  (_, i) => i + 1,
+);
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.statusCode = status;
@@ -405,6 +434,15 @@ describe("useLiveStatus supplemental fetch — page bound", () => {
   });
   afterEach(restoreEnv);
 
+  it("pins the cap MECHANICALLY to the implementation constant, in both directions", async () => {
+    // `EXPECTED_MAX_INITIAL_PAGES` is the number every assertion in this file is
+    // written against, so the "MUST match `MAX_INITIAL_FETCH_PAGES`" claim in
+    // its doc has to be checked rather than trusted — and checked as an
+    // EQUALITY, so lowering the cap fails just as loudly as raising it.
+    const { MAX_INITIAL_FETCH_PAGES } = await import("./useLiveStatus");
+    expect(MAX_INITIAL_FETCH_PAGES).toBe(EXPECTED_MAX_INITIAL_PAGES);
+  });
+
   it("stops after MAX_INITIAL_FETCH_PAGES instead of paginating without bound", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { useLiveStatus } = await import("./useLiveStatus");
@@ -417,19 +455,22 @@ describe("useLiveStatus supplemental fetch — page bound", () => {
         timeout: 20_000,
       });
 
-      // THE BOUND. Pre-fix the loop reads all RUNAWAY_FULL_PAGES pages, so this
-      // fails with `expected 40 to be less than or equal to 20`.
-      expect(runawaySupplementalPages.length).toBeLessThanOrEqual(
-        EXPECTED_MAX_INITIAL_PAGES,
-      );
-      expect(Math.max(...runawaySupplementalPages)).toBeLessThanOrEqual(
-        EXPECTED_MAX_INITIAL_PAGES,
+      // THE BOUND, pinned EXACTLY: pages 1..20 retained, then the single
+      // lookahead at 21, then stop. Pre-fix the loop read all
+      // RUNAWAY_FULL_PAGES pages, so this fails on a 40-page recording.
+      //
+      // Exact equality rather than an upper bound because a LOWERED cap is a
+      // silent behavior change too — pre-fix this suite stayed 6/6 green with
+      // the cap set to 10 and to 5 — and because a bound on `Math.max()` of an
+      // empty array is `-Infinity <= 20`, i.e. green for a loop that never ran.
+      expect([...runawaySupplementalPages].sort((a, b) => a - b)).toEqual(
+        PAGES_THROUGH_LOOKAHEAD,
       );
       // It stopped EARLY, not at the end of what the server would serve: the
-      // server had pages 21..40 ready and was never asked for them. This is
+      // server had pages 22..40 ready and was never asked for them. This is
       // what makes the assertion above a real cap rather than fixture length.
       expect(runawaySupplementalPages).not.toContain(
-        EXPECTED_MAX_INITIAL_PAGES + 1,
+        EXPECTED_MAX_INITIAL_PAGES + 2,
       );
 
       // Truncation is an operational anomaly, not a silent one.
@@ -557,11 +598,19 @@ describe("useLiveStatus bulk fetch — page bound fails loud", () => {
       await waitFor(() => expect(result.current.status).toBe("error"), {
         timeout: 25_000,
       });
-      expect(Math.max(...runawayBulkOnlyPages)).toBeLessThanOrEqual(
-        EXPECTED_MAX_INITIAL_PAGES,
+      // Same exact pin as the supplemental loop (they share the
+      // implementation): pages 1..20 retained, one lookahead at 21, stop.
+      //
+      // DISTINCT pages, not the raw recording, because this is the fail-loud
+      // path: the throw goes into connect()'s retry chain, so the whole bulk
+      // loop re-runs once per reconnect attempt and every page appears
+      // MAX_RECONNECT_ATTEMPTS times. Which pages exist is the cap claim;
+      // how many times they were re-requested belongs to the reconnect tests.
+      expect([...new Set(runawayBulkOnlyPages)].sort((a, b) => a - b)).toEqual(
+        PAGES_THROUGH_LOOKAHEAD,
       );
       expect(runawayBulkOnlyPages).not.toContain(
-        EXPECTED_MAX_INITIAL_PAGES + 1,
+        EXPECTED_MAX_INITIAL_PAGES + 2,
       );
       // No stale-green lie behind the banner.
       expect(result.current.rows).toEqual([]);
