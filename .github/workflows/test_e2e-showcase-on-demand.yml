@@ -142,6 +142,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
+          # Fetch LFS objects. This job runs `next dev` against the integration
+          # package and drives it with Playwright, so it serves `public/` straight
+          # from the working tree. The demo assets are LFS-tracked via the
+          # repo-root .gitattributes; without this the multimodal spec clicks
+          # "Try with sample image" and gets a ~130-byte pointer stub served as
+          # `image/png`, which the magic-byte guard in
+          # `sample-attachment-buttons.tsx` rejects — a spec failure with nothing
+          # actually wrong with the code under test.
+          lfs: true
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
           # checkout. PR-HEAD code (pip build hooks, Next.js dev scripts,
           # Playwright fixtures) runs on this runner; a credential left in the
