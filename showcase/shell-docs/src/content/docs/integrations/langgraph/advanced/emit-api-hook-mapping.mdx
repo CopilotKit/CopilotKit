@@ -146,7 +146,7 @@ class AgentState(CopilotKitState):
     pass
 
 async def chat_node(state: AgentState, config: RunnableConfig):
-    model = ChatOpenAI(model="gpt-5.4").bind_tools(
+    model = ChatOpenAI(model="gpt-4o").bind_tools(
         state["copilotkit"]["actions"]  # includes all registered frontend tools/components # [!code highlight]
     )
     response = await model.ainvoke(state["messages"], config)
@@ -173,7 +173,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
         emit_tool_calls=["showWeather"],             # [!code highlight]
     )                                                # [!code highlight]
 
-    model = ChatOpenAI(model="gpt-5.4").bind_tools(
+    model = ChatOpenAI(model="gpt-4o").bind_tools(
         state["copilotkit"]["actions"]
     )
     response = await model.ainvoke(state["messages"], streaming_config) # [!code highlight]
@@ -205,7 +205,6 @@ Always assign the result to a **new variable** (e.g. `streaming_config`) rather 
 
 ## See also
 
-- [Frontend Tools](/langgraph/frontend-tools) — full guide to `useFrontendTool`
-- [Display-only components](/langgraph/generative-ui/your-components/display-only) — full guide to `useComponent`
-- [Disabling state streaming](/langgraph/advanced/disabling-state-streaming) — `copilotkit_customize_config` reference
-- [Python SDK reference](/reference/v1/sdk/python/LangGraph) — `copilotkit_emit_tool_call` and `copilotkit_customize_config` signatures
+- [Frontend Tools](/integrations/langgraph/frontend-tools) — full guide to `useFrontendTool`
+- [Display-only components](/integrations/langgraph/generative-ui/your-components/display-only) — full guide to `useComponent`
+- [Disabling state streaming](/integrations/langgraph/advanced/disabling-state-streaming) — `copilotkit_customize_config` reference
