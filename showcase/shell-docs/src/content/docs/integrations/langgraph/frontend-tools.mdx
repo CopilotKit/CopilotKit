@@ -143,10 +143,10 @@ The following example shows a data-fetch frontend tool paired with a matching `s
 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent.py"
-        from langgraph.prebuilt import create_react_agent
+        from langchain.agents import create_agent
         from copilotkit import CopilotKitMiddleware, CopilotKitState
 
-        graph = create_react_agent(
+        graph = create_agent( # Works the same for "create_react_agent" or similar options
             model="openai:gpt-4o",
             tools=[],  # backend tools go here
             middleware=[CopilotKitMiddleware()],
@@ -154,7 +154,7 @@ The following example shows a data-fetch frontend tool paired with a matching `s
             # [!code highlight:7]
             # Tell the agent WHEN it must call the frontend tool.
             # A short description alone may not be enough — make the rule explicit.
-            prompt=(
+            system_prompt=(
                 "You are a helpful sales assistant.\n\n"
                 "IMPORTANT: When the user asks about sales data for a specific month or date range, "
                 "you MUST call the `fetch_sales_by_month_range` frontend tool first to retrieve "
@@ -165,18 +165,18 @@ The following example shows a data-fetch frontend tool paired with a matching `s
     </Tab>
     <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
-        import { createReactAgent } from "@langchain/langgraph/prebuilt";
+        import { createAgent } from "langchain";
         import { copilotkitMiddleware, CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
 
-        export const graph = createReactAgent({
+        export const graph = createAgent({ // Works the same for "create_react_agent" or similar options
           model: "openai:gpt-4o",
           tools: [],  // backend tools go here
           stateSchema: CopilotKitStateSchema,
-          checkpointSaver: undefined,
+          middleware: [copilotkitMiddleware],
           // [!code highlight:6]
           // Tell the agent WHEN it must call the frontend tool.
           // A short description alone may not be enough — make the rule explicit.
-          prompt:
+          systemPrompt:
             "You are a helpful sales assistant.\n\n" +
             "IMPORTANT: When the user asks about sales data for a specific month or date range, " +
             "you MUST call the `fetch_sales_by_month_range` frontend tool first to retrieve " +
@@ -225,4 +225,4 @@ useFrontendTool({
 
 In addition to letting the LLM decide when to call a frontend tool, you can emit tool calls directly from your LangGraph node code using `copilotkit_emit_tool_call`. This fires the `useFrontendTool` handler immediately, without waiting for an LLM decision.
 
-See [Connecting Backend Emit APIs to Frontend Hooks](/langgraph/advanced/emit-api-hook-mapping) for an end-to-end guide covering `copilotkit_emit_tool_call`, `copilotkit_customize_config`, and how they relate to `useFrontendTool` and `useComponent`.
+See [Connecting Backend Emit APIs to Frontend Hooks](/integrations/langgraph/advanced/emit-api-hook-mapping) for an end-to-end guide covering `copilotkit_emit_tool_call`, `copilotkit_customize_config`, and how they relate to `useFrontendTool` and `useComponent`.
