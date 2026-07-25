@@ -221,10 +221,22 @@ export function DefaultToolCallRenderer({
           onClick={() => setIsExpanded(!isExpanded)}
           className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:justify-between cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:p-0 cpk:m-0 cpk:text-left cpk:text-inherit"
           style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
             font: "inherit",
           }}
         >
-          <div className="cpk:flex cpk:min-w-0 cpk:items-center cpk:gap-2">
+          <div
+            className="cpk:flex cpk:min-w-0 cpk:items-center cpk:gap-2"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              minWidth: 0,
+            }}
+          >
             <svg
               className={`cpk:h-3.5 cpk:w-3.5 cpk:flex-shrink-0 cpk:text-zinc-500 cpk:transition-transform cpk:dark:text-zinc-400 ${
                 isExpanded ? "cpk:rotate-90" : ""
