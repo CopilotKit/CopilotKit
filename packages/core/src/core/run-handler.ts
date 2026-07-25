@@ -482,15 +482,49 @@ export class RunHandler {
       for (const message of newMessages) {
         if (message.role === "assistant") {
           for (const toolCall of message.toolCalls || []) {
-            if (
-              newMessages.findIndex(
-                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-              ) === -1
-            ) {
-              const tool = this.getTool({
-                toolName: toolCall.function.name,
+            const tool = this.getTool({
+              toolName: toolCall.function.name,
+              agentId: agent.agentId,
+            });
+
+            let wildcardTool: FrontendTool<any> | undefined;
+            const getWildcardTool = () => {
+              if (tool || wildcardTool) {
+                return wildcardTool;
+              }
+              wildcardTool = this.getTool({
+                toolName: "*",
                 agentId: agent.agentId,
               });
+              return wildcardTool;
+            };
+
+            let existingResultIndex = newMessages.findIndex(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            );
+            const existingResult =
+              existingResultIndex === -1
+                ? undefined
+                : newMessages[existingResultIndex];
+            const executableTool = tool ?? getWildcardTool();
+
+            if (
+              existingResult &&
+              executableTool?.handler &&
+              this.isFrontendPlaceholderResult(existingResult)
+            ) {
+              newMessages.splice(existingResultIndex, 1);
+              existingResultIndex = -1;
+
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
+            }
+
+            if (existingResultIndex === -1) {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
                   tool,
@@ -503,14 +537,10 @@ export class RunHandler {
                   needsFollowUp = true;
                 }
               } else {
-                // Wildcard fallback for undefined tools
-                const wildcardTool = this.getTool({
-                  toolName: "*",
-                  agentId: agent.agentId,
-                });
-                if (wildcardTool) {
+                const fallbackTool = getWildcardTool();
+                if (fallbackTool) {
                   const followUp = await this.executeWildcardTool(
-                    wildcardTool,
+                    fallbackTool,
                     toolCall,
                     message,
                     agent,
@@ -555,6 +585,53 @@ export class RunHandler {
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private isFrontendPlaceholderResult(message: Message): boolean {
+    if (message.role !== "tool") {
+      return false;
+    }
+
+    const normalized = this.normalizeToolResultContent(message.content);
+    return normalized === "Forwarded to client";
+  }
+
+  private normalizeToolResultContent(content: unknown): string | null {
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      const text = content
+        .flatMap((part) => {
+          if (typeof part === "string") {
+            return [part];
+          }
+          if (
+            part &&
+            typeof part === "object" &&
+            "text" in part &&
+            typeof (part as { text?: unknown }).text === "string"
+          ) {
+            return [(part as { text: string }).text];
+          }
+          return [];
+        })
+        .join("")
+        .trim();
+      return text.length > 0 ? text : null;
+    }
+
+    if (
+      content &&
+      typeof content === "object" &&
+      "text" in content &&
+      typeof (content as { text?: unknown }).text === "string"
+    ) {
+      return (content as { text: string }).text.trim();
+    }
+
+    return null;
   }
 
   /**
