@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "QUARANTINE MANIFEST for the harness unit suite's CI gate.",
+    "",
+    "WHY THIS FILE EXISTS. Until the `test / unit-showcase` workflow landed,",
+    "NO CI job ran `showcase/harness`'s ~3.6k-test vitest suite (see that",
+    "workflow's header for the full ground-truth table). Wiring it up found the",
+    "suite already RED on `origin/main` with exactly three failures. A newly",
+    "added job that is red on arrival gets ignored or deleted, so those three",
+    "files are quarantined HERE — explicitly, in source, with a reason and a",
+    "date — instead of being silently deleted or weakened.",
+    "",
+    "THIS IS NOT A HOLE IN THE GATE. `scripts/quarantine-ratchet.ts` runs the",
+    "quarantined files in their OWN vitest invocation and requires each one to",
+    "STILL FAIL. The moment somebody fixes a quarantined test, the ratchet goes",
+    "red and forces its removal from this list. A quarantine entry can therefore",
+    "never outlive the failure it excuses.",
+    "",
+    "TO ADD an entry you must be able to state the reason and the exit criterion.",
+    "TO REMOVE one, fix the test and delete its object — the ratchet will tell",
+    "you if you forgot.",
+    "",
+    "`file` paths are relative to `showcase/harness/` and must match the path",
+    "vitest reports, so that the exclude glob and the ratchet agree."
+  ],
+  "quarantined": [
+    {
+      "file": "src/probes/frontend-matrix.test.ts",
+      "since": "2026-07-24",
+      "reason": "Asserts hard-coded per-frontend cell counts (react=660, angular=636) against `shell/src/data/frontend-catalog.json`, which is a GENERATED artifact. The catalog has since grown to 1302 runnable cells (react=664, angular=638), so the two literals are stale and the test fails with 'expected [ Array(664) ] to have a length of 660'. Not a product defect — the two assertions that actually express the test's stated intent ('without loss or duplication': length === metadata.runnable, and ids are unique) both PASS.",
+      "unquarantineWhen": "The per-frontend expectations are derived from the catalog instead of hard-coded, so adding a demo cell no longer breaks the test. Re-hard-coding fresh numbers only resets the clock — this test will drift again on the next catalog change."
+    },
+    {
+      "file": "src/probes/helpers/d5-mapping-drift.test.ts",
+      "since": "2026-07-24",
+      "reason": "Premise no longer exists. The test scrapes `CATALOG_TO_D5_KEY` out of `shell-dashboard/src/lib/live-status.ts` with a regex to prove the dashboard's copy has not drifted from the harness's `REGISTRY_TO_D5`. A completed refactor turned that dashboard file into a one-line `export *` barrel over the canonical `harness/src/shared/cell-model/live-status.ts`, so there is no second copy to drift and nothing for the regex to find. The test throws its own 'drift parser: could not locate CATALOG_TO_D5_KEY' guard.",
+      "unquarantineWhen": "The cell-model owner either deletes this test (the single-source-of-truth refactor made drift structurally impossible, which is a strictly stronger guarantee than the test provided) or rewrites it to assert the invariant that now does the work — that the dashboard barrel re-exports the canonical harness module rather than redeclaring the map."
+    },
+    {
+      "file": "src/probes/helpers/d5-representatives.test.ts",
+      "since": "2026-07-24",
+      "reason": "GENUINE PRODUCT GAP, deliberately not fixed here. The D5 script `d5-browser-use-smoke` registers the `browser-use-smoke` feature type in `D5_REGISTRY`, but `D5_REPRESENTATIVES` has no entry for it, so `getD5Representative('browser-use-smoke')` returns undefined and the D5 driver has no representative fixture for that feature type. The test is correct and is reporting a real hole; the fix belongs to the D5 owner, not to this CI-wiring change (which is strictly additive and touches no product source).",
+      "unquarantineWhen": "`D5_REPRESENTATIVES` gains a `browser-use-smoke` entry pointing at its fixture filename."
+    }
+  ]
+}

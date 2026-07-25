@@ -25,7 +25,8 @@ import type { Channel } from "@copilotkit/channels";
  *   session reports via its `onStateChange` observer.
  * - `stopped`: {@link ChannelManager.stop} has torn the Channel down.
  * - `error`: activation rejected with a non-setup error, OR a previously-online
- *   session gave up reconnecting after its bounded reconnect window.
+ *   session gave up reconnecting after its bounded reconnect window or was
+ *   generation-fenced by a replacement.
  *
  * Both MANAGED (Intelligence-gateway) and DIRECT (developer-supplied adapter)
  * Channels move through these states. A direct Channel is driven by the manager
@@ -114,7 +115,7 @@ export interface ChannelsHandle {
    * `handle.onStateChange?.(cb)`.
    */
   onStateChange?(
-    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+    cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
   ): void;
 }
 
@@ -797,7 +798,8 @@ export class ChannelManager implements ChannelsControl {
    *
    * - `reconnecting` → status `reconnecting` (dropped, Phoenix retrying);
    * - `online` → status `online` (rejoined, sendable again);
-   * - `gave_up` → status `error` (dead after the bounded reconnect window).
+   * - `gave_up` → status `error` (dead after the bounded reconnect window);
+   * - `fenced` → status `error` immediately (another activation superseded it).
    *
    * Makes NO re-activation — reconnection is delegated to the Phoenix connection
    * layer (see {@link ChannelManager}), which auto-rejoins under the persistent
@@ -822,10 +824,15 @@ export class ChannelManager implements ChannelsControl {
       } else if (state === "online") {
         entry.status = "online";
         this.log?.(`channel "${name}" managed session back online`);
-      } else {
+      } else if (state === "gave_up") {
         entry.status = "error";
         this.log?.(
           `channel "${name}" managed session gave up reconnecting; marking error`,
+        );
+      } else {
+        entry.status = "error";
+        this.log?.(
+          `channel "${name}" managed session was generation-fenced by a replacement; marking error`,
         );
       }
     });
