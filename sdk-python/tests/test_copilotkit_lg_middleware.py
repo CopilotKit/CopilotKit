@@ -11,8 +11,9 @@ and what state updates the middleware emits):
   becomes a ``SystemMessage`` containing ``"App Context:\\n<json>"``. Empty
   context is a no-op. Re-running ``before_agent`` does not duplicate the note.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
-  ToolNode does not try to execute them; later model calls and ``after_agent``
-  re-attach them with synthetic ToolMessages so model history remains valid.
+  ToolNode does not try to execute them; later model calls re-attach them with
+  synthetic ToolMessages, while ``after_agent`` persists them as orphans for
+  the real frontend result.
 * The ``expose_state`` opt-in surfaces user state into ``request.system_message``
   as a ``"Current agent state:"`` note. Default is off; reserved internal
   keys, underscore-prefixed keys, and empty values are filtered out; an
@@ -803,14 +804,13 @@ def test_after_agent_restores_intercepted_tool_calls_on_original_message():
     assert [tc["name"] for tc in restored_ai.tool_calls] == ["navigate"]
 
     tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
-    assert [m.tool_call_id for m in tool_messages] == ["2"]
-    assert json.loads(tool_messages[0].content) == {"status": "forwarded_to_frontend"}
+    assert tool_messages == []
     assert result["copilotkit"]["intercepted_tool_calls"] is None
     assert result["copilotkit"]["original_ai_message_id"] is None
     assert result["copilotkit"]["original_tool_calls"] is None
 
 
-def test_after_agent_does_not_duplicate_rehydrated_frontend_tool_history():
+def test_after_agent_removes_rehydrated_frontend_tool_result():
     middleware = CopilotKitMiddleware()
     backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
     frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
@@ -826,6 +826,7 @@ def test_after_agent_does_not_duplicate_rehydrated_frontend_tool_history():
             ToolMessage(
                 content=json.dumps({"status": "forwarded_to_frontend"}),
                 tool_call_id="2",
+                id="copilotkit-fe-tool-result-2",
             ),
         ],
         "copilotkit": {
@@ -845,7 +846,7 @@ def test_after_agent_does_not_duplicate_rehydrated_frontend_tool_history():
     assert [tc["id"] for tc in restored_ai.tool_calls] == ["1", "2"]
 
     tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
-    assert [m.tool_call_id for m in tool_messages] == ["1", "2"]
+    assert [m.tool_call_id for m in tool_messages] == ["1"]
     assert result["copilotkit"]["intercepted_tool_calls"] is None
     assert result["copilotkit"]["original_ai_message_id"] is None
     assert result["copilotkit"]["original_tool_calls"] is None
@@ -874,7 +875,7 @@ def test_bedrock_fix_strips_unanswered_tool_calls_from_ai_message():
     assert [tc["id"] for tc in repaired_ai.tool_calls] == ["answered"]
 
 
-def test_bedrock_fix_dedupes_tool_messages_with_shared_id():
+def test_sync_wrap_dedupes_tool_messages_with_shared_id():
     """Real result wins over an interrupted placeholder for the same id."""
     ai = AIMessage(
         content="",
@@ -888,9 +889,10 @@ def test_bedrock_fix_dedupes_tool_messages_with_shared_id():
     real = ToolMessage(content='{"hits": 3}', tool_call_id="tc-1")
     messages: list[Any] = [HumanMessage("hi"), ai, placeholder, real]
 
-    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+    request = _make_request(state={"messages": messages}, messages=messages)
+    seen, _ = _run_wrap(CopilotKitMiddleware(), request)
 
-    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
     assert len(tool_messages) == 1
     assert tool_messages[0].content == '{"hits": 3}'
 

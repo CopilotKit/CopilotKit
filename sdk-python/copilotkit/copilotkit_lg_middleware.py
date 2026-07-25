@@ -451,6 +451,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             request.messages,
             request.state.get("copilotkit", {}),
         )
+        self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
@@ -673,15 +674,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         cls,
         messages: list,
         copilotkit_state: dict[str, Any],
+        *,
+        synthesize_frontend_tool_results: bool = True,
     ) -> bool:
-        """Rehydrate FE tool calls with synthetic results before model history.
+        """Rehydrate intercepted FE tool calls before model history.
 
         ``after_model`` strips FE calls so the backend ToolNode only executes
         backend calls. Once backend ToolMessages have been appended, the next
         LLM call still needs to see the full assistant turn, including the FE
         calls it already made. Synthetic ToolMessages make that restored
         history valid for providers that require every tool call to be
-        answered.
+        answered. ``after_agent`` disables synthesis so the persisted FE call
+        remains orphaned for the real frontend result.
         """
         intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
         original_message_id = copilotkit_state.get("original_ai_message_id")
@@ -731,9 +735,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 changed = True
 
             tool_messages_end = idx + 1
-            while (
-                tool_messages_end < len(messages)
-                and isinstance(messages[tool_messages_end], ToolMessage)
+            while tool_messages_end < len(messages) and isinstance(
+                messages[tool_messages_end], ToolMessage
             ):
                 tool_messages_end += 1
 
@@ -755,7 +758,11 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     continue
 
                 tool_message = tool_messages_by_id.get(tool_call_id)
-                if tool_message is None and tool_call_id in intercepted_by_id:
+                if (
+                    synthesize_frontend_tool_results
+                    and tool_message is None
+                    and tool_call_id in intercepted_by_id
+                ):
                     tool_message = cls._frontend_tool_result_message(tool_call)
                     if tool_message is not None:
                         changed = True
@@ -1015,8 +1022,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return None
 
         # Keep only backend calls for the ToolNode. The full assistant turn is
-        # restored with synthetic FE ToolMessages before the next model call
-        # and before the agent exits.
+        # restored with synthetic FE ToolMessages before the next model call,
+        # then as an orphaned FE call before the agent exits.
         updated_ai_message = self._copy_ai_message_with_tool_calls(
             last_message,
             backend_tool_calls,
@@ -1061,7 +1068,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         self._restore_intercepted_tool_call_history(
             updated_messages,
             copilotkit_state,
+            synthesize_frontend_tool_results=False,
         )
+        synthetic_result_ids = {
+            f"copilotkit-fe-tool-result-{call.get('id')}"
+            for call in intercepted_tool_calls
+            if isinstance(call, dict) and call.get("id")
+        }
+        updated_messages = [
+            message
+            for message in updated_messages
+            if getattr(message, "id", None) not in synthetic_result_ids
+        ]
 
         return {
             "messages": updated_messages,
