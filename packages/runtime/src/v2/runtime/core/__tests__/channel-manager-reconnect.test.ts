@@ -10,11 +10,12 @@ import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
  * re-activate a Channel on a drop — but it MUST reflect real connection health
  * through the session's `onStateChange` observer so `status()` is honest rather
  * than reporting `online` forever after a drop. These tests pin that contract:
- * a drop → `reconnecting`, a rejoin → `online`, a bounded give-up → `error`,
- * with NO further engine call and the manager left coherent and usable.
+ * a drop → `reconnecting`, a rejoin → `online`, and either a bounded give-up or
+ * a generation fence → `error`, with NO further engine call and the manager
+ * left coherent and usable.
  * --------------------------------------------------------------------------------------------- */
 
-type ConnectionState = "online" | "reconnecting" | "gave_up";
+type ConnectionState = "online" | "reconnecting" | "gave_up" | "fenced";
 
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
 function fakeIntelligence(): CopilotKitIntelligence {
