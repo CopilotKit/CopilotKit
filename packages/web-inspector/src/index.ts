@@ -2327,10 +2327,10 @@ export class CpkThreadInspector extends LitElement {
             let args: Record<string, unknown> = {};
             if (typeof tc.args === "string") {
               try {
-                args = JSON.parse(tc.args) as Record<string, unknown>;
+                args = this.parseToolCallContent(tc.args);
               } catch (err) {
-                // Inspector is a debugging surface — surface malformed payloads
-                // instead of silently substituting `{}`.
+                // Empty content is normalized to `{}` for both tool arguments
+                // and results. The inspector still surfaces malformed JSON.
                 console.error(
                   "[CopilotKit Inspector] Failed to parse tool-call arguments",
                   { toolCallId: tc.id, raw: tc.args, error: err },
@@ -2372,10 +2372,7 @@ export class CpkThreadInspector extends LitElement {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
           try {
-            tc.result = JSON.parse(msg.content ?? "{}") as Record<
-              string,
-              unknown
-            >;
+            tc.result = this.parseToolCallContent(msg.content);
           } catch (err) {
             // See the comment on the assistant tool-call args parse above —
             // same rationale, same sentinel shape so the renderer can treat
@@ -2390,6 +2387,17 @@ export class CpkThreadInspector extends LitElement {
       }
     }
     return items;
+  }
+
+  private parseToolCallContent(
+    content: string | null | undefined,
+  ): Record<string, unknown> {
+    const normalizedContent = content?.trim();
+    if (!normalizedContent) {
+      return {};
+    }
+
+    return JSON.parse(normalizedContent) as Record<string, unknown>;
   }
 
   private mapApiEvents(events: ThreadDebuggerEvent[]): ApiAgentEvent[] {
