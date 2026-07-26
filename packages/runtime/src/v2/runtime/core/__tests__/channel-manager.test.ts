@@ -83,6 +83,33 @@ describe("ChannelManager", () => {
     await mgr.ready();
   });
 
+  it("marks a generation-fenced managed session as an explicit error", async () => {
+    let stateCallback:
+      | ((state: "online" | "reconnecting" | "gave_up" | "fenced") => void)
+      | undefined;
+    const logs: string[] = [];
+    const handle: ChannelsHandle = {
+      metadata: {},
+      stop: async () => {},
+      onStateChange: (callback) => {
+        stateCallback = callback;
+      },
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: async () => handle,
+      log: (message) => logs.push(message),
+    });
+
+    mgr.activate();
+    await mgr.ready();
+    stateCallback?.("fenced");
+
+    expect(mgr.status().channels.support).toBe("error");
+    expect(logs.some((message) => message.includes("fenced"))).toBe(true);
+  });
+
   it("does not call the engine at construction; stop() stops each handle once and is idempotent", async () => {
     const handleA = fakeHandle();
     const handleB = fakeHandle();
