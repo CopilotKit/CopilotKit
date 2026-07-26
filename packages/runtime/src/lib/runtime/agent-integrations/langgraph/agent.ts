@@ -23,7 +23,7 @@ interface CopilotKitStateEnrichment {
   };
 }
 
-import type { RunAgentInput, CustomEvent } from "@ag-ui/client";
+import type { RunAgentInput, CustomEvent, ToolCallStartEvent } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 
 // Import and re-export from separate file to maintain API compatibility
@@ -36,8 +36,26 @@ import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
 export class LangGraphAgent extends AGUILangGraphAgent {
+  private toolCallNames: Map<string, string> = new Map();
+
   constructor(config: LangGraphAgentConfig) {
     super(config);
+  }
+
+  private shouldEmitToolCall(
+    emitToolCalls: boolean | string | string[],
+    toolCallName: string | undefined,
+  ): boolean {
+    if (typeof emitToolCalls === "boolean") {
+      return emitToolCalls;
+    }
+    if (!toolCallName) {
+      return true;
+    }
+    if (Array.isArray(emitToolCalls)) {
+      return emitToolCalls.includes(toolCallName);
+    }
+    return emitToolCalls === toolCallName;
   }
 
   dispatchEvent(event: ProcessedEvents) {
@@ -130,12 +148,32 @@ export class LangGraphAgent extends AGUILangGraphAgent {
       event.type === EventType.TOOL_CALL_START ||
       event.type === EventType.TOOL_CALL_ARGS ||
       event.type === EventType.TOOL_CALL_END;
+
+    // Track tool call names for filtering by name
+    if (event.type === EventType.TOOL_CALL_START) {
+      const { toolCallId, toolCallName } = event as unknown as ToolCallStartEvent;
+      if (toolCallId && toolCallName) {
+        this.toolCallNames.set(toolCallId, toolCallName);
+      }
+    }
+
     if ("copilotkit:emit-tool-calls" in (rawEvent.metadata || {})) {
-      if (
-        rawEvent.metadata["copilotkit:emit-tool-calls"] === false &&
-        isToolEvent
-      ) {
-        return false;
+      const emitToolCalls = rawEvent.metadata["copilotkit:emit-tool-calls"];
+      if (isToolEvent) {
+        const { toolCallId, toolCallName } = event as { toolCallId?: string; toolCallName?: string };
+        const resolvedName = toolCallName ?? (toolCallId ? this.toolCallNames.get(toolCallId) : undefined);
+        if (!this.shouldEmitToolCall(emitToolCalls, resolvedName)) {
+          return false;
+        }
+      }
+    }
+
+    // Clean up tracked names after filtering to prevent memory leak.
+    // Must happen AFTER the filter check so TOOL_CALL_END can still resolve its name.
+    if (event.type === EventType.TOOL_CALL_END) {
+      const { toolCallId } = event as { toolCallId?: string };
+      if (toolCallId) {
+        this.toolCallNames.delete(toolCallId);
       }
     }
     if ("copilotkit:emit-messages" in (rawEvent.metadata || {})) {

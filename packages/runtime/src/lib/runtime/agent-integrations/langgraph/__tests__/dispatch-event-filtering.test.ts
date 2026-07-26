@@ -343,3 +343,115 @@ describe("langGraphDefaultMergeState", () => {
     expect(result.copilotkit.actions[0].name).toBe("SharedTool");
   });
 });
+
+// ---------- emit-tool-calls: string/list filtering ----------
+
+function makeToolEvent(
+  type: EventType,
+  metadata: Record<string, any>,
+  toolCallId = "tc-1",
+  toolCallName?: string,
+) {
+  return {
+    type,
+    toolCallId,
+    ...(toolCallName ? { toolCallName } : {}),
+    ...(type === EventType.TOOL_CALL_START ? { parentMessageId: "msg-1" } : {}),
+    rawEvent: { metadata },
+  };
+}
+
+describe("emit-tool-calls string/list filtering", () => {
+  it("emits only the named tool when emit-tool-calls is a string", () => {
+    const { agent } = createAgent();
+    const meta = { "copilotkit:emit-tool-calls": "draft_email" };
+
+    const matchResult = agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-1", "draft_email") as any,
+    );
+    expect(matchResult).toBe(true);
+
+    const noMatchResult = agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-2", "list_items") as any,
+    );
+    expect(noMatchResult).toBe(false);
+  });
+
+  it("emits only listed tools when emit-tool-calls is an array", () => {
+    const { agent } = createAgent();
+    const meta = { "copilotkit:emit-tool-calls": ["draft_email", "send_email"] };
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-1", "draft_email") as any,
+      ),
+    ).toBe(true);
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-2", "send_email") as any,
+      ),
+    ).toBe(true);
+
+    expect(
+      agent.dispatchEvent(
+        makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-3", "delete_item") as any,
+      ),
+    ).toBe(false);
+  });
+
+  it("resolves name via toolCallNames map for TOOL_CALL_ARGS events", () => {
+    const { agent } = createAgent();
+    const meta = { "copilotkit:emit-tool-calls": ["search"] };
+
+    // First dispatch START to populate the name map
+    agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-10", "search") as any,
+    );
+
+    // TOOL_CALL_ARGS has toolCallId but not toolCallName — should resolve via map
+    const argsResult = agent.dispatchEvent({
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId: "tc-10",
+      delta: '{"query":"test"}',
+      rawEvent: { metadata: meta },
+    } as any);
+    expect(argsResult).toBe(true);
+
+    // A different id that was never tracked — unknown name defaults to emit
+    const unknownResult = agent.dispatchEvent({
+      type: EventType.TOOL_CALL_ARGS,
+      toolCallId: "tc-unknown",
+      delta: "{}",
+      rawEvent: { metadata: meta },
+    } as any);
+    expect(unknownResult).toBe(true);
+  });
+
+  it("cleans up toolCallNames on TOOL_CALL_END to prevent memory leak", () => {
+    const { agent } = createAgent();
+    const meta = { "copilotkit:emit-tool-calls": true };
+
+    // START populates the map
+    agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-leak", "my_tool") as any,
+    );
+    expect((agent as any).toolCallNames.has("tc-leak")).toBe(true);
+
+    // END should clean it up
+    agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_END, meta, "tc-leak") as any,
+    );
+    expect((agent as any).toolCallNames.has("tc-leak")).toBe(false);
+  });
+
+  it("empty list suppresses all tool events", () => {
+    const { agent } = createAgent();
+    const meta = { "copilotkit:emit-tool-calls": [] as string[] };
+
+    const result = agent.dispatchEvent(
+      makeToolEvent(EventType.TOOL_CALL_START, meta, "tc-1", "any_tool") as any,
+    );
+    expect(result).toBe(false);
+  });
+});
