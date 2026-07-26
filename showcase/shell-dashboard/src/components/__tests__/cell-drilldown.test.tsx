@@ -89,7 +89,12 @@ describe("CellDrilldown", () => {
       row("health:lgp", "health", "green", { ...FRESH }),
       row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
       row("chat:lgp", "chat", "green", { ...FRESH }),
-      row("tools:lgp", "tools", "red", { ...FRESH }),
+      // fail_count 1 exercises the fc==1 first-strike boundary genuinely: the
+      // de-amplifier is `fail_count < 2`, so fc==1 is the LAST value that stays
+      // amber. (The row() helper defaults fail_count to 0, which would still be
+      // amber but would NOT pin the boundary — a regression to `< 1` would slip
+      // through with fc 0; it is caught with fc 1.)
+      row("tools:lgp", "tools", "red", { ...FRESH, fail_count: 1 }),
     ]);
     const { getByTestId, getByText } = render(
       <CellDrilldown
@@ -107,8 +112,45 @@ describe("CellDrilldown", () => {
     expect(rtBadge.textContent).toContain("✗");
     // The service-scoped line (health + e2e) is still green — honest scope.
     expect(getByText("green")).toBeDefined();
-    // Cross-resolver pin: the SAME map makes the pill red via buildCellModel's
-    // D1-D4 gate — so a pill-red cause now always has a visible non-green row.
+    // Cross-resolver pin: the SAME map drives the chip non-green via the D4
+    // fold — so a non-green D4 cause always has a visible non-green row in the
+    // drilldown. §C item 6 de-amplifies this first tools strike (fail_count 1
+    // < 2) to a one-tick amber; the drilldown still surfaces the red BE row.
+    expect(
+      buildCellModel(live, {
+        slug: "lgp",
+        featureId: "agentic-chat",
+        isSupported: true,
+        isWired: true,
+      }).chipColor,
+    ).toBe("amber");
+  });
+
+  it("a SECOND-strike red tools D4 fold (fail_count 2) is a solid red chip — pinning the other side of the fc boundary", () => {
+    // Companion to the fc==1 first-strike case above: at fail_count 2 the D4
+    // de-amplifier no longer applies (`fail_count < 2` is false), so the same
+    // red tools round-trip surfaces as a solid RED chip, not amber. This pins
+    // both sides of the boundary: fc 1 → amber, fc 2 → red.
+    const live = mapOf([
+      row("health:lgp", "health", "green", { ...FRESH }),
+      row("e2e:lgp/agentic-chat", "e2e", "green", { ...FRESH }),
+      row("chat:lgp", "chat", "green", { ...FRESH }),
+      row("tools:lgp", "tools", "red", { ...FRESH, fail_count: 2 }),
+    ]);
+    const { getByTestId } = render(
+      <CellDrilldown
+        slug="lgp"
+        featureId="agentic-chat"
+        integrationName="LangGraph Python"
+        featureName="Agentic Chat"
+        liveStatus={live}
+        onClose={() => {}}
+      />,
+    );
+    // The red BE row is still surfaced in the drilldown …
+    const rtBadge = getByTestId("drilldown-badge-be--agent-");
+    expect(rtBadge.textContent).toContain("✗");
+    // … and the chip is now a solid red (past first-strike).
     expect(
       buildCellModel(live, {
         slug: "lgp",

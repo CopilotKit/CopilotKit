@@ -172,6 +172,34 @@ function makeFakeWebSocket(mode: JoinMode) {
       });
     }
 
+    /**
+     * Simulate the gateway's explicit generation-fence notification followed by
+     * its clean `phx_close`. Phoenix treats that close as terminal and will not
+     * auto-rejoin this Channel instance.
+     */
+    triggerListenerFenced(): void {
+      if (this.lastJoinRef === undefined || this.lastTopic === undefined)
+        return;
+      this.onmessage?.({
+        data: JSON.stringify([
+          this.lastJoinRef,
+          null,
+          this.lastTopic,
+          "channel.listener_fenced.v1",
+          { reason: "listener_activation_fenced" },
+        ]),
+      });
+      this.onmessage?.({
+        data: JSON.stringify([
+          this.lastJoinRef,
+          null,
+          this.lastTopic,
+          "phx_close",
+          {},
+        ]),
+      });
+    }
+
     close(): void {
       this.closed = true;
       this.readyState = 3;
@@ -617,6 +645,35 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
     // ok reply restores online.
     await waitUntil(() => states.includes("online"), 8000);
     expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
+  });
+
+  it("surfaces a superseded listener as fenced instead of pretending Phoenix will rejoin it", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    const states: string[] = [];
+    session.onStateChange((state) => states.push(state));
+
+    instances[0]!.triggerListenerFenced();
+
+    expect(states).toEqual(["fenced"]);
+    expect(
+      instances[0]!.frames.filter(
+        (frame) => Array.isArray(frame) && frame[3] === "phx_join",
+      ),
+    ).toHaveLength(1);
 
     session.disconnect();
   });

@@ -124,7 +124,7 @@ vi.mock("../lib/pb", () => {
     collection: (_name: string) => ({
       // getList serves three callers:
       //   - heartbeat ping       → getList(1, 1, …)            (perPage 1)
-      //   - supplemental comm    → filter contains `key !~`    (CF7-F3 #1)
+      //   - supplemental signal  → `fields` INCLUDING `signal`  (see below)
       //   - bulk initial fetch   → getList(page, PB_PAGE_SIZE, …) per page
       // The bulk fetch issues page 1 first, then fans out pages 2..N
       // concurrently. To prove the merge is order-safe, a test can set
@@ -145,17 +145,32 @@ vi.mock("../lib/pb", () => {
             }
             return pageResponse(1, 1);
           }
-          // Supplemental comm-error aggregate fetch (CF7-F3 #1), identified
-          // by its aggregate-key filter marker (`key !~` — aggregate rows
-          // carry no `/<featureId>` segment). Served from a dedicated fixture
-          // VERBATIM (full rows, signal included — no `fields` projection is
-          // sent) and deliberately NOT recorded into the bulk-fetch
+          // Supplemental signal fetch, identified by a projection that INCLUDES
+          // `signal` — it is the one request that asks for the heavy blob, which
+          // is the very reason it exists, while the bulk fetch always projects
+          // `signal` away (STATUS_LIST_FIELDS).
+          //
+          // Two earlier discriminators were both wrong, and both failed by
+          // misclassifying a supplemental request as a BULK page — silently
+          // corrupting the fan-out instrumentation below:
+          //   - `filter` containing `key !~`: that marker disappears when the
+          //     hook is scoped to a dimension outside the comm-error aggregate
+          //     set, because the clause carrying it is dropped;
+          //   - the ABSENCE of any `fields` projection: the supplemental fetch
+          //     now sends one of its own (STATUS_LIST_FIELDS + `signal`, so the
+          //     response is a complete StatusRow without PocketBase's undeclared
+          //     columns).
+          // Presence of `signal` in the projection is the property that actually
+          // defines this request, so it is what we key on.
+          //
+          // Served from a dedicated fixture VERBATIM (full rows, signal
+          // included) and deliberately NOT recorded into the bulk-fetch
           // instrumentation (initialPageRequestOrder / initialPageOpts /
-          // lastInitialGetListOpts) so the fan-out order/count assertions
-          // keep targeting the bulk fetch alone.
+          // lastInitialGetListOpts) so the fan-out order/count assertions keep
+          // targeting the bulk fetch alone.
           if (
-            typeof opts?.filter === "string" &&
-            opts.filter.includes("key !~")
+            opts?.fields === undefined ||
+            opts.fields.split(",").includes("signal")
           ) {
             mockState.getListCalls += 1;
             mockState.commFetchCalls += 1;
@@ -897,8 +912,11 @@ describe("useLiveStatus", () => {
       expect(opts.filter).toContain('dimension = "e2e-demos"');
       expect(opts.filter).toContain('dimension = "d5-single-pill-e2e"');
       expect(opts.filter).toContain('key !~ "%/%"');
-      // Full rows: NO fields projection — signal must come back.
-      expect(opts.fields).toBeUndefined();
+      // `signal` must come back — that is the whole point of the request. The
+      // projection names it explicitly rather than omitting `fields` entirely,
+      // which also drops PocketBase's undeclared columns; see
+      // STATUS_SIGNAL_FIELDS in useLiveStatus.ts.
+      expect(opts.fields?.split(",")).toContain("signal");
     });
 
     it("a supplemental row OLDER than its bulk twin does NOT regress the newer bulk row (CF8 F3)", async () => {
@@ -940,10 +958,20 @@ describe("useLiveStatus", () => {
       expect(agg?.signal).toBeUndefined();
     });
 
-    it("a dimension scope OUTSIDE the aggregate set skips the supplemental fetch entirely", async () => {
+    // This used to assert the out-of-set scope SKIPPED the supplemental fetch
+    // entirely. That skip is exactly what left the `d5`/`e2e`/`health` reds with
+    // no infra attribution on a cold load. The comm-error CLAUSE is still
+    // dropped (those dimensions carry no mirrored comm error), but the non-green
+    // clause always applies, so the fetch must still happen — scoped.
+    it("a dimension scope OUTSIDE the aggregate set still fetches its NON-GREEN rows", async () => {
       const { result } = renderHook(() => useLiveStatus("smoke"));
       await waitFor(() => expect(result.current.status).toBe("live"));
-      expect(mockState.commFetchCalls).toBe(0);
+      expect(mockState.commFetchCalls).toBe(1);
+      const opts = mockState.lastCommFetchOpts as { filter?: string };
+      expect(opts.filter).toContain('dimension = "smoke"');
+      expect(opts.filter).toContain('state != "green"');
+      // The comm-error clause contributes nothing for an out-of-set dimension.
+      expect(opts.filter).not.toContain('key !~ "%/%"');
     });
 
     it("a dimension scope INSIDE the aggregate set narrows the supplemental fetch to that dimension", async () => {
@@ -956,6 +984,26 @@ describe("useLiveStatus", () => {
       expect(opts.filter).not.toContain("e2e-demos");
       const agg = result.current.rows.find((r) => r.key === "d6:acme");
       expect(agg?.signal).toEqual(COMM_SIGNAL);
+    });
+
+    it("the unscoped supplemental filter also covers every NON-GREEN row", async () => {
+      // The clause that repairs the cold-load red attribution: `classifyRung`
+      // needs `signal` on the non-green rows, and those are mostly per-cell
+      // `<dim>:<slug>/<featureId>` keys under dimensions the comm-error clause
+      // does not name — so `key !~ "%/%"` alone can never reach them.
+      mockState.commAggregateRows = [aggregateRow];
+      const { result } = renderHook(() => useLiveStatus());
+      await waitFor(() => expect(result.current.status).toBe("live"));
+      const opts = mockState.lastCommFetchOpts as {
+        filter?: string;
+        fields?: string;
+      };
+      expect(opts.filter).toContain('state != "green"');
+      // Still a UNION with the comm-error clause, not a replacement for it: a
+      // GREEN aggregate row can carry an active comm-error blob.
+      expect(opts.filter).toContain('key !~ "%/%"');
+      // And the projection still carries `signal`, or the whole fetch is moot.
+      expect(opts.fields?.split(",")).toContain("signal");
     });
   });
 });

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/web-components",
-  "version": "1.63.1",
+  "version": "1.63.2",
   "private": false,
   "description": "Framework-agnostic shadow-DOM web components for CopilotKit - includes the <copilotkit-threads-drawer> threads drawer element",
   "keywords": [

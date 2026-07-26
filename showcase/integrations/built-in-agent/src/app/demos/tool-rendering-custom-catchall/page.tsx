@@ -1,40 +1,46 @@
 "use client";
 
-// Tool Rendering — CUSTOM CATCH-ALL variant.
+// Tool Rendering — CUSTOM CATCH-ALL variant (middle of the progression).
 //
-// Same backend tools as `tool-rendering-default-catchall`, but this cell
-// opts out of CopilotKit's built-in default tool-call UI by registering
-// a SINGLE custom wildcard renderer via `useDefaultRenderTool`. The same
-// branded card now paints every tool call — no per-tool renderers yet.
+// Same backend tools as `tool-rendering-default-catchall`, but this
+// cell opts out of CopilotKit's built-in default tool-call UI by
+// registering a SINGLE custom wildcard renderer via
+// `useDefaultRenderTool`. The same branded card now paints every tool
+// call — no per-tool renderers yet.
 
+import React from "react";
 import {
-  CopilotKitProvider,
+  CopilotKit,
   CopilotChat,
   useDefaultRenderTool,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
-      <Demo />
-    </CopilotKitProvider>
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering-custom-catchall"
+    >
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
+    </CopilotKit>
   );
 }
 
-function Demo() {
+function Chat() {
   // @region[use-default-render-tool-wildcard]
   // `useDefaultRenderTool` is a convenience wrapper around
   // `useRenderTool({ name: "*", ... })` — a single wildcard renderer
   // that handles every tool call not claimed by a named renderer.
   useDefaultRenderTool(
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: ({ name, parameters, status, result }: any) => (
+      render: ({ name, parameters, status, result }) => (
         <CustomCatchallRenderer
           name={name}
           parameters={parameters}
@@ -47,34 +53,12 @@ function Demo() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold mb-4">
-        Tool Rendering — Custom Catch-all
-      </h1>
-      <p className="text-sm opacity-70 mb-6">
-        Try one of the suggestions. A single branded card renders every tool
-        call via a wildcard renderer.
-      </p>
-      <CopilotChat />
-    </main>
+    <CopilotChat
+      agentId="tool-rendering-custom-catchall"
+      className="h-full rounded-2xl"
+    />
   );
 }

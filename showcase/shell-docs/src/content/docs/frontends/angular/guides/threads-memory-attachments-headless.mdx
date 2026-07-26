@@ -1,0 +1,246 @@
+---
+title: Threads, memory, attachments, and headless UI
+description: Build persistent and multimodal Angular agent experiences, or own the complete UI with signal-based APIs.
+icon: "lucide/Layers3"
+doc_type: how-to
+---
+
+`CopilotChat` covers the common conversation path. Use the lower-level Angular
+APIs when you need saved threads, user memory, file input, or a fully custom
+interface.
+
+## Resume a specific thread
+
+Pass `threadId` to connect the chat to an existing conversation:
+
+```html
+<copilot-chat agentId="support" [threadId]="selectedThreadId()" />
+```
+
+For a custom thread list, use `injectThreads`. Its inputs accept plain values
+or signals.
+
+```ts title="src/app/thread-list.component.ts"
+import { Component } from "@angular/core";
+import { injectThreads } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-thread-list",
+  template: `
+    <button type="button" (click)="threads.startNewThread()">
+      New conversation
+    </button>
+
+    @if (threads.isLoading()) {
+      <p>Loading conversations…</p>
+    } @else {
+      @for (thread of threads.threads(); track thread.id) {
+        <button type="button" (click)="select(thread.id)">
+          {{ thread.name ?? "Untitled conversation" }}
+        </button>
+      }
+    }
+
+    @if (threads.listError()) {
+      <button type="button" (click)="threads.refetchThreads()">Retry</button>
+    }
+  `,
+})
+export class ThreadListComponent {
+  readonly threads = injectThreads({
+    agentId: "support",
+    limit: 20,
+  });
+
+  protected select(threadId: string): void {
+    // Store this id and bind it to CopilotChat's threadId input.
+    console.log(threadId);
+  }
+}
+```
+
+The list is server-authoritative and uses realtime updates when the platform
+supplies a WebSocket URL. Rename, archive, unarchive, and delete return
+promises. Deletion is permanent; ask the user before calling `deleteThread`.
+
+`CopilotThreadsDrawer` supplies a ready-made list, selection, filtering,
+pagination, and mutation controls. Put the drawer and chat under the same
+`provideCopilotChatConfiguration` provider so selection and new-thread actions
+update the chat. The drawer reads the platform's `threads` license feature and
+shows its locked state when that feature is unavailable.
+
+```ts
+import { Component } from "@angular/core";
+import {
+  CopilotChat,
+  CopilotThreadsDrawer,
+  provideCopilotChatConfiguration,
+} from "@copilotkit/angular";
+
+@Component({
+  selector: "app-conversations",
+  imports: [CopilotChat, CopilotThreadsDrawer],
+  providers: [provideCopilotChatConfiguration({ agentId: "support" })],
+  template: `
+    <copilot-threads-drawer agentId="support" [limit]="20" />
+    <copilot-chat />
+  `,
+})
+export class ConversationsComponent {}
+```
+
+## Read and manage memory
+
+`injectMemories` exposes the current runtime-authenticated user's memory list.
+Check `isAvailable()` before showing memory controls because a runtime may not
+provide the memory routes.
+
+```ts title="src/app/memory-list.component.ts"
+import { Component } from "@angular/core";
+import { injectMemories } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-memory-list",
+  template: `
+    @if (!memory.isAvailable()) {
+      <p>Memory is not available for this runtime.</p>
+    } @else {
+      @for (item of memory.memories(); track item.id) {
+        <article>
+          <p>{{ item.content }}</p>
+          <button type="button" (click)="remove(item.id)">Forget</button>
+        </article>
+      }
+    }
+  `,
+})
+export class MemoryListComponent {
+  readonly memory = injectMemories();
+
+  protected remove(id: string): void {
+    this.memory.removeMemory(id).catch(() => undefined);
+  }
+
+  protected addPreference(): void {
+    this.memory
+      .addMemory({
+        kind: "operational",
+        content: "Prefer concise status updates.",
+      })
+      .catch(() => undefined);
+  }
+}
+```
+
+`updateMemory` supersedes a memory with a full replacement and returns a new
+record with a new id. Re-send `content`, `kind`, and any
+`sourceThreadIds` you want to keep.
+
+## Enable attachments
+
+Pass an `AttachmentsConfig` to `CopilotChat`. The built-in input supports the
+file picker, drag and drop, and paste.
+
+```ts title="src/app/media-chat.component.ts"
+import { Component } from "@angular/core";
+import {
+  CopilotChat,
+  type AttachmentsConfig,
+} from "@copilotkit/angular";
+
+@Component({
+  selector: "app-media-chat",
+  imports: [CopilotChat],
+  template: `
+    <copilot-chat [attachments]="attachments" />
+  `,
+})
+export class MediaChatComponent {
+  protected readonly attachments: AttachmentsConfig = {
+    enabled: true,
+    accept: "image/*,application/pdf",
+    maxSize: 10 * 1024 * 1024,
+    onUploadFailed: (error) => {
+      console.error(error.reason, error.message);
+    },
+  };
+}
+```
+
+Without `onUpload`, files are read as base64. Supply `onUpload` to place large
+files in your own storage and return a URL. The selected model and backend must
+support each content type you allow.
+
+## Build a headless chat
+
+`injectAgentStore` gives you the state needed to render your own transcript and
+composer. Add the user message to the agent, then run that same agent through
+`CopilotKitCore`.
+
+```ts title="src/app/headless-chat.component.ts"
+import { Component, inject, signal } from "@angular/core";
+import { CopilotKit, injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-headless-chat",
+  template: `
+    <div aria-live="polite">
+      @for (message of store().messages(); track message.id) {
+        <article [attr.data-role]="message.role">
+          {{ message.content }}
+        </article>
+      }
+      @if (store().isRunning()) {
+        <p>Agent is working…</p>
+      }
+    </div>
+
+    <textarea
+      aria-label="Message"
+      [value]="draft()"
+      (input)="updateDraft($event)"
+    ></textarea>
+    <button
+      type="button"
+      [disabled]="store().isRunning() || !draft().trim()"
+      (click)="send()"
+    >
+      Send
+    </button>
+  `,
+})
+export class HeadlessChatComponent {
+  private readonly copilotKit = inject(CopilotKit);
+  readonly store = injectAgentStore("default");
+  readonly draft = signal("");
+
+  protected updateDraft(event: Event): void {
+    this.draft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  protected async send(): Promise<void> {
+    const content = this.draft().trim();
+    if (!content || this.store().isRunning()) return;
+
+    const agent = this.store().agent;
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    this.draft.set("");
+    await this.copilotKit.core.runAgent({ agent });
+  }
+}
+```
+
+Add error handling around `runAgent` in production and disable repeated sends
+while `isRunning()` is true. The store tears down its agent subscription with
+the owning injector.
+
+## Next steps
+
+- [injectAgentStore API](/reference/angular/functions/injectAgentStore)
+- [CopilotChat attachments input](/reference/angular/components/CopilotChat)
+- [Runnable headless example](/angular/features#headless-simple)
+- [Runnable multimodal example](/angular/features#multimodal)

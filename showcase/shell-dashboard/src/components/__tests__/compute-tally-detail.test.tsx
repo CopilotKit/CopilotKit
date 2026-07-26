@@ -24,6 +24,7 @@ function makeRow(
   key: string,
   dimension: string,
   state: StatusRow["state"],
+  overrides?: Partial<StatusRow>,
 ): StatusRow {
   return {
     id: key,
@@ -35,6 +36,7 @@ function makeRow(
     transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
+    ...overrides,
   };
 }
 
@@ -252,7 +254,10 @@ describe("computeColumnTallyDetail", () => {
       makeFeature("tool-rendering", "Feature B"),
     ];
 
-    // Both features: green D3 + green D5 + green D6 → chipColor=green.
+    // Both features: green D3 + green D4 (slug-scoped chat) + green D5 + green
+    // D6 → chipColor=green. (I1: the D4 rung must be present — a single-absent
+    // D4 now correctly grays the ladder, so the chat row is required to model a
+    // genuinely-intact green cell.)
     const liveStatus: LiveStatusMap = new Map([
       [
         "e2e:my-int/agentic-chat",
@@ -262,6 +267,7 @@ describe("computeColumnTallyDetail", () => {
         "e2e:my-int/tool-rendering",
         makeRow("e2e:my-int/tool-rendering", "e2e", "green"),
       ],
+      ["chat:my-int", makeRow("chat:my-int", "chat", "green")],
       [
         "d5:my-int/agentic-chat",
         makeRow("d5:my-int/agentic-chat", "d5", "green"),
@@ -334,12 +340,15 @@ describe("computeColumnTallyDetail", () => {
       makeFeature("tool-rendering", "Feature 2"),
     ];
 
-    // agentic-chat: green D3 + green D5 + green D6 → green (intact ladder).
+    // agentic-chat: green D3 + green D4 (chat) + green D5 + green D6 → green
+    // (intact ladder; the D4 chat row is required so a single-absent D4 does
+    // not gray the cell, I1).
     const liveStatus: LiveStatusMap = new Map([
       [
         "e2e:partial/agentic-chat",
         makeRow("e2e:partial/agentic-chat", "e2e", "green"),
       ],
+      ["chat:partial", makeRow("chat:partial", "chat", "green")],
       [
         "d5:partial/agentic-chat",
         makeRow("d5:partial/agentic-chat", "d5", "green"),
@@ -423,10 +432,13 @@ describe("computeColumnTallyDetail", () => {
     ]);
   });
 
-  it("green D3 + red D4 → red bucket with dimension 'health'", () => {
-    // A red D4 (real-time chat/tools) row exists with a non-null, non-green
-    // status → the failing D1-D4 gate paints the chip red, and the
-    // `dimension:"health"` branch classifies it as a live-roundtrip failure.
+  it("green D3 + first-strike red D4 (fail_count 1) → amber bucket with dimension 'health'", () => {
+    // A red D4 (real-time chat/tools) row with fail_count 1 is a first D4
+    // strike → §C item 6 de-amplifies it to amber (not red). fail_count 1 is
+    // the boundary value (the de-amplifier is `fail_count < 2`), so this pins
+    // the LAST value that stays amber — a regression to `< 1` reds it and is
+    // caught here (makeRow's default fail_count 0 would NOT catch that). The
+    // live-roundtrip `dimension:"health"` classification is unchanged.
     const integration = makeIntegration("h2-int", ["agentic-chat"]);
     const features = [makeFeature("agentic-chat", "Feature A")];
     const liveStatus: LiveStatusMap = new Map([
@@ -434,8 +446,39 @@ describe("computeColumnTallyDetail", () => {
         "e2e:h2-int/agentic-chat",
         makeRow("e2e:h2-int/agentic-chat", "e2e", "green"),
       ],
-      // chat red → D4 red → gate fails → chipColor red, dimension health
-      ["chat:h2-int", makeRow("chat:h2-int", "chat", "red")],
+      // chat red (fail_count 1) → D4 first-strike → chipColor amber, dim health
+      ["chat:h2-int", makeRow("chat:h2-int", "chat", "red", { fail_count: 1 })],
+    ]);
+
+    const result = computeColumnTallyDetail(
+      integration,
+      features,
+      liveStatus,
+      "live",
+    );
+
+    expect(result.unknown).toBe(false);
+    expect(result.green).toEqual([]);
+    expect(result.red).toEqual([]);
+    expect(result.amber).toEqual([
+      { label: "Feature A", dimension: "health", featureId: "agentic-chat" },
+    ]);
+  });
+
+  it("green D3 + second-strike red D4 (fail_count 2) → RED bucket — the other side of the fc boundary", () => {
+    // Companion to the fc==1 case above: at fail_count 2 the D4 de-amplifier no
+    // longer applies (`fail_count < 2` is false), so the same red chat D4 fold
+    // is a solid red chip and the cell lands in the RED bucket, not amber. This
+    // pins both sides of the first-strike boundary in the tally path.
+    const integration = makeIntegration("h3-int", ["agentic-chat"]);
+    const features = [makeFeature("agentic-chat", "Feature A")];
+    const liveStatus: LiveStatusMap = new Map([
+      [
+        "e2e:h3-int/agentic-chat",
+        makeRow("e2e:h3-int/agentic-chat", "e2e", "green"),
+      ],
+      // chat red (fail_count 2) → past first-strike → chipColor red, dim health
+      ["chat:h3-int", makeRow("chat:h3-int", "chat", "red", { fail_count: 2 })],
     ]);
 
     const result = computeColumnTallyDetail(
@@ -463,7 +506,8 @@ describe("computeColumnTallyDetail", () => {
       makeFeature("tool-rendering", "Feature B"),
     ];
 
-    // agentic-chat: green D3 + green D5 + green D6 → green (intact ladder).
+    // agentic-chat: green D3 + green D4 (chat) + green D5 + green D6 → green
+    // (intact ladder; chat row required so single-absent D4 does not gray, I1).
     const liveStatus: LiveStatusMap = new Map([
       [
         "e2e:ns-int/agentic-chat",
@@ -473,6 +517,7 @@ describe("computeColumnTallyDetail", () => {
         "e2e:ns-int/tool-rendering",
         makeRow("e2e:ns-int/tool-rendering", "e2e", "green"),
       ],
+      ["chat:ns-int", makeRow("chat:ns-int", "chat", "green")],
       [
         "d5:ns-int/agentic-chat",
         makeRow("d5:ns-int/agentic-chat", "d5", "green"),
@@ -513,7 +558,10 @@ describe("computeColumnTallyDetail", () => {
         "e2e:a6-int/agentic-chat",
         makeRow("e2e:a6-int/agentic-chat", "e2e", "green"),
       ],
-      // D5 green, no D6 row → chipColor amber (awaiting D6 confirmation).
+      // D4 (chat) green so the ladder is intact through D5 (I1: a single-absent
+      // D4 would otherwise gray the cell before it reaches the D6 soft-parity).
+      ["chat:a6-int", makeRow("chat:a6-int", "chat", "green")],
+      // D5 green, no D6 row → D6 soft-parity top → chipColor amber.
       [
         "d5:a6-int/agentic-chat",
         makeRow("d5:a6-int/agentic-chat", "d5", "green"),
@@ -547,9 +595,12 @@ describe("computeColumnTallyDetail", () => {
     ];
 
     const liveStatus: LiveStatusMap = new Map([
-      // Both cells contiguous to D5 (green e2e + green d5).
+      // Both cells contiguous to D5 (green e2e + green D4 chat + green d5).
       ["e2e:lgp/agentic-chat", makeRow("e2e:lgp/agentic-chat", "e2e", "green")],
       ["e2e:lgp/voice", makeRow("e2e:lgp/voice", "e2e", "green")],
+      // Slug-scoped D4 chat (green) so a single-absent D4 does not gray either
+      // cell before it reaches D5/D6 (I1).
+      ["chat:lgp", makeRow("chat:lgp", "chat", "green")],
       ["d5:lgp/agentic-chat", makeRow("d5:lgp/agentic-chat", "d5", "green")],
       ["d5:lgp/voice", makeRow("d5:lgp/voice", "d5", "green")],
       // aggregate distractor — NOT consulted by per-cell resolveD6.

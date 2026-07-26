@@ -3,6 +3,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SignupLink } from "../signup-link";
 import { OpsPlatformCTA } from "../ops-platform-cta";
+import { DocsTrackedCopy, DocsTrackedLink } from "../docs-conversion";
 
 // These tests exercise the SSR path of "use client" components whose
 // render-time bodies call `new URL(getRuntimeConfig().<url>)`. During
@@ -76,5 +77,24 @@ describe("client component SSR safety (shell-docs)", () => {
       "https://copilotkit.ai/talk-to-an-engineer",
     );
     expect(url.searchParams.get("utm_content")).toBe("test-surface");
+  });
+
+  it("DocsTrackedLink preserves its destination and analytics surface", () => {
+    const html = renderToStaticMarkup(
+      <DocsTrackedLink href="/threads-import" surface="test-surface">
+        Synchronize history
+      </DocsTrackedLink>,
+    );
+    expect(hrefFromStaticMarkup(html)).toBe("/threads-import");
+    expect(html).toContain('data-docs-conversion-surface="test-surface"');
+  });
+
+  it("DocsTrackedCopy exposes its analytics surface", () => {
+    const html = renderToStaticMarkup(
+      <DocsTrackedCopy surface="test-copy-surface">
+        <code>npx copilotkit@latest init</code>
+      </DocsTrackedCopy>,
+    );
+    expect(html).toContain('data-docs-copy-surface="test-copy-surface"');
   });
 });

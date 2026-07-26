@@ -7,6 +7,7 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
+  TemplateRef,
   Type,
   computed,
   inject,
@@ -59,11 +60,21 @@ import { connectActiveThread } from "../../active-thread-connector";
     >
       <copilot-chat-view
         [messages]="messages()"
+        [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
         [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
         [inputComponent]="inputComponent()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [messageViewChildrenComponent]="messageViewChildrenComponent()"
+        [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+        [messageViewChildrenClass]="messageViewChildrenClass()"
         [hasExplicitThreadId]="hasExplicitThreadId()"
       >
       </copilot-chat-view>
@@ -85,6 +96,24 @@ export class CopilotChat extends ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /** Component used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom assistant-message renderer. */
+  readonly assistantMessageClass = input<string | undefined>();
+  /** Component used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom reasoning-message renderer. */
+  readonly reasoningMessageClass = input<string | undefined>();
+  /** Component rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenComponent = input<Type<any> | undefined>();
+  /** Template rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to custom transcript-children renderers. */
+  readonly messageViewChildrenClass = input<string | undefined>();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });
@@ -107,6 +136,7 @@ export class CopilotChat extends ChatState {
   private readonly destroyRef = inject(DestroyRef);
 
   protected messages = computed(() => this.agentStore().messages());
+  protected agentState = computed(() => this.agentStore().state());
   protected isRunning = computed(() => this.agentStore().isRunning());
   protected readonly hasExplicitThreadId =
     this.config?.hasExplicitThreadId ??

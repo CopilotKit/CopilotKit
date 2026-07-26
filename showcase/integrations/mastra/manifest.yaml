@@ -24,13 +24,14 @@ interaction_modalities:
 managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
-not_supported_features:
-  - shared-state-streaming
-  - gen-ui-interrupt
-  - interrupt-headless
-  - agentic-chat-reasoning
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
+# Full langgraph-python parity: every demo backed by demo + aimock e2e + doc.
+# The prior gen-ui-interrupt / interrupt-headless quarantine (an upstream
+# @copilotkit/react-core v2 resume-path hook bug) is resolved as of
+# @copilotkit/* 1.62.1 — both cells now run the native useInterrupt path and are
+# supported. Genuine architectural gaps (predictive-state, step-lifecycle,
+# durable-across-disconnect) are Mastra-SDK limitations, not showcase gaps, and
+# are tracked on the umbrella (OSS-381) rather than claimed here.
+not_supported_features: []
 features:
   - cli-start
   - agentic-chat
@@ -51,6 +52,7 @@ features:
   - agent-config
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - a2ui-recovery
   - headless-complete
   - auth
   - shared-state-read-write
@@ -67,7 +69,17 @@ features:
   - hitl-in-chat-booking
   - mcp-apps
   - shared-state-read
+  - shared-state-streaming
+  - reasoning-default
+  - reasoning-custom
+  - tool-rendering-reasoning-chain
+  - gen-ui-interrupt
+  - interrupt-headless
+  - background-agents
+  - browser-use
+  - observational-memory
 a2ui_pattern: llm-driven
+interrupt_pattern: native
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
@@ -292,6 +304,22 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
+  - id: a2ui-recovery
+    name: A2UI Error Recovery
+    description:
+      Dynamic A2UI where the toolkit's validate→retry recovery loop is made
+      visible — a malformed first render self-heals into a valid surface; an
+      always-invalid render exhausts the attempt cap and shows a tasteful
+      fallback instead of a broken surface. Backend-owned via getA2UITools.
+    tags:
+      - generative-ui
+    route: /demos/a2ui-recovery
+    highlight:
+      - src/app/demos/a2ui-recovery/page.tsx
+      - src/app/demos/a2ui-recovery/chat.tsx
+      - src/app/demos/a2ui-recovery/suggestions.ts
+      - src/mastra/agents/index.ts
+      - src/app/api/copilotkit-a2ui-recovery/route.ts
   - id: a2ui-fixed-schema
     name: A2UI Fixed Schema
     description: Frontend-owned component tree; agent streams data into the data
@@ -498,6 +526,31 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot
+      override — the v1 bridge emits reasoning start/content/end events straight
+      into the default renderer.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/mastra/agents/index.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description:
+      Visible reasoning/thinking chain alongside the final answer via a
+      custom reasoningMessage slot.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/mastra/agents/index.ts
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: Gen UI Interrupt (Frontend Tool)
     description:
@@ -526,3 +579,50 @@ demos:
       - src/mastra/agents/index.ts
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: background-agents
+    name: Background Agents
+    description: A long-running deep-research tool dispatched as a Mastra
+      background task, surfaced inline as a live "working" activity card
+    tags:
+      - agent-capabilities
+    route: /demos/background-agents
+    animated_preview_url:
+    highlight:
+      - src/mastra/tools/background-research.ts
+      - src/mastra/agents/index.ts
+      - src/app/demos/background-agents/page.tsx
+      - src/app/demos/background-agents/activity-card.tsx
+      - src/app/api/copilotkit-background-agents/route.ts
+  - id: browser-use
+    name: Browser Use (Local Browser)
+    description:
+      Mastra-only, real-LLM demo — the agent drives a real LOCAL headless
+      browser (Playwright Chromium, no hosted-browser API key) to fetch top
+      Hacker News stories or read a page, and renders the results inline in
+      chat. Non-deterministic, so no aimock replay — requires
+      `npx playwright install chromium` at runtime.
+    tags:
+      - agent-capabilities
+    route: /demos/browser-use
+    animated_preview_url:
+    highlight:
+      - src/mastra/agents/index.ts
+      - src/mastra/tools/browse-web.ts
+      - src/app/demos/browser-use/page.tsx
+      - src/app/demos/browser-use/chat.tsx
+      - src/app/demos/browser-use/browse-results-card.tsx
+      - src/app/api/copilotkit-browser-use/route.ts
+  - id: observational-memory
+    name: Observational Memory
+    description: Mastra Observational Memory compresses and activates
+      conversation context out of band; the background work surfaces inline as
+      activity cards via the runtime's observationalMemory surfacing toggle
+    tags:
+      - agent-state
+    route: /demos/observational-memory
+    animated_preview_url:
+    highlight:
+      - src/mastra/agents/index.ts
+      - src/app/demos/observational-memory/page.tsx
+      - src/app/demos/observational-memory/activity-renderer.tsx
+      - src/app/api/copilotkit-observational-memory/route.ts

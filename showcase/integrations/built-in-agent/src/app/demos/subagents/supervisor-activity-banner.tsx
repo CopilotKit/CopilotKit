@@ -2,17 +2,12 @@
 
 import React from "react";
 
-import { SubAgentName } from "./delegation-log";
+import type { SubAgentName } from "./delegation-log";
 
+// @region[active-subagent-banner]
 // Compact sticky banner at the top of the chat panel that names the
-// currently-running sub-agent + task. Mirrors LGP's
-// `supervisor-activity-banner.tsx` so the
-// `[data-testid="active-subagent-banner"]` anchor is identical across
-// integrations. Mounted only when the demo can identify an active
-// sub-agent — built-in-agent's `useComponent` registrations do not
-// currently surface per-run "which subagent is active" state, so this
-// component is exported for future wiring but not yet rendered by
-// page.tsx.
+// currently-running sub-agent + task. Keeps the user oriented even
+// when the per-message activity card has scrolled out of view.
 export function SupervisorActivityBanner({
   subAgent,
   task,
@@ -39,3 +34,4 @@ export function SupervisorActivityBanner({
     </div>
   );
 }
+// @endregion[active-subagent-banner]

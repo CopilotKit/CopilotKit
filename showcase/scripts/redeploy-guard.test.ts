@@ -271,6 +271,19 @@ function contextFor(
   opts: { runCancelled?: boolean; hasChanges?: boolean } = {},
 ): GhContext {
   const anySuccess = legResults.includes("success");
+  // `any_cancelled` / `cancelled_services` are derived from the per-slot
+  // outcomes exactly as `aggregate-build-results` does.
+  //
+  // Crucially, model WHEN THE AGGREGATOR ITSELF IS SKIPPED. Its guard is
+  // `!cancelled() && detect-changes.outputs.has_changes == 'true'`, so on a
+  // RUN-level cancellation OR a no-changes push it never runs, and a skipped
+  // job's outputs resolve to the EMPTY STRING — not 'false'. That distinction
+  // is load-bearing twice over: it is what keeps an intentional run-level
+  // cancel silent, and it is what stops `any_success == 'false'` from firing
+  // the alert on every routine push that builds nothing.
+  const cancelledLegs = legResults.filter((r) => r === "cancelled");
+  const aggregatorRan =
+    !(opts.runCancelled ?? false) && (opts.hasChanges ?? true);
   return {
     runCancelled: opts.runCancelled ?? false,
     needs: {
@@ -279,7 +292,15 @@ function contextFor(
       },
       build: { result: rollupBuildResult(legResults) },
       "aggregate-build-results": {
-        outputs: { any_success: String(anySuccess) },
+        outputs: aggregatorRan
+          ? {
+              any_success: String(anySuccess),
+              any_cancelled: String(cancelledLegs.length > 0),
+              cancelled_services: cancelledLegs
+                .map((_, i) => `svc-${i}`)
+                .join(","),
+            }
+          : { any_success: "", any_cancelled: "", cancelled_services: "" },
       },
     },
   };
@@ -489,5 +510,135 @@ describe("notify guard — cancelled-rollup blind spot", () => {
     const legs = Array(28).fill("cancelled");
     const ctx = contextFor(legs, { runCancelled: true });
     expect(jobRuns(guard, ctx)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression guard for the SILENT PARTIAL-CANCEL hole.
+//
+// Production incident, build run 30162773601 (merge of #6160): a workflow-file
+// edit forced a full-fleet rebuild, 5 of 28 slots were killed by their
+// `timeout-minutes` budget, the other 23 built and WERE redeployed to staging
+// (`redeploy-staging` succeeded and uploaded `redeploy-summary`), and:
+//   - `notify` was SKIPPED — no Slack alert, no PR comment;
+//   - the run rolled up to conclusion `cancelled`, failing
+//     showcase_deploy.yml's `conclusion == 'success'` gate, so the staging
+//     redeploy was never verified.
+//
+// Why every pre-existing guard missed it — measured on purpose-built probe run
+// 30166429073, and consistent with the documented semantics of the status
+// functions ("cancelled(): returns true if the workflow was canceled";
+// "failure(): returns true if any ancestor job fails"):
+//   - the killed leg's own `job.status` is `cancelled`;
+//   - the matrix rollup `needs.build.result` is `cancelled`;
+//   - `cancelled()` is FALSE — it is workflow-scoped, and the RUN was not
+//     cancelled, only individual legs. (Confirmed in production too: both
+//     `!cancelled()`-guarded jobs RAN in run 30162773601.)
+//   - `failure()` is FALSE — a CANCELLED ancestor is not a FAILED ancestor.
+//   - `any_success` is 'true' — 23 slots did build.
+// So `failure() || cancelled()` would NOT have closed this. The only signal
+// that survives is the per-slot one: `any_cancelled`.
+// ---------------------------------------------------------------------------
+describe("notify guard — silent partial-cancel hole (run 30162773601)", () => {
+  const guard = readJobGuard("notify");
+
+  /** The exact production shape: 23 slots built, 5 killed by timeout. */
+  const partialCancelLegs = [
+    ...Array(23).fill("success"),
+    ...Array(5).fill("cancelled"),
+  ];
+
+  /**
+   * The pre-fix `notify` guard, verbatim from origin/main. Kept as a literal
+   * so the test proves the DIFFERENCE the fix makes rather than merely
+   * asserting the current guard's behaviour. If this ever starts passing, the
+   * model has drifted from GitHub's semantics.
+   */
+  const PRE_FIX_GUARD = `\${{ !cancelled()
+          && (failure()
+              || needs.aggregate-build-results.outputs.any_success == 'false') }}`;
+
+  it("RED: the pre-fix guard stays SILENT on the production partial-cancel", () => {
+    const ctx = contextFor(partialCancelLegs, { runCancelled: false });
+    // Every clause the old guard had available goes the wrong way:
+    expect(rollupBuildResult(partialCancelLegs)).toBe("cancelled");
+    expect(anyDepFailed(ctx)).toBe(false); // failure() === false
+    expect(ctx.runCancelled).toBe(false); // cancelled() === false
+    expect(
+      (
+        ctx.needs["aggregate-build-results"] as {
+          outputs: Record<string, string>;
+        }
+      ).outputs.any_success,
+    ).toBe("true"); // the any_success clause === false
+    expect(jobRuns(PRE_FIX_GUARD, ctx)).toBe(false); // ← the bug
+  });
+
+  it("GREEN: the live guard FIRES on the production partial-cancel", () => {
+    const ctx = contextFor(partialCancelLegs, { runCancelled: false });
+    expect(jobRuns(guard, ctx)).toBe(true);
+  });
+
+  it("adds no noise: still silent on a fully clean build", () => {
+    const legs = Array(28).fill("success");
+    expect(jobRuns(guard, contextFor(legs))).toBe(false);
+  });
+
+  it("adds no noise: still silent when a human cancels the whole RUN", () => {
+    const ctx = contextFor(partialCancelLegs, { runCancelled: true });
+    expect(jobRuns(guard, ctx)).toBe(false);
+  });
+
+  it("adds no noise: still silent when the build was skipped (no changes)", () => {
+    // has_changes=false → the build matrix never runs and the aggregator is
+    // skipped, so `any_cancelled` is '' — not 'true'.
+    const ctx = contextFor([], { hasChanges: false });
+    expect(jobRuns(guard, ctx)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The job that turns a partially-cancelled build RED (so its conclusion is
+// `failure`, not `cancelled`) and names the affected services in Slack.
+// ---------------------------------------------------------------------------
+describe("notify-cancelled-builds guard", () => {
+  const guard = readJobGuard("notify-cancelled-builds");
+
+  it("fires on the production partial-cancel (23 built, 5 killed)", () => {
+    const legs = [...Array(23).fill("success"), ...Array(5).fill("cancelled")];
+    const ctx = contextFor(legs, { runCancelled: false });
+    expect(jobRuns(guard, ctx)).toBe(true);
+  });
+
+  it("fires when a single leg is cancelled and everything else built", () => {
+    const legs = [...Array(27).fill("success"), "cancelled"];
+    expect(jobRuns(guard, contextFor(legs, { runCancelled: false }))).toBe(
+      true,
+    );
+  });
+
+  it("fires when every leg was cancelled", () => {
+    const legs = Array(28).fill("cancelled");
+    expect(jobRuns(guard, contextFor(legs, { runCancelled: false }))).toBe(
+      true,
+    );
+  });
+
+  it("does NOT fire on a clean build", () => {
+    expect(jobRuns(guard, contextFor(Array(28).fill("success")))).toBe(false);
+  });
+
+  it("does NOT fire on an all-FAILED build (that is notify's job, not ours)", () => {
+    expect(jobRuns(guard, contextFor(Array(28).fill("failure")))).toBe(false);
+  });
+
+  it("does NOT fire when a human cancelled the whole RUN (intentional)", () => {
+    const legs = [...Array(23).fill("success"), ...Array(5).fill("cancelled")];
+    const ctx = contextFor(legs, { runCancelled: true });
+    expect(jobRuns(guard, ctx)).toBe(false);
+  });
+
+  it("does NOT fire when there were no changes to build", () => {
+    expect(jobRuns(guard, contextFor([], { hasChanges: false }))).toBe(false);
   });
 });

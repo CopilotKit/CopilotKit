@@ -1,0 +1,5 @@
+{
+  "title": "API reference",
+  "icon": "lucide/Braces",
+  "pages": ["channel", "thread", "callbacks"]
+}

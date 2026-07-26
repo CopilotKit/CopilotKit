@@ -28,6 +28,8 @@
  */
 
 import type { Page as PlaywrightPage } from "playwright";
+
+import { conversationFailureSummary } from "./privacy-safe-diagnostics.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
@@ -571,12 +573,35 @@ export async function runConversation(
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
       {
-        input: turn.input,
+        inputLength: turn.input.length,
         timeoutMs: turnTimeoutMs,
       },
     );
 
     try {
+      // skipSend baseline hoist: on a `skipSend` turn, `preFill` ITSELF issues
+      // the run (it clicks a sample button that dispatches
+      // `agent.addMessage` + `copilotkit.runAgent`), so the run-start / bubble
+      // baselines MUST be snapshotted BEFORE preFill. A fast in-process runtime
+      // (e.g. built-in-agent) fires RUN_STARTED synchronously during preFill;
+      // capturing `baselineRunStartCount` AFTER preFill (the normal position)
+      // then observes an already-incremented count, making the primary
+      // done-signal gate `runStartCount > baselineRunStartCount` impossible to
+      // satisfy → a healthy turn false-reds with `done-signal-missing`. Slower
+      // runtimes never hit this (RUN_STARTED lands after the capture), so the
+      // pre-preFill snapshot is strictly correct for every runtime. Non-skipSend
+      // turns are unaffected: their `preFill` never starts a run, so the
+      // original post-preFill capture below still reflects only prior-turn runs.
+      let skipSendBaselineCount: number | null = null;
+      let skipSendBaselineRunStartCount: number | null = null;
+      if (turn.skipSend) {
+        skipSendBaselineCount = await countAssistantMessages(
+          page as unknown as PlaywrightPage,
+        );
+        skipSendBaselineRunStartCount = (await readCopilotRunning(page))
+          .runStartCount;
+      }
+
       if (turn.preFill) {
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — running preFill hook`,
@@ -642,9 +667,9 @@ export async function runConversation(
       // sendTurnMessage so the assistant can't have started streaming yet
       // (the user message hasn't been submitted), guaranteeing the
       // snapshot reflects only prior-turn bubbles.
-      const baselineCount = await countAssistantMessages(
-        page as unknown as PlaywrightPage,
-      );
+      const baselineCount =
+        skipSendBaselineCount ??
+        (await countAssistantMessages(page as unknown as PlaywrightPage));
 
       // Multi-step run-start baseline for the PRIMARY DOM done-signal. Snapshot
       // the page-side `runStartCount` BEFORE `sendTurnMessage` — SAME ordering
@@ -656,8 +681,9 @@ export async function runConversation(
       // fast agent fires RUN_STARTED before the settle wait begins (capturing
       // it inside `waitForTurnComplete`, which runs AFTER the send, would be
       // racy and could kill the PRIMARY signal on fast turns).
-      const baselineRunStartCount = (await readCopilotRunning(page))
-        .runStartCount;
+      const baselineRunStartCount =
+        skipSendBaselineRunStartCount ??
+        (await readCopilotRunning(page)).runStartCount;
 
       // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
       // the pre-send testid counts so the settle gate can detect a NEW render
@@ -811,7 +837,11 @@ export async function runConversation(
           coldStartRetries++;
           console.warn(
             `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
-            { error: errorMessage(translatedErr) },
+            {
+              errorCategory: conversationFailureSummary(
+                errorMessage(translatedErr),
+              ),
+            },
           );
           // Reload to clear the transient cold-start banner. Safe on turn 1 —
           // no conversation state exists yet — and the plain-fill re-send below
@@ -956,16 +986,15 @@ export async function runConversation(
           hasAssertions: !!turn.assertions,
         },
       );
-      // Preserve the runner's diagnostic log contract — Phase 0 Task 0.3
-      // / Phase 5 Task 5.1 Step 6 / OPEN ISSUE #4: the bubble-race repro
-      // driver parses `[conversation-runner] turn N/total — settled text
-      // { turnNum, text: '…' }` out of verbose stdout. The settled-text
-      // value is now sourced from `waitForTurnComplete`'s return value
-      // (turn-scoped, cascade-consistent, defect-2 safe) instead of a
-      // separate post-settle `page.evaluate` read.
+      // Emit structural turn metadata only. Prompts and generated response
+      // content are intentionally excluded from CI logs.
       console.debug(
-        `[conversation-runner] turn ${turnNum}/${total} — settled text`,
-        { turnNum, text: settleResult.text.slice(0, 200) },
+        `[conversation-runner] turn ${turnNum}/${total} — settled metadata`,
+        {
+          turnNum,
+          bubbleIndex: settleResult.bubbleIndex,
+          textLength: settleResult.text.length,
+        },
       );
 
       if (turn.assertions) {
@@ -1002,13 +1031,16 @@ export async function runConversation(
               querySelector(s: string): unknown;
             };
           };
-          const bodyText =
-            win.document.body?.innerText?.slice(0, 500) ?? "(no body)";
+          const bodyText = win.document.body?.innerText ?? "";
           const hasTextarea = !!win.document.querySelector("textarea");
           const hasErrorBoundary =
             bodyText.includes("Application error") ||
             bodyText.includes("Internal Server Error");
-          return { bodyText, hasTextarea, hasErrorBoundary };
+          return {
+            bodyTextLength: bodyText.length,
+            hasTextarea,
+            hasErrorBoundary,
+          };
         });
       } catch (diagErr) {
         /* diagnostics are best-effort */
@@ -1026,7 +1058,7 @@ export async function runConversation(
         );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
-        error: errorMessage(err),
+        errorCategory: conversationFailureSummary(errorMessage(err)),
         turnsCompleted: idx,
         elapsedMs: Date.now() - startedAt,
         ...failureDiagnostics,
@@ -1227,7 +1259,7 @@ export async function fillAndVerifySend(
 
   const baseline = await readUserMessageCount(page);
   console.debug("[conversation-runner] fillAndVerifySend — start", {
-    input: input.slice(0, 100),
+    inputLength: input.length,
     selector: chatInputSelector,
     userMessageBaseline: baseline,
     maxAttempts,

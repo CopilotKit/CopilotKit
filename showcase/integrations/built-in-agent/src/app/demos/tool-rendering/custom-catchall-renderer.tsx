@@ -3,9 +3,9 @@
 import React from "react";
 
 // Branded catch-all renderer for tools that don't have a dedicated
-// per-tool renderer. Registered via `useDefaultRenderTool` in
-// tool-renderers.tsx, this component handles every tool call NOT
-// claimed by a named `useRenderTool` registration.
+// per-tool renderer. Registered via `useDefaultRenderTool` in page.tsx,
+// this component handles every tool call NOT claimed by a named
+// `useRenderTool` registration (e.g. get_stock_price, roll_dice).
 //
 // Shows the tool name, a status badge, pretty-printed arguments, and
 // the result (as JSON). Each cell is self-contained, so this file is

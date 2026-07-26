@@ -58,7 +58,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
   const runtime = new CopilotRuntime({
-    agents: { default: createBuiltInAgent() },
+    agents: { "voice-demo": createBuiltInAgent() },
     runner: new InMemoryAgentRunner(),
     transcriptionService: new GuardedOpenAITranscriptionService(),
   });

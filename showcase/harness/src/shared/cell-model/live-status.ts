@@ -244,24 +244,84 @@ export type LiveStatusMap = Map<string, StatusRow>;
 /**
  * Comma-joined PocketBase `fields` projection for the BULK INITIAL status
  * fetch — every `StatusRow` field EXCEPT `signal`. The `signal` blob (probe
- * output: error messages, diffs, nested objects) is ~61% of the status
- * payload by size. Dropping it from the bulk initial fetch (~2455 rows across
- * ~5 pages) is the dominant transfer-size win for first paint; the live SSE
+ * output: error messages, diffs, nested objects) is ~70% of the status
+ * payload by size (measured against production: 371 KB → 113 KB for a
+ * 500-row page). Dropping it from the bulk initial fetch (~3100 rows across
+ * ~7 pages) is the dominant transfer-size win for first paint; the live SSE
  * subscription still delivers full rows (`signal` included) for every
  * subsequent delta.
  *
- * `signal` IS read at render time, in three places:
+ * `signal` IS read at render time, in four places:
  *   - the drilldown panel and the per-cell banner, which lazy-load the full
- *     row on demand (unaffected by this projection), and
+ *     row on demand (unaffected by this projection),
  *   - `buildCellModel` → `decodeCellCommError` (cell-model.ts), which reads
  *     `row.signal` PER CELL on every render to derive the REQ-B
- *     unreachable/pending comm-error overlay. That read cannot lazy-load —
- *     so `useLiveStatus` issues a SUPPLEMENTAL initial fetch (CF7-F3 #1) of
- *     ONLY the comm-error candidate aggregate rows
- *     (`FLEET_COMM_AGGREGATE_DIMENSIONS`, `<dim>:<slug>` keys — a few rows
- *     per integration, not the whole collection) WITH `signal`, keeping the
- *     bulk projection's payload win while making active overlays visible
- *     from a cold load instead of waiting for an SSE re-delivery.
+ *     unreachable/pending comm-error overlay, and
+ *   - `classifyRung` (cell-model.contribution.ts), which reads it — via
+ *     `signalHasInfraErrorClass` plus the `redSignalKnown` provenance flag
+ *     `foldFamily` derives over the RED rows — to tell an INFRA red from a
+ *     PRODUCT red. This read happens ONLY in the red branch, so it only ever
+ *     needs the NON-GREEN rows, and its provenance precondition is scoped to
+ *     those same rows (a projected GREEN sibling must not suppress it).
+ *
+ * Neither of the latter two can lazy-load, so `useLiveStatus` issues a
+ * SUPPLEMENTAL initial fetch WITH `signal`, scoped to the union of two clauses:
+ * the comm-error candidate aggregate rows (`FLEET_COMM_AGGREGATE_DIMENSIONS`,
+ * `<dim>:<slug>` keys) ∪ every row whose `state != "green"`. Measured against
+ * production on 2026-07-24 that union is 436 of 3082 rows (~480 KB on the wire;
+ * the non-green clause alone is 357 rows / ~430 KB), so the bulk projection
+ * keeps most of its payload win while the infra-vs-product RED attribution and
+ * the AGGREGATE comm-error overlay are correct from a COLD LOAD instead of
+ * waiting on an SSE re-delivery (which only arrives when the probe's next sweep
+ * rewrites that specific row — up to a full probe period, i.e. ~60 min for the
+ * hourly `e2e:`/`starter:`/`d6:` writers and longer for the 6-hourly and
+ * weekly drift probes; cadences live in `harness/config/probes/*.yml`).
+ *
+ * SCOPE OF THAT "COLD LOAD" CLAIM — it is NOT the whole matrix. The union is
+ * green-blind outside clause 1: as of the same measurement 2646 rows sit
+ * outside it while carrying a non-empty `signal` (green `e2e:`/`d5:`/`d6:`
+ * per-cell rows, plus green `health:`/`chat:`/`tools:`/`starter:` rows). That is
+ * tolerated because `classifyRung` reads `signal` only in its RED branch and the
+ * harness mirrors comm errors onto the integration-level aggregates clause 1
+ * fetches state-independently — but it IS an open gap, and it is the same gap
+ * that let the mis-scoped signal-provenance precondition (the removed
+ * family-wide `RawRung.signalKnown`, now the red-row-scoped
+ * `FamilyFold.redSignalKnown`) ship green. `useLiveStatus`'s
+ * "WHAT THIS DOES NOT COVER" note has the full row-by-dimension breakdown.
+ *
+ * DO NOT re-narrow that supplemental fetch without re-reading
+ * `classifyRung`'s fail-safe-polarity note: a non-green row that arrives
+ * without `signal` is now painted RED (over-report), which is recoverable —
+ * whereas it used to be painted GRAY, which silently hid real failures.
+ *
+ * ── WHY A STRIPPED `signal` IS UNAMBIGUOUS — AND WHAT WOULD BREAK IT ──────
+ * The `redSignalKnown` provenance flag `foldFamily` derives for `classifyRung`
+ * rests on this property: under
+ * a `fields=` projection PocketBase OMITS the `signal` key entirely, while a
+ * genuinely signal-less row arrives with `signal: null`. Because
+ * `null !== undefined`, "key absent" therefore means "projected", never "no
+ * signal".
+ *
+ * VERIFIED, and VERSION-SCOPED to the PB release this deploy pins —
+ * **PocketBase 0.22.21** (`ARG PB_VERSION` in `showcase/pocketbase/Dockerfile`).
+ * On 2026-07-24, against production: all 3082 rows fetched WITHOUT a projection
+ * carried a `signal` key (0 omitted), and all 500 rows of page 1 fetched WITH
+ * this projection omitted it (0 present); a version-matched throwaway instance
+ * confirmed that a record created with no `signal` value reads back as
+ * `"signal": null`, not as an absent key.
+ *
+ * UPGRADE HAZARD — do not carry this claim across a PocketBase major bump
+ * unchecked. PB >= 0.23 gained `isVisible = !f.GetHidden()` in its
+ * `PublicExport` path, so on those versions a field-level `hidden` flag makes
+ * the server omit `signal` for reasons that have NOTHING to do with our
+ * projection, reintroducing exactly the "absent = ?" ambiguity this flag was
+ * built to avoid. A PB upgrade must therefore re-verify both directions above
+ * and confirm `signal` is not `hidden` in the collection schema.
+ *
+ * Adjacent, verified-safe: `signal: ""` round-trips as a PRESENT key, so
+ * `redSignalKnown` stays `true` and an empty blob yields no infra attribution —
+ * the rung is painted RED. That over-reports rather than hides, which is the
+ * safe direction and needs no guard.
  *
  * Guarded by `live-status.test.ts`: this list must equal `keyof StatusRow`
  * minus `signal`, so a new `StatusRow` field forces a conscious decision about
@@ -439,6 +499,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agent-config": ["agent-config"],
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
+  "threadid-frontend-tool-roundtrip": ["threadid-frontend-tool-roundtrip"],
   // Reasoning family — both demos route through `reasoning-display`.
   "reasoning-custom": ["reasoning-display"],
   "reasoning-default": ["reasoning-display"],
@@ -463,6 +524,9 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "declarative-hashbrown": ["byoc"],
   "declarative-json-render": ["byoc"],
   voice: ["voice"],
+  "background-agents": ["background-agents"],
+  "observational-memory": ["observational-memory"],
+  "browser-use": ["browser-use-smoke"],
 };
 
 /**
@@ -498,8 +562,11 @@ function worstStateRank(state: string): number {
  * Effective state for staleness folding: a green row whose `observed_at` is
  * older than `maxAgeMs` folds in as `degraded`, so a frozen-green driver can
  * never win the all-green tie and mask a fresh-green sibling. Only green is
- * downgraded — a stale red/degraded row already signals a problem. Mirrors
- * `cell-model.ts`'s per-row stale-green downgrade.
+ * downgraded — a stale red/degraded row already signals a problem. Uses the
+ * same per-row stale-green downgrade as the V2 `foldFamily`
+ * (cell-model.contribution.ts) — but note foldFamily applies the downgrade to
+ * RANKING only and returns the RAW winner row, whereas the badge resolvers
+ * below rewrite the returned `.state` (see resolveD5Row).
  */
 function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
   return row.state === "green" && isStale(row, now, maxAgeMs)
@@ -526,8 +593,13 @@ function effectiveState(row: StatusRow, now: number, maxAgeMs: number): State {
  *
  * Returns the EFFECTIVE (stale-downgraded) winner row — a stale-green
  * winner comes back with `state: "degraded"`, matching the rank that made
- * it win the fold, so `.state` never contradicts the resolution (mirrors
- * `resolveD5` in cell-model.ts and `buildBadge` below). Exported for tests.
+ * it win the fold, so `.state` never contradicts the resolution (as
+ * `buildBadge` below also does). NOTE: this is a DELIBERATE divergence from
+ * the V2 cell-model pipeline (`foldFamily`/`testLevelFromFold`), which
+ * surfaces the RAW winner `.state` on `TestLevel.row` and keeps the downgrade
+ * only in the classified contribution. This badge resolver and the CellModel
+ * therefore report a different `.row.state` for the same stale-green winner
+ * ON PURPOSE — do not "reconcile" them. Exported for tests.
  */
 export function resolveD5Row(
   live: LiveStatusMap,
@@ -537,7 +609,7 @@ export function resolveD5Row(
 ): StatusRow | null {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
   // Unmapped / empty-map feature: no 1P test exists, so return null (gray
-  // no-data badge) to match cell-model.ts `resolveD5` (returns exists:false)
+  // no-data badge) to match the legacy `resolveD5` (returns exists:false)
   // and depth-utils.ts `isD5Green` (returns false). There is NO direct-key
   // fallback — a feature with real D5 coverage must be in CATALOG_TO_D5_KEY.
   // A direct `d5:<slug>/<featureId>` fallback was removed because it could
@@ -548,11 +620,11 @@ export function resolveD5Row(
     return null;
   }
   // Per-sub-row stale-green→degraded fold applied BEFORE the worst-state
-  // comparison (mirrors cell-model.ts `resolveD5`): any stale-green sub-row
+  // comparison (mirrors the legacy `resolveD5`): any stale-green sub-row
   // folds in as degraded so it can never win the all-green tie and mask a
   // fresh-green sibling. D5 uses the e2e (6h) window.
   //
-  // STRICT on missing sub-rows (mirrors cell-model.ts `resolveD5` and
+  // STRICT on missing sub-rows (mirrors the legacy `resolveD5` and
   // depth-utils.ts `isD5Green`'s `every(...)`): a multi-key family is credited
   // green ONLY when EVERY mapped sub-row is present. A missing mapped sub-row
   // (`anyMissing`) forces the family out of green and resolves to `null`
@@ -573,7 +645,7 @@ export function resolveD5Row(
       worstStateRank(eff) > worstStateRank(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so the returned `.state` agrees
-      // with the rank that won the fold — mirrors cell-model.ts `resolveD5`.
+      // with the rank that won the fold — mirrors the legacy `resolveD5`.
       worst = eff === row.state ? row : { ...row, state: eff };
       worstState = eff;
     }
@@ -663,7 +735,8 @@ export function resolveD6Row(
  * (`d4-chat-roundtrip.ts`) writes `chat:<slug>` / `tools:<slug>` rows once
  * per integration.
  *
- * Mirrors `resolveD4` in cell-model.ts, including its EXPECTATION MAPPING:
+ * Matches origin/main's legacy `resolveD4` (since replaced by the V2
+ * `foldFamily`/`classifyRung` pipeline), including its EXPECTATION MAPPING:
  *   - `chat:<slug>` is producer-UNCONDITIONAL (written for every probed
  *     integration). A green/degraded fold with the chat row MISSING is an
  *     unverified family and collapses to `null` (no-data → gray badge). A
@@ -712,7 +785,7 @@ export function resolveD4Row(
   }
 
   // STRICT on the UNCONDITIONAL row: a missing `chat:<slug>` collapses a
-  // below-red fold to no-data (mirrors cell-model.ts resolveD4 and the
+  // below-red fold to no-data (mirrors the legacy resolveD4 and the
   // D5/D6 anyMissing collapse). Rank-based so out-of-vocab states survive.
   if (
     !chatRow &&
@@ -817,10 +890,8 @@ export type StarterFailureClass = (typeof STARTER_FAILURE_CLASSES)[number];
  * SOFT (transient) failure classes that earn two-miss tolerance. `smoke-failed`
  * is deliberately ABSENT — a real content regression is a hard red.
  */
-const SOFT_STARTER_FAILURE_CLASSES: ReadonlySet<StarterFailureClass> = new Set([
-  "transport-error",
-  "aborted",
-]);
+export const SOFT_STARTER_FAILURE_CLASSES: ReadonlySet<StarterFailureClass> =
+  new Set(["transport-error", "aborted"]);
 
 /** Type guard for a valid StarterFailureClass. */
 export function isStarterFailureClass(
@@ -857,7 +928,7 @@ export function starterErrorClassFromSignal(
  * `fail_count >= 2` is "two+ consecutive misses — confirmed". A SOFT failure
  * flips red only once the count crosses this threshold.
  */
-const SOFT_MISS_TOLERANCE_THRESHOLD = 2;
+export const SOFT_MISS_TOLERANCE_THRESHOLD = 2;
 
 /**
  * Resolve the `starter:<columnSlug>/<level>` row for one starter sub-cell.
