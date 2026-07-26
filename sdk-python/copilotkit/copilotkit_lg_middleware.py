@@ -758,17 +758,28 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             runtime, "context", None
         )
 
-        # Strip the reserved transport-layer key ``copilotkit_forwarded_headers``
-        # so it is never rendered into the LLM prompt. langgraph-api auto-copies
-        # ``config.configurable`` into ``runtime.context``, which means the
-        # forwarded-headers wrapper dict shows up here even though it is only
-        # meant for the httpx hook (which reads it from a separate ContextVar
-        # via ``_extract_forwarded_headers_from_config``).
+        # Strip transport-layer keys that must never be rendered into the LLM
+        # system message ("App Context:").
+        #
+        # ``copilotkit_forwarded_headers`` — the wrapper dict that the CopilotKit
+        # SDK bundles forwarded x-* headers into before putting them in
+        # ``config.configurable``.
+        #
+        # ``x-*`` prefixed keys — individual forwarded HTTP headers (e.g.
+        # ``x-copilotkit-auth``) that langgraph-api copies from
+        # ``config.configurable`` into ``runtime.context`` because
+        # ``configurable_headers.include: ["x-*"]`` is set in langgraph.json.
+        # These keys are credentials or infra headers that must NEVER appear in
+        # the LLM prompt; they are consumed only in graph node code via
+        # ``config["configurable"]["x-copilotkit-auth"]`` (the non-model-visible
+        # path).  If we do not strip them here they would be serialized into the
+        # "App Context:" system message and become visible to the LLM.
         if isinstance(app_context, dict):
             app_context = {
                 k: v
                 for k, v in app_context.items()
                 if k != "copilotkit_forwarded_headers"
+                and not (isinstance(k, str) and k.lower().startswith("x-"))
             }
 
         # Check if app_context is missing or empty

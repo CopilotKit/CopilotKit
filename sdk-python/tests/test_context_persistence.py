@@ -1,93 +1,106 @@
-"""Tests for auth token persistence across multiple agent runs.
+"""Tests for non-secret config value persistence across multiple agent runs.
 
-These tests verify the documented access pattern from configurable.mdx and auth.mdx:
-authentication tokens passed via useAgentContext remain accessible to agent
-nodes across multiple runs via the ``state["copilotkit"]["context"]`` path.
+These tests verify the documented access pattern for NON-SECRET runtime
+configuration — user preferences, session metadata, UI state — that is
+published via ``useAgentContext`` and flows through
+``state["copilotkit"]["context"]``.
+
+This is the MODEL-VISIBLE channel.  ``CopilotKitMiddleware`` serializes all
+values in this channel into the "App Context:" system message sent to the LLM
+on every turn.  Values here appear in LLM provider logs.
+
+FOR AUTHENTICATION TOKENS AND SECRETS — use the x-* configurable-header path:
+  * Send ``x-copilotkit-auth`` from the frontend via ``<CopilotKit headers={{}}>``
+  * Read ``(config.get("configurable") or {}).get("x-copilotkit-auth")`` in
+    the graph node.
+  * See ``sdk-python/tests/test_configurable_auth_header.py`` for the proof.
+  * See ``showcase/shell-docs/src/content/docs/integrations/langgraph/auth.mdx``
+    for the documentation.
+
+The access pattern exercised here:
 
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
-    # iterate through entries to extract values
+    # iterate through entries to extract NON-SECRET values
 """
 
-import pytest
 
+def test_agent_node_can_read_preference_from_context():
+    """Agent node can read non-secret user-preference values from the
+    useAgentContext channel (``state["copilotkit"]["context"]``)."""
 
-def test_agent_node_can_read_auth_token_from_context():
-    """Agent node can read authToken from state["copilotkit"]["context"]."""
-
-    # Simulate the state structure that would be present when useAgentContext
-    # publishes { authToken: 'test-token-123', userId: 'user-42' }
+    # Simulate the state structure that CopilotKitMiddleware produces when
+    # the frontend calls useAgentContext({ value: { tone: "casual", ... } })
     state = {
         "messages": [{"type": "human", "content": "hello"}],
         "copilotkit": {
             "context": [
                 {
-                    "description": "User authentication context",
+                    "description": "User response preferences",
                     "value": {
-                        "authToken": "test-token-123",
-                        "userId": "user-42",
+                        "tone": "casual",
+                        "expertise": "intermediate",
+                        "responseLength": "concise",
+                        "sessionId": "sess-abc",
                     },
                 }
             ]
         },
     }
 
-    # This is the documented pattern from configurable.mdx and auth.mdx
+    # Documented pattern for non-secret config from configurable.mdx
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
 
-    # Extract auth values from context entries
-    auth_token = None
-    user_id = None
+    tone = None
+    session_id = None
 
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
-            user_id = value.get("userId") or user_id
+            tone = value.get("tone") or tone
+            session_id = value.get("sessionId") or session_id
 
-    # Verify the token is accessible
-    assert auth_token == "test-token-123"
-    assert user_id == "user-42"
+    assert tone == "casual"
+    assert session_id == "sess-abc"
 
 
-def test_auth_token_persists_across_multiple_runs():
-    """Auth token remains accessible across multiple agent runs (simulated state updates)."""
+def test_preference_persists_across_multiple_runs():
+    """Non-secret preference values remain accessible across multiple agent
+    runs (simulated state updates — LLM is meant to see these on every turn).
+    """
 
-    # Initial state with auth context
     state = {
         "messages": [{"type": "human", "content": "first message"}],
         "copilotkit": {
             "context": [
                 {
-                    "description": "User authentication context",
+                    "description": "User response preferences",
                     "value": {
-                        "authToken": "persistent-token-456",
-                        "userId": "user-99",
+                        "tone": "professional",
+                        "expertise": "expert",
+                        "sessionId": "sess-persistent-99",
                     },
                 }
             ]
         },
     }
 
-    # Simulate three consecutive agent runs
     for run_number in range(1, 4):
-        # Agent node reads auth token (documented pattern)
         copilotkit_state = state.get("copilotkit", {})
         context_entries = copilotkit_state.get("context", [])
 
-        auth_token = None
+        tone = None
         for entry in context_entries:
             value = entry.get("value", {})
             if isinstance(value, dict):
-                auth_token = value.get("authToken") or auth_token
+                tone = value.get("tone") or tone
 
-        # Verify token is accessible on this run
-        assert auth_token == "persistent-token-456", (
-            f"Run {run_number}: authToken should be accessible"
+        assert tone == "professional", (
+            f"Run {run_number}: tone preference must persist across runs"
         )
 
-        # Simulate agent adding a response (state evolves but context persists)
+        # Simulate state evolution
         state["messages"].append(
             {"type": "ai", "content": f"Response from run {run_number}"}
         )
@@ -97,7 +110,7 @@ def test_auth_token_persists_across_multiple_runs():
 
 
 def test_context_with_multiple_entries():
-    """Agent can extract authToken when multiple context entries are present."""
+    """Agent can extract preference values when multiple context entries exist."""
 
     state = {
         "messages": [{"type": "human", "content": "hello"}],
@@ -111,63 +124,52 @@ def test_context_with_multiple_entries():
                     },
                 },
                 {
-                    "description": "User authentication context",
-                    "value": {
-                        "authToken": "multi-entry-token",
-                        "userId": "user-123",
-                    },
-                },
-                {
                     "description": "Session metadata",
                     "value": {
-                        "sessionId": "sess-abc",
+                        "sessionId": "sess-multi-123",
+                        "uiTheme": "dark",
                     },
                 },
             ]
         },
     }
 
-    # Extract authToken from among multiple context entries
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
 
-    auth_token = None
     tone = None
     session_id = None
+    ui_theme = None
 
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
             tone = value.get("tone") or tone
             session_id = value.get("sessionId") or session_id
+            ui_theme = value.get("uiTheme") or ui_theme
 
-    # All values should be extractable
-    assert auth_token == "multi-entry-token"
     assert tone == "casual"
-    assert session_id == "sess-abc"
+    assert session_id == "sess-multi-123"
+    assert ui_theme == "dark"
 
 
 def test_missing_context_returns_none():
     """Agent node gracefully handles missing context (no crash)."""
 
-    # State with no copilotkit context
     state = {
         "messages": [{"type": "human", "content": "hello"}],
     }
 
-    # Documented pattern should not crash
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
 
-    auth_token = None
+    tone = None
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
+            tone = value.get("tone") or tone
 
-    # Should return None, not crash
-    assert auth_token is None
+    assert tone is None
 
 
 def test_empty_context_returns_none():
@@ -181,10 +183,52 @@ def test_empty_context_returns_none():
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
 
-    auth_token = None
+    tone = None
     for entry in context_entries:
         value = entry.get("value", {})
         if isinstance(value, dict):
-            auth_token = value.get("authToken") or auth_token
+            tone = value.get("tone") or tone
 
-    assert auth_token is None
+    assert tone is None
+
+
+def test_no_sensitive_keys_in_context_channel():
+    """Guard: the App Context channel must not carry auth tokens or secrets.
+
+    This mirrors the guard in test_context_integration.py — both files must
+    agree that auth tokens do not belong in ``state["copilotkit"]["context"]``.
+    """
+    sensitive_patterns = {"auth", "token", "secret", "key", "password", "credential"}
+
+    state = {
+        "messages": [],
+        "copilotkit": {
+            "context": [
+                {
+                    "description": "User preferences — appropriate for App Context",
+                    "value": {
+                        "tone": "enthusiastic",
+                        "expertise": "beginner",
+                        "responseLength": "detailed",
+                        "uiTheme": "dark",
+                        "sessionId": "sess-safe-123",
+                    },
+                }
+            ]
+        },
+    }
+
+    copilotkit_state = state.get("copilotkit", {})
+    context_entries = copilotkit_state.get("context", [])
+
+    for entry in context_entries:
+        value = entry.get("value", {})
+        if isinstance(value, dict):
+            for k in value:
+                lower_k = k.lower()
+                for pattern in sensitive_patterns:
+                    assert pattern not in lower_k, (
+                        f"Key '{k}' looks like a credential — "
+                        f"do not put auth tokens in state['copilotkit']['context']. "
+                        f"Use x-copilotkit-auth configurable header instead."
+                    )

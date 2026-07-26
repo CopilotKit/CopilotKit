@@ -8,41 +8,32 @@ description: "Secure your LangGraph agents with user authentication (Platform & 
 CopilotKit supports user authentication for LangGraph agents in two deployment modes:
 
 - **LangGraph Platform**: Uses built-in authentication with `@auth.authenticate` decorator
-- **Self-hosted**: Uses dynamic agent configuration to pass authentication context
+- **Self-hosted**: Uses custom `x-*` HTTP headers forwarded through the CopilotKit runtime into `config["configurable"]`
 
-Both approaches enable your agents to access authenticated user context and implement proper authorization.
-
-## How It Works
+**Both approaches keep auth tokens out of the LLM's context window.**  This is what distinguishes them from the `useAgentContext` / App Context channel, which is intentionally model-visible and therefore unsuitable for secrets.
 
 ```mermaid
 sequenceDiagram
     participant Frontend
-    participant CopilotKit
-    participant LangGraphAgent
-    participant Agent
+    participant CopilotKit Runtime
+    participant LangGraph Server
+    participant Agent Node
 
-    Frontend->>CopilotKit: authorization: "user-token"
-    CopilotKit->>LangGraphAgent: Forward auth token
-    LangGraphAgent->>Agent: user info via config
-    Agent->>Agent: Access authenticated user context
+    Frontend->>CopilotKit Runtime: x-copilotkit-auth: "user-token"
+    CopilotKit Runtime->>LangGraph Server: forward x-* headers
+    LangGraph Server->>Agent Node: config["configurable"]["x-copilotkit-auth"]
+    Agent Node->>Agent Node: validate token (never in state/LLM)
 ```
 
-## Frontend Setup
+<Callout type="warning" title="useAgentContext is NOT for auth tokens">
+  **`useAgentContext` is the model-visible channel.**  Every value published via
+  `useAgentContext` is serialized into a `SystemMessage` sent to the LLM on every
+  turn — it appears in LLM provider logs and the LLM can reference it in responses.
 
-Pass your authentication token via the `properties` prop:
-
-```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  properties={{
-    authorization: userToken, // Forwarded as Bearer token
-  }}
->
-  <YourApp />
-</CopilotKit>
-```
-
-**Note**: For LangGraph Platform, the `authorization` property is forwarded as a Bearer token.
+  For auth tokens, API keys, and other secrets use one of the approaches below
+  (LangGraph Platform built-in auth or `x-*` configurable headers).  Reserve
+  `useAgentContext` for non-secret preferences and metadata the LLM is meant to see.
+</Callout>
 
 ## LangGraph Platform Deployment
 
@@ -90,193 +81,178 @@ For complete implementation details, see the [LangGraph Platform Authentication 
 
 ## Self-hosted Deployment
 
-**For self-hosted agents**, the recommended approach is to use `useAgentContext` from the v2 API. This pattern works seamlessly with LangGraph 0.6.0+ and the `CopilotKitMiddleware`.
+**For self-hosted agents**, send auth credentials as a custom `x-*` HTTP header.
+The CopilotKit runtime forwards eligible `x-*` headers to the LangGraph server,
+which places them in `config["configurable"]` — a channel that is **never**
+serialized into state or the LLM prompt.
 
-<Callout type="warning" title="Security: Auth Tokens and LLM Context">
-  **Important**: ALL values published via `useAgentContext` are serialized and sent to the LLM as a SystemMessage. This means:
-  - Auth tokens appear in LLM provider logs and traces
-  - The LLM can potentially reference token values in responses
-  - Tokens are visible to anyone with access to LLM provider logs
-  
-  **For production authentication**:
-  - Use **LangGraph Platform's built-in auth** (shown above) for platform deployments
-  - Use **secure HTTP headers** with custom middleware for self-hosted deployments
-  - Use **environment variables** for service-to-service authentication
-  - Only use `useAgentContext` for auth tokens in demos/prototypes where token exposure is acceptable
-  
-  The examples below demonstrate the pattern but should not be used with real secrets in production.
-</Callout>
+### Why `x-*` headers and not `useAgentContext`?
 
-### Setup with CopilotKitMiddleware (Demo Pattern)
+| Channel | Visible to LLM? | Suitable for secrets? |
+|---|---|---|
+| `useAgentContext` → `state["copilotkit"]["context"]` | **Yes** — injected as a system message | ❌ No |
+| `x-*` header → `config["configurable"]` | **No** — never touches state or prompt | ✅ Yes |
 
-Use the `CopilotKitMiddleware` which automatically handles context forwarding:
+### Step 1 — Configure the LangGraph server to admit the header
 
-```python
-# agent.py - Agent with CopilotKitMiddleware
-from langgraph.prebuilt import create_agent
-from langchain_openai import ChatOpenAI
-from copilotkit import CopilotKitMiddleware
+In your `langgraph.json`, allow `x-*` headers to be forwarded into `config["configurable"]`:
 
-graph = create_agent(
-    model=ChatOpenAI(model="gpt-4"),
-    tools=[],
-    middleware=[CopilotKitMiddleware()],
-)
-```
-
-### Frontend: Publish Auth Context
-
-```tsx
-import { useAgentContext } from "@copilotkit/react-core/v2";
-
-function YourApp() {
-  // WARNING: This demo pattern exposes tokens to the LLM
-  // For production, use LangGraph Platform auth or secure headers
-  const demoToken = getDemoToken(); // Demo only - not for production!
-  
-  useAgentContext({
-    description: "Demo authentication context",
-    value: {
-      demoToken: demoToken,  // WARNING: Sent to LLM - see security callout
-      userId: getCurrentUserId(),
-    },
-  });
-  
-  return (...);
+```json title="langgraph.json"
+{
+  "http": {
+    "configurable_headers": {
+      "include": ["x-*"]
+    }
+  }
 }
 ```
 
-### Access User in Agent
+This tells the langgraph-api server to copy any inbound `x-*` HTTP headers into
+`config["configurable"]` before the graph runs.
 
-```python
-from typing import Any
+### Step 2 — Send the header from the frontend
 
-async def my_agent_node(state: dict[str, Any]):
-    # Access context from state (published via useAgentContext)
-    copilotkit_state = state.get("copilotkit", {})
-    context_entries = copilotkit_state.get("context", [])
-    
-    # Extract auth values from context entries
-    # WARNING: These values were sent to the LLM - see security callout
-    demo_token = None
-    user_id = "anonymous"
-    
-    for entry in context_entries:
-        value = entry.get("value", {})
-        if isinstance(value, dict):
-            demo_token = value.get("demoToken") or demo_token
-            user_id = value.get("userId") or user_id
-    
-    if demo_token:
-        # Demo only: validate the demo token
-        user_info = validate_demo_token(demo_token)
-        user_role = user_info.get("role")
-    else:
-        user_role = None
+Pass the token as a custom request header from your React app:
 
-    # Your agent logic with user context
-    return state
+```tsx title="app/page.tsx"
+import { CopilotKit } from "@copilotkit/react-core";
+
+export default function Page() {
+  const userToken = getAuthToken(); // your auth logic
+
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      headers={{
+        "x-copilotkit-auth": userToken,
+      }}
+    >
+      <YourApp />
+    </CopilotKit>
+  );
+}
 ```
 
-<Callout type="tip" title="Production Authentication">
-  For production self-hosted deployments:
-  
-  1. **Preferred**: Use custom middleware that reads auth tokens from secure HTTP headers (not `useAgentContext`)
-  2. **Alternative**: Deploy to LangGraph Platform and use built-in authentication (shown in the Platform section above)
-  3. **Demo only**: The `useAgentContext` pattern shown here is for prototypes/demos where token exposure to LLM providers is acceptable
-  
-  See the [LangGraph Platform auth docs](https://docs.langchain.com/langsmith/auth) for production-ready patterns.
-</Callout>
+### Step 3 — Read the token in your graph node
 
-## Universal Authentication Pattern
+The token arrives in `config["configurable"]` — read it directly in any graph node:
 
-For agents that work in both LangGraph Platform and self-hosted environments, use this pattern:
-
-```python
+```python title="agent.py"
 from typing import Any
 from langchain_core.runnables import RunnableConfig
 
-async def my_agent_node(state: dict[str, Any], config: RunnableConfig):
-    user_id = "anonymous"
-    user_role = None
+async def authenticated_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
+    # Read the auth token from the non-model-visible configurable channel.
+    token = (config.get("configurable") or {}).get("x-copilotkit-auth")
 
-    # LangGraph Platform mode
-    if "configuration" in config and "langgraph_auth_user" in config["configuration"]:
-        user_info = config["configuration"]["langgraph_auth_user"]
+    if not token:
+        raise PermissionError("No auth token provided")
+
+    # Validate and use the token — it is never in state or the LLM prompt.
+    user_info = validate_token(token)  # your validation logic
+
+    # Store only non-sensitive user identity in state if needed.
+    return {"user_id": user_info["user_id"]}
+```
+
+<Callout type="tip" title="Token stays in config, not in state">
+  The `x-copilotkit-auth` value lives in `config["configurable"]` and is **never**
+  copied into LangGraph state.  `CopilotKitMiddleware` only serializes
+  `state["copilotkit"]["context"]` into the system message — `config["configurable"]`
+  is completely invisible to the LLM.
+</Callout>
+
+### How the forwarding chain works
+
+1. The CopilotKit v2 runtime receives the inbound `x-copilotkit-auth` request header.
+2. `mergeForwardableHeaders` in the runtime attaches eligible `x-*` headers to the outgoing `LangGraphAgent` call.
+3. Because `langgraph.json` sets `configurable_headers.include: ["x-*"]`, the langgraph-api server maps those headers into `config["configurable"]`.
+4. Your graph node receives `config: RunnableConfig` with `config["configurable"]["x-copilotkit-auth"]` populated.
+5. The same path works on every subsequent turn of the same thread — no token reset between runs.
+
+## Universal Pattern (Platform + Self-hosted)
+
+For agents that need to work in both environments:
+
+```python
+from typing import Any, Optional
+from langchain_core.runnables import RunnableConfig
+
+async def my_agent_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
+    configurable = config.get("configurable") or {}
+    user_id: Optional[str] = None
+    user_role: Optional[str] = None
+
+    # LangGraph Platform mode — built-in auth handler populates this key.
+    if "langgraph_auth_user" in configurable:
+        user_info = configurable["langgraph_auth_user"]
         user_id = user_info["identity"]
         user_role = user_info.get("role")
 
-    # Self-hosted mode with CopilotKitMiddleware
-    # WARNING: This approach exposes auth tokens to the LLM
-    else:
-        # Access context from state (published via useAgentContext)
-        copilotkit_state = state.get("copilotkit", {})
-        context_entries = copilotkit_state.get("context", [])
-        
-        demo_token = None
-        for entry in context_entries:
-            value = entry.get("value", {})
-            if isinstance(value, dict):
-                demo_token = value.get("demoToken") or demo_token
-        
-        if demo_token:
-            # Demo only - not for production (token was sent to LLM)
-            user_info = validate_demo_token(demo_token)
-            user_id = user_info["user_id"]
-            user_role = user_info.get("role")
+    # Self-hosted mode — custom x-* header forwarded by CopilotKit runtime.
+    elif "x-copilotkit-auth" in configurable:
+        token = configurable["x-copilotkit-auth"]
+        user_info = validate_token(token)   # your validation logic
+        user_id = user_info["user_id"]
+        user_role = user_info.get("role")
 
-    # Your agent logic with user context
-    return state
+    if not user_id:
+        raise PermissionError("Authentication required")
+
+    # user_id and user_role are safe to put in state.
+    # The raw token never touches state or the LLM prompt.
+    return {"user_id": user_id, "user_role": user_role}
 ```
 
 ## Security Notes
 
-### LangGraph Platform
+### What NOT to do
 
-- **Token Validation**: Automatic validation via `@auth.authenticate` handler
-- **Built-in Security**: LangGraph Platform handles token parsing and validation
-- **User Scoping**: Use authorization handlers to scope resources to authenticated users
+```python
+# ❌ WRONG — auth tokens in useAgentContext are sent to the LLM
+useAgentContext({
+    description: "auth context",
+    value: { authToken: userToken },  # token visible in LLM logs!
+})
 
-### Self-hosted
+# ❌ WRONG — same problem: state["copilotkit"]["context"] is model-visible
+state = {
+    "copilotkit": {
+        "context": [{"value": {"authToken": token}}]  # visible to LLM!
+    }
+}
+```
 
-- **Manual Validation**: You must implement token validation in your agent logic
-- **Context Passing**: Authentication context passed through agent configuration
-- **Security Responsibility**: Ensure proper token validation and user scoping
+### What to do instead
+
+- Use `x-copilotkit-auth` (or any `x-*` header) forwarded through the CopilotKit runtime into `config["configurable"]` — as shown above.
+- For LangGraph Platform, use the `@auth.authenticate` handler.
+- For service-to-service calls, use environment variables baked into the agent server — they never cross the HTTP boundary.
 
 ### General Best Practices
 
-- **Permission Checks**: Implement role-based access control in your agents
-- **Token Security**: Use secure token generation and validation
-- **User Scoping**: Always scope data access to authenticated users
-
-For comprehensive authentication patterns, authorization handlers, and security best practices, refer to the [LangGraph Platform Authentication documentation](https://docs.langchain.com/langsmith/auth#authentication).
+- **Validate tokens server-side**: the graph node is the right place to validate; never trust frontend-supplied tokens without server-side verification.
+- **Minimal state exposure**: store only the user identity (not the raw token) in state when you need it across nodes.
+- **Token Security**: use short-lived tokens and refresh them at the frontend before they expire.
 
 ## Troubleshooting
 
-### Common Issues
+### Token not reaching the agent
 
-**Token not reaching agent**:
+- Confirm `langgraph.json` has `"configurable_headers": {"include": ["x-*"]}`.
+- Confirm the CopilotKit runtime `forwardHeadersPolicy` is not explicitly blocking `x-copilotkit-auth`.
+- Confirm the frontend is passing the header via `<CopilotKit headers={{...}}>`.
 
-- Ensure you're passing `authorization` in the `properties` prop
-- For self-hosted: Verify dynamic agent configuration is set up correctly
+### `config["configurable"]` is empty or missing the key
 
-**Invalid token format**:
+- The langgraph-api server only populates `config["configurable"]` from HTTP headers when running inside a real server context (`langgraph up` / `langgraph dev`).  In unit tests, pass the config directly: `graph.invoke({}, config={"configurable": {"x-copilotkit-auth": "..."}})`.
 
-- CopilotKit automatically adds the `Bearer ` prefix for LangGraph Platform
-- For self-hosted: Handle token format in your validation logic
+### Token null on second run
 
-**User info not available**:
-
-- **LangGraph Platform**: Verify your `@auth.authenticate` handler is properly configured
-- **Self-hosted**: Check that `copilotkit_auth` is properly passed in `langgraph_config`
-
-**Authentication works locally but not in production**:
-
-- Ensure you're using the correct deployment mode (LangGraph Platform vs self-hosted)
-- Verify environment-specific configuration differences
+- This was bug FAC-121 (LangGraph 0.6+ configurable API change).  Ensure you are not using the deprecated `forwardedProps.config.configurable` pattern from v1.  The `x-*` header path documented here works correctly across repeated runs in LangGraph 0.6+.
 
 ## Next Steps
 
-- [Configure your LangGraph Platform deployment →](/langgraph/quickstart)
+- [Configure LangGraph Platform deployment →](/langgraph/quickstart)
 - [Learn about agent state management →](/langgraph/shared-state)
 - [Implement human-in-the-loop workflows →](/langgraph/human-in-the-loop)
