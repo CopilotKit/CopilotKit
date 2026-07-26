@@ -746,6 +746,12 @@ export function resolveD4Row(
  * `showcase/harness/src/probes/helpers/starter-mapping.ts` — the harness owns
  * the producer-side list, the dashboard carries its own copy because the two
  * packages do not share a module boundary (the dashboard imports only `@/*`).
+ *
+ * That mirror is COMPILER-ENFORCED, not just documented: `starter-mapping.ts`
+ * carries a `satisfies Record<StarterLevel, true>` parity pin against the
+ * `StarterLevel` exported here, so a level added to or dropped from EITHER copy
+ * fails the harness build (`tsc -p tsconfig.build.json`) rather than drifting
+ * silently into a producer row the dashboard has no sub-row for.
  */
 export const STARTER_LEVELS = [
   "health",

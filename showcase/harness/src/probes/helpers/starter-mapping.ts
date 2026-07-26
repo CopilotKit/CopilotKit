@@ -32,6 +32,10 @@
  * key spaces are disjoint.
  */
 
+// Type-only: feeds the `STARTER_LEVELS` parity pin below. Erased at emit, so no
+// runtime import edge from the probe helpers into the shared cell-model fold.
+import type { StarterLevel as SharedStarterLevel } from "../../shared/cell-model/live-status.js";
+
 /**
  * Starter slug (as it appears in the smoke matrix) → dashboard column slug
  * (the `showcase/integrations/<slug>` directory name).
@@ -67,6 +71,33 @@ export const STARTER_LEVELS = [
 ] as const;
 
 export type StarterLevel = (typeof STARTER_LEVELS)[number];
+
+/**
+ * Compile-time parity pin between THIS producer-side level list and the
+ * consumer-side `STARTER_LEVELS` in `shared/cell-model/live-status.ts`, whose
+ * doc comment asserts the two lists MIRROR each other. Before this pin the claim
+ * was prose only: either copy could gain or lose a level and both packages would
+ * still build, leaving the producer emitting a `starter:<col>/<level>` row the
+ * dashboard has no sub-row for (or vice versa).
+ *
+ * Intersecting the two `Record<…, true>`s makes the mirror bidirectional and
+ * compiler-checked: a level missing from EITHER side is `Property '<level>' is
+ * missing in type … but required in type 'Record<StarterLevel, true>'` (the
+ * message names whichever side is unsatisfied), and a name in neither union
+ * fails as an excess property. `import type` keeps this a pure type-level
+ * dependency — nothing is emitted, so no runtime import edge is created from the
+ * probe helpers into the shared fold.
+ */
+type StarterLevelMirror = Record<StarterLevel, true> &
+  Record<SharedStarterLevel, true>;
+
+const starterLevelsMirrorShared = {
+  health: true,
+  agent: true,
+  chat: true,
+  interaction: true,
+} satisfies StarterLevelMirror;
+void starterLevelsMirrorShared;
 
 /**
  * Resolve a starter slug to its dashboard column slug, or `undefined` if the

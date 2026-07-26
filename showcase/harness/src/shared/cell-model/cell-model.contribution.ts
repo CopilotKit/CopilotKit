@@ -118,6 +118,43 @@ export type ContributionKind =
   | "INFRA_RED_FRESH"
   | "FAIL_FRESH";
 
+/**
+ * Completeness registry over `ContributionKind` — the compile-time PROOF that
+ * `ALL_CONTRIBUTION_KINDS` below is exhaustive, so nothing has to hand-copy the
+ * union's members and claim it covers "every kind".
+ *
+ * `satisfies Record<ContributionKind, true>` checks BOTH directions: adding a
+ * member to the union without listing it here fails the build with `Property
+ * '<NEW_KIND>' is missing in type … but required in type
+ * 'Record<ContributionKind, true>'`, and listing a name that is NOT a kind
+ * fails as an excess property. A hand-copied list has neither property — it
+ * silently under-enumerates the moment the union grows, which is exactly how an
+ * "exhaustive" guard rots into a partial one.
+ *
+ * Anything that needs "every kind" must derive it from `ALL_CONTRIBUTION_KINDS`
+ * rather than restating the list.
+ */
+const CONTRIBUTION_KIND_COMPLETENESS = {
+  UNSUPPORTED: true,
+  STUB: true,
+  ABSENT: true,
+  NO_DATA: true,
+  GREEN_FRESH: true,
+  STALE_DEGRADED: true,
+  FIRST_STRIKE_FRESH: true,
+  INFRA_RED_FRESH: true,
+  FAIL_FRESH: true,
+} satisfies Record<ContributionKind, true>;
+
+/**
+ * EVERY `ContributionKind`, derived from the completeness registry above (never
+ * hand-maintained). Order is the registry's declaration order, which mirrors the
+ * union's — it carries no severity meaning (that is `CHIP_SEVERITY`).
+ */
+export const ALL_CONTRIBUTION_KINDS = Object.keys(
+  CONTRIBUTION_KIND_COMPLETENESS,
+) as ReadonlyArray<keyof typeof CONTRIBUTION_KIND_COMPLETENESS>;
+
 export type RungKind = "D1" | "D2" | "D3" | "D4" | "D5" | "D6" | "starter";
 
 /** Stage A output — the raw PB rows a ladder position reads, no interpretation. */
@@ -147,18 +184,60 @@ export interface RungContribution {
 }
 
 /**
- * §4a chip severity, MOST-SEVERE FIRST (lower index = worse). `INFRA_RED_FRESH`
- * is re-mapped to `NO_DATA` severity BEFORE the fold (it is not a product red),
- * so it is not listed here.
+ * The kinds `severityKind` can RETURN — i.e. the closed set `CHIP_SEVERITY`
+ * must rank. The three excluded kinds are re-mapped to a peer BEFORE the fold
+ * (`INFRA_RED_FRESH` → `NO_DATA`; `UNSUPPORTED`/`STUB` → `ABSENT`), so they are
+ * deliberately absent from the severity order rather than missing from it.
  */
-export const CHIP_SEVERITY: ReadonlyArray<ContributionKind> = [
+type ChipSeverityKind = Exclude<
+  ContributionKind,
+  "INFRA_RED_FRESH" | "UNSUPPORTED" | "STUB"
+>;
+
+/**
+ * §4a chip severity, MOST-SEVERE FIRST (lower index = worse) — the ORDER is
+ * load-bearing, so this stays a literal (a derived-from-`Object.keys` list would
+ * make severity depend on key insertion order). The completeness PIN below is
+ * what stops it from silently under-covering the union.
+ */
+const CHIP_SEVERITY_ORDER = [
   "FAIL_FRESH",
   "STALE_DEGRADED",
   "FIRST_STRIKE_FRESH",
   "NO_DATA",
   "ABSENT",
   "GREEN_FRESH",
-];
+] as const;
+
+/**
+ * §4a chip severity, MOST-SEVERE FIRST (lower index = worse). `INFRA_RED_FRESH`
+ * is re-mapped to `NO_DATA` severity BEFORE the fold (it is not a product red),
+ * so it is not listed here.
+ */
+export const CHIP_SEVERITY: ReadonlyArray<ContributionKind> =
+  CHIP_SEVERITY_ORDER;
+
+/**
+ * Compile-time completeness pin for `CHIP_SEVERITY` — `Record<never, true>`
+ * (satisfied by `{}`) exactly when the severity order covers the severity-peer
+ * set with nothing left over. If a new `ContributionKind` reaches
+ * `severityKind`'s `return c` branch without being added to
+ * `CHIP_SEVERITY_ORDER`, this line fails to typecheck with `Property
+ * '<NEW_KIND>' is missing`; adding a name to `CHIP_SEVERITY_ORDER` that is
+ * re-mapped away (or is not a kind at all) fails the same way from the other
+ * direction.
+ *
+ * Without this pin, `severityIndex`'s `indexOf` returns -1 for the new kind —
+ * which sorts as MORE severe than `FAIL_FRESH` in `worseOf` and then renders
+ * gray via `contributionToColor`'s `default`: the fail-safe-polarity bug where a
+ * real red is masked by a gray chip. `assertNever` in `severityKind` alone does
+ * not catch it (handling the new kind with `return c` satisfies the switch).
+ */
+type ChipSeverityGap =
+  | Exclude<ChipSeverityKind, (typeof CHIP_SEVERITY_ORDER)[number]>
+  | Exclude<(typeof CHIP_SEVERITY_ORDER)[number], ChipSeverityKind>;
+const chipSeverityIsComplete: Record<ChipSeverityGap, true> = {};
+void chipSeverityIsComplete;
 
 /** Compile-time exhaustiveness guard — an added `ContributionKind` that no
  * `switch` handles narrows to `never` here and becomes a build error. */
