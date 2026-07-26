@@ -48,6 +48,7 @@ from langgraph.graph import END, START, StateGraph
 # The raw token is never stored in state, logged, or returned in any response.
 # ---------------------------------------------------------------------------
 
+
 def auth_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
     """LangGraph node that reads x-copilotkit-auth from config['configurable'].
 
@@ -61,9 +62,7 @@ def auth_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
 
     token_present = isinstance(raw_token, str) and len(raw_token) > 0
     token_hash_prefix = (
-        hashlib.sha256(raw_token.encode()).hexdigest()[:12]
-        if token_present
-        else ""
+        hashlib.sha256(raw_token.encode()).hexdigest()[:12] if token_present else ""
     )
 
     return {
@@ -106,7 +105,9 @@ async def run_stream(request: Request):
     configurable_headers.include: ["x-*"] is set in langgraph.json.
     """
     body = await request.json()
-    thread_id = body.get("config", {}).get("configurable", {}).get("thread_id", "default")
+    thread_id = (
+        body.get("config", {}).get("configurable", {}).get("thread_id", "default")
+    )
     run_id = body.get("run_id", "run-1")
 
     # Admission layer: copy x-* headers into configurable (langgraph-api behavior)
@@ -126,16 +127,26 @@ async def run_stream(request: Request):
     # Return AG-UI SSE events with safe proof output only
     async def generate():
         yield _format_sse(json.dumps({"type": "RUN_STARTED", "runId": run_id}))
-        yield _format_sse(json.dumps({
-            "type": "TEXT_MESSAGE_START",
-            "messageId": "m1",
-        }))
-        proof_text = f"token_present:{token_present} token_hash_prefix:{token_hash_prefix}"
-        yield _format_sse(json.dumps({
-            "type": "TEXT_MESSAGE_CONTENT",
-            "messageId": "m1",
-            "delta": proof_text,
-        }))
+        yield _format_sse(
+            json.dumps(
+                {
+                    "type": "TEXT_MESSAGE_START",
+                    "messageId": "m1",
+                }
+            )
+        )
+        proof_text = (
+            f"token_present:{token_present} token_hash_prefix:{token_hash_prefix}"
+        )
+        yield _format_sse(
+            json.dumps(
+                {
+                    "type": "TEXT_MESSAGE_CONTENT",
+                    "messageId": "m1",
+                    "delta": proof_text,
+                }
+            )
+        )
         yield _format_sse(json.dumps({"type": "TEXT_MESSAGE_END", "messageId": "m1"}))
         yield _format_sse(json.dumps({"type": "RUN_FINISHED", "runId": run_id}))
 

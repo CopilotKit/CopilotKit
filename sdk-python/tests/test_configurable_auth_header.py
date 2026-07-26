@@ -61,6 +61,7 @@ from langchain_core.runnables import RunnableConfig
 # Minimal graph that proves the configurable-header auth-token pattern.
 # ---------------------------------------------------------------------------
 
+
 class _AuthState(dict):
     """Minimal graph state — keys added by the auth_node."""
 
@@ -79,9 +80,7 @@ def _auth_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
     token_present = isinstance(raw_token, str) and len(raw_token) > 0
     # 12-char prefix of the SHA-256 hash — safe to record, never the raw token.
     token_hash_prefix = (
-        hashlib.sha256(raw_token.encode()).hexdigest()[:12]
-        if token_present
-        else ""
+        hashlib.sha256(raw_token.encode()).hexdigest()[:12] if token_present else ""
     )
 
     return {
@@ -105,6 +104,7 @@ def _make_auth_graph(checkpointer=None):
 # the same LangGraph thread (the MemorySaver acts as the checkpoint store
 # that langgraph-api would provide in production).
 # ---------------------------------------------------------------------------
+
 
 class TestConfigurableAuthHeaderRepeatedRuns:
     """x-copilotkit-auth is accessible on consecutive graph runs."""
@@ -229,6 +229,7 @@ class TestConfigurableAuthHeaderRepeatedRuns:
 # This is the key separation that makes the x-* header path non-model-visible.
 # ---------------------------------------------------------------------------
 
+
 class TestConfigurableVsStateChannelIsolation:
     """config['configurable'] and state['copilotkit']['context'] are independent."""
 
@@ -269,7 +270,9 @@ class TestConfigurableVsStateChannelIsolation:
         config that an auth-reading node would see as x-copilotkit-auth.
         """
 
-        def _reading_node(state: dict[str, Any], config: RunnableConfig) -> dict[str, Any]:
+        def _reading_node(
+            state: dict[str, Any], config: RunnableConfig
+        ) -> dict[str, Any]:
             configurable = config.get("configurable") or {}
             # The configurable channel should have NO values from copilotkit.context
             auth_via_configurable = configurable.get("x-copilotkit-auth")

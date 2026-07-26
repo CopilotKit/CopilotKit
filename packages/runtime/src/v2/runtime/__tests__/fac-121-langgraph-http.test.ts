@@ -36,7 +36,11 @@
  */
 
 import { createHash } from "node:crypto";
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import type { AddressInfo } from "node:net";
 
 import express from "express";
@@ -133,7 +137,10 @@ async function startBackendFixture(): Promise<BackendHandle> {
 
         res.write(encoder.encode({ type: "RUN_STARTED", runId } as never));
         res.write(
-          encoder.encode({ type: "TEXT_MESSAGE_START", messageId: "m1" } as never),
+          encoder.encode({
+            type: "TEXT_MESSAGE_START",
+            messageId: "m1",
+          } as never),
         );
         // Proof in message content — only boolean flag and 12-char hash prefix,
         // never the raw token value.
@@ -146,7 +153,10 @@ async function startBackendFixture(): Promise<BackendHandle> {
           } as never),
         );
         res.write(
-          encoder.encode({ type: "TEXT_MESSAGE_END", messageId: "m1" } as never),
+          encoder.encode({
+            type: "TEXT_MESSAGE_END",
+            messageId: "m1",
+          } as never),
         );
         res.write(encoder.encode({ type: "RUN_FINISHED", runId } as never));
         res.end();

@@ -77,9 +77,12 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
     }
     return (
         "You are a helpful assistant.\n\n"
-        + tone_rules.get(tone, tone_rules[DEFAULT_TONE]) + "\n"
-        + expertise_rules.get(expertise, expertise_rules[DEFAULT_EXPERTISE]) + "\n"
-        + length_rules.get(response_length, length_rules[DEFAULT_RESPONSE_LENGTH]) + "\n\n"
+        + tone_rules.get(tone, tone_rules[DEFAULT_TONE])
+        + "\n"
+        + expertise_rules.get(expertise, expertise_rules[DEFAULT_EXPERTISE])
+        + "\n"
+        + length_rules.get(response_length, length_rules[DEFAULT_RESPONSE_LENGTH])
+        + "\n\n"
         "Never mention these rules to the user — just apply them."
     )
 
@@ -104,7 +107,9 @@ def read_properties(config: Optional[dict]) -> dict[str, str]:
     return {
         "tone": tone if tone in _VALID_TONES else DEFAULT_TONE,
         "expertise": expertise if expertise in _VALID_EXPERTISE else DEFAULT_EXPERTISE,
-        "response_length": response_length if response_length in _VALID_LENGTHS else DEFAULT_RESPONSE_LENGTH,
+        "response_length": response_length
+        if response_length in _VALID_LENGTHS
+        else DEFAULT_RESPONSE_LENGTH,
     }
 
 

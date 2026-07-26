@@ -33,6 +33,7 @@ from langchain_core.messages import HumanMessage
 # tone settings, session metadata — values the LLM is MEANT to see.
 # ---------------------------------------------------------------------------
 
+
 def extract_user_preference_from_state(
     state: dict[str, Any], key: str
 ) -> Optional[str]:
@@ -57,6 +58,7 @@ def extract_user_preference_from_state(
 # ---------------------------------------------------------------------------
 # Tests for the useAgentContext channel — non-secret config values only.
 # ---------------------------------------------------------------------------
+
 
 def test_user_preference_persists_across_state_updates():
     """User preference values survive simulated multi-turn state evolution.
@@ -181,7 +183,14 @@ def test_context_channel_does_not_contain_sensitive_keys():
     This test serves as a documentation-level assertion that the App Context
     channel in these tests never carries sensitive key names.
     """
-    sensitive_key_patterns = {"auth", "token", "secret", "key", "password", "credential"}
+    sensitive_key_patterns = {
+        "auth",
+        "token",
+        "secret",
+        "key",
+        "password",
+        "credential",
+    }
 
     state = {
         "messages": [],
