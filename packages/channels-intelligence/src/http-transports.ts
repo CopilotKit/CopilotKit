@@ -47,7 +47,7 @@ export interface IntelligenceTransportConfig {
   apiKey: string;
   /** Project-unique channel name; defaults from `createChannel({ name })`. */
   channelName: string;
-  /** Stable runtime instance id (`rti_…`); generated when omitted. */
+  /** Transport-instance id (`rti_…`); generated when omitted. */
   runtimeInstanceId: string;
   /** Adapter kind. First slice is `"slack"`. */
   adapter: string;
