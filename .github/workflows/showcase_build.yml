@@ -9,6 +9,26 @@ name: "Showcase: Build & Push"
 # Every push to main runs to completion so that rapid-fire PR merges never
 # cancel in-flight builds. This was the #1 operational pain point with the
 # old combined workflow.
+#
+# This is NOT merely a convenience: `detect-changes` builds a per-push,
+# path-filtered matrix, so concurrent runs build OVERLAPPING BUT NON-IDENTICAL
+# service sets. Cancelling an older run therefore drops the services only IT
+# builds — trading a stale-image bug for a never-shipped bug. Concurrent runs
+# are not redundant and must not be cancelled.
+#
+# The corollary, and the thing that bit us on 2026-07-26: if runs are never
+# serialized, they RACE on the one shared mutable resource — the `:latest`
+# tag. Three merges landed in 34s, the newest commit's build finished first,
+# and the two older builds overwrote its `:latest` on every shared service.
+# All three runs reported `success`. Staging served pre-#6158 code while CI,
+# the redeploy gate, and deploy verification all looked clean.
+#
+# The fix is NOT a concurrency group (see above — that breaks the matrix
+# contract). Instead the mutable pointer is made monotonic: the build step
+# pushes ONLY the immutable `:<sha>` tag, and a guarded step moves `:latest`
+# unless the tag already holds a DESCENDANT of the commit being built. See
+# showcase/scripts/advance-latest-tag.ts for the incident reconstruction, the
+# decision table, and the residual sub-second TOCTOU this does not close.
 
 on:
   push:
@@ -575,9 +595,18 @@ jobs:
           # variant available".
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/copilotkit/${{ matrix.service.image }}:latest
-            ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          # ONLY the immutable per-commit tag is pushed here. `:latest` is
+          # moved by the guarded step below, which refuses to roll staging
+          # back when a NEWER commit's build already claimed it. Pushing
+          # `:latest` from this step is what let an older concurrent build
+          # overwrite a newer one (2026-07-26; see advance-latest-tag.ts for
+          # the full incident reconstruction and run IDs).
+          tags: ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
+          # The revision label is how the guard identifies which commit the
+          # image currently tagged `:latest` was built from. Without it the
+          # guard cannot prove a regression and (correctly) fails open.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
           build-args: ${{ steps.build-args.outputs.args }}
 
       - name: Write per-slot build result
@@ -802,9 +831,11 @@ jobs:
           # pull with "does not have a linux/amd64 variant available".
           platforms: linux/amd64
           push: true
-          tags: |
-            ghcr.io/copilotkit/${{ matrix.starter.image }}:latest
-            ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
+          # Immutable tag only — `:latest` is moved by the guarded step
+          # below. Same rationale as the showcase `build` matrix above.
+          tags: ghcr.io/copilotkit/${{ matrix.starter.image }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Write per-slot starter build result
         if: always()
@@ -998,6 +1029,32 @@ jobs:
           fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed services CSV (matrix ∩ build-success): $csv"
+          # Same intersection, projected onto GHCR image names. This is the
+          # exact set whose `:latest` may move, so a service that failed to
+          # build can never have its tag advanced.
+          images="$(jq -rn --argjson m "$(echo "$MATRIX_JSON" | jq -c '[.[] | {dispatch_name, image}]')" --argjson s "$success_names" \
+            '($m | map(select(.dispatch_name as $n | $s | index($n))) | map("ghcr.io/copilotkit/" + .image)) | join(",")')"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "Computed images CSV: $images"
+
+      - name: Advance :latest for successfully-built images
+        if: steps.changed.outputs.images != ''
+        env:
+          IMAGES: ${{ steps.changed.outputs.images }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Runs immediately BEFORE the Railway redeploy below, which is what
+        # pulls `:latest`. Doing it here rather than per-build-slot keeps the
+        # decision as close as possible to the pull, so the read→retag window
+        # an older concurrent run could slip through is as narrow as it gets.
+        #
+        # Exits non-zero if a retag fails, which reds the job and stops the
+        # redeploy — the right outcome, since redeploying against a `:latest`
+        # that did not move would look like a fresh, healthy deploy of code
+        # that was never shipped.
+        run: npx tsx showcase/scripts/advance-latest-tag.ts
+
       - name: Redeploy changed services in staging
         if: steps.changed.outputs.services != ''
         env:
@@ -1214,6 +1271,22 @@ jobs:
           fi
           echo "services=$csv" >> "$GITHUB_OUTPUT"
           echo "Computed starter services CSV (matrix ∩ build-success): $csv"
+          # The starter CSV is already a list of GHCR repo names (`.image`),
+          # so the image list is just that CSV qualified with the registry.
+          images="$(echo "$csv" | tr ',' '\n' | sed -e '/^$/d' -e 's#^#ghcr.io/copilotkit/#' | paste -sd, -)"
+          echo "images=$images" >> "$GITHUB_OUTPUT"
+          echo "Computed starter images CSV: $images"
+
+      - name: Advance starter :latest for successfully-built images
+        if: steps.changed.outputs.images != ''
+        env:
+          IMAGES: ${{ steps.changed.outputs.images }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Same placement rationale as the showcase redeploy job: advance the
+        # mutable tag immediately before the pull that consumes it.
+        run: npx tsx showcase/scripts/advance-latest-tag.ts
 
       - name: Redeploy changed starters in staging
         # Empty CSV = no starter built successfully (or the build hard-crashed
