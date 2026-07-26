@@ -1,9 +1,9 @@
-"""Test that demonstrates auth token persistence across multiple agent runs.
-
-This test addresses FAC-121: verify that authentication tokens passed via
-useAgentContext remain accessible to agent nodes across multiple runs.
+"""Tests for auth token persistence across multiple agent runs.
 
 These tests verify the documented access pattern from configurable.mdx and auth.mdx:
+authentication tokens passed via useAgentContext remain accessible to agent
+nodes across multiple runs via the ``state["copilotkit"]["context"]`` path.
+
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
     # iterate through entries to extract values

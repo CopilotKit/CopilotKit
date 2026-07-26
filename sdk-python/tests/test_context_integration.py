@@ -1,23 +1,22 @@
-"""Integration test demonstrating auth token persistence via CopilotKitMiddleware.
+"""Tests for the documented useAgentContext state access pattern.
 
-This test addresses FAC-121 by proving the end-to-end flow:
-1. Frontend publishes authToken via useAgentContext
-2. Middleware injects it into state["copilotkit"]["context"]
-3. Agent node extracts authToken programmatically
-4. Token persists across multiple agent runs
+These tests verify the end-to-end contract that the docs describe:
+1. Frontend publishes context via useAgentContext
+2. CopilotKitMiddleware injects it into state["copilotkit"]["context"]
+3. Agent node extracts values programmatically
+4. Values persist across multiple agent runs
 
-This goes beyond the unit tests in test_context_persistence.py by actually
-instantiating the middleware and simulating the real agent execution flow.
+The state structure exercised here matches the shape that the middleware
+populates during real agent execution, so these tests serve as contract
+tests for the documented access pattern in configurable.mdx and auth.mdx.
 """
 
-import pytest
-from typing import Any
+from typing import Any, Optional
+
 from langchain_core.messages import HumanMessage
 
-from copilotkit import CopilotKitMiddleware
 
-
-def extract_auth_token_from_state(state: dict[str, Any]) -> str | None:
+def extract_auth_token_from_state(state: dict[str, Any]) -> Optional[str]:
     """Use the documented pattern from configurable.mdx to extract authToken."""
     copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
@@ -31,10 +30,10 @@ def extract_auth_token_from_state(state: dict[str, Any]) -> str | None:
     return None
 
 
-def test_middleware_preserves_context_across_state_updates():
-    """Verify that auth tokens in context survive state updates (multiple runs)."""
+def test_context_access_persists_across_state_updates():
+    """Verify that context values survive state updates across multiple agent turns."""
 
-    # Initial state with context from useAgentContext
+    # State shape that CopilotKitMiddleware produces when useAgentContext is called
     state = {
         "messages": [HumanMessage(content="first message")],
         "copilotkit": {
@@ -50,26 +49,21 @@ def test_middleware_preserves_context_across_state_updates():
         },
     }
 
-    # Simulate three agent runs (state evolves, context should persist)
+    # Simulate three agent turns (messages grow, context must remain accessible)
     for run_number in range(1, 4):
-        # Extract auth token using documented pattern
         auth_token = extract_auth_token_from_state(state)
-
-        # Verify token is accessible on this run
         assert auth_token == "integration-test-token-789", (
-            f"Run {run_number}: authToken should persist across runs"
+            f"Turn {run_number}: authToken must persist across runs"
         )
 
-        # Simulate agent response (state evolves)
+        # Simulate agent adding a response (state evolves)
         state["messages"].extend(
-            [
-                HumanMessage(content=f"Turn {run_number} user message"),
-            ]
+            [HumanMessage(content=f"Turn {run_number} user message")]
         )
 
 
-def test_middleware_handles_multiple_context_entries():
-    """Verify middleware pattern works when multiple context entries exist."""
+def test_context_access_with_multiple_entries():
+    """Verify the access pattern works when multiple context entries exist."""
 
     state = {
         "messages": [HumanMessage(content="hello")],
@@ -91,35 +85,28 @@ def test_middleware_handles_multiple_context_entries():
         },
     }
 
-    # Extract auth token from among multiple entries
     auth_token = extract_auth_token_from_state(state)
-
     assert auth_token == "multi-ctx-token"
 
 
-def test_middleware_gracefully_handles_missing_context():
-    """Verify extraction pattern doesn't crash when context is missing."""
+def test_context_access_gracefully_handles_missing_context():
+    """Verify extraction pattern doesn't crash when context is absent."""
 
-    # State with no copilotkit context
-    state = {
-        "messages": [HumanMessage(content="hello")],
-    }
-
+    state = {"messages": [HumanMessage(content="hello")]}
     auth_token = extract_auth_token_from_state(state)
-
     assert auth_token is None
 
 
-def test_middleware_context_structure_matches_docs():
-    """Verify the state structure matches what the docs promise.
+def test_context_state_structure_matches_docs():
+    """Verify the state structure matches what the docs describe.
 
-    This is the contract test for FAC-121: the docs claim that useAgentContext
-    publishes { authToken: '...' } and it arrives at state["copilotkit"]["context"]
-    as an array of { description, value } entries.
+    Docs claim that useAgentContext publishes ``{ authToken: '...' }`` and it
+    arrives at ``state["copilotkit"]["context"]`` as an array of
+    ``{ description, value }`` entries. This test asserts that contract.
     """
 
-    # This is the structure that useAgentContext creates and the middleware receives
-    state_from_middleware = {
+    # Structure that CopilotKitMiddleware populates from a useAgentContext call
+    state = {
         "messages": [HumanMessage(content="test")],
         "copilotkit": {
             "context": [
@@ -134,8 +121,7 @@ def test_middleware_context_structure_matches_docs():
         },
     }
 
-    # The documented extraction pattern from configurable.mdx
-    copilotkit_state = state_from_middleware.get("copilotkit", {})
+    copilotkit_state = state.get("copilotkit", {})
     context_entries = copilotkit_state.get("context", [])
 
     extracted_token = None
@@ -147,6 +133,5 @@ def test_middleware_context_structure_matches_docs():
             extracted_token = value.get("authToken") or extracted_token
             extracted_config = value.get("otherConfig") or extracted_config
 
-    # Verify the pattern extracts both values correctly
     assert extracted_token == "documented-pattern-token"
     assert extracted_config == "someValue"
