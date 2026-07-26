@@ -30,6 +30,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from ag_ui.core import RunAgentInput, UserMessage
 from pydantic import Field
 from typing_extensions import TypedDict
 from langchain.agents import create_agent
@@ -43,6 +44,7 @@ from langchain_core.messages import (
 )
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langgraph.constants import END, START
+from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents.middleware import ModelRequest
 from langgraph.graph import StateGraph
 
@@ -51,6 +53,7 @@ from copilotkit.copilotkit_lg_middleware import (
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
+from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
 # ---------------------------------------------------------------------------
@@ -330,40 +333,52 @@ def test_wrap_model_call_injects_frontend_tools_from_context_bridge(monkeypatch)
 
 
 def test_real_subgraph_context_bridge_reaches_child_agent():
-    """A real create_agent subgraph sees frontend tools and app context via runtime context."""
+    """A real AG-UI run carries tools and app context into a child agent."""
     model = _RecordingToolAwareChatModel()
+    middleware = CopilotKitMiddleware()
     child_agent = create_agent(
         model=model,
         tools=[],
-        middleware=[CopilotKitMiddleware()],
+        middleware=[middleware],
+        context_schema=_ParentContext,
     )
     parent = StateGraph(_ParentState, context_schema=_ParentContext)
     parent.add_node("child", child_agent)
     parent.add_edge(START, "child")
     parent.add_edge("child", END)
-    compiled = parent.compile()
-
-    result = compiled.invoke(
-        {"messages": [HumanMessage("hi")]},
-        context={
-            "copilotkit": {
-                "actions": [
-                    {
-                        "name": "frontend_lookup",
-                        "description": "frontend tool",
-                    }
-                ],
-                "context": [
-                    {
-                        "description": "viewer role",
-                        "value": "admin",
-                    }
-                ],
-            }
-        },
+    agent = LangGraphAGUIAgent(
+        name="parent", graph=parent.compile(checkpointer=MemorySaver())
     )
 
-    assert result["messages"][-1].content == "ok"
+    async def consume_run():
+        return [
+            event
+            async for event in agent.run(
+                RunAgentInput(
+                    thread_id="t-1",
+                    run_id="r-1",
+                    state={},
+                    messages=[UserMessage(id="m-1", content="hi")],
+                    tools=[
+                        {
+                            "name": "frontend_lookup",
+                            "description": "frontend tool",
+                        }
+                    ],
+                    context=[
+                        {
+                            "description": "viewer role",
+                            "value": "admin",
+                        }
+                    ],
+                    forwarded_props={},
+                )
+            )
+        ]
+
+    asyncio.run(consume_run())
+
+    assert model.last_messages, "child model should receive the parent run"
     assert [tool.get("name") for tool in model.bound_tools] == ["frontend_lookup"]
     system_messages = [
         msg for msg in model.last_messages if isinstance(msg, SystemMessage)

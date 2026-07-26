@@ -1,3 +1,4 @@
+import inspect
 import json
 import logging
 from enum import Enum
@@ -70,6 +71,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
     ):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        self._copilotkit_runtime_payload: dict[str, Any] | None = None
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -248,9 +250,15 @@ class LangGraphAGUIAgent(LangGraphAgent):
 
     async def run(self, input):
         """Override run to filter out None events from _dispatch_event filtering."""
-        async for event in super().run(input):
-            if event is not None:
-                yield event
+        self._copilotkit_runtime_payload = self._serialize_copilotkit_runtime_payload(
+            input
+        )
+        try:
+            async for event in super().run(input):
+                if event is not None:
+                    yield event
+        finally:
+            self._copilotkit_runtime_payload = None
 
     async def _handle_single_event(
         self, event: Any, state: State
@@ -295,13 +303,29 @@ class LangGraphAGUIAgent(LangGraphAgent):
         fork: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Thread CopilotKit payload through LangGraph runtime context for subgraphs."""
+        supports_context = (
+            "context" in inspect.signature(self.graph.astream_events).parameters
+        )
         merged_context = dict(context or {})
-        existing_copilotkit = merged_context.get("copilotkit") or {}
-        merged_context["copilotkit"] = {
-            **existing_copilotkit,
-            **self._serialize_copilotkit_runtime_payload(input),
-        }
-        return super().get_stream_kwargs(
+        captured_payload = self._copilotkit_runtime_payload
+        if captured_payload is not None:
+            if supports_context:
+                existing_copilotkit = merged_context.get("copilotkit") or {}
+                merged_context["copilotkit"] = {
+                    **existing_copilotkit,
+                    **captured_payload,
+                }
+            else:
+                next_config = dict(config or {})
+                configurable = dict(next_config.get("configurable") or {})
+                existing_copilotkit = configurable.get("copilotkit") or {}
+                configurable["copilotkit"] = {
+                    **existing_copilotkit,
+                    **captured_payload,
+                }
+                next_config["configurable"] = configurable
+                config = next_config
+        stream_kwargs = super().get_stream_kwargs(
             input=input,
             subgraphs=subgraphs,
             version=version,
@@ -309,6 +333,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
             context=merged_context,
             fork=fork,
         )
+        return stream_kwargs
 
     def langgraph_default_merge_state(
         self, state: State, messages: List[BaseMessage], input: Any

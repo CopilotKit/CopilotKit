@@ -457,8 +457,8 @@ class TestLanggraphDefaultMergeState:
         assert action_names == ["first", "second", "third"]
 
 
-class TestGetStreamKwargs:
-    """get_stream_kwargs threads CopilotKit payload into LangGraph context."""
+class TestRunRuntimeContextBridge:
+    """run captures the request before the base agent derives stream input."""
 
     class _GraphWithContext:
         nodes = {}
@@ -478,7 +478,24 @@ class TestGetStreamKwargs:
             if False:
                 yield input, subgraphs, version, config, context
 
-    def test_copilotkit_payload_added_to_runtime_context(self):
+    class _GraphWithoutContext:
+        nodes = {}
+
+        def get_state(self):
+            return None
+
+        async def astream_events(
+            self,
+            *,
+            input=None,
+            subgraphs=False,
+            version="v2",
+            config=None,
+        ):
+            if False:
+                yield input, subgraphs, version, config
+
+    def test_run_captures_payload_for_derived_stream_input(self):
         agent = LangGraphAGUIAgent(name="test", graph=self._GraphWithContext())
         run_input = RunAgentInput(
             thread_id="t-1",
@@ -500,28 +517,88 @@ class TestGetStreamKwargs:
             forwarded_props={},
         )
 
-        kwargs = agent.get_stream_kwargs(
-            input=run_input,
-            subgraphs=True,
-            version="v2",
-            config={"configurable": {"thread_id": "t-1", "x-trace": "abc"}},
+        captured = {}
+
+        async def fake_base_run(_self, _input):
+            captured.update(
+                _self.get_stream_kwargs(
+                    input={"messages": []},
+                    subgraphs=True,
+                    version="v2",
+                    config={"configurable": {"thread_id": "t-1", "x-trace": "abc"}},
+                )
+            )
+            if False:
+                yield None
+
+        with patch.object(AGUIBase, "run", new=fake_base_run):
+            import asyncio
+
+            asyncio.run(self._consume(agent.run(run_input)))
+
+        assert captured["context"]["thread_id"] == "t-1"
+        assert captured["context"]["x-trace"] == "abc"
+        assert captured["context"]["copilotkit"]["actions"][0]["name"] == (
+            "frontend_lookup"
+        )
+        assert captured["context"]["copilotkit"]["context"] == [
+            {"description": "viewer role", "value": "admin"}
+        ]
+
+    def test_run_does_not_force_context_for_graphs_without_context_support(self):
+        agent = LangGraphAGUIAgent(name="test", graph=self._GraphWithoutContext())
+        run_input = RunAgentInput(
+            thread_id="t-1",
+            run_id="r-1",
+            state={},
+            messages=[],
+            tools=[
+                {
+                    "name": "frontend_lookup",
+                    "description": "frontend tool",
+                }
+            ],
+            context=[
+                {
+                    "description": "viewer role",
+                    "value": "admin",
+                }
+            ],
+            forwarded_props={},
         )
 
-        assert kwargs["context"]["thread_id"] == "t-1"
-        assert kwargs["context"]["x-trace"] == "abc"
-        assert kwargs["context"]["copilotkit"]["actions"] == [
-            {
-                "name": "frontend_lookup",
-                "description": "frontend tool",
-                "parameters": None,
-            }
+        captured = {}
+
+        async def fake_base_run(_self, _input):
+            captured.update(
+                _self.get_stream_kwargs(
+                    input={"messages": []},
+                    subgraphs=True,
+                    version="v2",
+                    config={"configurable": {"thread_id": "t-1", "x-trace": "abc"}},
+                )
+            )
+            if False:
+                yield None
+
+        with patch.object(AGUIBase, "run", new=fake_base_run):
+            import asyncio
+
+            asyncio.run(self._consume(agent.run(run_input)))
+
+        assert "context" not in captured
+        assert captured["config"]["configurable"]["thread_id"] == "t-1"
+        assert captured["config"]["configurable"]["x-trace"] == "abc"
+        assert captured["config"]["configurable"]["copilotkit"]["actions"][0][
+            "name"
+        ] == ("frontend_lookup")
+        assert captured["config"]["configurable"]["copilotkit"]["context"] == [
+            {"description": "viewer role", "value": "admin"}
         ]
-        assert kwargs["context"]["copilotkit"]["context"] == [
-            {
-                "description": "viewer role",
-                "value": "admin",
-            }
-        ]
+
+    @staticmethod
+    async def _consume(events):
+        return [event async for event in events]
 
 
 # ---------- Reasoning content preservation ----------
