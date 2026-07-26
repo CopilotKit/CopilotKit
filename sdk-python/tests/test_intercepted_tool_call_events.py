@@ -18,8 +18,8 @@ from ag_ui_langgraph import LangGraphAgent as AGUIBase
 from ag_ui.core.types import RunAgentInput
 from langchain.agents import create_agent
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import Field
 
@@ -33,12 +33,14 @@ class BoundFakeToolModel(BaseChatModel):
     responses: list[AIMessage]
     i: int = 0
     bound_tools: list[Any] = Field(default_factory=list)
+    streaming: bool = False
 
     def bind_tools(self, tools, **kwargs):
         return self.__class__(
             responses=self.responses,
             i=self.i,
             bound_tools=list(tools),
+            streaming=self.streaming,
         )
 
     @property
@@ -50,6 +52,34 @@ class BoundFakeToolModel(BaseChatModel):
         if self.i < len(self.responses) - 1:
             self.i += 1
         return ChatResult(generations=[ChatGeneration(message=response)])
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        yield ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="",
+                id="ai-1",
+                tool_call_chunks=[
+                    {
+                        "id": "tc-1",
+                        "name": "ask_user_name",
+                        "args": "",
+                        "index": 0,
+                    }
+                ],
+            )
+        )
+        yield ChatGenerationChunk(
+            message=AIMessageChunk(
+                content="",
+                id="ai-1",
+                tool_call_chunks=[
+                    {"args": '{"prompt": "what is your name?"}', "index": 0}
+                ],
+            )
+        )
+        yield ChatGenerationChunk(
+            message=AIMessageChunk(content="", id="ai-1", tool_call_chunks=[])
+        )
 
 
 def _frontend_tool() -> Tool:
@@ -64,7 +94,7 @@ def _frontend_tool() -> Tool:
     )
 
 
-def _collect_intercepted_tool_run():
+def _collect_intercepted_tool_run(*, streaming=False):
     model = BoundFakeToolModel(
         responses=[
             AIMessage(
@@ -78,7 +108,8 @@ def _collect_intercepted_tool_run():
                     }
                 ],
             )
-        ]
+        ],
+        streaming=streaming,
     )
     graph = create_agent(
         model=model,
@@ -115,17 +146,22 @@ def _collect_intercepted_tool_run():
     return asyncio.run(_run())
 
 
-def test_intercepted_sdk_action_emits_single_tool_call_triple_end_to_end():
-    dispatched, _ = _collect_intercepted_tool_run()
+def _assert_single_tool_call_triple(dispatched):
 
     tool_call_starts = [
-        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_START
+        event
+        for event in dispatched
+        if getattr(event, "type", None) == EventType.TOOL_CALL_START
     ]
     tool_call_args = [
-        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_ARGS
+        event
+        for event in dispatched
+        if getattr(event, "type", None) == EventType.TOOL_CALL_ARGS
     ]
     tool_call_ends = [
-        event for event in dispatched if getattr(event, "type", None) == EventType.TOOL_CALL_END
+        event
+        for event in dispatched
+        if getattr(event, "type", None) == EventType.TOOL_CALL_END
     ]
     manual_emit_events = [
         event
@@ -134,7 +170,7 @@ def test_intercepted_sdk_action_emits_single_tool_call_triple_end_to_end():
         and getattr(event, "name", None) == "copilotkit_manually_emit_tool_call"
     ]
 
-    assert len(manual_emit_events) == 1
+    assert len(manual_emit_events) == 0
     assert len(tool_call_starts) == 1
     assert len(tool_call_args) == 1
     assert len(tool_call_ends) == 1
@@ -145,30 +181,41 @@ def test_intercepted_sdk_action_emits_single_tool_call_triple_end_to_end():
     assert tool_call_ends[0].tool_call_id == "tc-1"
 
 
-def test_after_agent_restores_tool_call_without_duplicate_stream_events():
-    dispatched, yielded = _collect_intercepted_tool_run()
+def test_intercepted_sdk_action_emits_single_tool_call_triple_in_both_modes():
+    for streaming in (False, True):
+        dispatched, _ = _collect_intercepted_tool_run(streaming=streaming)
+        _assert_single_tool_call_triple(dispatched)
 
-    final_snapshot = next(
-        event
-        for event in reversed(yielded)
-        if isinstance(event, MessagesSnapshotEvent)
-    )
-    assistant_message = final_snapshot.messages[-1]
 
-    tool_call_ids = [
-        event.tool_call_id
-        for event in dispatched
-        if getattr(event, "type", None) in {
-            EventType.TOOL_CALL_START,
-            EventType.TOOL_CALL_ARGS,
-            EventType.TOOL_CALL_END,
-        }
-    ]
+def test_after_agent_restores_tool_call_in_both_modes():
+    for streaming in (False, True):
+        dispatched, yielded = _collect_intercepted_tool_run(streaming=streaming)
 
-    assert len(tool_call_ids) == 3
-    assert tool_call_ids == ["tc-1", "tc-1", "tc-1"]
+        final_snapshot = next(
+            event
+            for event in reversed(yielded)
+            if isinstance(event, MessagesSnapshotEvent)
+        )
+        assistant_message = final_snapshot.messages[-1]
 
-    assert len(assistant_message.tool_calls) == 1
-    assert assistant_message.tool_calls[0].id == "tc-1"
-    assert assistant_message.tool_calls[0].function.name == "ask_user_name"
-    assert assistant_message.tool_calls[0].function.arguments == '{"prompt": "what is your name?"}'
+        tool_call_ids = [
+            event.tool_call_id
+            for event in dispatched
+            if getattr(event, "type", None)
+            in {
+                EventType.TOOL_CALL_START,
+                EventType.TOOL_CALL_ARGS,
+                EventType.TOOL_CALL_END,
+            }
+        ]
+
+        assert len(tool_call_ids) == 3
+        assert tool_call_ids == ["tc-1", "tc-1", "tc-1"]
+
+        assert len(assistant_message.tool_calls) == 1
+        assert assistant_message.tool_calls[0].id == "tc-1"
+        assert assistant_message.tool_calls[0].function.name == "ask_user_name"
+        assert (
+            assistant_message.tool_calls[0].function.arguments
+            == '{"prompt": "what is your name?"}'
+        )
