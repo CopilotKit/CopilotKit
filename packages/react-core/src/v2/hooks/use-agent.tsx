@@ -1,5 +1,5 @@
 import { useCopilotKit } from "../context";
-import { useMemo, useEffect, useReducer, useRef } from "react";
+import { useMemo, useEffect, useReducer, useRef, useState } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
@@ -31,16 +31,33 @@ export interface UseAgentProps {
   /**
    * Thread to scope the agent's run to. When provided, this threadId is written
    * onto the underlying agent so `/agent/run`, `/agent/connect`, and
-   * `/agent/stop` address this thread. Resolution precedence: this property,
-   * then the surrounding chat configuration's threadId (when it is an explicit,
-   * caller-chosen thread — see `CopilotChatConfigurationProvider`).
+   * `/agent/stop` address this thread.
+   *
+   * REQUIRES `runtimeAgentId`. A runtime agent registered under a given id is a
+   * singleton, so writing a per-hook threadId directly onto it would let two
+   * `useAgent` calls that share an `agentId` clobber each other's thread. To
+   * make a threadId-scoped run safe, pass a distinct local `agentId` plus the
+   * `runtimeAgentId` it routes to; the hook then registers a private proxied
+   * agent (see `runtimeAgentId`) and writes the threadId onto that instance,
+   * never a shared one. Passing `threadId` without `runtimeAgentId` throws.
    *
    * When omitted, behavior is unchanged: the threadId is sourced from the chat
    * configuration if present, otherwise the agent keeps its auto-minted UUID.
-   * Useful for headless usage (e.g. React Native) where there is no
-   * `<CopilotChatConfigurationProvider>` in the tree to supply the thread.
    */
   threadId?: string;
+  /**
+   * The id of the runtime agent to route outbound requests to, while this hook
+   * exposes a distinct local `agentId`. Registers a proxied agent via
+   * `CopilotKitCore.registerProxiedAgent`, letting several frontend agents
+   * (e.g. one per open thread) mount against a single runtime agent without a
+   * shared-singleton collision.
+   *
+   * When set, `agentId` is the *local* registry id (must not collide with an
+   * existing local or runtime-discovered agent) and `runtimeAgentId` is the
+   * runtime agent the proxy addresses on `/agent/run` etc. Required whenever
+   * `threadId` is supplied; optional otherwise.
+   */
+  runtimeAgentId?: string;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by
@@ -70,9 +87,26 @@ export interface UseAgentProps {
 export function useAgent({
   agentId,
   threadId,
+  runtimeAgentId,
   updates,
   throttleMs,
 }: UseAgentProps = {}) {
+  // A threadId is written onto a single agent instance. An agent resolved by
+  // `agentId` alone is a shared singleton, so a per-hook threadId there would
+  // let two useAgent calls with the same agentId clobber each other's thread.
+  // Require runtimeAgentId so the hook can register a *private* proxied agent
+  // (below) and scope the threadId to it. Fail loud rather than silently
+  // mutating shared state.
+  if (threadId != null && runtimeAgentId == null) {
+    throw new Error(
+      `useAgent: \`threadId\` requires \`runtimeAgentId\`. A threadId is written onto a ` +
+        `single agent, but an agent resolved by agentId alone is shared, so scoping a ` +
+        `thread to it would clobber other useAgent callers. Pass a distinct local \`agentId\` ` +
+        `and the runtime agent to route to, e.g. ` +
+        `useAgent({ agentId: "chat-1", runtimeAgentId: "${agentId ?? "default"}", threadId }).`,
+    );
+  }
+
   // Resolve agentId mirroring CopilotChat's precedence: an explicit prop wins,
   // then the surrounding chat configuration's agentId, then the global default.
   // Without the chat-config fallback, a useAgent() consumer rendered inside a
@@ -101,10 +135,63 @@ export function useAgent({
     new Map(),
   );
 
+  // When runtimeAgentId is set, this hook owns a proxied agent registered under
+  // `resolvedAgentId` that routes to `runtimeAgentId`. Register/unregister as a
+  // single balanced effect (StrictMode-safe: the cleanup unregisters before the
+  // remount re-registers). Exposing the registered agent via state re-renders
+  // the hook so it swaps from the provisional stand-in to the real proxy
+  // deterministically, without depending on the provider's agents-changed
+  // subscription.
+  const [registeredProxyAgent, setRegisteredProxyAgent] =
+    useState<AbstractAgent | null>(null);
+  useEffect(() => {
+    if (runtimeAgentId == null) {
+      setRegisteredProxyAgent(null);
+      return;
+    }
+    const { agent: proxy, unregister } = copilotkit.registerProxiedAgent({
+      agentId: resolvedAgentId,
+      runtimeAgentId,
+    });
+    provisionalAgentCache.current.delete(resolvedAgentId);
+    setRegisteredProxyAgent(proxy);
+    return () => {
+      unregister();
+      setRegisteredProxyAgent(null);
+    };
+  }, [copilotkit, resolvedAgentId, runtimeAgentId]);
+
   const { agent, isReady } = useMemo<{
     agent: AbstractAgent;
     isReady: boolean;
   }>(() => {
+    // Proxied-agent path: this hook registers its own agent (routing to
+    // runtimeAgentId), so bypass the shared-singleton lookup entirely. Use the
+    // registered instance once the effect has run; until then return a
+    // provisional proxy so `agent` is never null and its reference stays stable
+    // across the pre-registration renders.
+    if (runtimeAgentId != null) {
+      if (registeredProxyAgent) {
+        provisionalAgentCache.current.delete(resolvedAgentId);
+        return { agent: registeredProxyAgent, isReady: true };
+      }
+      const cached = provisionalAgentCache.current.get(resolvedAgentId);
+      if (cached) {
+        copilotkit.applyHeadersToAgent(cached);
+        return { agent: cached, isReady: false };
+      }
+      const provisional = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: copilotkit.runtimeUrl,
+        agentId: resolvedAgentId,
+        runtimeAgentId,
+        transport: copilotkit.runtimeTransport,
+        runtimeMode: "pending",
+      });
+      copilotkit.applyHeadersToAgent(provisional);
+      provisionalAgentCache.current.set(resolvedAgentId, provisional);
+      return { agent: provisional, isReady: false };
+    }
+
     const existing = copilotkit.getAgent(resolvedAgentId);
     if (existing) {
       // Real agent found — clear any cached provisional for this ID
@@ -181,6 +268,8 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     resolvedAgentId,
+    runtimeAgentId,
+    registeredProxyAgent,
     copilotkit.agents,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,

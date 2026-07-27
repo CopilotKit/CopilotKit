@@ -45,7 +45,14 @@ export function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: "default", threadId });
+  // Scope the run to `threadId` via a private proxied agent: a distinct local
+  // agentId ("rn-chat") routed to the runtime "default" agent. This keeps the
+  // per-thread threadId off the shared "default" singleton (see useAgent docs).
+  const { agent } = useAgent({
+    agentId: "rn-chat",
+    runtimeAgentId: "default",
+    threadId,
+  });
 
   const messages = agent?.messages ?? [];
   const isLoading = agent?.isRunning ?? false;
