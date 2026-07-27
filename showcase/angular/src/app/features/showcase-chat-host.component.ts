@@ -9,6 +9,7 @@ import {
   ViewContainerRef,
   inject,
   input,
+  inputBinding,
 } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import {
@@ -64,27 +65,28 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     if (childInjector) {
       this.destroyRef.onDestroy(() => childInjector.destroy());
     }
-    const chat = createDynamicComponent(this.viewContainer, CopilotChat, {
-      injector: childInjector,
-    });
-    this.chat = chat;
     const feature =
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
-    chat.setInput(
-      "agentId",
-      this.agentId() ?? agentIdForCurrentIntegration(feature),
-    );
+    const agentId = this.agentId() ?? agentIdForCurrentIntegration(feature);
     const threadId = threadIdForFeature(feature);
-    if (threadId !== undefined) chat.setInput("threadId", threadId);
-    chat.setInput(
-      "reasoningMessageComponent",
-      this.reasoningMessageComponent(),
-    );
-    chat.setInput(
-      "messageViewChildrenComponent",
-      this.messageViewChildrenComponent(),
-    );
-    chat.setInput("attachments", this.attachments());
+    const bindings = [
+      inputBinding("agentId", () => agentId),
+      inputBinding("reasoningMessageComponent", () =>
+        this.reasoningMessageComponent(),
+      ),
+      inputBinding("messageViewChildrenComponent", () =>
+        this.messageViewChildrenComponent(),
+      ),
+      inputBinding("attachments", () => this.attachments()),
+    ];
+    if (threadId !== undefined) {
+      bindings.push(inputBinding("threadId", () => threadId));
+    }
+    const chat = createDynamicComponent(this.viewContainer, CopilotChat, {
+      ...(childInjector ? { injector: childInjector } : {}),
+      bindings,
+    });
+    this.chat = chat;
     renderDynamicComponent(chat);
   }
 

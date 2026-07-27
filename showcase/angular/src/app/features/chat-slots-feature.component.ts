@@ -5,6 +5,7 @@ import {
   ViewContainerRef,
   inject,
   input,
+  inputBinding,
 } from "@angular/core";
 import { CopilotChat } from "@copilotkit/angular";
 
@@ -55,9 +56,16 @@ export class ChatSlotsFeatureComponent implements AfterViewInit {
   private readonly chatHost = inject(ViewContainerRef);
 
   ngAfterViewInit(): void {
-    const chat = createDynamicComponent(this.chatHost, CopilotChat);
-    chat.setInput("agentId", agentIdForCurrentIntegration("chat-slots"));
-    chat.setInput("assistantMessageComponent", CustomAssistantMessageComponent);
+    const agentId = agentIdForCurrentIntegration("chat-slots");
+    const chat = createDynamicComponent(this.chatHost, CopilotChat, {
+      bindings: [
+        inputBinding("agentId", () => agentId),
+        inputBinding(
+          "assistantMessageComponent",
+          () => CustomAssistantMessageComponent,
+        ),
+      ],
+    });
     renderDynamicComponent(chat);
   }
 }
