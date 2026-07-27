@@ -70,21 +70,16 @@ const required = (name: string): string => {
       `Missing ${name}.\n` +
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
-        "  export COPILOTKIT_INTELLIGENCE_URL=https://api.copilotkit.ai\n" +
+        "  export COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai\n" +
+        "  export COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai\n" +
         "  export COPILOTKIT_API_KEY=cpk-...   (or add them to examples/teams/.env)\n" +
-        "Optional: COPILOTKIT_INTELLIGENCE_WS_URL (derived from the API URL when unset).",
+        "The API and websocket URLs are DIFFERENT hosts (api.… vs realtime.…), so\n" +
+        "the websocket URL cannot be derived from the API URL — set both.",
     );
     process.exit(1);
   }
   return v;
 };
-
-/**
- * Derive the Intelligence websocket base URL from the API base URL when it
- * isn't set explicitly: `http(s)://…` → `ws(s)://…` (same host + port).
- */
-const deriveWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
 
 const port = Number(process.env.PORT ?? 3978);
 
@@ -241,12 +236,11 @@ bot.onMessage(async ({ thread, message }) => {
 // Teams adapter stays DIRECT (it keeps its own credentials/transport), but a
 // Channel runs only through the Intelligence runtime, so the runtime is what
 // starts and stops it.
-const intelligenceApiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+// Both URLs are required: the API and realtime planes are separate hosts, so
+// there is no derive that produces one from the other.
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: intelligenceApiUrl,
-  wsUrl:
-    process.env.COPILOTKIT_INTELLIGENCE_WS_URL ??
-    deriveWsUrl(intelligenceApiUrl),
+  apiUrl: required("COPILOTKIT_INTELLIGENCE_URL"),
+  wsUrl: required("COPILOTKIT_INTELLIGENCE_WS_URL"),
   apiKey: required("COPILOTKIT_API_KEY"),
 });
 

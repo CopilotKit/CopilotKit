@@ -83,7 +83,9 @@ describe("managed channel entrypoint", () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
     process.env.AGENT_URL = "http://agent.test/run";
     process.env.COPILOTKIT_INTELLIGENCE_URL = "http://localhost:4201";
-    delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
+    // Required, and deliberately a different host+port from the API URL: the
+    // realtime plane is deployed separately, so there is no derive from apiUrl.
+    process.env.COPILOTKIT_INTELLIGENCE_WS_URL = "ws://localhost:4401";
     process.env.COPILOTKIT_API_KEY = "cpk-test";
 
     let sigterm: (() => void) | undefined;
