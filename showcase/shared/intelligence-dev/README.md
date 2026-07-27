@@ -2,6 +2,8 @@
 
 This directory provides a shared docker-compose template for running CopilotKit Intelligence locally during development.
 
+> **Note for Integration Examples:** Most integration examples now include their own bundled `docker-compose.intelligence.yml` and `docker/` directory, making them fully standalone. If you're working with an integration example that has these files, use those instead of this shared setup.
+
 ## What's Included
 
 - **PostgreSQL with pgvector** - Initialized with `intelligence_app` and `intelligence_app_shadow` databases
@@ -16,19 +18,21 @@ This directory provides a shared docker-compose template for running CopilotKit 
 
 ## Quick Start
 
-### Option 1: From an Integration Example
+### Option 1: From a Showcase or Development Project
 
-From any integration example directory (e.g., `examples/integrations/mastra`):
+This shared setup is primarily for showcases and internal development. For integration examples, see the note above about bundled configurations.
+
+From a project that references this shared setup:
 
 ```bash
 # 1. Set your license token
 echo "COPILOTKIT_LICENSE_TOKEN=your-token-here" >> .env
 
-# 2. Start intelligence stack
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+# 2. Start intelligence stack (adjust relative path as needed)
+docker compose -f <path-to>/showcase/shared/intelligence-dev/docker-compose.yml up -d
 
 # 3. Verify services are healthy
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml ps
+docker compose -f <path-to>/showcase/shared/intelligence-dev/docker-compose.yml ps
 
 # 4. Run your application (in a separate terminal)
 npm run dev
@@ -90,11 +94,13 @@ This error means the postgres init script didn't run. This template includes the
 **Solution:**
 
 ```bash
-# Stop and remove volumes
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down -v
+# Stop and remove volumes (use the correct path for your setup)
+docker compose -f <path-to>/docker-compose.yml down -v
+# OR for integration examples with bundled config:
+docker compose -f docker-compose.intelligence.yml down -v
 
 # Start fresh (init script will run on first boot)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+docker compose -f <path-to>/docker-compose.yml up -d
 ```
 
 ### Port Already in Use
@@ -110,15 +116,16 @@ lsof -i :4401
 lsof -i :5432
 lsof -i :6379
 
-# Stop the existing intelligence stack
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down
+# Stop any existing intelligence stack
+docker ps | grep -i intelligence
+docker compose down  # Run from the directory with the compose file
 
 # Or use different ports
 export APP_API_HOST_PORT=5201
 export GATEWAY_HOST_PORT=5401
 export POSTGRES_HOST_PORT=6432
 export REDIS_HOST_PORT=7379
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d
+docker compose -f <path-to>/docker-compose.yml up -d
 ```
 
 ### Intelligence Image Build Fails
@@ -130,7 +137,7 @@ The intelligence service requires the Intelligence repo to build.
 ```bash
 # Option 1: Set path to your Intelligence checkout
 export INTELLIGENCE_REPO=/path/to/your/Intelligence
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -d --build
+docker compose -f <path-to>/docker-compose.yml up -d --build
 
 # Option 2: Use a pre-built image (if available from registry)
 # Edit docker-compose.yml and change the intelligence service:
@@ -143,13 +150,16 @@ docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml up -
 
 ```bash
 # Stop services (keeps volumes/data)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml stop
+docker compose -f <path-to>/docker-compose.yml stop
 
 # Stop and remove containers (keeps volumes/data)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down
+docker compose -f <path-to>/docker-compose.yml down
 
 # Stop, remove containers AND volumes (fresh start next time)
-docker compose -f ../../showcase/shared/intelligence-dev/docker-compose.yml down -v
+docker compose -f <path-to>/docker-compose.yml down -v
+
+# For integration examples with bundled config:
+docker compose -f docker-compose.intelligence.yml down -v
 ```
 
 ## See Also
