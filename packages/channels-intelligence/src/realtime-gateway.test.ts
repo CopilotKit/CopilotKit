@@ -3,6 +3,7 @@ import {
   connectRealtimeGateway,
   RealtimeGatewayChannelStateError,
   RealtimeGatewaySetupRequiredError,
+  RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
@@ -818,5 +819,286 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
 
     expect(instances[0]!.closed).toBe(true);
     expect(states).toEqual([]);
+  });
+});
+
+/**
+ * Transport-level failure modes for a socket that never opens. Before OSS-623
+ * every one of these looked identical to the caller: an opaque hang that only
+ * surfaced as the supervising manager's settle timeout.
+ */
+type TransportFailure =
+  // NXDOMAIN — the configured host does not exist. Retrying cannot fix it.
+  | "dns"
+  // The host resolves but nothing is listening — possibly a boot race.
+  | "refused"
+  // A browser-style detail-free `Event` (no code, no message).
+  | "opaque"
+  // The connect neither opens nor errors (black-holed IP / dropped SYN).
+  | "silent";
+
+/** The `error` event a real WebSocket surfaces for `failure`. */
+function transportErrorEvent(failure: TransportFailure): unknown {
+  switch (failure) {
+    case "dns":
+      // Node's WebSocket wraps the resolver failure as the error event's
+      // underlying `error`; ENOTFOUND is NXDOMAIN — the host does not exist.
+      return {
+        type: "error",
+        message: "connection error",
+        error: Object.assign(
+          new Error("getaddrinfo ENOTFOUND realtime.copilotkit.ai"),
+          { code: "ENOTFOUND" },
+        ),
+      };
+    case "refused":
+      return {
+        type: "error",
+        message: "connection error",
+        error: Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:4001"), {
+          code: "ECONNREFUSED",
+        }),
+      };
+    default:
+      return { type: "error" };
+  }
+}
+
+/**
+ * A WebSocket whose first `openAfter - 1` connection attempts fail with
+ * `failure`; the attempt at `openAfter` (default: never) opens normally and
+ * replies `ok` to the channel join, modeling a gateway that was still booting.
+ */
+function makeFailingWebSocket(
+  failure: TransportFailure,
+  opts: { openAfter?: number } = {},
+) {
+  const instances: FailingWebSocket[] = [];
+
+  class FailingWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 0;
+    onopen: ((ev?: unknown) => void) | null = null;
+    onmessage: ((ev: { data: string }) => void) | null = null;
+    onerror: ((ev?: unknown) => void) | null = null;
+    onclose: ((ev?: unknown) => void) | null = null;
+    closed = false;
+
+    constructor(public readonly url: string) {
+      instances.push(this);
+      const attempt = instances.length;
+      queueMicrotask(() => {
+        if (opts.openAfter !== undefined && attempt >= opts.openAfter) {
+          this.readyState = 1;
+          this.onopen?.();
+          return;
+        }
+        if (failure === "silent") return;
+        this.readyState = 3;
+        this.onerror?.(transportErrorEvent(failure));
+        // A failed connect closes uncleanly (1006), which is what drives
+        // Phoenix's reconnect timer — the retry-forever behavior under test.
+        this.onclose?.({ code: 1006, wasClean: false });
+      });
+    }
+
+    send(data: string): void {
+      let frame: unknown;
+      try {
+        frame = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(frame)) return;
+      const [joinRef, ref, topic, event] = frame as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (event !== "phx_join") return;
+      queueMicrotask(() =>
+        this.onmessage?.({
+          data: JSON.stringify([
+            joinRef,
+            ref,
+            topic,
+            "phx_reply",
+            { status: "ok", response: {} },
+          ]),
+        }),
+      );
+    }
+
+    close(): void {
+      this.closed = true;
+      this.readyState = 3;
+      this.onclose?.();
+    }
+  }
+  return { FailingWebSocket, instances };
+}
+
+const JOIN = {
+  runtimeInstanceId: "rti_1",
+  declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+  observedAt: "2026-07-10T00:00:00.000Z",
+};
+
+describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => {
+  it("fails immediately with the DNS cause when the host does not resolve", async () => {
+    const { FailingWebSocket, instances } = makeFailingWebSocket("dns");
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://realtime.copilotkit.ai/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      // Generous deadline: an NXDOMAIN host must NOT burn it — the name does
+      // not exist, and no amount of retrying will make it exist.
+      connectTimeoutMs: 5_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(elapsed).toBeLessThan(1_000);
+    // The message must point at the misconfigured host and the real cause,
+    // not at a stopwatch.
+    expect((err as Error).message).toMatch(/wss:\/\/realtime\.copilotkit\.ai/);
+    expect((err as Error).message).toMatch(/ENOTFOUND/);
+    expect((err as RealtimeGatewayUnreachableError).endpoint).toBe(
+      "wss://realtime.copilotkit.ai/runner",
+    );
+    // A misconfigured host is NOT a setup-waiting condition: it must reject
+    // `ready()`, never resolve as `setup_required` (coordinated with OSS-622).
+    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
+    // The socket must not be left retrying a host that will never resolve.
+    expect(instances.every((instance) => instance.closed)).toBe(true);
+  });
+
+  it("gives up at the connect deadline with the transport cause when the connection is refused", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("refused");
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    // A refusal may just be a gateway that has not booted yet, so it is given
+    // the full (short) connect window rather than failing on the first error.
+    expect(elapsed).toBeGreaterThanOrEqual(140);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  });
+
+  it("rejects at the connect deadline when the connect hangs with no transport event at all", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("silent");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 150,
+      // Far larger than the connect deadline: a black-holed connect must be
+      // bounded by the CONNECT budget, not by the join timeout.
+      timeoutMs: 60_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    expect(
+      (err as RealtimeGatewayUnreachableError).transportError,
+    ).toBeUndefined();
+  });
+
+  it("still names the endpoint when the transport error carries no detail", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("opaque");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example\/runner/);
+  });
+
+  it("does not fail a gateway that is merely still booting", async () => {
+    // The first connect attempt is refused; the second succeeds — the boot
+    // race a fail-on-first-error rule would turn into a permanent activation
+    // failure (the manager does not retry activation).
+    const { FailingWebSocket, instances } = makeFailingWebSocket("refused", {
+      openAfter: 2,
+    });
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 2_000,
+    });
+
+    expect(instances.length).toBeGreaterThanOrEqual(2);
+    session.disconnect();
+  });
+
+  it("disarms the connect deadline once connected — a later drop is a reconnect, not an unreachable host", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+      connectTimeoutMs: 30,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // Drop AFTER a successful connect, then wait past the (already elapsed)
+    // connect deadline: the session must treat this as a reconnect episode and
+    // must not tear itself down as "never connected".
+    instances[0]!.onclose?.();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(states).toContain("reconnecting");
+    await waitUntil(() => states.includes("online"));
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
   });
 });
