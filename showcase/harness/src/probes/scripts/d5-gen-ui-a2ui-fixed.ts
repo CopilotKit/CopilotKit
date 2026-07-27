@@ -11,11 +11,8 @@
  * green even if the renderer never painted.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { FIRST_SIGNAL_TIMEOUT_MS, waitForTestId } from "./_genuine-shared.js";
 
@@ -45,6 +42,9 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       input: A2UI_FIXED_PILL_PROMPT,
       assertions: buildA2uiFixedAssertion(),
       responseTimeoutMs: 60_000,
+      completeOnMount: {
+        testIds: ["a2ui-fixed-card"],
+      },
     },
   ];
 }
