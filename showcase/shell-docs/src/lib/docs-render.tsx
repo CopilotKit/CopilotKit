@@ -1663,6 +1663,7 @@ export interface DocFrontmatter {
   description?: string;
   defaultFramework?: string;
   defaultCell?: string;
+  vueDocs?: string;
   hideTOC?: boolean;
   frontend?: unknown;
   /**
@@ -1812,6 +1813,8 @@ export function loadDoc(
       : undefined;
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
+  const vueDocs =
+    typeof data.vue_docs === "string" ? data.vue_docs : undefined;
   const hideTOC = data.hideTOC === true;
   const frontend = data.frontend;
   const earlyAccess =
@@ -1825,6 +1828,7 @@ export function loadDoc(
       description,
       defaultFramework,
       defaultCell,
+      vueDocs,
       hideTOC,
       frontend,
       earlyAccess,
