@@ -38,11 +38,14 @@ import {
   foldStateToTestStatus as foldStateToTestStatusShared,
   stateToTestStatus as stateToTestStatusShared,
   RED_RANK,
-  type RawRung,
-  type RungKind,
-  type RungContribution,
 } from "./cell-model.contribution.js";
-import { combine, type LadderDepth } from "./cell-model.combine.js";
+import type {
+  RawRung,
+  RungKind,
+  RungContribution,
+} from "./cell-model.contribution.js";
+import { combine } from "./cell-model.combine.js";
+import type { LadderDepth } from "./cell-model.combine.js";
 
 // Re-export the staleness windows so existing consumers that import them from
 // this module (e.g. `__tests__/cell-model.test.ts`) keep resolving — the
@@ -598,14 +601,22 @@ function structuralCeiling(input: CellModelInput): LadderDepth {
   return d5 && d5.length > 0 ? 6 : 4;
 }
 
-/** Gather the present rows of a rung's expected keys (Stage A lookup). */
+/**
+ * Gather the present rows of a rung's expected keys (Stage A lookup).
+ *
+ * Stage A stays pure LOOKUP: it reports which expected keys produced a row and
+ * hands the rows on. It deliberately does NOT summarize `signal` provenance —
+ * `foldFamily` derives that at the only scope that can consume it correctly
+ * (the RED rows; see `redSignalKnown`). A family-wide `signalKnown` computed
+ * here used to suppress the infra-red gray whenever ANY row of the family had
+ * been projected, including green rows the infra branch never reads.
+ */
 function gatherRows(
   live: LiveStatusMap,
   keys: string[],
-): { rows: StatusRow[]; anyMissing: boolean; signalKnown: boolean } {
+): { rows: StatusRow[]; anyMissing: boolean } {
   const rows: StatusRow[] = [];
   let anyMissing = false;
-  let signalKnown = true;
   for (const k of keys) {
     const r = live.get(k);
     if (!r) {
@@ -613,9 +624,8 @@ function gatherRows(
       continue;
     }
     rows.push(r);
-    if (r.signal === undefined) signalKnown = false;
   }
-  return { rows, anyMissing, signalKnown };
+  return { rows, anyMissing };
 }
 
 /**
@@ -685,49 +695,29 @@ function collectAgentLadder(
   const tools = live.get(keyFor("tools", slug)) ?? null;
   const d4Rows = [chat, tools].filter((r): r is StatusRow => !!r);
   const d4ChatMissing = !chat;
-  const d4SignalKnown = d4Rows.every((r) => r.signal !== undefined);
   // D5 / D6 — multi-key families.
   const d5Full = hasD5
     ? gatherRows(
         live,
         (d5Keys as readonly string[]).map((ft) => keyFor("d5", slug, ft)),
       )
-    : { rows: [] as StatusRow[], anyMissing: false, signalKnown: true };
+    : { rows: [] as StatusRow[], anyMissing: false };
   const d6Full = hasD5
     ? gatherRows(
         live,
         (d5Keys as readonly string[]).map((ft) => keyFor("d6", slug, ft)),
       )
-    : { rows: [] as StatusRow[], anyMissing: false, signalKnown: true };
+    : { rows: [] as StatusRow[], anyMissing: false };
 
   const rungs: RawRung[] = [
-    {
-      kind: "D1",
-      rows: health.rows,
-      mapped: true,
-      anyExpectedMissing: false,
-      signalKnown: health.signalKnown,
-    },
-    {
-      kind: "D2",
-      rows: agent.rows,
-      mapped: true,
-      anyExpectedMissing: false,
-      signalKnown: agent.signalKnown,
-    },
-    {
-      kind: "D3",
-      rows: e2e.rows,
-      mapped: true,
-      anyExpectedMissing: false,
-      signalKnown: e2e.signalKnown,
-    },
+    { kind: "D1", rows: health.rows, mapped: true, anyExpectedMissing: false },
+    { kind: "D2", rows: agent.rows, mapped: true, anyExpectedMissing: false },
+    { kind: "D3", rows: e2e.rows, mapped: true, anyExpectedMissing: false },
     {
       kind: "D4",
       rows: d4Rows,
       mapped: true,
       anyExpectedMissing: d4ChatMissing,
-      signalKnown: d4SignalKnown,
     },
   ];
   if (hasD5) {
@@ -736,14 +726,12 @@ function collectAgentLadder(
       rows: d5Full.rows,
       mapped: true,
       anyExpectedMissing: d5Full.anyMissing,
-      signalKnown: d5Full.signalKnown,
     });
     rungs.push({
       kind: "D6",
       rows: d6Full.rows,
       mapped: true,
       anyExpectedMissing: d6Full.anyMissing,
-      signalKnown: d6Full.signalKnown,
     });
   }
 
@@ -769,14 +757,13 @@ function buildStarterCellModelV2(
   const keys = (STARTER_LEVELS as readonly StarterLevel[]).map((level) =>
     keyFor("starter", columnSlug, level),
   );
-  const { rows, anyMissing, signalKnown } = gatherRows(live, keys);
+  const { rows, anyMissing } = gatherRows(live, keys);
   const contribution = classifyRung(
     {
       kind: "starter",
       rows,
       mapped: true,
       anyExpectedMissing: anyMissing,
-      signalKnown,
     },
     now,
   );
@@ -868,7 +855,6 @@ export function buildCellModel(
           rows: health.rows,
           mapped: true,
           anyExpectedMissing: false,
-          signalKnown: health.signalKnown,
         },
         now,
       ),
@@ -878,7 +864,6 @@ export function buildCellModel(
           rows: agent.rows,
           mapped: true,
           anyExpectedMissing: false,
-          signalKnown: agent.signalKnown,
         },
         now,
       ),

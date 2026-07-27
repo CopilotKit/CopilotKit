@@ -1,6 +1,6 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import { Message } from "../../graphql/types/converted";
+import type { Anthropic } from "@anthropic-ai/sdk";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type { Message } from "../../graphql/types/converted";
 
 export function limitMessagesToTokenCount(
   messages: any[],
@@ -216,4 +216,36 @@ export function convertMessageToAnthropicMessage(
       ],
     };
   }
+}
+
+/**
+ * Anthropic's Messages API requires alternating user/assistant roles.
+ * CopilotKit stores a mixed text+tool_use response as separate TextMessage and
+ * ActionExecutionMessage objects, which map to two consecutive assistant-role entries.
+ * This function merges consecutive same-role messages by concatenating their content
+ * arrays so the payload satisfies Anthropic's role-alternation constraint.
+ */
+export function coalesceConsecutiveSameRoleMessages(
+  messages: Anthropic.Messages.MessageParam[],
+): Anthropic.Messages.MessageParam[] {
+  const result: Anthropic.Messages.MessageParam[] = [];
+  for (const msg of messages) {
+    const prev = result[result.length - 1];
+    if (
+      prev &&
+      prev.role === msg.role &&
+      Array.isArray(prev.content) &&
+      Array.isArray(msg.content)
+    ) {
+      (prev.content as any[]).push(...(msg.content as any[]));
+    } else {
+      result.push({
+        ...msg,
+        content: Array.isArray(msg.content)
+          ? [...(msg.content as any[])]
+          : msg.content,
+      });
+    }
+  }
+  return result;
 }

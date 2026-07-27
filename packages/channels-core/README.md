@@ -4,6 +4,11 @@ The supported platform-neutral foundation behind `@copilotkit/channels`.
 Most applications should use the batteries-included `@copilotkit/channels` package;
 install core directly when building an adapter or intentionally selecting one platform.
 
+**Every Channel requires a CopilotKit Intelligence connection** (an API key — a
+free tier is available). There is no standalone / DIY run path: a Channel is
+started and owned by the `CopilotRuntime` once Intelligence is configured, not
+by calling a method on the Channel itself. See "Running a Channel" below.
+
 ## Selective install
 
 ```sh
@@ -45,11 +50,49 @@ import { slack } from "@copilotkit/channels-slack";
   (e.g. Discord). Forwarded to adapters that support commands and ignored
   elsewhere — also pass them up front via `commands` in `CreateChannelOptions`.
 - `tool(t)` — register a `ChannelTool` (alternative to `opts.tools`); must be
-  added before `start()`.
-- `start()` / `stop()` — bring adapters up / down.
+  added before the runtime activates the channel.
 
 `agent` is optional. If omitted, calling `thread.runAgent()` throws; supply
 an `AbstractAgent` or a `(threadId) => AbstractAgent` factory.
+
+A `Channel` has no public `start()` / `stop()` — lifecycle is runtime-owned
+(see below).
+
+## Running a Channel
+
+A Channel only runs when it's declared on an Intelligence-configured
+`CopilotRuntime`; there is no `channel.start()` and no standalone/DIY runner.
+Pass the `Channel` in `channels`, then drive activation through the returned
+handler:
+
+```ts
+import { createChannel } from "@copilotkit/channels-core";
+import { slack } from "@copilotkit/channels-slack";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const channel = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
+  adapters: [slack({ botToken, appToken })],
+});
+
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl: "https://api.copilotkit.ai",
+    wsUrl: "wss://api.copilotkit.ai",
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [channel],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // starts every declared channel
+// await handler.channels.stop(); // tears them down
+```
 
 ## `Thread`
 

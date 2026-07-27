@@ -251,6 +251,103 @@ context-scoped aimock prove otherwise — both are GREEN:
   `create_view` entry, and the flowchart entry in `mcp-apps.json`). The external
   MCP server IS reachable from the demo container — not an external blocker.
 
+## Real-LLM backend audit (fixes verified against REAL OpenAI, not aimock)
+
+An audit that ran the demos against a **real** `OPENAI_API_KEY` (no aimock,
+`OPENAI_BASE_URL` unset) surfaced backend bugs that the aimock fixtures masked.
+Each item below was fixed and re-verified end-to-end in a browser against real
+OpenAI (rendered testids + assistant text). These are orthogonal to the
+aimock/D6 notes above.
+
+### `cvdiag` `.js` import extensions — dev-only `/api/copilotkit` 500 (BLOCKER)
+
+`src/cvdiag/*.ts` imported siblings with explicit `.js` extensions (e.g.
+`from "./schema.js"`). Under `next dev --turbopack` + `moduleResolution:
+bundler` those specifiers don't resolve, so `/api/copilotkit` returned 500 for
+every request in dev. Prod `next build` tolerated it. Fixed by dropping the
+`.js` extensions on the relative sibling imports in `schema.ts`,
+`edge-headers.ts`, `emit.ts`, `pb-writer-fetch.ts`, `cvdiag-emitter.ts`.
+
+### `shared-state-read` / `shared-state-read-write` — UI state never reached the backend
+
+Root cause was a **client seeding race in the demo frontend**, not the
+converter: the seed effect ran with `[]` deps, so it seeded the _provisional_
+agent `useAgent` returns while the runtime `/info` sync is still in flight. When
+the real runtime-synced agent swapped in (a new reference), the `[]`-deps effect
+never re-ran, so the real agent — the one `runAgent` serialises into
+`input.state` — shipped `state: {}` and the model answered "I don't see a
+recipe." (The runtime's `convertInputToTanStackAI` already injects `input.state`
+into the system prompt correctly.) Fixed by seeding on `[agent]` deps in both
+demo pages, guarded by the existing `!recipe`/`!preferences` check so user edits
+aren't clobbered. Verified: the model reads the seeded recipe/preferences.
+
+### `shared-state-read-write` — `set_notes` result not turned into state
+
+`set_notes` is a server tool (`server-tools.ts`) returning `{ notes }`, but
+`tanstack-factory.ts`'s `convertStream` only translated
+`AGUISendStateSnapshot` / `AGUISendStateDelta` / `set_steps` into STATE events.
+Added a `set_notes` → `STATE_DELTA add /notes` branch (same RFC-6902 `add`-not-
+`replace` rationale as `set_steps`). Verified: asking the agent to remember
+something populates `notes-list` / `note-item`.
+
+### `declarative-gen-ui` / `a2ui-recovery` — secondary A2UI LLM emitted empty output
+
+`a2ui-factory.ts`'s `generate_a2ui` passed
+`modelOptions.response_format: { type: "json_object" }`. TanStack's `openaiText`
+targets the OpenAI _Responses_ API, which does NOT accept the Chat-Completions
+`response_format` param — passing it made the secondary call return an **empty
+string** (verified), so the surface never painted. Fixed by removing
+`response_format` (JSON-only output is enforced by the system prompt, mirroring
+the byoc factories) plus a defensive `stripJsonFences` unwrap. Verified against
+real OpenAI: `declarative-gen-ui` and `a2ui-recovery`'s heal turn paint
+`declarative-metric` / `declarative-pie-chart` / `declarative-bar-chart`.
+(`a2ui-recovery`'s _exhaust_/failure-card path is driven by deterministic aimock
+fixtures that force every validation pass to fail — a real LLM produces a valid
+surface, so the failure card is not reproducible against a real key by design.)
+
+### Reasoning trio — real reasoning trace via the Responses API
+
+Real OpenAI chat-completions does NOT stream `reasoning_content` (only aimock
+did), so the previous chat-completions `extractReasoning` adapter produced no
+trace against a real key. `reasoning-factory.ts` now uses `openaiText` (the
+Responses API, the same transport as every other demo) with
+`modelOptions.reasoning = { effort: "high", summary: "auto" }` and a `type:
+"custom"` converter that maps the Responses-API thinking STEP chunks
+(`STEP_STARTED` `stepType:"thinking"` + `STEP_FINISHED` deltas) to
+`REASONING_MESSAGE_*` AG-UI events. Verified against real OpenAI:
+`reasoning-custom` renders the `reasoning-block`, `reasoning-default` renders the
+built-in "Thought for …" block, and `tool-rendering-reasoning-chain` renders
+BOTH the reasoning block and its tool cards (no tool-render regression).
+
+Caveats (documented, not blockers):
+
+- Reasoning summaries require `effort: "high"`; at `low`/`medium` real OpenAI
+  frequently completes short prompts without emitting a summary part.
+- OpenAI's prompt caching means an _identical_ prompt asked repeatedly may
+  return a cached completion with no fresh reasoning summary — the first/fresh
+  ask reliably produces one.
+- This switches the reasoning demos' transport from chat-completions to the
+  Responses API. Text + tool-call behaviour is unchanged (verified); the aimock
+  D6 reasoning fixtures, if they were recorded for the chat-completions
+  `reasoning_content` shape, would need re-recording for Responses-API reasoning
+  summaries. The `manifest.yaml` `not_supported_features` entries were left
+  untouched (not verifiable here without aimock).
+
+### `auth` + `voice` `[[...slug]]` routes — dev-server-only 500, prod unaffected
+
+`/api/copilotkit-auth/*` and `/api/copilotkit-voice/*` (the only two catch-all
+`[[...slug]]` routes; every other route is a single `route.ts`) crash the dev
+server's route worker at request time — under `next dev --turbopack` via a
+PostCSS/worker panic, and under plain `next dev` (webpack) via a masked
+"Jest worker encountered … child process exceptions" `WorkerError`. The crash is
+below the handler (a try/catch inside the route never fires) and does NOT
+reproduce in production: after `next build` + `next start`, `auth /info` returns
+200 with a valid token and 401 without one, the auth chat runs end-to-end
+(assistant replies, all `/info` + `/run` responses 200, zero console errors),
+and `voice /info` returns 200. This is a `next dev` dev-server limitation with
+catch-all API routes + the V2 runtime handler, not an integration bug — no
+code change is warranted. Prod is unaffected.
+
 ## When to update this file
 
 - Adding a per-demo capability divergence vs. LGP → document the rationale.

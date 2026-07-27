@@ -76,15 +76,44 @@ export function computeNextStableVersion(
   }
 }
 
+/**
+ * Resolve the identifier that separates one canary from the next: the
+ * maintainer-supplied suffix, else a unix timestamp.
+ *
+ * Resolve this ONCE per publish run and pass it to every
+ * {@link computePrereleaseVersion} call, so a multi-scope canary ships one
+ * recognizable set of versions (`1.63.3-canary.1784916581` +
+ * `0.2.2-canary.1784916581`) instead of per-scope timestamps that drift by
+ * however long each scope took to bump.
+ */
+export function resolvePrereleaseId(suffix?: string): string {
+  return suffix || String(Math.floor(Date.now() / 1000));
+}
+
+/**
+ * Compute the version a canary publishes under: the next UNRELEASED version
+ * plus `-<prereleaseTag>.<id>`.
+ *
+ * The base has to be the next version rather than the current one. A stable
+ * release leaves the working tree sitting on the version it just published, so
+ * appending `-canary` to that produces a prerelease semver sorts BELOW the
+ * release it was cut from (`0.2.1-canary.17849… < 0.2.1`). Two things break as
+ * a result: the `canary` dist-tag advertises something older than `latest`, and
+ * no dependent range can ever resolve the canary, since npm admits prereleases
+ * only for a range naming that same major.minor.patch. Bumping the patch first
+ * keeps every canary above the last stable release.
+ *
+ * A working tree already carrying a prerelease is already sitting on an
+ * unreleased version, so its base is used as-is — the same rule
+ * {@link computeNextStableVersion} applies.
+ */
 export function computePrereleaseVersion(
   currentVersion: string,
   suffix?: string,
 ): string {
-  const v = parseSemver(currentVersion);
-  const config = loadConfig();
-  const tag = config.prereleaseTag;
-  const id = suffix || String(Math.floor(Date.now() / 1000));
-  return `${v.major}.${v.minor}.${v.patch}-${tag}.${id}`;
+  const base = computeNextStableVersion(currentVersion, "patch");
+  const tag = loadConfig().prereleaseTag;
+  return `${base}-${tag}.${resolvePrereleaseId(suffix)}`;
 }
 
 /** Get all publishable packages in the order configured for a release scope. */
@@ -154,4 +183,98 @@ export function bumpPackages(
   }
 
   return updated;
+}
+
+/** A cross-scope dependency edge whose published pin won't be this run's version. */
+export interface CrossScopePin {
+  /** Package being published. */
+  from: string;
+  /** Its dependency, owned by a different release scope. */
+  dep: string;
+  /** The scope that owns `dep`. */
+  depScope: ReleaseScope;
+  /** Version the published manifest will carry for `dep`. */
+  resolvesTo: string;
+  /**
+   * Why the pin is stale:
+   * - `unpublished-scope`: a `workspace:` range that `pnpm pack` resolves against
+   *   the working tree, where `depScope` was not bumped in this run. Publishing
+   *   that scope too (scope=all) fixes it.
+   * - `literal-range`: a hand-written version range on a cross-scope package.
+   *   `bumpPackages` only rewrites literal ranges naming packages in the SAME
+   *   scope, so this one survives every bump — scope=all does NOT fix it. Convert
+   *   the dep to the `workspace:` protocol.
+   */
+  reason: "unpublished-scope" | "literal-range";
+}
+
+/**
+ * Find cross-scope dependency edges whose published pin will NOT be a version
+ * from this run.
+ *
+ * The failure this exists to make visible: `pnpm pack` resolves the workspace
+ * protocol against the working tree, so a canary of one scope pins the other
+ * scope's packages to their last stable release — even when the commit being
+ * canaried changed both sides of the contract. The artifact then only composes
+ * with that release, and nothing says so until a consumer hits a runtime error.
+ *
+ * Two shapes qualify. A `workspace:` range into a scope that isn't being
+ * published is fixed by publishing every scope together; a literal range into
+ * another scope is fixed only by converting it to `workspace:`, since
+ * {@link bumpPackages} rewrites literal ranges for in-scope packages only. Both
+ * are reported, tagged by {@link CrossScopePin.reason}.
+ *
+ * Only `dependencies`/`peerDependencies`/`optionalDependencies` are considered —
+ * devDependencies never constrain a consumer's install.
+ */
+export function findCrossScopePins(scopes: ReleaseScope[]): CrossScopePin[] {
+  const config = loadConfig();
+  const scopeByPackage = new Map<string, ReleaseScope>();
+  for (const [scope, scopeConfig] of Object.entries(config.scopes)) {
+    for (const name of scopeConfig.packages) {
+      scopeByPackage.set(name, scope as ReleaseScope);
+    }
+  }
+
+  const publishing = new Set(scopes);
+  const found: CrossScopePin[] = [];
+
+  for (const scope of scopes) {
+    for (const p of getPackagesForScope(scope)) {
+      for (const depField of [
+        "dependencies",
+        "peerDependencies",
+        "optionalDependencies",
+      ] as const) {
+        const deps = p.pkg[depField] as Record<string, string> | undefined;
+        if (!deps) continue;
+        for (const [dep, range] of Object.entries(deps)) {
+          const depScope = scopeByPackage.get(dep);
+          if (!depScope || depScope === scope) continue;
+          const isWorkspace = range.startsWith("workspace:");
+          // A workspace: range into a scope this run bumps resolves to that
+          // scope's canary version — the composable case, nothing to report.
+          if (isWorkspace && publishing.has(depScope)) continue;
+          found.push({
+            from: p.name,
+            dep,
+            depScope,
+            // A literal range is published verbatim; a workspace: range is
+            // rewritten to the dependency's working-tree version.
+            resolvesTo: isWorkspace
+              ? JSON.parse(
+                  fs.readFileSync(
+                    path.join(findPackageDir(dep), "package.json"),
+                    "utf8",
+                  ),
+                ).version
+              : range,
+            reason: isWorkspace ? "unpublished-scope" : "literal-range",
+          });
+        }
+      }
+    }
+  }
+
+  return found;
 }

@@ -19,6 +19,7 @@
   "type": "module",
   "sideEffects": [
     "./dist/index.*",
+    "./dist/headless.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
   ],
@@ -29,6 +30,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./headless": {
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.cjs"
     },
     "./polyfills": {
       "import": "./dist/polyfills.mjs",

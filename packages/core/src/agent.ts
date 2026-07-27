@@ -173,6 +173,14 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     return this._capabilities;
   }
 
+  override requestInit(input: RunAgentInput): RequestInit {
+    const baseInit = super.requestInit(input);
+    return {
+      ...baseInit,
+      ...(this.credentials ? { credentials: this.credentials } : {}),
+    };
+  }
+
   async getCapabilities(): Promise<AgentCapabilities> {
     return this._capabilities ?? {};
   }

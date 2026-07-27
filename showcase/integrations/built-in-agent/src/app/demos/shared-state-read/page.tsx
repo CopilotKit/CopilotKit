@@ -63,15 +63,23 @@ function Recipe() {
     available: "always",
   });
 
-  // Seed the initial recipe into agent state once so the agent has
-  // something to read on the first turn. After this, every edit lands
-  // via `agent.setState` below.
+  // Seed the initial recipe into agent state so the agent has something to
+  // read on the first turn. After this, every edit lands via `agent.setState`
+  // below.
+  //
+  // Deps are `[agent]`, NOT `[]`: `useAgent` returns a provisional agent while
+  // the runtime /info sync is still in flight, then swaps in the real
+  // (runtime-synced) agent once it resolves — a new reference. A `[]`-deps
+  // effect seeded only the provisional agent, so the real agent (the one
+  // `runAgent` serialises into `input.state`) shipped `state: {}` and the model
+  // replied "I don't see a recipe". Re-seeding on every `agent` reference change
+  // fixes that; the `!recipe` guard keeps it from clobbering user edits.
   useEffect(() => {
     if (!(agent.state as RecipeAgentState | undefined)?.recipe) {
       agent.setState({ recipe: INITIAL_RECIPE } satisfies RecipeAgentState);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent]);
 
   const recipe =
     (agent.state as RecipeAgentState | undefined)?.recipe ?? INITIAL_RECIPE;

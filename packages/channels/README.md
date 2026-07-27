@@ -3,6 +3,11 @@
 `@copilotkit/channels` is the batteries-included CopilotKit Channels package. One install
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
+**Channels require a CopilotKit Intelligence connection** (an API key — a free tier
+is available, so this is "connect your Intelligence account," not "pay for it").
+There is no standalone / DIY way to run a Channel: the `CopilotRuntime` starts and
+owns each Channel's lifecycle once Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -23,8 +28,14 @@ Configure TypeScript to use the Channels JSX runtime:
 ```tsx
 import { createChannel, Message, Section } from "@copilotkit/channels";
 import { slack } from "@copilotkit/channels/slack";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
 const channel = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -40,6 +51,20 @@ channel.onMessage(({ thread, message }) =>
     </Message>,
   ),
 );
+
+// The runtime owns the Channel's lifecycle — there is no `channel.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl: "https://api.copilotkit.ai",
+    wsUrl: "wss://api.copilotkit.ai",
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [channel],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
 ```
 
 ## Adapter entry points

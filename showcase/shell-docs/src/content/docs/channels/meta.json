@@ -1,5 +1,20 @@
 {
-  "title": "Channels SDK",
-  "icon": "lucide/Bot",
-  "pages": ["index", "persistence", "transcripts", "posting-jsx-as-images"]
+  "title": "Channels",
+  "icon": "lucide/MessagesSquare",
+  "pages": [
+    "index",
+    "quickstart",
+    "ui-library",
+    "tools",
+    "interactive",
+    "commands-and-reactions",
+    "files-and-multimodality",
+    "posting-jsx-as-images",
+    "mcp",
+    "configuration",
+    "persistence",
+    "transcripts",
+    "platforms",
+    "reference"
+  ]
 }
