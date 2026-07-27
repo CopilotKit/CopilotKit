@@ -62,6 +62,7 @@ import {
 import {
   childrenToText,
   extractHeadings,
+  filterAngularBackendScopedBlocks,
   filterFrontendScopedBlocks,
   filterFrameworkScopedBlocks,
   slugify,
@@ -154,9 +155,18 @@ export async function DocsPageView({
 
   const rawContent = doc.source.replace(/^---[\s\S]*?---\n?/, "");
   const inlined = inlineSnippets(rawContent, slugPath);
-  const content = convertTablesInJSX(inlined);
-
   const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
+  const convertedContent = convertTablesInJSX(inlined);
+  // Select the Angular quickstart's standalone/backend branch before MDX
+  // compilation. RSC serialization does not preserve `selected={false}` on
+  // this custom MDX component reliably, which can make the backend branch
+  // render alongside the standalone BuiltInAgent instructions. The markdown
+  // endpoint already applies this same source-level filter.
+  const content =
+    frontendOverride === "angular"
+      ? filterAngularBackendScopedBlocks(convertedContent, defaultFramework)
+      : convertedContent;
+
   const defaultCell = doc.fm.defaultCell;
   const docsFrontend = frontendOverride ?? "react";
   const docsFromPath =
