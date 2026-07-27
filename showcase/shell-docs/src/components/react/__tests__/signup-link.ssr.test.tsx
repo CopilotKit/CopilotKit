@@ -37,9 +37,18 @@ describe("client component SSR safety (shell-docs)", () => {
 
   it("SignupLink SSR href parses as a URL", () => {
     const html = renderToStaticMarkup(
-      <SignupLink surface="test">Sign up</SignupLink>,
+      <SignupLink
+        surface="test"
+        frontend="angular"
+        backend="langgraph-python"
+        fromPath="/angular/langgraph-python/quickstart"
+      >
+        Sign up
+      </SignupLink>,
     );
-    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
+    const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.searchParams.get("utm_frontend")).toBe("angular");
+    expect(url.searchParams.get("utm_backend")).toBe("langgraph-python");
   });
 
   it("OpsPlatformCTA SSR-renders without throwing", () => {
@@ -58,9 +67,14 @@ describe("client component SSR safety (shell-docs)", () => {
       React.createElement(OpsPlatformCTA, {
         title: "Test",
         surface: "test-surface",
+        frontend: "angular",
+        backend: "google-adk",
+        fromPath: "/angular/google-adk",
       }),
     );
-    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
+    const url = new URL(hrefFromStaticMarkup(html));
+    expect(url.searchParams.get("utm_frontend")).toBe("angular");
+    expect(url.searchParams.get("utm_backend")).toBe("google-adk");
   });
 
   it("OpsPlatformCTA supports a custom href", () => {

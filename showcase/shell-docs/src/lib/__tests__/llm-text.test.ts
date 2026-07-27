@@ -12,6 +12,8 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
       "angular/features",
       "angular/guides/chat-ui",
       "angular/guides/frontend-tools-generative-ui",
+      "angular/guides/a2ui",
+      "angular/guides/voice-multimodal",
       "angular/guides/human-in-the-loop",
       "angular/guides/shared-state",
       "angular/guides/threads-memory-attachments-headless",
@@ -89,6 +91,34 @@ test("keeps cross-backend and root-only Markdown links resolvable", () => {
   expect(output).not.toContain("/angular/langgraph-python/angular/");
 });
 
+test("keeps only the Angular quickstart branch for the selected backend", () => {
+  const quickstart = loadDoc("frontends/angular");
+  expect(quickstart).not.toBeNull();
+  const page = {
+    url: "angular/quickstart",
+    title: quickstart!.fm.title,
+    description: quickstart!.fm.description,
+    filePath: quickstart!.filePath,
+    loadSlug: "frontends/angular",
+  };
+
+  const standalone = renderPageToLlmText(page, { frontend: "angular" });
+  const langGraph = renderPageToLlmText(
+    {
+      ...page,
+      url: "angular/langgraph-python/quickstart",
+      framework: "langgraph-python",
+    },
+    { frontend: "angular", framework: "langgraph-python" },
+  );
+
+  expect(standalone).toContain("new BuiltInAgent");
+  expect(standalone).not.toContain("<FrameworkSetup");
+  expect(langGraph).toContain('<FrameworkSetup concept="agent-setup" />');
+  expect(langGraph).not.toContain("new BuiltInAgent");
+  expect(`${standalone}\n${langGraph}`).not.toContain("<WhenAngularBackend");
+});
+
 test("expands canonical Angular Showcase regions in LLM output", () => {
   const doc = loadDoc("frontends/angular/guides/frontend-tools-generative-ui");
   expect(doc).not.toBeNull();
@@ -104,6 +134,42 @@ test("expands canonical Angular Showcase regions in LLM output", () => {
   expect(output).toContain("features/tools/tool-feature-model.ts");
   expect(output).toContain('name: "change_background"');
   expect(output).not.toContain("<AngularSnippet");
+});
+
+test("publishes Angular-native voice, multimodal, and A2UI guidance", () => {
+  const voiceDoc = loadDoc("frontends/angular/guides/voice-multimodal");
+  const a2uiDoc = loadDoc("frontends/angular/guides/a2ui");
+  expect(voiceDoc).not.toBeNull();
+  expect(a2uiDoc).not.toBeNull();
+
+  const voice = renderPageToLlmText({
+    url: "angular/guides/voice-multimodal",
+    title: voiceDoc!.fm.title,
+    description: voiceDoc!.fm.description,
+    filePath: voiceDoc!.filePath,
+    loadSlug: "frontends/angular/guides/voice-multimodal",
+  });
+  const a2ui = renderPageToLlmText({
+    url: "angular/guides/a2ui",
+    title: a2uiDoc!.fm.title,
+    description: a2uiDoc!.fm.description,
+    filePath: a2uiDoc!.filePath,
+    loadSlug: "frontends/angular/guides/a2ui",
+  });
+
+  expect(voice).toContain("features/media/media-feature.component.ts");
+  expect(voice).toContain("maxSize: 10 * 1024 * 1024");
+  expect(voice).toContain("features/media/media-model.ts");
+  expect(a2ui).toContain("features/a2ui/a2ui-catalogs.ts");
+  expect(a2ui).toContain("styles.css");
+  expect(a2ui).toContain(
+    "The stable Hashbrown Angular package does not support the complete Angular 20 through 22 policy.",
+  );
+  expect(a2ui).toContain(
+    "JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.",
+  );
+  expect(`${voice}\n${a2ui}`).not.toContain("<AngularSnippet");
+  expect(`${voice}\n${a2ui}`).not.toMatch(/\bReact(?:JS)?\b/i);
 });
 
 test("keeps shared backend guidance while expanding Angular source regions", () => {

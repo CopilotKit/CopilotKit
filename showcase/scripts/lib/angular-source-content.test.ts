@@ -64,6 +64,30 @@ describe("Angular source content", () => {
     expect(content.regions["subagent-delegation-state"]?.content).toContain(
       "readDelegations(this.agentStore().state())",
     );
+    expect(content.regions["voice-tool-renderers"]).toEqual(
+      expect.objectContaining({
+        file: "features/media/media-feature.component.ts",
+        language: "typescript",
+      }),
+    );
+    expect(content.regions["multimodal-message"]?.content).toContain(
+      'type: spec.mimeType === "application/pdf" ? "document" : "image"',
+    );
+    expect(content.regions["a2ui-schema-and-recovery"]?.content).toContain(
+      "recovery: { showAfterMs: 2_000, showAfterAttempts: 2 }",
+    );
+    expect(content.regions["a2ui-fixed-schema"]?.content).toContain(
+      "props: z.object",
+    );
+    expect(content.regions["a2ui-styling"]).toEqual(
+      expect.objectContaining({
+        file: "styles.css",
+        language: "css",
+      }),
+    );
+    expect(content.regions["a2ui-styling"]?.content).toContain(
+      ".a2ui-status-success",
+    );
     expect(JSON.stringify(content.files)).not.toContain("@region[");
   });
 });

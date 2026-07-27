@@ -67,6 +67,8 @@ function renderNavNameToMarkup(name: React.ReactNode): string {
 const angularGuideSlugs = [
   "guides/chat-ui",
   "guides/frontend-tools-generative-ui",
+  "guides/a2ui",
+  "guides/voice-multimodal",
   "guides/human-in-the-loop",
   "guides/shared-state",
   "guides/threads-memory-attachments-headless",
@@ -318,13 +320,28 @@ test("canonicalizes React-only frontend topics to Angular-native task guides", (
   ).toBe("contributing/code-contributions");
   expect(
     getFrontendCanonicalSlug("angular", "generative-ui/a2ui/styling"),
-  ).toBe("guides/frontend-tools-generative-ui");
+  ).toBe("guides/a2ui");
+  expect(getFrontendCanonicalSlug("angular", "voice")).toBe(
+    "guides/voice-multimodal",
+  );
+  expect(getFrontendCanonicalSlug("angular", "multimodal-attachments")).toBe(
+    "guides/voice-multimodal",
+  );
+  expect(getFrontendCanonicalSlug("angular", "generative-ui/hashbrown")).toBe(
+    "guides/a2ui",
+  );
+  expect(getFrontendCanonicalSlug("angular", "generative-ui/json-render")).toBe(
+    "guides/a2ui",
+  );
   expect(getFrontendCanonicalSlug("angular", "deploy-agentcore")).toBe(
-    "backend/copilot-runtime",
+    "deploy/agentcore",
+  );
+  expect(getFrontendCanonicalSlug("angular", "deploy/agentcore")).toBe(
+    "deploy/agentcore",
   );
   expect(
     getFrontendCanonicalSlug("angular", "a2a/generative-ui/declarative-a2ui"),
-  ).toBe("guides/frontend-tools-generative-ui");
+  ).toBe("guides/a2ui");
 });
 
 test("does not link breadcrumbs for section-only paths", () => {

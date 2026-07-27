@@ -74,6 +74,20 @@ describe("resolveDocsHref", () => {
         frameworkOverride: "langgraph-python",
       }),
     ).toBe("/angular/deepagents/quickstart");
+
+    expect(
+      resolveDocsHref("/angular/langgraph-python/features", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/langgraph-python/features");
+
+    expect(
+      resolveDocsHref("/angular/deepagents/quickstart", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/deepagents/quickstart");
   });
 
   it("collapses React-specific topic links to Angular-native guides", () => {

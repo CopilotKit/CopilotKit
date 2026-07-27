@@ -89,6 +89,18 @@ export function resolveDocsHref(
 
     if (targetsAnotherFrontend || targetsReservedRoute) return href;
 
+    if (sameAngularPath !== null) {
+      const explicitBackend = sameAngularPath.slice(1).split(/[/?#]/, 1)[0];
+      if (explicitBackend && CROSS_FRAMEWORK_SLUGS.has(explicitBackend)) {
+        const backendRelativePath =
+          stripPathPrefix(sameAngularPath, `/${explicitBackend}`) ?? "/";
+        return joinPrefixedPath(
+          `/angular/${explicitBackend}`,
+          canonicalAngularHref(backendRelativePath),
+        );
+      }
+    }
+
     const angularHref = canonicalAngularHref(sameAngularPath ?? href);
     const angularFirstSegment = angularHref.slice(1).split(/[/?#]/, 1)[0];
     const targetsAnotherBackend =

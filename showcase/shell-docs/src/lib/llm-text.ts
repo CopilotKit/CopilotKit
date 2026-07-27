@@ -48,7 +48,10 @@ import {
 } from "./sitemap-helpers";
 import demoContent from "@/data/demo-content.json";
 import angularSourceContent from "@/data/angular-source-content.json";
-import { filterFrontendScopedBlocks } from "./toc";
+import {
+  filterAngularBackendScopedBlocks,
+  filterFrontendScopedBlocks,
+} from "./toc";
 import type { FrontendId } from "./frontend-options";
 import { resolveDocsHref } from "./docs-link-rewrite";
 
@@ -695,6 +698,9 @@ export function renderPageToLlmText(
   // Filter after inlining so raw Markdown output follows the same frontend
   // selection as the live MDX component tree.
   body = filterFrontendScopedBlocks(body, options.frontend);
+  if (options.frontend === "angular") {
+    body = filterAngularBackendScopedBlocks(body, framework);
+  }
 
   // 2) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);

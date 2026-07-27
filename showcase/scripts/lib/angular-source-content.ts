@@ -236,6 +236,7 @@ export function buildAngularSourceContent(
   showcaseRoot: string,
 ): AngularSourceContent {
   const appRoot = join(showcaseRoot, "angular/src/app");
+  const globalStylesPath = join(showcaseRoot, "angular/src/styles.css");
   const registry = JSON.parse(
     readFileSync(join(showcaseRoot, "shared/frontend-registry.json"), "utf8"),
   ) as {
@@ -261,6 +262,23 @@ export function buildAngularSourceContent(
   }
 
   const { files, regions } = readSourceTree(appRoot);
+  const globalStyles = extractRegions(
+    readFileSync(globalStylesPath, "utf8"),
+    "styles.css",
+    "css",
+  );
+  files["styles.css"] = {
+    language: "css",
+    content: globalStyles.content,
+  };
+  for (const [name, region] of Object.entries(globalStyles.regions)) {
+    if (regions[name]) {
+      throw new Error(
+        `Angular region ${name} is declared in both ${regions[name].file} and styles.css.`,
+      );
+    }
+    regions[name] = region;
+  }
   for (const [feature, filename] of Object.entries(defaultFileByFeature)) {
     if (!files[filename]) {
       throw new Error(

@@ -82,6 +82,21 @@ function getCanonicalAngularSlug(
 const REACT_ONLY_CONTENT =
   /@copilotkit\/react|from ["']react["']|\bReact (?:components?|SDK|UI|frontend|app)\b|\b(?:frontend|headless) hooks?\b|`use(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)`|\buse(?:Agent|Copilot\w*|RenderTool|FrontendTool|HumanInTheLoop|Component)\s*\(|<Copilot(?:Kit|Chat|Sidebar|Popup)\b(?=[^>]*(?:runtimeUrl|publicApiKey|enableInspector|renderActivityMessages|onError|a2ui|selfManagedAgents|agents__unsafe_dev_only|showDevConsole))[^>]*>|<FrontendOnly|<AngularSnippet/g;
 
+const ANGULAR_GLOBAL_LINK =
+  /^\/(?:angular(?:[/?#]|$)|reference(?:[/?#]|$)|cookbook(?:[/?#]|$)|images(?:[/?#]|$)|videos(?:[/?#]|$))/;
+
+function rootRelativeLinks(markdown: string): string[] {
+  const links: string[] = [];
+  const pattern = /(?:\]\(|\bhref\s*=\s*["'])(\/(?!\/)[^\s)"'}]+)(?:\)|["'])/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(markdown)) !== null) {
+    links.push(match[1]);
+  }
+
+  return links;
+}
+
 function findReactOnlyAngularContent(
   backendFramework: string | null,
   slugs: string[],
@@ -115,6 +130,44 @@ function findReactOnlyAngularContent(
   }
 
   return leaks;
+}
+
+function findAngularLinkLeaks(
+  backendFramework: string | null,
+  slugs: string[],
+): string[] {
+  const leaks: string[] = [];
+
+  for (const slug of slugs) {
+    const pageLabel = backendFramework ? `${backendFramework}/${slug}` : slug;
+    const resolution = resolveAngularDoc(backendFramework, slug);
+    expect(resolution, pageLabel).not.toBeNull();
+    const doc = loadDoc(resolution!.contentSlugPath);
+    expect(doc, pageLabel).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `angular/${backendFramework ? `${backendFramework}/` : ""}${slug}`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: resolution!.contentSlugPath,
+        framework: resolution!.framework,
+      },
+      { framework: resolution!.framework, frontend: "angular" },
+    );
+
+    for (const href of rootRelativeLinks(output)) {
+      if (
+        href.startsWith("/angular/angular") ||
+        !ANGULAR_GLOBAL_LINK.test(href)
+      ) {
+        leaks.push(`${pageLabel}: ${href}`);
+      }
+    }
+  }
+
+  return [...new Set(leaks)];
 }
 
 test("maps every React navigation destination to a published Angular destination", () => {
@@ -168,6 +221,23 @@ test("resolves canonical contribution aliases through shared Angular content", (
 test("keeps the complete Angular surface free of another frontend's code", () => {
   const slugs = pageSlugs(getAngularDocsNavTree(null)).filter(Boolean);
   expect(findReactOnlyAngularContent(null, slugs)).toEqual([]);
+});
+
+test("keeps every rendered root Angular link in the Angular surface", () => {
+  const slugs = pageSlugs(getAngularDocsNavTree(null));
+  expect(findAngularLinkLeaks(null, slugs)).toEqual([]);
+});
+
+test("keeps every rendered backend-specific Angular link in context", () => {
+  const leaks: string[] = [];
+
+  for (const integration of getIntegrations()) {
+    if (integration.docs_mode === "hidden") continue;
+    const slugs = pageSlugs(getAngularDocsNavTree(integration.slug));
+    leaks.push(...findAngularLinkLeaks(integration.slug, slugs));
+  }
+
+  expect(leaks).toEqual([]);
 });
 
 test("keeps every Angular and backend combination frontend-native", () => {

@@ -31,6 +31,7 @@ import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
@@ -429,6 +430,7 @@ export const docsComponents = {
   // overrides this to inject `defaultFramework` from the URL — same
   // pattern as <Snippet>.
   WhenFrameworkHas,
+  WhenAngularBackend,
   AgentCoreCommandTabs,
   AngularFeatureCatalog,
   AngularSnippet,

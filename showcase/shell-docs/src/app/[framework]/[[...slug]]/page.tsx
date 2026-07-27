@@ -40,6 +40,7 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "@/lib/angular-doc-navigation";
+import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
@@ -955,7 +956,7 @@ async function FrameworkRootPage({
   const indexContentPath = `integrations/${docsFolder}/index`;
   const indexDoc = loadDoc(indexContentPath);
 
-  if (preferIndexMdx && indexDoc) {
+  if (preferIndexMdx && docsMode !== "generated" && indexDoc) {
     return (
       <DocsPageView
         slugPath=""
@@ -1061,30 +1062,9 @@ async function FrameworkRootPage({
         );
       }
     }
-    const overviewSourceSlug = overview.guideLink.split("/")[1] ?? framework;
     const scopedOverview =
       frontendOverride === "angular"
-        ? {
-            ...overview,
-            guideLink: `/${framework}/quickstart`,
-            supportedFeatures: overview.supportedFeatures?.map((feature) => ({
-              ...feature,
-              description: feature.description.replace(
-                /\bReact components?\b/g,
-                (match) =>
-                  match.endsWith("s")
-                    ? "Angular components"
-                    : "an Angular component",
-              ),
-              documentationLink: feature.documentationLink.startsWith(
-                `/${overviewSourceSlug}/`,
-              )
-                ? `/${framework}${feature.documentationLink.slice(
-                    overviewSourceSlug.length + 1,
-                  )}`
-                : feature.documentationLink,
-            })),
-          }
+        ? buildAngularBackendOverview(overview, framework)
         : overview;
 
     return (

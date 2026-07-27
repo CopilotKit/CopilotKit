@@ -156,6 +156,47 @@ export function filterFrontendScopedBlocks(
   return out.join("");
 }
 
+/**
+ * Keep the quickstart branch matching the Angular backend in the current URL.
+ *
+ * The live MDX component receives this context from `DocsPageView`; raw
+ * Markdown consumers need the same selection applied before JSX is stripped.
+ */
+export function filterAngularBackendScopedBlocks(
+  source: string,
+  framework?: string,
+): string {
+  const openRe = /<WhenAngularBackend\b([^>]*)>/g;
+  const closeTag = "</WhenAngularBackend>";
+  const hasSelectedBackend = Boolean(
+    framework && framework !== "built-in-agent",
+  );
+  const out: string[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = openRe.exec(source)) !== null) {
+    const openStart = match.index;
+    const openEnd = openRe.lastIndex;
+    const closeIndex = source.indexOf(closeTag, openEnd);
+    if (closeIndex === -1) {
+      out.push(source.slice(cursor));
+      return out.join("");
+    }
+
+    out.push(source.slice(cursor, openStart));
+    const selected = !/\bselected\s*=\s*\{\s*false\s*\}/.test(match[1]);
+    if (selected === hasSelectedBackend) {
+      out.push(source.slice(openEnd, closeIndex));
+    }
+    cursor = closeIndex + closeTag.length;
+    openRe.lastIndex = cursor;
+  }
+
+  out.push(source.slice(cursor));
+  return out.join("");
+}
+
 export function extractHeadings(source: string): TocHeading[] {
   const lines = source.split("\n");
   const headings: TocHeading[] = [];

@@ -32,10 +32,16 @@ import {
 } from "@/components/ai/page-actions";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
+import type { WhenAngularBackendProps } from "@/components/when-angular-backend";
 import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { MdxCodeBlock } from "@/components/mdx-code-block";
 import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
 import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pages/mdx-framework-overview";
+import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
+import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
+import { SignupLink } from "@/components/react/signup-link";
+import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveDocsHref } from "@/lib/docs-link-rewrite";
@@ -152,6 +158,11 @@ export async function DocsPageView({
 
   const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
   const defaultCell = doc.fm.defaultCell;
+  const docsFrontend = frontendOverride ?? "react";
+  const docsFromPath =
+    slugPath.length > 0
+      ? `${slugHrefPrefix.replace(/\/$/, "")}/${slugPath}`
+      : slugHrefPrefix;
 
   // Extract H2/H3 headings for the right-rail TOC. Run on the final
   // content (post-snippet-inlining) so a page like threads.mdx whose
@@ -309,6 +320,26 @@ export async function DocsPageView({
                               : props.href;
                           return <CardComp {...props} href={href} />;
                         },
+                        OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
+                          <OpsPlatformCTA
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                            backend={
+                              props.backend ?? defaultFramework ?? undefined
+                            }
+                            fromPath={props.fromPath ?? docsFromPath}
+                          />
+                        ),
+                        SignupLink: (props: SignupLinkProps) => (
+                          <SignupLink
+                            {...props}
+                            frontend={props.frontend ?? docsFrontend}
+                            backend={
+                              props.backend ?? defaultFramework ?? undefined
+                            }
+                            fromPath={props.fromPath ?? docsFromPath}
+                          />
+                        ),
                         // Wrap MDX-rendered <pre> blocks (triple-fenced code)
                         // with the same figure chrome <Snippet> uses — copy
                         // button always visible, file-path caption when the
@@ -339,6 +370,16 @@ export async function DocsPageView({
                               children?: React.ReactNode;
                             })}
                             defaultFramework={defaultFramework}
+                          />
+                        ),
+                        WhenAngularBackend: (
+                          props: WhenAngularBackendProps,
+                        ) => (
+                          <WhenAngularBackend
+                            {...props}
+                            currentFramework={
+                              frameworkOverride ?? props.currentFramework
+                            }
                           />
                         ),
                         FrontendOnly: ({

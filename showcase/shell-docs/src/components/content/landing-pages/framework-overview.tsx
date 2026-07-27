@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
@@ -187,6 +188,26 @@ export function FrameworkOverview({
     liveDemos[0]?.type || "saas",
   );
   const [copied, setCopied] = useState(false);
+  const posthog = usePostHog();
+  const selectedFrontend = frontendOverride ?? "react";
+  const overviewPath = hrefPrefix ?? `/${currentFramework}`;
+
+  const captureJourneyContinuation = (
+    destinationType: "demo" | "quickstart",
+    destinationPath: string,
+  ) => {
+    try {
+      posthog?.capture("docs.journey_continued", {
+        destination_type: destinationType,
+        destination_path: destinationPath,
+        frontend: selectedFrontend,
+        backend: currentFramework,
+        from_path: overviewPath,
+      });
+    } catch {
+      // Analytics must never block a docs journey.
+    }
+  };
 
   // Look up the icon by key. If the key isn't registered (forward-compat with
   // string IconKey from Track A), fall back to rendering nothing rather than
@@ -222,6 +243,9 @@ export function FrameworkOverview({
         body={cta.body}
         ctaLabel={cta.ctaLabel}
         surface={cta.surface}
+        frontend={selectedFrontend}
+        backend={currentFramework}
+        fromPath={overviewPath}
       />
     ) : null);
 
@@ -269,11 +293,23 @@ export function FrameworkOverview({
             {isGenericInit ? (
               <HeroStartActions
                 createFramework={createFramework}
-                quickstart={<QuickstartLinkButton href={link(rawGuideLink)} />}
+                quickstart={
+                  <QuickstartLinkButton
+                    href={link(rawGuideLink)}
+                    frontend={selectedFrontend}
+                    backend={currentFramework}
+                    fromPath={overviewPath}
+                  />
+                }
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <QuickstartLinkButton href={link(rawGuideLink)} />
+                <QuickstartLinkButton
+                  href={link(rawGuideLink)}
+                  frontend={selectedFrontend}
+                  backend={currentFramework}
+                  fromPath={overviewPath}
+                />
                 <button
                   type="button"
                   onClick={handleCopyCommand}
@@ -346,6 +382,12 @@ export function FrameworkOverview({
                         {feature.demoLink && (
                           <Link
                             href={link(feature.demoLink)}
+                            onClick={() =>
+                              captureJourneyContinuation(
+                                "demo",
+                                link(feature.demoLink!),
+                              )
+                            }
                             className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -456,7 +498,10 @@ export function FrameworkOverview({
                     <button
                       key={demo.type}
                       type="button"
-                      onClick={() => setActiveDemo(demo.type)}
+                      onClick={() => {
+                        setActiveDemo(demo.type);
+                        captureJourneyContinuation("demo", demo.iframeUrl);
+                      }}
                       className={`shell-docs-radius-control h-8 px-4 text-[13px] font-medium transition-colors ${
                         active
                           ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-[var(--shadow-control)]"

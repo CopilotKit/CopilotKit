@@ -70,6 +70,15 @@ test("keeps frontend root pages available under frontend/backend routes", () => 
   expect(pageSource).toContain("<FrontendQuickstartDocsPage");
 });
 
+test("keeps generated backend overviews on the generated overview contract", () => {
+  expect(pageSource).toContain(
+    'preferIndexMdx && docsMode !== "generated" && indexDoc',
+  );
+  expect(pageSource).toContain(
+    "buildAngularBackendOverview(overview, framework)",
+  );
+});
+
 test("keeps frontend guidance pages available under frontend/backend routes", () => {
   const guidanceIndex = pageSource.indexOf(
     "if (isFrontendGuidanceSlug(activeFrontendSlugPath))",
