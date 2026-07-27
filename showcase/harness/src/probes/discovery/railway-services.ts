@@ -43,7 +43,7 @@ import {
 /**
  * Service shape — identifies the deployment archetype for `showcase-*`
  * services on Railway. Drivers branch on this field to pick the right
- * probe contract (see `drivers/liveness.ts` and `drivers/e2e-chat-tools.ts`).
+ * probe contract (see `drivers/d2-liveness.ts` and `drivers/e2e-chat-tools.ts`).
  *
  *   - `package`  Shell-based showcases (`showcase-ag2`, `showcase-mastra`,
  *                ...). They expose `/smoke`, `/health`, `/demos/*`, and
@@ -315,7 +315,7 @@ interface RegistryIntegrationInfo {
 
 /**
  * Read `registry.json` and build a `slug -> {demos, notSupportedFeatures}`
- * map. Mirrors the parsing logic in `drivers/e2e-readiness.ts`'s
+ * map. Mirrors the parsing logic in `drivers/d3-readiness.ts`'s
  * `defaultDemosResolver` so behaviour stays consistent across the two
  * readers — the discovery source feeds the invoker's pre-dispatch sort
  * + downstream NSF reclassification, while the driver's resolver feeds

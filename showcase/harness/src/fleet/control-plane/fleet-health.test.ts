@@ -336,6 +336,48 @@ describe("createFleetHealthMonitor.checkOnce", () => {
     expect(claim.releases).toEqual([]);
   });
 
+  it("warns AND counts an unparseable heartbeat per cycle (heartbeatParseable wiring — the blind-but-online row is surfaced)", async () => {
+    const { pb } = makeFakePb({
+      workers: [
+        {
+          id: "w1",
+          worker_id: "worker-corrupt",
+          last_heartbeat_at: "not-a-date",
+        },
+        { id: "w2", worker_id: "worker-live", last_heartbeat_at: FRESH },
+      ],
+      jobs: [],
+    });
+    const claim = makeFakeClaim();
+    const warn = vi.fn();
+    const info = vi.fn();
+    const logger: Logger = { ...SILENT_LOGGER, warn, info };
+    const monitor = createFleetHealthMonitor({
+      pb,
+      claim,
+      logger,
+      now: () => NOW,
+    });
+
+    const out = await monitor.checkOnce();
+
+    // isWorkerStale is deliberately blind to an unparseable heartbeat (never
+    // flap the fleet offline on one malformed row), so the corrupt row still
+    // derives "online" — the per-worker warn + per-cycle count are the ONLY
+    // operator visibility into the orphaned row.
+    expect(out.online).toBe(2);
+    expect(out.unhealthy).toBe(0);
+    expect(warn).toHaveBeenCalledWith("fleet.health.unparseable-heartbeat", {
+      workerId: "worker-corrupt",
+      lastHeartbeatAt: "not-a-date",
+    });
+    expect(info).toHaveBeenCalledWith(
+      "fleet.health.cycle",
+      expect.objectContaining({ unparseableHeartbeats: 1 }),
+    );
+    expect(claim.releases).toEqual([]);
+  });
+
   it("fires the best-effort restart hook once per stale worker after reclaiming", async () => {
     const { pb } = makeFakePb({
       workers: [

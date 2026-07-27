@@ -15,12 +15,12 @@ import type { CopilotKitProviderProps } from "../../v2";
  */
 export interface CopilotKitProps extends Omit<
   CopilotKitProviderProps,
-  "children"
+  "children" | "onError"
 > {
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
 
-  /** Your public license key for accessing premium CopilotKit features. */
+  /** Your public license key for accessing Enterprise Intelligence Platform features. */
   publicLicenseKey?: string;
 
   /**

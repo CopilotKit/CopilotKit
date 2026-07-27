@@ -69,7 +69,7 @@ describe("d5-hitl-text-input script", () => {
       },
     };
 
-    await turns[0]!.assertions!(page);
+    await turns[0]!.assertions!(page, { bubbleIndex: 0, text: "" });
     // Time-picker card was probed AND a slot button was clicked.
     expect(
       calls.some(
@@ -103,7 +103,9 @@ describe("d5-hitl-text-input script", () => {
       },
     };
 
-    await expect(turns[0]!.assertions!(page)).rejects.toThrow(/missing token/);
+    await expect(
+      turns[0]!.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/missing token/);
   });
 });
 

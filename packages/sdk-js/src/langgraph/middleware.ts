@@ -5,7 +5,8 @@ import type {
   StandardSchemaV1,
 } from "@standard-schema/spec";
 import * as z from "zod";
-import { getA2UITools, type A2UIToolParams } from "@ag-ui/langgraph";
+import { getA2UITools } from "@ag-ui/langgraph";
+import type { A2UIToolParams } from "@ag-ui/langgraph";
 import { getForwardedHeaders } from "../header-propagation";
 
 // ---------------------------------------------------------------------------
@@ -359,7 +360,52 @@ const copilotKitStateSchema = z.object({
   ),
 });
 
-const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
+const isToolCallContentBlock = (block: unknown) =>
+  typeof block === "object" &&
+  block !== null &&
+  "type" in block &&
+  (block.type === "tool_call" || block.type === "tool_call_chunk");
+
+const usesV1ContentBlocks = (responseMetadata: unknown) =>
+  typeof responseMetadata === "object" &&
+  responseMetadata !== null &&
+  "output_version" in responseMetadata &&
+  responseMetadata.output_version === "v1";
+
+/**
+ * Rebuilds an AIMessage with `toolCalls` as the source of truth while
+ * preserving its non-tool content and metadata. For v1 content blocks, old
+ * tool blocks must be removed before construction so they cannot duplicate or
+ * override the supplied tool calls when AIMessage synchronizes both fields.
+ */
+const rebuildAIMessageWithToolCalls = (
+  message: AIMessage,
+  toolCalls: AIMessage["tool_calls"],
+) => {
+  let content = message.content;
+  if (
+    usesV1ContentBlocks(message.response_metadata) &&
+    Array.isArray(content)
+  ) {
+    content = content.filter((block) => !isToolCallContentBlock(block));
+  }
+
+  return new AIMessage({
+    content,
+    additional_kwargs: message.additional_kwargs,
+    response_metadata: message.response_metadata,
+    tool_calls: toolCalls,
+    invalid_tool_calls: message.invalid_tool_calls,
+    usage_metadata: message.usage_metadata,
+    id: message.id,
+    name: message.name,
+  });
+};
+
+const buildMiddlewareInput = (
+  exposeState: ExposeStateOption,
+  a2uiParams?: Omit<A2UIToolParams, "model">,
+) => ({
   name: "CopilotKitMiddleware",
 
   stateSchema: copilotKitStateSchema as unknown as InteropZodObject,
@@ -395,12 +441,24 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
     if (typeof getA2UITools === "function" && decision) {
       const catalog = resolveA2uiCatalog(request.state);
       // Shared A2UIToolParams: a single params object owned by the toolkit.
-      // `model` lives inside it; `compositionGuide` is folded into the
-      // `guidelines` bag alongside generation/design overrides.
-      const params: A2UIToolParams = { model: request.model };
-      if (catalog?.catalogId) params.defaultCatalogId = catalog.catalogId;
-      if (catalog?.compositionGuide)
-        params.guidelines = { compositionGuide: catalog.compositionGuide };
+      // Start from the host overrides (guidelines / catalog id / tool name /
+      // recovery) so a host can steer the subagent, then layer in only what the
+      // host cannot know — the bound model, and the registered catalog id +
+      // compositionGuide — without clobbering any host-set value.
+      const params: A2UIToolParams = {
+        ...a2uiParams,
+        model: request.model,
+      };
+      if (catalog?.catalogId && params.defaultCatalogId == null)
+        params.defaultCatalogId = catalog.catalogId;
+      // Merge the registered catalog schema into any host `guidelines` bag; a
+      // host-set compositionGuide wins, host generation/design overrides stay.
+      if (catalog?.compositionGuide) {
+        const guidelines = { ...params.guidelines };
+        if (guidelines.compositionGuide == null)
+          guidelines.compositionGuide = catalog.compositionGuide;
+        params.guidelines = guidelines;
+      }
       const candidate = getA2UITools(params);
       const existingNames = new Set(
         (request.tools || []).map((t: any) => t?.name),
@@ -471,11 +529,10 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
       if (AIMessage.isInstance(msg) && msg.id === originalMessageId) {
         messageFound = true;
         const existingToolCalls = msg.tool_calls || [];
-        return new AIMessage({
-          content: msg.content,
-          tool_calls: [...existingToolCalls, ...interceptedToolCalls],
-          id: msg.id,
-        });
+        return rebuildAIMessageWithToolCalls(msg, [
+          ...existingToolCalls,
+          ...interceptedToolCalls,
+        ]);
       }
       return msg;
     });
@@ -525,11 +582,10 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
 
     if (frontendToolCalls.length === 0) return;
 
-    const updatedAIMessage = new AIMessage({
-      content: lastMessage.content,
-      tool_calls: backendToolCalls,
-      id: lastMessage.id,
-    });
+    const updatedAIMessage = rebuildAIMessageWithToolCalls(
+      lastMessage,
+      backendToolCalls,
+    );
 
     return {
       messages: [...state.messages.slice(0, -1), updatedAIMessage],
@@ -546,7 +602,15 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
  * Build a CopilotKit middleware instance with custom options.
  *
  * Use this when you want to override the default state-exposure behavior
- * (for example to hide a sensitive key, or to use an explicit allowlist).
+ * (for example to hide a sensitive key, or to use an explicit allowlist), or
+ * to steer the auto-injected `generate_a2ui` subagent via `a2uiParams`.
+ *
+ * `a2uiParams` is an `A2UIToolParams` without `model` (the middleware always
+ * injects the bound model). Use it to override the subagent guidelines
+ * (`generationGuidelines` / `designGuidelines` / `compositionGuide`),
+ * `defaultCatalogId`, `toolName`, `recovery`, etc. on the auto-inject path —
+ * which otherwise only ever uses the toolkit defaults. The registered catalog
+ * is still folded in, but host-set values win.
  *
  * @example
  * ```typescript
@@ -554,14 +618,20 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
  *
  * const middleware = createCopilotkitMiddleware({
  *   exposeState: ["liked", "todos"],
+ *   a2uiParams: { guidelines: { designGuidelines: "...repeating-card layout..." } },
  * });
  * ```
  */
 export const createCopilotkitMiddleware = (
-  options: { exposeState?: ExposeStateOption } = {},
+  options: {
+    exposeState?: ExposeStateOption;
+    a2uiParams?: Omit<A2UIToolParams, "model">;
+  } = {},
 ) => {
   const exposeState = options.exposeState ?? false;
-  return createMiddleware(buildMiddlewareInput(exposeState) as any);
+  return createMiddleware(
+    buildMiddlewareInput(exposeState, options.a2uiParams) as any,
+  );
 };
 
 /**

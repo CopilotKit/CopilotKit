@@ -60,15 +60,18 @@ const STARTER_FLEET_PREFIX = "starter-";
  * True iff `name` is a starter-container-fleet Railway service
  * (`starter-<slug>`).
  *
- * The starter fleet is DECOUPLED from this 27-service SSOT: each
- * `starter-*` service is AUTO-DISCOVERED at runtime by the `starter_smoke`
- * probe via the `railway-services` discovery source filtered on
- * `namePrefix: "starter-"` — it is never read from `railway-envs.ts`.
- * Therefore the SSOT⨉Railway drift checks below MUST exclude these
- * services: a provisioned `starter-*` service is neither required-in-SSOT
- * (findMissingServices) nor flagged-as-untracked (findUntrackedServices).
- * Without this carve-out, provisioning a starter service trips the
- * Railway→SSOT drift gate and SKIPS the showcase build.
+ * S2: the 12 known starter-<slug> services are now FULLY SSOT-managed and
+ * `gateValidated` in `railway-envs.ts` — they are validated and required in
+ * both drift directions exactly like a showcase-* agent, with NO carve-out.
+ * This predicate is retained for a single NARROW purpose: tolerating a
+ * stray/in-flight `starter-<slug>` live service that is provisioned ahead of
+ * (or absent from) its SSOT entry. `findUntrackedServices` consults it ONLY
+ * after the SSOT-membership check, so an SSOT-managed starter never reaches
+ * this carve-out. It does NOT exempt any SSOT starter from the gate.
+ *
+ * The `starter_smoke` probe still auto-discovers `starter-*` services at
+ * runtime (railway-services source, `namePrefix: "starter-"`), independent of
+ * this gate — that is the verification axis for the fleet (S3).
  *
  * NOTE: this matches the `starter-` prefix only — the decommissioned
  * `showcase-starter-*` services use the `showcase-` prefix and are NOT
@@ -225,11 +228,12 @@ export function findMissingServices(
 ): string[] {
   const missing: string[] = [];
   for (const [name, entry] of Object.entries(SERVICES)) {
-    // Starter-fleet services are SSOT-decoupled (see
-    // isStarterFleetService) — never require them in the SSOT→Railway
-    // direction. Defense-in-depth: SERVICES never contains a starter-*
-    // key today, so this is a guard against a future stray entry.
-    if (isStarterFleetService(name)) continue;
+    // S2: the 12 starter-<slug> services are now SSOT-managed +
+    // gateValidated, exactly like a showcase-* agent — no starter carve-out
+    // here. They are REQUIRED in the SSOT→Railway direction in any env they
+    // declare. The `!entry.gateValidated` guard below is the single gate
+    // membership filter; a starter that is gateValidated:true is demanded
+    // just like every other tracked service.
     if (!entry.gateValidated) continue;
     // Only require the service in an env it actually DECLARES. A service
     // that does not exist in `env` (a single-env worker) is not "missing"
@@ -261,17 +265,20 @@ export function findUntrackedServices(
 ): string[] {
   const untracked: string[] = [];
   for (const name of railwayServiceNames) {
-    // Starter-fleet services (starter-<slug>) are SSOT-decoupled and
-    // auto-discovered by the starter_smoke probe (see
-    // isStarterFleetService) — a provisioned starter-* service is NOT
-    // drift, so never flag it as untracked. This is the carve-out that
-    // lets the 12 starter services be provisioned without skipping the
-    // showcase build.
-    if (isStarterFleetService(name)) continue;
     const entry = SERVICES[name];
     // Any SSOT entry — gateIgnored or not — is known/accounted-for in
-    // the Railway->SSOT direction. Only absence from the SSOT counts.
+    // the Railway->SSOT direction. Only absence from the SSOT counts. The
+    // 12 starter-<slug> services are now SSOT entries (S2), so they take
+    // this branch and are tolerated exactly like every other tracked
+    // service — no special-case skip.
     if (entry) continue;
+    // Narrow carve-out for a starter-* live service that is NOT (yet) in the
+    // SSOT. The 12 known starters are SSOT-managed above; this only tolerates
+    // a stray/in-flight `starter-<slug>` provisioned ahead of its SSOT entry
+    // (the starter_smoke probe auto-discovers it by namePrefix "starter-").
+    // It does NOT exempt any SSOT-managed starter from drift — those are
+    // handled by the `if (entry) continue` branch and ARE gate-validated.
+    if (isStarterFleetService(name)) continue;
     untracked.push(name);
   }
   return untracked.sort();

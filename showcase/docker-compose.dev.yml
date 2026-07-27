@@ -48,6 +48,13 @@ services:
       - /app/src/agent/node_modules
       - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
 
+  strands-typescript:
+    <<: *dev-overrides
+    volumes:
+      - ./integrations/strands-typescript/src:/app/src
+      - /app/src/agent/node_modules
+      - ./shared/dev/dev-entrypoint.sh:/app/dev-entrypoint.sh:ro
+
   langgraph-fastapi:
     <<: *dev-overrides
     volumes:

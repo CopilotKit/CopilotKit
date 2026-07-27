@@ -1,0 +1,298 @@
+---
+title: React Native
+description: Get started with CopilotKit in React Native.
+icon: "lucide/Smartphone"
+hideTOC: true
+---
+
+`@copilotkit/react-native` provides a lightweight, headless wrapper around CopilotKit's React hooks for React Native apps. You build the UI, and a [Copilot Runtime](/backend/copilot-runtime) endpoint handles agent communication from your server.
+
+## Prerequisites
+
+- An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
+- React Native 0.70+ (bare CLI or Expo)
+- Node.js 20+
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create your React Native app
+
+        If you don't have one already:
+
+        ```bash
+        npx @react-native-community/cli@latest init MyCopilotApp
+        cd MyCopilotApp
+        ```
+    </Step>
+    <Step>
+        ### Install CopilotKit
+
+        Install the React Native frontend package and `@copilotkit/runtime` for your local Copilot Runtime server:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/react-native @copilotkit/runtime
+                npm install -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/react-native @copilotkit/runtime
+                pnpm add -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/react-native @copilotkit/runtime
+                yarn add -D tsx typescript @types/node
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Add polyfills
+
+        React Native's JS runtime (Hermes) lacks several Web APIs that CopilotKit depends on. Import the polyfills **before any other code** in your entry point:
+
+        ```js title="index.js"
+        import "@copilotkit/react-native/polyfills"; // [!code highlight]
+
+        import { AppRegistry } from "react-native";
+        import App from "./App";
+        import { name as appName } from "./app.json";
+
+        AppRegistry.registerComponent(appName, () => App);
+        ```
+
+        <Callout type="info" title="Granular polyfills">
+          If you already polyfill some of these APIs (e.g. `ReadableStream`), you can import only what you need instead:
+
+          ```js
+          import "@copilotkit/react-native/polyfills/streams";
+          import "@copilotkit/react-native/polyfills/encoding";
+          import "@copilotkit/react-native/polyfills/crypto";
+          import "@copilotkit/react-native/polyfills/dom";
+          import "@copilotkit/react-native/polyfills/location";
+          ```
+        </Callout>
+    </Step>
+    <Step>
+        ### Create the Copilot Runtime
+
+        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+
+        ```ts title="server.ts"
+        import { createServer } from "node:http";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+        const runtime = new CopilotRuntime({
+          agents: {
+            default: new BuiltInAgent({
+              model: "openai:gpt-5-mini",
+              prompt: "You are a helpful assistant for a React Native app.",
+            }),
+          },
+        });
+
+        const port = Number(process.env.PORT ?? 8200);
+
+        createServer(
+          createCopilotNodeListener({
+            runtime,
+            basePath: "/api/copilotkit",
+            cors: true,
+          }),
+        ).listen(port, () => {
+          console.log(
+            `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
+          );
+        });
+        ```
+    </Step>
+    <Step>
+        ### Wrap your app with CopilotKitProvider
+
+        Point the provider at the runtime endpoint. Android emulators reach the host machine at `10.0.2.2`; iOS simulators can use `localhost`.
+
+        ```tsx title="App.tsx"
+        import { CopilotKitProvider } from "@copilotkit/react-native"; // [!code highlight]
+        import { Platform } from "react-native";
+        import { ChatScreen } from "./src/ChatScreen";
+
+        const runtimeUrl =
+          Platform.OS === "android"
+            ? "http://10.0.2.2:8200/api/copilotkit"
+            : "http://localhost:8200/api/copilotkit";
+
+        export default function App() {
+          return (
+            <CopilotKitProvider runtimeUrl={runtimeUrl}> {/* [!code highlight] */}
+              <ChatScreen />
+            </CopilotKitProvider>
+          );
+        }
+        ```
+
+        <Callout type="info" title="Testing on a physical device">
+          Replace `localhost` or `10.0.2.2` with your development machine's LAN IP address, for example `http://192.168.1.23:8200/api/copilotkit`.
+        </Callout>
+    </Step>
+    <Step>
+        ### Build your chat UI
+
+        Hooks from the web SDK work identically in React Native. Below is a minimal chat screen using `useAgent` and `useCopilotKit`:
+
+        ```tsx title="src/ChatScreen.tsx"
+        import { useCallback, useRef, useState } from "react";
+        import {
+          FlatList,
+          KeyboardAvoidingView,
+          Platform,
+          Text,
+          TextInput,
+          TouchableOpacity,
+          View,
+        } from "react-native";
+        import { useAgent, useCopilotKit } from "@copilotkit/react-native"; // [!code highlight]
+
+        export function ChatScreen() {
+          const [inputText, setInputText] = useState("");
+          const flatListRef = useRef<FlatList>(null);
+
+          const { copilotkit } = useCopilotKit(); // [!code highlight:2]
+          const { agent } = useAgent({ agentId: "default" });
+
+          const messages = agent?.messages ?? [];
+          const isLoading = agent?.isRunning ?? false;
+          const chatMessages = messages.flatMap((message) => {
+            if (
+              (message.role === "user" || message.role === "assistant") &&
+              typeof message.content === "string" &&
+              message.content.length > 0
+            ) {
+              return [
+                {
+                  id: message.id,
+                  content: message.content,
+                },
+              ];
+            }
+            return [];
+          });
+
+          const handleSend = useCallback(async () => {
+            const text = inputText.trim();
+            if (!text || isLoading || !agent) return;
+
+            setInputText("");
+            agent.addMessage({ // [!code highlight:5]
+              id: `user-${Date.now()}`,
+              role: "user",
+              content: text,
+            });
+            await copilotkit.runAgent({ agent }); // [!code highlight]
+          }, [inputText, isLoading, agent, copilotkit]);
+
+          return (
+            <KeyboardAvoidingView
+              style={{ flex: 1 }}
+              behavior={Platform.OS === "ios" ? "padding" : "height"}
+            >
+              <FlatList
+                ref={flatListRef}
+                data={chatMessages}
+                renderItem={({ item }) => (
+                  <View style={{ padding: 12, maxWidth: "80%" }}>
+                    <Text>{item.content}</Text>
+                  </View>
+                )}
+                keyExtractor={(item, i) => item.id ?? String(i)}
+                onContentSizeChange={() =>
+                  flatListRef.current?.scrollToEnd({ animated: true })
+                }
+              />
+              <View style={{ flexDirection: "row", padding: 8 }}>
+                <TextInput
+                  style={{ flex: 1, borderWidth: 1, borderRadius: 8, padding: 8 }}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  placeholder="Type a message..."
+                />
+                <TouchableOpacity onPress={handleSend} style={{ padding: 8 }}>
+                  <Text>Send</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          );
+        }
+        ```
+
+        <Callout type="info" title="Headless by design">
+          `@copilotkit/react-native` is headless. It provides hooks, not UI components. You have full control over your chat interface using standard React Native components.
+        </Callout>
+    </Step>
+    <Step>
+        ### Run the runtime and app
+
+        Start Copilot Runtime in one terminal:
+
+        ```bash
+        export OPENAI_API_KEY=sk-...
+        npx tsx server.ts
+        ```
+
+        Run the React Native app in another terminal:
+
+        <Tabs groupId="platform" items={['iOS', 'Android']}>
+            <Tab value="iOS">
+                ```bash
+                npx react-native run-ios
+                ```
+            </Tab>
+            <Tab value="Android">
+                ```bash
+                npx react-native run-android
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Start chatting!
+
+        Your React Native app is now connected to Copilot Runtime. Hooks from the web SDK work identically:
+
+        - `useAgent` - connect to an agent and manage messages
+        - `useFrontendTool` - let the agent call functions in your app
+        - `useHumanInTheLoop` - add approval flows for agent actions
+        - `useCopilotKit` - access the CopilotKit instance directly
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
+                - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
+                - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
+                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
+            </Accordion>
+        </Accordions>
+    </Step>
+</Steps>
+
+## What's included
+
+| Export | Description |
+|--------|-------------|
+| `CopilotKitProvider` | Lightweight provider that points React Native at Copilot Runtime |
+| `useAgent`, `useFrontendTool`, etc. | Re-exported hooks from `@copilotkit/react-core` |
+| `@copilotkit/react-native/polyfills` | ReadableStream, TextEncoder, crypto, DOMException, location |
+| `@copilotkit/runtime` | Server-side runtime used to host your `default` agent |
+
+## Known limitations
+
+- **No pre-built UI components** - you build the chat interface with React Native components
+- **Markdown rendering** - assistant messages with markdown render as plain text; bring your own renderer (e.g. `react-native-markdown-display`)
+- **Voice** - `@copilotkit/voice` has not been adapted for React Native yet

@@ -1,0 +1,242 @@
+---
+title: "CopilotChat"
+description: "Vue 3 component that connects an agent to a chat view"
+---
+
+## Overview
+
+`CopilotChat` is a high-level chat container that wires an agent into [`CopilotChatView`](/reference/vue/components/CopilotChatView) while providing configuration context. It resolves the agent via [`useAgent`](/reference/vue/hooks/useAgent), subscribes to the agent's messages and running state, manages suggestions, handles input value and audio transcription, wires file attachments, and auto-clears the input after a message is submitted.
+
+You typically only need to specify which agent to connect and, optionally, customize labels or override one of the named slots.
+
+<Callout type="info">
+  `CopilotChat` also exposes the underlying layout component as `CopilotChat.View`, which is the same component documented at [`CopilotChatView`](/reference/vue/components/CopilotChatView). Use it directly when you want the layout without the agent wiring.
+</Callout>
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+```
+
+## Props
+
+All reactive props are declared with `defineProps`. `CopilotChat` extends `CopilotChatView` props but omits the ones it manages internally (`messages`, `isRunning`, `suggestions`, `suggestionLoadingIndexes`, `attachments`, `onRemoveAttachment`, `onAddFile`, `dragOver`, `onDragOver`, `onDragLeave`, `onDrop`).
+
+### Own props
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to connect. Must match an agent configured in `CopilotKitProvider`. Falls back to the `agentId` from a wrapping `CopilotChatConfigurationProvider`, then to the default agent when omitted.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread. Pass a specific thread id to resume an existing conversation. When omitted, a thread id is minted locally and a new thread is created once the agent first runs.
+</PropertyReference>
+
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval (in milliseconds) forwarded to `useAgent` for batching reactive updates as the agent streams.
+</PropertyReference>
+
+<PropertyReference name="labels" type="Partial<CopilotChatLabels>">
+  Partial label overrides for the text strings rendered inside the chat (input placeholder, welcome message, toolbar buttons, disclaimer, etc.). Any label you omit falls back to the built-in default. Provided to descendants via [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration).
+</PropertyReference>
+
+<PropertyReference name="attachments" type="AttachmentsConfig">
+  Configuration for file attachments (accepted MIME types, upload handling, etc.). When set, the add-file action and drag-and-drop are enabled and the chat manages the attachment queue automatically.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler scoped to this chat's agent. Fires in addition to the provider-level error handling. Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+
+function handleError(event: {
+  error: Error;
+  code: string;
+  context: Record<string, any>;
+}) {
+  if (event.code === "agent_connect_failed") {
+    showToast("Could not connect to agent. Please retry.");
+  }
+}
+</script>
+
+<template>
+  <CopilotChat agent-id="my-agent" :on-error="handleError" />
+</template>
+```
+
+</PropertyReference>
+
+### Inherited CopilotChatView props
+
+<PropertyReference name="autoScroll" type="AutoScrollMode | boolean" default="true">
+  Controls how the chat scrolls as new messages stream in. Accepts `"pin-to-bottom"` / `true` (stick to the bottom while at the bottom), `"pin-to-send"` (anchor the latest user message near the top while the assistant streams), or `"none"` / `false` (never auto-scroll).
+</PropertyReference>
+
+<PropertyReference name="welcomeScreen" type="boolean" default="true">
+  Whether to show the welcome screen when there are no messages and no explicit thread is selected. Pass `false` to disable it. Override the `welcome-screen` slot to fully customize it.
+</PropertyReference>
+
+<PropertyReference name="inputValue" type="string">
+  Controlled value for the chat input. When provided, the chat treats the input as controlled and mirrors changes back through the `input-change` event.
+</PropertyReference>
+
+<PropertyReference name="inputMode" type='"input" | "transcribe" | "processing"' default='"input"'>
+  Initial input mode. The component manages transitions between these modes during audio transcription.
+</PropertyReference>
+
+<PropertyReference name="inputToolsMenu" type='(ToolsMenuItem | "-")[]'>
+  Items for the input's tools menu. Each item has a `label` and either an `action` callback or nested `items`; use `"-"` for a separator.
+</PropertyReference>
+
+<PropertyReference name="onFinishTranscribeWithAudio" type="(audioBlob: Blob) => void | Promise<void>">
+  Custom handler invoked with the recorded audio blob when transcription finishes. When omitted, `CopilotChat` transcribes the audio using the configured runtime and appends the result to the input.
+</PropertyReference>
+
+## Events
+
+`CopilotChat` emits the following events (listen with `@event-name` in templates). These fire in addition to the component's internal handling, so you can observe interactions without disabling default behavior.
+
+| Event               | Payload                            | Fired when                          |
+| ------------------- | ---------------------------------- | ----------------------------------- |
+| `submit-message`    | `value: string`                    | A message is submitted              |
+| `stop`              | none                               | The stop button is pressed          |
+| `input-change`      | `value: string`                    | The input value changes             |
+| `select-suggestion` | `suggestion: Suggestion, index: number` | A suggestion pill is selected  |
+| `add-file`          | none                               | The add-file action is triggered    |
+| `start-transcribe`  | none                               | Audio transcription starts          |
+| `cancel-transcribe` | none                               | Audio transcription is cancelled    |
+| `finish-transcribe` | none                               | Audio transcription finishes        |
+
+## Slots
+
+Vue uses named slots in place of React's render props and sub-component props. Provide a slot to replace the corresponding piece of the chat. Each slot receives scoped props you can destructure with `v-slot`. Any slot not listed below is forwarded down through `CopilotChatView` to the message view.
+
+<PropertyReference name="chat-view" type="CopilotChatViewOverrideSlotProps">
+  Replaces the entire inner `CopilotChatView`. Receives all of the composed view state and handlers (`messages`, `isRunning`, `suggestions`, `inputValue`, `onSubmitMessage`, `onSelectSuggestion`, `onStop`, transcription and attachment handlers, etc.) so you can render a fully custom layout.
+</PropertyReference>
+
+<PropertyReference name="message-view" type="{ messages: Message[]; isRunning: boolean }">
+  Replaces the default message list rendering.
+</PropertyReference>
+
+<PropertyReference name="input" type="CopilotChatInputSlotProps">
+  Replaces the default chat input. Receives `modelValue`, `isRunning`, `inputMode`, `inputToolsMenu`, and handlers such as `onUpdateModelValue`, `onSubmitMessage`, `onStop`, and the transcription callbacks.
+</PropertyReference>
+
+<PropertyReference name="suggestion-view" type="CopilotChatSuggestionViewSlotProps">
+  Replaces the default suggestion pills. Receives `suggestions`, `loadingIndexes`, and `onSelectSuggestion`.
+</PropertyReference>
+
+<PropertyReference name="welcome-screen" type="CopilotChatWelcomeScreenSlotProps">
+  Replaces the default welcome screen shown when no messages exist. Receives the suggestion props plus the input model value and submission handlers, letting you compose your own greeting layout.
+</PropertyReference>
+
+<PropertyReference name="welcome-message" type="() => unknown">
+  Replaces only the heading text inside the default welcome screen, leaving the surrounding layout intact.
+</PropertyReference>
+
+<PropertyReference name="interrupt" type="CopilotChatInterruptSlotProps">
+  Renders human-in-the-loop interrupt UI. Receives the `event`, current `result`, and a `resolve` callback.
+</PropertyReference>
+
+<Callout type="info">
+  Slots forwarded to the message view (for example custom assistant- or user-message slots) are passed straight through and rendered by `CopilotChatMessageView`. See [`CopilotChatView`](/reference/vue/components/CopilotChatView) for the full set of layout-level slots such as `scroll-view`, `feather`, and `scroll-to-bottom-button`.
+</Callout>
+
+## Usage
+
+### Basic usage
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotChat
+    agent-id="my-agent"
+    :labels="{ chatInputPlaceholder: 'Ask me anything...' }"
+  />
+</template>
+```
+
+### Custom welcome screen
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat agent-id="my-agent">
+    <template #welcome-screen="{ onSubmitMessage, suggestions, onSelectSuggestion }">
+      <div class="flex h-full flex-col items-center justify-center gap-4">
+        <h2>Welcome to the assistant</h2>
+        <button
+          v-for="(suggestion, index) in suggestions"
+          :key="index"
+          @click="onSelectSuggestion(suggestion, index)"
+        >
+          {{ suggestion.title }}
+        </button>
+      </div>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+### Observing events
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+
+function onSubmit(value: string) {
+  console.log("user submitted:", value);
+}
+</script>
+
+<template>
+  <CopilotChat agent-id="my-agent" @submit-message="onSubmit" />
+</template>
+```
+
+### Using the layout directly
+
+`CopilotChat.View` is the layout component without agent wiring. Use it when you manage `messages` and handlers yourself.
+
+```vue
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+import { ref } from "vue";
+
+// Vue SFC templates cannot resolve dotted tags like `<CopilotChat.View>`,
+// so alias the layout to a local component first.
+const ChatView = CopilotChat.View;
+
+const messages = ref([]);
+
+function handleSubmit(value: string) {
+  // manage your own message state
+}
+</script>
+
+<template>
+  <ChatView :messages="messages" @submit-message="handleSubmit" />
+</template>
+```
+
+## Related
+
+- [`CopilotChatView`](/reference/vue/components/CopilotChatView) - the layout component used internally (also exposed as `CopilotChat.View`)
+- [`useAgent`](/reference/vue/hooks/useAgent) - composable used internally to resolve the agent
+- [`useSuggestions`](/reference/vue/hooks/useSuggestions) - composable that powers the suggestion pills
+- [`useCopilotChatConfiguration`](/reference/vue/hooks/useCopilotChatConfiguration) - reads the labels, agent id, and thread id provided by `CopilotChat`

@@ -1,0 +1,85 @@
+{
+  "name": "@copilotkit/web-components",
+  "version": "1.63.2",
+  "private": false,
+  "description": "Framework-agnostic shadow-DOM web components for CopilotKit - includes the <copilotkit-threads-drawer> threads drawer element",
+  "keywords": [
+    "ai",
+    "copilotkit",
+    "custom-elements",
+    "drawer",
+    "lit",
+    "shadow-dom",
+    "threads",
+    "web-components"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/web-components"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "unpkg": "./dist/index.umd.js",
+  "jsdelivr": "./dist/index.umd.js",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./threads-drawer": {
+      "import": {
+        "types": "./dist/threads-drawer/index.d.mts",
+        "default": "./dist/threads-drawer/index.mjs"
+      },
+      "require": {
+        "types": "./dist/threads-drawer/index.d.cts",
+        "default": "./dist/threads-drawer/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "pnpm run gen:tokens && tsdown",
+    "gen:tokens": "tsx scripts/generate-tokens.ts",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "peerDependencies": {
+    "lit": "^3.3.2"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "jsdom": "^26.1.0",
+    "lit": "^3.3.2",
+    "tsdown": "^0.20.3",
+    "tsx": "^4.19.2",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -77,7 +77,10 @@ function makeRecordingPb(): {
         ? created.filter((r) => filter.includes(`"${String(r.worker_id)}"`))
         : created;
       const perPage = opts?.perPage ?? scoped.length;
-      return { totalItems: scoped.length, items: scoped.slice(0, perPage) as never[] };
+      return {
+        totalItems: scoped.length,
+        items: scoped.slice(0, perPage) as never[],
+      };
     },
     async deleteByFilter() {
       return 0;

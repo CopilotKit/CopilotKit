@@ -14,6 +14,19 @@
       "display_name": "CopilotKit Triage",
       "always_online": true
     },
+    "assistant_view": {
+      "assistant_description": "On-call triage assistant — query/file Linear issues and find/write Notion pages.",
+      "suggested_prompts": [
+        {
+          "title": "Triage my open issues",
+          "message": "Triage my open issues"
+        },
+        {
+          "title": "What shipped this week?",
+          "message": "Summarize what shipped this week"
+        }
+      ]
+    },
     "slash_commands": [
       {
         "command": "/agent",
@@ -26,6 +39,18 @@
         "description": "Triage this thread \u2014 summarize and propose Linear issues",
         "usage_hint": "",
         "should_escape": false
+      },
+      {
+        "command": "/preview",
+        "description": "Privately preview the issue I'd file",
+        "usage_hint": "<issue title>",
+        "should_escape": false
+      },
+      {
+        "command": "/file-issue",
+        "description": "Open a form to file a Linear issue",
+        "usage_hint": "",
+        "should_escape": false
       }
     ]
   },
@@ -34,6 +59,7 @@
       "user": ["chat:write"],
       "bot": [
         "app_mentions:read",
+        "assistant:write",
         "channels:history",
         "groups:history",
         "im:history",
@@ -50,8 +76,6 @@
         "chat:write.customize",
         "im:write",
         "mpim:write",
-        "reactions:read",
-        "reactions:write",
         "files:read",
         "files:write",
         "channels:join",
@@ -63,8 +87,8 @@
     "event_subscriptions": {
       "bot_events": [
         "app_mention",
-        "message.channels",
-        "message.groups",
+        "assistant_thread_started",
+        "assistant_thread_context_changed",
         "message.im",
         "message.mpim"
       ]

@@ -7,6 +7,8 @@ import com.agui.core.agent.RunAgentParameters;
 import com.agui.core.message.BaseMessage;
 import com.agui.core.state.State;
 import com.agui.server.LocalAgent;
+import com.copilotkit.showcase.springai.cvdiag.CvdiagBackend;
+import com.copilotkit.showcase.springai.cvdiag.CvdiagRunContext;
 
 import java.util.List;
 import java.util.Map;
@@ -92,6 +94,10 @@ public abstract class PropagatingLocalAgent extends LocalAgent {
         // happen before the runAsync hop — afterCompletion() will clear the
         // request thread's binding once the controller returns the SseEmitter.
         final Map<String, String> capturedHeaders = AimockHeaderContext.capture();
+        // Capture the CVDIAG run on the request thread too, so the agent body —
+        // which runs on the pooled worker — can emit the agent/LLM/SSE
+        // boundaries against the same run an InheritableThreadLocal would lose.
+        final CvdiagBackend.CvdiagRun capturedRun = CvdiagRunContext.capture();
 
         var input = new RunAgentInput(
                 parameters.getThreadId(),
@@ -114,13 +120,24 @@ public abstract class PropagatingLocalAgent extends LocalAgent {
         // future for any caller that observes it.
         return CompletableFuture
                 .runAsync(() ->
-                        AimockHeaderContext.runWith(capturedHeaders, () -> this.run(input, subscriber)))
+                        CvdiagRunContext.runWith(capturedRun, () ->
+                                AimockHeaderContext.runWith(capturedHeaders,
+                                        () -> this.run(input, subscriber))))
                 .handle((unused, throwable) -> {
                     if (throwable != null) {
                         Throwable cause = throwable instanceof java.util.concurrent.CompletionException
                                 && throwable.getCause() != null
                                 ? throwable.getCause()
                                 : throwable;
+                        // CVDIAG backend.error.caught: a worker-thread exception
+                        // escaped the agent body. Emit it here (the run is bound
+                        // on the request thread that observes this handle()).
+                        CvdiagBackend.CvdiagRun run = CvdiagRunContext.get();
+                        if (run != null) {
+                            run.errorCaught(cause);
+                            run.agentExit(com.copilotkit.showcase.springai.cvdiag
+                                    .CvdiagSchema.CvdiagOutcome.ERR);
+                        }
                         // The agent body failed before (or without) emitting its
                         // own terminal events. Emit RUN_ERROR so any connected
                         // client tears down the run, then finalize via

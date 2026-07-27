@@ -1,0 +1,3 @@
+
+# Standalone showcase: install with `npm install` (no committed lockfile).
+package-lock.json

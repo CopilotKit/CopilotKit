@@ -1,0 +1,400 @@
+---
+title: Microsoft Teams
+description: Bring custom agents into Microsoft Teams with Adaptive Cards, streaming updates, approvals, and durable conversation context.
+hideTOC: true
+---
+
+Microsoft Teams can be the frontend for agents built on any harness or framework, so your organization can get work done where conversations, decisions, and approvals already happen. The open source Channels SDK gives you the adapter path for TypeScript handlers and JSX-authored Adaptive Cards. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for conversation mapping, durable agent state, approvals, observability, and release operations when Teams becomes a critical workflow.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
+  body="Use the open source Channels SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
+  ctaLabel="Get early access"
+  surface="docs_teams_agents_early_access"
+  href="https://www.copilotkit.ai/opentag-managed"
+/>
+
+## Prerequisites
+
+- Node.js 20+
+- An OpenAI API key (or Anthropic/Google, or any model the [built-in agent](/build-with-agents) supports)
+- For local testing, nothing else. The M365 Agents Playground runs over `npx`, with no account needed.
+- For real Teams (the last step): a Microsoft 365 tenant that allows [custom app upload](https://learn.microsoft.com/microsoftteams/platform/concepts/deploy-and-publish/apps-upload), plus access to create an [Entra app registration](https://learn.microsoft.com/entra/identity-platform/quickstart-register-app) and an [Azure Bot resource](https://learn.microsoft.com/azure/bot-service/bot-service-quickstart-registration)
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Scaffold the project
+
+        ```bash
+        mkdir my-teams-bot && cd my-teams-bot
+        npm init -y && npm pkg set type=module
+        ```
+
+        Install the Channels packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
+                npm install -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
+                pnpm add -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams @copilotkit/runtime
+                yarn add -D tsx typescript @types/node
+                ```
+            </Tab>
+        </Tabs>
+
+        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/channels-ui`. That is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
+
+        ```json title="tsconfig.json"
+        {
+          "compilerOptions": {
+            "target": "es2022",
+            "module": "nodenext",
+            "moduleResolution": "nodenext",
+            "strict": true,
+            "skipLibCheck": true,
+            "noEmit": true,
+            "types": ["node"],
+            "jsx": "react-jsx",
+            "jsxImportSource": "@copilotkit/channels-ui"
+          },
+          "include": ["bot.tsx"]
+        }
+        ```
+
+        <Callout type="info" title="ESM only">
+          The Channels packages are ESM-only, so `"type": "module"` (set above) is required.
+        </Callout>
+    </Step>
+    <Step>
+        ### Write the bot
+
+        The smallest working bot is `createBot` plus the Teams adapter plus one `onMessage` handler that runs the agent. For the quickstart, the agent is CopilotKit's `BuiltInAgent` running inside the same process, served on a local port the bot connects to, so one command starts everything:
+
+        ```tsx title="bot.tsx"
+        import { createServer } from "node:http";
+        import { createBot } from "@copilotkit/channels";
+        import { teams, SanitizingHttpAgent } from "@copilotkit/channels-teams"; // [!code highlight]
+        import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+        // The agent. Runs in-process for the quickstart.
+        const runtime = new CopilotSseRuntime({
+          agents: {
+            assistant: new BuiltInAgent({
+              model: "openai/gpt-5.4", // reads OPENAI_API_KEY
+              prompt: "You are a helpful Microsoft Teams assistant. Keep replies short.",
+            }),
+          },
+        });
+        createServer(
+          createCopilotNodeListener({ runtime, basePath: "/api/copilotkit" }),
+        ).listen(8200);
+
+        // The bot: the Teams adapter + one handler.
+        const bot = createBot({
+          adapters: [
+            teams({ port: 3978 }), // serves POST /api/messages // [!code highlight]
+          ],
+          // One agent connection per Teams conversation.
+          agent: (threadId) => {
+            const agent = new SanitizingHttpAgent({
+              url: "http://localhost:8200/api/copilotkit/agent/assistant/run",
+            });
+            agent.threadId = threadId;
+            return agent;
+          },
+        });
+
+        bot.onMessage(async ({ thread }) => {
+          await thread.runAgent(); // [!code highlight]
+        });
+
+        await bot.start();
+        console.log("Teams bot listening on http://localhost:3978/api/messages");
+        ```
+
+        `thread.runAgent()` streams the agent's reply into the conversation, editing the message in place as tokens arrive.
+
+        <Callout type="info" title="Why onMessage, not onMention">
+          Teams only delivers a channel message to your bot when it's `@`-mentioned, and delivers every message in a personal (DM) chat. So a single `onMessage` handler already covers both the channel-mention and DM flows. The platform does the filtering for you.
+        </Callout>
+    </Step>
+    <Step>
+        ### Run it in the Agents Playground
+
+        ```bash
+        export OPENAI_API_KEY=sk-...
+
+        npx tsx bot.tsx
+        ```
+
+        You should see `Teams bot listening on http://localhost:3978/api/messages`. In a **second terminal**, start the Microsoft 365 Agents Playground. It's a local Teams-like chat UI that connects to your bot with no credentials:
+
+        ```bash
+        npx @microsoft/m365agentsplayground
+        ```
+
+        It opens `http://localhost:56150` and connects to `http://127.0.0.1:3978/api/messages`. Send a message:
+
+        ```
+        What can you do?
+        ```
+
+        <Callout type="success" title="Local verification">
+          If the reply streams in (a typing indicator, then text that fills in as it's edited), the CopilotKit runtime and the Teams bot are working, with no Microsoft account required.
+        </Callout>
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **The Playground connects but messages don't answer.** Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx bot.tsx`, and that `http://localhost:8200/api/copilotkit` isn't taken by another process.
+                - **The Playground can't reach the bot.** It targets `127.0.0.1:3978` by default, so make sure the bot is running and that `teams({ port })` matches.
+                - **Port 3978 or 8200 already in use.** Stop the other process, or change the `teams({ port })` and runtime port (and the Playground target) to match.
+            </Accordion>
+        </Accordions>
+    </Step>
+    <Step>
+        ### Post interactive UI
+
+        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/channels-ui` vocabulary](/reference/channels/components/Message), including buttons with **inline `onClick` handlers**, and the adapter renders them to an Adaptive Card. Replace the `onMessage` handler from the previous step:
+
+        ```tsx title="bot.tsx"
+        import { Message, Header, Section, Actions, Button } from "@copilotkit/channels-ui"; // [!code highlight]
+
+        bot.onMessage(async ({ thread, message }) => {
+          if (message.text.toLowerCase().includes("deploy")) {
+            await thread.post(
+              <Message accent="#5B5FC7">
+                <Header>Deploy v1.4.2</Header>
+                <Section>Ship **v1.4.2** to production?</Section>
+                <Actions>
+                  {/* [!code highlight:6] */}
+                  <Button
+                    style="primary"
+                    onClick={async ({ thread }) => {
+                      await thread.post("🚀 Shipping!");
+                    }}
+                  >
+                    Ship it
+                  </Button>
+                  <Button
+                    onClick={async ({ thread }) => {
+                      await thread.post("Standing down.");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Actions>
+              </Message>,
+            );
+            return;
+          }
+          await thread.runAgent();
+        });
+        ```
+
+        Send a message containing "deploy" and click the buttons. Your handler code never leaves your process. Teams only sees an opaque action id carried in the card's `Action.Submit` data.
+
+        <Callout type="warn" title="Buttons expire on restart">
+          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store into `createBot({ actionStore })` (see the [ActionStore contract](/reference/channels/types/ActionStore)).
+        </Callout>
+    </Step>
+    <Step>
+        ### Gate an action on human approval
+
+        The same buttons can **block the agent** until a human decides. A tool calls `await thread.awaitChoice(<Card/>)`, which posts the card and suspends the run until a click resolves it. It's the Teams equivalent of React's `useHumanInTheLoop`. Because the bot acks the Teams turn immediately and runs the agent out-of-turn, the approval can land minutes later and still resume the agent:
+
+        ```tsx title="bot.tsx"
+        import { defineBotTool } from "@copilotkit/channels";
+        import { Message, Header, Actions, Button } from "@copilotkit/channels-ui";
+        import { z } from "zod";
+
+        const confirmSend = defineBotTool({
+          name: "confirm_send",
+          description:
+            "Ask the user to approve before sending. BLOCKS until they click; returns {confirmed}.",
+          parameters: z.object({ summary: z.string() }),
+          async handler({ summary }, { thread }) {
+            const choice = await thread.awaitChoice<{ confirmed?: boolean }>( // [!code highlight]
+              <Message accent="#E2B340">
+                <Header>{`📣 ${summary}?`}</Header>
+                <Actions>
+                  <Button style="primary" value={{ confirmed: true }}>Approve</Button>
+                  <Button style="danger" value={{ confirmed: false }}>Reject</Button>
+                </Actions>
+              </Message>,
+            );
+            return choice?.confirmed ? "Approved, proceed." : "Declined, stop.";
+          },
+        });
+
+        const bot = createBot({
+          adapters: [teams({ port: 3978 })],
+          agent: makeAgent, // as above
+          tools: [confirmSend], // [!code highlight]
+        });
+        ```
+
+        The agent calls `confirm_send` before the consequential action, the card posts, and the run waits for Approve/Reject. The [full example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams) wires this into a `send_announcement` flow and updates the card in place (✅/🚫) the moment it's clicked.
+
+        <Callout type="warn" title="Approvals are in-memory in v1">
+          Pending `awaitChoice` waiters live in memory, so they don't survive a process restart. Durable waiters are a planned follow-up.
+        </Callout>
+    </Step>
+
+</Steps>
+
+## Split the bot and the agent
+
+The bot and its agent talk over [AG-UI](https://docs.ag-ui.com), an open protocol for communication between agents and frontends, so they don't have to share a process. The production shape is two services joined by a URL: move the `CopilotSseRuntime` block into its own process (or point at any existing AG-UI endpoint, such as a deployed CopilotKit runtime or a LangGraph server) and point the bot at it via env:
+
+```tsx title="bot.tsx"
+agent: (threadId) => {
+  const agent = new SanitizingHttpAgent({ url: process.env.AGENT_URL! }); // [!code highlight]
+  agent.threadId = threadId;
+  return agent;
+},
+```
+
+[`SanitizingHttpAgent`](https://github.com/CopilotKit/CopilotKit/tree/main/packages/channels-teams) is an `HttpAgent` that tolerates the event streams real agent backends emit. Use it instead of the stock `HttpAgent` when connecting to a remote runtime.
+
+## Sideload into Microsoft Teams
+
+The Playground needs no credentials. The real Teams client does. Keep the same `bot.tsx`, then add a public HTTPS endpoint, a Microsoft app registration, an Azure Bot resource, and a Teams app manifest.
+
+<Steps>
+<Step>
+
+### Give the bot a public HTTPS endpoint
+
+Real Teams reaches your bot over the internet, so it needs a public HTTPS messaging endpoint. The bot is a plain Node HTTP server with one route (`POST /api/messages`) and a `/healthz` probe, so you have two ways to get one.
+
+**Deploy it** (recommended for anything past a quick test). It runs on any host that gives you a public HTTPS URL, whether that's a container platform, a PaaS, or a VM behind a reverse proxy. Bind to the port the host provides (the adapter reads `PORT`), and keep the agent runtime reachable from the bot, either in-process as written here or as a second service (see [Split the bot and the agent](#split-the-bot-and-the-agent)). The [`examples/teams`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams) project ships a Dockerfile so the whole thing is a one-step container build.
+
+**Tunnel to localhost** for quick testing against real Teams without deploying. Any tunneler works; Microsoft's [`devtunnel` CLI](https://learn.microsoft.com/azure/developer/dev-tunnels/get-started) is one option:
+
+```bash
+devtunnel create copilotkit-teams -a
+devtunnel port create copilotkit-teams -p 3978
+devtunnel host copilotkit-teams
+```
+
+Either way you end up with a public host. Your bot's messaging endpoint is `https://<your-public-host>/api/messages`, which you'll plug into the Azure Bot resource and the manifest below.
+
+</Step>
+
+<Step>
+
+### Create Microsoft credentials
+
+In **Microsoft Entra ID**, create an app registration and copy its **Application (client) ID** (this is your Teams bot id), its **Directory (tenant) ID**, and a new **client secret** value.
+
+In **Azure Bot Service**, create a bot resource that uses that app registration, set its messaging endpoint to `https://<your-public-host>/api/messages`, and enable the **Microsoft Teams** channel.
+
+Then run the bot with those credentials. The Teams adapter reads them from the `clientId` / `clientSecret` / `tenantId` environment variables (the names the M365 Agents SDK uses), or you can pass them to `teams({ clientId, clientSecret, tenantId, port })`:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export clientId=<application-client-id>
+export clientSecret=<client-secret-value>
+export tenantId=<directory-tenant-id>
+npx tsx bot.tsx
+```
+
+<Callout type="info" title="Out-of-turn replies need an app id">
+  With credentials set, the bot acks each Teams turn immediately and runs the agent on a detached context, so a HITL approval can resume the agent minutes later. In the anonymous Playground there's no app id, so the run uses the inbound turn instead, which localhost holds open across the wait.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Build the Teams app package
+
+A Teams app package is a zip of a manifest plus two icons. Create `appPackage/manifest.json`:
+
+```json title="appPackage/manifest.json"
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "1.0.0",
+  "id": "<new-teams-app-uuid>",
+  "developer": {
+    "name": "Your company",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "name": { "short": "CopilotKit Bot", "full": "CopilotKit Teams Bot" },
+  "description": {
+    "short": "A CopilotKit assistant for Microsoft Teams.",
+    "full": "A Microsoft Teams bot powered by CopilotKit."
+  },
+  "icons": { "color": "color.png", "outline": "outline.png" },
+  "accentColor": "#5B5FC7",
+  "bots": [
+    {
+      "botId": "<application-client-id>",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "validDomains": ["<your-public-host>"]
+}
+```
+
+Replace `<new-teams-app-uuid>` with a fresh UUID, `<application-client-id>` with the Entra client id, and `<your-public-host>` with the host only (no `https://`). Add the two required icons, `color.png` (192×192) and `outline.png` (32×32, transparent), then zip them together:
+
+```bash
+cd appPackage
+zip -r appPackage.zip manifest.json color.png outline.png
+```
+
+<Callout type="info" title="The example does this for you">
+  The [`examples/teams`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams) project ships a `pnpm package` script that validates the manifest, injects your app id from env, generates placeholder icons, and builds the zip.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Upload and test in Teams
+
+In Microsoft Teams: open **Apps → Manage your apps → Upload a custom app**, choose `appPackage/appPackage.zip`, then open a personal chat with the bot and send `Hello`. You should get the same reply you saw in the Playground.
+
+<Accordions className="mb-4">
+    <Accordion title="Troubleshooting">
+        - **Teams says the bot can't be reached.** Confirm the Azure Bot messaging endpoint is exactly `https://<your-public-host>/api/messages`, and that your deployment (or tunnel) is up and reachable over HTTPS.
+        - **Auth errors.** Confirm `clientId` / `clientSecret` / `tenantId` match the Entra app registration used by the Azure Bot resource.
+        - **"Upload a custom app" is missing.** Your tenant doesn't allow sideloading for your account; ask a tenant admin to enable custom app upload.
+    </Accordion>
+</Accordions>
+
+</Step>
+</Steps>
+
+## Known limitations (v1)
+
+- **In-memory state:** conversation history and pending HITL approvals are in-memory, so they don't survive a process restart. Swap in a durable `ConversationStore` / `ActionStore` for production.
+- **Streamed by message edit:** replies post once and edit in place as tokens arrive, rather than native Teams token streaming (a planned enhancement).
+- **No slash commands, file upload, or directory lookup yet:** drive everything through `onMessage` plus tools.
+- **Replies only:** the bot answers turns it's part of (DMs and `@`-mentions); it doesn't post proactively on its own.
+
+## Next steps
+
+- **API reference:** the [Channels SDK reference](/reference/channels), covering [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool), and the [component vocabulary](/reference/channels/components/Message)
+- **Full example:** the [Teams demo bot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams), a `BuiltInAgent` with agent-rendered Adaptive Cards, a human-in-the-loop approval gate, and a deployable app package

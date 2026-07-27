@@ -53,13 +53,6 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-      # Harness service for .NET integration testing — not a demo service,
-      # deployed: true in manifest, but NOT probe-wired yet: no aimock fixtures
-      # and it shares the ms-agent-dotnet AsyncLocal bug. Excluded from every
-      # probe AND not rendered on the dashboard (see baseline-types.ts) so an
-      # unprobed service never shows stale red. Remove this exclusion only once
-      # it is fully probe-wired (aimock fixtures + the AsyncLocal fix).
-      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno

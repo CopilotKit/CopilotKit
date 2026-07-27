@@ -178,6 +178,42 @@ describe("useDefaultRenderTool", () => {
     expect(screen.getByText("done")).toBeDefined();
   });
 
+  it("default renderer includes dark-theme-aware classes", () => {
+    render(
+      <DefaultToolCallRenderer
+        name="searchDocs"
+        toolCallId="tc-default-dark-theme"
+        parameters={{ query: "copilot" }}
+        status="complete"
+        result="done"
+      />,
+    );
+
+    const wrapper = screen.getByTestId("copilot-tool-render");
+    const card = wrapper.firstElementChild as HTMLElement | null;
+    expect(card).not.toBeNull();
+    expect(card!.className).toContain("cpk:dark:border-zinc-800/60");
+    expect(card!.className).toContain("cpk:dark:bg-zinc-900/50");
+
+    const name = screen.getByTestId("copilot-tool-render-name");
+    expect(name.className).toContain("cpk:dark:text-zinc-100");
+
+    const status = screen.getByTestId("copilot-tool-render-status");
+    expect(status.className).toContain("cpk:dark:bg-emerald-500/15");
+    expect(status.className).toContain("cpk:dark:text-emerald-400");
+
+    const headerButton = name.closest("button");
+    expect(headerButton).not.toBeNull();
+    fireEvent.click(headerButton!);
+
+    const details = wrapper.querySelectorAll("pre");
+    expect(details.length).toBeGreaterThan(0);
+    for (const detail of details) {
+      expect(detail.className).toContain("cpk:dark:bg-zinc-800/60");
+      expect(detail.className).toContain("cpk:dark:text-zinc-200");
+    }
+  });
+
   it("default renderer emits stable copilot-tool-render testid and metadata attrs", () => {
     render(
       <DefaultToolCallRenderer

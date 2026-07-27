@@ -105,35 +105,39 @@ if __name__ == "__main__":
 
 The `agent.to_ag_ui()` call creates a full ASGI application. Pass initial `deps` with default state.
 
-## Next.js Route (src/app/api/copilotkit/route.ts)
+## Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    sample_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+    default: new HttpAgent({
+      url: process.env.AGENT_URL || "http://localhost:8000/",
+    }),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 PydanticAI uses the generic `HttpAgent` from `@ag-ui/client`.
 
 ## Frontend Usage
 
-The frontend is standard CopilotKit -- `useAgent` for shared state, `useRenderToolCall` for generative UI, `useHumanInTheLoop` for approval flows. See the main SKILL.md for common patterns.
+The frontend is standard CopilotKit -- `useAgent` for shared state (read `agent.state`, write `agent.setState`), `useRenderTool` for generative UI, `useHumanInTheLoop` for approval flows. See the main SKILL.md for common patterns.

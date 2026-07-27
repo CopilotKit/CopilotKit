@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 // Dedicated runtime for the Open Generative UI demos.
 // Isolated here because the `openGenerativeUI` runtime flag sets
@@ -15,7 +17,7 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return createClaudeHttpAgent(`${AGENT_URL}/`);
 }
 
 const agentNames = ["open-gen-ui", "open-gen-ui-advanced"];
@@ -50,10 +52,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const err = error as Error;
-    return NextResponse.json(
-      { error: err.message, stack: err.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-ogui", error);
   }
 };

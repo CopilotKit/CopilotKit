@@ -2,7 +2,7 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import lambdaClient, { parseAndWarnTelemetryId } from "./lambda-client";
+import { lambdaClient, parseAndWarnTelemetryId } from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.

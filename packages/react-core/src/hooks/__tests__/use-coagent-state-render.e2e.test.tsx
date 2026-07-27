@@ -17,6 +17,7 @@ type TestMessage = {
   id: string;
   role: "user" | "assistant" | "system" | string;
   content?: string;
+  state?: string;
 };
 
 type TestAgentSubscriber = {
@@ -229,7 +230,7 @@ function ChatHarness({ tick }: { tick: number }) {
   return (
     <>
       {messages.map((message) =>
-        message.generativeUI ? (
+        message.role === "assistant" && message.generativeUI ? (
           <div key={message.id} data-testid={`message-${message.id}`}>
             {message.generativeUI()}
           </div>

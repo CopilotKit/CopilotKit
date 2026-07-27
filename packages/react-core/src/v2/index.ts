@@ -18,6 +18,7 @@ export { createA2UIMessageRenderer } from "./a2ui/A2UIMessageRenderer";
 export type {
   A2UIMessageRendererOptions,
   A2UIUserAction,
+  A2UIActionInterceptor,
 } from "./a2ui/A2UIMessageRenderer";
 export type { A2UIRecoveryRendererOptions } from "./a2ui/A2UIRecoveryStates";
 export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";

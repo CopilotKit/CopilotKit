@@ -26,6 +26,11 @@ function createAgent(): AbstractAgent {
 }
 
 const agents: Record<string, AbstractAgent> = {
+  // headless-complete shares this runtime (its page wires
+  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+  // Spring-AI ChatClient at "/" — the same backend the main route
+  // registers it against.
+  "headless-complete": createAgent(),
   "mcp-apps": createAgent(),
 };
 

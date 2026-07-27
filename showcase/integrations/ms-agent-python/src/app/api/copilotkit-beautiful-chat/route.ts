@@ -9,13 +9,15 @@
 // References:
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -49,6 +51,10 @@ const runtime = new CopilotRuntime({
     // runtime's default A2UI tool on top (that would double-bind the tool
     // slot and confuse the LLM).
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   mcpApps: {
     servers: [

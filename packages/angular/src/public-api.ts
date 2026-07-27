@@ -2,13 +2,27 @@ export * from "./lib/config";
 export * from "./lib/copilotkit";
 export * from "./lib/tools";
 export * from "./lib/render-tool-calls";
+export * from "./lib/activity-renderer";
+export * from "./lib/open-generative-ui";
 export * from "./lib/agent";
+export * from "./lib/interrupt";
+export * from "./lib/threads";
 export * from "./lib/chat-config";
+export * from "./lib/chat-configuration";
 export * from "./lib/chat-state";
+export * from "./lib/transcription";
 export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
+export * from "./lib/memories";
+export type {
+  Attachment,
+  AttachmentModality,
+  AttachmentUploadError,
+  AttachmentUploadResult,
+  AttachmentsConfig,
+} from "@copilotkit/shared";
 
 export * from "./lib/slots";
 
@@ -22,6 +36,9 @@ export * from "./lib/components/chat/copilot-chat-assistant-message-buttons";
 export * from "./lib/components/chat/copilot-chat-assistant-message-renderer";
 export * from "./lib/components/chat/copilot-chat-assistant-message-toolbar";
 export * from "./lib/components/chat/copilot-chat-assistant-message.types";
+export * from "./lib/components/chat/copilot-chat-attachment-queue";
+export * from "./lib/components/chat/copilot-chat-attachment-renderer";
+export * from "./lib/components/chat/copilot-chat-attachments.directive";
 export * from "./lib/components/chat/copilot-chat-audio-recorder";
 export * from "./lib/components/chat/copilot-chat-buttons";
 export * from "./lib/components/chat/copilot-chat-input";
@@ -30,6 +47,9 @@ export * from "./lib/components/chat/copilot-chat-input.types";
 export * from "./lib/components/chat/copilot-chat-message-view";
 export * from "./lib/components/chat/copilot-chat-message-view-cursor";
 export * from "./lib/components/chat/copilot-chat-message-view.types";
+export * from "./lib/components/chat/copilot-chat-reasoning-message";
+export * from "./lib/components/chat/copilot-chat-suggestion-pill";
+export * from "./lib/components/chat/copilot-chat-suggestion-view";
 export * from "./lib/components/chat/copilot-chat-textarea";
 export * from "./lib/components/chat/copilot-chat-tool-calls-view";
 export * from "./lib/components/chat/copilot-chat-toolbar";
@@ -48,3 +68,28 @@ export * from "./lib/components/chat/copilot-chat-view-input-container";
 export * from "./lib/components/chat/copilot-chat-view-scroll-to-bottom-button";
 export * from "./lib/components/chat/copilot-chat-view-scroll-view";
 export * from "./lib/components/chat/copilot-chat-view.types";
+export * from "./lib/components/chat/copilot-threads-drawer";
+export * from "./lib/components/modal/copilot-popup";
+export * from "./lib/components/modal/copilot-sidebar";
+export * from "./lib/components/tools/default-tool-renderer";
+export * from "./lib/components/a2ui/a2ui-activity-renderer";
+export * from "./lib/components/a2ui/a2ui-progress";
+export * from "./lib/components/a2ui/a2ui-recovery";
+export * from "./lib/components/a2ui/a2ui-tool-renderer";
+export * from "./lib/components/a2ui/a2ui-tool-types";
+export * from "./lib/components/open-generative-ui/open-generative-ui-activity-renderer";
+export * from "./lib/components/open-generative-ui/open-generative-ui-tool-renderer";
+export type {
+  DynamicSuggestionsConfig,
+  StaticSuggestionsConfig,
+  Suggestion,
+  SuggestionsConfig,
+} from "@copilotkit/core";
+
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
+} from "@copilotkit/core";

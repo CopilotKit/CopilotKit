@@ -51,25 +51,39 @@ async def display_flight(
     frontend catalog resolves component names against the local React
     components.
     """
+    # A2UI v0.9 NESTED operation format (createSurface/updateComponents/
+    # updateDataModel keys) — the runtime A2UI middleware's
+    # getOperationSurfaceId and the frontend renderer only understand this
+    # shape (mirrors copilotkit.a2ui helpers in sdk-python/copilotkit/a2ui.py).
+    # The previous flat {"type": "create_surface", ...} form parsed as a
+    # container but produced ops the renderer could not apply, so the
+    # a2ui-fixed-card never mounted.
     operations = [
         {
-            "type": "create_surface",
-            "surfaceId": SURFACE_ID,
-            "catalogId": CATALOG_ID,
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": SURFACE_ID,
+                "catalogId": CATALOG_ID,
+            },
         },
         {
-            "type": "update_components",
-            "surfaceId": SURFACE_ID,
-            "components": FLIGHT_SCHEMA,
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": SURFACE_ID,
+                "components": FLIGHT_SCHEMA,
+            },
         },
         {
-            "type": "update_data_model",
-            "surfaceId": SURFACE_ID,
-            "data": {
-                "origin": origin,
-                "destination": destination,
-                "airline": airline,
-                "price": price,
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": SURFACE_ID,
+                "path": "/",
+                "value": {
+                    "origin": origin,
+                    "destination": destination,
+                    "airline": airline,
+                    "price": price,
+                },
             },
         },
     ]

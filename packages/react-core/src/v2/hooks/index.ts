@@ -17,6 +17,17 @@ export { useInterrupt } from "./use-interrupt";
 export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
+export { useMemories } from "./use-memories";
+export type { UseMemoriesResult } from "./use-memories";
+// Re-export the public memory types referenced by UseMemoriesResult so consumers
+// can import them from the binding package alongside the hook result type.
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
+} from "@copilotkit/core";
 export { useLearnFromUserAction } from "./use-learn-from-user-action";
 export type {
   LearnFromUserActionInput,

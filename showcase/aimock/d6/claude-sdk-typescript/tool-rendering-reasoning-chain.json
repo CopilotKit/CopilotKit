@@ -3,13 +3,14 @@
     "description": "D6 fixtures for claude-sdk-typescript / tool-rendering-reasoning-chain",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "_shape_note": "claude-sdk-typescript calls the Anthropic /v1/messages shape: tool results arrive as user-role tool_result blocks with no text, so follow-up legs MUST be keyed on toolCallId (plus context) WITHOUT userMessage, and turnIndex (assistant count) gates break in multi-pill d6 sessions. LOOP SAFETY COMES FROM FIXTURE ORDERING, NOT FROM USER TEXT BEING ABSENT: aimock's claudeToCompletionRequest re-emits the original pill prompt as a role:'user' message every leg (see showcase/aimock/src/messages.ts lines 142-146), so getLastMessageByRole('user') still returns the pill text on follow-ups — a userMessage-only emit fixture would re-match and re-emit toolCalls forever (503 / infinite loop). Two things prevent that: (1) toolCallId matchers self-gate on `last message is role:tool with this exact tool_call_id` (see router.ts lines 170-177), so they ONLY hit follow-up legs; and (2) toolCallId-keyed follow-up fixtures MUST appear BEFORE the userMessage-keyed emit fixture in this file — matchFixture iterates in array order and returns the first match. Multi-leg chains (e.g. stocks AAPL→MSFT) further require the LATER-tool-result fixture to appear before the EARLIER one, because both legs satisfy their respective last-tool-id gates only in sequence; out-of-order multi-leg fixtures leak a stale-pill response into the wrong leg. Aligned 2026-06-11; the previous userMessage+toolCallId / turnIndex:0 keying (copied from langgraph-python's OpenAI-shape fixtures) never matched the follow-up legs and 503'd every multi-leg tool loop.",
+    "updated": "2026-06-11"
   },
   "fixtures": [
     {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — final narration after the MSFT tool result lands. Specific toolCallId so this matches BEFORE the first-leg fixture below despite the same userMessage substring. Source: showcase/harness/fixtures/d5/tool-rendering-reasoning-chain.json.",
       "match": {
-        "userMessage": "Compare AAPL and MSFT stocks",
         "toolCallId": "call_rc_stock_msft_001",
         "context": "claude-sdk-typescript"
       },
@@ -20,7 +21,6 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) — second leg: after get_stock_price(AAPL) returns, chain to MSFT for the comparison.",
       "match": {
-        "userMessage": "Compare AAPL and MSFT stocks",
         "toolCallId": "call_rc_stock_aapl_001",
         "context": "claude-sdk-typescript"
       },
@@ -57,7 +57,6 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — final narration after the d6 contrast roll lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail of the pill prompt ('compare it to a smaller one'); other integrations' reasoning-chain demos still send the older 'Roll a 20-sided die for me.' (no period-after-die substring match against 'Roll a 20-sided die.') which lacks this suffix — so this fixture stays scoped to this demo and does NOT hijack the older 5x roll_d20 fixtures further down in this file.",
       "match": {
-        "userMessage": "compare it to a smaller one",
         "toolCallId": "call_rc_dice_d6_001",
         "context": "claude-sdk-typescript"
       },
@@ -68,7 +67,6 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — second leg: after roll_dice(sides=20) returns, chain a smaller die for contrast.",
       "match": {
-        "userMessage": "compare it to a smaller one",
         "toolCallId": "call_rc_dice_d20_001",
         "context": "claude-sdk-typescript"
       },
@@ -105,7 +103,6 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — final narration after get_weather(JFK) lands. userMessage is the LANGGRAPH-PYTHON-UNIQUE tail 'show me the weather there'; the basic tool-rendering demos AND every other integration's reasoning-chain demo still send 'Find flights from SFO to JFK.' (no destination-weather request) which lacks this substring, so this fixture stays scoped to this demo without affecting fleet-wide aimock traffic.",
       "match": {
-        "userMessage": "show me the weather there",
         "toolCallId": "call_rc_weather_jfk_001",
         "context": "claude-sdk-typescript"
       },
@@ -116,7 +113,6 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 3 (flights + destination weather) — second leg: after search_flights(SFO,JFK) returns, chain to destination weather.",
       "match": {
-        "userMessage": "show me the weather there",
         "toolCallId": "call_rc_flights_jfk_001",
         "context": "claude-sdk-typescript"
       },
@@ -154,7 +150,6 @@
       "_comment": "tool-rendering pill: Find flights — first leg (verbatim pill prompt, dedicated search_flights fixture). MUST take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape). Intentionally omits `hasToolResult` so this fixture also matches when SFO/JFK is the SECOND turn of a multi-turn flow (e.g. tool-rendering-reasoning-chain probe sends weather→flights). With `hasToolResult: false`, Turn 1's tool result would prevent this fixture from matching Turn 2's first leg, and the matcher would fall through to the second-leg fixture above (which now requires a matching `toolCallId` so it cannot swallow this request).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {

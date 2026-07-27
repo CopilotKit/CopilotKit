@@ -19,10 +19,11 @@ class PromoteExecuteTest < Minitest::Test
         def query(q, vars = {})
             @calls << [q, vars]
             if q.include?("serviceInstanceUpdate")
-                @pinned_image = vars[:image]
+                @pinned_image = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                # New deployment spawned; returns the new deployment id.
+                { "serviceInstanceDeployV2" => "dep-new" }
             elsif q.include?("ServiceInstanceRecheck")
                 if @pinned_image.nil?
                     # Pre-update snapshot.
@@ -34,11 +35,19 @@ class PromoteExecuteTest < Minitest::Test
                         },
                     }
                 else
+                    # Post-update: config advanced AND the new deployment
+                    # (dep-new) has SUCCEEDED serving the pinned digest, so both
+                    # the config recheck and the bug-#2 serving gate pass.
+                    pinned_digest = @pinned_image.include?("@") ? @pinned_image.split("@", 2).last : nil
                     {
                         "serviceInstance" => {
                             "id" => "i",
                             "source" => { "image" => @pinned_image },
                             "updatedAt" => "2026-05-29T00:00:01Z",
+                            "latestDeployment" => {
+                                "id" => "dep-new", "status" => "SUCCESS",
+                                "meta" => { "imageDigest" => pinned_digest },
+                            },
                         },
                     }
                 end
@@ -50,7 +59,7 @@ class PromoteExecuteTest < Minitest::Test
         # Find the `image:` arg passed to the serviceInstanceUpdate mutation.
         def pinned_image
             row = @calls.find { |q, _| q.include?("serviceInstanceUpdate") }
-            row && row[1][:image]
+            row && row[1].dig(:input, :source, :image)
         end
     end
 
@@ -84,15 +93,17 @@ class PromoteExecuteTest < Minitest::Test
     # Build a command with staging-tag service, snapshot the prod target, and
     # inject fakes. Returns [cmd, gql].
     def build_cmd(staging_image:, resolve_map:, exists_set: nil)
-        # --confirm-divergence: bypass the (test-irrelevant) WARN that prod is
-        # missing the EXPECTED_DOMAINS set; we are testing pin behavior.
+        # --confirm-divergence: retained as a harmless no-op (the only finding,
+        # missing EXPECTED_DOMAINS, is now ADVISORY and never blocks); we are
+        # testing pin behavior. All CRITICAL_ENV_KEYS present so the (now
+        # unconditional) critical env-key presence assertion does not fire.
         cmd = Railway::PromoteCommand.new(["--non-interactive", "--yes", "--confirm-divergence"])
         cmd.parser.parse!(cmd.argv)
         cmd.instance_variable_set(:@staging_snapshot, {
             "services" => [{
                 "name" => "x", "service_id" => "svc-staging",
                 "image" => staging_image,
-                "env_keys" => [],
+                "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
                 "start_command" => "node server.js", "healthcheck_path" => "/health",
                 "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             }],
@@ -101,7 +112,7 @@ class PromoteExecuteTest < Minitest::Test
             "services" => [{
                 "name" => "x", "service_id" => "svc-prod",
                 "image" => "ghcr.io/copilotkit/x@sha256:OLD",
-                "env_keys" => [],
+                "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
                 "start_command" => "node server.js", "healthcheck_path" => "/health",
                 "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             }],
@@ -109,15 +120,20 @@ class PromoteExecuteTest < Minitest::Test
         gql = RecordingGQL.new
         cmd.instance_variable_set(:@gql, gql)
         cmd.instance_variable_set(:@ghcr, FakeGHCR.new(resolve_map: resolve_map, exists_set: exists_set))
-        # Skip P2 deployments query — make fetch_latest_staging_deployments return
-        # a SUCCESS deployment whose digest matches whatever we will resolve.
-        # Fall back to a placeholder digest so the fixture is never a malformed
-        # "...@" — the unresolvable-tag test path will REFUSE at P1 before P2
-        # consults this stub, so the placeholder value is benign.
-        resolved_digest = resolve_map.values.first ||
-            (staging_image.include?("@") ? staging_image.split("@", 2).last : "sha256:placeholder")
+        # resolved_prod_image pins staging's RUNNING digest, sourced from the
+        # latest SUCCESS deployment's meta.imageDigest (image-drift.ts mechanism).
+        # Map the staging RUNNING digest from resolve_map (the test's notion of
+        # the resolvable digest) or, for an already-digest-pinned staging image,
+        # the embedded digest. When resolve_map is EMPTY *and* the image is
+        # tag-only, the deployment carries NO imageDigest — modelling the
+        # "no running digest resolvable" REFUSE path (replaces the old
+        # "GHCR :latest unresolvable" REFUSE).
+        running_digest = resolve_map.values.first ||
+            (staging_image.include?("@") ? staging_image.split("@", 2).last : nil)
         cmd.define_singleton_method(:fetch_latest_staging_deployments) do |_svc_id|
-            [{ "id" => "d", "status" => "SUCCESS", "meta" => { "image" => "ghcr.io/copilotkit/x@#{resolved_digest}" } }]
+            meta = { "image" => "ghcr.io/copilotkit/x:latest" }
+            meta["imageDigest"] = running_digest if running_digest
+            [{ "id" => "d", "status" => "SUCCESS", "meta" => meta }]
         end
         cmd.define_singleton_method(:run_staging_probe) { |services:| { ok: true, summary: "" } }
         [cmd, gql]

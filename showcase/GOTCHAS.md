@@ -1,5 +1,9 @@
 # Showcase GOTCHAS — Framework & Integration Edge Cases
 
+Tagline: framework-specific traps, aimock matcher / fixture-authoring edge
+cases, and `--isolate` operational gotchas. Load when a fixture, framework, or
+`--isolate` slot is misbehaving in ways the CLI output alone won't explain.
+
 What we learned from getting all 18 integrations to D5 green. Many of these are things that were "green" but still wrong — passing probes while the underlying wiring was fragile, framework-specific, or relying on coincidence. This document exists so we don't re-learn these when rebuilding.
 
 ---
@@ -135,6 +139,37 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 **Common fix classes when mirroring (from LGP/LGT/ms-agent-dotnet):** `toolCallId` (2nd-leg) matcher must precede `toolName` (1st-leg); `chunkSize: 9999` for tool args that must JSON-parse in one chunk; inline narration `content` on tool-call fixtures for render/settle races; tighten over-broad d4 catch-alls (e.g. `"summarize"` → `"Summarize the"`); strip spurious `turnIndex: 0` (canonical fixtures have no turnIndex so any turn matches).
 
 ---
+
+## `--isolate` & aimock operational edge cases
+
+**aimock caches fixtures at container startup.** aimock reads fixtures from disk
+exactly once at boot and serves matches from an in-memory map. Editing a
+fixture in a live stack has no effect until the container restarts. Within an
+`--isolate` slot:
+
+- **Fresh slot** (cold-start) — aimock loads fixtures from the volume mount on
+  startup, so the first run after a fixture edit picks up the change for free.
+- **Warm slot** (reusing a kept stack) — fixture edits require an explicit
+  `docker restart showcase-iso<N>-aimock` before the next test run, or you'll
+  see the pre-edit behavior with no log indication of why.
+
+This is the most-recurring "why isn't my fixture fix working?" trap during
+iterative cell debugging.
+
+**`--isolate` slot collisions with foreign Docker projects.** The slot registry
+under `~/.local/state/copilotkit/showcase/slots/` only tracks `showcase-*`
+compose projects. If a sibling project (e.g. `ag2mm-*`, or another tool's
+docker stack) owns the same host ports for an auto-picked slot, health checks
+cross-resolve to the foreign containers and results misroute silently — the
+isolated stack appears red even though its own containers are healthy. Two
+remediations:
+
+- **Pre-reserve the conflicting slot:** `mkdir
+~/.local/state/copilotkit/showcase/slots/<N>` for each slot whose port range
+  collides with the foreign stack. The CLI skips reserved slots when picking.
+- **Tear down the foreign stack first:** `docker compose -p <foreign-project> down`
+  before launching `--isolate`. Cleanest, but requires knowing which project
+  is the culprit.
 
 ## Running D6 in Parallel (`--isolate`)
 

@@ -1,12 +1,13 @@
 ---
 title: "useThreads"
 description: "React hook for listing, managing, and syncing conversation threads with useThreads — rename, archive, delete, and paginate threads with realtime updates via WebSocket."
+doc_type: reference
 ---
 
 <OpsPlatformCTA
   variant="card"
   title="useThreads needs an Enterprise Intelligence Platform project"
-  body="Sign up for a free account to get a public license key and start syncing threads."
+  body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing threads."
   ctaLabel="Create a free account"
   surface="docs_reference_use_threads"
 />
@@ -16,6 +17,8 @@ description: "React hook for listing, managing, and syncing conversation threads
 `useThreads` is a React hook for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via WebSocket, and exposes mutation methods for renaming, archiving, and deleting threads.
 
 Threads are sorted by most recently updated first. The hook supports cursor-based pagination when a `limit` is provided.
+
+`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Managed Enterprise Intelligence provides those endpoints for durable thread metadata and realtime updates. Self-managed runner persistence, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can still persist and replay chat history, but it does not automatically provide the managed `useThreads` list/mutation/realtime contract.
 
 ## Signature
 
@@ -131,6 +134,7 @@ function ThreadList() {
 ## Behavior
 
 - On mount, fetches the thread list and establishes a realtime WebSocket subscription.
+- If the runtime does not advertise thread endpoints, no `/threads` request is made and `error` explains that thread endpoints are unavailable.
 - Thread creates, renames, archives, and deletes from any client are reflected immediately without polling.
 - All mutation methods use **pessimistic updates** — the UI updates only after the server confirms the operation via WebSocket, not immediately on dispatch. Promises resolve on confirmation (15-second timeout) and reject on failure.
 - The `error` state updates with the most recent error from any operation.
@@ -139,6 +143,5 @@ function ThreadList() {
 
 ## Next steps
 
-- **Understand how it works:** [How Threads & Persistence Work](/premium/threads-explained) — architecture, event replay model, and WebSocket sync
-- **Step-by-step guide:** [Threads](/threads) — set up thread management in your app
-- **Tutorial:** [Build a Multi-Conversation Chat App](/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
+- **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay model and WebSocket sync
+- **Step-by-step guide:** [Headless Threads](/headless-threads) — build a custom thread-management UI

@@ -1,0 +1,285 @@
+name: test / showcase frontend baseline
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_commit:
+        description: "Exact main commit whose React behavior is frozen"
+        required: true
+        default: "dd20114b015ae6f76fe97b5dff5a295d2ca8c94e"
+        type: string
+      integration:
+        description: "Run all integrations or one diagnostic shard"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - ag2
+          - agno
+          - built-in-agent
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-harness-dotnet
+          - ms-agent-python
+          - pydantic-ai
+          - spring-ai
+          - strands
+          - strands-typescript
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  baseline:
+    name: React baseline / ${{ matrix.integration }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        integration: ${{ fromJSON(inputs.integration == 'all' && '["ag2","agno","built-in-agent","claude-sdk-python","claude-sdk-typescript","crewai-crews","google-adk","langgraph-fastapi","langgraph-python","langgraph-typescript","langroid","llamaindex","mastra","ms-agent-dotnet","ms-agent-harness-dotnet","ms-agent-python","pydantic-ai","spring-ai","strands","strands-typescript"]' || format('["{0}"]', inputs.integration)) }}
+
+    steps:
+      - name: Check out probe contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: pr
+          persist-credentials: false
+          lfs: true
+
+      - name: Check out frozen base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.base_commit }}
+          path: base
+          persist-credentials: false
+          lfs: true
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact probe and fixture dependencies
+        run: |
+          pnpm --dir pr --filter @copilotkit/showcase-harness --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+          pnpm --dir base --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
+      - name: Generate the frozen React plan
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          cd pr
+          pnpm --dir showcase/scripts exec tsx generate-registry.ts
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts plan \
+            --frontend react \
+            --integration "$INTEGRATION" \
+            --min-shards 1 \
+            --max-shards 1 \
+            --output "$RUNNER_TEMP/frontend-matrix-plan.json"
+
+      - name: Install Chromium
+        run: pnpm --dir pr/showcase/harness exec playwright install --with-deps chromium
+
+      - name: Stage frozen shared sources
+        run: |
+          source base/showcase/scripts/cli/_common.sh
+          stage_shared
+
+      - name: Build the frozen integration image
+        env:
+          BASE_COMMIT: ${{ inputs.base_commit }}
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          docker build \
+            --label "org.opencontainers.image.revision=$BASE_COMMIT" \
+            --tag "frontend-matrix-$INTEGRATION:$BASE_COMMIT" \
+            "base/showcase/integrations/$INTEGRATION"
+          docker image inspect \
+            --format '{{.Id}}' \
+            "frontend-matrix-$INTEGRATION:$BASE_COMMIT" \
+            > "$RUNNER_TEMP/container-image-revision.txt"
+
+      - name: Start the frozen fixture sidecar
+        run: |
+          AIMOCK_BIN="base/showcase/scripts/node_modules/.bin/llmock"
+          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
+            --metrics \
+            --fixtures base/showcase/aimock/shared \
+            --fixtures base/showcase/aimock/d4 \
+            --fixtures base/showcase/aimock/d5-recorded \
+            --fixtures base/showcase/aimock/d6 \
+            --validate-on-load \
+            > "$RUNNER_TEMP/aimock.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/aimock.pid"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:4010/__aimock/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Frozen fixture sidecar did not become ready" >&2
+          exit 1
+
+      - name: Start the frozen integration image
+        env:
+          BASE_COMMIT: ${{ inputs.base_commit }}
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          docker run --detach \
+            --name frontend-matrix-integration \
+            --add-host host.docker.internal:host-gateway \
+            --publish 10000:10000 \
+            --env OPENAI_API_KEY=sk-mock \
+            --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
+            --env ANTHROPIC_API_KEY=sk-mock-anthropic \
+            --env ANTHROPIC_BASE_URL=http://host.docker.internal:4010 \
+            --env GOOGLE_API_KEY=fake-gemini-key \
+            --env GOOGLE_GEMINI_BASE_URL=http://host.docker.internal:4010 \
+            --env SPRING_AI_OPENAI_BASE_URL=http://host.docker.internal:4010 \
+            --env AIMOCK_URL=http://host.docker.internal:4010 \
+            --env GitHubToken=gh-mock-ci \
+            --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
+            "frontend-matrix-$INTEGRATION:$BASE_COMMIT"
+          for _ in $(seq 1 90); do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:10000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs frontend-matrix-integration
+          echo "Frozen integration image did not become ready" >&2
+          exit 1
+
+      - name: Run exact frozen React cells
+        env:
+          BASE_COMMIT: ${{ inputs.base_commit }}
+          CONTRACT_COMMIT: ${{ github.sha }}
+          INTEGRATION: ${{ matrix.integration }}
+        run: |
+          IMAGE_REVISION=$(cat "$RUNNER_TEMP/container-image-revision.txt")
+          cd pr
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts run \
+            --plan "$RUNNER_TEMP/frontend-matrix-plan.json" \
+            --shard-index 0 \
+            --frontend react \
+            --integration "$INTEGRATION" \
+            --integration-base-url http://127.0.0.1:10000 \
+            --source-commit "$BASE_COMMIT" \
+            --container-image-revision "$IMAGE_REVISION" \
+            --fixture-revision "$BASE_COMMIT" \
+            --feature-contract-revision "$CONTRACT_COMMIT" \
+            --output "$RUNNER_TEMP/frontend-matrix-$INTEGRATION.json"
+
+      - name: Stop branch-local services
+        if: always()
+        run: |
+          curl --fail --silent --max-time 2 http://127.0.0.1:4010/metrics \
+            | awk '/^aimock_fixtures_loaded|^aimock_requests_total/ { print }' \
+            || true
+          docker rm --force frontend-matrix-integration 2>/dev/null || true
+          if [ -f "$RUNNER_TEMP/aimock.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/aimock.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload exact baseline cells
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-baseline-${{ matrix.integration }}
+          path: ${{ runner.temp }}/frontend-matrix-${{ matrix.integration }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload service logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-baseline-logs-${{ matrix.integration }}
+          path: ${{ runner.temp }}/*.log
+          if-no-files-found: warn
+          retention-days: 7
+
+  freeze:
+    name: Freeze complete React baseline
+    if: ${{ always() && inputs.integration == 'all' }}
+    needs: baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out probe contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10.33.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install exact probe dependencies
+        run: pnpm --filter @copilotkit/showcase-harness --filter @copilotkit/showcase-scripts install --frozen-lockfile --ignore-scripts
+
+      - name: Generate the frozen catalog
+        run: pnpm --dir showcase/scripts exec tsx generate-registry.ts
+
+      - name: Download all exact-cell artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: frontend-baseline-*
+          path: ${{ runner.temp }}/frontend-baseline-artifacts
+          merge-multiple: true
+
+      - name: Verify complete baseline identity
+        env:
+          BASE_COMMIT: ${{ inputs.base_commit }}
+        run: |
+          pnpm --dir showcase/harness exec tsx src/cli/frontend-matrix-ci.ts aggregate \
+            --frontend react \
+            --artifacts "$RUNNER_TEMP/frontend-baseline-artifacts" \
+            --output "$RUNNER_TEMP/frontend-matrix-baseline.json" \
+            --timings-output "$RUNNER_TEMP/frontend-matrix-timings.json"
+          test "$(jq -r .sourceCommit "$RUNNER_TEMP/frontend-matrix-baseline.json")" = "$BASE_COMMIT"
+          test "$(jq -r .fixtureRevision "$RUNNER_TEMP/frontend-matrix-baseline.json")" = "$BASE_COMMIT"
+          test "$(jq -r .summary.total "$RUNNER_TEMP/frontend-matrix-baseline.json")" = "660"
+
+      - name: Upload immutable baseline candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frontend-matrix-frozen-baseline
+          path: |
+            ${{ runner.temp }}/frontend-matrix-baseline.json
+            ${{ runner.temp }}/frontend-matrix-timings.json
+          if-no-files-found: error
+          retention-days: 90

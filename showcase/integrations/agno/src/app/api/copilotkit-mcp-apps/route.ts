@@ -31,6 +31,11 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 // the MCP-provided toolset.
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/agui` });
 
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the main Agno
+// agent at /agui — the same backend the main route registers it against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/agui` });
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware: on each MCP tool call it fetches
@@ -41,6 +46,7 @@ const runtime = new CopilotRuntime({
     // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
     // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
     // plain Records. Fixed in source, pending release.
+    "headless-complete": headlessCompleteAgent,
     "mcp-apps": mcpAppsAgent,
   },
   mcpApps: {

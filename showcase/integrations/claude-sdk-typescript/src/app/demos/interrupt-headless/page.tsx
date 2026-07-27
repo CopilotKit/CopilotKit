@@ -3,14 +3,13 @@
 // Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
 //
 // Layout: chat on the right, empty app surface on the left. The user
-// triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
-// and we render a time-picker popup IN THE APP SURFACE (left pane) —
-// not inside the chat. Picking a slot resolves the interrupt, the
-// popup vanishes, and the agent confirms back in chat.
+// triggers the agent from a chat suggestion. When the Claude backend surfaces
+// a scheduling payload, we render a time-picker popup IN THE APP SURFACE
+// (left pane) -- not inside the chat. Picking a slot resolves the pending
+// interaction, the popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -71,11 +70,13 @@ function Layout() {
 
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 } {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId });
   const [pending, setPending] = useState<InterruptEvent | null>(null);
+  const pendingRef = useRef<InterruptEvent | null>(null);
+  pendingRef.current = pending;
 
   useEffect(() => {
     let local: InterruptEvent | null = null;
@@ -105,17 +106,17 @@ function useHeadlessInterrupt(agentId: string): {
       },
       onRunFailed: () => {
         local = null;
+        setPending(null);
       },
     });
     return () => sub.unsubscribe();
   }, [agent]);
 
   const resolve = useMemo(
-    () => (response: unknown) => {
-      const snapshot = pending;
-      setPending(null);
-      void copilotkit
-        .runAgent({
+    () => async (response: unknown) => {
+      const snapshot = pendingRef.current;
+      try {
+        return await copilotkit.runAgent({
           agent,
           forwardedProps: {
             command: {
@@ -123,10 +124,22 @@ function useHeadlessInterrupt(agentId: string): {
               interruptEvent: snapshot?.value,
             },
           },
-        })
-        .catch(() => {});
+        });
+      } catch (err) {
+        // Catastrophic rejection (network error, auth failure, validation
+        // reject) may fire before the run starts, so onRunFailed never runs.
+        // Clear pending here so the popup unmounts. Symmetric with the
+        // framework resolve catch + onRunFailed handler — all write null,
+        // no race. Caller still sees the rethrow.
+        console.error(
+          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
+          err,
+        );
+        setPending(null);
+        throw err;
+      }
     },
-    [agent, copilotkit, pending],
+    [agent, copilotkit],
   );
 
   return { pending, resolve };
@@ -135,7 +148,7 @@ function useHeadlessInterrupt(agentId: string): {
 
 type AppSurfaceProps = {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 };
 
 function AppSurface({ pending, resolve }: AppSurfaceProps) {

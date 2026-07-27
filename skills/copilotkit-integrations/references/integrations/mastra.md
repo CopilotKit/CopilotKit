@@ -16,10 +16,15 @@ Mastra is a TypeScript-native agent framework. The CopilotKit integration runs e
   "@mastra/memory": "beta",
   "@mastra/libsql": "beta",
   "mastra": "beta",
-  "@copilotkit/react": "latest",
+  "@copilotkit/react-core": "latest",
   "@copilotkit/runtime": "latest"
 }
 ```
+
+> **Note:** `@ag-ui/mastra@beta` currently declares a peer dependency on a
+> pre-release `@copilotkit/runtime`, which conflicts with the published
+> `@copilotkit/runtime@latest`. Install with `--legacy-peer-deps` (npm) or
+> the equivalent until the beta peer range is updated.
 
 ## Agent Definition (src/mastra/agents/index.ts)
 
@@ -104,31 +109,33 @@ export const mastra = new Mastra({
 });
 ```
 
-## Next.js Route (src/app/api/copilotkit/route.ts)
+## Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { MastraAgent } from "@ag-ui/mastra";
-import { NextRequest } from "next/server";
 import { mastra } from "@/mastra";
+import { handle } from "hono/vercel";
 
-export const POST = async (req: NextRequest) => {
-  const runtime = new CopilotRuntime({
-    // @ts-expect-error - typing issue in current beta
-    agents: MastraAgent.getLocalAgents({ mastra }),
-  });
+const runtime = new CopilotRuntime({
+  // @ts-expect-error - typing issue in current beta
+  agents: MastraAgent.getLocalAgents({ mastra }),
+  runner: new InMemoryAgentRunner(),
+});
 
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 Key difference from other integrations: `MastraAgent.getLocalAgents({ mastra })` automatically discovers all agents registered in the Mastra instance. No need to manually specify URLs or create agent instances -- the agents run in-process.

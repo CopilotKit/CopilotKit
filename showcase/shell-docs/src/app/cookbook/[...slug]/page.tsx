@@ -5,11 +5,11 @@
 // cookbook subtree so each recipe shows only its sibling recipes, not
 // the full Documentation tree.
 
-import path from "path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
-import { CONTENT_DIR, buildNavTree, loadDoc } from "@/lib/docs-render";
+import { buildCookbookNavTree } from "@/lib/cookbook-nav";
+import { loadDoc } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +39,13 @@ export default async function CookbookSlugPage({
   const { slug } = await params;
   if (!slug || slug.length === 0) notFound();
   const slugPath = `cookbook/${slug.join("/")}`;
-  const navTree = buildNavTree(path.join(CONTENT_DIR, "cookbook"), "cookbook");
   return (
     <DocsPageView
       slugPath={slugPath}
       slugHrefPrefix=""
-      navTree={navTree}
+      navTree={buildCookbookNavTree()}
       sidebarBannerSlot={null}
+      sidebarClassName="shell-docs-sidebar-cookbook"
     />
   );
 }

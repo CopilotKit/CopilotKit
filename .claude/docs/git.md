@@ -1,5 +1,17 @@
 # Git & PRs
 
+## Always Branch from Up-to-Date `origin/main`
+
+Before creating a branch (or worktree), fetch and base it on the remote tip, not whatever your local `main` happens to be:
+
+```sh
+git fetch origin && git switch -c <branch-name> origin/main
+# worktree equivalent:
+git fetch origin && git worktree add -b <branch-name> ../<dir> origin/main
+```
+
+Never branch off local `main` without fetching — it may be stale (e.g. "behind origin/main by N commits"), which bases your PR on an old commit and invites avoidable merge conflicts. If you discover an existing branch is stale, rebase it: `git fetch origin && git rebase origin/main`.
+
 ## Worktree Workflow
 
 Always use a git worktree for non-trivial work. This keeps the main working tree clean and lets you work in isolation.

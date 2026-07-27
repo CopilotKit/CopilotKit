@@ -54,9 +54,10 @@ import type { JobClaimClient, JobView } from "../job-claim.js";
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
 import {
   WORKERS_COLLECTION,
+  heartbeatParseable,
   isWorkerStale,
+  deriveHealth,
   type PoolCommError,
-  type WorkerHealthState,
 } from "../contracts.js";
 
 /**
@@ -189,21 +190,6 @@ export interface FleetHealthMonitor {
   checkOnce(): Promise<FleetHealthResult>;
 }
 
-/** Derive a worker's liveness from its heartbeat age. */
-function deriveHealth(
-  lastHeartbeatAt: string,
-  nowMs: number,
-  staleAfterMs: number,
-): WorkerHealthState {
-  // OFFLINE is a stronger stale: heartbeat older than 2x the window. We don't
-  // act differently on stale vs offline (both reclaim), but the distinction is
-  // surfaced in logs so an operator can tell a briefly-missed-beat worker from
-  // a long-dead one.
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs * 2)) return "offline";
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs)) return "stale";
-  return "online";
-}
-
 export function createFleetHealthMonitor(
   deps: FleetHealthDeps,
 ): FleetHealthMonitor {
@@ -262,7 +248,16 @@ export function createFleetHealthMonitor(
     let page: { items: JobView[] };
     try {
       page = await pb.list<JobView>(PROBE_JOBS_COLLECTION, {
-        filter: `(status = "claimed" || status = "running") && claimed_by = "${workerId}"`,
+        // `workerId` is read back from the workers roster row (DB-sourced, not
+        // a compile-time constant). The rest of the codebase deliberately
+        // neutralizes this sink class — orchestrator.ts:3240 already uses
+        // `JSON.stringify(workerId)` for the same field, queue-client uses the
+        // shared `escapeFilterLiteral` helper. A `"`-bearing worker_id (corrupt
+        // row, buggy self-registration) would otherwise break out of the
+        // literal and either throw the list (silently skipping this worker's
+        // reclaim every cycle) or widen the filter to claim OTHER workers'
+        // jobs. Match the sibling escape pattern.
+        filter: `(status = "claimed" || status = "running") && claimed_by = ${JSON.stringify(workerId)}`,
         perPage: RECLAIM_PAGE,
         skipTotal: true,
       });
@@ -349,6 +344,11 @@ export function createFleetHealthMonitor(
       let reclaimed = 0;
       let restartsAttempted = 0;
       let gcDeleted = 0;
+      // Per-cycle count of roster rows whose heartbeat the contract parser
+      // can't read (see the unparseable-heartbeat warn below) — surfaced on
+      // the cycle log so a persistently corrupt row shows up as a number, not
+      // just warn-stream noise.
+      let unparseableHeartbeats = 0;
       const commErrors: PoolCommError[] = [];
       const reclaimedOverlays: ReclaimedCommError[] = [];
 
@@ -402,11 +402,16 @@ export function createFleetHealthMonitor(
         // false (treat-unknown-as-not-yet-stale) so a malformed row can't flap
         // the whole fleet to offline — but a PERSISTENTLY bad timestamp means
         // this worker silently never gets reclaimed. Warn so the orphaned row is
-        // visible to an operator (the next valid heartbeat clears it).
+        // visible to an operator (the next valid heartbeat clears it). The
+        // predicate is the contract's `heartbeatParseable` companion — the
+        // EXACT complement of what `isWorkerStale` can see (same PB space-form
+        // normalization) — not a raw engine-lenient `Date.parse`, so the warn
+        // fires precisely when the staleness check is blind.
         if (
           typeof row.last_heartbeat_at !== "string" ||
-          Number.isNaN(Date.parse(row.last_heartbeat_at))
+          !heartbeatParseable(row.last_heartbeat_at)
         ) {
+          unparseableHeartbeats += 1;
           logger.warn("fleet.health.unparseable-heartbeat", {
             workerId,
             lastHeartbeatAt: row.last_heartbeat_at,
@@ -463,13 +468,19 @@ export function createFleetHealthMonitor(
         }
       }
 
-      if (unhealthy > 0 || reclaimed > 0 || gcDeleted > 0) {
+      if (
+        unhealthy > 0 ||
+        reclaimed > 0 ||
+        gcDeleted > 0 ||
+        unparseableHeartbeats > 0
+      ) {
         logger.info("fleet.health.cycle", {
           online,
           unhealthy,
           reclaimed,
           restartsAttempted,
           gcDeleted,
+          unparseableHeartbeats,
         });
       }
 

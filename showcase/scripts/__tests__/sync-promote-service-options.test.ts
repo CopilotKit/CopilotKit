@@ -14,6 +14,53 @@ import type { ServiceEntry } from "../railway-envs";
 
 const SCRIPT = resolve(__dirname, "..", "sync-promote-service-options.ts");
 
+// The REAL, committed workflow file that GitHub validates the `service`
+// workflow_dispatch choice against server-side. `gh workflow run` is rejected
+// with HTTP 422 ("Provided value '<svc>' ... not in the list of allowed
+// values") whenever a chosen value is absent from THIS file on the default
+// branch — so the durable regression test below asserts against the committed
+// file, not just the in-memory generator output.
+const COMMITTED_WORKFLOW = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  ".github",
+  "workflows",
+  "showcase_promote.yml",
+);
+
+/**
+ * The full set of services that MUST appear in the promote dropdown. This is
+ * the regression guard's allowlist: if a future generator change (or a botched
+ * SSOT edit) drops ANY of these, both the generator-output and committed-file
+ * assertions below fail LOUDLY in CI.
+ *
+ * `shell-docs` is called out by name on purpose: it is promoted regularly by a
+ * teammate, and the explicit worry is that a future pinning/generator
+ * regression must NEVER silently strip it from the dropdown. The 12 `starter-*`
+ * services are listed because they were historically OMITTED (the committed
+ * dropdown was never regenerated after they joined the SSOT), which caused the
+ * HTTP 422 rejection this regression test exists to prevent recurring.
+ */
+const REQUIRED_PROMOTE_TARGETS = [
+  // The teammate-critical target — guarded by name, never just by count.
+  "shell-docs",
+  // The 12 starter-* container fleet (the previously-omitted set).
+  "starter-adk",
+  "starter-agno",
+  "starter-crewai-crews",
+  "starter-langgraph-fastapi",
+  "starter-langgraph-js",
+  "starter-langgraph-python",
+  "starter-llamaindex",
+  "starter-mastra",
+  "starter-ms-agent-framework-dotnet",
+  "starter-ms-agent-framework-python",
+  "starter-pydantic-ai",
+  "starter-strands-python",
+] as const;
+
 /**
  * Build a synthetic env-map `ServiceEntry` for computeOptionTokens tests.
  * Only the fields the generator reads matter (`environments.prod.probe` +
@@ -569,5 +616,72 @@ describe("sync-promote-service-options", () => {
     expect(tokens[1]).toBe("all");
     expect(tokens.filter((t) => t === SENTINEL)).toHaveLength(1);
     expect(tokens.filter((t) => t === "all")).toHaveLength(1);
+  });
+});
+
+describe("promote dropdown regression guard (shell-docs + starters must stay listed)", () => {
+  // The whole set the dropdown must currently expose, computed from the SSOT.
+  // Used as the "no previously-listed target is dropped" oracle: every token
+  // the generator currently emits (minus the two reserved literals) MUST
+  // survive in both the generator output and the committed workflow file.
+  const expectedTokens = computeOptionTokens(SERVICES);
+  const expectedRealTargets = expectedTokens.filter(
+    (t) => t !== SENTINEL && t !== "all",
+  );
+
+  it("generator output contains shell-docs AND all 12 starters by name", () => {
+    const tokens = computeOptionTokens(SERVICES);
+    // Assert MEMBERSHIP by name (not just a count) so a regression that swaps
+    // one target for another is still caught.
+    for (const required of REQUIRED_PROMOTE_TARGETS) {
+      expect(
+        tokens,
+        `promote dropdown (generator output) must contain "${required}" — ` +
+          `it is a required promote target and must never be dropped`,
+      ).toContain(required);
+    }
+  });
+
+  it("the COMMITTED showcase_promote.yml choice list contains shell-docs AND all 12 starters", () => {
+    // This is the file GitHub validates the choice enum against server-side.
+    // If shell-docs or any starter is absent here, `gh workflow run
+    // showcase_promote.yml -f service=<svc>` is rejected with HTTP 422 even
+    // though the SSOT lists the service. Asserting the COMMITTED file (not
+    // just the in-memory generator output) is what makes this guard real:
+    // it fails if the dropdown is ever left un-regenerated after an SSOT change.
+    const doc = parseYaml(readFileSync(COMMITTED_WORKFLOW, "utf8"));
+    const options: string[] = doc.on.workflow_dispatch.inputs.service.options;
+
+    for (const required of REQUIRED_PROMOTE_TARGETS) {
+      expect(
+        options,
+        `committed showcase_promote.yml service dropdown must contain ` +
+          `"${required}" (GitHub validates the choice enum against this file; ` +
+          `a missing value yields HTTP 422 on dispatch)`,
+      ).toContain(required);
+    }
+  });
+
+  it("the committed dropdown is the EXACT union — drops no previously-listed target", () => {
+    // The committed file must equal the generator's full output, guaranteeing
+    // the fix is purely additive: every service the generator emits (the union
+    // of shell-docs, the starters, and every pre-existing target) is present,
+    // in order, with nothing removed.
+    const doc = parseYaml(readFileSync(COMMITTED_WORKFLOW, "utf8"));
+    const options: string[] = doc.on.workflow_dispatch.inputs.service.options;
+
+    // Nothing the generator currently emits may be missing from the committed
+    // file — this is the "never drop an existing target" invariant.
+    for (const target of expectedRealTargets) {
+      expect(
+        options,
+        `committed dropdown dropped previously-listed promote target ` +
+          `"${target}"`,
+      ).toContain(target);
+    }
+
+    // And the committed list is byte-for-byte the generator's output, so the
+    // dropdown can never silently drift from the SSOT in either direction.
+    expect(options).toEqual(expectedTokens);
   });
 });

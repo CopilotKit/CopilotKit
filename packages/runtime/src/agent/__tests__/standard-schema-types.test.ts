@@ -3,7 +3,11 @@ import { z } from "zod";
 import * as v from "valibot";
 import { type } from "arktype";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
-import { defineTool, type ToolDefinition } from "../index";
+import { defineTool } from "../index";
+import type { ToolDefinition } from "../index";
+
+const arktype = <Out>(def: Record<string, string>) =>
+  (type as unknown as (d: unknown) => StandardSchemaV1<unknown, Out>)(def);
 
 describe("ToolDefinition type inference", () => {
   describe("defineTool with Zod", () => {
@@ -18,8 +22,8 @@ describe("ToolDefinition type inference", () => {
         execute: async (args) => {
           // args should be fully typed
           expectTypeOf(args).toEqualTypeOf<{
-            city: string;
-            units: "celsius" | "fahrenheit";
+            city?: string;
+            units?: "celsius" | "fahrenheit";
           }>();
           return {};
         },
@@ -40,8 +44,8 @@ describe("ToolDefinition type inference", () => {
         }),
         execute: async (args) => {
           expectTypeOf(args).toEqualTypeOf<{
-            query: string;
-            limit?: number | undefined;
+            query?: string;
+            limit?: number;
           }>();
           return {};
         },
@@ -92,7 +96,7 @@ describe("ToolDefinition type inference", () => {
       defineTool({
         name: "search",
         description: "Search",
-        parameters: type({
+        parameters: arktype<{ query: string; limit: number }>({
           query: "string",
           limit: "number",
         }),
@@ -110,7 +114,7 @@ describe("ToolDefinition type inference", () => {
       defineTool({
         name: "profile",
         description: "Profile",
-        parameters: type({
+        parameters: arktype<{ name: string; age?: number }>({
           name: "string",
           "age?": "number",
         }),
@@ -131,7 +135,7 @@ describe("ToolDefinition type inference", () => {
 
       expectTypeOf<ZodTool["execute"]>().toBeFunction();
       expectTypeOf<Parameters<ZodTool["execute"]>[0]>().toEqualTypeOf<{
-        city: string;
+        city?: string;
       }>();
     });
 

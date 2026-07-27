@@ -1,0 +1,92 @@
+name: Lint Release Workflows
+
+# Runs actionlint + shellcheck against the release / create-pr, release /
+# publish, and canary / publish pipelines and the scripts they call. Keeps
+# these critical, retry-sensitive files from silently regressing on shell or
+# action-syntax bugs.
+#
+# Scope is intentionally narrow: only the release workflows and
+# scripts/release/*. Expanding later is cheap; starting narrow avoids
+# drowning unrelated changes in pre-existing lint noise.
+#
+# Workflow mapping (cpk):
+#   release / create-pr  -> .github/workflows/stable-release.yml
+#   release / publish    -> .github/workflows/publish-release.yml
+#   canary / publish     -> .github/workflows/canary.yml
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stable-release.yml"
+      - ".github/workflows/publish-release.yml"
+      - ".github/workflows/canary.yml"
+      - ".github/workflows/lint-release-workflows.yml"
+      - "scripts/release/**"
+      - "release.config.json"
+      - "nx.json"
+  pull_request:
+    paths:
+      - ".github/workflows/stable-release.yml"
+      - ".github/workflows/publish-release.yml"
+      - ".github/workflows/canary.yml"
+      - ".github/workflows/lint-release-workflows.yml"
+      - "scripts/release/**"
+      - "release.config.json"
+      - "nx.json"
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Run actionlint on release workflows
+        uses: reviewdog/action-actionlint@50842263c20a7c46bd0065b9e624d3c569db061e # v1.73.0
+        with:
+          reporter: github-check
+          level: error
+          fail_level: error
+          actionlint_flags: >-
+            .github/workflows/stable-release.yml
+            .github/workflows/publish-release.yml
+            .github/workflows/canary.yml
+            .github/workflows/lint-release-workflows.yml
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run shellcheck on release scripts
+        run: |
+          set -euo pipefail
+          shopt -s nullglob globstar
+          files=(scripts/release/**/*.sh)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No shell scripts under scripts/release/"
+            exit 0
+          fi
+          shellcheck --severity=warning "${files[@]}"
+
+  release-scope-dropdown-sync:
+    # Verifies the workflow_dispatch `scope` choice dropdowns in
+    # stable-release.yml, publish-release.yml, and canary.yml match
+    # release.config.json's `.scopes` keys. These option lists are
+    # hand-maintained and drift from the config (newly-enrolled packages
+    # weren't canary-selectable; stale scopes lingered), so this guard fails
+    # CI whenever they diverge again.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Verify release scope dropdowns match release.config.json
+        run: bash scripts/release/verify-release-scope-dropdowns.sh

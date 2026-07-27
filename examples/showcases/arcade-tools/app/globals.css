@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #18181b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Let the embedded CopilotKit chat fill the fixed-height panel it sits in. */
+.chat-fill > * {
+  height: 100%;
+}
+
+/*
+ * Theme the embedded CopilotKit chat to match the app. It themes via --cpk-*
+ * variables (defined on :root); redefining them on this ancestor cascades into
+ * the [data-copilotkit] root inside. Here we just align the font to Geist so the
+ * chat stops looking like a generic default and reads as one surface with the page.
+ */
+.chat-fill {
+  --cpk-font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --cpk-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --cpk-default-font-family:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --cpk-default-mono-font-family:
+    var(--font-geist-mono), ui-monospace, monospace;
+}

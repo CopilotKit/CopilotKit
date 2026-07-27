@@ -4,6 +4,7 @@ import {
   createAgent,
   createDefaultInput,
   collectEvents,
+  collectEventsIncludingErrors,
   expectLifecycleWrapped,
   expectEventSequence,
   eventField,
@@ -316,6 +317,99 @@ describe("TanStack AI converter (via Agent)", () => {
       expect(eventField<string>(textEvent, "delta")).toBe(largeDelta);
       expect(eventField<string>(textEvent, "delta").length).toBe(100_000);
     });
+  });
+});
+
+describe("TanStack AI converter — multi-turn agent loop", () => {
+  // chat() emits a RUN_STARTED / RUN_FINISHED pair PER model turn and executes
+  // server-side tools (MCP / provider tools) itself between turns. The run
+  // lifecycle is owned by the Agent wrapper, so per-turn markers must be
+  // dropped and every turn's content converted — a regression here truncated
+  // the run at the first tool turn, dropping the tool result and final answer.
+
+  it("does NOT truncate at a per-turn RUN_FINISHED — tool result + final text still convert", async () => {
+    const agent = createAgent("tanstack", [
+      // Turn 1: model emits a tool call, then the turn finishes.
+      tanstackToolCallStart("tc-1", "list_issues"),
+      tanstackToolCallArgs("tc-1", '{"team":"CPK"}'),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_FINISHED" },
+      // Between turns: chat() executes the MCP tool itself.
+      tanstackToolCallResult("tc-1", { issues: [] }),
+      // Turn 2: model produces the final answer.
+      { type: "RUN_STARTED" },
+      tanstackTextChunk("No open issues."),
+      { type: "RUN_FINISHED" },
+    ]);
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expectLifecycleWrapped(events);
+    expectEventSequence(events, [
+      EventType.RUN_STARTED,
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_ARGS,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.TEXT_MESSAGE_CHUNK,
+      EventType.RUN_FINISHED,
+    ]);
+
+    // Exactly one RUN_FINISHED — the outer wrapper's, not TanStack's per-turn ones.
+    expect(
+      events.filter((e) => e.type === EventType.RUN_FINISHED),
+    ).toHaveLength(1);
+    // The final answer survived the per-turn RUN_FINISHED.
+    const textEvent = events.find(
+      (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+    )!;
+    expect(eventField<string>(textEvent, "delta")).toBe("No open issues.");
+  });
+
+  it("de-duplicates a tool call re-announced after execution", async () => {
+    const agent = createAgent("tanstack", [
+      tanstackToolCallStart("tc-1", "search"),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_FINISHED" },
+      tanstackToolCallResult("tc-1", { ok: true }),
+      // chat() re-announces the same call when it re-prompts — must be dropped.
+      tanstackToolCallStart("tc-1", "search"),
+      tanstackToolCallArgs("tc-1", '{"q":"x"}'),
+      tanstackToolCallEnd("tc-1"),
+      { type: "RUN_STARTED" },
+      tanstackTextChunk("done"),
+    ]);
+    const events = await collectEvents(agent.run(createDefaultInput()));
+
+    expectLifecycleWrapped(events);
+    expectEventSequence(events, [
+      EventType.RUN_STARTED,
+      EventType.TOOL_CALL_START,
+      EventType.TOOL_CALL_END,
+      EventType.TOOL_CALL_RESULT,
+      EventType.TEXT_MESSAGE_CHUNK,
+      EventType.RUN_FINISHED,
+    ]);
+  });
+
+  it("surfaces a RUN_ERROR chunk as a terminal RUN_ERROR event", async () => {
+    const agent = createAgent("tanstack", [
+      tanstackTextChunk("partial"),
+      { type: "RUN_ERROR", message: "provider 400" },
+      // Anything after the error must never be converted.
+      tanstackTextChunk("should not appear"),
+    ]);
+    const { events, errored } = await collectEventsIncludingErrors(
+      agent.run(createDefaultInput()),
+    );
+
+    expect(errored).toBe(true);
+    const errorEvent = events.find((e) => e.type === EventType.RUN_ERROR)!;
+    expect(errorEvent).toBeDefined();
+    expect(eventField<string>(errorEvent, "message")).toBe("provider 400");
+    // The post-error text chunk was not emitted.
+    const texts = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CHUNK);
+    expect(texts).toHaveLength(1);
+    expect(eventField<string>(texts[0], "delta")).toBe("partial");
   });
 });
 

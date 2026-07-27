@@ -22,6 +22,12 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/run` });
 
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+// default LlamaIndex router at /run — the same backend the main route
+// registers `headless_complete` against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/run` });
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware: on each MCP tool call the
@@ -29,8 +35,11 @@ const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/run` });
 // event the built-in `MCPAppsActivityRenderer` renders inline in the
 // chat. No app-side renderer registration required.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+  // plain Records. Fixed in source, pending release.
   agents: {
+    "headless-complete": headlessCompleteAgent as AbstractAgent,
     "mcp-apps": mcpAppsAgent as AbstractAgent,
   },
   mcpApps: {

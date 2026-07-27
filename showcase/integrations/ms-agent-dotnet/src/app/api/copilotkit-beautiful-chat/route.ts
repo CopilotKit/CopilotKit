@@ -10,13 +10,15 @@
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 // - ../copilotkit-multimodal/route.ts (dedicated-route pattern)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -41,6 +43,10 @@ const runtime = new CopilotRuntime({
     // The .NET agent has its own `generate_a2ui` tool; don't inject the
     // runtime's default A2UI tool on top.
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   mcpApps: {
     servers: [

@@ -32,13 +32,13 @@ and calls the agent back with the user's answer.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-The Microsoft Agent Framework runtime can't pause a run mid-tool the
-way LangGraph's `interrupt()` does, so this demo uses `useFrontendTool`
-with a Promise-based handler instead. The agent calls `schedule_meeting`
-like any other tool; the client-side handler renders the picker, holds
-the request open, and only resolves the Promise once the user picks a
-slot or cancels. Same UX from the reader's perspective — agent pauses,
-user answers, agent resumes — different mechanism underneath.
+Some runtimes cannot pause a run mid-tool the way LangGraph's
+`interrupt()` does, so this demo uses `useFrontendTool` with a
+Promise-based handler instead. The agent calls `schedule_meeting` like
+any other tool; the client-side handler renders the picker, holds the
+request open, and only resolves the Promise once the user picks a slot
+or cancels. Same UX from the reader's perspective — agent pauses, user
+answers, agent resumes — different mechanism underneath.
 
 </WhenFrameworkHas>
 
@@ -46,8 +46,8 @@ user answers, agent resumes — different mechanism underneath.
 
 > **Not available on this framework.** `useInterrupt` is only meaningful
 > when the underlying runtime exposes either a native `interrupt(...)`
-> primitive (LangGraph) or a Promise-resolving frontend tool path
-> (Microsoft Agent Framework). For all other integrations, use
+> primitive (LangGraph) or a Promise-resolving frontend tool path. For
+> all other integrations, use
 > [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls.
@@ -110,7 +110,7 @@ the return value of the matching `interrupt(...)` call.
 
 The handler stores its `resolve` callback in a ref, returns a Promise
 that the user's pick eventually resolves, and renders the picker
-inline in the chat. This is the MS Agent equivalent of
+inline in the chat. This is the frontend-tool equivalent of
 `useInterrupt`'s `event` / `resolve` pair:
 
 <Snippet region="frontend-promise-handler" title="frontend/src/app/page.tsx — useFrontendTool (Promise-based)" />
@@ -148,7 +148,7 @@ one `useInterrupt` per shape, each gated by an `enabled` predicate:
 ```tsx
 useInterrupt({
   agentId: "gen-ui-interrupt",
-  enabled: ({ eventValue }) => eventValue.type === "ask",
+  enabled: (event) => event.value.type === "ask",
   render: ({ event, resolve }) => (
     <AskCard question={event.value.content} onAnswer={resolve} />
   ),
@@ -156,7 +156,7 @@ useInterrupt({
 
 useInterrupt({
   agentId: "gen-ui-interrupt",
-  enabled: ({ eventValue }) => eventValue.type === "approval",
+  enabled: (event) => event.value.type === "approval",
   render: ({ event, resolve }) => (
     <ApproveCard content={event.value.content} onAnswer={resolve} />
   ),
@@ -168,8 +168,8 @@ useInterrupt({
 For cases where the interrupt can sometimes be resolved _without_ user
 input (e.g. the current user already has permission), pass a `handler`
 that runs before `render`. The handler can call `resolve(...)` itself
-to short-circuit the UI, or return a value that `render` receives as
-`result`:
+to resume the agent early — the interrupt card unmounts when the resume
+run starts. Or return a value that `render` receives as `result`:
 
 ```tsx
 useInterrupt({
@@ -178,13 +178,13 @@ useInterrupt({
     const dept = await lookupUserDepartment();
     if (event.value.accessDepartment === dept || dept === "admin") {
       resolve({ code: "AUTH_BY_DEPARTMENT" });
-      return; // skip render
+      return; // agent will resume; card unmounts when the run starts
     }
     return { dept };
   },
   render: ({ result, event, resolve }) => (
     <RequestAccessCard
-      dept={result.dept}
+      dept={result?.dept}
       onRequest={() => resolve({ code: "REQUEST_AUTH" })}
       onCancel={() => resolve({ code: "CANCEL" })}
     />
@@ -193,6 +193,106 @@ useInterrupt({
 ```
 
 </WhenFrameworkHas>
+
+## AG-UI standard interrupt flow vs. legacy
+
+`useInterrupt` supports two interrupt transports. Understanding which one your
+agent uses helps you write the right `render` code.
+
+### Standard flow (`RUN_FINISHED` with `outcome.type === "interrupt"`)
+
+When the agent backend conforms to the AG-UI protocol, it signals an interrupt
+by emitting a `RUN_FINISHED` event whose outcome carries the interrupts array:
+
+```
+outcome.type === "interrupt"
+outcome.interrupts  // Interrupt[]
+```
+
+The hook detects this on `onRunFinishedEvent` and exposes the interrupts on the
+render props **after** `onRunFinalized` fires. Your `render` function receives:
+
+- **`interrupt`** — the primary `Interrupt` (`interrupts[0]`), with shape
+  `{ id, reason, message?, toolCallId?, responseSchema?, expiresAt?, metadata? }`.
+- **`interrupts`** — the full open set (usually one, but multi-interrupt is
+  supported — see below).
+- **`resolve(payload?, interruptId?)`** — records `{ status: "resolved", payload }`
+  for the targeted interrupt (defaults to the primary). The agent run resumes
+  once every open interrupt has a response.
+- **`cancel(interruptId?)`** — records `{ status: "cancelled" }` for the
+  targeted interrupt. Same accumulate-then-submit logic applies.
+
+### Legacy flow (`on_interrupt` custom event)
+
+Older agents (or agents not yet migrated to the AG-UI interrupt spec) emit a
+custom `on_interrupt` event. The hook detects this on `onCustomEvent` and sets
+`interrupt` to `null` and `interrupts` to `[]`. The payload is in
+`event.value`. Calling `resolve(payload)` resumes via `forwardedProps.command`
+(the legacy resume mechanism). `cancel()` dismisses the interrupt without
+resuming — the agent never receives a response.
+
+### Priority
+
+If both signals appear on the same run (unlikely but possible during migration),
+the standard flow wins.
+
+### Approve / Cancel example
+
+```tsx
+function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ interrupt, resolve, cancel }) => (
+      <div className="p-3 border rounded">
+        <p>{interrupt?.message ?? "Approve this action?"}</p>
+        <div className="mt-2 flex gap-2">
+          <button onClick={() => resolve({ approved: true })}>Approve</button>
+          <button onClick={() => cancel()}>Cancel</button>
+        </div>
+      </div>
+    ),
+  });
+  return null;
+}
+```
+
+`resolve({ approved: true })` records a resolved entry and submits the `resume`
+array to the agent. `cancel()` records a cancelled entry and does the same.
+Both return the `RunAgentResult` once the run restarts.
+
+### Multi-interrupt behavior
+
+Some agents issue more than one interrupt in a single run (e.g. two independent
+approvals). Each interrupt has its own `id`. Address them individually:
+
+```tsx
+useInterrupt({
+  render: ({ interrupts, resolve, cancel }) => (
+    <ul>
+      {interrupts.map((i) => (
+        <li key={i.id}>
+          {i.message}
+          <button onClick={() => resolve({ ok: true }, i.id)}>Approve</button>
+          <button onClick={() => cancel(i.id)}>Cancel</button>
+        </li>
+      ))}
+    </ul>
+  ),
+});
+```
+
+The agent run only resumes once **every** open interrupt has been addressed.
+Calling `resolve` or `cancel` with a specific `interruptId` marks that interrupt
+done; the hook auto-submits the accumulated responses when the last one is
+addressed. If you omit `interruptId`, the primary interrupt (`interrupts[0]`)
+is targeted.
+
+### `responseSchema` — surface only, no client-side validation
+
+The `Interrupt` type exposes a `responseSchema` field (a JSON Schema object)
+that the agent can use to describe the expected payload shape. `useInterrupt`
+surfaces this field on `interrupt.responseSchema` for your UI to read
+(e.g. to drive a form), but it does **not** validate `resolve` payloads against
+it. Validation is the agent's responsibility on resume.
 
 ## Going further
 

@@ -1,5 +1,7 @@
-import { vi, type Mock } from "vitest";
-import React, { type ReactNode } from "react";
+import { vi } from "vitest";
+import type { Mock } from "vitest";
+import React from "react";
+import type { ReactNode } from "react";
 import { render, renderHook, waitFor } from "@testing-library/react";
 import { useCoAgentStateRender } from "../use-coagent-state-render";
 import type { CoAgentStateRender } from "../../types/coagent-action";
@@ -8,6 +10,7 @@ import {
   CopilotContext,
   useCoAgentStateRenders,
 } from "../../context";
+import type { ChatComponentsCache } from "../../context/copilot-context";
 import { CopilotKitAgentDiscoveryError, randomId } from "@copilotkit/shared";
 import { createTestCopilotContext } from "../../test-helpers/copilot-context";
 
@@ -70,7 +73,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("registers state render and writes to the render cache", async () => {
-    const chatComponentsCache = {
+    const chatComponentsCache: { current: ChatComponentsCache } = {
       current: { actions: {}, coAgentStateRenders: {} },
     };
     const wrapper = createWrapper(
@@ -101,7 +104,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("mutates handler + cache in place when dependencies are omitted", async () => {
-    const chatComponentsCache = {
+    const chatComponentsCache: { current: ChatComponentsCache } = {
       current: { actions: {}, coAgentStateRenders: {} },
     };
     const wrapper = createWrapper(
@@ -187,7 +190,7 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("re-registers when string render changes", async () => {
-    const chatComponentsCache = {
+    const chatComponentsCache: { current: ChatComponentsCache } = {
       current: { actions: {}, coAgentStateRenders: {} },
     };
     const wrapper = createWrapper(
@@ -307,7 +310,9 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("surfaces missing agents in the banner error state", async () => {
-    const availableAgents = [{ name: "known-agent", id: "agent-1" }];
+    const availableAgents = [
+      { name: "known-agent", id: "agent-1", description: "" },
+    ];
     const wrapper = createWrapper(
       createTestCopilotContext({
         availableAgents,
@@ -333,7 +338,9 @@ describe("useCoAgentStateRender (hook behaviors)", () => {
   });
 
   it("does not surface banner errors when agent is available", async () => {
-    const availableAgents = [{ name: "agent-present", id: "agent-2" }];
+    const availableAgents = [
+      { name: "agent-present", id: "agent-2", description: "" },
+    ];
     const wrapper = createWrapper(
       createTestCopilotContext({
         availableAgents,

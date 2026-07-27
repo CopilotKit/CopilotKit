@@ -7,6 +7,45 @@
   },
   "fixtures": [
     {
+      "_comment": "default-catchall \u2014 weather in Tokyo. Follow-up content after get_weather tool ran. Keyed by toolCallId. MUST come before the tool-emitting fixture below.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_langgraph_typescript_dc_weather_001",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, emit get_weather. Uses toolName gate.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_langgraph_typescript_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "default-catchall \u2014 weather in Tokyo, fallback content when no toolName gate matches.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "langgraph-typescript"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
       "_comment": "default-catchall pill: Chain tools \u2014 follow-up after all 3 tools ran.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",

@@ -5,6 +5,7 @@ import type {
   BaseEvent,
   Message,
   RunAgentInput,
+  RunAgentResult,
   RunErrorEvent,
   RunStartedEvent,
   TextMessageContentEvent,
@@ -12,8 +13,8 @@ import type {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
-import { EMPTY, firstValueFrom } from "rxjs";
+import { AbstractAgent, EventType, verifyEvents } from "@ag-ui/client";
+import { EMPTY, Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
@@ -38,7 +39,7 @@ class TestAgent extends AbstractAgent {
       onNewMessage?: (args: { message: Message }) => void;
       onRunStartedEvent?: () => void;
     },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     if (this.emitDefaultRunStarted) {
       const runStarted: RunStartedEvent = {
         type: EventType.RUN_STARTED,
@@ -52,13 +53,14 @@ class TestAgent extends AbstractAgent {
     for (const event of this.events) {
       options.onEvent({ event });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
     return new TestAgent(this.events, this.emitDefaultRunStarted);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -72,7 +74,7 @@ class ThrowingAgent extends AbstractAgent {
     super();
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw this.error;
   }
 
@@ -80,7 +82,7 @@ class ThrowingAgent extends AbstractAgent {
     return new ThrowingAgent(this.error);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -122,7 +124,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -155,6 +164,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-0",
               messages: [existing],
               state: {},
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -176,6 +187,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-1",
               messages: [existing, newMessage],
               state: { counter: 1 },
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -206,6 +219,8 @@ describe("InMemoryAgentRunner", () => {
         runId: "run-preserve",
         messages: [],
         state: { fromAgent: true },
+        tools: [],
+        context: [],
       };
 
       const agent = new TestAgent(
@@ -230,6 +245,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-preserve",
               messages: [{ id: "extra", role: "user", content: "hi" }],
               state: {},
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -267,7 +284,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -303,7 +327,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -326,7 +357,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-err", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-err",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -354,7 +392,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-err-2", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-err-2",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -443,7 +488,7 @@ class MessagePopulatingTestAgent extends AbstractAgent {
     );
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -773,5 +818,247 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       );
       expect(runner.getThreadState("thread-multi-state")).toEqual(second);
     });
+  });
+});
+
+describe("InMemoryAgentRunner onConcurrentRun", () => {
+  class HangingAgent extends AbstractAgent {
+    async runAgent(): Promise<RunAgentResult> {
+      // Never resolves — models a wedged / suspended (e.g. HITL) run.
+      return new Promise<RunAgentResult>(() => {});
+    }
+    clone(): AbstractAgent {
+      return new HangingAgent();
+    }
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
+    }
+  }
+
+  // Emits its own RUN_STARTED then hangs until aborted, at which point its run
+  // rejects — modeling a real agent wired to an AbortController (unlike
+  // HangingAgent, this exercises the abort→teardown path).
+  class AbortableAgent extends AbstractAgent {
+    private rejectRun?: (err: Error) => void;
+    async runAgent(
+      input: RunAgentInput,
+      options: {
+        onEvent: (e: { event: BaseEvent }) => void;
+        onRunStartedEvent?: () => void;
+      },
+    ): Promise<RunAgentResult> {
+      options.onEvent({
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+        } as RunStartedEvent,
+      });
+      options.onRunStartedEvent?.();
+      return new Promise<RunAgentResult>((_resolve, reject) => {
+        this.rejectRun = reject;
+      });
+    }
+    abortRun(): void {
+      this.rejectRun?.(new Error("aborted by supersede"));
+    }
+    clone(): AbstractAgent {
+      return new AbortableAgent();
+    }
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
+    }
+  }
+
+  const makeInput = (threadId: string, runId: string): RunAgentInput => ({
+    threadId,
+    runId,
+    messages: [],
+    state: {},
+    tools: [],
+    context: [],
+  });
+
+  it("throws 'Thread already running' by default when a run is in flight", () => {
+    const runner = new InMemoryAgentRunner();
+    const threadId = "concurrent-throw";
+    runner.run({
+      threadId,
+      agent: new HangingAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    expect(() =>
+      runner.run({
+        threadId,
+        agent: new HangingAgent(),
+        input: makeInput(threadId, "run-2"),
+      }),
+    ).toThrow("Thread already running");
+  });
+
+  it("supersedes an in-flight run when configured, and the new run streams", async () => {
+    const runner = new InMemoryAgentRunner({ onConcurrentRun: "supersede" });
+    const threadId = "concurrent-supersede";
+    // Wedge the thread with a run that never resolves (isRunning stays true).
+    runner.run({
+      threadId,
+      agent: new HangingAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    // A new turn on the same thread must NOT throw — it supersedes and streams.
+    const events = await firstValueFrom(
+      runner
+        .run({
+          threadId,
+          agent: new TestAgent(),
+          input: makeInput(threadId, "run-2"),
+        })
+        .pipe(toArray()),
+    );
+    expect(events.some((e) => e.type === EventType.RUN_STARTED)).toBe(true);
+  });
+
+  it("a superseded run does not persist history under the new run's id", async () => {
+    const runner = new InMemoryAgentRunner({ onConcurrentRun: "supersede" });
+    const threadId = "concurrent-supersede-history";
+    // run-1 emits its own RUN_STARTED (runId "run-1"), then hangs until aborted.
+    runner.run({
+      threadId,
+      agent: new AbortableAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    // run-2 supersedes → run-1 is aborted → its async teardown runs.
+    await firstValueFrom(
+      runner
+        .run({
+          threadId,
+          agent: new TestAgent(),
+          input: makeInput(threadId, "run-2"),
+        })
+        .pipe(toArray()),
+    );
+    await new Promise((r) => setTimeout(r, 20)); // let run-1's abort teardown settle
+
+    const events = runner.getThreadEvents(threadId);
+    // The superseded run must NOT persist its events — and never under run-2's id.
+    expect(
+      events.some((e) => (e as { runId?: string }).runId === "run-1"),
+    ).toBe(false);
+    expect(
+      events.some(
+        (e) =>
+          e.type === EventType.RUN_STARTED &&
+          (e as { runId?: string }).runId === "run-2",
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("InMemoryAgentRunner stop mid-stream (#5812)", () => {
+  // Models an HttpAgent proxy (e.g. pydantic-ai's AGUIAdapter): it opens a text
+  // message and streams a chunk, then on abort emits a live RUN_ERROR WITHOUT
+  // closing the message and lets runAgent resolve. Before the fix, finalize
+  // appended a trailing TEXT_MESSAGE_END after that RUN_ERROR, which the AG-UI
+  // verifier the browser runs rejected with "the run has already errored".
+  class MidStreamAbortAgent extends AbstractAgent {
+    readonly messageId = "225f30a2-c662-4d0d-a05e-789cb51e17cc";
+    private emit?: (event: BaseEvent) => void;
+    private finishRun?: () => void;
+
+    async runAgent(
+      input: RunAgentInput,
+      options: {
+        onEvent: (e: { event: BaseEvent }) => void;
+        onRunStartedEvent?: () => void;
+      },
+    ): Promise<RunAgentResult> {
+      const emit = (event: BaseEvent) => options.onEvent({ event });
+      this.emit = emit;
+      emit({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as RunStartedEvent);
+      options.onRunStartedEvent?.();
+      emit({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: this.messageId,
+        role: "assistant",
+      } as TextMessageStartEvent);
+      emit({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: this.messageId,
+        delta: " frames",
+      } as TextMessageContentEvent);
+      return new Promise<RunAgentResult>((resolve) => {
+        this.finishRun = () => resolve({ result: undefined, newMessages: [] });
+      });
+    }
+
+    abortRun(): void {
+      this.emit?.({
+        type: EventType.RUN_ERROR,
+        message: "This operation was aborted",
+        code: "abort",
+      } as RunErrorEvent);
+      this.finishRun?.();
+    }
+
+    clone(): AbstractAgent {
+      return new MidStreamAbortAgent();
+    }
+
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
+    }
+
+    protected connect(): ReturnType<AbstractAgent["connect"]> {
+      return EMPTY;
+    }
+  }
+
+  it("emits no events after RUN_ERROR and the stream passes the AG-UI verifier", async () => {
+    const runner = new InMemoryAgentRunner();
+    runner.clearThreads();
+    const threadId = "in-memory-stop-mid-stream";
+    const agent = new MidStreamAbortAgent();
+    const input: RunAgentInput = {
+      threadId,
+      runId: "run-1",
+      messages: [],
+      state: {},
+      tools: [],
+      context: [],
+    };
+
+    const collected: BaseEvent[] = [];
+    const done = new Promise<void>((resolve) => {
+      runner.run({ threadId, agent, input }).subscribe({
+        next: (event) => collected.push(event),
+        complete: () => resolve(),
+      });
+    });
+
+    // START + CONTENT are emitted synchronously; press Stop mid-stream (between
+    // TEXT_MESSAGE_START and TEXT_MESSAGE_END).
+    await runner.stop({ threadId });
+    await done;
+
+    const types = collected.map((event) => event.type);
+    const runErrorIdx = types.indexOf(EventType.RUN_ERROR);
+    expect(runErrorIdx).toBeGreaterThanOrEqual(0);
+    // Nothing may follow the terminal RUN_ERROR — no trailing TEXT_MESSAGE_END.
+    expect(types.slice(runErrorIdx + 1)).toEqual([]);
+
+    // The stream the client receives must pass the SAME verifier the browser
+    // runs (verifyEvents). Before the fix this rejected the trailing
+    // TEXT_MESSAGE_END with "the run has already errored with 'RUN_ERROR'".
+    const verified = await firstValueFrom(
+      new Observable<BaseEvent>((subscriber) => {
+        for (const event of collected) subscriber.next(event);
+        subscriber.complete();
+      }).pipe(verifyEvents(false), toArray()),
+    );
+    expect(verified.at(-1)?.type).toBe(EventType.RUN_ERROR);
   });
 });

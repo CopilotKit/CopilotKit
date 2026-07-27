@@ -1,4 +1,5 @@
 import type React from "react";
+import Image from "next/image";
 import {
   Card as FumadocsCard,
   Cards as FumadocsCards,
@@ -28,12 +29,22 @@ export function Cards({
   );
 }
 
+type DocsCardProps = React.ComponentProps<typeof FumadocsCard> & {
+  logo?: string;
+  logoAlt?: string;
+  logoClassName?: string;
+};
+
 export function Card({
   href,
   className,
   style,
+  icon,
+  logo,
+  logoAlt = "",
+  logoClassName,
   ...props
-}: React.ComponentProps<typeof FumadocsCard>) {
+}: DocsCardProps) {
   // Match the docs-landing pointer-card style:
   // - bordered surface, accent border on hover, subtle shadow on hover
   // - title flips to accent color on hover via `group-hover` so the link
@@ -44,6 +55,20 @@ export function Card({
   //   Tailwind `no-underline` class on specificity. `not-prose`
   //   triggers the global escape-hatch rule that drops both.
   const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
+  const resolvedIcon =
+    icon ??
+    (logo ? (
+      <Image
+        src={logo}
+        alt={logoAlt}
+        width={20}
+        height={20}
+        className={["h-5 w-5 shrink-0 object-contain", logoClassName]
+          .filter(Boolean)
+          .join(" ")}
+        unoptimized
+      />
+    ) : undefined);
   const mergedClassName = [
     "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
     "[&_h3]:!mt-0 [&_h3]:!mb-1.5 [&_h3]:!text-base [&_h3]:!font-semibold [&_h3]:!leading-snug [&_p]:!text-sm [&_p]:!leading-relaxed",
@@ -58,6 +83,7 @@ export function Card({
     <FumadocsCard
       {...props}
       href={resolvedHref}
+      icon={resolvedIcon}
       className={mergedClassName}
       style={
         href ? { textDecoration: "none", color: "inherit", ...style } : style

@@ -18,8 +18,8 @@ import {
   A2UIRetryingState,
   A2UIRecoveryFailure,
   resolveDebugExposure,
-  type A2UIRecoveryRendererOptions,
 } from "./A2UIRecoveryStates";
+import type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.
@@ -49,6 +49,26 @@ export type A2UIUserAction = {
   dataContextPath?: string;
 };
 
+/**
+ * Intercept an A2UI user action before it reaches the agent.
+ *
+ * Called with the dispatched action and a `forward` helper that runs the agent
+ * with the (optionally modified) action. The return value drives the default
+ * forwarding:
+ * - return `null` → the app handled it client-side (e.g. a `navigate` event);
+ *   the action is NOT forwarded to the agent.
+ * - return an `A2UIUserAction` → that (possibly modified) action is forwarded.
+ * - return `undefined` / `void` → the original action is forwarded unchanged.
+ *
+ * `forward` is provided for advanced cases where you want to do async work and
+ * forward manually; if you call it yourself, return `null` to suppress the
+ * default forward and avoid running the agent twice.
+ */
+export type A2UIActionInterceptor = (
+  action: A2UIUserAction,
+  forward: (action?: A2UIUserAction) => Promise<void>,
+) => void | A2UIUserAction | null | Promise<void | A2UIUserAction | null>;
+
 export type A2UIMessageRendererOptions = {
   theme: Theme;
   /** Optional component catalog to pass to A2UIProvider */
@@ -60,6 +80,12 @@ export type A2UIMessageRendererOptions = {
    * "Retrying…" sub-label appears + how much retry/debug detail to surface.
    */
   recovery?: A2UIRecoveryRendererOptions;
+  /**
+   * Intercept actions before they reach the agent. Lets an app handle an action
+   * client-side (e.g. `navigate`) instead of forwarding every action. See
+   * {@link A2UIActionInterceptor}.
+   */
+  onAction?: A2UIActionInterceptor;
 };
 
 /**
@@ -79,7 +105,7 @@ const A2UISurfaceContentSchema = z
 export function createA2UIMessageRenderer(
   options: A2UIMessageRendererOptions,
 ): ReactActivityMessageRenderer<any> {
-  const { theme, catalog, loadingComponent, recovery } = options;
+  const { theme, catalog, loadingComponent, recovery, onAction } = options;
   const showAfterMs = recovery?.showAfterMs ?? 2000;
   const showAfterAttempts = recovery?.showAfterAttempts ?? 2;
   const optionDebugExposure = recovery?.debugExposure ?? "collapsed";
@@ -207,6 +233,7 @@ export function createA2UIMessageRenderer(
               agent={agent}
               copilotkit={copilotkit}
               catalog={catalog}
+              onAction={onAction}
               onReady={markSurfaceReady}
             />
           ))}
@@ -251,9 +278,71 @@ type ReactSurfaceHostProps = {
   copilotkit: any;
   /** Optional component catalog to pass to A2UIProvider */
   catalog?: any;
+  /** Optional interceptor run before an action is forwarded to the agent. */
+  onAction?: A2UIActionInterceptor;
   /** Fired once the surface has processed its first operations (painted). */
   onReady?: () => void;
 };
+
+/**
+ * Orchestrates a single A2UI user action: runs the optional `onAction`
+ * interceptor first, then forwards to the agent unless the interceptor
+ * suppressed it (returned `null`). Exported for unit testing; the wiring lives
+ * in {@link ReactSurfaceHost}.
+ */
+export async function runA2UIAction({
+  message,
+  agent,
+  copilotkit,
+  onAction,
+}: {
+  message: A2UIClientEventMessage;
+  agent: any;
+  copilotkit: any;
+  onAction?: A2UIActionInterceptor;
+}): Promise<void> {
+  if (!agent) return;
+
+  const action = message.userAction as A2UIUserAction | undefined;
+
+  // Forward to the agent, swapping in the (possibly modified) userAction while
+  // preserving the rest of the original client-event envelope. Always restores
+  // the prior properties afterwards so `a2uiAction` does not leak into later
+  // runs. Called with no argument → the original message is forwarded as-is.
+  const forward = async (forwardAction?: A2UIUserAction) => {
+    const a2uiAction =
+      forwardAction !== undefined
+        ? { ...message, userAction: forwardAction }
+        : message;
+    try {
+      copilotkit.setProperties({
+        ...copilotkit.properties,
+        a2uiAction,
+      });
+
+      await copilotkit.runAgent({ agent });
+    } finally {
+      if (copilotkit.properties) {
+        const { a2uiAction: _omit, ...rest } = copilotkit.properties;
+        copilotkit.setProperties(rest);
+      }
+    }
+  };
+
+  if (onAction && action) {
+    const result = await onAction(action, forward);
+    // null → the app handled it client-side; do NOT forward to the agent.
+    if (result === null) return;
+    // a returned action → forward the (possibly modified) action.
+    if (result) {
+      await forward(result);
+      return;
+    }
+    // void/undefined falls through → forward unchanged (default preserved).
+  }
+
+  await forward();
+}
 
 /**
  * Renders a single A2UI surface using the React renderer.
@@ -266,30 +355,14 @@ function ReactSurfaceHost({
   agent,
   copilotkit,
   catalog,
+  onAction,
   onReady,
 }: ReactSurfaceHostProps) {
   // Bridge: when the React renderer dispatches an action, forward to CopilotKit
   const handleAction = useCallback(
-    async (message: A2UIClientEventMessage) => {
-      if (!agent) return;
-
-      const action = message.userAction as A2UIUserAction | undefined;
-
-      try {
-        copilotkit.setProperties({
-          ...copilotkit.properties,
-          a2uiAction: message,
-        });
-
-        await copilotkit.runAgent({ agent });
-      } finally {
-        if (copilotkit.properties) {
-          const { a2uiAction, ...rest } = copilotkit.properties;
-          copilotkit.setProperties(rest);
-        }
-      }
-    },
-    [agent, copilotkit],
+    (message: A2UIClientEventMessage) =>
+      runA2UIAction({ message, agent, copilotkit, onAction }),
+    [agent, copilotkit, onAction],
   );
 
   return (

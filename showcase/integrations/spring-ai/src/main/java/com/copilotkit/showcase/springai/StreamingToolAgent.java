@@ -13,6 +13,9 @@ import com.agui.core.message.ToolMessage;
 import com.agui.core.state.State;
 import com.agui.core.tool.Tool;
 import com.agui.core.tool.ToolCall;
+import com.copilotkit.showcase.springai.cvdiag.CvdiagBackend;
+import com.copilotkit.showcase.springai.cvdiag.CvdiagRunContext;
+import com.copilotkit.showcase.springai.cvdiag.CvdiagSchema.CvdiagOutcome;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.PromptChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -103,6 +106,12 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         String messageId = UUID.randomUUID().toString();
         String threadId = input.threadId();
         String runId = input.runId();
+
+        // CVDIAG backend.agent.enter (no-op when emission OFF / run unbound).
+        CvdiagBackend.CvdiagRun cvdiag = CvdiagRunContext.get();
+        if (cvdiag != null) {
+            cvdiag.agentEnter(this.agentId, "gpt-4.1");
+        }
 
         // RUN_STARTED must precede every terminal RUN_ERROR — AG-UI clients
         // drop a RUN_ERROR that arrives without a started run, hanging the
@@ -211,6 +220,14 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
             }
         } catch (Exception e) {
             log.error("Agent run failed", e);
+            // CVDIAG backend.error.caught + sse.aborted + agent.exit: the agent
+            // loop threw; record the scrubbed error and the abnormal stream
+            // termination, then the terminal agent exit (err).
+            if (cvdiag != null) {
+                cvdiag.errorCaught(e);
+                cvdiag.sseAborted("agent_exception", 0L);
+                cvdiag.agentExit(CvdiagOutcome.ERR);
+            }
             // textMessageStart was already emitted — close the message before
             // RUN_ERROR so subscribers tear down cleanly, then finalize so the
             // SSE stream completes (no double textMessageEnd: this path returns
@@ -236,6 +253,10 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         this.emitEvent(runFinishedEvent(threadId, runId), subscriber);
         subscriber.onRunFinalized(
                 new AgentSubscriberParams(input.messages(), state, this, input));
+        // CVDIAG backend.agent.exit: terminal success.
+        if (cvdiag != null) {
+            cvdiag.agentExit(CvdiagOutcome.OK);
+        }
     }
 
     /** Captured tool call from the streaming phase. */
@@ -257,6 +278,26 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
         CopyOnWriteArrayList<DetectedToolCall> detectedToolCalls = new CopyOnWriteArrayList<>();
         AtomicReference<Throwable> streamError = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
+
+        // CVDIAG backend.llm.call.start + a 10s heartbeat scheduler that fires
+        // backend.llm.call.heartbeat while the streaming call is outstanding
+        // (verbose+ per §6). first_byte/sse.event fire on the first/each
+        // streamed chunk below; the response boundary fires after the latch.
+        final CvdiagBackend.CvdiagRun cvdiag = CvdiagRunContext.get();
+        final long llmStart = System.currentTimeMillis();
+        final java.util.concurrent.atomic.AtomicBoolean firstByteSeen =
+                new java.util.concurrent.atomic.AtomicBoolean(false);
+        java.util.concurrent.ScheduledExecutorService heartbeat = null;
+        if (cvdiag != null) {
+            cvdiag.llmCallStart("openai", "gpt-4.1", estimatePromptTokens(userContent));
+            heartbeat = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(r -> {
+                Thread t = new Thread(r, "cvdiag-llm-heartbeat");
+                t.setDaemon(true);
+                return t;
+            });
+            heartbeat.scheduleAtFixedRate(cvdiag::llmHeartbeat, 10, 10,
+                    java.util.concurrent.TimeUnit.SECONDS);
+        }
 
         // Build request WITH tool definitions but with internal tool
         // execution disabled — the LLM (or aimock) needs to see the tool
@@ -282,6 +323,15 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
                             }
                             String content = evt.getResult().getOutput().getText();
                             if (StringUtils.hasText(content)) {
+                                // CVDIAG backend.sse.first_byte (once) +
+                                // backend.sse.event (each chunk; DEBUG tier).
+                                if (cvdiag != null) {
+                                    if (firstByteSeen.compareAndSet(false, true)) {
+                                        cvdiag.sseFirstByte();
+                                    }
+                                    cvdiag.sseEvent("TEXT_MESSAGE_CONTENT",
+                                            content.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
+                                }
                                 this.emitEvent(
                                         textMessageContentEvent(messageId, content),
                                         subscriber);
@@ -295,17 +345,53 @@ public class StreamingToolAgent extends PropagatingLocalAgent {
                         latch::countDown
                 );
 
-        if (!latch.await(120, TimeUnit.SECONDS)) {
+        boolean completed;
+        try {
+            completed = latch.await(120, TimeUnit.SECONDS);
+        } finally {
+            if (heartbeat != null) {
+                heartbeat.shutdownNow();
+            }
+        }
+
+        long latencyMs = System.currentTimeMillis() - llmStart;
+        if (!completed) {
+            if (cvdiag != null) {
+                cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs, "TimeoutException");
+            }
             throw new RuntimeException("Streaming timed out after 120 seconds");
         }
 
         Throwable err = streamError.get();
         if (err != null) {
+            if (cvdiag != null) {
+                cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs,
+                        err.getClass().getSimpleName());
+            }
             throw new RuntimeException("Streaming failed", err);
+        }
+
+        // CVDIAG backend.llm.call.response: the streamed LLM call finished. A
+        // response_token_count is not exposed on the reactive stream chunks, so
+        // it rides null (the closed-world keeps the optional field absent).
+        if (cvdiag != null) {
+            cvdiag.llmCallResponse("openai", "gpt-4.1", null, latencyMs, null);
         }
 
         assistantMessage.setContent(textAccumulator.toString());
         return new ArrayList<>(detectedToolCalls);
+    }
+
+    /**
+     * Coarse prompt-token estimate (≈4 chars/token) for
+     * {@code backend.llm.call.start.prompt_token_count_estimate}. Instrumentation
+     * only — never used to alter the request.
+     */
+    private static int estimatePromptTokens(String userContent) {
+        if (userContent == null || userContent.isEmpty()) {
+            return 0;
+        }
+        return Math.max(1, userContent.length() / 4);
     }
 
     /** Returns the set of tool names registered as backend tool callbacks. */

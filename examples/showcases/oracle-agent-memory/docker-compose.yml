@@ -1,0 +1,36 @@
+# Local Oracle AI Database for development.
+#
+# This uses the freely-pullable Oracle Database Free image, which includes AI
+# Vector Search (what oracleagentmemory relies on). It is provided as a
+# convenience — if it doesn't match your environment, Oracle's official guide is
+# authoritative:
+#   https://docs.oracle.com/en/database/oracle/agent-memory/26.4/agmea/run-locally.html
+#
+# First boot takes a few minutes while the database is created; watch progress
+# with `docker compose logs -f oracle-db` and wait for "DATABASE IS READY TO USE".
+services:
+  oracle-db:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oracle-cookbook-db
+    ports:
+      - "1521:1521"
+    environment:
+      # Password for the SYS / SYSTEM / PDBADMIN admin accounts.
+      ORACLE_PWD: cookbook_admin_pw
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+      # One-time setup scripts (create the `cookbook` user — see db/init).
+      - ./db/init:/opt/oracle/scripts/setup
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "echo 'select 1 from dual;' | sqlplus -s system/cookbook_admin_pw@localhost:1521/FREEPDB1 | grep -q '^.*1'",
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+      start_period: 180s
+
+volumes:
+  oracle-data:

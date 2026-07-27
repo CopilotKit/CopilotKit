@@ -60,7 +60,9 @@ migrate(
       "CREATE INDEX IF NOT EXISTS idx_resource_snapshots_worker " +
       "ON resource_snapshots (worker_id, observed_at DESC)";
     if (
-      !c.indexes.some((ix) => ix.indexOf("idx_resource_snapshots_worker") !== -1)
+      !c.indexes.some(
+        (ix) => ix.indexOf("idx_resource_snapshots_worker") !== -1,
+      )
     ) {
       c.indexes.push(idxSql);
     }

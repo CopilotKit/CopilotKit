@@ -5,8 +5,8 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { LucideAngularModule, ChevronDown } from "lucide-angular";
+
+import { ChevronDown, CopilotIcon } from "../icons/copilot-icon";
 import { cn } from "../../utils";
 
 /**
@@ -14,23 +14,23 @@ import { cn } from "../../utils";
  * Matches React implementation exactly with same Tailwind classes
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view-scroll-to-bottom-button",
-  imports: [CommonModule, LucideAngularModule],
+  imports: [CopilotIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
     <button
       type="button"
+      aria-label="Scroll to bottom"
       [class]="computedClass"
       [disabled]="disabled()"
       (click)="handleClick()"
     >
-      <lucide-angular
+      <copilot-icon
         [img]="ChevronDown"
-        class="w-4 h-4 text-gray-600 dark:text-white"
+        class="cpk:w-4 cpk:h-4 cpk:text-gray-600 cpk:dark:text-white"
       >
-      </lucide-angular>
+      </copilot-icon>
     </button>
   `,
 })
@@ -50,19 +50,19 @@ export class CopilotChatViewScrollToBottomButton {
   get computedClass(): string {
     return cn(
       // Base button styles
-      "rounded-full w-10 h-10 p-0",
+      "cpk:rounded-full cpk:w-10 cpk:h-10 cpk:p-0",
       // Background colors
-      "bg-white dark:bg-gray-900",
+      "cpk:bg-white cpk:dark:bg-gray-900",
       // Border and shadow
-      "shadow-lg border border-gray-200 dark:border-gray-700",
+      "cpk:shadow-lg cpk:border cpk:border-gray-200 cpk:dark:border-gray-700",
       // Hover states
-      "hover:bg-gray-50 dark:hover:bg-gray-800",
+      "cpk:hover:bg-gray-50 cpk:dark:hover:bg-gray-800",
       // Layout
-      "flex items-center justify-center cursor-pointer",
+      "cpk:flex cpk:items-center cpk:justify-center cpk:cursor-pointer",
       // Transition
-      "transition-colors",
+      "cpk:transition-colors",
       // Focus states
-      "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+      "cpk:focus:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-offset-2",
       // Custom classes
       this.inputClass(),
     );

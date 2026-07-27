@@ -10,6 +10,14 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
@@ -50,27 +58,37 @@ const agentNames = [
   "auth",
   "open-gen-ui",
   "beautiful-chat",
-  "tool-rendering-reasoning-chain",
+  // NOTE: `tool-rendering-reasoning-chain` is intentionally NOT registered
+  // here. It is declared NSF in manifest.yaml (no parallel multi-tool-call
+  // streaming surface to interleave with reasoning frames on spring-ai), and
+  // routing it to the default Spring agent at `/` silently bypassed the
+  // reasoning workaround and rendered a regular tool-rendering run, hiding
+  // the NSF. With no registration the page errors loudly when probed —
+  // appropriate for a not-supported feature.
   "mcp-apps",
   "byoc-hashbrown",
 ];
 
 // Reasoning agent names — backed by the dedicated Spring-AI reasoning
-// controller at /reasoning (ReasoningController). It emits AG-UI
-// REASONING_MESSAGE_* events (the Spring/Java reimplementation of ag2's
-// reasoning_agent.py) that the frontend renders via the `reasoningMessage`
-// slot: CopilotKit's built-in card for `reasoning-default`, the custom amber
-// ReasoningBlock for `reasoning-custom`. The demo pages use the ids
-// `reasoning-default` / `reasoning-custom`; both share the one reasoning
-// backend. `reasoning-default-render` and `agentic-chat-reasoning` are legacy
-// aliases kept for any cell that still references them. Mirrors ag2's
-// route.ts `reasoningAgentNames`.
-const reasoningAgentNames = [
-  "reasoning-default",
-  "reasoning-custom",
-  "reasoning-default-render",
-  "agentic-chat-reasoning",
-];
+// controller at /reasoning (ReasoningController). The AG-UI Java SDK at
+// Spring AI 1.0.1 has no REASONING_MESSAGE_* subtypes in its typed event
+// model (the SDK only knows THINKING_*, which @ag-ui/client silently drops),
+// so ReasoningController takes over its own SseEmitter and writes raw-JSON
+// REASONING_MESSAGE_START/CONTENT/END frames whose `type` literal matches
+// the @ag-ui/core zod schema — the frontend then renders them via the
+// `reasoningMessage` slot: CopilotKit's built-in card for
+// `reasoning-default`, the custom amber ReasoningBlock for
+// `reasoning-custom`. This is the Spring/Java reimplementation of ag2's
+// reasoning_agent.py. The demo pages use the ids `reasoning-default` /
+// `reasoning-custom`; both share the one reasoning backend.
+// Mirrors ag2's route.ts `reasoningAgentNames`. NOTE:
+// `tool-rendering-reasoning-chain`, `reasoning-default-render`, and
+// `agentic-chat-reasoning` are NOT listed here — they are declared NSF in
+// manifest.yaml (no parallel multi-tool-call streaming surface to interleave
+// with reasoning frames on spring-ai for tool-rendering-reasoning-chain; no
+// matching backend surface for the other two). With no registration the
+// pages error loudly when probed — appropriate for not-supported features.
+const reasoningAgentNames = ["reasoning-default", "reasoning-custom"];
 
 // Agent names routed to the interrupt-adapted scheduling backend. Both
 // gen-ui-interrupt and interrupt-headless share the same Spring AI scheduling
@@ -91,6 +109,13 @@ for (const name of reasoningAgentNames) {
 // gen-ui-agent has a dedicated Java controller (GenUiAgentController @ /gen-ui-agent/run)
 // that drives the set_steps state-card chain; override the shared-root registration.
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent/run");
+// subagents likewise has a dedicated Java controller (SubagentsController @
+// /subagents/run) that emits the research/writing/critique sub-agent
+// TOOL_CALL chains the subagent cards render from. The shared-root
+// registration above routed it to the default StreamingToolAgent, which has
+// no research_agent/writing_agent/critique_agent tools — the run produced a
+// final summary but zero subagent cards. Override to the dedicated controller.
+agents["subagents"] = createAgent("/subagents/run");
 agents["default"] = createAgent();
 
 console.log(
@@ -100,20 +125,30 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+        // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+        // plain Records. Fixed in source, pending release.
         agents,
       }),
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     // Log full details server-side (operators grep `errorId` to correlate),
@@ -139,7 +174,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

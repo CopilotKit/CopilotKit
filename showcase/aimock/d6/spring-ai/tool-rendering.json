@@ -38,10 +38,10 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. Gated on toolName:roll_d20 (one of the tools emitted in the chain) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). The toolCallId follow-up fixtures above still win on iteration 2 (last message is tool with one of the chain toolCallIds), so this fixture only emits on the first leg.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
+        "toolName": "roll_d20",
         "context": "spring-ai"
       },
       "response": {
@@ -76,9 +76,10 @@
       }
     },
     {
+      "_comment": "Weather SF — first leg: emit get_weather tool call. Gated on toolName:get_weather (same pattern as the sibling chain/flights/d20 first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). The toolCallId follow-up fixture above still wins on iteration 2 (last message is tool with id call_tr_weather_sf_001), so this fixture only emits on the first leg.",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
+        "toolName": "get_weather",
         "context": "spring-ai"
       },
       "response": {
@@ -103,6 +104,23 @@
       }
     },
     {
+      "_comment": "Find flights — first leg: emit search_flights tool call (mirrors the langgraph-python twin). Gated on toolName:search_flights (same pattern as the sibling weather/chain first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). Without this fixture the pill's first request had no match → RUN_ERROR. The toolCallId follow-up fixture above still wins on iteration 2 (last message is tool with id call_tr_flights_sfo_jfk_001), so this fixture only emits on the first leg.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolName": "search_flights",
+        "context": "spring-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
       "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
@@ -114,9 +132,10 @@
       }
     },
     {
+      "_comment": "Stock price — first leg: emit get_stock_price tool call. Gated on toolName:get_stock_price (same pattern as the sibling weather/chain/flights first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). The toolCallId follow-up fixture above still wins on iteration 2 (last message is tool with id call_tr_stock_aapl_001), so this fixture only emits on the first leg.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
+        "toolName": "get_stock_price",
         "context": "spring-ai"
       },
       "response": {
@@ -130,7 +149,7 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
+      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20], matching the e2e spec (tests/e2e/tool-rendering.spec.ts asserts 5 d20 cards with the 5th = 20) and the langgraph-python / claude-sdk-typescript twins. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins. Note on the iteration cap: spring-ai's BoundedToolCallingManager forces returnDirect at the 5th tool iteration (DEFAULT_TOOL_ITERATION_CAP_INCLUSIVE = 5), so the 5th roll's tool call IS still emitted and its card renders (satisfying the spec), but the 5th tool result is returned directly — the closing narration leg below may never fire live; it is kept for twin parity and loop safety.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_001",
@@ -205,10 +224,10 @@
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Gated on toolName:roll_d20 (same pattern as the sibling weather/chain/flights/stock first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
+        "toolName": "roll_d20",
         "context": "spring-ai"
       },
       "response": {
@@ -270,10 +289,9 @@
       }
     },
     {
-      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available. No turnIndex gate (unreliable on spring-ai's MessageListFilter; see tool-rendering-custom-catchall.json): a content-only response is loop-safe regardless of re-match, since iteration 2 would just narrate again with no further tool legs.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
         "context": "spring-ai"
       },
       "response": {
@@ -291,9 +309,10 @@
       }
     },
     {
+      "_comment": "AAPL d5 probe — first leg: emit get_stock_price tool call. Gated on toolName:get_stock_price (same pattern as the sibling weather/chain/flights/d20 first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on spring-ai (MessageListFilter reshapes prior-turn messages; see tool-rendering-custom-catchall.json). The toolCallId follow-up fixture above still wins on iteration 2 (last message is tool with id call_d5_get_stock_price_001), so this fixture only emits on the first leg.",
       "match": {
         "userMessage": "AAPL",
-        "turnIndex": 0,
+        "toolName": "get_stock_price",
         "context": "spring-ai"
       },
       "response": {

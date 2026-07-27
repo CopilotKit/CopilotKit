@@ -29,6 +29,9 @@ not_supported_features:
   # green, not red) rather than a regression. Demos remain wired below.
   - gen-ui-interrupt
   - interrupt-headless
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
@@ -65,8 +68,8 @@ features:
   - auth
   - reasoning-default
   - reasoning-custom
-  - tool-rendering-reasoning-chain
   - mcp-apps
+  - shared-state-read
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state

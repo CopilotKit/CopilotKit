@@ -103,6 +103,18 @@ module Railway
     # same SSOT as EXPECTED_DOMAINS so they cannot drift.
     STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
+    # Names whose SSOT entry carries `probe.staging=false` — services that are
+    # promotable but INTENTIONALLY not live-probed on staging (e.g.
+    # harness-workers, a queue worker with no HTTP surface). P3 (the
+    # staging-live-green precondition) must treat these as N/A and skip them
+    # rather than handing them to verify-deploy.ts, which hard-errors on a
+    # `--services` entry that is not probe-eligible. Sourced from the same
+    # SSOT so eligibility cannot drift from the probe matrix the CI uses.
+    STAGING_PROBE_INELIGIBLE = SSOT_DATA.fetch("services").each_with_object([]) do |s, acc|
+        probe = s["probe"]
+        acc << s.fetch("name") if probe.is_a?(Hash) && probe["staging"] == false
+    end.sort.freeze
+
     # ── Token / Auth ───────────────────────────────────────────────────────────
 
     module Auth
@@ -513,10 +525,15 @@ module Railway
     #   * Service has NO `serviceInstances` field. To get an instance's
     #     image/startCommand/etc. for a given env, use
     #     `serviceInstance(serviceId, environmentId)` directly.
-    #   * `serviceInstanceDeployV2` takes (serviceId, environmentId, commitSha)
-    #     ONLY — no `image` arg. To pin a service to a specific image, use
+    #   * `serviceInstanceDeployV2(serviceId, environmentId, commitSha?)` returns
+    #     the NEW deployment id (String!). `commitSha` is optional. To pin a
+    #     service to a specific image, use
     #     `serviceInstanceUpdate(serviceId, environmentId, input: { source: { image } })`
-    #     followed by `serviceInstanceRedeploy`.
+    #     followed by `serviceInstanceDeployV2` — which spawns a NEW deployment
+    #     that PULLS the just-updated `source.image`. Do NOT use
+    #     `serviceInstanceRedeploy(serviceId, environmentId)` for this: it replays
+    #     the EXISTING deployment's snapshot (its OLD image), so the freshly
+    #     pinned `source.image` never reaches the running container (bug #2).
     #   * `Environment.variables` returns an `EnvironmentVariablesConnection`
     #     whose edges include `node.serviceId` — we filter by service id to get
     #     per-service env-key sets.
@@ -572,6 +589,43 @@ module Railway
                     }
                 }
             }
+        }
+    GQL
+
+    # Per-(service,env) variable VALUES. The snapshot path (above) deliberately
+    # captures KEYS ONLY so snapshots stay safe to commit. The U5 promote
+    # preflight, by contrast, must compare a FEW specific VALUES (a serviceRef
+    # host assertion, a prod-specific-key shape assertion, a replicate-class
+    # copy) — so it reads values transiently at runtime, never persisting them.
+    # `variables(serviceId)` scopes to a single service so we do not pull the
+    # whole env's secret surface. Sealed values come back as nil (Railway will
+    # not return a sealed value), which the callers treat as "unreadable" and
+    # never copy.
+    # Railway's top-level `variables(projectId, environmentId, serviceId)`
+    # returns a JSON scalar (a flat `{ "NAME" => "value", ... }` map) — NOT a
+    # connection. (`Environment.variables` IS a connection but its node carries
+    # no `value`, which is why the snapshot path reads keys only.)
+    SERVICE_VARIABLES_QUERY = <<~GQL
+        query EnvServiceVariables($projectId: String!, $serviceId: String!, $envId: String!) {
+            variables(projectId: $projectId, serviceId: $serviceId, environmentId: $envId)
+        }
+    GQL
+
+    # Upsert a single environment variable VALUE for a (service,env). This is
+    # the variable*Upsert family (NOT serviceInstanceUpdate(source.image), which
+    # only sets the image). Used ONLY by U5's opt-in replicate-class env-write;
+    # the default replicate set is empty, so this fires for no key today.
+    VARIABLE_UPSERT_MUTATION = <<~GQL
+        mutation VariableUpsert($serviceId: String!, $envId: String!, $name: String!, $value: String!) {
+            variableUpsert(
+                input: {
+                    projectId: "#{PROJECT_ID}"
+                    serviceId: $serviceId
+                    environmentId: $envId
+                    name: $name
+                    value: $value
+                }
+            )
         }
     GQL
 
@@ -739,13 +793,16 @@ module Railway
     end
 
     # restore — given a snapshot YAML, force-redeploy each service to its
-    # captured digest via serviceInstanceUpdate(source.image) + redeploy.
+    # captured digest via serviceInstanceUpdate(source.image) + deploy.
     #
-    # Railway's `serviceInstanceDeployV2` mutation does NOT accept an `image`
-    # arg — its signature is (serviceId, environmentId, commitSha). To pin a
-    # service to a specific image digest we must:
+    # To pin a service to a specific image digest we must:
     #   1. update the service instance's source.image to the desired ref
-    #   2. trigger a redeploy
+    #   2. spawn a NEW deployment via serviceInstanceDeployV2 that PULLS the
+    #      just-updated source.image.
+    #
+    # NOTE: serviceInstanceRedeploy is deliberately NOT used here — it replays
+    # the existing deployment's snapshot (its OLD image), so the freshly pinned
+    # source.image never reaches the running container (bug #2).
     class RestoreCommand < BaseCommand
         UPDATE_IMAGE_MUTATION = <<~GQL
             mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!) {
@@ -757,20 +814,94 @@ module Railway
             }
         GQL
 
-        REDEPLOY_MUTATION = <<~GQL
-            mutation Redeploy($serviceId: String!, $envId: String!) {
-                serviceInstanceRedeploy(
+        # NOTE: the {source, healthcheckPath} variant that re-asserts the SSOT
+        # healthcheckPath alongside source.image is now produced dynamically by
+        # `build_update_image_mutation` (below), which composes source.image with
+        # any subset of the optional SSOT-tracked keys (healthcheckPath,
+        # multiRegionConfig). Railway's ServiceInstanceUpdateInput accepts those
+        # keys next to source (see deploy-to-railway.ts / provision-starter-fleet.ts,
+        # which set them via the same mutation) and treats an ABSENT input key as
+        # "leave as-is" — the builder omits any key whose SSOT value is absent so
+        # we NEVER send an explicit null (which would CLEAR the field on Railway).
+
+        # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
+        # source.image (just advanced by UPDATE_IMAGE_MUTATION) and returns the
+        # new deployment id (String!). This is what actually activates the pin.
+        DEPLOY_V2_MUTATION = <<~GQL
+            mutation DeployV2($serviceId: String!, $envId: String!) {
+                serviceInstanceDeployV2(
                     serviceId: $serviceId
                     environmentId: $envId
                 )
             }
         GQL
 
-        # Helper used by RestoreCommand, PinCommand, PromoteCommand: pin then redeploy.
+        # Build a serviceInstanceUpdate mutation + vars that ALWAYS pins
+        # source.image and OPTIONALLY re-asserts SSOT-tracked fields alongside
+        # it. This replaces the old static {image} / {image,healthcheckPath}
+        # heredocs: adding a second optional dimension (multiRegionConfig) would
+        # otherwise explode into a 4-way matrix of constants. Each optional key
+        # is OMITTED entirely when its arg is absent — we NEVER send an explicit
+        # null (which Railway treats as "clear this field"), so a service that
+        # tracks none of these keeps its live config untouched.
+        #
+        #   healthcheck_path:  SSOT healthcheckPath (the aimock silent-null fix).
+        #                      nil/empty -> omitted (a live-null service stays null).
+        #   replica_config:    SSOT multiRegionConfig as { region => numReplicas },
+        #                      e.g. { "us-west2" => 6 } for harness-workers (the
+        #                      de-scale fix). nil/empty -> omitted. When present,
+        #                      sent as multiRegionConfig: { region => { numReplicas } }
+        #                      so the redeploy preserves the intended scale instead
+        #                      of falling back to Railway's default single region
+        #                      at 1 replica.
+        #
+        # Returns [mutation_string, vars_hash].
+        #
+        # SHAPE: the whole serviceInstanceUpdate input rides as ONE variable
+        # `$input: ServiceInstanceUpdateInput!` — exactly how the repo's working
+        # TS provisioners issue this mutation (showcase/scripts/deploy-to-railway.ts
+        # ~501-509 and provision-starter-fleet.ts ~594-602 both pass a single
+        # `$input: ServiceInstanceUpdateInput!` and put source/healthcheckPath/
+        # region/registryCredentials/etc as KEYS inside it). Railway resolves each
+        # nested field's type from the ServiceInstanceUpdateInput schema, so we do
+        # NOT name nested types ourselves. The earlier attempt declared a separate
+        # `$multiRegionConfig: ServiceMultiRegionConfigInput!` variable — that type
+        # DOES NOT EXIST in Railway's schema and made the live promote fail with
+        # `HTTP 400: Unknown type "ServiceMultiRegionConfigInput"`, de-scaling
+        # harness-workers to 1 replica. Passing it as a nested input key avoids
+        # ever naming the type.
+        def self.build_update_image_mutation(image:, healthcheck_path: nil, replica_config: nil)
+            input = { source: { image: image } }
+
+            unless healthcheck_path.nil? || healthcheck_path.to_s.empty?
+                input[:healthcheckPath] = healthcheck_path
+            end
+
+            unless replica_config.nil? || replica_config.empty?
+                # Railway's multiRegionConfig is { <region> => { numReplicas } }.
+                input[:multiRegionConfig] = replica_config.each_with_object({}) do |(region, n), acc|
+                    acc[region] = { numReplicas: n }
+                end
+            end
+
+            mutation = <<~GQL
+                mutation UpdateImage($serviceId: String!, $envId: String!, $input: ServiceInstanceUpdateInput!) {
+                    serviceInstanceUpdate(
+                        serviceId: $serviceId
+                        environmentId: $envId
+                        input: $input
+                    )
+                }
+            GQL
+            [mutation, { input: input }]
+        end
+
+        # Helper used by RestoreCommand, PinCommand: pin then deploy a NEW
+        # deployment that pulls the updated source.image.
         def self.pin_and_redeploy(gql, service_id:, env_id:, image:)
             gql.query(UPDATE_IMAGE_MUTATION,
                 serviceId: service_id, envId: env_id, image: image)
-            gql.query(REDEPLOY_MUTATION,
+            gql.query(DEPLOY_V2_MUTATION,
                 serviceId: service_id, envId: env_id)
         end
 
@@ -1031,6 +1162,7 @@ module Railway
                     id
                     source { image }
                     updatedAt
+                    latestDeployment { id status meta }
                 }
             }
         GQL
@@ -1038,12 +1170,59 @@ module Railway
         RETRY_COUNT     = 3
         RETRY_DELAY_SEC = 10
 
+        # Serving-digest verification (bug #2): after the NEW deployment is
+        # spawned via serviceInstanceDeployV2, poll latestDeployment until it
+        # reaches SUCCESS and confirm its meta.imageDigest == the pinned digest.
+        # The new deployment must pull + boot the image, which takes longer than
+        # the config-level recheck, so this poll is wider than RETRY_COUNT.
+        SERVING_RETRY_COUNT     = 30
+        SERVING_RETRY_DELAY_SEC = 10
+        DEPLOY_FAILURE_STATUSES = %w[FAILED CRASHED REMOVED].freeze
+
+        # Normalize a Railway deployment `meta` (sometimes a JSON string) and
+        # extract its imageDigest (a `sha256:<hex>` value), or nil.
+        def self.serving_digest_from_deployment(deployment)
+            return nil unless deployment.is_a?(Hash)
+            meta = deployment["meta"]
+            meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
+            return nil unless meta.is_a?(Hash)
+            digest = meta["imageDigest"]
+            if (digest.nil? || digest.to_s.empty?) && meta["image"].to_s.include?("@sha256:")
+                digest = meta["image"].to_s.split("@", 2).last
+            end
+            digest = nil if digest.is_a?(String) && digest.empty?
+            digest
+        end
+
         # Pin + verify: confirms the boolean mutation result AND re-queries
         # serviceInstance to confirm BOTH source.image advanced to the new
         # digest AND updatedAt strictly advanced past the pre-mutation value.
-        # 3 retries 10s apart absorb Railway's eventual consistency.
+        # 3 retries 10s apart absorb Railway's eventual consistency. THEN
+        # verifies the NEW deployment spawned by serviceInstanceDeployV2 reaches
+        # SUCCESS and SERVES the pinned digest (bug #2 — config advancing is not
+        # enough; the running container must actually pull the pinned image).
         # `sleeper:` is injected for tests.
-        def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
+        #
+        # `healthcheck_path:` — the SSOT-declared HTTP healthcheck path for this
+        # service+env, or nil when the SSOT tracks NONE. When present, the pin
+        # mutation RE-ASSERTS it alongside source.image so a prod instance whose
+        # healthcheckPath silently went null (the aimock incident) self-heals to
+        # the tracked value on the next promote. When nil, the `healthcheckPath`
+        # key is OMITTED entirely — we NEVER send `healthcheckPath: null` (which
+        # would actively CLEAR it). This is the durable lever the SSOT-tracking
+        # change adds.
+        #
+        # `replica_config:` — the SSOT-declared multiRegionConfig replica map for
+        # this service+env as { region => numReplicas } (e.g. { "us-west2" => 6 }
+        # for harness-workers), or nil when the SSOT tracks NO replica override.
+        # When present, the pin mutation RE-ASSERTS multiRegionConfig alongside
+        # source.image so the subsequent serviceInstanceDeployV2 preserves the
+        # intended scale. Without it, a promote that updates only source.image
+        # lets Railway fall back to its default single region (us-west1) at 1
+        # replica on redeploy — the confirmed harness-workers -> 1 de-scale
+        # incident. When nil/empty, the key is OMITTED (never sent as null), so a
+        # service without an override keeps its live config untouched.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, replica_config: nil, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
             # image. Pre-fix, a stray tag ref would fall through to retries
             # (since expected_digest stayed nil and image_ok was always false)
@@ -1064,26 +1243,40 @@ module Railway
             pre_inst = pre_data && pre_data["serviceInstance"]
             pre_update_ts = pre_inst && pre_inst["updatedAt"]
 
-            updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
-                serviceId: service_id, envId: env_id, image: image)
+            # Re-assert the SSOT-tracked healthcheckPath AND multiRegionConfig
+            # replica count alongside source.image, each ONLY when the SSOT
+            # declares it. The builder omits any absent key entirely (never sends
+            # an explicit null, which Railway would treat as "clear this field"),
+            # so a service tracking neither keeps its live config untouched.
+            mutation, vars = RestoreCommand.build_update_image_mutation(
+                image: image, healthcheck_path: healthcheck_path,
+                replica_config: replica_config)
+            updated = gql.query(mutation,
+                { serviceId: service_id, envId: env_id }.merge(vars))
             unless updated && updated["serviceInstanceUpdate"] == true
                 raise MutationError,
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
             end
 
-            # Symmetric assertion: serviceInstanceUpdate has already advanced
-            # source.image+updatedAt, so a failed redeploy could otherwise
-            # sneak through verification. Require truthy redeploy result.
-            redeployed = gql.query(RestoreCommand::REDEPLOY_MUTATION,
+            # Spawn a NEW deployment that PULLS the just-updated source.image.
+            # serviceInstanceDeployV2 returns the new deployment id (String!).
+            # serviceInstanceRedeploy is deliberately NOT used: it replays the
+            # existing deployment's snapshot (its OLD image), so the freshly
+            # pinned source.image would never reach the running container
+            # (bug #2 — config advanced but prod kept serving the stale digest).
+            deployed = gql.query(RestoreCommand::DEPLOY_V2_MUTATION,
                 serviceId: service_id, envId: env_id)
-            unless redeployed && redeployed["serviceInstanceRedeploy"]
+            new_deployment_id = deployed && deployed["serviceInstanceDeployV2"]
+            unless new_deployment_id.is_a?(String) && !new_deployment_id.empty?
                 raise MutationError,
-                    "P5: serviceInstanceRedeploy returned #{redeployed.inspect} (expected truthy) for #{service_id} -> #{image}"
+                    "P5: serviceInstanceDeployV2 returned #{deployed.inspect} " \
+                    "(expected a new deployment id String) for #{service_id} -> #{image}"
             end
 
             expected_digest = image.include?("@") ? image.split("@", 2).last : nil
             last_seen_image = nil
             last_seen_ts    = nil
+            config_inst     = nil
 
             RETRY_COUNT.times do |i|
                 data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
@@ -1102,15 +1295,100 @@ module Railway
                 # fell back to digest-equality alone — the exact weakness this
                 # gate was added to prevent.
                 ts_ok    = actual_ts && (pre_update_ts.nil? || actual_ts > pre_update_ts)
-                return inst if image_ok && ts_ok
+                if image_ok && ts_ok
+                    config_inst = inst
+                    break
+                end
 
                 sleeper.call(RETRY_DELAY_SEC) if i < RETRY_COUNT - 1
             end
 
+            unless config_inst
+                raise MutationError,
+                    "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
+                    "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
+                    "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+            end
+
+            # Bug #2 SERVING-digest gate: config (source.image) advancing is NOT
+            # proof the running container actually pulled the pinned image. Poll
+            # latestDeployment until the NEW deployment (#{new_deployment_id})
+            # reaches SUCCESS, then assert its meta.imageDigest == the pinned
+            # digest. Fail loud if it crashes, never converges, or serves a
+            # different digest — promote must NOT report success while prod
+            # serves a stale image.
+            verify_serving_digest!(gql,
+                service_id: service_id, env_id: env_id, image: image,
+                expected_digest: expected_digest, new_deployment_id: new_deployment_id,
+                sleeper: sleeper)
+
+            config_inst
+        end
+
+        # Poll the production serviceInstance.latestDeployment until it reaches
+        # SUCCESS and SERVES the pinned digest. Raises MutationError on a failed
+        # deploy status, on a SUCCESS deployment serving the wrong digest, or if
+        # the new deployment never converges within the retry budget.
+        def self.verify_serving_digest!(gql, service_id:, env_id:, image:,
+                                        expected_digest:, new_deployment_id:,
+                                        sleeper: ->(n) { sleep(n) })
+            last_status = nil
+            last_serving = nil
+
+            SERVING_RETRY_COUNT.times do |i|
+                data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                    serviceId: service_id, envId: env_id)
+                inst   = data && data["serviceInstance"]
+                deploy = inst && inst["latestDeployment"]
+                status = deploy && deploy["status"]
+                last_status = status
+
+                # A failed/crashed/removed latest deployment can never serve the
+                # pin — fail loud immediately rather than burn the full budget.
+                # But only hard-fail when the terminal deployment is the NEW one
+                # we triggered. Right after DeployV2 spawns new_deployment_id,
+                # latestDeployment may still briefly point to the OLD deployment,
+                # whose status flips to REMOVED/terminal as it's superseded
+                # (Railway eventual consistency). An ungated raise here would
+                # FALSELY abort a valid promote, misreporting the old
+                # deployment's teardown as the new deployment failing. If it's a
+                # stale old deployment, keep polling — the loop will see the new
+                # deployment become latest and converge.
+                if DEPLOY_FAILURE_STATUSES.include?(status) &&
+                        deploy && deploy["id"] == new_deployment_id
+                    raise MutationError,
+                        "P5: new deployment #{new_deployment_id} for #{service_id} -> #{image} reached " \
+                        "terminal status #{status.inspect}. Refusing to declare promote successful — " \
+                        "prod is NOT serving the pinned digest."
+                end
+
+                if status == "SUCCESS"
+                    serving = serving_digest_from_deployment(deploy)
+                    last_serving = serving
+                    if serving == expected_digest
+                        return inst
+                    end
+                    # SUCCESS but serving a different digest: only acceptable if
+                    # this is still the OLD deployment (Railway eventual
+                    # consistency — the new deployment id hasn't become
+                    # latestDeployment yet). Keep polling. If the NEW deployment
+                    # itself succeeded with the wrong digest, that's a hard fail.
+                    if deploy && deploy["id"] == new_deployment_id
+                        raise MutationError,
+                            "P5: new deployment #{new_deployment_id} for #{service_id} succeeded but SERVES " \
+                            "#{serving.inspect}, expected #{expected_digest.inspect}. Refusing to declare " \
+                            "promote successful — prod is serving a stale image."
+                    end
+                end
+
+                sleeper.call(SERVING_RETRY_DELAY_SEC) if i < SERVING_RETRY_COUNT - 1
+            end
+
             raise MutationError,
-                "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
-                "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
-                "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+                "P5: prod did not converge to SERVING the pinned digest #{expected_digest.inspect} for " \
+                "#{service_id} -> #{image} after #{SERVING_RETRY_COUNT} retries " \
+                "(last deploy status=#{last_status.inspect}, last serving digest=#{last_serving.inspect}). " \
+                "Refusing to declare promote successful — prod may be serving a stale image."
         end
 
         def default_options
@@ -1143,9 +1421,11 @@ module Railway
                              P3 staging live-green probe, P6 startCommand/
                              healthcheckPath/image-shape parity, service-set
                              parity, critical env-key parity.
-                      WARN: P6 region/replicas/restartPolicy/env-key-set
-                             divergence, missing expected prod custom domains.
-                      IGNORE: env var VALUES, env-scoped URLs, volumes.
+                      ADVISORY (report-only, never blocks): P6 region/replicas/
+                             restartPolicy divergence, concurrency-key presence,
+                             missing expected prod custom domains.
+                      IGNORE: env var KEY set, env var VALUES, env-scoped URLs,
+                             volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
@@ -1321,13 +1601,35 @@ module Railway
             findings.concat(check_critical_env_key_parity(target_staging, target_prod))
             findings.concat(check_expected_prod_domains(fleet_prod))
 
+            # U5 (spec §5): env + service-ref + resource preflight (Stage 2).
+            # §5.2 service-ref assertion (REFUSE), §5.3.2 prod-specific-key
+            # assertion (REFUSE; NEVER copies), §5.4 resource/concurrency
+            # divergence (WARN; detect-only). Replicate-class env-write (§5.3.1)
+            # is opt-in per service via the SSOT `replicateKeys` field and is
+            # empty for every service today, so it fires for nothing.
+            findings.concat(check_service_refs(target_staging, target_prod))
+            findings.concat(assert_prod_specific_keys(target_staging, target_prod,
+                prod_specific_keys: ssot_prod_specific_keys(target_staging)))
+            findings.concat(replicate_env_keys(target_staging, target_prod,
+                replicate_keys: ssot_replicate_keys(target_staging)))
+            findings.concat(check_resource_divergence(target_staging, target_prod))
+
             # Mandatory parity-NOTE that env var VALUES are not compared.
             puts "NOTE: env var VALUES are not compared between staging and prod " \
                  "(intentional — staging and prod hold different secrets/URLs). " \
                  "Only the set of keys is compared."
 
-            refuses = findings.select { |f| f.start_with?("REFUSE") }
-            warns   = findings.select { |f| f.start_with?("WARN") }
+            # Three-tier disposition (2026-06-22 prod↔staging comparison policy):
+            #   REFUSE   — functional-contract violation; blocks unconditionally.
+            #   WARN     — blocks unless --confirm-divergence.
+            #   ADVISORY — operational/env-specific divergence; reported but
+            #              NEVER blocks (region/replicas/restartPolicy, missing
+            #              expected prod domains, concurrency-key presence).
+            refuses   = findings.select { |f| f.start_with?("REFUSE") }
+            warns     = findings.select { |f| f.start_with?("WARN") }
+            advisories = findings.select { |f| f.start_with?("ADVISORY") }
+
+            advisories.each { |f| puts f } unless advisories.empty?
 
             unless refuses.empty?
                 refuses.each { |f| puts f }
@@ -1345,6 +1647,12 @@ module Railway
                 puts "[--confirm-divergence set] proceeding past #{warns.size} WARN finding(s)."
             end
 
+            # Surface staging drift LOUDLY (stdout block + Slack payload) right
+            # before the promote proceeds. Drift is NOT a refuse — promote pins
+            # staging's RUNNING digest regardless — but someone must know that
+            # what shipped to prod is not the current :latest.
+            emit_staging_drift_warnings
+
             Railway.confirm_destructive!(
                 env_label: "production",
                 action: "promote",
@@ -1361,9 +1669,20 @@ module Railway
         # a tag would defeat the entire pipeline invariant — and verify-railway-
         # image-refs PROD_SHAPE would later REFUSE.
         #
+        # CONTRACT (the whole point of promote): pin prod to WHAT STAGING IS
+        # ACTUALLY SERVING RIGHT NOW — staging's RUNNING resolved digest — NOT
+        # whatever `:latest` currently points to in GHCR. The staging tag is
+        # mutable, so a build that pushed a new `:latest` AFTER staging last
+        # deployed makes `resolve_digest(:latest)` return a digest staging
+        # never validated. We instead read the digest the staging deployment
+        # is running from Railway's `latestDeployment.meta.imageDigest` (the
+        # same field image-drift.ts uses as the deployed/running digest), and
+        # pin THAT. If that digest != current `:latest`, the caller emits a
+        # LOUD drift warning but still promotes the running digest.
+        #
         # Returns the canonical `<ghcr.io/org/name>@sha256:<digest>` ref.
-        # Returns nil if the staging tag cannot be resolved (e.g. GHCR 404 /
-        # auth failed); the caller MUST refuse rather than pin a tag.
+        # Returns nil if staging's running digest cannot be resolved; the
+        # caller MUST refuse rather than pin a tag.
         def resolved_prod_image(svc)
             # --digest override: when the operator supplied an explicit ref AND
             # we are restricted to a single service, use that ref verbatim. The
@@ -1378,14 +1697,59 @@ module Railway
             return nil if image.nil? || image.empty?
             return image if image.include?("@sha256:")  # already pinned
 
-            digest = ghcr.resolve_digest(image)
-            return nil if digest.nil?
+            # Pin to staging's RUNNING digest (what I see in staging), not
+            # resolve_digest(:latest). Falls back to nil so check_p1 REFUSEs
+            # rather than pinning a mutable tag.
+            running = staging_running_digest(svc)
+            return nil if running.nil?
 
-            # Strip the tag (`:latest`) and append the digest. parse_image_ref
-            # returns the structured parts; rebuild the canonical pinned ref.
+            # Strip the tag (`:latest`) and append the running digest.
+            # parse_image_ref returns the structured parts; rebuild the
+            # canonical pinned ref.
             parts = ghcr.parse_image_ref(image)
             registry = parts[:registry] || "ghcr.io"
-            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{digest}"
+            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{running}"
+        end
+
+        # The digest the staging deployment is ACTUALLY RUNNING right now.
+        #
+        # Mechanism mirrored from showcase/harness/src/probes/drivers/
+        # image-drift.ts: Railway stores tag-only refs in
+        # `serviceInstance.source.image` (e.g. `…:latest`), so the running
+        # digest is NOT recoverable from the snapshot's `image`/`digest`
+        # fields. The real running digest lives on the latest SUCCESS
+        # deployment's `meta.imageDigest` (a `sha256:…` value). We read the
+        # newest SUCCESS staging deployment and return that digest.
+        #
+        # Returns the `sha256:<hex>` digest string, or nil if no SUCCESS
+        # deployment / no imageDigest is available (caller REFUSEs).
+        #
+        # Memoized per service-id so P1 (resolve) and the drift check don't
+        # double-query Railway for the same service.
+        def staging_running_digest(svc)
+            sid = svc["service_id"]
+            return nil if sid.nil?
+            @staging_running_digests ||= {}
+            return @staging_running_digests[sid] if @staging_running_digests.key?(sid)
+
+            deployments = fetch_latest_staging_deployments(sid)
+            latest = (deployments || []).find { |d| d["status"] == "SUCCESS" }
+            digest = nil
+            if latest
+                meta = latest["meta"]
+                meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
+                if meta.is_a?(Hash)
+                    # Prefer meta.imageDigest (the resolved running digest).
+                    # Fall back to a digest embedded in meta.image only if it
+                    # happens to be digest-pinned (rare for staging).
+                    digest = meta["imageDigest"]
+                    if (digest.nil? || digest.empty?) && meta["image"].to_s.include?("@sha256:")
+                        digest = meta["image"].to_s.split("@", 2).last
+                    end
+                    digest = nil if digest.is_a?(String) && digest.empty?
+                end
+            end
+            @staging_running_digests[sid] = digest
         end
 
         # P1 — every staging digest about to be promoted must exist in GHCR.
@@ -1403,6 +1767,11 @@ module Railway
             # second preflight against a different snapshot must not carry
             # stale A-era refs into a B-era promote.
             @promote_refs = {}
+            # Drift records accumulated this preflight: each is a Hash
+            # { name:, running:, latest: } where the staging RUNNING digest
+            # differs from the current GHCR :latest digest. Surfaced loudly on
+            # stdout and pushed to the Slack notify payload (GITHUB_OUTPUT).
+            @staging_drift = []
             (staging["services"] || []).each do |svc|
                 image = svc["image"] || svc["image_tag"]
                 if image.nil? || image.empty?
@@ -1433,6 +1802,15 @@ module Railway
                         # Record the verified ref for use by execute_promotion
                         # — guarantees pin parity with what P1 verified.
                         @promote_refs[svc["name"]] = resolved
+                        # DRIFT CHECK: `resolved` pins staging's RUNNING digest
+                        # (the contract). Compare it to what `:latest` points
+                        # to RIGHT NOW in GHCR. If they differ, staging is NOT
+                        # serving `:latest` — promote STILL proceeds with the
+                        # running digest, but we record the drift so it can be
+                        # surfaced loudly (stdout block + Slack payload). A
+                        # nil/identical current :latest (or a non-tag staging
+                        # image) means no drift signal.
+                        detect_staging_drift(svc, resolved)
                     when :missing
                         findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
                                     "(digest may have been garbage-collected; staging build may not have pushed)."
@@ -1445,6 +1823,101 @@ module Railway
                 end
             end
             findings
+        end
+
+        # Compare the digest we are about to pin (`resolved`, = staging's
+        # RUNNING digest) against what the staging `:latest` tag points to in
+        # GHCR RIGHT NOW. When they differ, staging is NOT serving the current
+        # `:latest` — record it so emit_staging_drift_warnings can surface it
+        # loudly. Does NOT add a finding (promote PROCEEDS with the running
+        # digest — that is the contract); a drift is a visible warning, not a
+        # refuse. Best-effort: a GHCR error resolving `:latest` is surfaced as a
+        # WARN (never blocks) so a promote whose running digest already verified
+        # proceeds, while the operator is not misled into reading a check
+        # failure as "no drift".
+        def detect_staging_drift(svc, resolved)
+            # --digest override: when the operator deliberately pinned an
+            # explicit digest for this single service (see resolved_prod_image
+            # ~L1511, mirrored by P2's race-skip ~L1775), `resolved` is the
+            # operator's CHOSEN override digest — NOT staging's running digest.
+            # "Drift from :latest" is meaningless there (the operator made the
+            # choice on purpose), and reporting the override as the running
+            # digest is a spurious/misleading signal. Skip drift detection,
+            # reusing P2's exact override-detection mechanism.
+            return if options[:digest] && options[:service] && svc["name"] == options[:service]
+
+            tag_image = svc["image"] || svc["image_tag"]
+            # Only meaningful when staging tracks a mutable tag (the normal
+            # case). A digest-pinned staging image has no "current :latest" to
+            # drift from.
+            return if tag_image.nil? || tag_image.include?("@sha256:")
+
+            running_digest = resolved.include?("@") ? resolved.split("@", 2).last : nil
+            return if running_digest.nil?
+
+            begin
+                current_latest = ghcr.resolve_digest(tag_image)
+            rescue StandardError => e
+                # Fail loud: the drift check is diagnostic (the pin already uses
+                # staging's verified RUNNING digest, so the promote PROCEEDS),
+                # but the operator must not mistake a check failure for "no
+                # drift". Surface the failure instead of silently swallowing it.
+                warn "WARN: staging drift check failed for #{svc['name']}: #{e.message} — " \
+                     "could not compare against current :latest"
+                return
+            end
+            return if current_latest.nil?
+            return if current_latest == running_digest
+
+            (@staging_drift ||= []) << {
+                name:    svc["name"],
+                running: running_digest,
+                latest:  current_latest,
+            }
+        end
+
+        # Short 12-char digest for human-readable warnings (`sha256:` stripped).
+        def short_digest(d)
+            return "(none)" if d.nil? || d.empty?
+            d.sub(/^sha256:/, "")[0, 12]
+        end
+
+        # Emit the LOUD staging-drift warning to stdout (a bordered block) AND
+        # push a drift flag/line to the Slack notify payload via GITHUB_OUTPUT.
+        # Called from run_with_preflight_only after preflight, before the
+        # destructive-confirm — so it is the last thing an operator sees before
+        # the promote proceeds with the (drifted) running digest.
+        #
+        # No-op when @staging_drift is empty (staging == :latest, the common
+        # case) — preserves existing behavior for the non-drift path.
+        def emit_staging_drift_warnings
+            drift = @staging_drift || []
+            return if drift.empty?
+
+            border = "=" * 72
+            puts border
+            puts "⚠️  STAGING DRIFT — staging is NOT serving the current :latest image"
+            puts border
+            drift.each do |d|
+                puts "  #{d[:name]}: staging RUNNING #{short_digest(d[:running])} " \
+                     "!= current :latest #{short_digest(d[:latest])}"
+            end
+            puts
+            puts "  Promote PROCEEDS pinning prod to staging's RUNNING digest (what you"
+            puts "  see in staging). Someone should investigate WHY staging is behind"
+            puts "  :latest (a newer build pushed :latest after staging last deployed,"
+            puts "  a failed/in-flight staging deploy, or a manual pin)."
+            puts border
+
+            # Machine-readable marker for the CI wrapper. promote-fleet.sh greps
+            # stdout for `STAGING_DRIFT_MARKER:` lines, aggregates them across the
+            # fleet loop, and writes ONE `staging_drift=` to $GITHUB_OUTPUT (a
+            # per-child append would collide — GitHub keeps only the last value).
+            # The workflow notify job then folds it into the Slack payload.
+            line = drift.map { |d|
+                "#{d[:name]}(running=#{short_digest(d[:running])},latest=#{short_digest(d[:latest])})"
+            }.join(", ")
+            puts "STAGING_DRIFT_MARKER: #{line}"
         end
 
         # P2 — for each staging service we are promoting, the most recent
@@ -1472,8 +1945,28 @@ module Railway
                 meta = latest["meta"]
                 meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
                 if meta.is_a?(Hash)
-                    deployed_image = meta["image"].to_s
-                    deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
+                    # The running digest lives in meta.imageDigest (a `sha256:…`
+                    # value) — staging refs are tag-form (`…:latest`), so
+                    # meta.image has no `@sha256:` and reading it would make
+                    # deployed_digest perpetually nil (dead guard). Mirror
+                    # staging_running_digest: prefer meta.imageDigest, fall back
+                    # to meta.image's `@sha256:` split only if pinned, normalize
+                    # empty→nil. Keep apples-to-apples with promote_digest, which
+                    # is the bare `sha256:…` form (split on `@`).
+                    deployed_digest = meta["imageDigest"]
+                    if (deployed_digest.nil? || deployed_digest.empty?) && meta["image"].to_s.include?("@sha256:")
+                        deployed_digest = meta["image"].to_s.split("@", 2).last
+                    end
+                    deployed_digest = nil if deployed_digest.is_a?(String) && deployed_digest.empty?
+                    # --digest override: when the operator deliberately pinned an
+                    # explicit digest for this single service (see
+                    # resolved_prod_image ~L1511), @promote_refs holds the
+                    # operator's chosen digest, which legitimately differs from
+                    # staging's running digest. Skip the race comparison — the
+                    # operator made the choice on purpose; comparing would emit a
+                    # spurious REFUSE for the exact case --digest exists to support.
+                    digest_override =
+                        options[:digest] && options[:service] && svc["name"] == options[:service]
                     # Compare against the digest P1 resolved+verified (recorded
                     # in @promote_refs), NOT svc["digest"] — staging images are
                     # tag-form, so svc["digest"] is nil and the race-check would
@@ -1482,7 +1975,7 @@ module Railway
                     # REFUSEd this service and we skip the race comparison.
                     promote_ref = (@promote_refs || {})[svc["name"]]
                     promote_digest = promote_ref && promote_ref.include?("@sha256:") ? promote_ref.split("@", 2).last : nil
-                    if promote_digest && deployed_digest && deployed_digest != promote_digest
+                    if !digest_override && promote_digest && deployed_digest && deployed_digest != promote_digest
                         findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
                                     "#{deployed_digest} but P1 resolved #{promote_digest}. Re-snapshot and retry."
                     end
@@ -1512,8 +2005,23 @@ module Railway
                 puts "P3 SKIPPED (--no-require-staging-green set; staging is NOT being live-re-probed)."
                 return []
             end
-            services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            all_services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            return [] if all_services.empty?
+
+            # Drop services the SSOT marks probe.staging=false. These are
+            # promotable but have no staging surface to live-probe (e.g.
+            # harness-workers); handing them to verify-deploy.ts would crash
+            # it ("not probe-eligible for env staging"), which previously
+            # REFUSEd the promote and gated every later tier. Skip them as N/A
+            # — eligibility for the services that DO carry a probe is
+            # unchanged, so P3 still gates real services.
+            ineligible = all_services & STAGING_PROBE_INELIGIBLE
+            ineligible.each do |name|
+                puts "P3 N/A (#{name}): not staging-probe-eligible (probe.staging=false in SSOT) — skipped."
+            end
+            services = all_services - ineligible
             return [] if services.empty?
+
             result = run_staging_probe(services: services)
             return [] if result[:ok]
             ["REFUSE: P3: staging is not green for #{services.join(', ')}: #{result[:summary]}"]
@@ -1550,7 +2058,8 @@ module Railway
                 output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
                     "--env", "staging",
                     "--services", services_arg,
-                    err: [:child, :out]]) { |io| io.read }
+                    err: [:child, :out]],
+                    chdir: File.expand_path("../scripts", __dir__)) { |io| io.read }
             rescue Errno::ENOENT, StandardError => e
                 return { ok: false, summary: "staging probe failed to launch: #{e.class}: #{e.message}" }
             end
@@ -1559,10 +2068,11 @@ module Railway
         end
 
         # P6 — parity matrix.
-        #   REFUSE: startCommand, healthcheckPath, image shape.
-        #   WARN:   region, replicas, restartPolicy, env-var KEY set.
-        #   IGNORE: env-var VALUES (printed as NOTE every run; see
-        #           run_with_preflight_only).
+        #   REFUSE:   startCommand, healthcheckPath, image shape.
+        #   ADVISORY: region, replicas, restartPolicy (report-only, never block).
+        #   IGNORE:   env-var KEY set (dropped — env-specific by default) and
+        #             env-var VALUES (printed as NOTE every run; see
+        #             run_with_preflight_only).
         def check_p6_parity(staging, prod)
             findings = []
             (staging["services"] || []).each do |svc|
@@ -1593,33 +2103,30 @@ module Railway
                                 "prod=#{prod_shape} expected=#{expected_prod_shape})"
                 end
 
-                # WARN — region
+                # ADVISORY — region (operational placement; intentional per-env)
                 if svc["region"] != pmatch["region"]
-                    findings << "WARN: P6 (#{name}): region divergence " \
+                    findings << "ADVISORY: P6 (#{name}): region divergence " \
                                 "(staging=#{svc['region'].inspect} prod=#{pmatch['region'].inspect})"
                 end
 
-                # WARN — replicas
+                # ADVISORY — replicas (capacity scaling; intentional per-env)
                 if svc["replicas"] != pmatch["replicas"]
-                    findings << "WARN: P6 (#{name}): replicas divergence " \
+                    findings << "ADVISORY: P6 (#{name}): replicas divergence " \
                                 "(staging=#{svc['replicas']} prod=#{pmatch['replicas']})"
                 end
 
-                # WARN — restartPolicy
+                # ADVISORY — restartPolicy (operational policy; not artifact behavior)
                 if svc["restart_policy"] != pmatch["restart_policy"]
-                    findings << "WARN: P6 (#{name}): restartPolicy divergence " \
+                    findings << "ADVISORY: P6 (#{name}): restartPolicy divergence " \
                                 "(staging=#{svc['restart_policy'].inspect} prod=#{pmatch['restart_policy'].inspect})"
                 end
 
-                # WARN — env var KEY set
-                staging_keys = (svc["env_keys"] || []).sort
-                prod_keys    = (pmatch["env_keys"] || []).sort
-                if staging_keys != prod_keys
-                    only_staging = staging_keys - prod_keys
-                    only_prod    = prod_keys - staging_keys
-                    findings << "WARN: P6 (#{name}): env key set divergence " \
-                                "(only-in-staging=#{only_staging.inspect} only-in-prod=#{only_prod.inspect})"
-                end
+                # env-var KEY-SET diff intentionally DROPPED (IGNORE tier).
+                # Env vars are environment-specific by default (NODE_ENV,
+                # CVDIAG_*, SHOWCASE_BACKEND_HOST_PATTERN, BROWSER_POOL_*); the
+                # blanket set diff was a false-positive engine. The whitelist
+                # presence assertion (check_critical_env_key_parity) is the sole
+                # env-key gate.
             end
             findings
         end
@@ -1644,11 +2151,15 @@ module Railway
             #   - target in staging but not prod (the silent-rc=0 footgun:
             #     narrowed prod would skip the absent target with no mutation);
             #   - target in prod but not staging (the mirror case).
-            # Unrelated services that exist in only one env (harness-workers,
-            # starter-* demos staging-only; a deprecated prod-only service) are
-            # legitimately single-env and are not this promote's concern, so we
-            # scope BOTH arms to the target. Full-fleet promotes (target nil)
-            # retain full-strictness parity on both arms — there, any env-shape
+            # Unrelated services that exist in only one env (e.g. the
+            # staging-only harness-workers pool worker, or a deprecated
+            # prod-only service) are legitimately single-env and are not this
+            # promote's concern, so we scope BOTH arms to the target.
+            # (NOTE: the 12 starter-<slug> demos are NO LONGER staging-only —
+            # S2 brought them under the SSOT in BOTH envs, so they are normal
+            # dual-env services that satisfy parity on their own; they are not
+            # an exemption case here.) Full-fleet promotes (target nil) retain
+            # full-strictness parity on both arms — there, any env-shape
             # asymmetry across the whole fleet is a genuine REFUSE.
             if target
                 staging_only = staging_only & [target]
@@ -1664,8 +2175,245 @@ module Railway
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
+                # Staging-gated: flag a CRITICAL_ENV_KEYS member that staging
+                # carries but prod is missing (a real, fixable divergence).
+                # Infra/operator tokens (RAILWAY_TOKEN, GHCR_TOKEN, SHARED_SECRET,
+                # OPS_TRIGGER_TOKEN, GITHUB_APP_PRIVATE_KEY) live in neither env's
+                # container env_keys and must NOT be demanded of every service.
                 missing = (CRITICAL_ENV_KEYS & (svc["env_keys"] || [])) - (pmatch["env_keys"] || [])
                 findings << "REFUSE: #{svc['name']}: critical env keys missing in prod: #{missing.join(', ')}" unless missing.empty?
+            end
+            findings
+        end
+
+        # ── U5 (spec §5): env + service-ref + resource preflight (Stage 2) ──
+        #
+        # Concurrency env-var keys that are a RESOURCE/scaling knob rather than a
+        # functional contract — divergence is DETECT-and-WARN, never REFUSE
+        # (§5.4). Sourced as a literal set; add knobs here as they appear.
+        CONCURRENCY_ENV_KEYS = %w[BROWSER_POOL_SIZE].freeze
+
+        # Per-service SSOT entry (the generated.json closure record) by name.
+        def ssot_service(name)
+            (Railway::SSOT_DATA["services"] || []).find { |s| s["name"] == name }
+        end
+
+        # Region key the multiRegionConfig replica override is keyed on. The
+        # only service with a replica override (harness-workers) is single-region
+        # us-west2 — Railway derives its live replica count from
+        # `multiRegionConfig.us-west2.numReplicas`. See showcase/scripts/
+        # railway-envs.ts (WorkerProvisioning) and RAILWAY.md "Effective replica
+        # count". A fixed constant here (rather than an SSOT-emitted field)
+        # because the region is a stable platform invariant for this service.
+        REPLICA_REGION = "us-west2"
+
+        # SSOT-declared replica override for (service, env) as a
+        # { region => numReplicas } map, or nil when the service tracks NONE.
+        # Only `harness-workers` carries `workerProvisioning.<env>` today; every
+        # other service returns nil so pin_and_verify OMITS multiRegionConfig and
+        # leaves their live (single-replica) config untouched. The authoritative
+        # count is `effectiveReplicas` (= multiRegionConfig.<region>.numReplicas,
+        # the value Railway honors), NOT the top-level `numReplicas` mirror.
+        def ssot_replica_config(name, env)
+            replicas = (ssot_service(name) || {})
+                .dig("workerProvisioning", env, "effectiveReplicas")
+            return nil if replicas.nil?
+            { REPLICA_REGION => replicas }
+        end
+
+        # Union of per-service `replicateKeys` declared in the SSOT for the
+        # services being promoted (§5.3.1). EMPTY for every service today — the
+        # replicate-class env-write mechanism is opt-in and copies nothing until
+        # a key is explicitly declared.
+        def ssot_replicate_keys(staging)
+            (staging["services"] || []).flat_map do |svc|
+                (ssot_service(svc["name"]) || {})["replicateKeys"] || []
+            end.uniq
+        end
+
+        # Union of per-service `prodSpecificKeys` declared in the SSOT for the
+        # services being promoted (§5.3.2). These are ASSERTED present in prod,
+        # NEVER copied. EMPTY for every service today.
+        def ssot_prod_specific_keys(staging)
+            (staging["services"] || []).flat_map do |svc|
+                (ssot_service(svc["name"]) || {})["prodSpecificKeys"] || []
+            end.uniq
+        end
+
+        # The env-LOCAL host a serviceRef must point at for `env`.
+        #
+        # PREFERS the PRIVATE Railway networking host (`internalDomains[env]`,
+        # e.g. `showcase-aimock.railway.internal`) when the SSOT declares one:
+        # public `*.up.railway.app` traffic is billed egress even intra-project,
+        # while `*.railway.internal` is free and env-scoped, so demo backends
+        # must resolve their aimock serviceRefs at the private host. Falls back
+        # to the public `domains[env]` host for any target that declares no
+        # internal domain (every non-aimock target today). `env` is "prod" or
+        # "staging". The comparison in `check_service_refs` is HOST-substring,
+        # so returning the bare host (no scheme/port) matches both the bare
+        # origin and the `/v1`-suffixed `http://<host>:4010/v1` forms.
+        def ssot_target_host(target_name, env)
+            entry = ssot_service(target_name)
+            return nil unless entry
+            entry.dig("internalDomains", env) || entry.dig("domains", env)
+        end
+
+        # Read a single (service,env) variable VALUE transiently (never
+        # persisted). Returns nil for an absent or sealed (unreadable) variable
+        # — callers MUST treat nil as "not present", never as a value to copy.
+        def read_service_var(service_id, env_id, name)
+            data = gql.query(SERVICE_VARIABLES_QUERY,
+                projectId: PROJECT_ID, serviceId: service_id, envId: env_id)
+            vars = data && data["variables"]
+            return nil unless vars.is_a?(Hash)
+            v = vars[name]
+            (v.nil? || v.to_s.empty?) ? nil : v
+        end
+
+        # §5.2 service-ref assertion (REFUSE). For each promote target carrying
+        # `serviceRefs` in the SSOT, assert its PROD env var (e.g.
+        # OPENAI_BASE_URL / ANTHROPIC_BASE_URL) points at the env-LOCAL target
+        # host (prod->prod aimock). A prod ref resolving to the STAGING target
+        # host (or a foreign host) is the `ms-agent-dotnet` cross-env leak class
+        # => REFUSE. This is an ASSERTION; it NEVER writes/copies.
+        def check_service_refs(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                refs = (ssot_service(name) || {})["serviceRefs"] || []
+                refs.each do |ref|
+                    key    = ref["key"]
+                    target = ref["target"]
+                    next if key.nil? || target.nil?
+                    prod_host = ssot_target_host(target, "prod")
+                    if prod_host.nil?
+                        findings << "REFUSE: §5.2 (#{name}): serviceRef #{key} -> #{target} has no prod host in SSOT"
+                        next
+                    end
+                    actual = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if actual.nil?
+                        findings << "REFUSE: §5.2 (#{name}): prod #{key} is unset/unreadable " \
+                                    "(expected to point at #{target}'s prod host #{prod_host})"
+                        next
+                    end
+                    # Compare on HOST only — the env var may be a full URL.
+                    unless actual.to_s.include?(prod_host)
+                        findings << "REFUSE: §5.2 (#{name}): prod #{key}=#{actual.inspect} does NOT point at " \
+                                    "#{target}'s env-LOCAL prod host #{prod_host.inspect} " \
+                                    "(cross-env service-ref leak — the ms-agent-dotnet class)"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.3.1 replicate-class env-write (NEW capability). For declared
+        # replicate keys ONLY, copy staging's VALUE -> prod via the
+        # variable*Upsert family (NOT serviceInstanceUpdate(source.image)),
+        # verified by re-read. The default replicate set is EMPTY — the
+        # mechanism is opt-in per key and fires for nothing today (R-A:
+        # replicating a misclassified prod-specific key would clobber prod).
+        def replicate_env_keys(staging, prod, replicate_keys: [])
+            findings = []
+            keys = (replicate_keys || []).uniq
+            return findings if keys.empty?
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                keys.each do |key|
+                    staging_val = read_service_var(svc["service_id"], STAGING_ENV_ID, key)
+                    if staging_val.nil?
+                        findings << "WARN: §5.3.1 (#{name}): replicate key #{key} is unset/unreadable in staging; skipping"
+                        next
+                    end
+                    prod_val = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if prod_val == staging_val
+                        findings << "replicate §5.3.1 (#{name}): #{key} already in sync"
+                        next
+                    end
+                    if options[:dry_run]
+                        findings << "replicate §5.3.1 (#{name}): [dry-run] would upsert #{key} (staging->prod)"
+                        next
+                    end
+                    gql.query(VARIABLE_UPSERT_MUTATION,
+                        serviceId: pmatch["service_id"], envId: PRODUCTION_ENV_ID,
+                        name: key, value: staging_val)
+                    # Verify-by-re-read: the upsert must be observable on prod.
+                    reread = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if reread == staging_val
+                        findings << "replicate §5.3.1 (#{name}): upserted #{key} (staging->prod), re-read OK"
+                    else
+                        findings << "REFUSE: §5.3.1 (#{name}): re-read after upsert of #{key} " \
+                                    "did not observe staging value (got #{reread.inspect})"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.3.2/§5.3.3 assert prod-specific keys present + prod-shaped (NEVER
+        # copy) and assert secret KEY presence (never value). A prod-specific
+        # key (e.g. a domain like NEXT_PUBLIC_POCKETBASE_URL) MUST be ASSERTED,
+        # never written — copying staging's value would point prod at staging's
+        # datastore (R-A, the highest-blast capability in this PR). This method
+        # issues NO mutations by construction.
+        def assert_prod_specific_keys(staging, prod, prod_specific_keys: [])
+            findings = []
+            keys = (prod_specific_keys || []).uniq
+            return findings if keys.empty?
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                keys.each do |key|
+                    prod_val = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if prod_val.nil?
+                        findings << "REFUSE: §5.3.2 (#{name}): prod-specific key #{key} is missing in prod " \
+                                    "(assert-only; NEVER copied from staging)"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.4 concurrency DETECT-and-WARN. Declared concurrency env vars (e.g.
+        # BROWSER_POOL_SIZE) join the existing WARN-class divergence set
+        # (region/replicas/restartPolicy already WARN in check_p6_parity).
+        # DETECT ONLY — never auto-set.
+        #
+        # NOTE: a limitOverride (CPU/memory cap) WARN was specified here but is
+        # NOT implementable: Railway's GraphQL schema exposes NO readable limit
+        # field on ServiceInstance (verified by introspection 2026-06 — the only
+        # related types are the write-only `serviceInstanceLimitsUpdate` mutation
+        # taking ServiceInstanceLimitsUpdateInput{memoryGB,vCPUs}; the
+        # ServiceInstanceLimit type is an opaque scalar with no readable fields).
+        # Because build_snapshot cannot capture the cap, a divergence comparison
+        # would always be nil==nil and the WARN could never fire — it was dead
+        # code masked by a hand-injected test fixture. Dropped rather than
+        # shipped dead. Re-add only if Railway adds a readable limit field to
+        # ServiceInstance (then wire it into SERVICE_INSTANCE_QUERY + the
+        # snapshot hash, and re-add a WARN here).
+        def check_resource_divergence(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+
+                # ADVISORY — concurrency env-var key presence (e.g. BROWSER_POOL_SIZE).
+                # Resource/scaling knob, not a functional contract; report-only.
+                staging_keys = svc["env_keys"] || []
+                prod_keys    = pmatch["env_keys"] || []
+                CONCURRENCY_ENV_KEYS.each do |ck|
+                    if staging_keys.include?(ck) != prod_keys.include?(ck)
+                        findings << "ADVISORY: §5.4 (#{name}): concurrency env key #{ck} presence diverges " \
+                                    "(staging=#{staging_keys.include?(ck)} prod=#{prod_keys.include?(ck)}) " \
+                                    "[detect-only]"
+                    end
+                end
             end
             findings
         end
@@ -1675,7 +2423,9 @@ module Railway
             actual = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
             missing = expected - actual
             return [] if missing.empty?
-            ["WARN: production missing expected custom domains: #{missing.join(', ')}"]
+            # ADVISORY: a missing public host is a useful operational signal but
+            # does not affect whether the promoted digest runs correctly.
+            ["ADVISORY: production missing expected custom domains: #{missing.join(', ')}"]
         end
 
         def execute_promotion(staging, prod)
@@ -1716,10 +2466,27 @@ module Railway
                     next
                 end
                 begin
+                    # Re-assert the SSOT-tracked prod healthcheckPath on every
+                    # promote (the durable fix: a prod instance whose path
+                    # silently went null self-heals). Read it from the generated
+                    # SSOT record; nil when the service tracks none (live-null) —
+                    # pin_and_verify then OMITS the field rather than clearing it.
+                    ssot_healthcheck = (ssot_service(svc["name"]) || {})
+                        .dig("healthcheckPath", "prod")
+                    # Re-assert the SSOT-tracked prod replica count on every
+                    # promote (the durable fix for the harness-workers -> 1
+                    # de-scale: a promote that updates only source.image lets
+                    # Railway fall back to its default single region at 1
+                    # replica). nil for every service WITHOUT a replica override —
+                    # pin_and_verify then OMITS multiRegionConfig rather than
+                    # touching it.
+                    ssot_replicas = ssot_replica_config(svc["name"], "prod")
                     PromoteCommand.pin_and_verify(gql,
                         service_id: pmatch["service_id"],
                         env_id: PRODUCTION_ENV_ID,
-                        image: image)
+                        image: image,
+                        healthcheck_path: ssot_healthcheck,
+                        replica_config: ssot_replicas)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
                 # Broadened rescue: a transient GraphQL or network error
@@ -1729,7 +2496,7 @@ module Railway
                     warn "PARTIAL PROMOTION: already pinned #{already_pinned.inspect}; " \
                          "FAILED on #{svc['name']}: #{e.class}: #{e.message}. " \
                          "Production is in a mixed state — note that serviceInstanceUpdate " \
-                         "runs BEFORE serviceInstanceRedeploy, so #{svc['name']}'s prod " \
+                         "runs BEFORE serviceInstanceDeployV2, so #{svc['name']}'s prod " \
                          "source.image may already be partially advanced on Railway's side. " \
                          "Run 'bin/railway rollback-commit' against the prior snapshot to revert, " \
                          "or re-run promote to retry."
@@ -1983,6 +2750,213 @@ module Railway
         end
     end
 
+    # reconcile-prod — detect prod columns that have drifted STALE vs a green
+    # staging (Lever 1 of the promote-reliability hardening plan).
+    #
+    # The showcase deploy model: staging tracks a mutable `:latest` tag and is
+    # continuously rebuilt; prod is pinned to an immutable `@sha256:` digest and
+    # only advances on an explicit promote. So prod can silently fall BEHIND a
+    # green staging — a dead/stale prod column that today is only noticed by
+    # eyeballing it. This gate compares, per prod-eligible service, the prod
+    # SERVING digest against the staging RUNNING digest and reds the run when
+    # any service is stale, so drift is alerted automatically.
+    #
+    # For each prod-eligible (`probe.prod == true`, the same set
+    # resolve-promote-targets.sh promotes) service:
+    #   prod serving digest    = the `@sha256:` prod is pinned to (LintProd
+    #                            path — SnapshotCommand.build_snapshot(prod)).
+    #   staging running digest  = staging's latest SUCCESS deployment
+    #                            meta.imageDigest (reuses
+    #                            PromoteCommand#staging_running_digest).
+    #
+    # Classification:
+    #   green  — prod == staging (in sync).
+    #   stale  — prod != staging AND staging running digest IS resolvable
+    #            (prod has drifted behind a green staging — what we alert on).
+    #   gray   — staging running digest not resolvable (no SUCCESS deploy / no
+    #            imageDigest), OR the service has no prod snapshot entry yet.
+    #            Informational, NOT stale — we cannot prove drift.
+    #
+    # Exit codes: 0 = no stale, 1 = at least one stale, 2 = hard error.
+    # Read-only — performs NO promotes / mutations.
+    class ReconcileProdCommand < BaseCommand
+        STATUS_GREEN = "green"
+        STATUS_STALE = "stale"
+        STATUS_GRAY  = "gray"
+
+        def initialize(argv)
+            super
+            @json = false
+        end
+
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway reconcile-prod [--json]
+
+                      Detect production services whose serving digest has drifted
+                      STALE vs a green staging. For every prod-eligible service
+                      (probe.prod == true) compares the prod SERVING digest
+                      (immutable @sha256:) against the staging RUNNING digest
+                      (staging's latest SUCCESS deployment). Classifies each:
+
+                        green   prod digest == staging running digest (in sync)
+                        stale   prod != staging AND staging IS resolvable
+                                (prod drifted behind a green staging)
+                        gray    staging running digest not resolvable, or the
+                                service has no prod snapshot entry yet
+                                (informational — NOT stale)
+
+                      Exits 1 iff any service is STALE. Read-only: NO promotes.
+
+                      --json   Emit machine-readable JSON instead of a table:
+                                 {services:[{name,prod,staging,status}],
+                                  green:N, stale:N, gray:N, timestamp:"ISO8601"}
+                BANNER
+                o.on("--json", "Emit machine-readable JSON") { @json = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            rows = classify_all
+
+            if @json
+                stale = rows.count { |r| r["status"] == STATUS_STALE }
+                green = rows.count { |r| r["status"] == STATUS_GREEN }
+                gray  = rows.count { |r| r["status"] == STATUS_GRAY }
+                puts JSON.generate(
+                    "services"  => rows,
+                    "green"     => green,
+                    "stale"     => stale,
+                    "gray"      => gray,
+                    "timestamp" => Time.now.utc.iso8601,
+                )
+                return run_classification(rows)
+            end
+
+            print_table(rows)
+            run_classification(rows)
+        end
+
+        # Classify every prod-eligible service. Returns an array of
+        # { "name", "service_id", "prod", "staging", "status" } hashes, sorted
+        # by name. `prod`/`staging` are the `sha256:...` digests (or nil).
+        def classify_all
+            prod_by_sid = prod_digests_by_service_id
+            eligible_services.map do |elig|
+                sid  = elig["service_id"]
+                name = elig["name"]
+                prod_digest = prod_by_sid[sid]
+                staging_digest = staging_running_digest_for(elig)
+                {
+                    "name"       => name,
+                    "service_id" => sid,
+                    "prod"       => prod_digest,
+                    "staging"    => staging_digest,
+                    "status"     => classify(prod_digest, staging_digest),
+                }
+            end.sort_by { |r| r["name"].to_s }
+        end
+
+        # green  — prod present AND staging present AND equal.
+        # stale  — prod present AND staging present AND different.
+        # gray   — staging unresolvable, OR prod absent (can't prove drift).
+        def classify(prod_digest, staging_digest)
+            return STATUS_GRAY if staging_digest.nil? || staging_digest.empty?
+            return STATUS_GRAY if prod_digest.nil? || prod_digest.empty?
+            prod_digest == staging_digest ? STATUS_GREEN : STATUS_STALE
+        end
+
+        # Exit-code contract: 1 iff any service is stale, else 0.
+        def run_classification(rows)
+            rows.any? { |r| r["status"] == STATUS_STALE } ? 1 : 0
+        end
+
+        private
+
+        # prod serving digest per service_id, from the prod snapshot (the same
+        # LintProd path). Prefer the parsed `digest` field; fall back to parsing
+        # `@sha256:` out of the image ref (prod is always digest-pinned).
+        def prod_digests_by_service_id
+            snap = build_prod_snapshot
+            (snap["services"] || []).each_with_object({}) do |svc, acc|
+                sid = svc["service_id"]
+                next if sid.nil?
+                digest = svc["digest"]
+                if (digest.nil? || digest.empty?)
+                    image = svc["image"].to_s
+                    digest = image.split("@", 2).last if image.include?("@sha256:")
+                end
+                acc[sid] = digest unless digest.nil? || digest.empty?
+            end
+        end
+
+        # The prod snapshot — same source LintProdCommand reads. Isolated into a
+        # method so tests can inject a fixture.
+        def build_prod_snapshot
+            SnapshotCommand.new(["--env", "production", "--dry-run"])
+                .build_snapshot(PRODUCTION_ENV_ID)
+        end
+
+        # The prod-eligible service set: every SSOT service with
+        # `probe.prod == true` (the set resolve-promote-targets.sh promotes).
+        # Each element is { "name" =>, "service_id" => } — service_id is the
+        # SSOT `serviceId`, which equals the snapshot `service_id` (same project
+        # service node across envs), so it correlates prod ⇆ staging.
+        def eligible_services
+            SSOT_DATA.fetch("services")
+                .select { |s| s.dig("probe", "prod") == true }
+                .map { |s| { "name" => s.fetch("name"), "service_id" => s["serviceId"] } }
+        end
+
+        # The staging RUNNING digest for a prod-eligible service. Reuses
+        # PromoteCommand#staging_running_digest (latest SUCCESS staging
+        # deployment meta.imageDigest) — the same source the promote pin uses —
+        # so the comparator and the promote agree on "what staging is serving".
+        # Shares this command's GraphQL client so we don't double-auth.
+        def staging_running_digest_for(svc)
+            promote_helper.send(:staging_running_digest, svc)
+        end
+
+        # A PromoteCommand instance used purely as a library for its
+        # staging-digest resolution. Shares our gql client. NEVER runs a
+        # promote — we only call its read-only digest resolver.
+        def promote_helper
+            @promote_helper ||= begin
+                p = PromoteCommand.new(["--non-interactive"])
+                p.instance_variable_set(:@gql, gql)
+                p
+            end
+        end
+
+        def short(d)
+            return "(none)" if d.nil? || d.to_s.empty?
+            d.to_s.sub(/^sha256:/, "")[0, 12]
+        end
+
+        def print_table(rows)
+            name_w = ([4] + rows.map { |r| r["name"].to_s.length }).max
+            puts format("%-#{name_w}s  %-6s  %-12s  %-12s", "NAME", "STATUS", "PROD", "STAGING")
+            rows.each do |r|
+                puts format("%-#{name_w}s  %-6s  %-12s  %-12s",
+                    r["name"], r["status"], short(r["prod"]), short(r["staging"]))
+            end
+            stale = rows.count { |r| r["status"] == STATUS_STALE }
+            green = rows.count { |r| r["status"] == STATUS_GREEN }
+            gray  = rows.count { |r| r["status"] == STATUS_GRAY }
+            puts ""
+            puts "Summary: #{green} green, #{stale} stale, #{gray} gray (#{rows.size} prod-eligible)."
+            if stale.positive?
+                names = rows.select { |r| r["status"] == STATUS_STALE }.map { |r| r["name"] }
+                puts "STALE: prod has drifted behind green staging for: #{names.join(', ')}."
+            else
+                puts "OK: no production service is stale vs staging."
+            end
+        end
+    end
+
     # ── Dispatcher ─────────────────────────────────────────────────────────────
 
     SUBCOMMANDS = {
@@ -1995,6 +2969,7 @@ module Railway
         "env-diff"         => EnvDiffCommand,
         "resolve-digest"   => ResolveDigestCommand,
         "lint-prod"        => LintProdCommand,
+        "reconcile-prod"   => ReconcileProdCommand,
     }.freeze
 
     def self.usage
@@ -2011,6 +2986,7 @@ module Railway
               env-diff          Diff two envs; exit 1 if drift.
               resolve-digest    Resolve an image tag to its GHCR digest.
               lint-prod         CI gate: fail if any prod service is not digest-pinned.
+              reconcile-prod    Drift gate: fail if any prod service is stale vs staging.
 
             Run any subcommand with --help for full flag list.
 

@@ -69,15 +69,85 @@ GET_WEATHER_TOOL = {
 }
 
 
+GET_STOCK_PRICE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_stock_price",
+        "description": (
+            "Get a mock current price for a stock ticker.  Always call "
+            "this tool when the user asks about a stock price or quote. "
+            "Pass the ticker symbol verbatim (e.g. 'AAPL')."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ticker": {
+                    "type": "string",
+                    "description": "The stock ticker symbol (e.g. 'AAPL').",
+                },
+                "price_usd": {
+                    "type": "number",
+                    "description": (
+                        "Optional deterministic price to echo back. When "
+                        "omitted, a mock price is returned."
+                    ),
+                },
+                "change_pct": {
+                    "type": "number",
+                    "description": (
+                        "Optional deterministic percent-change to echo back. "
+                        "When omitted, a mock change is returned."
+                    ),
+                },
+            },
+            "required": ["ticker"],
+        },
+    },
+}
+
+
+def get_stock_price_impl(
+    ticker: str,
+    price_usd: float | None = None,
+    change_pct: float | None = None,
+) -> dict:
+    """Return mock stock quote for the given ticker.
+
+    Mirrors the LangGraph-Python `get_stock_price` tool shape so the
+    aimock fixtures and `d5-tool-rendering-custom-catchall` probe see
+    identical tool-result payloads across integrations. When
+    `price_usd`/`change_pct` are supplied (e.g. by the aimock fixture
+    "Quote AAPL through the wildcard renderer"), they're echoed back
+    verbatim for deterministic assertions.
+    """
+    import random as _random
+
+    rng = _random.Random(ticker.lower())
+    return {
+        "ticker": ticker.upper(),
+        "price_usd": (
+            round(float(price_usd), 2)
+            if price_usd is not None
+            else round(100 + rng.randint(0, 400) + rng.randint(0, 99) / 100, 2)
+        ),
+        "change_pct": (
+            round(float(change_pct), 2)
+            if change_pct is not None
+            else round(rng.choice([-1, 1]) * (rng.randint(0, 300) / 100), 2)
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Flow
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = (
-    "You are a helpful, concise weather assistant.  When the user asks "
-    "about weather for a location, call the `get_weather` tool with the "
-    "location.  After receiving the tool result, summarise the weather "
-    "in a short sentence."
+    "You are a helpful, concise assistant.  When the user asks about "
+    "weather for a location, call the `get_weather` tool.  When the "
+    "user asks about a stock price or quote, call the `get_stock_price` "
+    "tool with the ticker symbol.  After receiving any tool result, "
+    "summarise it in a short sentence."
 )
 
 # Maximum LLM round-trips per user turn (prevents infinite loops).
@@ -95,10 +165,11 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
             "id": str(uuid.uuid4()) + "-system",
         }
 
-        # Frontend-registered actions + our backend get_weather tool.
+        # Frontend-registered actions + our backend get_weather / get_stock_price tools.
         tools = [
             *self.state.copilotkit.actions,
             GET_WEATHER_TOOL,
+            GET_STOCK_PRICE_TOOL,
         ]
 
         for _iteration in range(_MAX_ITERATIONS):
@@ -139,6 +210,24 @@ class ToolRenderingFlow(Flow[ToolRenderingState]):
                         {
                             "role": "tool",
                             "content": result_str,
+                            "tool_call_id": tool_call_id,
+                        }
+                    )
+                elif tool_name == "get_stock_price":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    ticker = args.get("ticker", "UNKNOWN")
+                    price_usd = args.get("price_usd")
+                    change_pct = args.get("change_pct")
+                    stock_result = get_stock_price_impl(
+                        ticker, price_usd=price_usd, change_pct=change_pct
+                    )
+                    self.state.messages.append(
+                        {
+                            "role": "tool",
+                            "content": json.dumps(stock_result),
                             "tool_call_id": tool_call_id,
                         }
                     )

@@ -8,15 +8,7 @@ hideTOC: true
 <OpsPlatformCTA
   variant="card"
   title="Ship CrewAI Flows to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_crewai_flows_quickstart"
-/>
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship CrewAI Flows to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
   ctaLabel="Create a free account"
   surface="docs_crewai_flows_quickstart"
 />
@@ -31,7 +23,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 <Step>
     ### Create a free account
 
-    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
 </Step>
 
 <Step>
@@ -63,7 +55,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             </Accordions>
 
             ```bash
-            npx copilotkit@latest init -m CrewAI --crew-type Flows
+            npx copilotkit@latest init --framework flows
             ```
         </Step>
         <Step>

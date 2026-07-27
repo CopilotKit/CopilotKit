@@ -1,0 +1,127 @@
+name: test / unit / spring-ai
+
+# Unit tests for the spring-ai showcase integration.
+#
+# The Dockerfile uses `-DskipTests` and intentionally omits `src/test/`
+# (production image stays lean), so wire-shape contracts authored in
+# `src/test/java` would otherwise never execute in CI. This workflow gives
+# them a home: gated on the same `spring_ai` paths-filter as the rest of the
+# showcase pipeline, runs `mvn -pl spring-ai test` after building the AG-UI
+# community artifacts from source (same install dance the Dockerfile does).
+#
+# The critical contract under test is
+# RunErrorEventWireShapeTest — a @SpringBootTest that asserts the application
+# ObjectMapper actually applies JacksonConfig's customizer (catches the
+# AG-UI AgUiAutoConfiguration bare-ObjectMapper bean-race that previously
+# made the wire-shape rename inert in production).
+
+on:
+  pull_request:
+    paths:
+      - "showcase/integrations/spring-ai/**"
+      - ".github/workflows/test_unit-spring-ai.yml"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/integrations/spring-ai/**"
+      - ".github/workflows/test_unit-spring-ai.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spring-ai-unit:
+    name: "spring-ai unit"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 21 (matches Dockerfile)
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          # NOTE: do NOT use `cache: maven` here — setup-java's implicit cache
+          # keys on hashFiles('**/pom.xml') only, which is BLIND to AG_UI_SHA
+          # bumps. The explicit actions/cache step below keys on AG_UI_SHA so
+          # the cache invalidates whenever the pinned SHA changes.
+
+      - name: Load AG_UI_SHA from .ag-ui-sha
+        # Single source of truth for the AG-UI commit shared with the
+        # Dockerfile (`showcase/integrations/spring-ai/.ag-ui-sha`). Keeps CI
+        # and the production image building against the same snapshot.
+        run: |
+          set -euo pipefail
+          AG_UI_SHA="$(tr -d '[:space:]' < showcase/integrations/spring-ai/.ag-ui-sha)"
+          if [ -z "${AG_UI_SHA}" ]; then
+            echo "::error::.ag-ui-sha is empty"; exit 1
+          fi
+          echo "AG_UI_SHA=${AG_UI_SHA}" >> "${GITHUB_ENV}"
+
+      - name: Cache Maven repository (keyed on AG_UI_SHA)
+        # Explicit cache keyed on AG_UI_SHA so SHA bumps invalidate the cache
+        # — otherwise CI would silently reuse stale AG-UI community artifacts
+        # installed under a prior SHA (R3-A1).
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-agui-${{ env.AG_UI_SHA }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-agui-${{ env.AG_UI_SHA }}-
+            ${{ runner.os }}-maven-
+
+      - name: Install AG-UI Java SDK from source
+        # The spring-ai showcase depends on AG-UI community Maven artifacts
+        # (com.ag-ui.community:spring-ai / java-server / spring) that aren't
+        # on Maven Central yet. The Dockerfile installs them by cloning the
+        # upstream repo and running `mvn install`; do the same here so the
+        # showcase's own `mvn test` can resolve them from the local repo.
+        env:
+          GIT_LFS_SKIP_SMUDGE: "1"
+        run: |
+          set -euo pipefail
+          # Belt-and-suspenders: evict any stale AG-UI artifacts that a
+          # restore-keys cache hit might have repopulated. The cache key
+          # above pins to AG_UI_SHA, but a `restore-keys` fallback can
+          # still surface older AG-UI jars on a fresh SHA. Force a clean
+          # install from this SHA.
+          rm -rf \
+            ~/.m2/repository/com/ag-ui \
+            ~/.m2/repository/io/github/ag-ui-protocol
+          rm -rf /tmp/ag-ui
+          # `git clone` only fetches the default branch by default — if
+          # AG_UI_SHA points at a commit on a PR branch or older history
+          # not reachable from HEAD, the subsequent `checkout` fails with
+          # a cryptic "reference is not a tree". Explicitly fetch the SHA
+          # first so checkout is always against a known-local commit
+          # (R7-A2). `--depth 1` keeps the cache lean.
+          git clone --no-checkout https://github.com/ag-ui-protocol/ag-ui.git /tmp/ag-ui
+          git -C /tmp/ag-ui fetch --depth 1 origin "${AG_UI_SHA}"
+          git -C /tmp/ag-ui checkout "${AG_UI_SHA}"
+          cd /tmp/ag-ui/sdks/community/java
+          mvn install \
+            -pl servers/spring,integrations/spring-ai -am \
+            -DskipTests -Dgpg.skip=true \
+            -Dmaven.javadoc.skip=true -Djavadoc.skip=true \
+            -Dmaven.source.skip=true -Dcheckstyle.skip=true \
+            -Dmaven.site.skip=true -Dreporting.skip=true \
+            -Dassembly.skipAssembly=true \
+            -B
+
+      - name: Run unit tests
+        working-directory: showcase/integrations/spring-ai
+        # Belt-and-suspenders: @TestPropertySource in the suite supplies a
+        # placeholder key, but some Spring auto-configuration paths read the
+        # env var directly on context init. A literal non-secret string keeps
+        # CI deterministic without leaking real credentials.
+        env:
+          OPENAI_API_KEY: test-key-not-used
+        run: mvn -B test

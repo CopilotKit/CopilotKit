@@ -14,6 +14,15 @@ implementation and causes recursive ThreadPoolExecutor wrapping.
 import os
 import sys
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT strands), so it is safe to run before the OTel ThreadingInstrumentor
+# patch below — it does not pull ``strands`` into ``sys.modules``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # HACK: strands-agents (observed on 1.35.0, requirements.txt floors at 1.15.0)
 # unconditionally calls ``ThreadingInstrumentor().instrument()`` when its
 # Tracer is constructed (strands/telemetry/tracer.py). In combination with
@@ -94,6 +103,7 @@ _assert_instrumentor_patched()
 # imports. Strands' ``OpenAIModel`` constructs its httpx client at
 # ``build_showcase_agent()`` time below (run at module-import scope), so
 # the patch must be in place before the agent imports resolve.
+from agents._cvdiag_backend import CvdiagBackendMiddleware  # noqa: E402
 from agents._header_forwarding import (  # noqa: E402
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
@@ -120,6 +130,9 @@ from agents.agent import build_showcase_agent  # noqa: E402  (must follow instru
 from agents.byoc_hashbrown import build_byoc_hashbrown_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.byoc_json_render import build_byoc_json_render_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.voice_agent import build_voice_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.a2ui_fixed import build_a2ui_fixed_schema_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.a2ui_dynamic import build_a2ui_dynamic_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.recovery_agent import build_a2ui_recovery_agent  # noqa: E402  (must follow instrumentor patch)
 
 load_dotenv()
 
@@ -145,6 +158,33 @@ byoc_hashbrown_app = create_strands_app(byoc_hashbrown_agui_agent, "/")
 byoc_json_render_agui_agent = build_byoc_json_render_agent()
 byoc_json_render_app = create_strands_app(byoc_json_render_agui_agent, "/")
 
+# A2UI fixed-schema agent: owns the `display_flight` backend tool which emits
+# an `a2ui_operations` envelope (createSurface/updateComponents/
+# updateDataModel) targeting the showcase frontend's fixed catalog
+# (`copilotkit://flight-fixed-catalog`). The runtime A2UIMiddleware paints the
+# envelope directly — no generate_a2ui injection. Mounted as a dedicated agent
+# so the demo no longer relies on the generic "/" agent's search_flights tool.
+a2ui_fixed_schema_agui_agent = build_a2ui_fixed_schema_agent()
+a2ui_fixed_schema_app = create_strands_app(a2ui_fixed_schema_agui_agent, "/")
+
+# A2UI dynamic-schema agent (declarative-gen-ui demo): a plain agent with no
+# generate_a2ui tool wired. When the runtime forwards `injectA2UITool: true`,
+# the adapter auto-injects `generate_a2ui` and drives a secondary render
+# planner to GENERATE the surface layout, stamped with the catalog id the page
+# registers (`declarative-gen-ui-catalog`). Mounted as a dedicated agent so the
+# demo no longer relies on the generic "/" agent.
+a2ui_dynamic_agui_agent = build_a2ui_dynamic_agent()
+a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
+
+# A2UI error-recovery agent: same auto-inject dynamic-schema setup, but the
+# aimock fixtures force the inner render_a2ui to emit free-form/sloppy args (heal
+# pill) or a structurally-invalid surface on every attempt (exhaust pill); the
+# Strands adapter runs the toolkit validate->retry recovery loop on the
+# auto-inject path. Mounted as a dedicated agent so the Next.js route can proxy
+# to AGENT_URL/a2ui-recovery/.
+a2ui_recovery_agui_agent = build_a2ui_recovery_agent()
+a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
+
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
@@ -160,6 +200,15 @@ app.mount("/voice", voice_app)
 # (trailing slash) so the sub-application's root route resolves.
 app.mount("/byoc-hashbrown", byoc_hashbrown_app)
 app.mount("/byoc-json-render", byoc_json_render_app)
+# A2UI fixed-schema: the Next.js route proxies to AGENT_URL/a2ui-fixed-schema/
+# (trailing slash) so the sub-application's root route resolves.
+app.mount("/a2ui-fixed-schema", a2ui_fixed_schema_app)
+# A2UI dynamic-schema: the Next.js route proxies to AGENT_URL/declarative-gen-ui/
+# (trailing slash) so the sub-application's root route resolves.
+app.mount("/declarative-gen-ui", a2ui_dynamic_app)
+# A2UI error-recovery: the Next.js route proxies to AGENT_URL/a2ui-recovery/
+# (trailing slash) so the sub-application's root route resolves.
+app.mount("/a2ui-recovery", a2ui_recovery_app)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.
@@ -180,6 +229,15 @@ app.add_middleware(HealthMiddleware)
 # made inside the request scope copies them onto its outbound request.
 # Paired with ``install_global_httpx_hook`` above.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 
 def main():

@@ -308,10 +308,12 @@ function inferFeatureType(fixture: Fixture): string {
 
   // Image/document analysis
   if (
-    userMsg.includes("describe the sample image") ||
-    userMsg.includes("summarize the sample document")
+    userMsg.includes(
+      "can you tell me what is in this demo image I just attached",
+    ) ||
+    userMsg.includes("can you tell me what is in this demo pdf I just attached")
   )
-    return "agentic-chat";
+    return "multimodal";
 
   return "unknown";
 }

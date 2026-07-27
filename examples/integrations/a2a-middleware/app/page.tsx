@@ -4,11 +4,10 @@ import { useState } from "react";
 import Chat from "@/components/chat";
 import {
   CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
+import styles from "./page.module.css";
 
 export type ResearchData = {
   topic: string;
@@ -63,7 +62,7 @@ function ResearchAssistant() {
 
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto z-10 lg:flex-row lg:overflow-hidden">
         <div className="flex min-h-[calc(100dvh-1rem)] w-full flex-shrink-0 flex-col overflow-hidden rounded-lg border-2 border-white bg-white/50 shadow-elevation-lg backdrop-blur-md lg:w-[450px]">
-          <div className="p-6 border-b border-[#DBDBE5]">
+          <div className="p-6 max-lg:pl-16 border-b border-[#DBDBE5]">
             <h1 className="text-2xl font-semibold text-[#010507] mb-1">
               Research Assistant
             </h1>
@@ -201,31 +200,30 @@ function ResearchAssistant() {
 }
 
 export default function Home() {
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
-
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       showDevConsole="auto"
       useSingleEndpoint={false}
     >
-      <div className={`${styles.layout} threadsLayout`}>
-        <ThreadsPanelGate>
-          <ThreadsDrawer
-            agentId="a2a_chat"
-            threadId={threadId}
-            onThreadChange={setThreadId}
-          />
-        </ThreadsPanelGate>
-        <div className={styles.mainPanel}>
-          <CopilotChatConfigurationProvider
-            agentId="a2a_chat"
-            threadId={threadId}
-          >
+      {/*
+        One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop)
+        owns the active thread for the whole surface. The SDK <CopilotThreadsDrawer>
+        drives it directly — picking a row sets the active thread, "+ New"
+        resets to a fresh thread — with no host thread-state. The chat (inside
+        ResearchAssistant) reads the same active thread from the provider. A
+        *controlled* provider would block "+ New" from resetting, so
+        uncontrolled-inside-provider is required, not optional.
+      */}
+      <CopilotChatConfigurationProvider agentId="a2a_chat">
+        <div className={`${styles.layout} threadsLayout`}>
+          {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+          <CopilotThreadsDrawer agentId="a2a_chat" />
+          <div className={styles.mainPanel}>
             <ResearchAssistant />
-          </CopilotChatConfigurationProvider>
+          </div>
         </div>
-      </div>
+      </CopilotChatConfigurationProvider>
     </CopilotKitProvider>
   );
 }

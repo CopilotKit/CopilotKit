@@ -2,11 +2,16 @@ import {
   createCopilotEndpoint,
   createCopilotEndpointSingleRoute,
 } from "@copilotkit/runtime/v2";
-import { createDefaultRuntime, createMcpRuntime } from "./runtime";
+import {
+  createCatalogOnlyRuntime,
+  createDefaultRuntime,
+  createMcpRuntime,
+} from "./runtime";
 
 const defaultRuntime = createDefaultRuntime();
 const singleRuntime = createDefaultRuntime();
 const mcpRuntime = createMcpRuntime();
+const catalogOnlyRuntime = createCatalogOnlyRuntime();
 
 export const copilotEndpoint = createCopilotEndpoint({
   runtime: defaultRuntime,
@@ -21,4 +26,9 @@ export const copilotSingleEndpoint = createCopilotEndpointSingleRoute({
 export const copilotMcpEndpoint = createCopilotEndpoint({
   runtime: mcpRuntime,
   basePath: "/api/copilotkit-mcp",
+});
+
+export const copilotCatalogEndpoint = createCopilotEndpoint({
+  runtime: catalogOnlyRuntime,
+  basePath: "/api/copilotkit-catalog",
 });

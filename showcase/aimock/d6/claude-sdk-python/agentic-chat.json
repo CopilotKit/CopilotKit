@@ -44,7 +44,7 @@
           {
             "id": "call_d5_generate_haiku_001",
             "name": "generate_haiku",
-            "arguments": "{\"japanese\":[\"古池や\",\"蛙飛び込む\",\"水の音\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
+            "arguments": "{\"japanese\":[\"\u53e4\u6c60\u3084\",\"\u86d9\u98db\u3073\u8fbc\u3080\",\"\u6c34\u306e\u97f3\"],\"english\":[\"An old silent pond\",\"A frog jumps into the pond\",\"Splash! Silence again.\"],\"image_name\":\"Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg\",\"gradient\":\"linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)\"}"
           }
         ]
       }
@@ -56,12 +56,12 @@
         "context": "claude-sdk-python"
       },
       "response": {
-        "content": "Haiku generated above — a beautiful verse about nature with an accompanying image."
+        "content": "Haiku generated above \u2014 a beautiful verse about nature with an accompanying image."
       }
     },
     {
       "match": {
-        "userMessage": "describe the sample image",
+        "userMessage": "can you tell me what is in this demo image I just attached",
         "turnIndex": 0,
         "context": "claude-sdk-python"
       },
@@ -71,7 +71,7 @@
     },
     {
       "match": {
-        "userMessage": "summarize the sample document",
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
         "turnIndex": 0,
         "context": "claude-sdk-python"
       },
@@ -86,7 +86,7 @@
         "context": "claude-sdk-python"
       },
       "response": {
-        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+        "content": "Hello from the popup \u2014 the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
       }
     },
     {
@@ -96,7 +96,7 @@
         "context": "claude-sdk-python"
       },
       "response": {
-        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+        "content": "Hello from the sidebar \u2014 the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
       }
     },
     {

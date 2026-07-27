@@ -1,0 +1,114 @@
+{
+ "_meta": {
+  "description": "D6 fixtures for strands-typescript / a2ui-recovery (A2UI error recovery)",
+  "_note": "The Strands (TS) adapter auto-injects generate_a2ui and runs the toolkit validate->retry recovery loop. NO `context` match field: a real browser (the dojo) does not send x-aimock-context, so context-scoped fixtures would 404 in-browser; the recovery pills' prompts are UNIQUE per framework, so userMessage alone disambiguates. Outer emits generate_a2ui with no-arg {}. HEAL: seq 0 invalid -> retry -> seq 1 valid -> paints. EXHAUST: invalid every attempt -> exhausts. Mirrors langgraph-python/a2ui-recovery.json.",
+  "created": "2026-06-26"
+ },
+ "fixtures": [
+  {
+   "_comment": "HEAL pill - inner render_a2ui attempt 1 (sequenceIndex 0): INVALID (dangling child) -> retry.",
+   "match": {
+    "userMessage": "Compose a revenue snapshot and recover if the first attempt is malformed.",
+    "toolName": "render_a2ui",
+    "sequenceIndex": 0
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_stts_recover_heal_bad",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"missing-metric\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - inner render_a2ui attempt 2 (sequenceIndex 1): VALID surface -> paints (declarative-metric x2).",
+   "match": {
+    "userMessage": "Compose a revenue snapshot and recover if the first attempt is malformed.",
+    "toolName": "render_a2ui",
+    "sequenceIndex": 1
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_stts_recover_heal_good",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer narration (matched by the emit's unique toolCallId).",
+   "match": {
+    "toolCallId": "call_d6_stts_recover_heal_outer_001"
+   },
+   "response": {
+    "content": "The first render came back malformed - I recovered and painted your revenue snapshot."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Compose a revenue snapshot and recover if the first attempt is malformed."
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_stts_recover_heal_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - inner render_a2ui: INVALID on every attempt -> recovery exhausts.",
+   "match": {
+    "userMessage": "Compose a snapshot that keeps failing validation so I can show the fallback.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_stts_recover_exhaust_design",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer narration (matched by the emit's unique toolCallId).",
+   "match": {
+    "toolCallId": "call_d6_stts_recover_exhaust_outer_001"
+   },
+   "response": {
+    "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Compose a snapshot that keeps failing validation so I can show the fallback."
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_stts_recover_exhaust_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  }
+ ]
+}

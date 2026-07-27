@@ -45,14 +45,16 @@ from ag_ui.core import (
 )
 from ag_ui.encoder import EventEncoder
 
+from agents.claude_agent_sdk_adapter import normalize_claude_model
+
 logger = logging.getLogger(__name__)
 
-# Default Anthropic model. Pinned to a dated identifier rather than an alias
-# so the demo doesn't break when Anthropic rotates aliases. Override with the
+# Default Anthropic model for this showcase. Override with the
 # ANTHROPIC_MODEL env var.
-DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
 
 
+# @region[shared-state-setup]
 SYSTEM_PROMPT = dedent("""
     You are a helpful, concise assistant.
 
@@ -125,6 +127,9 @@ def _state_dict(state: dict[str, Any]) -> dict[str, Any]:
         "preferences": state.get("preferences") or {},
         "notes": list(state.get("notes") or []),
     }
+
+
+# @endregion[shared-state-setup]
 
 
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:
@@ -201,7 +206,9 @@ async def run_shared_state_read_write_agent(
         )
 
         async with client.messages.stream(
-            model=os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+            model=normalize_claude_model(
+                os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
+            ),
             max_tokens=2048,
             system=system,
             messages=messages,

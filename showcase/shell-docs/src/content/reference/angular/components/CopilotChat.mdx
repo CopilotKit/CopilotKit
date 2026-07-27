@@ -1,0 +1,119 @@
+---
+title: "CopilotChat"
+description: "Angular standalone component that wires an agent to a complete chat UI"
+---
+
+## Overview
+
+`CopilotChat` is the all-in-one chat component. It wires an agent into [`CopilotChatView`](/reference/angular/components/CopilotChatView) so you get a working chat interface with one selector. It resolves the agent through [`injectAgentStore`](/reference/angular/functions/injectAgentStore), subscribes to that agent's messages and running state, manages suggestions, tracks the input value, handles audio transcription, wires file attachments, and clears the input after each message is sent.
+
+`CopilotChat` extends `ChatState` and provides itself to the view and input beneath it. You usually only need to point it at an agent.
+
+For the layout without the agent wiring, use [`CopilotChatView`](/reference/angular/components/CopilotChatView) directly.
+
+## Usage
+
+`CopilotChat` is a standalone component with the selector `copilot-chat`. Import the class into your component's `imports` array and use the element in the template. The chat reads its configuration from [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit), so the provider must be in scope.
+
+```ts title="src/app/app.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-root",
+  standalone: true,
+  imports: [CopilotChat],
+  template: `<copilot-chat />`,
+})
+export class AppComponent {}
+```
+
+Remember to import the stylesheet once in your global styles:
+
+```css title="src/styles.css"
+@import "@copilotkit/angular/styles.css";
+```
+
+## Inputs
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent to connect. Must match an agent configured in [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit). When omitted, the default agent is used.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  ID of the conversation thread. Pass a specific thread id to resume an existing conversation. When omitted, a thread id is minted locally and the agent connects on first run. Setting an explicit `threadId` also makes the chat attempt to connect to (resume) that thread on the agent.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="AttachmentsConfig">
+  Configuration for file attachments. Bound through the `attachments` alias (the underlying input is `attachmentsConfig`). When `enabled` is true, the add-file action and drag-and-drop are turned on and the chat manages the attachment queue automatically.
+</PropertyReference>
+
+<PropertyReference name="inputComponent" type="Type<any>">
+  A custom Angular component class to render in place of the default [`CopilotChatInput`](/reference/angular/components/CopilotChatInput). Forwarded to the underlying [`CopilotChatView`](/reference/angular/components/CopilotChatView).
+</PropertyReference>
+
+<PropertyReference name="assistantMessageComponent" type="Type<any>">
+  Component class used for assistant messages.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageTemplate" type="TemplateRef<any>">
+  Template used for assistant messages. Takes precedence over `assistantMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageClass" type="string">
+  CSS classes forwarded to the assistant-message slot.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageComponent" type="Type<any>">
+  Component class used for reasoning messages.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageTemplate" type="TemplateRef<any>">
+  Template used for reasoning messages. Takes precedence over `reasoningMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageClass" type="string">
+  CSS classes forwarded to the reasoning-message slot.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenComponent" type="Type<any>">
+  Component rendered after the message list and before the streaming cursor.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenTemplate" type="TemplateRef<any>">
+  Template rendered after the message list. Takes precedence over `messageViewChildrenComponent`.
+</PropertyReference>
+
+<PropertyReference name="messageViewChildrenClass" type="string">
+  CSS classes forwarded to the message-list children slot.
+</PropertyReference>
+
+## Outputs
+
+`CopilotChat` does not declare its own outputs. It handles message submission, suggestion selection, and transcription internally through the `ChatState` it provides to the input and view. To observe lower-level interactions, render a custom input via `inputComponent` (or use [`CopilotChatInput`](/reference/angular/components/CopilotChatInput) directly), which exposes outputs such as `submitMessage` and the transcription events.
+
+## Customization
+
+`CopilotChat` keeps the layout simple and delegates slot customization to the view it renders. Swap the input area with the `inputComponent` input, or compose the layout yourself with [`CopilotChatView`](/reference/angular/components/CopilotChatView), which exposes the full set of slot inputs and content-projection templates (message view, scroll view, feather, disclaimer, input container, and the input toolbar buttons).
+
+To customize the text strings (input placeholder, welcome message, toolbar labels, disclaimer), provide labels through [`provideCopilotChatLabels`](/reference/angular/functions/provideCopilotChatLabels). The chat reads them through `injectChatLabels` internally.
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChatView"
+    description="The layout-only chat view used internally. Use it when you manage messages and handlers yourself."
+    href="/reference/angular/components/CopilotChatView"
+  />
+  <Card
+    title="CopilotChatInput"
+    description="The input area: textarea, send button, tools menu, file upload, and transcription."
+    href="/reference/angular/components/CopilotChatInput"
+  />
+  <Card
+    title="provideCopilotKit"
+    description="Configures the runtime connection and agents that CopilotChat reads from."
+    href="/reference/angular/functions/provideCopilotKit"
+  />
+</Cards>

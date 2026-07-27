@@ -20,7 +20,7 @@ export interface CopilotKitProviderProps {
   publicApiKey?: string;
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of premium features.
+   * Signed license token for offline verification of Enterprise Intelligence Platform features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;

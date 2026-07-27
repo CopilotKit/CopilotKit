@@ -10,11 +10,19 @@ import {
   E2E_DEMOS_TIMEOUT_MS,
   D6_E2E_TIMEOUT_MS,
   D5_E2E_TIMEOUT_MS,
+  ENUMERATE_RETRY_BACKOFF_MS,
+  isRetryableEnumerateError,
 } from "./catalog-enumerator.js";
 import {
   E2E_SMOKE_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
 } from "../worker/payload-mapper.js";
+import {
+  DiscoverySourceAuthError,
+  DiscoverySourceBackendError,
+  DiscoverySourceTransportError,
+  DiscoverySourceSchemaError,
+} from "../../probes/discovery/errors.js";
 import type { DiscoverySource } from "../../probes/types.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
 import type { EnumerateContext } from "./job-producer.js";
@@ -597,5 +605,292 @@ describe("createE2eDemosServiceEnumerator", () => {
     };
     expect(cfg.namePrefix).toBe(D6_DISCOVERY_FILTER.namePrefix);
     expect(cfg.nameExcludes).toEqual([...D6_DISCOVERY_FILTER.nameExcludes]);
+  });
+});
+
+/**
+ * RED-GREEN gates for the Railway-GQL resilience policy (Changes 1 + 2 of the
+ * 2026-06-17 Cloudflare-WAF-burst incident fix):
+ *   - the enumerator retries transient `DiscoverySourceBackendError(429)` /
+ *     `>=500` / Cloudflare-1015|1020|1022-marked responses and
+ *     `DiscoverySourceTransportError` on the `ENUMERATE_RETRY_BACKOFF_MS`
+ *     schedule (1s/4s/16s in production, collapsed to instant here),
+ *   - it falls back to the last successful catalog from an in-memory cache
+ *     when every retry is exhausted (LOUDLY logged — never silent),
+ *   - it preserves the current hard-fail behavior on a fresh boot with no
+ *     cache,
+ *   - it does NOT retry on real config errors (`DiscoverySourceAuthError`,
+ *     non-429 4xx, schema rot).
+ *
+ * The discovery source is an injected fake whose `enumerate` is scripted per
+ * call. No network, no fake timers — `sleep` is stubbed to instant.
+ */
+const INSTANT_SLEEP_RES = async () => {};
+
+function scriptedSource(
+  script: Array<RailwayServiceInfo[] | (() => never)>,
+): DiscoverySource<RailwayServiceInfo> & { calls: number } {
+  let i = 0;
+  const wrapper = {
+    name: "railway-services",
+    calls: 0,
+    async enumerate(_ctx: unknown, _config: unknown) {
+      wrapper.calls += 1;
+      const step = script[Math.min(i, script.length - 1)];
+      i += 1;
+      if (typeof step === "function") {
+        step();
+        throw new Error("scriptedSource: function form must throw");
+      }
+      return step;
+    },
+  } as DiscoverySource<RailwayServiceInfo> & { calls: number };
+  return wrapper;
+}
+
+function makeCapturingLogger(): {
+  logger: Logger;
+  warns: Array<{ msg: string; meta: Record<string, unknown> }>;
+} {
+  const warns: Array<{ msg: string; meta: Record<string, unknown> }> = [];
+  return {
+    logger: {
+      info: () => {},
+      debug: () => {},
+      error: () => {},
+      warn: (msg, meta) =>
+        warns.push({ msg, meta: (meta ?? {}) as Record<string, unknown> }),
+    },
+    warns,
+  };
+}
+
+describe("createServiceEnumerator — Railway-GQL resilience policy", () => {
+  const INSTANT_SLEEP = INSTANT_SLEEP_RES;
+
+  it("isRetryableEnumerateError: 429, 5xx, Cloudflare 1015/1020/1022, transport — retryable; auth + non-429 4xx + schema — not", () => {
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError(
+          "railway-services",
+          "rate limited",
+          429,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError("railway-services", "boom", 502),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError(
+          "railway-services",
+          "error code: 1015",
+          403,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError(
+          "railway-services",
+          "error code: 1020 (access denied)",
+          403,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError(
+          "railway-services",
+          "1022 something",
+          403,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceTransportError(
+          "railway-services",
+          "fetch failed: ECONNRESET",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceAuthError("railway-services", "401 unauthorized"),
+      ),
+    ).toBe(false);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceBackendError("railway-services", "bad request", 400),
+      ),
+    ).toBe(false);
+    expect(
+      isRetryableEnumerateError(
+        new DiscoverySourceSchemaError(
+          "railway-services",
+          "shape rot",
+          undefined,
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it("retries 3x on 429 + Cloudflare 1015 body and succeeds on attempt 4 (RED on main: enumerate throws after first 429)", async () => {
+    // The cron tick on 2026-06-17 hit a ~25 min Cloudflare WAF burst. Without
+    // retries the discovery source threw HTTP 429 / error code 1015 and the
+    // producer hard-failed, zeroing out the dashboard. With retries the
+    // wrapper rides out three transient 429s and the 4th attempt returns the
+    // catalog — the producer enqueues jobs as normal.
+    const cf429 = () => {
+      throw new DiscoverySourceBackendError(
+        "railway-services",
+        "railway gql 429: error code: 1015 (rate limited)",
+        429,
+      );
+    };
+    const services = [svc({ name: "showcase-langgraph-python" })];
+    const source = scriptedSource([cf429, cf429, cf429, services]);
+    const { logger, warns } = makeCapturingLogger();
+
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger,
+      driverKind: D6_DRIVER_KIND,
+      probeKeyPrefix: "d6",
+      filter: D6_DISCOVERY_FILTER,
+      sleep: INSTANT_SLEEP,
+      retrySchedule: ENUMERATE_RETRY_BACKOFF_MS,
+    });
+
+    const specs = await enumerate(CTX);
+
+    // 1 initial + 3 retries = 4 source calls total.
+    expect(source.calls).toBe(4);
+    expect(specs).toHaveLength(1);
+    expect(specs[0]?.probeKey).toBe("d6:langgraph-python");
+    const retryWarns = warns.filter(
+      (w) => w.msg === "fleet.producer.enumerate-retry",
+    );
+    expect(retryWarns).toHaveLength(3);
+    expect(
+      warns.find(
+        (w) => w.msg === "fleet.producer.enumerate-failed-using-cache",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("falls back to the cached catalog on persistent 429 burst across ticks (LOUD warn, no zero-job tick)", async () => {
+    // First tick: live catalog seeds the cache.
+    // Second tick: every retry returns 429 — fallback returns the cached
+    // catalog and emits a `fleet.producer.enumerate-failed-using-cache` warn.
+    const live = [
+      svc({ name: "showcase-langgraph-python" }),
+      svc({ name: "showcase-crewai" }),
+    ];
+    const cf429 = () => {
+      throw new DiscoverySourceBackendError(
+        "railway-services",
+        "railway gql 429: error code: 1015",
+        429,
+      );
+    };
+    const source = scriptedSource([live, cf429, cf429, cf429, cf429]);
+    const { logger, warns } = makeCapturingLogger();
+    let nowMs = 1_700_000_000_000;
+
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger,
+      driverKind: D6_DRIVER_KIND,
+      probeKeyPrefix: "d6",
+      filter: D6_DISCOVERY_FILTER,
+      sleep: INSTANT_SLEEP,
+      now: () => nowMs,
+      retrySchedule: ENUMERATE_RETRY_BACKOFF_MS,
+    });
+
+    const tick1 = await enumerate(CTX);
+    expect(tick1).toHaveLength(2);
+    expect(source.calls).toBe(1);
+
+    nowMs += 60_000;
+
+    const tick2 = await enumerate(CTX);
+    expect(source.calls).toBe(5);
+    // Fallback returns the SAME catalog (two services) from the cache —
+    // the dashboard does not zero out.
+    expect(tick2).toHaveLength(2);
+    const fallbackWarn = warns.find(
+      (w) => w.msg === "fleet.producer.enumerate-failed-using-cache",
+    );
+    expect(fallbackWarn).toBeDefined();
+    expect(fallbackWarn?.meta.services).toBe(2);
+    expect(fallbackWarn?.meta.ageMs).toBe(60_000);
+    expect(typeof fallbackWarn?.meta.reason).toBe("string");
+  });
+
+  it("re-throws the last transient error on a fresh boot with NO cache (preserves enumerate-failed hard-fail)", async () => {
+    const cf429 = () => {
+      throw new DiscoverySourceBackendError(
+        "railway-services",
+        "railway gql 429: error code: 1015",
+        429,
+      );
+    };
+    const source = scriptedSource([cf429, cf429, cf429, cf429]);
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      driverKind: D6_DRIVER_KIND,
+      probeKeyPrefix: "d6",
+      filter: D6_DISCOVERY_FILTER,
+      sleep: INSTANT_SLEEP,
+      retrySchedule: ENUMERATE_RETRY_BACKOFF_MS,
+    });
+
+    await expect(enumerate(CTX)).rejects.toBeInstanceOf(
+      DiscoverySourceBackendError,
+    );
+    expect(source.calls).toBe(4); // 1 initial + 3 retries before giving up
+  });
+
+  it("does NOT retry on DiscoverySourceAuthError — config errors fail loud immediately", async () => {
+    const authFail = () => {
+      throw new DiscoverySourceAuthError(
+        "railway-services",
+        "railway gql 401: bad token",
+      );
+    };
+    const source = scriptedSource([authFail, authFail, authFail, authFail]);
+    const enumerate = createServiceEnumerator({
+      source,
+      env: {},
+      fetchImpl: globalThis.fetch,
+      logger: SILENT_LOGGER,
+      driverKind: D6_DRIVER_KIND,
+      probeKeyPrefix: "d6",
+      filter: D6_DISCOVERY_FILTER,
+      sleep: INSTANT_SLEEP,
+      retrySchedule: ENUMERATE_RETRY_BACKOFF_MS,
+    });
+    await expect(enumerate(CTX)).rejects.toBeInstanceOf(
+      DiscoverySourceAuthError,
+    );
+    // Exactly ONE call — no retry was attempted.
+    expect(source.calls).toBe(1);
+  });
+
+  it("uses ENUMERATE_RETRY_BACKOFF_MS = [1000, 4000, 16000] in production (SSOT pin)", () => {
+    expect(ENUMERATE_RETRY_BACKOFF_MS).toEqual([1_000, 4_000, 16_000]);
   });
 });

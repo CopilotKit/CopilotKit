@@ -243,11 +243,38 @@ function CommandMenu({
 // heroes in the action row beneath the command cards; the home hero puts
 // <HeroQuickstartDropdown> (same visual treatment, framework picker) in the
 // identical slot.
-export function QuickstartLinkButton({ href }: { href: string }) {
+export function QuickstartLinkButton({
+  href,
+  frontend,
+  backend,
+  fromPath,
+}: {
+  href: string;
+  frontend?: string;
+  backend?: string;
+  fromPath?: string;
+}) {
+  const posthog = usePostHog();
+
+  const handleClick = React.useCallback(() => {
+    try {
+      posthog?.capture("docs.journey_continued", {
+        destination_type: "quickstart",
+        destination_path: href,
+        frontend,
+        backend,
+        from_path: fromPath,
+      });
+    } catch {
+      // Analytics must never block navigation.
+    }
+  }, [backend, frontend, fromPath, href, posthog]);
+
   return (
     <Link
       href={href}
-      className="shell-docs-radius-control group inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] no-underline shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] sm:w-fit"
+      onClick={handleClick}
+      className="shell-docs-primary-cta shell-docs-radius-control group inline-flex h-11 w-full items-center justify-center gap-2 border border-[var(--accent)] bg-[var(--accent)] px-4 text-sm font-semibold text-[var(--primary-foreground)] no-underline shadow-[var(--shadow-control)] transition-colors hover:bg-[var(--accent-strong)] sm:w-fit"
     >
       Quickstart
       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

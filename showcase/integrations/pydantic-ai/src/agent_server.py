@@ -25,6 +25,15 @@ all demos that already target the main sales agent.
 """
 
 import os
+
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT pydantic-ai), so it is safe to run before the agent imports below.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +44,7 @@ from dotenv import load_dotenv
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # imports. PydanticAI's ``OpenAIResponsesModel`` constructs its httpx
 # client at agent-module import time.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
@@ -105,6 +115,15 @@ app.add_middleware(HealthMiddleware)
 # made inside the request scope copies them onto its outbound request.
 # Paired with ``install_global_httpx_hook`` at the top of this file.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added here so
+# it wraps the Health + HeaderForwarding layers but stays INSIDE the outermost
+# CORS layer (CORS handles preflight first). Gated behind
+# ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
+# fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

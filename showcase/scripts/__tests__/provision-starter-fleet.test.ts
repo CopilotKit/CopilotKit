@@ -442,7 +442,7 @@ describe("provisionStarterFleet — create path", () => {
     }
   });
 
-  it("sets sleepApplication:true + healthcheck '/' + region us-west1 on the staging instance", async () => {
+  it("sets sleepApplication:false (always-on) + healthcheck '/' + region us-west1 on the staging instance", async () => {
     const { gql, calls } = makeMockGql();
     await provisionStarterFleet({
       gql,
@@ -460,7 +460,7 @@ describe("provisionStarterFleet — create path", () => {
       expect(u.variables.environmentId).toBe(STAGING_ENV_ID);
       expect(u.variables.environmentId).not.toBe(PRODUCTION_ENV_ID);
       const input = u.variables.input as Record<string, unknown>;
-      expect(input.sleepApplication).toBe(true);
+      expect(input.sleepApplication).toBe(false);
       expect(input.healthcheckPath).toBe(STARTER_HEALTHCHECK_PATH);
       expect(input.healthcheckPath).toBe("/");
       expect(input.region).toBe(STARTER_REGION);

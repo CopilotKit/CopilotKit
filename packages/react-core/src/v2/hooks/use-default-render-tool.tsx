@@ -190,9 +190,16 @@ export function DefaultToolCallRenderer({
   const isComplete = status === "complete";
 
   const statusLabel = isActive ? "Running" : isComplete ? "Done" : status;
-  const dotColor = isActive ? "#f59e0b" : isComplete ? "#10b981" : "#a1a1aa";
-  const badgeBg = isActive ? "#fef3c7" : isComplete ? "#d1fae5" : "#f4f4f5";
-  const badgeColor = isActive ? "#92400e" : isComplete ? "#065f46" : "#3f3f46";
+  const dotClassName = isActive
+    ? "cpk:bg-amber-500"
+    : isComplete
+      ? "cpk:bg-emerald-500"
+      : "cpk:bg-zinc-400";
+  const badgeClassName = isActive
+    ? "cpk:bg-amber-100 cpk:text-amber-800 cpk:dark:bg-amber-500/15 cpk:dark:text-amber-400"
+    : isComplete
+      ? "cpk:bg-emerald-100 cpk:text-emerald-800 cpk:dark:bg-emerald-500/15 cpk:dark:text-emerald-400"
+      : "cpk:bg-zinc-100 cpk:text-zinc-800 cpk:dark:bg-zinc-700/40 cpk:dark:text-zinc-300";
 
   return (
     <div
@@ -202,19 +209,9 @@ export function DefaultToolCallRenderer({
       data-status={status}
       data-args={safeStringifyForAttr(parameters)}
       data-result={safeStringifyForAttr(result)}
-      style={{
-        marginTop: "8px",
-        paddingBottom: "8px",
-      }}
+      className="cpk:mt-2 cpk:pb-2"
     >
-      <div
-        style={{
-          borderRadius: "12px",
-          border: "1px solid #e4e4e7",
-          backgroundColor: "#fafafa",
-          padding: "14px 16px",
-        }}
-      >
+      <div className="cpk:rounded-xl cpk:border cpk:border-zinc-200/60 cpk:bg-white/70 cpk:p-4 cpk:shadow-sm cpk:backdrop-blur cpk:dark:border-zinc-800/60 cpk:dark:bg-zinc-900/50">
         {/* Header row — always visible. A real <button> with aria-expanded
             and reset styles so it visually matches the previous <div> but
             is keyboard-accessible (Enter/Space toggle natively). */}
@@ -222,40 +219,16 @@ export function DefaultToolCallRenderer({
           type="button"
           aria-expanded={isExpanded}
           onClick={() => setIsExpanded(!isExpanded)}
+          className="cpk:flex cpk:w-full cpk:cursor-pointer cpk:select-none cpk:items-center cpk:justify-between cpk:gap-2.5 cpk:border-none cpk:bg-transparent cpk:p-0 cpk:m-0 cpk:text-left cpk:text-inherit"
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "10px",
-            cursor: "pointer",
-            userSelect: "none",
-            width: "100%",
-            border: "none",
-            padding: 0,
-            margin: 0,
-            background: "transparent",
-            textAlign: "left",
             font: "inherit",
-            color: "inherit",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              minWidth: 0,
-            }}
-          >
+          <div className="cpk:flex cpk:min-w-0 cpk:items-center cpk:gap-2">
             <svg
-              style={{
-                height: "14px",
-                width: "14px",
-                color: "#71717a",
-                transition: "transform 0.15s",
-                transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                flexShrink: 0,
-              }}
+              className={`cpk:h-3.5 cpk:w-3.5 cpk:flex-shrink-0 cpk:text-zinc-500 cpk:transition-transform cpk:dark:text-zinc-400 ${
+                isExpanded ? "cpk:rotate-90" : ""
+              }`}
               fill="none"
               viewBox="0 0 24 24"
               strokeWidth={2}
@@ -268,25 +241,11 @@ export function DefaultToolCallRenderer({
               />
             </svg>
             <span
-              style={{
-                display: "inline-block",
-                height: "8px",
-                width: "8px",
-                borderRadius: "50%",
-                backgroundColor: dotColor,
-                flexShrink: 0,
-              }}
+              className={`cpk:inline-block cpk:h-2 cpk:w-2 cpk:flex-shrink-0 cpk:rounded-full ${dotClassName}`}
             />
             <span
               data-testid="copilot-tool-render-name"
-              style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "#18181b",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
+              className="cpk:truncate cpk:text-[13px] cpk:font-semibold cpk:text-zinc-900 cpk:dark:text-zinc-100"
             >
               {name}
             </span>
@@ -294,17 +253,7 @@ export function DefaultToolCallRenderer({
 
           <span
             data-testid="copilot-tool-render-status"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              borderRadius: "9999px",
-              padding: "2px 8px",
-              fontSize: "11px",
-              fontWeight: 500,
-              backgroundColor: badgeBg,
-              color: badgeColor,
-              flexShrink: 0,
-            }}
+            className={`cpk:inline-flex cpk:flex-shrink-0 cpk:items-center cpk:rounded-full cpk:px-2 cpk:py-0.5 cpk:text-[11px] cpk:font-medium ${badgeClassName}`}
           >
             {statusLabel}
           </span>
@@ -312,64 +261,22 @@ export function DefaultToolCallRenderer({
 
         {/* Expandable details */}
         {isExpanded && (
-          <div style={{ marginTop: "12px", display: "grid", gap: "12px" }}>
+          <div className="cpk:mt-3 cpk:grid cpk:gap-3">
             <div>
-              <div
-                style={{
-                  fontSize: "10px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                  color: "#71717a",
-                }}
-              >
+              <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
                 Arguments
               </div>
-              <pre
-                style={{
-                  marginTop: "6px",
-                  maxHeight: "200px",
-                  overflow: "auto",
-                  borderRadius: "6px",
-                  backgroundColor: "#f4f4f5",
-                  padding: "10px",
-                  fontSize: "11px",
-                  lineHeight: 1.6,
-                  color: "#27272a",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
-              >
+              <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
                 {safeStringifyForPre(parameters ?? {})}
               </pre>
             </div>
 
             {result !== undefined && (
               <div>
-                <div
-                  style={{
-                    fontSize: "10px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    color: "#71717a",
-                  }}
-                >
+                <div className="cpk:text-[10px] cpk:uppercase cpk:text-zinc-500 cpk:dark:text-zinc-400">
                   Result
                 </div>
-                <pre
-                  style={{
-                    marginTop: "6px",
-                    maxHeight: "200px",
-                    overflow: "auto",
-                    borderRadius: "6px",
-                    backgroundColor: "#f4f4f5",
-                    padding: "10px",
-                    fontSize: "11px",
-                    lineHeight: 1.6,
-                    color: "#27272a",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
+                <pre className="cpk:mt-1.5 cpk:max-h-[200px] cpk:overflow-auto cpk:rounded-md cpk:bg-zinc-100 cpk:p-2.5 cpk:text-[11px] cpk:leading-relaxed cpk:text-zinc-800 cpk:whitespace-pre-wrap cpk:break-words cpk:dark:bg-zinc-800/60 cpk:dark:text-zinc-200">
                   {typeof result === "string"
                     ? result
                     : safeStringifyForPre(result)}

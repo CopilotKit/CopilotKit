@@ -13,6 +13,9 @@ import { mastra } from "@/mastra";
 // fetch can re-attach them on outbound LLM calls. Required because the
 // @ag-ui/mastra adapter does not forward inbound headers to Vercel AI SDK.
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
 // We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
 // themselves — the CopilotKit runtime only brokers AG-UI events between
@@ -69,8 +72,15 @@ export const demoAgentNames = [
   "hitl-in-app",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
+  // Reasoning cells. The demo pages request these agent names verbatim
+  // (`agent="reasoning-default"` / `agent="reasoning-custom"`); they must be
+  // registered here or the runtime returns agent-not-found and the chat never
+  // starts (no reasoning stream renders). These are the agent-name equivalents
+  // of the `reasoning-default-render` / `agentic-chat-reasoning` manifest
+  // feature keys — see tests/vitest/demoAgentNames.parity.test.ts, which
+  // enforces that every page `agent="…"` literal appears in this list.
+  "reasoning-default",
+  "reasoning-custom",
   "readonly-state-agent-context",
   "agent-config",
   "declarative-gen-ui",
@@ -88,10 +98,30 @@ export const demoAgentNames = [
 const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "headless-complete": "headlessCompleteAgent",
   "shared-state-read-write": "sharedStateReadWriteAgent",
+  "shared-state-streaming": "sharedStateStreamingAgent",
   "gen-ui-agent": "genUiAgent",
   subagents: "subagentsSupervisorAgent",
   "gen-ui-interrupt": "interruptAgent",
   "interrupt-headless": "interruptAgent",
+  // Reasoning cells use a dedicated reasoning-capable agent (Responses API +
+  // reasoning-summary streaming). Mapping them to the default weatherAgent
+  // (gpt-4o) meant no reasoning items were ever emitted and the reasoning slot
+  // stayed dark. See src/mastra/agents/index.ts (reasoningAgent).
+  "reasoning-default": "reasoningAgent",
+  "reasoning-custom": "reasoningAgent",
+  // Reasoning + backend tool-rendering chain: dedicated agent registers the
+  // four chain tools (weather/flights/stock/dice) under the fixture tool-call
+  // names so Mastra executes each leg and the multi-turn chain reaches its
+  // closing narration.
+  "tool-rendering-reasoning-chain": "reasoningChainAgent",
+  // Plain tool-rendering + its catch-all variants share one backend bound to
+  // all four demo tools (get_weather, search_flights, get_stock_price,
+  // roll_d20) — mirrors gold tool_rendering_agent.py. Without this they fell
+  // back to weatherAgent, which lacks get_stock_price/roll_d20, so the Stock,
+  // d20, and Chain pills emitted uncallable tool calls and rendered no card.
+  "tool-rendering": "toolRenderingAgent",
+  "tool-rendering-default-catchall": "toolRenderingAgent",
+  "tool-rendering-custom-catchall": "toolRenderingAgent",
 };
 
 export type DemoAgentName = (typeof demoAgentNames)[number];
@@ -109,6 +139,7 @@ export type LocalMastraAgentName =
   | "weatherAgent"
   | "headlessCompleteAgent"
   | "sharedStateReadWriteAgent"
+  | "sharedStateStreamingAgent"
   | "genUiAgent"
   | "subagentsSupervisorAgent"
   | "interruptAgent"
@@ -162,6 +193,11 @@ export function buildAgents(
       "sharedStateReadWriteAgent missing from Mastra config — required for shared-state-read-write demo alias",
     );
   }
+  if (!baseLocalAgents.sharedStateStreamingAgent) {
+    throw new Error(
+      "sharedStateStreamingAgent missing from Mastra config — required for shared-state-streaming demo alias",
+    );
+  }
   if (!baseLocalAgents.genUiAgent) {
     throw new Error(
       "genUiAgent missing from Mastra config — required for gen-ui-agent demo alias",
@@ -208,6 +244,16 @@ export function buildAgents(
   if (!sharedStateRWAgentInstance) {
     throw new Error(
       "getLocalAgent returned null for sharedStateReadWriteAgent",
+    );
+  }
+  const sharedStateStreamingAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "sharedStateStreamingAgent",
+    resourceId: "mastra-sharedStateStreamingAgent",
+  });
+  if (!sharedStateStreamingAgentInstance) {
+    throw new Error(
+      "getLocalAgent returned null for sharedStateStreamingAgent",
     );
   }
   const genUiAgentInstance = getLocalAgent({
@@ -262,6 +308,7 @@ export function buildAgents(
     weatherAgent: baseLocalAgents.weatherAgent,
     headlessCompleteAgent: headlessCompleteAgentInstance,
     sharedStateReadWriteAgent: sharedStateRWAgentInstance,
+    sharedStateStreamingAgent: sharedStateStreamingAgentInstance,
     genUiAgent: genUiAgentInstance,
     subagentsSupervisorAgent: subagentsSupervisorAgentInstance,
     interruptAgent: interruptAgentInstance,
@@ -306,6 +353,10 @@ export function buildAgents(
   resourceIdByAgent.set(
     "sharedStateReadWriteAgent",
     "mastra-sharedStateReadWriteAgent",
+  );
+  resourceIdByAgent.set(
+    "sharedStateStreamingAgent",
+    "mastra-sharedStateStreamingAgent",
   );
   resourceIdByAgent.set("genUiAgent", "mastra-genUiAgent");
   resourceIdByAgent.set(
@@ -479,7 +530,7 @@ function wrapStreamingResponse(response: Response): Response {
 //      handleRequest leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
-export const POST = async (req: NextRequest) =>
+const copilotkitPost = async (req: NextRequest): Promise<Response> =>
   // Bind inbound x-* headers into ALS for the duration of this request so
   // the wrapped @ai-sdk/openai provider's fetch can attach them on every
   // outbound LLM call (e.g. x-aimock-context for aimock fixture matching).
@@ -525,3 +576,11 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+
+// Wrap with CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "mastra",
+  agentName: "weatherAgent",
+  provider: "openai",
+});

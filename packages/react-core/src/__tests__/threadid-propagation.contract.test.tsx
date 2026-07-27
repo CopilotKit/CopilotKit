@@ -43,6 +43,7 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    applyHeadersToAgent: (agent: AbstractAgent) => void;
     subscribeToAgentWithOptions: (
       agent: AbstractAgent,
       subscriber: any,
@@ -58,6 +59,16 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      // Additive stand-in for core's merge (core headers ON TOP of the
+      // agent's own). These tests only assert threadId propagation and never
+      // remove a header, so this approximation is sufficient; it does NOT
+      // model core's frozen construction-time baseline.
+      applyHeadersToAgent: (agent) => {
+        const target = agent as { headers?: Record<string, string> };
+        if (target.headers) {
+          target.headers = { ...target.headers, ...mockCopilotkit.headers };
+        }
+      },
       subscribeToAgentWithOptions: (agent, subscriber) =>
         agent.subscribe(subscriber),
     };

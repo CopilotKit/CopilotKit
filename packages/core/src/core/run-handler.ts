@@ -3,10 +3,10 @@ import type {
   AgentSubscriber,
   Message,
   RunAgentResult,
+  ResumeEntry,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -17,6 +17,16 @@ import type { FrontendTool } from "../types";
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
+  /**
+   * Optional caller-supplied run identifier forwarded to the underlying AG-UI
+   * agent. When omitted, the agent creates one.
+   */
+  runId?: string;
+  /**
+   * Per-interrupt responses addressing every open AG-UI interrupt from the
+   * previous run. Forwarded to the agent as the standard `resume` array.
+   */
+  resume?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -69,6 +79,20 @@ interface ExecuteToolHandlerResult {
 }
 
 /**
+ * Absolute safety cap on the depth of recursive follow-up runs triggered by
+ * `processAgentResult`. Without this, any scenario that keeps
+ * `needsFollowUp = true` (e.g. the LLM repeatedly calling the same tool, a
+ * backend that errors after receiving tool results, or input processors that
+ * reprocess tool messages) would loop indefinitely, silently consuming API
+ * quota and potentially DOS'ing the backend.
+ *
+ * The cap is deliberately high so that legitimate multi-step agent workflows
+ * (search → fill form → confirm → update → send email, etc.) are never
+ * affected; it only trips on runaway recursion.
+ */
+const MAX_FOLLOW_UP_DEPTH = 100;
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
@@ -107,7 +131,9 @@ export class RunHandler {
    * downstream churn into duplicate `cpki_event_id` rows in the
    * inspector and intermittent "Message not found" toasts.
    */
-  private _lastConnectedThreadId: string | null = null;
+  private _lastConnectedThreadIdsByAgent = new Map<string, string | null>();
+  private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
+  private _nextAnonymousAgentId = 0;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -126,6 +152,27 @@ export class RunHandler {
    */
   private get _internal(): CopilotKitCoreFriendsAccess {
     return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
+
+  /**
+   * Return a stable restore-tracking key for the logical agent being
+   * connected. Named agents share their last-thread marker across proxy
+   * instances; anonymous agents fall back to object identity.
+   */
+  private getConnectRestoreKey(agent: AbstractAgent): string {
+    if (agent.agentId) {
+      return `agent:${agent.agentId}`;
+    }
+
+    const existing = this._anonymousAgentIds.get(agent);
+    if (existing) {
+      return existing;
+    }
+
+    const anonymousId = `anonymous:${this._nextAnonymousAgentId}`;
+    this._nextAnonymousAgentId += 1;
+    this._anonymousAgentIds.set(agent, anonymousId);
+    return anonymousId;
   }
 
   /**
@@ -214,8 +261,11 @@ export class RunHandler {
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
       const incomingThreadId = agent.threadId ?? null;
-      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
-      this._lastConnectedThreadId = incomingThreadId;
+      const restoreKey = this.getConnectRestoreKey(agent);
+      const isFreshRestore =
+        incomingThreadId !==
+        (this._lastConnectedThreadIdsByAgent.get(restoreKey) ?? null);
+      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
 
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and
@@ -231,20 +281,36 @@ export class RunHandler {
       if (isFreshRestore) {
         agent.setMessages([]);
         agent.setState({});
-        const proxied = agent as { clearReplayCursor?: (id: string) => void };
-        if (
-          incomingThreadId &&
-          typeof proxied.clearReplayCursor === "function"
-        ) {
-          proxied.clearReplayCursor(incomingThreadId);
+        const cursorAware = agent as {
+          clearReconnectCursor?: (id: string) => void;
+          clearReplayCursor?: (id: string) => void;
+        };
+        if (incomingThreadId) {
+          if (typeof cursorAware.clearReplayCursor === "function") {
+            cursorAware.clearReplayCursor(incomingThreadId);
+          }
+          if (typeof cursorAware.clearReconnectCursor === "function") {
+            cursorAware.clearReconnectCursor(incomingThreadId);
+          }
         }
       }
 
-      if (agent instanceof HttpAgent) {
-        agent.headers = {
-          ...this._internal.headers,
-        };
-      }
+      // Re-apply core headers (merged on top of the agent's own headers) so a
+      // late header update is picked up without clobbering per-agent headers.
+      this._internal.applyHeadersToAgent(agent);
+
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
 
       const runAgentResult = await agent.connectAgent(
         {
@@ -255,7 +321,11 @@ export class RunHandler {
         this.createAgentErrorSubscriber(agent),
       );
 
-      return this.processAgentResult({ runAgentResult, agent });
+      return this.processAgentResult({
+        runAgentResult,
+        agent,
+        executeFrontendTools: false,
+      });
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
@@ -276,7 +346,7 @@ export class RunHandler {
           context,
         });
       }
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     }
   }
 
@@ -286,17 +356,17 @@ export class RunHandler {
   async runAgent({
     agent,
     forwardedProps,
+    resume,
+    runId,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    if (agent instanceof HttpAgent) {
-      agent.headers = {
-        ...this._internal.headers,
-      };
-    }
+    // Re-apply core headers (merged on top of the agent's own headers) so a
+    // late header update is picked up without clobbering per-agent headers.
+    this._internal.applyHeadersToAgent(agent);
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline
@@ -334,6 +404,20 @@ export class RunHandler {
         controller.abort();
         originalAbortRun!();
       };
+
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers. Fired once per top-level run; recursive
+      // follow-up runs reuse the same instance and need no re-notification.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
     }
 
     this._runDepth++;
@@ -345,6 +429,8 @@ export class RunHandler {
             ...this._internal.properties,
             ...forwardedProps,
           },
+          ...(resume !== undefined ? { resume } : {}),
+          ...(runId !== undefined ? { runId } : {}),
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
@@ -363,7 +449,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     } finally {
       this._runDepth--;
       // Restore original abortRun when the entire chain (including
@@ -380,9 +466,11 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    executeFrontendTools = true,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    executeFrontendTools?: boolean;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -390,38 +478,56 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    for (const message of newMessages) {
-      if (message.role === "assistant") {
-        for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
+    if (executeFrontendTools) {
+      for (const message of newMessages) {
+        if (message.role === "assistant") {
+          for (const toolCall of message.toolCalls || []) {
             const tool = this.getTool({
               toolName: toolCall.function.name,
               agentId: agent.agentId,
             });
-            if (tool) {
-              const followUp = await this.executeSpecificTool(
-                tool,
-                toolCall,
-                message,
-                agent,
-                agentId,
-              );
-              if (followUp) {
-                needsFollowUp = true;
+
+            let wildcardTool: FrontendTool<any> | undefined;
+            const getWildcardTool = () => {
+              if (tool || wildcardTool) {
+                return wildcardTool;
               }
-            } else {
-              // Wildcard fallback for undefined tools
-              const wildcardTool = this.getTool({
+              wildcardTool = this.getTool({
                 toolName: "*",
                 agentId: agent.agentId,
               });
-              if (wildcardTool) {
-                const followUp = await this.executeWildcardTool(
-                  wildcardTool,
+              return wildcardTool;
+            };
+
+            let existingResultIndex = newMessages.findIndex(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            );
+            const existingResult =
+              existingResultIndex === -1
+                ? undefined
+                : newMessages[existingResultIndex];
+            const executableTool = tool ?? getWildcardTool();
+
+            if (
+              existingResult &&
+              executableTool?.handler &&
+              this.isFrontendPlaceholderResult(existingResult)
+            ) {
+              newMessages.splice(existingResultIndex, 1);
+              existingResultIndex = -1;
+
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
+            }
+
+            if (existingResultIndex === -1) {
+              if (tool) {
+                const followUp = await this.executeSpecificTool(
+                  tool,
                   toolCall,
                   message,
                   agent,
@@ -429,6 +535,20 @@ export class RunHandler {
                 );
                 if (followUp) {
                   needsFollowUp = true;
+                }
+              } else {
+                const fallbackTool = getWildcardTool();
+                if (fallbackTool) {
+                  const followUp = await this.executeWildcardTool(
+                    fallbackTool,
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                  );
+                  if (followUp) {
+                    needsFollowUp = true;
+                  }
                 }
               }
             }
@@ -438,17 +558,80 @@ export class RunHandler {
     }
 
     if (needsFollowUp && !this._runAbortController?.signal.aborted) {
-      // Yield to the framework scheduler before the follow-up run so that any
-      // deferred state updates (e.g. React useEffect in useAgentContext) can
-      // complete and write fresh values into the context store before runAgent
-      // reads it. The base implementation is a no-op; React overrides this.
-      await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+      // Circuit breaker: bail out instead of recursing once the follow-up
+      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
+      // depth of nested runAgent calls (it is incremented in runAgent and
+      // decremented in its finally block), so a runaway loop — repeated
+      // identical tool calls, a backend that keeps erroring after tool
+      // results, reprocessed tool messages, etc. — eventually trips this
+      // guard rather than looping forever and exhausting API quota.
+      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+        logger.warn(
+          `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
+            `Stopping recursive follow-up runs to prevent an infinite loop. ` +
+            `This usually indicates a tool that keeps requesting a follow-up (e.g. the LLM repeatedly ` +
+            `calling the same tool). Consider setting "followUp: false" on the offending tool.`,
+        );
+      } else {
+        // Yield to the framework scheduler before the follow-up run so that any
+        // deferred state updates (e.g. React useEffect in useAgentContext) can
+        // complete and write fresh values into the context store before runAgent
+        // reads it. The base implementation is a no-op; React overrides this.
+        await this._internal.waitForPendingFrameworkUpdates();
+        return await this.runAgent({ agent });
+      }
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private isFrontendPlaceholderResult(message: Message): boolean {
+    if (message.role !== "tool") {
+      return false;
+    }
+
+    const normalized = this.normalizeToolResultContent(message.content);
+    return normalized === "Forwarded to client";
+  }
+
+  private normalizeToolResultContent(content: unknown): string | null {
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      const text = content
+        .flatMap((part) => {
+          if (typeof part === "string") {
+            return [part];
+          }
+          if (
+            part &&
+            typeof part === "object" &&
+            "text" in part &&
+            typeof (part as { text?: unknown }).text === "string"
+          ) {
+            return [(part as { text: string }).text];
+          }
+          return [];
+        })
+        .join("")
+        .trim();
+      return text.length > 0 ? text : null;
+    }
+
+    if (
+      content &&
+      typeof content === "object" &&
+      "text" in content &&
+      typeof (content as { text?: unknown }).text === "string"
+    ) {
+      return (content as { text: string }).text.trim();
+    }
+
+    return null;
   }
 
   /**
@@ -606,13 +789,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.result,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -643,7 +837,6 @@ export class RunHandler {
 
     let toolCallResult = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -656,7 +849,6 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -746,13 +938,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
@@ -799,20 +1002,19 @@ export class RunHandler {
 
     // 3. Create assistant message with tool call
     const toolCallId = randomUUID();
+    const assistantToolCall = {
+      id: toolCallId,
+      type: "function" as const,
+      function: {
+        name,
+        arguments: JSON.stringify(parameters),
+      },
+    };
     const assistantMessage: Message = {
       id: randomUUID(),
       role: "assistant",
       content: "",
-      toolCalls: [
-        {
-          id: toolCallId,
-          type: "function",
-          function: {
-            name,
-            arguments: JSON.stringify(parameters),
-          },
-        },
-      ],
+      toolCalls: [assistantToolCall],
     };
 
     // 4. Push assistant message into agent's messages
@@ -828,7 +1030,7 @@ export class RunHandler {
     if (tool.handler) {
       handlerResult = await this.executeToolHandler({
         tool,
-        toolCall: assistantMessage.toolCalls![0],
+        toolCall: assistantToolCall,
         agent,
         agentId: resolvedAgentId,
         handlerArgs: parameters,
@@ -889,7 +1091,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
-          tool.available !== "disabled" &&
+          (tool.available as boolean | string | undefined) !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({
@@ -930,6 +1132,19 @@ export class RunHandler {
         });
       },
       onRunErrorEvent: async ({ event }) => {
+        // A user-initiated stop (stopAgent / agent.abortRun) makes the agent
+        // emit a terminal RUN_ERROR — often code "abort" — as its cancellation
+        // signal. That is expected, not a failure: surfacing it would pop an
+        // error banner on Stop (#5966, follow-up to #5812). Mirror the
+        // local-abort suppression on the runAgent/connectAgent paths and skip
+        // it. Prefer the abort controller (the client's own record that it
+        // initiated the stop) over the agent-supplied `code`, which is not
+        // standardized across agents.
+        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
         const eventError =
           event?.rawEvent instanceof Error
             ? event.rawEvent
@@ -978,13 +1193,19 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = schemaToJsonSchema(tool.parameters, { zodToJsonSchema });
+  const rawSchema = schemaToJsonSchema(tool.parameters, {
+    zodToJsonSchema: (schema, options) =>
+      zodToJsonSchema(
+        schema as Parameters<typeof zodToJsonSchema>[0],
+        options as Parameters<typeof zodToJsonSchema>[1],
+      ),
+  });
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
+  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
 
   if (typeof schema.type !== "string") {
     schema.type = "object";

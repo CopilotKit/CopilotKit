@@ -1,0 +1,325 @@
+---
+title: Slack
+description: Bring custom agents into Slack with native cards, streaming replies, approvals, and durable thread context.
+icon: "lucide/Slack"
+hideTOC: true
+---
+
+Slack can be the frontend for agents built on any harness or framework, so your team can get work done in the conversations, approvals, and handoffs they already use. The open source Channels SDK gives you the adapter path for TypeScript handlers and JSX-authored Block Kit messages. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for thread mapping, durable agent state, approvals, observability, and release operations when Slack becomes a critical workflow.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
+  body="Use the open source Channels SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
+  ctaLabel="Get early access"
+  surface="docs_slack_agents_early_access"
+  href="https://www.copilotkit.ai/opentag-managed"
+/>
+
+## Prerequisites
+
+- Node.js 20+
+- A Slack workspace where you can install apps
+- An OpenAI API key (or Anthropic/Google — any model supported by [Model Selection](/model-selection))
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create the Slack app from a manifest
+
+        The manifest declares everything the bot needs — scopes, events, Socket Mode, a `/agent` slash command, and the **assistant pane** ("Agents & AI Apps") — in one shot.
+
+        1. Open [api.slack.com/apps?new_app=1](https://api.slack.com/apps?new_app=1) and choose **From a manifest**.
+        2. Pick your workspace.
+        3. Switch the editor to the **YAML** tab (it defaults to JSON) and paste the contents of [`examples/slack/slack-app-manifest.yaml`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/slack/slack-app-manifest.yaml).
+        4. Review and create the app.
+
+        <Callout type="info" title="The assistant pane is on by default">
+          The manifest's `assistant_view` block (plus the `assistant:write` scope and the `assistant_thread_started` / `assistant_thread_context_changed` events) turns on Slack's AI assistant pane: opening it greets the user with tappable prompt chips, replies stream natively with live "is thinking…" status, and each pane conversation is its own thread. To run a plain channel bot without the pane, drop the `assistant_view` block and the `assistant:*` scope/events, and pass `assistant: false` to `slack(...)`.
+        </Callout>
+    </Step>
+    <Step>
+        ### Install the app and copy both tokens
+
+        The bot needs two tokens:
+
+        1. **Bot token (`xoxb-…`)** — under **OAuth & Permissions**, click **Install to Workspace** and approve. Copy the **Bot User OAuth Token** that appears after the install.
+        2. **App-level token (`xapp-…`)** — under **Basic Information → App-Level Tokens**, click **Generate Token and Scopes**, name it anything, add the `connections:write` scope, and generate. Copy the token.
+
+        <Callout type="info" title="No public URL needed">
+          Socket Mode opens an outbound WebSocket to Slack — no public URL, no ngrok, works from your laptop.
+        </Callout>
+    </Step>
+    <Step>
+        ### Scaffold the project
+
+        ```bash
+        mkdir my-slack-bot && cd my-slack-bot
+        npm init -y && npm pkg set type=module
+        ```
+
+        Install the Channels packages, plus `@copilotkit/runtime` for Copilot Runtime and `tsx` to run TypeScript directly:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
+                npm install -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
+                pnpm add -D tsx typescript @types/node
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack @copilotkit/runtime
+                yarn add -D tsx typescript @types/node
+                ```
+            </Tab>
+        </Tabs>
+
+        Then create a `tsconfig.json` that points the JSX factory at `@copilotkit/channels-ui` — this is what makes `<Message>` / `<Button>` statically type-checked bot UI instead of React:
+
+        ```json title="tsconfig.json"
+        {
+          "compilerOptions": {
+            "target": "es2022",
+            "module": "nodenext",
+            "moduleResolution": "nodenext",
+            "strict": true,
+            "skipLibCheck": true,
+            "noEmit": true,
+            "types": ["node"],
+            "jsx": "react-jsx",
+            "jsxImportSource": "@copilotkit/channels-ui"
+          },
+          "include": ["bot.tsx"]
+        }
+        ```
+
+        <Callout type="info" title="ESM only">
+          The Channels packages are ESM-only — `"type": "module"` (set above) is required.
+        </Callout>
+    </Step>
+    <Step>
+        ### Set up Copilot Runtime and the bot
+
+        The smallest working bot is `createBot` + the Slack adapter + one `onMention` handler that runs the agent. For the quickstart, Copilot Runtime runs in the same process as the Slack bot, serves a `BuiltInAgent` on a local port, and the bot connects to that runtime URL:
+
+        ```tsx title="bot.tsx"
+        import { createServer } from "node:http";
+        import { createBot } from "@copilotkit/channels";
+        import { slack, SanitizingHttpAgent } from "@copilotkit/channels-slack"; // [!code highlight]
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+        const agentId = "assistant";
+        const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
+        const runtimeUrl = `http://localhost:${runtimePort}/api/copilotkit`;
+
+        // Copilot Runtime: hosts the assistant agent.
+        const runtime = new CopilotRuntime({
+          agents: {
+            [agentId]: new BuiltInAgent({
+              model: process.env.OPENAI_MODEL ?? "openai:gpt-5-mini",
+              prompt: "You are a helpful Slack assistant. Keep replies short.",
+            }),
+          },
+        });
+        createServer(
+          createCopilotNodeListener({
+            runtime,
+            basePath: "/api/copilotkit",
+            cors: true,
+          }),
+        ).listen(runtimePort, () => {
+          console.log(`Copilot Runtime listening at ${runtimeUrl}`);
+        });
+
+        // The bot: the Slack adapter + one handler.
+        const bot = createBot({
+          adapters: [
+            // [!code highlight:4]
+            slack({
+              botToken: process.env.SLACK_BOT_TOKEN!, // xoxb-…
+              appToken: process.env.SLACK_APP_TOKEN!, // xapp-…
+            }),
+          ],
+          // One agent connection per Slack conversation.
+          agent: (threadId) => {
+            const agent = new SanitizingHttpAgent({
+              url: `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`,
+            });
+            agent.threadId = threadId;
+            return agent;
+          },
+        });
+
+        bot.onMention(async ({ thread }) => {
+          await thread.runAgent(); // [!code highlight]
+        });
+
+        await bot.start();
+        console.log("⚡ Bot connected over Socket Mode");
+        ```
+
+        `thread.runAgent()` streams the agent's reply into the Slack thread, editing the message in place as tokens arrive.
+    </Step>
+    <Step>
+        ### Run it
+
+        ```bash
+        export SLACK_BOT_TOKEN=xoxb-…
+        export SLACK_APP_TOKEN=xapp-…
+        export OPENAI_API_KEY=sk-…
+
+        npx tsx bot.tsx
+        ```
+
+        You should see `Copilot Runtime listening at http://localhost:8200/api/copilotkit` and `⚡ Bot connected over Socket Mode` in the terminal. Now **invite the bot** to a channel and mention it — the bot's name comes from the manifest (if autocomplete can't find it, check **App Home** → *Default username*):
+
+        ```
+        /invite @YourBot
+        @YourBot what can you do?
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **Mentioning the bot does nothing** — `app_mention` only fires in channels the bot is a **member** of: `/invite` it first. Also check the process is running and both tokens are set.
+                - **`@`-autocomplete doesn't find the bot** — search by the bot user's *Default username* (visible under **App Home**), not the app's display name. Identity changes only propagate when you **reinstall** the app; in stubborn cases a full uninstall → reinstall is needed, which **rotates the `xoxb-` token** — update your env when it does.
+                - **`bot.start()` fails with an auth error** — the `xoxb-` token is wrong or was rotated by a reinstall; copy the current one from OAuth & Permissions.
+                - **The bot connects but never replies** — confirm `OPENAI_API_KEY` is set and `http://localhost:8200/api/copilotkit/info` returns the `assistant` agent.
+                - **Slash command does nothing** — the command isn't declared in the Slack app config (see the last step), or the process isn't running.
+            </Accordion>
+        </Accordions>
+    </Step>
+    <Step>
+        ### Post interactive UI
+
+        Replies don't have to be text. Messages are authored as JSX from the [`@copilotkit/channels-ui` vocabulary](/reference/channels/components/Message) — including buttons with **inline `onClick` handlers**. Replace the `onMention` handler from the previous step:
+
+        ```tsx title="bot.tsx"
+        import { Message, Header, Section, Actions, Button } from "@copilotkit/channels-ui"; // [!code highlight]
+
+        bot.onMention(async ({ thread, message }) => {
+          if (message.text.toLowerCase().includes("deploy")) {
+            await thread.post(
+              <Message accent="#27AE60">
+                <Header>Deploy v1.4.2</Header>
+                <Section>Ship **v1.4.2** to production?</Section>
+                <Actions>
+                  {/* [!code highlight:6] */}
+                  <Button
+                    style="primary"
+                    onClick={async ({ thread }) => {
+                      await thread.post("🚀 Shipping!");
+                    }}
+                  >
+                    Ship it
+                  </Button>
+                  <Button
+                    onClick={async ({ thread }) => {
+                      await thread.post("Standing down.");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Actions>
+              </Message>,
+            );
+            return;
+          }
+          await thread.runAgent();
+        });
+        ```
+
+        Mention the bot with "deploy" in the message and click the buttons. Your handler code never leaves your process — Slack only sees an opaque action id.
+
+        <Callout type="warn" title="Buttons expire on restart">
+          The default action store is **in-memory**: after a process restart, clicks on old buttons are acknowledged but ignored. For buttons that survive restarts, plug a durable store (Redis, a database) into `createBot({ actionStore })` — see the [ActionStore contract](/reference/channels/types/ActionStore).
+        </Callout>
+    </Step>
+    <Step>
+        ### Add a slash command
+
+        The manifest already declares `/agent` — register its handler above `bot.start()`. Slash-command text never appears in the channel, so pass it to the agent explicitly with `prompt`:
+
+        ```tsx title="bot.tsx"
+        bot.onCommand("agent", async ({ thread, text }) => {
+          await thread.runAgent({ prompt: text }); // [!code highlight]
+        });
+        ```
+
+        <Callout type="warn" title="Declare commands in the Slack app config">
+          Slack silently drops undeclared commands — declare new ones in the manifest's `slash_commands` (or **Slash Commands** in the app settings) first.
+        </Callout>
+    </Step>
+
+</Steps>
+
+## Split the bot and the agent
+
+The bot and its agent talk over [AG-UI](https://docs.ag-ui.com) through Copilot Runtime, so they don't have to share a process. The production shape is two services joined by a URL: move the `CopilotRuntime` block into its own process (or use a deployed Copilot Runtime) and point the bot at it via env, exactly how the full [on-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) is wired:
+
+```tsx title="bot.tsx"
+const runtimeUrl = process.env.COPILOT_RUNTIME_URL!;
+
+agent: (threadId) => {
+  const agent = new SanitizingHttpAgent({
+    url: `${runtimeUrl}/agent/assistant/run`, // [!code highlight]
+  });
+  agent.threadId = threadId;
+  return agent;
+},
+```
+
+[`SanitizingHttpAgent`](/reference/channels/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting a Slack bot to Copilot Runtime.
+
+## Platform capability matrix
+
+The three CopilotKit bot adapters — Slack, Discord, and Telegram — share the same `@copilotkit/channels` API surface but differ in what the underlying platform natively supports. The table below shows exactly what shipped in the current release.
+
+| Feature | Slack | Discord | Telegram |
+|---|---|---|---|
+| **Reactions** (observe + react) | ✅ — add `reactions:read` / `reactions:write` scopes and subscribe to `reaction_added` / `reaction_removed` events in the app manifest | ✅ — requires `GuildMessageReactions` + `DirectMessageReactions` intents and `Partials.Message` + `Partials.Reaction` partials | ✅ — `message_reaction` included in `TELEGRAM_ALLOWED_UPDATES`; bot must be an **admin** in group chats |
+| **Native ephemeral** | ✅ (`chat.postEphemeral`) | ❌ — interaction-scoped only; not wired yet | ❌ — not a Telegram concept |
+| **`postEphemeral` (with DM fallback)** | `usedFallback: false` (native) | `usedFallback: true` (falls back to DM) | `usedFallback: true` (falls back to DM); requires user to have previously messaged the bot |
+| **Modals** | ✅ full — text inputs, selects, radio buttons; validation errors via `response_action: "errors"`; `privateMetadata` round-trip | ✅ text inputs only — max 5 fields; no validation re-open; `ModalSelect` / `RadioButtons` rejected at render time | ❌ — `openModal` resolves `{ ok: false }`; no modal surface on Telegram |
+
+### Reactions — setup notes
+
+**Slack:** subscribe to `reaction_added` and `reaction_removed` events in the Slack app manifest (or in the **Event Subscriptions** UI). The `reactions:read` scope lets the bot read reactions; `reactions:write` lets it add or remove them. Without the event subscriptions, Slack won't deliver reaction events even if the scopes are present.
+
+**Discord:** the adapter automatically requests `GuildMessageReactions` and `DirectMessageReactions` intents (both non-privileged — no Developer Portal toggle required), and enables `Partials.Message` + `Partials.Reaction`. The partials are necessary because reaction events for messages that were sent before the bot started (or evicted from in-memory cache) arrive as _partial_ objects; without them, those reactions are silently dropped.
+
+**Telegram:** `message_reaction` is already included in `TELEGRAM_ALLOWED_UPDATES` — no manual configuration needed for long-polling. For webhook mode, pass the exported constant to `setWebhook`:
+
+```ts
+import { TELEGRAM_ALLOWED_UPDATES } from "@copilotkit/channels-telegram";
+await bot.api.setWebhook(url, { allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] });
+```
+
+In ordinary group chats, the bot must be an **administrator** to receive `message_reaction` events. Private chats and channels work without extra permissions.
+
+### Emoji normalization
+
+All three adapters normalize platform-specific emoji representations into a common `emoji` string. Standard named emoji (`:thumbsup:`, `:white_check_mark:`, etc.) are surfaced as their short-name. Unknown or custom emoji that cannot be mapped pass through as `rawEmoji` on the reaction event, so your handler can inspect them without losing information.
+
+### Modals — Discord timing rule
+
+Discord requires the modal to be opened **before any other response** to a button click or slash command. Discord's acknowledgement window is **≈3 seconds** — call `openModal(view)` first, then do any long-running work in a follow-up message. Opening a modal after sending another response will fail silently.
+
+### Known limitations (v1)
+
+- **Single workspace / guild / bot** — one token per adapter instance; no OAuth multi-tenant install flow
+- **In-memory action store by default** — inline button handlers expire on restart unless you provide a durable `ActionStore`
+- **Replies only** — the bot answers turns it's part of (mentions, its threads, DMs); it doesn't post proactively
+
+## Next steps
+
+- **API reference:** the [Channels SDK reference](/reference/channels) — [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool) & [commands](/reference/channels/functions/defineBotCommand), the [component vocabulary](/reference/channels/components/Message), and the [Slack adapter](/reference/channels/slack)
+- **Full example:** [on-call triage bot over Linear + Notion MCP](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — tools, human-in-the-loop, slash commands, file uploads

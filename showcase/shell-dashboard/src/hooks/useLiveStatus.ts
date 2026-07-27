@@ -2,7 +2,11 @@
 import { startTransition, useEffect, useRef, useState } from "react";
 import { getPb, pbIsMisconfigured, PB_MISCONFIG_MESSAGE } from "../lib/pb";
 import type { ConnectionStatus, StatusRow } from "../lib/live-status";
-import { STATUS_LIST_FIELDS, upsertByKey } from "../lib/live-status";
+import {
+  STATUS_LIST_FIELDS,
+  FLEET_COMM_AGGREGATE_DIMENSIONS,
+  upsertByKey,
+} from "../lib/live-status";
 
 // Back-compat alias: the connection-status union is owned by `live-status.ts`
 // as `ConnectionStatus` (the single source of truth shared with resolveCell /
@@ -30,13 +34,23 @@ export interface UseLiveStatusResult {
 const MAX_RECONNECT_ATTEMPTS = 3;
 // PocketBase clamps `perPage` to 500 server-side regardless of what the client
 // asks for, so 500 is the largest page the REST API will actually return. The
-// `status` collection holds ~2455 rows across all probe dimensions (smoke,
+// `status` collection holds ~3100 rows across all probe dimensions (smoke,
 // health, agent, e2e per-cell, d5/d6 per-feature, chat, tools, starter,
-// image-drift, etc.), so the initial fetch spans ~5 pages. We fetch page 1
-// alone, then — because `skipTotal` drops `totalPages` from the response (we no
-// longer pay for the COUNT(*) query) — fan out the remaining pages in
-// LENGTH-bounded concurrent waves (see fetchInitial): keep going until a page
-// comes back shorter than `INITIAL_PAGE_SIZE`.
+// image-drift, etc.), so the initial fetch spans ~7 pages. That row count is
+// also what sizes `MAX_INITIAL_FETCH_PAGES`.
+//
+// SOURCE OF THE ROW COUNT — measured, not estimated: `totalItems` from
+// `GET /api/collections/status/records?perPage=1` against the production
+// PocketBase (`showcase-pocketbase-production.up.railway.app`). That read
+// returned 3082 rows on 2026-07-24, i.e. ceil(3082/500) = 7 pages. Re-run that
+// one request to refresh this number; every other size/page figure in this file
+// and in `STATUS_LIST_FIELDS`' doc (live-status.ts) is derived from it, so they
+// must move together.
+//
+// We fetch page 1 alone, then — because `skipTotal` drops `totalPages` from the
+// response (we no longer pay for the COUNT(*) query) — fan out the remaining
+// pages in LENGTH-bounded concurrent waves (see fetchInitial): keep going until
+// a page comes back shorter than `INITIAL_PAGE_SIZE`.
 const INITIAL_PAGE_SIZE = 500;
 // Size of each concurrent fan-out wave AFTER page 1. With `skipTotal` we can't
 // learn the page count up front, so we issue pages in waves of this many at
@@ -46,11 +60,95 @@ const INITIAL_PAGE_SIZE = 500;
 // first short page in a wave and appends up to AND INCLUDING it, dropping any
 // over-fetched empty tail pages. The constant only trades request concurrency
 // against wasted fetches past the end: kept at 2 so a wave over-fetches past
-// the first short page by at most one (empty) request — and for the real
-// ~5-page collection even that never happens (page 5 is short and ends its own
-// wave). A larger batch only requests more empty pages on a short final page;
-// it can never corrupt the merge.
+// the first short page by at most one (empty) request — and at the collection's
+// CURRENT size that one wasted request does not happen either, because the
+// waves after page 1 are (2,3), (4,5), (6,7) and the short page 7 lands in the
+// LAST slot of its wave. That is a coincidence of the current ODD page count
+// (~7 pages, see INITIAL_PAGE_SIZE above), NOT a property of the algorithm: at
+// an EVEN page count the short page lands in slot 0 and the wave over-fetches
+// one empty page. A larger batch only requests more empty pages on a short
+// final page; it can never corrupt the merge.
 const INITIAL_FANOUT_BATCH = 2;
+// HARD page cap for BOTH initial-fetch pagination loops (bulk and supplemental).
+// Neither loop can learn the page count up front (`skipTotal` drops
+// `totalPages`), so each keeps going until a page comes back short — a
+// termination condition that depends entirely on the server behaving. A server
+// that answers every page with a full one (misbehaving pagination, a proxy
+// replaying a cached page, a filter that suddenly matches far more than
+// expected) turns either loop into an unbounded request storm that never lets
+// go of the main thread. `matrix.ts` has carried an equivalent guard for this
+// reason; these two did not.
+//
+// SIZED AS A RUNAWAY GUARD, NOT A BUDGET. Truncation is not free on either
+// path — see the ASYMMETRIC handling at the two call sites:
+//
+//   - SUPPLEMENTAL: truncation DEGRADES (warn + use what we have). The rows we
+//     did not reach simply arrive without `signal`, and `classifyRung`'s
+//     fail-safe polarity paints a signal-less red RED, never gray — so a
+//     truncated enrichment loses infra-vs-product attribution, never a failure.
+//   - BULK: truncation MASKS (throw). Rows we never read are whole cells that
+//     would render as no-data gray, i.e. silently hidden failures. Hitting the
+//     cap here means the server is not paginating sanely, so we fail loud into
+//     the existing retry chain rather than paint a partial matrix as complete.
+//
+// So the value is chosen against TWO bounds, and 20 is the smallest round
+// number that satisfies both:
+//
+//   LOWER BOUND — it must never cut a legitimate read short, at any fleet
+//   health. The largest legitimate read is not the ~7 pages the collection
+//   occupies today (~3100 rows; the supplemental worst case, EVERY row
+//   non-green, is that same 7 pages / 1.73 MB measured against production) —
+//   it is that worst case times however much the collection grows before
+//   anyone revisits this constant. `status` grows as integrations × features ×
+//   dimensions, i.e. with the catalog, so a cap set at the measured worst case
+//   would start throwing the moment the catalog roughly doubled. 20 pages
+//   (10,000 rows) is ~3x the measured worst case: it absorbs a 3x catalog
+//   without a false truncation, which is well past any plausible growth
+//   between reviews of this file.
+//
+//   UPPER BOUND — it must bound the damage a misbehaving server can do. The
+//   cap replaces "unbounded request storm" with "at most 21 requests / ~10,000
+//   rows, then a decision", so it has to stay small enough that walking the
+//   whole budget is survivable on the main thread. Raising it trades directly
+//   against that: at 100 pages a runaway server buys 50,000 rows of parsing
+//   before the loop gives up.
+//
+// Both bounds are about the RUNAWAY case only. It is NOT a first-paint budget:
+// the happy path reads ~7 pages and stops on a short page, so the cap and the
+// lookahead in `paginateStatusPages` are both inert at production scale.
+//
+// Exported so `useLiveStatus.supplemental-bounds.test.tsx` can pin it
+// MECHANICALLY (`expect(MAX_INITIAL_FETCH_PAGES).toBe(EXPECTED_MAX_INITIAL_PAGES)`)
+// instead of restating the number and hoping the two stay in step. That guard is
+// deliberately two-sided: LOWERING the cap is as much a silent behavior change
+// as raising it, and an upper-bound-only assertion would wave it through.
+export const MAX_INITIAL_FETCH_PAGES = 20;
+// `fields` projection for the SUPPLEMENTAL signal fetch: the bulk projection
+// PLUS `signal`, i.e. exactly the declared `StatusRow` shape and nothing else.
+//
+// It is derived from `STATUS_LIST_FIELDS` rather than spelled out so the two can
+// never drift: `live-status.test.ts` pins that constant to `keyof StatusRow`
+// minus `signal`, which makes this one exactly `keyof StatusRow` — including any
+// field added later.
+//
+// WHY PROJECT AT ALL, when this is the request that exists to bring the heavy
+// blob back? Because an UNPROJECTED PocketBase response also carries the columns
+// `StatusRow` does not declare and nothing in the dashboard reads —
+// `collectionId`, `collectionName`, `created`, `updated`, `state_written_at`,
+// `written_by`. Measured against production (357 non-green rows): 429,085 bytes
+// unprojected vs 362,982 with this projection — 66 KB (15%) of pure waste
+// removed from the first-paint critical path, and ~260 KB at the incident scale
+// where every row is non-green.
+//
+// WHY NOT NARROWER (e.g. `key,observed_at,signal`, which measures 304 KB)?
+// Because the merge in `fetchInitial` treats a supplemental row as a COMPLETE
+// row: it replaces its bulk twin wholesale, and appends a row the bulk snapshot
+// missed. Both depend on the response being a full `StatusRow`. A narrower
+// projection would force grafting `signal` onto a bulk row of a DIFFERENT
+// vintage — precisely the chimera `supplementalRowIsOlder` exists to prevent —
+// and would append half-populated rows (no `state`, no `fail_count`) into the
+// render model. The extra ~58 KB buys back that whole class of bug.
+const STATUS_SIGNAL_FIELDS = `${STATUS_LIST_FIELDS},signal`;
 // Flapping detector (A.4). We keep a sliding window of the timestamps at which
 // the HEARTBEAT forced a reconnect; if more than FLAPPING_THRESHOLD of them
 // fall inside the trailing FLAPPING_WINDOW_MS, the feed is flapping and
@@ -92,6 +190,197 @@ const RECONNECT_BACKOFF_MAX_MS = 8000;
 // roughly one frame — short enough to feel "live" to operators, long enough
 // to fold a burst of deltas into one render.
 const SUBSCRIBE_FLUSH_INTERVAL_MS = 16;
+
+/**
+ * `true` when the supplemental signal-bearing row (`full`) is STRICTLY older
+ * than its projected bulk twin (`bulkRow`) — the freshness guard for the
+ * cold-load merge in `fetchInitial` (CF8 F3).
+ *
+ * The supplemental fetch runs CONCURRENTLY with the bulk pages, so the bulk
+ * copy of an aggregate row can be NEWER (the row's state changed between the
+ * two reads). Replacing it with the supplemental snapshot would regress
+ * `state`/`observed_at` to stale values until the row's next SSE delta —
+ * which for slow-cadence aggregate rows can be a long time. "Fresher wins" is
+ * judged on `observed_at`, the row's last-SEEN marker (it moves on every
+ * producer tick, while `transitioned_at` only moves on state change — so it is
+ * the strictly-later of the two and the right recency key; the staleness fold
+ * in cell-model.ts keys off the same field).
+ *
+ * Tie/parse semantics, both deliberate:
+ *   - EQUAL timestamps → NOT older → the supplemental row wins. It is the
+ *     field-complete twin of the same snapshot (it carries `signal`, which the
+ *     bulk projection drops), so preferring it is what makes the cold-load
+ *     comm-error overlay visible at all (CF7-F3 #1).
+ *   - UNPARSEABLE timestamp on either side → NOT older → supplemental wins.
+ *     We only suppress the replace when the supplemental row is POSITIVELY
+ *     known to be stale; an undecidable comparison falls back to the
+ *     signal-bearing row, the same eventual-consistency posture as before
+ *     (the SSE subscription reconciles either way).
+ *
+ * When the bulk row IS newer we keep it INTACT — we do NOT graft the older
+ * supplemental `signal` onto it. A chimera row (newer core fields + stale
+ * signal) is worse than a signal-less one: the reducer's no-op check
+ * (`rowsAreNoop`, live-status.ts) compares signal PRESENCE only, so the next
+ * SSE delta carrying the same core fields but the REAL current signal would be
+ * swallowed as a no-op and the stale signal would persist indefinitely. A
+ * signal-less bulk row instead makes that delta's `undefined → defined`
+ * presence flip observable, so the live subscription restores `signal` safely.
+ */
+function supplementalRowIsOlder(full: StatusRow, bulkRow: StatusRow): boolean {
+  // `Date.parse` yields NaN for a malformed value; NaN comparisons are false,
+  // but we gate explicitly so the fallback direction is documented, not an
+  // accident of IEEE semantics.
+  const fullTs = Date.parse(full.observed_at);
+  const bulkTs = Date.parse(bulkRow.observed_at);
+  if (Number.isNaN(fullTs) || Number.isNaN(bulkTs)) return false;
+  return fullTs < bulkTs;
+}
+
+/**
+ * Reads ONE page of the `status` collection and returns just its rows. The
+ * per-request query (`filter` / `fields` / `sort` / `skipTotal` /
+ * `requestKey`) is baked in by whoever builds the reader, so
+ * `paginateStatusPages` never has to know which of the two initial fetches it
+ * is driving — and the lookahead below asks the SAME question as the read it
+ * terminates, by construction rather than by remembering to.
+ */
+type StatusPageReader = (page: number) => Promise<StatusRow[]>;
+
+/** Result of `paginateStatusPages`; see there for what `truncated` means. */
+export interface StatusPagesResult {
+  rows: StatusRow[];
+  /**
+   * `true` IFF rows exist past the page cap that this read did NOT return.
+   * PROVEN by a lookahead read, never inferred from cap exhaustion.
+   */
+  truncated: boolean;
+}
+
+/**
+ * LENGTH-bounded, wave-concurrent, PAGE-CAPPED paged read of the `status`
+ * collection — the single pagination implementation shared by BOTH initial
+ * fetches (bulk projected rows, and the supplemental signal rows).
+ *
+ *   1. Fetch page 1 alone (a short page 1 means a single-page result — no
+ *      fan-out, so a small collection never over-fetches).
+ *   2. While the last page came back FULL, fan out the next wave of
+ *      `INITIAL_FANOUT_BATCH` pages CONCURRENTLY. Stop at the FIRST short
+ *      page in a wave, appending pages up to AND INCLUDING it — PocketBase
+ *      pagination is monotonic, so every page issued after the short one in
+ *      the same wave is past the end. This merge is correct for ANY batch
+ *      size (guarding the #4504 over-fetch-past-end regression if the
+ *      constant is retuned) and is ordered by ARRAY INDEX, so the result is
+ *      deterministic page order regardless of which response resolves first.
+ *   3. Never RETAIN a page beyond `MAX_INITIAL_FETCH_PAGES`, and report
+ *      whether rows were left UNREAD so the CALLER can decide what that means
+ *      (they differ — see the constant's doc).
+ *
+ * This was two separate loops. The bulk one had the wave/short-page/merge
+ * guards; the supplemental one was a bare `for(;;)` with none of them and no
+ * cap. Sharing one implementation makes that parity structural instead of
+ * something two comment blocks have to promise each other.
+ *
+ * WHAT `truncated` MEANS. Exactly one thing: "there are rows we did not read."
+ * Not "the cap was reached", not "the last page was full" — those are evidence,
+ * and on their own they are not conclusive. This loop learns where the
+ * collection ENDS only from a SHORT page (`skipTotal: true` drops
+ * `totalItems`/`totalPages`), so a collection of exactly
+ * `MAX_INITIAL_FETCH_PAGES × INITIAL_PAGE_SIZE` rows is read COMPLETELY and
+ * still ends on a FULL page — from inside the loop, indistinguishable from a
+ * collection with more to give. Equating "cap exhausted with a full last page"
+ * with truncation is therefore a FALSE POSITIVE at that exact row count, and on
+ * the BULK path truncation THROWS: the dashboard would go offline
+ * deterministically and PERMANENTLY at exactly 10,000 rows — on every retry and
+ * every reload, because the condition is a pure function of the row count.
+ * `matrix.ts` carried the same false-outage class server-side (any full final
+ * page read as truncation, so any 500-boundary took `/api/matrix` down) and
+ * fixed it by consulting `totalItems`.
+ *
+ * HOW IT IS ESTABLISHED. This path has no totals to consult, so it PROVES the
+ * claim instead: on cap exhaustion with a full last page it issues exactly ONE
+ * LOOKAHEAD read of page `MAX_INITIAL_FETCH_PAGES + 1`, whose ROWS ARE
+ * DISCARDED and only whose EMPTINESS is load-bearing. Empty ⇒ the collection
+ * ended exactly on the cap page ⇒ the read is COMPLETE. Non-empty ⇒ there
+ * really is more ⇒ truncated.
+ *
+ * WHY A LOOKAHEAD AND NOT `skipTotal: false`. Asking page 1 for totals (the
+ * `matrix.ts` shape) puts a COUNT(*) on the FIRST-PAINT critical path of EVERY
+ * load — precisely the overhead `skipTotal: true` was set to drop — in order to
+ * disambiguate a case that can only arise after `MAX_INITIAL_FETCH_PAGES`
+ * consecutive full pages. It would also make completeness depend on a count
+ * taken at a different instant than the pages, which is its own false-positive
+ * source under concurrent inserts. The lookahead puts the entire cost on the
+ * pathological path: it is UNREACHABLE at production scale (~7 pages, ends on a
+ * short page), and where it does fire the read is already ~3x the collection, so
+ * one more request is a rounding error against the 20 that preceded it. It
+ * carries the caller's own projection so it is the same request shape as the
+ * pages around it.
+ *
+ * A FAILED lookahead leaves the question open, so it fails SAFE: unproven
+ * completeness is reported as `truncated`. That keeps the bulk caller's
+ * fail-loud posture (never paint a partial matrix as complete, which is the
+ * masking polarity this whole file is fighting) and costs the supplemental
+ * caller nothing but a spurious warning.
+ *
+ * Exported for the DIRECT unit assertions in
+ * `useLiveStatus.page-cap-boundary.test.tsx`: the `truncated` contract is a
+ * property of this function, and pinning it here — rather than only through the
+ * hook's observable state — is what keeps the boundary case covered without a
+ * 10,000-row fixture per assertion.
+ */
+export async function paginateStatusPages(
+  readPage: StatusPageReader,
+): Promise<StatusPagesResult> {
+  const pages: StatusRow[][] = [];
+  const first = await readPage(1);
+  pages.push(first);
+  let lastPageFull = first.length === INITIAL_PAGE_SIZE;
+  let nextPage = 2;
+  let truncated = false;
+  while (lastPageFull) {
+    // Build the wave from pages within the cap only. An EMPTY wave means the
+    // cap is exhausted while the last page was still full — the ambiguous case
+    // the lookahead below exists to resolve.
+    const wave: Promise<StatusRow[]>[] = [];
+    for (
+      let i = 0;
+      i < INITIAL_FANOUT_BATCH && nextPage + i <= MAX_INITIAL_FETCH_PAGES;
+      i++
+    ) {
+      wave.push(readPage(nextPage + i));
+    }
+    if (wave.length === 0) {
+      // `nextPage` is exactly `MAX_INITIAL_FETCH_PAGES + 1` here — no wave ever
+      // contains an out-of-cap page, so the counter cannot overshoot the cap by
+      // more than the single page that ended the loop, for any batch size.
+      try {
+        const lookahead = await readPage(MAX_INITIAL_FETCH_PAGES + 1);
+        truncated = lookahead.length > 0;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[useLiveStatus] page-cap lookahead failed; reporting the read as " +
+            "truncated because completeness is unproven",
+          { page: MAX_INITIAL_FETCH_PAGES + 1, err },
+        );
+        truncated = true;
+      }
+      break;
+    }
+    const waveResults = await Promise.all(wave);
+    const shortIdx = waveResults.findIndex(
+      (items) => items.length < INITIAL_PAGE_SIZE,
+    );
+    const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
+    for (let i = 0; i <= lastIdx; i++) {
+      pages.push(waveResults[i]!);
+    }
+    // The wave ended the collection iff it contained a short page.
+    lastPageFull = shortIdx === -1;
+    nextPage += wave.length;
+  }
+  return { rows: pages.flat(), truncated };
+}
 
 /**
  * Subscribes to the `status` collection, scoped by `dimension`. Exposes
@@ -212,6 +501,139 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     const filter = dimension
       ? pb.filter("dimension = {:dim}", { dim: dimension })
       : "";
+
+    // SUPPLEMENTAL signal fetch — the narrow companion to the bulk projected
+    // fetch. The bulk fetch projects `signal` away (STATUS_LIST_FIELDS) for the
+    // payload win, but two render-time readers need it, so we re-fetch it for a
+    // CHEAP row set aimed at those two readers. It is deliberately NOT the
+    // minimal cover and NOT a complete one — see WHAT THIS DOES NOT COVER at the
+    // bottom of this comment before reasoning about cold-load correctness. The
+    // filter is the UNION of two clauses:
+    //
+    // CLAUSE 1 — comm-error candidate AGGREGATE rows (CF7-F3 #1).
+    //   `decodeCellCommError` (cell-model.ts) reads `row.signal` per cell at
+    //   render to derive the REQ-B unreachable/pending overlay — so on a cold
+    //   load every active overlay was invisible until an SSE delta happened to
+    //   re-deliver the row. Scoped to the FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   dimensions (`d6`/`d4`/`e2e-demos`/`d5-single-pill-e2e`) restricted to
+    //   integration-level aggregate keys (`key !~ "%/%"` — no `/<featureId>`
+    //   segment), which is where the harness mirrors comm errors. That is a few
+    //   rows per integration (~4 × #slugs). This clause is NOT state-scoped: a
+    //   GREEN aggregate row can still carry an active comm-error blob, so it
+    //   must stay independent of clause 2.
+    //
+    // CLAUSE 2 — every NON-GREEN row, ALL dimensions (`state != "green"`).
+    //   `classifyRung` (cell-model.contribution.ts) needs `signal` to tell an
+    //   INFRA red from a PRODUCT red, and it needs it ONLY in the red branch —
+    //   the green/degraded paths never consult `signal` at all, and the branch's
+    //   provenance precondition (`redSignalKnown`) is likewise scoped to the RED
+    //   rows, so this clause covers it EXACTLY. Without this clause a
+    //   genuinely-failing rung arrived signal-less and, before the
+    //   fail-safe polarity flip, was painted GRAY; it self-corrected only when
+    //   the probe's next sweep rewrote that specific row and the SSE delta
+    //   redelivered it WITH `signal` — up to a FULL PROBE PERIOD, on EVERY page
+    //   load. That worst case is ~60 min, not the ~30 min an earlier revision of
+    //   this comment claimed: the probes that write these rows are scheduled in
+    //   `showcase/harness/config/probes/*.yml`, and while `smoke` is `*/5`,
+    //   `e2e-smoke`/`image-drift` are `*/15` and `e2e-deep`/`qa` are `*/30`, the
+    //   `e2e:` (`e2e-demos.yml`, `10 * * * *`), `starter:` (`starter_smoke.yml`,
+    //   `40 * * * *`) and `d6:` (`d6-all-pills-e2e.yml`, `40 * * * *`) rows are
+    //   all HOURLY — and `aimock-wiring` (`0 */6 * * *`) plus the drift probes
+    //   (weekly / monthly) are slower still. So ~60 min bounds the routine
+    //   per-cell dimensions and the drift dimensions are unbounded in practice.
+    //   Clause 1 could never cover these rows: they are mostly dimension
+    //   `d5`/`e2e`/`health` (absent from FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   entirely) AND they are per-cell `<dim>:<slug>/<featureId>` keys that
+    //   `key !~ "%/%"` excludes.
+    //
+    //   Scoping by STATE rather than by key is what keeps this cheap. Byte
+    //   basis, all measured against production PocketBase on 2026-07-24 (see
+    //   INITIAL_PAGE_SIZE above for the row-count source): a FULL 500-row page is
+    //   371 KB and the same page PROJECTED is 113 KB, so `signal` is ~70% of the
+    //   payload and costs ~258 KB per 500 rows. Across the whole ~3100-row
+    //   collection that is ~1.6 MB extra if shipped on every row (6.16 × 258 KB;
+    //   fetching all 7 pages both ways measures 2.34 MB full vs 0.70 MB
+    //   projected, i.e. 1.64 MB of `signal`). The supplemental union is 436 rows
+    //   / ~480 KB on the wire — ~29% of that ~1.6 MB — of which the non-green
+    //   clause is 357 rows / ~430 KB. No schema change is needed. NOTE the
+    //   retired "~1.29 MB" figure was the same 258 KB/500-row basis applied to
+    //   the OLD ~2455-row collection; it must be re-derived whenever the row
+    //   count moves. `!= "green"` (rather than an explicit red/degraded list) is
+    //   deliberate: it also catches an out-of-vocabulary state, which
+    //   `rankOfState` ranks as the WORST, so the rows that matter most can
+    //   never fall outside the fetch.
+    //
+    // A caller-scoped `dimension` narrows the whole union (via a `pb.filter`
+    // placeholder, so the value is never interpolated raw), and clause 1 is
+    // narrowed to the MATCHED literal — or dropped entirely when the scope sits
+    // OUTSIDE the aggregate set, since those rows can't carry a mirrored comm
+    // error. Clause 2 always applies: EVERY dimension has non-green rows whose
+    // infra attribution the classifier needs. (Before the fail-safe fix an
+    // out-of-set scope skipped the supplemental fetch altogether, which is what
+    // left `d5`/`e2e`/`health` reds with no attribution at all.) The dimension
+    // literals inside clause 1 come from our own `as const` list, never caller
+    // input, so their inline interpolation is safe.
+    //
+    // WHAT THIS DOES NOT COVER — a REAL, still-open cold-load gap. This section
+    // restores an acknowledgement that an earlier revision of this comment
+    // carried and that was dropped when the non-green clause was added. It is
+    // load-bearing: the coverage hole it names is exactly the hole that let the
+    // mis-scoped signal-provenance misreport ship green (the family-wide
+    // `RawRung.signalKnown`, since replaced by the red-row-scoped
+    // `FamilyFold.redSignalKnown`), because no test covered a row inside it —
+    // a green sibling whose `signal` this union leaves stripped is precisely
+    // what made the family-wide flag read `false` on a legitimately-gray cell.
+    //
+    //   The union is GREEN-BLIND outside clause 1. Every GREEN row that is not an
+    //   integration-level aggregate arrives signal-less on a cold load. Measured
+    //   against production on 2026-07-24: 2725 of 3082 rows are green, and 2646
+    //   rows fall outside the union while carrying a non-empty `signal` —
+    //   dimension `e2e` (798), `d5` (770), `d6` (731), plus `image_drift`, `qa`,
+    //   `starter`, `smoke`, `health`, `chat`, `tools`, `agent`. In particular the
+    //   731 GREEN PER-CELL rows under the FLEET_COMM_AGGREGATE_DIMENSIONS
+    //   dimensions are excluded by BOTH clauses at once: clause 1 drops them on
+    //   `key !~ "%/%"`, clause 2 drops them on `state != "green"`.
+    //
+    //   Why that is tolerated rather than fixed here: `classifyRung` only reads
+    //   `signal` in its RED branch, so a green row's missing blob cannot change a
+    //   chip verdict. `decodeCellCommError` CAN read a green row's blob, but the
+    //   harness mirrors comm errors onto the integration-level aggregates, which
+    //   clause 1 fetches state-independently — and a stale per-cell comm error is
+    //   only ever a same/lower-severity tie-break against that aggregate mirror
+    //   (see the decodeCellCommError scan doc). As of the 2026-07-24 measurement
+    //   ZERO uncovered rows carried a `__fleetCommError` key, so the gap is
+    //   currently latent rather than active.
+    //
+    //   But it IS a gap, not a proof of correctness: if the harness ever mirrors
+    //   a comm error onto a GREEN per-cell row, or a future reader consults
+    //   `signal` on a green row, that read is silently signal-less until an SSE
+    //   delta re-delivers the row (up to a full probe period — see clause 2).
+    //   Treat "correct from a cold load" as scoped to the RED/attribution path
+    //   plus the aggregate comm-error overlay, NOT to the whole matrix, and add a
+    //   test inside this hole before relying on it.
+    const matchedCommDim =
+      dimension === undefined
+        ? undefined
+        : FLEET_COMM_AGGREGATE_DIMENSIONS.find((d) => d === dimension);
+    const commAggregateClause: string | null =
+      dimension === undefined
+        ? `(${FLEET_COMM_AGGREGATE_DIMENSIONS.map(
+            (d) => `dimension = "${d}"`,
+          ).join(" || ")}) && key !~ "%/%"`
+        : matchedCommDim !== undefined
+          ? `dimension = "${matchedCommDim}" && key !~ "%/%"`
+          : null;
+    const nonGreenClause = `state != "green"`;
+    const supplementalUnion =
+      commAggregateClause === null
+        ? nonGreenClause
+        : `(${commAggregateClause}) || (${nonGreenClause})`;
+    const supplementalFilter: string =
+      dimension === undefined
+        ? supplementalUnion
+        : pb.filter(`dimension = {:dim} && (${supplementalUnion})`, {
+            dim: dimension,
+          });
 
     function teardownSubscription(): void {
       if (cancel) {
@@ -393,22 +815,76 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       }, HEARTBEAT_INTERVAL_MS);
     }
 
+    /**
+     * `listOpts` → page-reader adapter over `paginateStatusPages` (module
+     * level), which owns the wave/short-page/merge/cap algorithm and the
+     * `truncated` contract — read that doc for all of it. Every page of a given
+     * read, INCLUDING the terminal lookahead, goes out with the SAME
+     * `listOpts`, which is the point of injecting a reader rather than passing
+     * the options down: the lookahead cannot drift from the read it terminates.
+     */
+    async function fetchStatusPages(
+      listOpts: Record<string, unknown>,
+    ): Promise<StatusPagesResult> {
+      return paginateStatusPages(async (page) => {
+        const result = await pb
+          .collection("status")
+          .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts);
+        return result.items;
+      });
+    }
+
+    /**
+     * Fetch the signal-bearing supplemental rows — the companion to the bulk
+     * projected fetch; see the `supplementalFilter` doc above (comm-error
+     * aggregates ∪ every non-green row) and `STATUS_SIGNAL_FIELDS` for why this
+     * one carries a projection of its own rather than no projection at all.
+     *
+     * Nominally one page (~360 of ~3100 rows in production). Under a full-column
+     * outage or a bad deploy the non-green set trends toward the whole
+     * collection, so this is capped like the bulk read — and unlike the bulk
+     * read, hitting the cap is a DEGRADATION rather than an error: the rows we
+     * did not reach keep their bulk (signal-less) copy, which `classifyRung`
+     * paints RED under its fail-safe polarity. Logged because a truncated read
+     * means the collection has outgrown the cap, which someone should see.
+     */
+    async function fetchSupplementalSignalRows(): Promise<StatusRow[]> {
+      // `requestKey: null` for the same reason as the bulk fetch: this hits
+      // the SAME path (`/api/collections/status/records`) concurrently with
+      // the bulk pages, so the SDK's default auto-key would cancel one or
+      // the other.
+      const { rows, truncated } = await fetchStatusPages({
+        filter: supplementalFilter,
+        sort: INITIAL_SORT,
+        fields: STATUS_SIGNAL_FIELDS,
+        skipTotal: true,
+        requestKey: null,
+      });
+      if (truncated) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[useLiveStatus] supplemental signal fetch truncated at the page cap; " +
+            "rows beyond it render without `signal` (reds stay red)",
+          {
+            topic: dimension ?? "<all>",
+            maxPages: MAX_INITIAL_FETCH_PAGES,
+            rows: rows.length,
+          },
+        );
+      }
+      return rows;
+    }
+
     async function fetchInitial(): Promise<StatusRow[]> {
       // Best-effort consistent snapshot via a stable-sorted, LENGTH-bounded
       // CONCURRENT paged fetch.
       //
-      // The `status` collection spans ~5 pages (PB clamps perPage to 500), so a
+      // The `status` collection spans ~7 pages (PB clamps perPage to 500), so a
       // single `getFullList` paginates in N SERIAL round-trips — each page
       // awaited before the next — and blocks first paint for the full chain.
-      // Instead:
-      //
-      //   1. Fetch page 1.
-      //   2. While the last page came back FULL (== INITIAL_PAGE_SIZE, so there
-      //      may be more), fan out the next wave of INITIAL_FANOUT_BATCH pages
-      //      CONCURRENTLY via `Promise.all(...)`. Stop the moment a wave yields
-      //      a SHORT page (< INITIAL_PAGE_SIZE) — that is the last page.
-      //   3. Merge pages by ARRAY INDEX (page order), independent of which HTTP
-      //      response resolves first.
+      // `fetchStatusPages` instead reads page 1, then fans the remainder out in
+      // concurrent waves, merging by ARRAY INDEX (page order) independent of
+      // which HTTP response resolves first, and stopping at the first short page.
       //
       // We paginate by LENGTH, not `totalPages`, because `skipTotal: true` (set
       // below) tells PocketBase to skip the COUNT(*) query — the response then
@@ -417,9 +893,12 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       // subscription reconciles anything created mid-fetch), so we drop it.
       //
       // `fields: STATUS_LIST_FIELDS` projects every StatusRow field EXCEPT the
-      // heavy `signal` blob (~61% of the payload), the dominant transfer-size
+      // heavy `signal` blob (~70% of the payload), the dominant transfer-size
       // win for first paint; the SSE subscription still delivers full rows
-      // (signal included) for every subsequent delta.
+      // (signal included) for every subsequent delta, and the SUPPLEMENTAL
+      // signal fetch (kicked off below) restores `signal` on exactly the rows
+      // that are read at render time — the comm-error aggregates plus every
+      // NON-GREEN row (the only rows whose `signal` can change a chip verdict).
       //
       // `sort: "id"` is forwarded to EVERY page request so all the concurrent
       // reads share the same ordering: for a STABLE collection that means no
@@ -454,52 +933,111 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
             requestKey: null,
           };
 
-      const pages: StatusRow[][] = [];
-      const first = await pb
-        .collection("status")
-        .getList<StatusRow>(1, INITIAL_PAGE_SIZE, listOpts);
-      pages.push(first.items);
-      // Page 1 short ⇒ single-page collection, no fan-out.
-      let lastPageFull = first.items.length === INITIAL_PAGE_SIZE;
-      let nextPage = 2;
-      while (lastPageFull) {
-        // Fan out one wave of consecutive pages CONCURRENTLY. `Promise.all`
-        // preserves request (array-index) order regardless of resolution
-        // order, so the merge stays deterministic page order.
-        const wave: Promise<{ items: StatusRow[] }>[] = [];
-        for (let i = 0; i < INITIAL_FANOUT_BATCH; i++) {
-          const page = nextPage + i;
-          wave.push(
-            pb
-              .collection("status")
-              .getList<StatusRow>(page, INITIAL_PAGE_SIZE, listOpts),
+      // Kick off the supplemental signal fetch CONCURRENTLY with the bulk
+      // pages — it is independent of the page chain and its rows are merged in
+      // after the bulk completes.
+      //
+      // NON-FATAL BY CONSTRUCTION. The rejection handler is attached HERE, at
+      // creation, rather than around the `await` below, for two reasons: it
+      // cannot be an unhandled rejection even on the path where the bulk fetch
+      // throws first and this promise is never awaited, and it makes the
+      // enrichment's failure mode a property of the fetch itself rather than of
+      // whichever call site happens to consume it.
+      //
+      // WHY NON-FATAL. This is an ENRICHMENT read: every row it returns is a
+      // fuller copy of a row the BULK fetch already delivered. Letting its
+      // rejection propagate meant `fetchInitial` → `connect()` → the retry chain
+      // → `setRows([])` + `status: "error"` — a supplemental outage blanked the
+      // ENTIRE dashboard behind an offline banner. That is strictly worse than
+      // the bug the fetch was added to fix: without `signal`, `classifyRung`'s
+      // fail-safe polarity paints a non-green row RED (over-report, recoverable,
+      // and repaired by the next SSE delta); with no rows at all an operator
+      // sees nothing. Fail-loud is the right posture for the BULK read, whose
+      // absence has no fallback; it is the wrong posture for an enrichment whose
+      // absence only means "classify reds conservatively".
+      //
+      // The residual cost is honest and bounded: a mirrored comm-error overlay
+      // (clause 1) sits on a GREEN aggregate row, so without `signal` it stays
+      // invisible until the row's next SSE delta — exactly the pre-CF7-F3-#1
+      // behavior, for the duration of one failed request, instead of a blank
+      // matrix.
+      const supplementalPromise = fetchSupplementalSignalRows().catch(
+        (err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn(
+            "[useLiveStatus] supplemental signal fetch failed; rendering with " +
+              "`signal` unknown (non-green rows stay red, comm-error overlays " +
+              "wait for their next SSE delta)",
+            { topic: dimension ?? "<all>", err },
           );
-        }
-        const waveResults = await Promise.all(wave);
-        // Merge the wave in strict page (array-index) order, stopping at the
-        // FIRST short page. This is correct for ANY INITIAL_FANOUT_BATCH, not
-        // just 2: PocketBase pagination is monotonic, so once a page returns
-        // fewer than INITIAL_PAGE_SIZE items it is the LAST page with data and
-        // every page issued AFTER it in the same wave is past the end (empty).
-        // We locate that boundary, append pages up to AND INCLUDING it, and
-        // append nothing after — so no empty tail page is ever merged and no
-        // real tail row is ever dropped, regardless of how many pages a wave
-        // over-fetched past the end. (A larger batch only over-FETCHES extra
-        // empty pages on the wire; it can never corrupt the merge. This guards
-        // against silently reintroducing the #4504 over-fetch-past-end bug if
-        // the constant is tuned.)
-        const shortIdx = waveResults.findIndex(
-          (result) => result.items.length < INITIAL_PAGE_SIZE,
+          // Empty is exactly "nothing to merge" for the merge below, so the
+          // degraded path needs no separate branch.
+          return [] as StatusRow[];
+        },
+      );
+
+      const { rows: bulk, truncated: bulkTruncated } =
+        await fetchStatusPages(listOpts);
+      if (bulkTruncated) {
+        // Unlike the supplemental read, a truncated BULK read cannot degrade
+        // gracefully: the rows we never fetched are whole cells, and a missing
+        // cell renders as no-data GRAY — a silently hidden failure, the exact
+        // polarity this PR exists to eliminate. Rows genuinely remaining past
+        // the cap means the server is not paginating sanely, so fail into
+        // connect()'s retry chain and, ultimately, an honest offline banner.
+        //
+        // This fires ONLY on a PROVEN (or unprovable — see the lookahead's
+        // fail-safe) truncation, never on a complete read that happens to end on
+        // the cap page. That distinction is the difference between an honest
+        // banner and a permanent false outage at exactly
+        // `MAX_INITIAL_FETCH_PAGES × INITIAL_PAGE_SIZE` rows.
+        throw new Error(
+          `[useLiveStatus] bulk initial fetch exceeded ${MAX_INITIAL_FETCH_PAGES} pages ` +
+            `(${bulk.length} rows) and rows remain unread past the cap`,
         );
-        const lastIdx = shortIdx === -1 ? waveResults.length - 1 : shortIdx;
-        for (let i = 0; i <= lastIdx; i++) {
-          pages.push(waveResults[i]!.items);
-        }
-        // The wave ended the collection iff it contained a short page.
-        lastPageFull = shortIdx === -1;
-        nextPage += INITIAL_FANOUT_BATCH;
       }
-      return pages.flat();
+      // Merge the supplemental signal-bearing rows over their projected bulk
+      // twins, BY KEY. A supplemental row replaces the projected row in place
+      // (preserving the bulk's deterministic page order) — UNLESS the bulk twin
+      // is strictly fresher (CF8 F3): the two fetches run concurrently, so the
+      // bulk copy can carry a newer state than the supplemental snapshot, and
+      // "fresher wins" must hold in both directions (see
+      // `supplementalRowIsOlder` for the recency key, the equal-timestamp
+      // preference for the signal-bearing row, and why the newer bulk row is
+      // kept intact rather than grafted with the older signal). A row the bulk
+      // snapshot didn't carry (created between the two reads) is appended — the
+      // same eventual-consistency posture as the SSE reconciliation. Appending
+      // is safe precisely because `STATUS_SIGNAL_FIELDS` keeps every
+      // supplemental row a COMPLETE `StatusRow`; a narrower projection would
+      // push half-populated rows into the render model here.
+      //
+      // A supplemental FAILURE or CAP TRUNCATION arrives as an empty / short row
+      // set (see the handler at the fetch site), so it merges to "bulk rows,
+      // unenriched" rather than aborting the whole initial fetch. Those rows
+      // reach the classifier without `signal`, which its fail-safe polarity
+      // paints RED — never gray.
+      const supplementalRows = await supplementalPromise;
+      if (supplementalRows.length === 0) return bulk;
+      const fullByKey = new Map(
+        supplementalRows.map((r) => [r.key, r] as const),
+      );
+      const merged = bulk.map((r) => {
+        const full = fullByKey.get(r.key);
+        if (full === undefined) return r;
+        fullByKey.delete(r.key);
+        // Freshness guard (CF8 F3): if the supplemental snapshot is STRICTLY
+        // older than its bulk twin, the bulk row's core fields are newer —
+        // keep it intact (signal-less) rather than regressing state/observed_at
+        // or grafting a stale signal onto a newer row. See
+        // `supplementalRowIsOlder` for tie/parse semantics and the chimera
+        // rationale.
+        if (supplementalRowIsOlder(full, r)) return r;
+        return full;
+      });
+      for (const leftover of fullByKey.values()) {
+        merged.push(leftover);
+      }
+      return merged;
     }
 
     async function connect(): Promise<void> {

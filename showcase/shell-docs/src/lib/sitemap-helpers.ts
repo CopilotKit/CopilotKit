@@ -139,9 +139,10 @@ export function resolveLastModified(absFilePath: string): Date {
  * root URL is emitted only once by the caller.
  */
 export function getBareDocsPages(): MdxEntry[] {
-  return walkMdx(DOCS_CONTENT_DIR, new Set(["integrations"])).filter(
-    (e) => e.slug.length > 0,
-  );
+  return walkMdx(
+    DOCS_CONTENT_DIR,
+    new Set(["frontends", "integrations"]),
+  ).filter((e) => e.slug.length > 0);
 }
 
 /**

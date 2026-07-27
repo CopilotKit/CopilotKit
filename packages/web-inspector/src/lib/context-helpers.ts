@@ -1,4 +1,4 @@
-import type { Anchor, ContextState, Position, Size } from "./types";
+import type { Anchor, ContextState, Position, Size } from "./types.js";
 
 export function updateSizeFromElement(
   state: ContextState,

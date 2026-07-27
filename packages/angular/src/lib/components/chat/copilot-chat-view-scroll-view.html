@@ -1,0 +1,118 @@
+<ng-template #scrollContent>
+  <div [style.padding-bottom.px]="paddingBottom()">
+    <div class="cpk:max-w-3xl cpk:mx-auto">
+      @if (messageView()) {
+      <copilot-slot
+        [slot]="messageView()"
+        [context]="messageViewContext()"
+        [defaultComponent]="defaultMessageViewComponent"
+      >
+      </copilot-slot>
+      } @else {
+      <copilot-chat-message-view
+        [messages]="messages()"
+        [state]="state()"
+        [agentId]="agentId()"
+        [inputClass]="messageViewClass()"
+        [showCursor]="showCursor()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [childrenComponent]="messageViewChildrenComponent()"
+        [childrenTemplate]="messageViewChildrenTemplate()"
+        [childrenClass]="messageViewChildrenClass()"
+        (assistantMessageThumbsUp)="assistantMessageThumbsUp.emit($event)"
+        (assistantMessageThumbsDown)="assistantMessageThumbsDown.emit($event)"
+        (assistantMessageReadAloud)="assistantMessageReadAloud.emit($event)"
+        (assistantMessageRegenerate)="assistantMessageRegenerate.emit($event)"
+        (userMessageCopy)="userMessageCopy.emit($event)"
+        (userMessageEdit)="userMessageEdit.emit($event)"
+      >
+      </copilot-chat-message-view>
+      } @if (hasSuggestions()) {
+      <div class="cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0 cpk:mt-4">
+        <copilot-chat-suggestion-view
+          [suggestions]="chatState?.suggestions?.() ?? []"
+          inputClass="cpk:mb-3 cpk:lg:ml-4 cpk:lg:mr-4 cpk:ml-0 cpk:mr-0"
+          (selectSuggestion)="
+              chatState?.selectSuggestion($event.suggestion, $event.index)
+            "
+        />
+      </div>
+      }
+    </div>
+  </div>
+</ng-template>
+
+@if (!hasMounted()) {
+<!-- SSR/Initial render without stick-to-bottom -->
+<div
+  class="cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+>
+  <div class="cpk:px-4 cpk:@3xl:px-0">
+    <ng-content></ng-content>
+  </div>
+</div>
+} @else {
+<div
+  class="cpk:h-[calc(100vh-9rem)] cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative"
+>
+  @if (autoScroll()) {
+  <!-- Auto-scroll mode with StickToBottom directive -->
+  <div
+    #scrollContainer
+    cdkScrollable
+    copilotStickToBottom
+    [enabled]="autoScroll()"
+    [threshold]="10"
+    [debounceMs]="0"
+    [initialBehavior]="'smooth'"
+    [resizeBehavior]="'smooth'"
+    (isAtBottomChange)="onIsAtBottomChange($event)"
+    [class]="computedClass()"
+    class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+  >
+    <!-- Scrollable content wrapper -->
+    <div class="cpk:px-4 cpk:@3xl:px-0">
+      <!-- Content with padding-bottom matching React -->
+      <ng-container [ngTemplateOutlet]="scrollContent"></ng-container>
+    </div>
+  </div>
+  } @else {
+  <!-- Manual scroll mode -->
+  <div
+    #scrollContainer
+    cdkScrollable
+    [class]="computedClass()"
+    class="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+  >
+    <div #contentContainer class="cpk:px-4 cpk:@3xl:px-0">
+      <!-- Content with padding-bottom matching React -->
+      <ng-container [ngTemplateOutlet]="scrollContent"></ng-container>
+    </div>
+  </div>
+  } @if ((autoScroll() ? !isAtBottom() : showScrollButton()) && !isResizing()) {
+  <div
+    class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30"
+    [style.bottom.px]="inputContainerHeight() + 16"
+  >
+    <copilot-slot
+      [slot]="scrollToBottomButton()"
+      [context]="
+            autoScroll()
+              ? scrollToBottomFromStickContext()
+              : scrollToBottomContext()
+          "
+      [defaultComponent]="defaultScrollToBottomButtonComponent"
+      [outputs]="
+            autoScroll() ? scrollToBottomFromStickOutputs : scrollToBottomOutputs
+          "
+    >
+    </copilot-slot>
+  </div>
+  }
+</div>
+}

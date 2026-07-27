@@ -7,6 +7,60 @@
   },
   "fixtures": [
     {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_weather tool result. Scoped via toolCallId (per-leg) so it only matches the weather tool-result turn; ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the tool result is present. Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe (LGP-gold disjoint-prompts content guard).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "toolCallId": "call_trcc_get_weather_d5_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the custom wildcard renderer should show the tool card above — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_weather (Tokyo). Disjoint userMessage from the default-catchall probe ('forecast for Tokyo' lowercase) so aimock's substring matcher cannot cross-route between catchall probes. The toolCallId-gated narration above fires after the backend tool result arrives.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_get_weather_d5_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 2 narration after get_stock_price tool result. Scoped via toolCallId (per-leg). Canonical phrase 'rendered through the custom wildcard catchall' is asserted by the probe; AAPL $338.37/-2.96% matches the canonical payload used across the tool-rendering family.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_trcc_get_stock_price_d5_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% — rendered through the custom wildcard catchall renderer."
+      }
+    },
+    {
+      "_comment": "d5-tool-rendering-custom-catchall probe — turn 1 emit for get_stock_price (AAPL). Cross-tool pair with get_weather above; the probe asserts both tools render through the SAME custom-wildcard-card testid with distinct data-tool-name values. No hasToolResult gate (the prior turn's tool result makes hasToolResult permanently true here); the toolCallId-gated narration above wins after this tool result arrives.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_trcc_get_stock_price_d5_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
       "_comment": "Chain tools — follow-up after all 3 tools ran. Anchored on whichever of the 3 chain toolCallIds appears last in the request (LangGraph's ToolNode preserves tool_calls order). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",

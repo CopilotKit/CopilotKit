@@ -1,24 +1,21 @@
-import {
-  AgentRunner,
+import type {
   AgentRunnerConnectRequest,
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
-  type AgentRunnerStopRequest,
 } from "./agent-runner";
+import { AgentRunner } from "./agent-runner";
+import type { AgentRunnerStopRequest } from "./agent-runner";
 import { EMPTY, Observable, from } from "rxjs";
 import { catchError, finalize } from "rxjs/operators";
-import {
-  AbstractAgent,
-  BaseEvent,
-  EventType,
-  RunStartedEvent,
-} from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import {
   finalizeRunEvents,
   AG_UI_CHANNEL_EVENT,
   phoenixExponentialBackoff,
 } from "@copilotkit/shared";
-import { Socket, Channel } from "phoenix";
+import type { Channel } from "phoenix";
+import { Socket } from "phoenix";
 import { randomUUID } from "node:crypto";
 
 export interface IntelligenceAgentRunnerOptions {
@@ -372,11 +369,13 @@ export class IntelligenceAgentRunner extends AgentRunner {
     return Promise.resolve(true);
   }
 
+  // The emitted values are ignored by the caller (only `complete` matters);
+  // `runAgent()` resolves with a RunAgentResult that flows through `from()`.
   private executeAgentRun(
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
-  ): Observable<void> {
+  ): Observable<unknown> {
     const { currentEvents, channel } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
       const canonicalEvent = this.stampRunnerMetadata(

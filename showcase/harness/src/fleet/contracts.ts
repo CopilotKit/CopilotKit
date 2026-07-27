@@ -117,7 +117,7 @@ export interface ServiceJobMeta {
   triggered: boolean;
   /** ISO timestamp the control-plane enqueued the job. */
   enqueuedAt: string;
-  /** Optional priority hint; higher pulls first when a worker has a choice. */
+  /** Optional priority hint. Reserved; not currently consulted by claimNext. */
   priority?: number;
 }
 
@@ -240,7 +240,19 @@ export const POOL_COMM_ERROR_KINDS = [
   "claim-comm-failure",
   /** The worker exceeded the protocol response deadline (hung, no crash). */
   "worker-protocol-timeout",
-  /** The worker died mid-job: lease expired with no terminal report. */
+  /**
+   * A known crash/loss on a specific job (stays red), reported by either of
+   * two sources:
+   *   1. the worker's OWN self-monitor observed an in-driver pool-infra
+   *      crash mid-job and reported it directly, or
+   *   2. the control-plane RESULT CONSUMER synthesized it for a row that
+   *      went terminal but whose SEPARATE result write never landed
+   *      (terminal-but-resultless past the consumer's grace window — the
+   *      queue-client's bounded result-write retry was exhausted, so the
+   *      result is lost; see queue-client `RESULT_WRITE_MAX_ATTEMPTS`).
+   * A lease that merely expired with no terminal report is NEITHER source;
+   * the sweep emits `worker-reclaimed-pending` for that.
+   */
   "worker-crashed-mid-job",
   /** A report arrived but failed schema/shape validation (protocol mismatch). */
   "worker-protocol-violation",
@@ -310,10 +322,42 @@ export interface PoolCommError {
  *     the pool" treatment.
  *
  * `FleetSurfaceState` is the UNION the DASHBOARD computes for rendering — it is
- * a presentation type, NOT a persisted column. The dashboard derives it:
- * `commError ? "unreachable" : state`.
+ * a presentation type, NOT a persisted column. The derivation (see
+ * `fleetSurfaceState`, mirrored by the dashboard's `cell-model.ts` surface
+ * derivation) produces THREE outcomes:
+ *   - `"unreachable"` — a directly-observed crash kind (worker-crashed-mid-job,
+ *     worker-unreachable, ...) overlays the row: the red comm-error treatment.
+ *   - `"pending"` — a `worker-reclaimed-pending` comm error on a GREEN row:
+ *     the lease lapsed and the sweeper re-queued the job (routine teardown,
+ *     not a known crash), so the surface is the NEUTRAL gray "re-queued /
+ *     pending" treatment (see POOL_COMM_ERROR_KINDS). ANY non-green row —
+ *     red, degraded, error, or an out-of-vocabulary runtime state — passes
+ *     through — the neutral overlay must never mask a genuine failure.
+ *   - otherwise the row's last-known probe colour (`state`).
+ *
+ * TWO DELIBERATE DIVERGENCES from the dashboard mirror (`cell-model.ts`):
+ *
+ *   1. PENDING-GATE VOCABULARY: this HARNESS derivation is green-ONLY
+ *      because `ProbeState` has no no-data colour to route. The dashboard's
+ *      derivation runs over its `ChipColor` vocabulary, whose `gray` is a
+ *      dashboard-only no-data colour this side cannot represent — there, a
+ *      reclaim on a green OR gray (non-regressed) cell becomes `"pending"`.
+ *   2. RECENCY: this derivation has NO recency gate — a present `commError`
+ *      always overlays, regardless of its `observedAt` age. The dashboard
+ *      mirror staleness-gates comm errors (see `decodeCellCommError`'s
+ *      per-row-family window) because nothing clears the mirrored signal
+ *      blob on recovery and a stale overlay would pin cells "unreachable"
+ *      forever. Harness-side that gate is deliberately ABSENT: consumers
+ *      here receive rows the aggregator just wrote (the comm error is fresh
+ *      by construction at the write site) — recency is the CALLER's concern
+ *      when this is ever applied to read-back rows.
+ *
+ * The shared invariant both sides pin is the NEVER-MASK rule: red / degraded
+ * (amber) / error / out-of-vocabulary states — and, dashboard-side, a
+ * regression — always pass through; only healthy-or-no-data becomes pending.
+ * The dashboard's commError-contract-drift.test.ts pins both derivations.
  */
-export type FleetSurfaceState = ProbeState | "unreachable";
+export type FleetSurfaceState = ProbeState | "unreachable" | "pending";
 
 /** Signal-blob key under which a comm error is mirrored onto a status row. */
 export const FLEET_COMM_ERROR_SIGNAL_KEY = "__fleetCommError" as const;
@@ -337,9 +381,34 @@ export interface FleetStatusRow {
   commError?: PoolCommError;
 }
 
-/** Compute the dashboard's surface state from a row's colour + comm error. */
+/**
+ * Compute the dashboard's surface state from a row's colour + comm error.
+ * The sweep-inferred `worker-reclaimed-pending` kind renders the NEUTRAL
+ * `"pending"` surface (the job is re-queued / back in flight, not a known
+ * crash) ONLY when the row's last-known probe colour is green (healthy).
+ * ANY non-green state — red, degraded, error, or an out-of-vocabulary
+ * runtime value — is a genuine failure the neutral overlay must NOT mask
+ * (the A2 rank principle: an unrecognized state ranks ABOVE red, so it
+ * passes through too), and passes through unchanged. Every other comm-error
+ * kind is a directly-observed pool failure and renders the red
+ * `"unreachable"` overlay; absent any comm error the row's last-known probe
+ * colour passes through unchanged.
+ *
+ * The dashboard's `cell-model.ts` mirrors this derivation over its
+ * `ChipColor` vocabulary with TWO deliberate differences (enumerated in the
+ * `FleetSurfaceState` doc above): (1) its dashboard-only no-data `gray` ALSO
+ * becomes `"pending"` — green-only here purely because `ProbeState` has no
+ * no-data colour; and (2) the dashboard staleness-gates comm errors before
+ * deriving, while this derivation has no recency gate (the aggregator-side
+ * callers see freshly-written rows; recency is the caller's concern). The
+ * never-mask rule is identical on both sides.
+ */
 export function fleetSurfaceState(row: FleetStatusRow): FleetSurfaceState {
-  return row.commError ? "unreachable" : row.state;
+  if (!row.commError) return row.state;
+  if (row.commError.kind === "worker-reclaimed-pending") {
+    return row.state === "green" ? "pending" : row.state;
+  }
+  return "unreachable";
 }
 
 /**
@@ -360,13 +429,37 @@ export function commErrorToStatusSignal(
  * status-row signal blob, or `undefined` when none is present / the embedded
  * value is malformed. Pure; unit-tested. The dashboard slot (REQ-B) uses this
  * to decide whether to render the "unreachable" overlay.
+ *
+ * VERSION-SKEW HAZARD: `undefined` conflates "no comm error was written" with
+ * "the key IS present but the embedded value did not decode" — e.g. a NEW
+ * `PoolCommErrorKind` rolled out write-side first, or a renamed required
+ * field. A reader on the older vocabulary silently DROPS that REQ-B overlay
+ * and renders the row's last-known probe colour as if the fleet were healthy.
+ * The decode return type deliberately stays `PoolCommError | undefined`
+ * (every render path branches on presence); consumers that need to SEE the
+ * drop pair this with the `statusSignalHasCommErrorKey` companion below and
+ * count/log when the key is present but the decode returned `undefined`.
+ *
+ * NOTE: the function source below is pinned BYTE-IDENTICAL against the
+ * dashboard's structural copy (`shell-dashboard`'s `live-status.ts`) by
+ * `commError-contract-drift.test.ts` — any edit to the function body must
+ * land on both sides; this doc comment and the companion live OUTSIDE the
+ * mirrored region.
  */
 export function commErrorFromStatusSignal(
   signal: unknown,
 ): PoolCommError | undefined {
-  if (signal === null || typeof signal !== "object") return undefined;
+  // Array.isArray (BOTH levels): arrays are typeof "object", and an array
+  // carrying the signal key (here) or comm-error fields (below) as expando
+  // properties would otherwise decode as a well-formed PoolCommError — an
+  // array is never a valid wire shape at either level.
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal)) {
+    return undefined;
+  }
   const raw = (signal as Record<string, unknown>)[FLEET_COMM_ERROR_SIGNAL_KEY];
-  if (raw === null || typeof raw !== "object") return undefined;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return undefined;
+  }
   const candidate = raw as Partial<PoolCommError>;
   if (
     !isPoolCommErrorKind(candidate.kind) ||
@@ -383,6 +476,23 @@ export function commErrorFromStatusSignal(
   if (typeof candidate.workerId === "string") out.workerId = candidate.workerId;
   if (typeof candidate.jobId === "string") out.jobId = candidate.jobId;
   return out;
+}
+
+/**
+ * Companion to `commErrorFromStatusSignal`: does the signal blob CARRY the
+ * well-known comm-error key at all, regardless of whether the embedded value
+ * decodes? Lets consumers distinguish "key present but undecodable" (the
+ * version-skew drop documented on the decode above — count/log it) from
+ * "genuinely absent" (nothing to report) without changing the decode's return
+ * contract. Mirrors the decoder's wire-shape guards: a null / non-object /
+ * array blob is never a valid signal, so the key cannot be "present" on one.
+ * Pure; unit-tested.
+ */
+export function statusSignalHasCommErrorKey(signal: unknown): boolean {
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal)) {
+    return false;
+  }
+  return FLEET_COMM_ERROR_SIGNAL_KEY in signal;
 }
 
 // ───────────────────────────────────────────────────────────────────────
@@ -491,8 +601,9 @@ export interface WorkerRegistration {
 /**
  * The periodic heartbeat a worker writes to refresh its liveness + capacity.
  * fleet-health (S10) reads `lastHeartbeatAt` against a staleness window to
- * derive `WorkerHealthState`; a worker whose heartbeat lapses is what the
- * control-plane treats as `worker-crashed-mid-job` (see PoolCommErrorKind).
+ * derive `WorkerHealthState`; a worker whose heartbeat lapses leaves its
+ * leases to expire, which the sweep reclaims and surfaces as the neutral
+ * `worker-reclaimed-pending` kind (see PoolCommErrorKind).
  */
 export interface WorkerHeartbeat {
   workerId: string;
@@ -523,33 +634,87 @@ export interface WorkerDescriptor {
 }
 
 /**
- * Pure staleness check used by fleet-health (S10): a worker is stale when its
- * last heartbeat is older than `staleAfterMs`. Returns false when the
- * timestamp is unparseable (treat unknown as not-yet-stale; the next heartbeat
- * resolves it) so a malformed row can't flap the whole fleet to offline. Pure;
+ * Anchor the PB space→"T" date-separator rewrite to the canonical PB shape
+ * (`YYYY-MM-DD ` then time) so we ONLY convert the date/time boundary, never
+ * an arbitrary first space. LOCAL REPLICA of the queue-client's exported
+ * `PB_DATE_SEP_RE` (queue-client.ts) — replicated rather than imported because
+ * the dependency points the other way (queue-client imports contracts), and
+ * the anchoring contract is the same one the JSVM hook pins: a bare
+ * `String.replace(" ", "T")` would coerce a malformed value into something
+ * that parses instead of letting it fall through to NaN.
+ */
+const PB_DATE_SEP_RE = /^(\d{4}-\d{2}-\d{2}) /;
+
+/** Parse a heartbeat timestamp, normalizing the PB space-separated date form. */
+function parseHeartbeatMs(lastHeartbeatAt: string): number {
+  return Date.parse(String(lastHeartbeatAt).replace(PB_DATE_SEP_RE, "$1T"));
+}
+
+/**
+ * Companion to `isWorkerStale`: is `lastHeartbeatAt` a parseable timestamp
+ * (after the PB space→"T" normalization)? `isWorkerStale` deliberately maps an
+ * unparseable heartbeat to `false` (never flap the fleet offline on one
+ * malformed row), but that alone makes a CORRUPT heartbeat indistinguishable
+ * from a FRESH one — "never stale forever" is silent fleet-health blindness.
+ * fleet-health (S10) uses this to count/warn on unparseable heartbeat rows
+ * while keeping the conservative not-yet-stale staleness answer. Pure;
  * unit-tested.
+ */
+export function heartbeatParseable(lastHeartbeatAt: string): boolean {
+  return !Number.isNaN(parseHeartbeatMs(lastHeartbeatAt));
+}
+
+/**
+ * Pure staleness check used by fleet-health (S10): a worker is stale when its
+ * last heartbeat is older than `staleAfterMs`. The PB date form uses a space
+ * separator; normalize ONLY the canonical date/time boundary to ISO "T"
+ * before parsing (anchored exactly as the queue-client's lease parse) so the
+ * answer doesn't ride on engine-specific `Date.parse` leniency. Returns false
+ * when the timestamp is unparseable (treat unknown as not-yet-stale; the next
+ * heartbeat resolves it) so a malformed row can't flap the whole fleet to
+ * offline — callers that need to SEE the corruption use the
+ * `heartbeatParseable` companion. Pure; unit-tested.
  */
 export function isWorkerStale(
   lastHeartbeatAt: string,
   nowMs: number,
   staleAfterMs: number,
 ): boolean {
-  const beatMs = Date.parse(lastHeartbeatAt);
+  const beatMs = parseHeartbeatMs(lastHeartbeatAt);
   if (Number.isNaN(beatMs)) return false;
   return nowMs - beatMs > staleAfterMs;
+}
+
+/** Derive a worker's liveness from its heartbeat age. */
+export function deriveHealth(
+  lastHeartbeatAt: string,
+  nowMs: number,
+  staleAfterMs: number,
+): WorkerHealthState {
+  // OFFLINE is a stronger stale: heartbeat older than 2x the window. We don't
+  // act differently on stale vs offline (both reclaim), but the distinction is
+  // surfaced in logs so an operator can tell a briefly-missed-beat worker from
+  // a long-dead one.
+  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs * 2)) return "offline";
+  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs)) return "stale";
+  return "online";
 }
 
 /**
  * Build a `WorkerCapacity` from a `BrowserPoolBudget` (S6). Thin, explicit
  * field copy so the registration/heartbeat path never accidentally widens with
- * pool-internal fields. Pure; unit-tested.
+ * pool-internal fields. `available` is CLAMPED at 0: the capacity contract
+ * documents it "never negative", and a racy/mid-teardown pool snapshot can
+ * transiently compute a negative remainder — the mapper enforces the
+ * invariant rather than leak the racy value to registry/heartbeat consumers.
+ * Pure; unit-tested.
  */
 export function workerCapacityFromBudget(
   budget: BrowserPoolBudget,
 ): WorkerCapacity {
   return {
     inUse: budget.inUse,
-    available: budget.available,
+    available: Math.max(0, budget.available),
     max: budget.max,
     pidsCurrent: budget.pidsCurrent,
     pidsMax: budget.pidsMax,
@@ -565,8 +730,14 @@ export function workerCapacityFromBudget(
 export interface EnqueueJobInput {
   /** The per-service payload to run. */
   payload: ServiceJobPayload;
-  /** Optional explicit lease seconds for the eventual claim; default per impl. */
-  leaseSeconds?: number;
+  /**
+   * The producing family's id — a `FLEET_FAMILIES[*].family` value from the
+   * §5.1 registry (`control-plane/run-view.ts`), stamped by the producer's
+   * `JobProducerOptions.family` onto every input it builds. The queue-client
+   * denormalizes it into the `probe_jobs.family` column for indexed per-family
+   * listing; absent → column written empty (pre-P2 row parity).
+   */
+  family?: string;
 }
 
 /** A lease handle a worker holds while running a claimed job. */
@@ -587,22 +758,76 @@ export interface ClaimedJob {
   lease?: JobLease;
 }
 
-/** Input a worker passes to report a finished job back to the control-plane. */
+/**
+ * Input a worker passes to report a finished job back to the control-plane.
+ *
+ * EQUALITY INVARIANT: `jobId === result.jobId` and
+ * `workerId === result.workerId`. The top-level fields are the claim-row
+ * coordinates the queue's release path keys on; `result` echoes them so the
+ * aggregator can group results without re-joining the claim row. The
+ * duplication is deliberate (release and aggregation read different halves
+ * of this input) but the values MUST be equal.
+ *
+ * INTEGRATOR NOTE: the queue-client's `report()` ENFORCES this equality — it
+ * rejects (throws) on a mismatched input before touching the queue, so a
+ * mismatched caller can no longer release one row while filing the result
+ * under another job's/worker's ids. Callers should still construct the input
+ * correctly, but the queue-client is the enforcement point.
+ */
 export interface ReportJobInput {
-  /** The claim row id being terminated (S0 `JobView.id`). */
+  /** The claim row id being terminated (S0 `JobView.id`). Must equal `result.jobId`. */
   jobId: string;
-  /** The reporting worker (S0 `JobView.claimed_by`). */
+  /** The reporting worker (S0 `JobView.claimed_by`). Must equal `result.workerId`. */
   workerId: string;
   /** The per-service result, OR a comm-error-only terminal report. */
   result: ServiceJobResult;
+}
+
+/** Per-leg deletion counts from one `FleetQueueClient.pruneAged` pass. */
+export interface PruneAgedResult {
+  /** Terminal (`done`/`failed`) rows deleted (older than terminalMaxAgeMs). */
+  terminal: number;
+  /** Non-terminal zombie rows deleted (older than zombieMaxAgeMs). */
+  zombie: number;
 }
 
 /** Outcome of sweeping expired leases (dead-worker reclamation). */
 export interface SweepResult {
   /** Number of expired leases reclaimed (jobs re-queued to pending). */
   reclaimed: number;
-  /** The comm errors synthesized for each reclaimed (crashed) worker job. */
+  /**
+   * The `worker-reclaimed-pending` comm errors synthesized by the sweep —
+   * one per reclaimed job AND one per thrown-release indeterminate row.
+   * FOR IMPLEMENTATIONS THAT REPORT THE SPLIT (the real queue-client always
+   * does), `commErrors.length === reclaimed + reclaimedIndeterminate` and
+   * the queue-client pairs them 1:1 with the rows those counters document.
+   * A fake that synthesizes comm errors without reporting
+   * `reclaimedIndeterminate` (the field is optional below) is not bound by
+   * the pairing — assert it against the concrete client, not the shared type.
+   */
   commErrors: PoolCommError[];
+  /**
+   * Of the sweep's reclaim attempts, the thrown-release conservative maybes
+   * (release transport failed AFTER the CAS may have committed — the
+   * at-least-once over-report slice; see queue-client
+   * `SweepResultWithIndeterminate`). Optional so sweep fakes keyed on the
+   * reclamation contract stay valid; the real queue-client always reports it
+   * (required there).
+   */
+  reclaimedIndeterminate?: number;
+  /**
+   * Number of STALE PENDING jobs expired (claimed-then-deleted) because they
+   * sat unclaimed longer than their family's expiry window — the structural
+   * backlog drain (see queue-client `stalePending`). Despite the name, the
+   * LEASE phase's long-expired carve-out ALSO counts here: a CLAIMED/RUNNING
+   * row whose created-age exceeds the same family stale window and whose
+   * lease is long-expired (or unparseable) is claim-DELETED — not re-queued,
+   * no comm error, no `reclaimed` increment — into this count. See the
+   * queue-client's sweep-lease-stale-deleted path. Optional so the many
+   * sweep fakes keyed on the reclamation contract stay valid; the real
+   * queue-client always reports it.
+   */
+  expiredPending?: number;
 }
 
 /**
@@ -614,8 +839,9 @@ export interface SweepResult {
  *     a `JobLease` to the worker on a win (the exactly-one-winner guarantee
  *     comes from S0).
  *   - `renewLease` / `report` delegate to S0's `renewLease` / `releaseJob`.
- *   - `sweepExpired` reclaims leases from crashed workers and emits the
- *     `worker-crashed-mid-job` comm errors (REQ-B) the dashboard renders.
+ *   - `sweepExpired` reclaims expired leases (re-queues the jobs to pending)
+ *     and emits the neutral `worker-reclaimed-pending` comm errors (REQ-B)
+ *     the dashboard renders as a gray "re-queued" surface.
  *
  * Producers (control-plane S4) use `enqueue` + `sweepExpired`; consumers
  * (worker loop S7) use `claimNext` + `renewLease` + `report`.
@@ -643,6 +869,21 @@ export interface FleetQueueClient {
   report(input: ReportJobInput): Promise<void>;
   /** Producer: reclaim expired leases from crashed/unreachable workers. */
   sweepExpired(nowMs: number): Promise<SweepResult>;
+  /**
+   * Producer: how many of `family`'s jobs are NON-TERMINAL (pending, claimed,
+   * or running). The producer's per-tick backlog gate: a scheduled tick must
+   * NOT enqueue a fresh batch for a family whose previous batch is still in
+   * flight — either sitting unclaimed (the compounding-backlog half of the
+   * e2e-demos starvation — see `probeKeyFamily`) or claimed/running (where a
+   * fresh batch would double the family's concurrent runs). Only terminal
+   * rows (done/failed) stop gating. (Name kept for history: "pending" here
+   * means "not yet finished", not the `pending` status.)
+   */
+  countPendingForFamily(family: string): Promise<number>;
+  /** §4.2 retention: delete terminal rows older than terminalMaxAgeMs and
+   *  non-terminal (zombie) rows older than zombieMaxAgeMs, both by `created`.
+   *  Idempotent; single-owner by producer-side family gate. */
+  pruneAged(nowMs: number): Promise<PruneAgedResult>;
 }
 
 /**
@@ -658,4 +899,36 @@ export function terminalJobStatus(
 ): Extract<JobStatus, "done" | "failed"> {
   if (result.commError) return "failed";
   return result.aggregateState === "green" ? "done" : "failed";
+}
+
+/**
+ * Extract a probe_key's FAMILY — the prefix before the first ":" (the whole
+ * key when no ":" is present). The family is the probe-family partition the
+ * producers enqueue per schedule (`d6:<slug>` → `d6`, `d4:<slug>` → `d4`,
+ * `e2e-demos:<slug>` → `e2e-demos`, ...). It is the FAIRNESS unit of the
+ * queue: `claimNext` round-robins claims across the distinct families present
+ * in pending so a high-frequency family's backlog can never starve a
+ * low-frequency family's jobs out of the candidate page, and the producer's
+ * backlog dedupe gates each tick on its own family's pending count. Pure;
+ * unit-tested via the queue-client + producer suites.
+ *
+ * INVARIANT — WHOLE-KEY FAMILIES MATCH BY EQUALITY ONLY. A leading-colon key
+ * (`":foo:bar"`, the `idx <= 0` branch below) is its OWN family: the WHOLE
+ * key. Such a family value itself contains colons, so expanding it with a
+ * prefix-LIKE pattern of the shape `<family>:%` is WRONG: family `":foo"`
+ * (from key `":foo"`) would prefix-match the unrelated key `":foo:bar"`,
+ * whose own family is the whole `":foo:bar"` — the inclusion/exclusion and
+ * pending-count legs would then disagree with this function's partition.
+ * Consumers that build key-matching filters from a family (the queue-client's
+ * `familyInclusionClause` / `familyExclusionClause`) MUST special-case any
+ * family containing a colon (equivalently: starting with `:`) to the equality
+ * leg only — never the `<family>:%` LIKE leg, which is reserved for normal
+ * prefix families that cannot contain a colon by construction.
+ */
+export function probeKeyFamily(probeKey: string): string {
+  const idx = probeKey.indexOf(":");
+  // idx <= 0: a leading-colon key has NO family prefix — treat the whole key
+  // as its own family rather than letting the empty string flow into
+  // countPendingForFamily / the fairness partition as a phantom bucket.
+  return idx <= 0 ? probeKey : probeKey.slice(0, idx);
 }

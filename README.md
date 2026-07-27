@@ -101,7 +101,7 @@ One agent backend. Every frontend.
 | Platform                                    | Status       | Get Started                                                                                                 |
 | ------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
 | ⚛️ React / Next.js                          | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                          |
-| 🅰️ Angular                                  | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
+| 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
 | 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
 | 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
 | 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                        |
@@ -123,7 +123,7 @@ CopilotKit now lets you deploy the **same agent** to the places your users alrea
 
 ## 🧠 Self-Learning Agents
 
-Improve your procuct by learning over time.
+Improve your product by learning over time.
 
 With **Continuous Learning from Human Feedback (CLHF)**, part of the [CopilotKit Intelligence Platform](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
 

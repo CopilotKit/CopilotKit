@@ -118,31 +118,38 @@ app = FastAPI()
 add_crewai_flow_fastapi_endpoint(app, SampleAgentFlow(), "/")
 ```
 
-### Next.js Route (src/app/api/copilotkit/route.ts)
+### Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
-import { NextRequest } from "next/server";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    sample_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+    default: new HttpAgent({
+      url: (process.env.AGENT_URL || "http://localhost:8000").replace(
+        /\/$/,
+        "",
+      ),
+    }),
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter: new ExperimentalEmptyAdapter(),
-    endpoint: "/api/copilotkit",
-  });
-  return handleRequest(req);
-};
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 CrewAI Flows use the generic `HttpAgent` from `@ag-ui/client`.
@@ -207,16 +214,35 @@ add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 
 Note the different function: `add_crewai_crew_fastapi_endpoint` vs `add_crewai_flow_fastapi_endpoint`.
 
-### Next.js Route
+### Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
 
 ```typescript
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 import { CrewAIAgent } from "@ag-ui/crewai";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    starterAgent: new CrewAIAgent({ url: "http://localhost:8000/" }),
+    default: new CrewAIAgent({
+      url: process.env.AGENT_URL || "http://localhost:8000/",
+    }),
   },
+  runner: new InMemoryAgentRunner(),
 });
+
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 CrewAI Crews use `CrewAIAgent` from `@ag-ui/crewai` (not `HttpAgent`).

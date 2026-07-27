@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
   CopilotKitCoreAddAgentParams,
@@ -31,6 +32,8 @@ import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
+import { ɵcreateMemoryStore } from "../memory";
+import type { ɵMemoryStore } from "../memory";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -38,9 +41,22 @@ export interface CopilotKitCoreConfig {
   runtimeUrl?: string;
   /** Transport style for CopilotRuntime endpoints. Defaults to REST. */
   runtimeTransport?: CopilotRuntimeTransport;
+  /**
+   * When true, the constructor sets the runtime config but does NOT start the
+   * `/info` connection. Call {@link CopilotKitCore.connect} to start it —
+   * typically from a host's commit-phase effect. This prevents a burst of
+   * duplicate `/info` requests when a host constructs (and discards) the core
+   * during render, e.g. React concurrent rendering / Suspense / StrictMode.
+   * See https://github.com/CopilotKit/CopilotKit/issues/5801.
+   */
+  deferInitialConnection?: boolean;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  /** Headers appended to every HTTP request made by `CopilotKitCore`. */
+  /**
+   * Headers sent with every runtime request and merged on top of each
+   * `HttpAgent`'s own headers (the core value wins on a key conflict). See
+   * `setHeaders`.
+   */
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
@@ -135,6 +151,16 @@ export interface CopilotKitCoreSubscriber {
   onAgentsChanged?: (event: {
     copilotkit: CopilotKitCore;
     agents: Readonly<Record<string, AbstractAgent>>;
+  }) => void | Promise<void>;
+  /**
+   * Fired when an agent run or connect begins. The `agent` may be a per-thread
+   * clone that is not present in `core.agents`, so `onAgentsChanged` never fires
+   * for it. Subscribers (e.g. the inspector) can use this to subscribe to the
+   * running instance's AG-UI events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
   }) => void | Promise<void>;
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -309,6 +335,13 @@ export interface CopilotKitCoreFriendsAccess {
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
+  /**
+   * Re-apply the current core headers to a single agent, merged on top of the
+   * headers the agent was constructed with. The single source of truth for
+   * header application; the run handler uses it so a run never clobbers
+   * per-agent headers (see #5635).
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void;
 
   // References to delegate subsystems
   readonly suggestionEngine: {
@@ -321,6 +354,22 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+}
+
+/**
+ * Normalize a header map to the internal invariant: a `Record<string, string>`
+ * with no `null`/`undefined` values. Entries whose value is `null`/`undefined`
+ * are dropped (this is how a header is cleared). Shared by the constructor and
+ * `setHeaders` so both write paths into `_headers` enforce the same invariant.
+ */
+function normalizeHeaders(
+  headers: Record<string, string | null | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      (entry): entry is [string, string] => entry[1] != null,
+    ),
+  );
 }
 
 export class CopilotKitCore {
@@ -340,6 +389,13 @@ export class CopilotKitCore {
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
   /**
+   * The single core-owned memory store, created lazily on first
+   * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
+   * Its runtime context is wired by the core itself (see `syncMemoryContext`),
+   * so callers never register or look it up by `agentId`.
+   */
+  private _memoryStore?: ɵMemoryStore;
+  /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
    * notification (before published agents are merged in) does not rip out a
@@ -350,6 +406,7 @@ export class CopilotKitCore {
   constructor({
     runtimeUrl,
     runtimeTransport = "auto",
+    deferInitialConnection = false,
     headers = {},
     credentials,
     properties = {},
@@ -358,7 +415,7 @@ export class CopilotKitCore {
     suggestionsConfig = [],
     debug,
   }: CopilotKitCoreConfig) {
-    this._headers = headers;
+    this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
     this._properties = properties;
     this._debug = debug;
@@ -378,7 +435,9 @@ export class CopilotKitCore {
     this.stateManager.initialize();
 
     this.agentRegistry.setRuntimeTransport(runtimeTransport);
-    this.agentRegistry.setRuntimeUrl(runtimeUrl);
+    this.agentRegistry.setRuntimeUrl(runtimeUrl, {
+      deferConnection: deferInitialConnection,
+    });
 
     // Seed the previous-agents snapshot from the constructor-supplied agents.
     // `agentRegistry.initialize` does not emit `onAgentsChanged`, so the
@@ -391,6 +450,14 @@ export class CopilotKitCore {
 
     // Subscribe to agent changes to track state for new agents
     this.subscribe({
+      // Re-sync the memory store's runtime context whenever the runtime
+      // connection status changes. The `/info` fetch sets the connection
+      // status and `intelligence` together before firing this notification,
+      // so this single hook covers both connection and intelligence changes.
+      // Guarded so we never instantiate the store just to sync it.
+      onRuntimeConnectionStatusChanged: () => {
+        if (this._memoryStore) this.syncMemoryContext();
+      },
       onAgentsChanged: ({ agents }) => {
         Object.values(agents).forEach((agent) => {
           if (agent.agentId) {
@@ -536,6 +603,19 @@ export class CopilotKitCore {
     this.agentRegistry.setRuntimeUrl(runtimeUrl);
   }
 
+  /**
+   * Start the runtime `/info` connection if it has not been started yet.
+   *
+   * Intended to be driven from a host's commit-phase effect when the core was
+   * constructed with {@link CopilotKitCoreConfig.deferInitialConnection}. Safe
+   * to call repeatedly — it is a no-op once a connection is in progress or
+   * settled, so a double-invoked mount effect (React StrictMode) collapses to a
+   * single request. See #5801.
+   */
+  connect(): void {
+    this.agentRegistry.connectRuntime();
+  }
+
   get runtimeTransport(): CopilotRuntimeTransport {
     return this.agentRegistry.runtimeTransport;
   }
@@ -618,6 +698,14 @@ export class CopilotKitCore {
     return this.agentRegistry.intelligence;
   }
 
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this.agentRegistry.threadEndpoints;
+  }
+
+  get suggestions(): boolean | undefined {
+    return this.agentRegistry.suggestions;
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -645,8 +733,38 @@ export class CopilotKitCore {
   /**
    * Configuration updates
    */
-  setHeaders(headers: Record<string, string>): void {
-    this._headers = headers;
+  /**
+   * Replace the headers sent with every runtime request.
+   *
+   * This is an overwrite, not a merge — the supplied object becomes the
+   * complete header set. Entries whose value is `null` or `undefined` are
+   * dropped, which is how you clear a header (e.g. removing `Authorization`
+   * on logout) without leaving an empty-string value behind:
+   *
+   * ```ts
+   * copilotkit.setHeaders({
+   *   ...copilotkit.headers,
+   *   Authorization: token ? `Bearer ${token}` : null,
+   * });
+   * ```
+   *
+   * The resulting header set is also re-applied to every agent in the registry
+   * and `onHeadersChanged` subscribers are notified. These headers are merged
+   * ON TOP of the headers each `HttpAgent` was constructed with, so per-agent
+   * headers (e.g. an `Authorization` for a self-hosted backend) are preserved;
+   * on a key conflict the core-level value wins.
+   *
+   * Because the agent's construction-time headers form the merge baseline, this
+   * method can override a per-agent header but cannot REMOVE one: clearing a
+   * core key here only drops the core-level override, after which the agent's
+   * own value (if any) re-surfaces. To change a header an agent was constructed
+   * with, set it at the provider/core level instead of on the agent, or update
+   * it on the agent directly. The clear-on-logout pattern above is for
+   * core-level headers.
+   */
+  setHeaders(headers: Record<string, string | null | undefined>): void {
+    this._headers = normalizeHeaders(headers);
+    if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
@@ -724,6 +842,24 @@ export class CopilotKitCore {
   }
 
   /**
+   * Re-apply the current headers to a single agent (delegated to
+   * AgentRegistry). Core headers are merged on top of the agent's own
+   * construction-time headers rather than replacing them, so headers
+   * configured directly on an `HttpAgent` (e.g. an `Authorization` for a
+   * self-hosted backend) survive header updates instead of being silently
+   * dropped (see #5635). On a key conflict the core-level value wins.
+   *
+   * The merge baseline is the agent's headers as captured the first time the
+   * agent is applied (at registration), so the way to change headers
+   * afterwards is `setHeaders` (which re-applies to every agent), not mutating
+   * `agent.headers` directly — a direct mutation is overwritten on the next
+   * re-apply.
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    this.agentRegistry.applyHeadersToAgent(agent);
+  }
+
+  /**
    * Context management (delegated to ContextStore).
    * Pass `agentIds` to restrict the entry to runs of specific agents;
    * omit it for context every agent should receive.
@@ -761,6 +897,59 @@ export class CopilotKitCore {
 
   getThreadStores(): Readonly<Record<string, ɵThreadStore>> {
     return this.threadStoreRegistry.getAll();
+  }
+
+  /**
+   * Returns the single core-owned, user-scoped memory store, creating and
+   * starting it on first access. Unlike thread stores, memory is not scoped per
+   * agent: there is exactly one store whose runtime context the core wires
+   * itself (see `syncMemoryContext`), so consumers (e.g. a `useMemories`
+   * binding) just read this store rather than registering one.
+   */
+  getMemoryStore(): ɵMemoryStore {
+    return this.ensureMemoryStore();
+  }
+
+  /**
+   * Lazily creates, starts, and context-syncs the core-owned memory store on
+   * first access, then returns it. Subsequent calls return the existing store.
+   * The store is constructed with a bound `globalThis.fetch` and immediately
+   * has its runtime context synced from the current connection state.
+   */
+  private ensureMemoryStore(): ɵMemoryStore {
+    if (!this._memoryStore) {
+      this._memoryStore = ɵcreateMemoryStore({
+        fetch: globalThis.fetch.bind(globalThis),
+      });
+      this._memoryStore.start();
+      this.syncMemoryContext();
+    }
+    return this._memoryStore;
+  }
+
+  /**
+   * Pushes the current runtime wiring into the memory store. When the runtime
+   * is connected and both the intelligence WebSocket URL and runtime URL are
+   * available, the store receives a context (runtime URL, WebSocket URL, and a
+   * copy of the current headers); otherwise its context is cleared. No-op when
+   * the store has not been created yet.
+   */
+  private syncMemoryContext(): void {
+    if (!this._memoryStore) return;
+    if (
+      this.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected &&
+      this.intelligence?.wsUrl &&
+      this.runtimeUrl
+    ) {
+      this._memoryStore.setContext({
+        runtimeUrl: this.runtimeUrl,
+        wsUrl: this.intelligence.wsUrl,
+        headers: { ...this.headers },
+      });
+    } else {
+      this._memoryStore.setContext(null);
+    }
   }
 
   /**

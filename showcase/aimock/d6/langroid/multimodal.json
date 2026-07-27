@@ -6,9 +6,9 @@
   },
   "fixtures": [
     {
-      "_comment": "Image sample turn — the D5 script clicks the sample-image button (which auto-sends). The assertion checks for 'image' keyword in the assistant transcript.",
+      "_comment": "Image sample turn \u2014 the D5 script clicks the sample-image button (which auto-sends). The assertion checks for 'image' keyword in the assistant transcript.",
       "match": {
-        "userMessage": "describe the sample image",
+        "userMessage": "can you tell me what is in this demo image I just attached",
         "context": "langroid"
       },
       "response": {
@@ -16,9 +16,9 @@
       }
     },
     {
-      "_comment": "PDF sample turn — the D5 script clicks the sample-pdf button (which auto-sends). The assertion checks for 'document' keyword in the assistant transcript.",
+      "_comment": "PDF sample turn \u2014 the D5 script clicks the sample-pdf button (which auto-sends). The assertion checks for 'document' keyword in the assistant transcript.",
       "match": {
-        "userMessage": "summarize the sample document",
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
         "context": "langroid"
       },
       "response": {
@@ -26,17 +26,17 @@
       }
     },
     {
-      "_comment": "Fallback for auto-sent image prompt — the sample button sends a canned user message that may differ from 'describe the sample image'. Match on 'image' substring to catch it.",
+      "_comment": "Fallback for auto-sent image prompt \u2014 the sample button sends a canned user message that may differ from 'can you tell me what is in this demo image I just attached'. Match on 'image' substring to catch it.",
       "match": {
         "userMessage": "sample image",
         "context": "langroid"
       },
       "response": {
-        "content": "The image shows a small test pattern — confirming the image upload pipeline round-tripped through the runtime successfully."
+        "content": "The image shows a small test pattern \u2014 confirming the image upload pipeline round-tripped through the runtime successfully."
       }
     },
     {
-      "_comment": "Fallback for auto-sent PDF prompt — match on 'sample' + 'pdf' or 'document' substring.",
+      "_comment": "Fallback for auto-sent PDF prompt \u2014 match on 'sample' + 'pdf' or 'document' substring.",
       "match": {
         "userMessage": "sample pdf",
         "context": "langroid"

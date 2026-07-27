@@ -725,7 +725,7 @@ describe("agui-to-gql", () => {
     });
 
     test("should convert valid user image message", () => {
-      const aguiMessage: agui.Message = {
+      const aguiMessage = {
         id: "image-3",
         role: "user",
         content: "",
@@ -733,7 +733,7 @@ describe("agui-to-gql", () => {
           format: "png",
           bytes: "anotherbase64string",
         },
-      };
+      } as agui.Message;
 
       const result = aguiMessageWithImageToGQLMessage(aguiMessage);
       expect(result).toBeInstanceOf(gql.ImageMessage);

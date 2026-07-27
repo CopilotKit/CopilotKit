@@ -1,0 +1,255 @@
+---
+title: "CopilotChatMessageView"
+description: "Vue 3 component for rendering a list of chat messages"
+---
+
+## Overview
+
+`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It dispatches each message to a default child component based on its `role` (assistant, user, or reasoning) and exposes named slots so you can replace or wrap that rendering. A pulsing cursor is shown after the last message while `isRunning` is `true`.
+
+Unlike the React reference component, customization in Vue is driven entirely through named slots rather than render props or a slot-prop system. The component also surfaces slots for interrupts, activity messages, tool calls, and custom message renderers registered on the CopilotKit instance.
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+```
+
+## Example
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <copilot-chat-message-view
+    :messages="agent?.messages ?? []"
+    :is-running="agent?.isRunning ?? false"
+  />
+</template>
+```
+
+## Props
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  The array of chat messages to render. Each message object contains at minimum
+  an `id` and a `role` (for example `"user"`, `"assistant"`, `"reasoning"`, or
+  `"activity"`). Messages with duplicate `id`s are deduplicated before
+  rendering; assistant fragments sharing an id are merged.
+</PropertyReference>
+
+<PropertyReference name="isRunning" type="boolean" default="false">
+  Whether the agent is currently executing. When `true`, the `cursor` slot is
+  rendered after the last message to indicate ongoing activity. The cursor is
+  suppressed when the last message is a reasoning message.
+</PropertyReference>
+
+<Callout type="info">
+  Attributes that are not declared props (such as `class`, `style`, or
+  `data-*`) are forwarded to the component's root `<div>` via `v-bind="$attrs"`.
+</Callout>
+
+## Slots
+
+Each slot below is named. Use a `<template #slot-name="slotProps">` block to override or wrap the default rendering. Where a slot has a default, omitting it falls back to the built-in child component.
+
+<PropertyReference name="assistant-message" type="{ message: AssistantMessage; messages: Message[]; isRunning: boolean }">
+  Rendered for messages with `role === "assistant"`. Defaults to
+  [`CopilotChatAssistantMessage`](/reference/vue/components/CopilotChatAssistantMessage),
+  which provides Markdown rendering, tool call display, and an action toolbar.
+
+```vue
+<template>
+  <copilot-chat-message-view :messages="messages" :is-running="isRunning">
+    <template #assistant-message="{ message }">
+      <div class="my-assistant-msg">{{ message.content }}</div>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+</PropertyReference>
+
+<PropertyReference name="user-message" type="{ message: UserMessage }">
+  Rendered for messages with `role === "user"`. Defaults to
+  [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage),
+  which provides right-aligned message display.
+
+```vue
+<template>
+  <copilot-chat-message-view :messages="messages" :is-running="isRunning">
+    <template #user-message="{ message }">
+      <div class="my-user-msg">{{ message.content }}</div>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+</PropertyReference>
+
+<PropertyReference name="reasoning-message" type="{ message: ReasoningMessage; messages: Message[]; isRunning: boolean }">
+  Rendered for messages with `role === "reasoning"`. Defaults to
+  `CopilotChatReasoningMessage`, which renders the agent's reasoning trace.
+</PropertyReference>
+
+<PropertyReference name="cursor" type="() => unknown">
+  The typing indicator displayed while `isRunning` is `true` (and the last
+  message is not a reasoning message). Defaults to a pulsing dot animation.
+
+```vue
+<template>
+  <copilot-chat-message-view :messages="messages" :is-running="isRunning">
+    <template #cursor>
+      <span class="animate-bounce">...</span>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+</PropertyReference>
+
+<PropertyReference name="interrupt" type="{ event: unknown; result: unknown; resolve: (value: unknown) => void }">
+  Rendered when the CopilotKit instance reports an active interrupt
+  (human-in-the-loop). Receives the interrupt `event`, the current `result`,
+  and a `resolve` callback to complete the interrupt.
+</PropertyReference>
+
+<PropertyReference name="message-before" type="{ message: Message; position: 'before'; runId: string; messageIndex: number; messageIndexInRun: number; numberOfMessagesInRun: number; agentId: string; stateSnapshot: unknown }">
+  Rendered before each message. Receives run and position metadata for the
+  message. When this slot is omitted, any custom message renderers registered on
+  the CopilotKit instance for the `"before"` position are used instead.
+</PropertyReference>
+
+<PropertyReference name="message-after" type="{ message: Message; position: 'after'; runId: string; messageIndex: number; messageIndexInRun: number; numberOfMessagesInRun: number; agentId: string; stateSnapshot: unknown }">
+  Rendered after each message, with the same metadata as `message-before`. When
+  omitted, custom message renderers registered for the `"after"` position are
+  used instead.
+</PropertyReference>
+
+<PropertyReference name="activity-message" type="{ activityType: string; content: unknown; message: ActivityMessage; agent: unknown }">
+  Fallback slot for messages with `role === "activity"`. A more specific
+  `activity-<activityType>` slot takes precedence when provided. When neither
+  slot is given, an activity renderer registered on the CopilotKit instance for
+  the matching `activityType` is used.
+</PropertyReference>
+
+<PropertyReference name="tool-call" type="{ name: string; args: unknown; status: string; result: string | undefined; toolCall: unknown; toolMessage: ToolMessage | undefined }">
+  Forwarded to the assistant message child to render tool calls. A specific
+  `tool-call-<name>` slot can target a single tool by name; the generic
+  `tool-call` slot handles the rest.
+</PropertyReference>
+
+## Usage
+
+### Basic message list
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <copilot-chat-message-view
+    :messages="agent?.messages ?? []"
+    :is-running="agent?.isRunning ?? false"
+  />
+</template>
+```
+
+### Customizing assistant and user messages
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <copilot-chat-message-view
+    :messages="agent?.messages ?? []"
+    :is-running="agent?.isRunning ?? false"
+  >
+    <template #assistant-message="{ message }">
+      <div class="bg-blue-50 p-4 rounded-xl">{{ message.content }}</div>
+    </template>
+
+    <template #user-message="{ message }">
+      <div class="bg-gray-100 p-4 rounded-xl">{{ message.content }}</div>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+### Custom typing indicator
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <copilot-chat-message-view
+    :messages="agent?.messages ?? []"
+    :is-running="agent?.isRunning ?? false"
+  >
+    <template #cursor>
+      <div class="animate-pulse text-gray-400">Thinking...</div>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+### Rendering a specific tool call
+
+```vue
+<script setup lang="ts">
+import { CopilotChatMessageView } from "@copilotkit/vue/v2";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent();
+</script>
+
+<template>
+  <copilot-chat-message-view
+    :messages="agent?.messages ?? []"
+    :is-running="agent?.isRunning ?? false"
+  >
+    <template #tool-call-get_weather="{ args, status, result }">
+      <div class="rounded-lg border p-3">
+        <p>Status: {{ status }}</p>
+        <p v-if="result">Result: {{ result }}</p>
+      </div>
+    </template>
+  </copilot-chat-message-view>
+</template>
+```
+
+## Behavior
+
+- **Message rendering**: Each message is dispatched to the matching default child component based on its `role` (assistant, user, reasoning, or activity), unless the corresponding named slot is provided.
+- **Deduplication**: Messages sharing an `id` are deduplicated; assistant fragments with the same id are merged (content and tool calls combined). In development, a console warning is logged when duplicates are dropped.
+- **Cursor display**: The `cursor` slot is rendered only when `isRunning` is `true` and the last message is not a reasoning message. It appears after the last message.
+- **Slot forwarding**: Slots passed to `CopilotChatMessageView` (including `tool-call` and `tool-call-<name>`) are forwarded to the default assistant and user message children, so tool rendering works without re-implementing those components.
+- **Custom and activity renderers**: When `message-before`, `message-after`, or `activity-message` slots are omitted, the component falls back to renderers registered on the CopilotKit instance, scoped to the active `agentId` when applicable.
+
+## Related
+
+- [`CopilotChatAssistantMessage`](/reference/vue/components/CopilotChatAssistantMessage) - Default assistant message child component
+- [`CopilotChatUserMessage`](/reference/vue/components/CopilotChatUserMessage) - Default user message child component
+- [`CopilotChatView`](/reference/vue/components/CopilotChatView) - Higher-level chat view that composes this component
+- [`useAgent`](/reference/vue/hooks/useAgent) - Composable for accessing the agent's `messages` and `isRunning` state

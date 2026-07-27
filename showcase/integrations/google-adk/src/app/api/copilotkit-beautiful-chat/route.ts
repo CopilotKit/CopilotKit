@@ -12,15 +12,17 @@
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 // - src/app/api/copilotkit-ogui/route.ts (scoping pattern)
 // - src/app/api/copilotkit-mcp-apps/route.ts (mcpApps config pattern)
-// - src/app/api/copilotkit-declarative-gen-ui/route.ts (a2ui injectA2UITool: false pattern)
+// - src/app/api/copilotkit-a2ui-fixed-schema/route.ts (a2ui injectA2UITool: false pattern)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -51,10 +53,17 @@ export const POST = async (req: NextRequest) => {
       // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
       openGenerativeUI: true,
       a2ui: {
-        // The backend graph has its own `generate_a2ui` tool, so we must NOT
-        // inject the runtime's default A2UI tool on top (that would double-bind
-        // the tool slot and confuse the LLM).
+        // The backend agent OWNS `generate_a2ui` via the ag-ui-adk >= 0.7.0
+        // middleware (get_a2ui_tool — render_a2ui sub-agent + recovery loop +
+        // hard-fail, OSS-158), so the runtime must NOT inject a second copy
+        // (double-bind). This `false` is load-bearing post-CopilotKit#5611,
+        // which otherwise defaults injectA2UITool to true when a provider
+        // catalog is present.
         injectA2UITool: false,
+        // Models follow the tool-usage guide and omit `catalogId`, and the
+        // middleware then falls back to the unregistered spec basic catalog
+        // ("Catalog not found" render error). Pin the catalog the page registers.
+        defaultCatalogId: "copilotkit://app-dashboard-catalog",
       },
       mcpApps: {
         servers: [

@@ -344,7 +344,13 @@ describe("BuiltInAgent Zod regression", () => {
     const weatherTool = callArgs.tools?.weather;
 
     // Invoke the execute function to verify it's wired correctly
-    await weatherTool.execute({ city: "Berlin" });
-    expect(executeFn).toHaveBeenCalledWith({ city: "Berlin" });
+    await weatherTool.execute(
+      { city: "Berlin" },
+      { toolCallId: "tool-call-1", messages: [] },
+    );
+    expect(executeFn).toHaveBeenCalledWith(
+      { city: "Berlin" },
+      { toolCallId: "tool-call-1", messages: [] },
+    );
   });
 });

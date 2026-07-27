@@ -30,17 +30,18 @@
 #                                   featureType yet — coverage gap, not
 #                                   regression.
 #
-# ── Cadence: */15 (every 15 minutes) ────────────────────────────────────
+# ── Cadence: */30 (every 30 minutes) ────────────────────────────────────
 #
 # All showcase integrations are aimock-backed — zero LLM cost per tick.
-# D5 ticks take ~3.5 min with max_concurrency=4; every-15-min gives
+# D5 ticks take ~3.5 min with max_concurrency=4; every-30-min gives
 # continuous regression coverage within a single deploy window.
 #
-# Cron string: `5,20,35,50 * * * *` (every 15 min, offset +5 off the
-# :00/:15/:30/:45 quarter-ticks so D5 never co-fires with e2e-smoke
-# (`*/15` = :00/:15/:30/:45) and contends for the shared browser pool
-# (Chromium EAGAIN). The +5 offset also clears e2e-demos (:10) and
-# d6-all-pills-e2e (:40), so no two Playwright probes tick together.
+# Cron string: `*/30 * * * *` (every 30 min, on the hour and half-hour —
+# :00 and :30). This co-fires with e2e-smoke (`*/15` = :00/:15/:30/:45)
+# at :00 and :30 and so can contend for the shared browser pool (Chromium
+# EAGAIN); the global BROWSER_POOL_MAX_CONTEXTS cap (see max_concurrency
+# below) provides the back-pressure that keeps overlapping Playwright
+# probes off the cgroup pids.max ceiling.
 #
 # ── timeout_ms: 600_000 (10 min) ────────────────────────────────────────
 #
@@ -104,7 +105,7 @@
 # unified driver.
 kind: e2e_d6
 id: d5-single-pill-e2e
-schedule: "5,20,35,50 * * * *"
+schedule: "*/30 * * * *"
 timeout_ms: 600000
 max_concurrency: 4
 discovery:
@@ -119,13 +120,6 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-      # Harness service for .NET integration testing — not a demo service,
-      # deployed: true in manifest, but NOT probe-wired yet: no aimock fixtures
-      # and it shares the ms-agent-dotnet AsyncLocal bug. Excluded from every
-      # probe AND not rendered on the dashboard (see baseline-types.ts) so an
-      # unprobed service never shows stale red. Remove this exclusion only once
-      # it is fully probe-wired (aimock fixtures + the AsyncLocal fix).
-      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno

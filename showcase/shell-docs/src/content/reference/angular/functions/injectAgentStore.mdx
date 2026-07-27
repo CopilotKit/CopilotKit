@@ -1,0 +1,158 @@
+---
+title: "injectAgentStore"
+description: "Angular function that subscribes to an AG-UI agent and returns a signal of reactive agent state (messages, state, isRunning) for @copilotkit/angular."
+---
+
+## Overview
+
+`injectAgentStore` subscribes to an [AG-UI agent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) and returns an Angular `Signal<AgentStore>`. The `AgentStore` exposes the agent instance plus its reactive state (messages, shared state, and run status) as Angular signals, so your component re-renders automatically when the agent changes.
+
+Read the store by calling the outer signal, then read each member by calling its signal: `store().messages()`, `store().isRunning()`, `store().state()`. The `agent` member is the plain AG-UI instance (not a signal), so you read it directly: `store().agent`.
+
+Call it from an injection context such as a constructor or field initializer. The subscription is torn down automatically when the owning component or service is destroyed.
+
+<Callout type="warn">
+  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or configured through `agents` or `selfManagedAgents`), reading the store signal throws an error listing the known agents.
+</Callout>
+
+## Signature
+
+```ts
+import { injectAgentStore } from "@copilotkit/angular";
+import type { Signal } from "@angular/core";
+
+function injectAgentStore(
+  agentId: string | Signal<string | undefined>,
+): Signal<AgentStore>;
+```
+
+## Parameters
+
+<PropertyReference name="agentId" type="string | Signal<string | undefined>" required>
+  ID of the agent to subscribe to. Pass a plain string for a fixed agent, or a `Signal<string | undefined>` to switch agents reactively. When the resolved id is empty or `undefined`, the default agent id is used. The returned signal re-resolves whenever this id, the available agents, or the runtime connection status change.
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="store" type="Signal<AgentStore>">
+  An Angular signal holding the current `AgentStore`. Calling it (`store()`) returns the live `AgentStore` instance, recomputing when the agent is re-resolved. Reading it also throws if the agent cannot be resolved (see the callout above).
+
+  The `AgentStore` exposes the following members:
+
+  <PropertyReference name="agent" type="AbstractAgent">
+    The underlying AG-UI agent instance. This is a plain reference, not a signal, so read it directly as `store().agent`. Use it to call agent methods such as `runAgent`, `setState`, `addMessage`, and `abortRun`. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for the full interface.
+  </PropertyReference>
+
+  <PropertyReference name="messages" type="Signal<Message[]>">
+    A readonly signal of the agent's conversation messages. Read it with `store().messages()`. Each entry is an AG-UI `Message` with fields such as `id`, `role` (`"user" | "assistant" | "system" | "tool" | "developer"`), and `content`. Updates whenever the agent's messages change.
+  </PropertyReference>
+
+  <PropertyReference name="state" type="Signal<unknown>">
+    A readonly signal of the agent's shared state object, synchronized between your app and the agent. Read it with `store().state()`. The store seeds this signal synchronously from the agent's current `state`, including state restored before subscription. Cast or type it as needed for your agent's state shape.
+  </PropertyReference>
+
+  <PropertyReference name="isRunning" type="Signal<boolean>">
+    A readonly signal indicating whether the agent is currently executing. Read it with `store().isRunning()`. It becomes `true` when a run is initialized and `false` when the run finalizes, fails, or reports a protocol-level run error.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Basic usage
+
+```ts title="src/app/agent-status.component.ts"
+import { Component } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-agent-status",
+  standalone: true,
+  template: `
+    <div>Messages: {{ store().messages().length }}</div>
+    <div>Running: {{ store().isRunning() ? "Yes" : "No" }}</div>
+  `,
+})
+export class AgentStatusComponent {
+  readonly store = injectAgentStore("default");
+}
+```
+
+### Reading and updating shared state
+
+Read the state via the signal, and write it through the agent instance.
+
+```ts title="src/app/theme-panel.component.ts"
+import { Component } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-theme-panel",
+  standalone: true,
+  template: `
+    <pre>{{ store().state() | json }}</pre>
+    <button (click)="setDark()">Dark theme</button>
+  `,
+})
+export class ThemePanelComponent {
+  readonly store = injectAgentStore("default");
+
+  setDark() {
+    const agent = this.store().agent;
+    agent.setState({ ...(agent.state as object), theme: "dark" });
+  }
+}
+```
+
+### Switching agents reactively
+
+Pass a signal so the store re-resolves when the selected agent id changes.
+
+```ts title="src/app/multi-agent.component.ts"
+import { Component, signal } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-multi-agent",
+  standalone: true,
+  template: `
+    <button (click)="agentId.set('support')">Support</button>
+    <button (click)="agentId.set('sales')">Sales</button>
+    <div>Active: {{ store().agent.agentId }}</div>
+    <div>Messages: {{ store().messages().length }}</div>
+  `,
+})
+export class MultiAgentComponent {
+  readonly agentId = signal<string | undefined>("support");
+  readonly store = injectAgentStore(this.agentId);
+}
+```
+
+## Behavior
+
+- **Reactive resolution.** The returned signal recomputes when the `agentId`, the set of available agents, the runtime connection status, the runtime URL or transport, or the request headers change.
+- **Provisional agents.** When a runtime is configured but not yet connected, a provisional proxied runtime agent is created and cached so the store has something to render before the runtime syncs.
+- **Automatic cleanup.** The agent subscription is unsubscribed when the owning component or service is destroyed. Switching to a new agent tears down the previous store's subscription first.
+- **Error on missing agent.** If no agent resolves after the runtime has synced, reading the store signal throws an error that lists the known agent ids.
+
+## Related
+
+<Cards>
+  <Card
+    title="connectAgentContext"
+    description="Share application state with the agent reactively from a function."
+    href="/reference/angular/functions/connectAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotKit service"
+    description="The central handle on agents, tools, and the runtime connection."
+    href="/reference/angular/services/CopilotKit"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="AG-UI AbstractAgent"
+    description="Full agent interface: methods, messages, state, and subscriptions."
+    href="https://docs.ag-ui.com/sdk/js/client/abstract-agent"
+    icon={<LinkIcon />}
+  />
+</Cards>

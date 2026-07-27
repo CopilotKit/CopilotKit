@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { CopilotKitCore, CopilotKitCoreErrorCode } from "../core";
-import { MockAgent, createTool } from "./test-utils";
+import {
+  MockAgent,
+  createTool,
+  getAssistantMessage,
+  getToolMessage,
+} from "./test-utils";
 
 describe("CopilotKitCore.runTool", () => {
   let copilotKitCore: CopilotKitCore;
@@ -71,15 +76,15 @@ describe("CopilotKitCore.runTool", () => {
     // Should have 2 messages: assistant + tool
     expect(agent.messages).toHaveLength(2);
 
-    const assistantMsg = agent.messages[0];
+    const assistantMsg = getAssistantMessage(agent.messages[0]);
     expect(assistantMsg.role).toBe("assistant");
     expect(assistantMsg.toolCalls).toHaveLength(1);
-    expect(assistantMsg.toolCalls![0].function.name).toBe("MsgTool");
-    expect(JSON.parse(assistantMsg.toolCalls![0].function.arguments)).toEqual({
+    expect(assistantMsg.toolCalls![0]!.function.name).toBe("MsgTool");
+    expect(JSON.parse(assistantMsg.toolCalls![0]!.function.arguments)).toEqual({
       foo: "bar",
     });
 
-    const toolMsg = agent.messages[1];
+    const toolMsg = getToolMessage(agent.messages[1]);
     expect(toolMsg.role).toBe("tool");
     expect(toolMsg.toolCallId).toBe(result.toolCallId);
     expect(toolMsg.content).toBe("tool-result");
@@ -194,7 +199,7 @@ describe("CopilotKitCore.runTool", () => {
     // Should have 3 messages: assistant + tool + user
     const userMessages = agent.messages.filter((m) => m.role === "user");
     expect(userMessages).toHaveLength(1);
-    expect(userMessages[0].content).toBe("Please summarize the result");
+    expect(userMessages[0]!.content).toBe("Please summarize the result");
 
     // runAgent should have been called once
     expect(agent.runAgentCalls).toHaveLength(1);
@@ -268,8 +273,8 @@ describe("CopilotKitCore.runTool", () => {
 
     // Messages should still be created
     expect(agent.messages).toHaveLength(2);
-    expect(agent.messages[0].role).toBe("assistant");
-    expect(agent.messages[1].role).toBe("tool");
+    expect(agent.messages[0]!.role).toBe("assistant");
+    expect(agent.messages[1]!.role).toBe("tool");
   });
 
   it("should fire onToolExecutionStart and onToolExecutionEnd events", async () => {
@@ -431,8 +436,8 @@ describe("CopilotKitCore.runTool", () => {
     expect(handler).toHaveBeenCalledWith({}, expect.anything());
 
     // Assistant message should have empty args
-    const assistantMsg = agent.messages[0];
-    expect(JSON.parse(assistantMsg.toolCalls![0].function.arguments)).toEqual(
+    const assistantMsg = getAssistantMessage(agent.messages[0]);
+    expect(JSON.parse(assistantMsg.toolCalls![0]!.function.arguments)).toEqual(
       {},
     );
   });

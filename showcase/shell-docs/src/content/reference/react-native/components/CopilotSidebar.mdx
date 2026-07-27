@@ -1,0 +1,91 @@
+---
+title: "CopilotSidebar"
+description: "A prebuilt slide-in drawer from the right edge of the screen that wraps a CopilotChat session."
+---
+
+## Overview
+
+`CopilotSidebar` renders a slide-in drawer from the right edge of the screen, with a header bar, a backdrop, and an optional floating action button (FAB) to toggle it. The drawer's chat area wraps a headless [`CopilotChat`](/reference/react-native/components/CopilotChat). Render your chat UI as `children` (consuming [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext)) or drop in the prebuilt UI `CopilotChat` from `@copilotkit/react-native/components`.
+
+Control it imperatively through a `CopilotSidebarHandle` ref.
+
+## Import
+
+```tsx
+import { CopilotSidebar, type CopilotSidebarHandle } from "@copilotkit/react-native";
+```
+
+## Props
+
+Accepts the headless [`CopilotChat` props](/reference/react-native/components/CopilotChat#props) (`agentId`, `agentName`, `threadId`, `onError`, `throttleMs`, `attachments`) except `children` is repurposed for the drawer body, plus:
+
+<PropertyReference name="defaultOpen" type="boolean" default="false">
+  Start the drawer in the open position.
+</PropertyReference>
+
+<PropertyReference name="width" type="number | string" default='"85%"'>
+  Width of the drawer panel. Accepts points (a number) or a percentage string
+  resolved against the screen width.
+</PropertyReference>
+
+<PropertyReference name="headerTitle" type="string" default='"Copilot"'>
+  Title displayed in the drawer header bar.
+</PropertyReference>
+
+<PropertyReference name="showToggleButton" type="boolean" default="true">
+  Show a floating action button to toggle the drawer. Hidden while the drawer
+  is open.
+</PropertyReference>
+
+<PropertyReference name="onOpen" type="() => void">
+  Called after the drawer finishes opening.
+</PropertyReference>
+
+<PropertyReference name="onClose" type="() => void">
+  Called after the drawer finishes closing.
+</PropertyReference>
+
+<PropertyReference name="style" type="ViewStyle">
+  Custom style applied to the drawer container.
+</PropertyReference>
+
+<PropertyReference name="children" type="ReactNode">
+  Content rendered inside the drawer below the header. Build your chat UI here
+  from [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext).
+</PropertyReference>
+
+## Ref handle
+
+<PropertyReference name="CopilotSidebarHandle" type="{ open(): void; close(): void; toggle(): void }">
+  Imperative handle exposed via `ref` for opening, closing, and toggling the
+  drawer programmatically.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { CopilotSidebar, type CopilotSidebarHandle } from "@copilotkit/react-native";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { useRef } from "react";
+
+export function ChatScreen() {
+  const sidebarRef = useRef<CopilotSidebarHandle>(null);
+
+  return (
+    <CopilotSidebar ref={sidebarRef} agentId="default" headerTitle="Assistant">
+      <CopilotChat agentName="default" showHeader={false} />
+    </CopilotSidebar>
+  );
+}
+```
+
+## Behavior
+
+- **Animation**: slides in/out over 300ms using the React Native `Animated` API.
+- **Backdrop**: a semi-transparent, pressable backdrop dismisses the drawer.
+- **FAB**: when `showToggleButton` is `true`, a floating button opens the drawer and hides while it is open.
+
+## Related
+
+- [`CopilotPopup`](/reference/react-native/components/CopilotPopup): floating action button plus centered overlay
+- [`CopilotChat`](/reference/react-native/components/CopilotChat): the chat primitive wrapped inside the drawer

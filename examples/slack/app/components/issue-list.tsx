@@ -13,17 +13,12 @@
  * it wants shown; the Slack formatting lives here. For a single issue (or
  * right after creating one) prefer `issue_card`, which shows a full grid.
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
+ * Authored with the `@copilotkit/channels-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import {
-  Context,
-  Header,
-  Message,
-  Section,
-  type BotNode,
-} from "@copilotkit/bot-ui";
-import { accentForIssues, stateShortcode } from "./_status.js";
+import { Context, Header, Message, Section } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
+import { accentForIssues, stateGlyph } from "./_status.js";
 
 const issueSchema = z.object({
   identifier: z.string().describe("Linear issue identifier, e.g. 'CPK-1234'."),
@@ -64,7 +59,7 @@ const MAX = 15;
 const TITLE_MAX = 70;
 
 /** Render a list of Linear issues as a compact, fixed-size Block Kit card. */
-export function IssueList({ heading, issues }: IssueListProps): BotNode {
+export function IssueList({ heading, issues }: IssueListProps): ChannelNode {
   const lines = issues.slice(0, MAX).map((issue: Issue) => {
     const idLink = issue.url
       ? `[**${issue.identifier}**](${issue.url})`
@@ -73,7 +68,8 @@ export function IssueList({ heading, issues }: IssueListProps): BotNode {
       issue.title.length > TITLE_MAX
         ? `${issue.title.slice(0, TITLE_MAX)}…`
         : issue.title;
-    return `${stateShortcode(issue.state)} ${idLink} ${title} — ${issue.assignee ?? "unassigned"} · ${issue.updated ?? ""}`;
+    const meta = `${issue.assignee ?? "unassigned"}${issue.updated ? ` · ${issue.updated}` : ""}`;
+    return `${stateGlyph(issue.state)} ${idLink} ${title} — ${meta}`;
   });
 
   const footer =

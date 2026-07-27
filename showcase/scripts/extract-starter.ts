@@ -158,6 +158,15 @@ function substituteInFile(
   writeFileSync(filePath, content);
 }
 
+function ensureGitignoreEntry(filePath: string, entry: string) {
+  const content = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
+  const lines = content.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+
+  const separator = content.length > 0 && !content.endsWith("\n") ? "\n" : "";
+  writeFileSync(filePath, `${content}${separator}${entry}\n`);
+}
+
 // Format slug into a display name: "langgraph-python" -> "Langgraph Python"
 const displayName = slug
   .split("-")
@@ -195,5 +204,7 @@ function stripTestDirs(dir: string) {
   }
 }
 stripTestDirs(outDir);
+
+ensureGitignoreEntry(join(outDir, ".gitignore"), ".copilotkit/");
 
 console.log(`Extracted starter for ${slug}: ${outDir}`);

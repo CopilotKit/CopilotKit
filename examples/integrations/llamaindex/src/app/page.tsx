@@ -9,15 +9,13 @@ import {
   useFrontendTool,
   CopilotChatConfigurationProvider,
   CopilotSidebar,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
+import styles from "./page.module.css";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
   useFrontendTool({
@@ -34,16 +32,10 @@ export default function CopilotKitPage() {
   });
 
   return (
-    <div className={`${styles.layout} threadsLayout`}>
-      <ThreadsPanelGate>
-        <ThreadsDrawer
-          agentId="default"
-          threadId={threadId}
-          onThreadChange={setThreadId}
-        />
-      </ThreadsPanelGate>
-      <div className={styles.mainPanel}>
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+    <CopilotChatConfigurationProvider agentId="default">
+      <div className={`${styles.layout} threadsLayout`}>
+        <CopilotThreadsDrawer agentId="default" />
+        <div className={styles.mainPanel}>
           <main
             style={
               {
@@ -62,9 +54,9 @@ export default function CopilotKitPage() {
               }}
             />
           </main>
-        </CopilotChatConfigurationProvider>
+        </div>
       </div>
-    </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 

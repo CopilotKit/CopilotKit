@@ -1,27 +1,60 @@
 import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 // QA reference: qa/declarative-gen-ui.md
 // Demo source: src/app/demos/declarative-gen-ui/{page.tsx, a2ui/*}
 //
-// Pattern: A2UI dynamic-schema BYOC. The frontend registers a 7-component
-// catalog (Card, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart,
-// BarChart) via `a2ui={{ catalog: myCatalog }}`. The Python agent
-// (`src/agents/a2ui_dynamic.py`) owns the `generate_a2ui` tool and emits an
-// `a2ui_operations` container with `catalogId: "declarative-gen-ui-catalog"`.
-// The secondary LLM inside `generate_a2ui` produces a JSON component tree
-// that the A2UI renderer binds to the registered React catalog.
+// Pattern: A2UI dynamic-schema BYOC. The frontend registers a custom catalog
+// (Row, Column, Card, StatusBadge, Metric, InfoRow, DataTable, PrimaryButton,
+// PieChart, BarChart) via `a2ui={{ catalog: myCatalog }}`. The agent plays a
+// sales analyst for the fictional "Vantage Threads" company; the dataset and
+// per-question composition rules are registered as agent context in
+// `declarative-gen-ui/sales-context.ts`. Suggestion pills are natural
+// business questions — chart-type steering lives in the agent system prompt,
+// not the user prompt (OSS-136).
 //
-// There is no `data-testid` in the demo source. We rely on verbatim
-// suggestion-pill text and the inline-style fingerprints exported by
-// `a2ui/renderers.tsx` (donut SVG, recharts markers, lilac/mint brand
-// colours, etc.). Because the secondary-LLM render is multi-step, the
-// surface can take 30-60s to paint — all render assertions use a 60s budget.
+// Each renderer carries a stable `data-testid` (declarative-card, -metric,
+// -pie-chart, -bar-chart, -status-badge, -data-table, -info-row). Because
+// the secondary-LLM render is multi-step, the surface can take 30-60s to
+// paint — render assertions use a 90s budget.
 //
-// W8-7 (resolved): KPI and StatusReport were skipped due to Railway
-// slowness. The root cause was aimock fixtures returning content+toolCalls
-// in one response — the frontend closed the assistant turn before the A2UI
-// tool call rendered. Fixed by splitting fixtures (2436adba6); all 4 pills
-// now test reliably with aimock.
+// W8-7 (resolved): aimock fixtures must split content and toolCalls into
+// separate responses — a combined response closes the assistant turn before
+// the A2UI tool call renders (see 2436adba6).
+
+/** Click a suggestion pill and confirm the message actually dispatched
+ *  (the user bubble with the pill's full message text appears). On slow
+ *  dev-server hydration the first click can land before the chat send
+ *  pipeline is wired and is silently swallowed — retry until the bubble
+ *  shows up.
+ *
+ *  The "dispatched" assertion is scoped to the chat-message list
+ *  (`[data-message-role="user"]`), NOT a bare `getByText` — the pill
+ *  button itself contains the message text, so an unscoped match would
+ *  satisfy the locator with the pill rather than the resulting user
+ *  bubble, neutering the dispatch guard. Before each retry we also
+ *  check whether the user bubble already exists; if it does the
+ *  earlier click DID dispatch and we must NOT re-click (which would
+ *  send a duplicate user message). */
+async function clickPill(page: Page, title: string, message: string) {
+  const pill = page
+    .locator('[data-testid="copilot-suggestion"]')
+    .filter({ hasText: title })
+    .first();
+  await expect(pill).toBeVisible({ timeout: 15_000 });
+  const userBubble = page
+    .locator('[data-message-role="user"]')
+    .filter({ hasText: message })
+    .first();
+  await expect(async () => {
+    // If the previous attempt's click already produced the user bubble,
+    // skip the click — re-clicking dispatches a duplicate user message.
+    if ((await userBubble.count()) === 0) {
+      await pill.click();
+    }
+    await expect(userBubble).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 30_000 });
+}
 
 test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   test.setTimeout(120_000);
@@ -44,10 +77,10 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     const expected = [
-      "Show a KPI dashboard",
-      "Pie chart — sales by region",
-      "Bar chart — quarterly revenue",
-      "Status report",
+      "Show my sales dashboard",
+      "Team performance",
+      "Anything at risk?",
+      "Top account details",
     ];
     for (const title of expected) {
       await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
@@ -56,105 +89,149 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     }
   });
 
-  test("PieChart pill renders a donut SVG with slice circles + legend %", async ({
+  test("sales dashboard pill renders a composed surface: KPI strip + pie + bar (no surrounding card)", async ({
     page,
   }) => {
-    // The custom DonutChart renderer (a2ui/renderers.tsx) builds an inline
-    // <svg> with one grey background <circle> + one stroked <circle> per
-    // slice, wrapped in `transform: scaleX(-1)`. The legend rows end in a
-    // percentage like "45%". This is the strongest visual fingerprint of a
-    // correctly-bound catalog PieChart node.
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Pie chart — sales by region" })
-      .first()
-      .click();
+    await clickPill(
+      page,
+      "Show my sales dashboard",
+      "Show me my sales dashboard for this quarter.",
+    );
 
-    // At least background circle + 2 slice circles. 90s budget: on
+    // The hero surface must contain a 4-tile KPI Metric row AND both
+    // charts (no surrounding Card — the charts carry their own card
+    // chrome). Composition rule (sales-context.ts) + D5 probe + aimock
+    // fixtures all pin the hero at 4 Metric tiles. A single lonely
+    // widget is the regression OSS-136 was filed about. 90s budget: on
     // cold starts the secondary-LLM `generate_a2ui` pass can eat most
-    // of a minute before emitting the PieChart node.
-    const circles = page.locator("svg circle");
+    // of a minute.
+    const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
-      .poll(async () => await circles.count(), { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(3);
+      .poll(async () => await metrics.count(), { timeout: 90_000 })
+      .toBeGreaterThanOrEqual(4);
 
-    // A legend row with an integer percentage (e.g. "45%").
-    await expect(page.getByText(/\b\d+%/).first()).toBeVisible({
-      timeout: 10_000,
-    });
-  });
+    // PieChart: recharts donut (mirrors beautiful-chat's sales dashboard) —
+    // one sector path per slice.
+    const pie = page.locator('[data-testid="declarative-pie-chart"]');
+    await expect(pie.first()).toBeVisible({ timeout: 60_000 });
+    const sectors = pie.locator(".recharts-pie-sector");
+    await expect
+      .poll(async () => await sectors.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2);
 
-  test("BarChart pill renders a recharts bar chart with rectangles", async ({
-    page,
-  }) => {
-    // BarChart renderer uses a recharts ResponsiveContainer (height 280) +
-    // a custom shape (AnimatedBar with `barSlideIn` keyframe). We only
-    // assert on stable recharts markers (class names unchanged across
-    // versions) — the keyframe-specific CSS is a visual detail not worth
-    // asserting via DOM.
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Bar chart — quarterly revenue" })
-      .first()
-      .click();
-
-    // 90s budget for the same cold-start reason as PieChart above.
-    const barChartRoot = page.locator(".recharts-responsive-container").first();
-    await expect(barChartRoot).toBeVisible({ timeout: 90_000 });
-
-    // At least 2 bar rectangles should render. The custom shape renders a
-    // recharts <Rectangle> inside a <g>, which keeps the standard class.
+    // BarChart: recharts markers are stable across versions.
+    const bar = page.locator('[data-testid="declarative-bar-chart"]');
+    await expect(bar.first()).toBeVisible({ timeout: 60_000 });
     const bars = page.locator(".recharts-bar-rectangle");
     await expect
       .poll(async () => await bars.count(), { timeout: 15_000 })
       .toBeGreaterThanOrEqual(2);
 
-    // Regression guard (#4734): the deployed KPI / dashboard pills used to
-    // loop with "A2UI render error: Cannot create component root without a
-    // type" because the secondary LLM's `render_a2ui` tool call was
-    // intercepted by the A2UI middleware before our defensive validation
-    // could drop malformed components. Renaming to `_design_a2ui_surface`
-    // killed the bypass; assert no A2UI render-error banners are visible.
+    // Regression guard (#4734): no A2UI render-error banners (malformed
+    // secondary-LLM output used to loop with "Cannot create component root
+    // without a type").
     await expect(
       page.getByText(/Cannot create component .* without a type/i),
     ).toHaveCount(0);
     await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
 
-    // Regression guard: only one bar chart surface (one ResponsiveContainer)
-    // should render — looping renders would stack multiple.
+    // Regression guard: exactly one composed surface — pie + bar each use a
+    // ResponsiveContainer, so the hero dashboard yields exactly 2.
+    // Fewer = under-composed surface (a lonely chart, OSS-136 regression);
+    // more = looping/duplicated renders.
     const allCharts = page.locator(".recharts-responsive-container");
     await expect
       .poll(async () => await allCharts.count(), { timeout: 5_000 })
-      .toBeLessThanOrEqual(1);
+      .toEqual(2);
+
+    // Composition rule (OSS-136 — QA `qa/declarative-gen-ui.md`): the hero
+    // dashboard has NO surrounding Card. The charts carry their own card
+    // chrome, so wrapping them in an extra Card is a planner-side
+    // over-composition regression. Assert zero `declarative-card` mounts.
+    await expect(page.getByTestId("declarative-card")).toHaveCount(0);
   });
 
-  test("KPI dashboard pill renders at least 3 Metric tiles", async ({
+  test("team performance pill renders a DataTable with rep rows", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Show a KPI dashboard" })
-      .first()
-      .click();
+    await clickPill(
+      page,
+      "Team performance",
+      "How are our sales reps performing against quota?",
+    );
 
-    // Each Metric renderer emits `data-testid="declarative-metric"`.
-    // The component tree is: label (uppercase) + value + optional trend arrow.
-    const metrics = page.locator('[data-testid="declarative-metric"]');
+    const table = page.locator('[data-testid="declarative-data-table"]');
+    await expect(table.first()).toBeVisible({ timeout: 90_000 });
+
+    // At least 2 body rows — a header-only table is an under-specified
+    // surface (the planner forgot the `rows` prop).
+    const rows = table.locator("tbody tr");
     await expect
-      .poll(async () => await metrics.count(), { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(3);
+      .poll(async () => await rows.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2);
+
+    // The surface is dashboardy, not a bare table: a quota-attainment
+    // BarChart accompanies it.
+    await expect(
+      page.locator('[data-testid="declarative-bar-chart"]').first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("Status report pill renders a Card with a StatusBadge pill", async ({
-    page,
-  }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Status report" }).first().click();
+  test("at-risk pill renders StatusBadge pills", async ({ page }) => {
+    await clickPill(
+      page,
+      "Anything at risk?",
+      "Are any accounts or pipeline deals at risk this quarter?",
+    );
 
-    // StatusBadge renderer emits `data-testid="declarative-status-badge"`.
+    // One severity badge per at-risk account (3 in the dataset).
     const badges = page.locator('[data-testid="declarative-status-badge"]');
     await expect
       .poll(async () => await badges.count(), { timeout: 90_000 })
-      .toBeGreaterThanOrEqual(1);
+      .toBeGreaterThanOrEqual(3);
+
+    // The surface is a risk panel, not bare cards: a KPI strip of three
+    // tiles (ARR at risk / accounts at risk / biggest exposure) leads
+    // it. QA + composition rule require all three — fewer is an
+    // under-specified surface.
+    const metrics = page.locator('[data-testid="declarative-metric"]');
+    await expect
+      .poll(async () => await metrics.count(), { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(3);
+
+    // Composition rule (QA `qa/declarative-gen-ui.md`): the at-risk pill
+    // renders StatusBadge cards + a KPI strip — NO charts or tables.
+    // Any chart/table mount here is a planner over-composition regression.
+    await expect(page.getByTestId("declarative-pie-chart")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-bar-chart")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
+  });
+
+  test("top account pill renders InfoRow facts", async ({ page }) => {
+    await clickPill(
+      page,
+      "Top account details",
+      "Pull up the details on our biggest account.",
+    );
+
+    // The account card stacks label/value facts (owner, region, ARR,
+    // renewal, last contact) — require at least 3 InfoRows.
+    const infoRows = page.locator('[data-testid="declarative-info-row"]');
+    await expect
+      .poll(async () => await infoRows.count(), { timeout: 90_000 })
+      .toBeGreaterThanOrEqual(3);
+
+    // The surface is dashboardy, not a bare fact list: a product-line
+    // PieChart accompanies it.
+    await expect(
+      page.locator('[data-testid="declarative-pie-chart"]').first(),
+    ).toBeVisible({ timeout: 15_000 });
+
+    // Composition rule (QA `qa/declarative-gen-ui.md`): the top-account
+    // pill renders a Card of InfoRow facts + a product-line PieChart —
+    // NO DataTable, NO StatusBadge. Either is a planner over-composition
+    // regression.
+    await expect(page.getByTestId("declarative-data-table")).toHaveCount(0);
+    await expect(page.getByTestId("declarative-status-badge")).toHaveCount(0);
   });
 });

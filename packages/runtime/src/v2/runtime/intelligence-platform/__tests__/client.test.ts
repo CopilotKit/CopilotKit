@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
@@ -106,6 +106,153 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("listMemories", () => {
+    it("sends GET /api/memories with the user in the x-cpki-user-id header", async () => {
+      const payload = {
+        memories: [
+          {
+            id: "m-1",
+            kind: "topical",
+            scope: "user",
+            content: "User's dog is called Pepe.",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+          },
+        ],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.listMemories({ userId: "user-1" });
+
+      expect(result).toEqual(payload);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("GET");
+      // The platform scopes by header, not a query param.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+    });
+
+    it("forwards includeInvalidated as a query param", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.listMemories({ userId: "user-1", includeInvalidated: true });
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://api.example.com/api/memories?includeInvalidated=true",
+      );
+    });
+  });
+
+  describe("memory mutations", () => {
+    it("createMemory POSTs /api/memories with the user header + body", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      const res = await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.id).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("POST");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(opts.body)).toEqual({
+        content: "c",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: [],
+      });
+    });
+
+    it("createMemory omits scope from the body when not provided (platform defaults it)", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body).not.toHaveProperty("scope");
+      expect(body).toEqual({
+        content: "c",
+        kind: "topical",
+        sourceThreadIds: [],
+      });
+    });
+
+    it("updateMemory PATCHes /api/memories/:id (supersede) and returns retiredId", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          id: "m2",
+          kind: "topical",
+          scope: "user",
+          content: "c2",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+          retiredId: "m1",
+        }),
+      );
+
+      const res = await client.updateMemory({
+        userId: "user-1",
+        id: "m1",
+        content: "c2",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.retiredId).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("PATCH");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+
+    it("removeMemory DELETEs /api/memories/:id with the user header", async () => {
+      fetchMock.mockReturnValue(emptyResponse(204));
+
+      await client.removeMemory({ userId: "user-1", id: "m1" });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("DELETE");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+  });
+
   describe("subscribeToThreads", () => {
     it("sends POST with userId and returns the join token", async () => {
       fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));
@@ -121,6 +268,27 @@ describe("CopilotKitIntelligence", () => {
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
       });
+    });
+  });
+
+  describe("subscribeToMemories", () => {
+    it("sends POST identifying the user via the x-cpki-user-id header and returns the join token + code", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ joinToken: "jt-mem", joinCode: "jc-mem" }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({
+        userId: "user-1",
+      });
+
+      expect(result).toEqual({ joinToken: "jt-mem", joinCode: "jc-mem" });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/subscribe");
+      expect(opts.method).toBe("POST");
+      // The platform's memory routes resolve identity from the header, not the
+      // body — so no userId body, unlike ɵsubscribeToThreads.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.body).toBeUndefined();
     });
   });
 

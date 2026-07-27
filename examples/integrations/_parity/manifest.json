@@ -95,13 +95,7 @@
       "devDependencies.typescript"
     ],
     "agentSurface": {
-      "toolNames": [
-        "manage_todos",
-        "get_todos",
-        "query_data",
-        "generate_a2ui",
-        "search_flights"
-      ],
+      "toolNames": ["query_data", "generate_a2ui", "search_flights"],
       "stateKeys": ["todos", "messages"],
       "modelFamily": "openai"
     }
@@ -136,7 +130,7 @@
         "next.config.ts"
       ],
       "packageJsonOverrides": {
-        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
         "scripts.install:agent": "cd agent && npm install"
       }
     },
@@ -175,8 +169,68 @@
         "scripts/**"
       ],
       "packageJsonOverrides": {
-        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
-        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\\\setup-agent.bat"
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
+    "claude-sdk-python": {
+      "role": "instance",
+      "agent": {
+        "language": "python",
+        "runtime": "claude-agent-sdk"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx",
+        "src/components/example-canvas/index.tsx",
+        "src/components/example-canvas/todo-list.tsx",
+        "src/components/example-layout/mode-toggle.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx",
+        "src/components/headless-chat.tsx",
+        "src/components/tool-rendering.tsx",
+        "src/components/ui/spinner.tsx"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
+      }
+    },
+    "claude-sdk-typescript": {
+      "role": "instance",
+      "agent": {
+        "language": "typescript",
+        "runtime": "claude-agent-sdk"
+      },
+      "allowedDivergence": [
+        "agent/**",
+        "src/app/api/copilotkit/**",
+        "Dockerfile",
+        "docker/Dockerfile.agent",
+        "docker-compose.test.yml",
+        "entrypoint.sh",
+        "serve.py",
+        "scripts/**",
+        "docker-route-override.ts",
+        "src/app/declarative-generative-ui/renderers.tsx",
+        "src/components/example-canvas/index.tsx",
+        "src/components/example-canvas/todo-list.tsx",
+        "src/components/example-layout/mode-toggle.tsx",
+        "src/components/generative-ui/charts/bar-chart.tsx",
+        "src/components/headless-chat.tsx",
+        "src/components/tool-rendering.tsx",
+        "src/components/ui/spinner.tsx"
+      ],
+      "packageJsonOverrides": {
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
       }
     }
   }

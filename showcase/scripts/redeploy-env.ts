@@ -9,7 +9,7 @@
  *   npx tsx showcase/scripts/redeploy-env.ts staging
  *     → redeploys all CI_BUILT_SERVICES (every ciBuilt SSOT entry; the
  *       default scope excludes webhooks and the non-CI-built
- *       harness-workers/harness-legacy — though harness-workers joins via
+ *       harness-workers — though harness-workers joins via
  *       imageOf expansion on staging; explicit --services can still
  *       target any SSOT key)
  *
@@ -20,8 +20,8 @@
  * Behavior:
  *   - Default target set: CI_BUILT_SERVICES (every ciBuilt SSOT entry,
  *     pocketbase included). webhooks is first-party but released by its
- *     own repo, and harness-workers/harness-legacy are not CI-built —
- *     none of them are in the default scope. An explicit
+ *     own repo, and harness-workers is not CI-built —
+ *     neither is in the default scope. An explicit
  *     `--services webhooks` (or harness-workers) WILL still redeploy
  *     them; resolveTargetServices honors any SSOT key the caller asks
  *     for.
@@ -179,11 +179,32 @@ export interface RunRedeployOpts {
   services?: string[];
 }
 
+/**
+ * A single per-service redeploy outcome. `status:"ok"` means Railway accepted
+ * the `serviceInstanceRedeploy` for that service; `status:"error"` carries the
+ * sanitized failure. Callers that must confirm a SPECIFIC service was actually
+ * redeployed (e.g. reconcile-staging's per-service remediation check) match on
+ * these records rather than the post-expansion `attempted` COUNT — imageOf
+ * expansion inflates `attempted` above the requested set, so a count alone can
+ * mask a dropped/failed service.
+ */
+export interface RedeployServiceRecord {
+  service: string;
+  status: "ok" | "error";
+  error?: string;
+}
+
 export interface RunRedeploySummary {
   exitCode: number;
   attempted: number;
   succeeded: number;
   failed: number;
+  /**
+   * Per-service outcomes for EVERY service the run attempted (post-expansion),
+   * in iteration order. Exposed so a caller can confirm remediation
+   * per-service instead of trusting the aggregate counts.
+   */
+  records: RedeployServiceRecord[];
 }
 
 /**
@@ -391,10 +412,21 @@ export async function runRedeploy(
   // Resolve the caller's scope, then pull in every `imageOf` consumer of a
   // service already in scope (env-aware) — a rebuilt image must redeploy
   // ALL the services that run it, not just its build slot.
-  const names = expandImageConsumers(
-    resolveTargetServices(services),
-    env,
-  ).sort();
+  //
+  // The DEFAULT scope (no explicit --services) is env-aware: a ciBuilt
+  // service that does not declare the target env — e.g. a staging-only
+  // integration whose prod instance is not yet provisioned
+  // (showcase-strands-typescript) — must NOT enter that env's default
+  // redeploy scope, exactly as a staging-only worker must not. Explicit
+  // --services stays UNFILTERED (the CONTRACT PIN: an operator can force a
+  // named service in an env it does not declare). imageOf expansion below
+  // is independently env-aware.
+  const base = resolveTargetServices(services);
+  const scoped =
+    services === undefined
+      ? base.filter((name) => Object.hasOwn(SERVICES[name].environments, env))
+      : base;
+  const names = expandImageConsumers(scoped, env).sort();
 
   const failures: Array<{ service: string; error: string }> = [];
   // Per-service structured records — cross-workstream contract consumed
@@ -403,11 +435,7 @@ export async function runRedeploy(
   //   Array<{ service: string; status: "ok" | "error"; error?: string }>
   // Built in parallel with the existing `failures`/`succeeded` tallies so
   // PR #5093's exit-code computation below is untouched.
-  const records: Array<{
-    service: string;
-    status: "ok" | "error";
-    error?: string;
-  }> = [];
+  const records: RedeployServiceRecord[] = [];
   let succeeded = 0;
 
   appendSummary(`## Railway redeploy — env=${env}`);
@@ -521,7 +549,7 @@ export async function runRedeploy(
   // canary, …) inherits fatal semantics instead of silently swallowing
   // failures the way only staging is meant to.
   const exitCode = env !== "staging" && failed > 0 ? 1 : 0;
-  return { exitCode, attempted, succeeded, failed };
+  return { exitCode, attempted, succeeded, failed, records };
 }
 
 async function main(): Promise<void> {

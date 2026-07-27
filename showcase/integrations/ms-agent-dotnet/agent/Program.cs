@@ -40,6 +40,14 @@ AimockHeaderPolicy.HttpContextAccessor = app.Services.GetRequiredService<IHttpCo
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 app.UseMiddleware<AimockHeaderMiddleware>();
 
+// CVDIAG: backend flap-observability emitter (plan unit L1-F; spec §3). OFF by
+// default (CVDIAG_BACKEND_EMITTER=on to arm). Seed the static singleton the
+// outbound LLM policy reads (created without DI), then register the
+// request-pipeline instrumentation AFTER AimockHeaderMiddleware so the forwarded
+// x-* correlation headers are already stashed on HttpContext.Items.
+CvdiagBackend.Instance = new CvdiagBackend();
+app.UseMiddleware<CvdiagInstrumentationMiddleware>();
+
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 // CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
@@ -386,8 +394,6 @@ public record FlightInfo
 // =================
 public class SalesAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly IConfiguration _configuration;
     private readonly SalesState _state;
     private readonly OpenAIClient _openAiClient;
@@ -403,30 +409,16 @@ public class SalesAgentFactory
         _logger = loggerFactory.CreateLogger<SalesAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        // Get the GitHub token from configuration
-        var githubToken = _configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(_configuration);
 
         // Log the resolved OpenAI endpoint at startup so operators can tell
         // whether we're hitting a custom OPENAI_BASE_URL or falling back to the
         // GitHub Models / Azure default. Previously the fallback was silent.
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
-        if (string.IsNullOrEmpty(endpointEnv))
-        {
-            _logger.LogInformation(
-                "OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
-        }
-        else
-        {
-            _logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
-        }
+        var endpoint = ApiKeyResolver.ResolveEndpoint(_configuration);
+        _logger.LogInformation("Using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

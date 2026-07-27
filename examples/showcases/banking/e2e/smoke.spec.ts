@@ -7,7 +7,7 @@ import type { ConsoleMessage, Page } from "@playwright/test";
  * What this covers:
  *   1. App boots and the dashboard renders credible content (brand + cards UI).
  *   2. The CopilotKit v2 popup launcher opens the modal.
- *   3. The three configured suggestion pills are visible.
+ *   3. The arc-leading suggestion pills (incl. the OGUI pill) are visible.
  *
  * What this intentionally does NOT do:
  *   - Send any chat message
@@ -86,17 +86,20 @@ test.describe("banking showcase smoke", () => {
       page.getByRole("dialog", { name: /Northwind Copilot/i }),
     ).toBeVisible();
 
-    // The three suggestion pills configured by BankingSuggestions render as
-    // buttons with data-testid="copilot-suggestion" (see
-    // CopilotChatSuggestionPill.tsx). Their labels are the suggestion titles.
+    // Pills configured by BankingSuggestions render as buttons with
+    // data-testid="copilot-suggestion" (CopilotChatSuggestionPill.tsx). Assert
+    // the arc-leading pills are present rather than a brittle exact count —
+    // the pill catalog grows over time (curated charts, OGUI, cross-page ops).
     const suggestions = page.getByTestId("copilot-suggestion");
-    await expect(suggestions).toHaveCount(3);
+    await expect(suggestions.first()).toBeVisible();
     await expect(
-      suggestions.filter({ hasText: "View transactions" }),
+      suggestions.filter({ hasText: "Approve the $5,000 Google Ads charge" }),
     ).toBeVisible();
-    await expect(suggestions.filter({ hasText: "Add a card" })).toBeVisible();
     await expect(
-      suggestions.filter({ hasText: "Assign a policy" }),
+      suggestions.filter({ hasText: "Review my pending transactions" }),
+    ).toBeVisible();
+    await expect(
+      suggestions.filter({ hasText: "Build an interactive spend explorer" }),
     ).toBeVisible();
 
     // Make sure nothing genuinely broken showed up in the console while the

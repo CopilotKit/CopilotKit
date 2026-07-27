@@ -42,8 +42,9 @@ export default function RootLayout({
   // Server-side: read live env at request time. `unstable_noStore()`
   // inside getRuntimeConfig opts this segment out of the static cache
   // so the inline <script> below always reflects the current Railway
-  // env vars. shell-dojo's RuntimeConfig is empty today; the
-  // injection stays for pattern symmetry across all four shells.
+  // env vars. The serialized config carries backendHostPattern, which
+  // the client reader uses to derive each integration's preview backend
+  // URL at request time (see lib/runtime-config.ts).
   const runtimeConfig = getRuntimeConfig();
   const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
 

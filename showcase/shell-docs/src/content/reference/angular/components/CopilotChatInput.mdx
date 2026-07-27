@@ -1,0 +1,269 @@
+---
+title: "CopilotChatInput"
+description: "Angular standalone component for chat input, tools, file upload, and audio transcription"
+---
+
+## Overview
+
+`CopilotChatInput` is the input area of the chat. It renders the textarea, the send button, an optional tools menu, an add-file button, and the audio transcription controls. It has three modes: `"input"` (the default textarea), `"transcribe"` (records audio and shows transcription controls), and `"processing"` (disables the textarea and send button while the agent runs).
+
+`CopilotChatInput` requires a parent injector to provide `ChatState`. It reads that state through `injectChatState` and wires submission, value changes, transcription, and file uploads to it. Its outputs fire in addition to that built-in behavior, so you can observe interactions without disabling them.
+
+## Usage
+
+`CopilotChatInput` is a standalone component with the selector `copilot-chat-input`. The example below provides the required `ChatState`. Use [`CopilotChat`](/reference/angular/components/CopilotChat) when you want CopilotKit to manage this state for you.
+
+```ts title="src/app/chat.component.ts"
+import { Component, forwardRef, signal } from "@angular/core";
+import { ChatState, CopilotChatInput } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  imports: [CopilotChatInput],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
+  template: `
+    <copilot-chat-input
+      [autoFocus]="true"
+      (submitMessage)="onSubmit($event)"
+    />
+  `,
+})
+export class ChatComponent extends ChatState {
+  readonly inputValue = signal("");
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
+    console.log("user submitted:", value);
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
+  }
+}
+```
+
+## Inputs
+
+### Behavior inputs
+
+<PropertyReference name="mode" type='"input" | "transcribe" | "processing"'>
+  Controlled input mode. When omitted, the component starts in `"input"` mode and manages later transitions itself.
+</PropertyReference>
+
+<PropertyReference name="toolsMenu" type='(ToolsMenuItem | "-")[]'>
+  Items for the input's tools menu. Each `ToolsMenuItem` has a `label` and either an `action` callback or nested `items`. Use the string `"-"` for a separator. When empty, the tools menu is hidden unless the add-file action is available.
+</PropertyReference>
+
+<PropertyReference name="autoFocus" type="boolean" default="true">
+  Whether the textarea focuses automatically after the view initializes. Defaults to `true` when omitted.
+</PropertyReference>
+
+<PropertyReference name="value" type="string">
+  Controlled value for the textarea. When omitted, the component reads the value held in `ChatState`. An explicit empty string keeps the textarea empty.
+</PropertyReference>
+
+<PropertyReference name="inputClass" type="string">
+  Declared by the component, but the current release does not apply it. Use the host `class` or a slot override.
+</PropertyReference>
+
+<PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">
+  A template rendered after the leading toolbar items, for adding your own controls to the toolbar.
+</PropertyReference>
+
+### Textarea inputs
+
+<PropertyReference name="textAreaClass" type="string">
+  Class applied to the default textarea.
+</PropertyReference>
+
+<PropertyReference name="textAreaMaxRows" type="number">
+  Maximum number of rows the textarea grows to before scrolling.
+</PropertyReference>
+
+<PropertyReference name="textAreaPlaceholder" type="string">
+  Placeholder text for the textarea.
+</PropertyReference>
+
+### Slot override inputs
+
+Each interactive piece can be replaced with a component class (`*Component`). Templates for the same slots are read from content projection.
+
+<PropertyReference name="sendButtonComponent" type="Type<any>">
+  Component class for the send button. Style the default with `sendButtonClass`.
+</PropertyReference>
+
+<PropertyReference name="toolbarComponent" type="Type<any>">
+  Component class for the toolbar.
+</PropertyReference>
+
+<PropertyReference name="textAreaComponent" type="Type<any>">
+  Component class for the textarea.
+</PropertyReference>
+
+<PropertyReference name="audioRecorderComponent" type="Type<any>">
+  Component class for the audio recorder shown in transcribe mode.
+</PropertyReference>
+
+<PropertyReference name="startTranscribeButtonComponent" type="Type<any>">
+  Component class for the start-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="cancelTranscribeButtonComponent" type="Type<any>">
+  Component class for the cancel-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="finishTranscribeButtonComponent" type="Type<any>">
+  Component class for the finish-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="addFileButtonComponent" type="Type<any>">
+  Component class for the add-file button.
+</PropertyReference>
+
+<PropertyReference name="toolsButtonComponent" type="Type<any>">
+  Component class for the tools menu button.
+</PropertyReference>
+
+<Callout type="warn">
+  The current release declares class inputs for the toolbar, audio recorder, transcription buttons, add-file button, and tools button, but does not apply them. `sendButtonClass` and `textAreaClass` do apply.
+</Callout>
+
+## Outputs
+
+These events fire in addition to the input's built-in handling, so you can observe interactions without replacing default behavior.
+
+<PropertyReference name="submitMessage" type="string">
+  Emitted with the trimmed message text when the user sends a message (Enter without Shift, or the send button).
+</PropertyReference>
+
+<PropertyReference name="valueChange" type="string">
+  Emitted whenever the textarea value changes.
+</PropertyReference>
+
+<PropertyReference name="startTranscribe" type="void">
+  Emitted when audio transcription starts (the input switches to transcribe mode).
+</PropertyReference>
+
+<PropertyReference name="cancelTranscribe" type="void">
+  Emitted when audio transcription is cancelled (the input returns to input mode).
+</PropertyReference>
+
+<PropertyReference name="finishTranscribe" type="void">
+  Emitted when audio transcription finishes (the input returns to input mode).
+</PropertyReference>
+
+<PropertyReference name="finishTranscribeWithAudio" type="Blob">
+  Emitted with the recorded audio blob when transcription finishes with a recording. The blob is also handed to the surrounding `ChatState` for transcription.
+</PropertyReference>
+
+<PropertyReference name="addFile" type="void">
+  Emitted when the add-file action is triggered. Only active when attachments are enabled in the surrounding chat.
+</PropertyReference>
+
+## Slots
+
+For deep customization, provide named `<ng-template>` elements inside `<copilot-chat-input>`. Each is read with `contentChild` and takes precedence over the corresponding `*Component` input. The send button and toolbar templates receive a typed context.
+
+<PropertyReference name="sendButton" type="TemplateRef<SendButtonContext>">
+  Custom send button. Context: `send: () => void`, `disabled: boolean`, `value: string`.
+</PropertyReference>
+
+<PropertyReference name="toolbar" type="TemplateRef<ToolbarContext>">
+  Custom toolbar. Context: `mode: CopilotChatInputMode`, `value: string`.
+</PropertyReference>
+
+<PropertyReference name="textArea" type="TemplateRef<any>">
+  Custom textarea.
+</PropertyReference>
+
+<PropertyReference name="audioRecorder" type="TemplateRef<any>">
+  Custom audio recorder for transcribe mode.
+</PropertyReference>
+
+<PropertyReference name="startTranscribeButton" type="TemplateRef<any>">
+  Custom start-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="cancelTranscribeButton" type="TemplateRef<any>">
+  Custom cancel-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="finishTranscribeButton" type="TemplateRef<any>">
+  Custom finish-transcribe button.
+</PropertyReference>
+
+<PropertyReference name="addFileButton" type="TemplateRef<any>">
+  Custom add-file button.
+</PropertyReference>
+
+<PropertyReference name="toolsButton" type="TemplateRef<any>">
+  Custom tools menu button.
+</PropertyReference>
+
+### Tools menu example
+
+```ts title="src/app/chat.component.ts"
+import { Component, forwardRef, signal } from "@angular/core";
+import { ChatState, CopilotChatInput } from "@copilotkit/angular";
+import type { ToolsMenuItem } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  imports: [CopilotChatInput],
+  providers: [
+    {
+      provide: ChatState,
+      useExisting: forwardRef(() => ChatComponent),
+    },
+  ],
+  template: `
+    <copilot-chat-input [toolsMenu]="toolsMenu" />
+  `,
+})
+export class ChatComponent extends ChatState {
+  readonly inputValue = signal("");
+  toolsMenu: (ToolsMenuItem | "-")[] = [
+    { label: "Summarize", action: () => this.summarize() },
+    "-",
+    { label: "Translate", action: () => this.translate() },
+  ];
+
+  summarize() {}
+  translate() {}
+
+  submitInput(value: string) {
+    // Send the message through your chat state owner.
+  }
+
+  changeInput(value: string) {
+    this.inputValue.set(value);
+  }
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChat"
+    description="The all-in-one component that wires an agent and renders this input through the chat view."
+    href="/reference/angular/components/CopilotChat"
+  />
+  <Card
+    title="CopilotChatView"
+    description="The layout-only chat view that renders this input by default."
+    href="/reference/angular/components/CopilotChatView"
+  />
+  <Card
+    title="provideCopilotKit"
+    description="Configures the runtime connection and agents that power the chat."
+    href="/reference/angular/functions/provideCopilotKit"
+  />
+</Cards>

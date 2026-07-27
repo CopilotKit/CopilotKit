@@ -2,7 +2,9 @@
   "_meta": {
     "description": "D4 chat fixtures for claude-sdk-typescript",
     "sourceFile": "feature-parity.json",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "_note": "Catch-all matchers here load BEFORE every d6/claude-sdk-typescript file (fixture load order is d4/* then d6/*, first match wins), so keep userMessage keys narrow: bare substrings like 'weather'/'detailed'/'flights from SFO to JFK' shadowed the d6 probe prompts and broke tool-rendering, tool-rendering-reasoning-chain, beautiful-chat-search-flights and agent-config (narrowed/removed 2026-06-11).",
+    "updated": "2026-06-11"
   },
   "fixtures": [
     {
@@ -61,15 +63,6 @@
             "arguments": "{}"
           }
         ]
-      }
-    },
-    {
-      "match": {
-        "toolCallId": "call_fp_get_weather_001",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "The current weather in Tokyo is 22°C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
       }
     },
     {
@@ -266,8 +259,9 @@
       }
     },
     {
+      "_comment": "Disabled: prior matcher 'What's the weather in San Francisco?' load-order-shadowed the D6 beautiful-chat/tool-rendering custom-catchall pill of the same name (d4 loads before d6, first match wins), and emitted the wrong toolCallId (call_fp_get_weather_001 vs the D6 canonical call_tr_weather_sf_001) so the follow-up content fixture was unreachable. Mirrors the LGP/ag2/built-in-agent/spring-ai _d4_unused_weather_probe_sf pattern — userMessage renamed to a non-matching sentinel so this entry is effectively dead; downstream D6 fixtures own the get_weather flow.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "claude-sdk-typescript"
       },
@@ -276,7 +270,7 @@
           {
             "id": "call_fp_get_weather_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"San Francisco\"}"
           }
         ]
       }
@@ -474,7 +468,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "Find flights from SFO to JFK for next Tuesday",
         "hasToolResult": false,
         "context": "claude-sdk-typescript"
       },
@@ -514,11 +508,12 @@
       }
     },
     {
-      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError. chunkSize MUST live at the fixture root (alongside match/response) — server.ts:681 reads `fixture.chunkSize`, NOT `response.chunkSize`.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001",
         "context": "claude-sdk-typescript"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -630,8 +625,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe) so it doesn't shadow D6 subagents pills like 'Summarize the current state of reusable rockets...' whose response is wildly off-topic for a subagents probe. Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -654,15 +650,6 @@
       },
       "response": {
         "content": "Dear Team,\n\nI am writing to formally document the proceedings and key decisions from today's meeting.\n\n**Attendees**: Full project team\n**Date**: Today's session\n\n**Key Discussion Points**:\n1. Project timeline was reviewed and approved\n2. Resource allocation was confirmed\n3. Next milestones were established\n\n**Action Items**:\n- Complete phase one deliverables by end of week\n- Schedule follow-up review meeting\n- Distribute updated project documentation\n\nPlease review and confirm your respective action items.\n\nBest regards"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "detailed",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "# Budget Report - Q3\n\n## Overview\n- **Total Budget**: $150,000\n- **Spent to Date**: $89,500 (59.7%)\n- **Remaining**: $60,500\n\n## Breakdown by Category\n- **Personnel**: $52,000 (58.1% of spend)\n- **Infrastructure**: $18,500 (20.7%)\n- **Software Licenses**: $12,000 (13.4%)\n- **Miscellaneous**: $7,000 (7.8%)\n\n## Key Highlights\n- Personnel costs are tracking 5% under budget\n- Infrastructure spend increased due to scaling needs\n- Software license renewal saved $3,000 through annual plan\n\n## Recommendations\n- Reallocate $5,000 from personnel to infrastructure\n- Prepay Q4 licenses for additional savings"
       }
     },
     {
@@ -876,21 +863,6 @@
       }
     },
     {
-      "match": {
-        "userMessage": "Roll a 20-sided die",
-        "hasToolResult": false,
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "roll_dice",
-            "arguments": "{\"sides\":20}"
-          }
-        ]
-      }
-    },
-    {
       "_comment": "agentic-chat e2e: typed-message test sends 'Say hello in one word.'",
       "match": {
         "userMessage": "Say hello in one word",
@@ -931,9 +903,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar). Narrowed userMessage from bare 'fun fact' to 'fun fact for the prebuilt sidebar' so it does not shadow the D6 headless-simple pill 'Give me a fun fact.' Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "claude-sdk-typescript"
       },
       "response": {

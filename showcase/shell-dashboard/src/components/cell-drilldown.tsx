@@ -3,9 +3,16 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all badge dimensions (d6/Parity, d5/CV, e2e/RT, d2/API, health, smoke)
- * with tone, label, and — for red/amber badges — failure metadata presented as
- * readable key-value pairs with the full signal collapsible for debugging.
+ * Renders all relevant badge dimensions (d6/Parity, d5/1P, d4/BE (Agent),
+ * e2e/UI, d2/API (HTTP), health) with tone, label, and — for red/amber badges —
+ * failure metadata presented as readable key-value pairs with the full
+ * signal collapsible for debugging.
+ *
+ * The legacy `smoke` row was dropped: the smoke endpoint was the same
+ * contract as `/health` on the same service (pure redundancy) and is no
+ * longer probed. The `e2e` row is labeled "UI (Frontend)" — the
+ * underlying probe key (`e2e:<slug>/<feature>`) is preserved on
+ * PocketBase for backward compatibility with historical rows.
  */
 import { useEffect, useMemo, useState } from "react";
 import { resolveCell } from "@/lib/live-status";
@@ -18,6 +25,8 @@ import type {
 import { formatTs } from "@/lib/format-ts";
 import { getPb } from "@/lib/pb";
 import { TONE_CLASS, DOT_BG } from "./badges";
+import { useWorkerRuns, familyForProbeKey } from "@/lib/worker-runs-context";
+import type { WorkerFamilySummary } from "@/lib/ops-api";
 
 export interface CellDrilldownProps {
   slug: string;
@@ -29,17 +38,29 @@ export interface CellDrilldownProps {
   onClose: () => void;
 }
 
-/** Dimension metadata for display ordering. */
+/**
+ * Dimension metadata for display ordering (descending depth). Labels follow
+ * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "BE (Agent)"
+ * (single chat message round-trip — agent processes a message end-to-end),
+ * D3/e2e = "UI (Frontend)" (the demo page renders in a browser), D2 =
+ * "API (HTTP)" (backend service is up and HTTP-reachable). BadgeRow derives
+ * its data-testid from the label, so labels must stay unique across rows.
+ *
+ * The `smoke` row was dropped — the smoke endpoint was redundant with
+ * /health on the same service and is no longer probed. `CellState.smoke`
+ * is still populated by `resolveCell` for back-compat with consumers that
+ * read it (e.g. tests, but it is intentionally not rendered here).
+ */
 const DIMENSIONS: Array<{
-  key: keyof Omit<CellState, "rollup">;
+  key: keyof Omit<CellState, "rollup" | "smoke">;
   label: string;
 }> = [
   { key: "d6", label: "Parity (Reference)" },
-  { key: "d5", label: "CV (Conversation)" },
-  { key: "e2e", label: "RT (Round Trip)" },
-  { key: "d2", label: "API (Agent)" },
+  { key: "d5", label: "1P (Single Pill)" },
+  { key: "d4", label: "BE (Agent)" },
+  { key: "e2e", label: "UI (Frontend)" },
+  { key: "d2", label: "API (HTTP)" },
   { key: "health", label: "Health" },
-  { key: "smoke", label: "Smoke" },
 ];
 
 function formatTimestamp(ts: string | null): string {
@@ -337,6 +358,83 @@ function isGenuineFailure(badge: BadgeRender): boolean {
   return false;
 }
 
+/**
+ * Compact relative-time formatter for the §7.2 family annotation line
+ * ("3h ago"). Local to the drilldown — the annotation is the only consumer;
+ * everything else in this panel renders absolute timestamps via `formatTs`.
+ */
+function relativeTime(iso: string, nowMs: number): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return "unknown";
+  const minutes = Math.floor(Math.max(0, nowMs - t) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/**
+ * §7.2 family staleness annotation, appended to a badge row when — and only
+ * when — BOTH hold:
+ *
+ *   1. The badge is STALE-degraded by the cell's EXISTING stale check
+ *      (whichever window its dimension already applies — `E2E_STALE_AFTER_MS`
+ *      for d5/d6/e2e rows, `D4_STALE_AFTER_MS` for d4/e2e-smoke rows). The
+ *      amber + `fail_count === 0` shape is that downgrade's signature (the
+ *      complement of `isGenuineFailure`'s amber arm: a producer-degraded row
+ *      carries `fail_count > 0`). This helper applies NO threshold of its
+ *      own — it piggybacks the verdict, never substitutes a different one.
+ *   2. The row's probe-key prefix maps to a worker family via the
+ *      `probeKeyPrefix` each `/api/runs` entry echoes (§5.2.1) — payload-
+ *      driven through `familyForProbeKey`, never a dashboard-side prefix
+ *      table.
+ *
+ * The line answers WHY the cell is degraded: "Family last succeeded
+ * <relative> · last attempt <relative> (<outcome>)". Last attempt is
+ * inflight-aware (a present inflight batch is the newest attempt — rendered
+ * `stalled` when the server marked it stalled, else `running`); otherwise the
+ * server's `lastRun.outcome` is rendered VERBATIM (no client
+ * re-classification). Null `lastSuccessAt` renders "never" (the §5.2.1
+ * never-succeeded case); a zero-batch family has nothing to attribute and
+ * yields no annotation. Exported for direct unit-testing of key shapes
+ * (e.g. d4 rows) that `resolveCell` doesn't surface in this panel today.
+ */
+export function familyStalenessAnnotation(
+  badge: BadgeRender,
+  families: WorkerFamilySummary[],
+  nowMs: number,
+): string | null {
+  const row = badge.row;
+  if (badge.tone !== "amber" || row === null || row.fail_count > 0) {
+    return null;
+  }
+  const family = familyForProbeKey(row.key, families);
+  // A degraded entry (`error: "history_unavailable"`) carries no run data —
+  // §6.1 surfaces that as the unavailable incident class, not here.
+  if (family === undefined || family.error !== undefined) return null;
+  const lastAttempt = family.inflight
+    ? {
+        at: family.inflight.enqueuedAt,
+        outcome: family.inflight.stalled ? "stalled" : "running",
+      }
+    : family.lastRun
+      ? {
+          at: family.lastRun.finishedAt ?? family.lastRun.enqueuedAt,
+          outcome: family.lastRun.outcome,
+        }
+      : null;
+  if (lastAttempt === null) return null;
+  const succeeded =
+    family.lastSuccessAt != null
+      ? relativeTime(family.lastSuccessAt, nowMs)
+      : "never";
+  return `Family last succeeded ${succeeded} · last attempt ${relativeTime(
+    lastAttempt.at,
+    nowMs,
+  )} (${lastAttempt.outcome})`;
+}
+
 function CollapsibleSignal({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -385,6 +483,19 @@ function BadgeRow({
   signalError?: string | null;
 }) {
   const isFailure = isGenuineFailure(badge);
+  // §7.2: worker-runs context for the family staleness annotation. The T10
+  // no-provider contract guarantees `useWorkerRuns()` never throws and
+  // returns the no-data default (`null`) absent a provider — provider-less
+  // renders simply skip the annotation.
+  const workerRuns = useWorkerRuns();
+  const families =
+    workerRuns !== null && workerRuns.status === "ok"
+      ? workerRuns.data.families
+      : null;
+  const annotation =
+    families !== null
+      ? familyStalenessAnnotation(badge, families, Date.now())
+      : null;
   // Prefer the row's own signal (an SSE delta delivers full rows); fall back to
   // the lazily-fetched one when the projected initial row had none.
   const rowSignal = badge.row?.signal;
@@ -502,6 +613,18 @@ function BadgeRow({
           {signalText && <CollapsibleSignal text={signalText} />}
         </div>
       )}
+      {/* §7.2 family staleness annotation: only for STALE-degraded rows whose
+          probe-key prefix maps to a worker family (payload probeKeyPrefix).
+          Turns "amber, shrug" into "amber because the family hasn't completed
+          a run since <time> — last attempt <outcome>". */}
+      {annotation !== null && (
+        <div
+          data-testid="family-annotation"
+          className="mt-1 pl-4 text-[10px] text-[var(--amber)]"
+        >
+          {annotation}
+        </div>
+      )}
     </div>
   );
 }
@@ -584,7 +707,7 @@ export function CellDrilldown({
       {/* Rollup */}
       <div className="px-4 py-2 flex items-center gap-2 border-b border-[var(--border)]">
         <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
-          Rollup
+          Service (health + e2e)
         </span>
         <span
           className={`inline-block w-2 h-2 rounded-full ${DOT_BG[cell.rollup]}`}

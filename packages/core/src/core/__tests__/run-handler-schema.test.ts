@@ -19,7 +19,7 @@ describe("RunHandler tool schema generation", () => {
       },
     ]);
 
-    const [tool] = runHandler.buildFrontendTools();
+    const tool = runHandler.buildFrontendTools()[0]!;
     expect(tool.parameters).toEqual({
       type: "object",
       properties: {
@@ -38,7 +38,7 @@ describe("RunHandler tool schema generation", () => {
       },
     ]);
 
-    const [tool] = runHandler.buildFrontendTools();
+    const tool = runHandler.buildFrontendTools()[0]!;
     expect(tool.parameters).not.toHaveProperty("additionalProperties");
   });
 
@@ -50,7 +50,7 @@ describe("RunHandler tool schema generation", () => {
       },
     ]);
 
-    const [tool] = runHandler.buildFrontendTools();
+    const tool = runHandler.buildFrontendTools()[0]!;
     expect(tool.parameters).toEqual({
       type: "object",
       properties: {},

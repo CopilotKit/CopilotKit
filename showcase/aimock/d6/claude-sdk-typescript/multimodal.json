@@ -6,9 +6,9 @@
   },
   "fixtures": [
     {
-      "_comment": "multimodal image turn — the D5 script clicks the sample-image button which auto-sends. The user message comes from the sample button's injected text. Response must contain 'image' keyword for the assertion.",
+      "_comment": "multimodal image turn \u2014 the D5 script clicks the sample-image button which auto-sends. The user message comes from the sample button's injected text. Response must contain 'image' keyword for the assertion.",
       "match": {
-        "userMessage": "describe the sample image",
+        "userMessage": "can you tell me what is in this demo image I just attached",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -16,9 +16,9 @@
       }
     },
     {
-      "_comment": "multimodal PDF turn — the D5 script clicks the sample-pdf button which auto-sends. Response must contain 'document' keyword for the assertion.",
+      "_comment": "multimodal PDF turn \u2014 the D5 script clicks the sample-pdf button which auto-sends. Response must contain 'document' keyword for the assertion.",
       "match": {
-        "userMessage": "summarize the sample document",
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -26,13 +26,13 @@
       }
     },
     {
-      "_comment": "multimodal fallback — matches common auto-sent messages from the sample attachment buttons that may vary across integrations.",
+      "_comment": "multimodal fallback \u2014 matches common auto-sent messages from the sample attachment buttons that may vary across integrations.",
       "match": {
         "userMessage": "Describe this image",
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "content": "The image shows a small test pattern — a colorful abstract composition used to validate the multimodal image upload pipeline."
+        "content": "The image shows a small test pattern \u2014 a colorful abstract composition used to validate the multimodal image upload pipeline."
       }
     },
     {

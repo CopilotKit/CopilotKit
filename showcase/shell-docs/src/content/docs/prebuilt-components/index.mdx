@@ -24,6 +24,8 @@ agent: [**CopilotChat**](/prebuilt-components/chat),
 same primitives with a different layout. Pick the one that fits your app; they
 all handle streaming, generative UI, and deep customization.
 
+If your chat surface needs saved conversations, history, or thread switching, drop in the [**Threads Drawer**](/prebuilt-components/copilot-threads-drawer) next to any of them — or build your own switcher with [Headless Threads](/headless-threads).
+
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
   className="rounded-lg shadow-xl"
@@ -103,6 +105,10 @@ Each surface is a drop-in component with the same underlying primitives, differi
 - [`<CopilotChat>`](/prebuilt-components/chat): inline chat pane you can place anywhere and size to fit.
 - [`<CopilotSidebar>`](/prebuilt-components/sidebar): collapsible sidebar docked to the edge of your app.
 - [`<CopilotPopup>`](/prebuilt-components/popup): floating bubble that overlays your page content.
+
+Add a conversation-history sidebar next to any of these with
+[Threads Drawer](/prebuilt-components/copilot-threads-drawer) — a
+drop-in thread switcher with no active-thread wiring.
 
 Need to open/close the chat from your own button, or capture thumbs-up/down
 feedback? See [Open, close, and feedback](/prebuilt-components/chat-controls).

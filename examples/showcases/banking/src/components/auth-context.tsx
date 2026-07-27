@@ -1,6 +1,6 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
-import { Member } from "@/app/api/v1/data";
+import { createContext, useContext, useState } from "react";
+import type { Member } from "@/app/api/v1/data";
 import useTeam from "@/app/team/actions";
 
 interface AuthContextType {
@@ -27,17 +27,15 @@ export const AuthContextProvider = ({
   children: React.ReactNode;
 }) => {
   const { team } = useTeam();
-  const [currentUser, setCurrentUser] = useState<Member>(team[0]);
-
-  useEffect(() => {
-    if (currentUser) return;
-    setCurrentUser(team[0]);
-  }, [team, currentUser]);
+  const [selectedUser, setSelectedUser] = useState<Member | undefined>();
+  const currentUser = selectedUser ?? team[0];
 
   if (!currentUser) return null;
 
   return (
-    <AuthContext.Provider value={{ users: team, currentUser, setCurrentUser }}>
+    <AuthContext.Provider
+      value={{ users: team, currentUser, setCurrentUser: setSelectedUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

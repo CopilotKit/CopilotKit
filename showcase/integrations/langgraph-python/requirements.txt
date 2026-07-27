@@ -1,5 +1,9 @@
 copilotkit==0.1.94
 ag-ui-protocol==0.1.18
+# Backend-owned A2UI tool factory (get_a2ui_tools) used by the a2ui-recovery
+# demo to run the validate->retry recovery loop in-graph. Same pin as
+# langgraph-fastapi.
+ag-ui-langgraph==0.0.41
 langchain==1.2.15
 langchain-openai==1.1.9
 langchain-anthropic==1.4.1

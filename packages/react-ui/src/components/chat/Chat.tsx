@@ -236,16 +236,19 @@ export interface CopilotChatProps {
    * Configuration for file attachments in the chat input.
    * Enables users to attach images, audio, video, and documents.
    *
+   * Supports images, audio, video, and documents. Omit `accept` to allow all
+   * file types (default: `"*\/*"`), or restrict with a MIME filter.
+   *
    * @example
    * ```tsx
    * <CopilotChat
    *   attachments={{
    *     enabled: true,
-   *     accept: "image/*,application/pdf",
+   *     accept: "image/*,audio/*,video/*,application/pdf",
    *     maxSize: 10 * 1024 * 1024, // 10MB
    *     onUpload: async (file) => {
    *       const url = await uploadToS3(file);
-   *       return { url, mimeType: file.type };
+   *       return { type: "url", value: url, mimeType: file.type };
    *     },
    *   }}
    * />

@@ -1,0 +1,258 @@
+# Unit-test gate for the showcase workspace.
+#
+# WHY THIS WORKFLOW EXISTS
+# ------------------------
+# Until it landed, NO CI job ran the showcase unit suites. Verified ground
+# truth on the commit this branched from:
+#
+#   suite                     tests   ran in CI?  where
+#   ------------------------- ------  ----------  ------------------------------
+#   showcase/harness           3646   NO          nowhere
+#   showcase/shell-dashboard   1331   NO          nowhere
+#   showcase/shell               ~57   NO          nowhere
+#   showcase/scripts              -    yes        showcase_validate.yml
+#                                                 ("Run build pipeline tests")
+#
+# `test_unit.yml` — the workflow whose name implies it covers this — carries
+# `paths-ignore: ["showcase/**", ...]` AND scopes its nx selection to
+# `--projects='packages/**'`, so it excludes the showcase suites twice over.
+# `showcase_validate.yml` runs `pnpm exec vitest run` only in
+# `showcase/scripts`; its two `working-directory: showcase/harness` steps are a
+# CVDIAG perf bench and an ESM boot-smoke, neither of which runs the unit
+# suite. `static_quality.yml`'s `check-types` job runs `nx run-many -t
+# check-types`, and the harness's script is named `typecheck`, so the harness is
+# not typechecked there either.
+#
+# Net effect: ~5000 showcase unit tests gated nothing. A PR could carry real
+# defects in `showcase/harness/src/**` and still show an all-green check list,
+# because no job structurally could have caught them.
+#
+# WHY A SEPARATE WORKFLOW rather than steps in showcase_validate.yml:
+# that workflow is a single ~900-line job already budgeted at 25 minutes and
+# is the busiest merge-path file in the repo. Splitting the unit suites out
+# gives them their own name in the check list, their own concurrency group,
+# and — because harness and dashboard install different package managers —
+# lets them run as two PARALLEL jobs instead of lengthening the critical job.
+# Naming follows the existing convention (`test_unit.yml`,
+# `test_unit-python-sdk.yml`, `test_unit-spring-ai.yml`).
+#
+# NO `continue-on-error` AND NO `|| true` ANYWHERE IN THIS FILE, BY DESIGN.
+# A gate that cannot fail is not a gate. Keep it that way.
+name: test / unit-showcase
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      # The `test:ci` / `test:quarantine-ratchet` nx target definitions live in
+      # showcase/harness/package.json, so `showcase/**` covers them too.
+      - "showcase/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/test_unit-showcase.yml"
+  push:
+    branches: [main]
+    paths:
+      - "showcase/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/test_unit-showcase.yml"
+
+# Least-privilege by default. Each job widens to `id-token: write` for Depot
+# OIDC auth (runs-on: depot-ubuntu-*) rather than granting it workflow-wide —
+# zizmor flags a workflow-level id-token as overly broad and CI runs it at
+# `min-severity: low`.
+permissions:
+  contents: read
+
+# Split per event so a main-branch push run is never cancelled mid-flight,
+# matching showcase_validate.yml.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  # Local task graph only — this workflow's targets are declared `cache: false`
+  # (see the harness job for why), so there is nothing to distribute.
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+  NX_VERBOSE_LOGGING: "false"
+
+jobs:
+  harness:
+    name: harness unit suite
+    runs-on: depot-ubuntu-24.04-4
+    # Suite is ~64s wall-clock locally (173 files, sharded across workers).
+    # 20m is install + nx `^build` headroom, not an expectation.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        # `--ignore-scripts` matches showcase_validate.yml: the only
+        # `onlyBuiltDependencies` entry is better-sqlite3, which the unit suite
+        # does not load (verified — the full suite passes under an
+        # `--ignore-scripts` install).
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate gitignored showcase data fixtures
+        working-directory: showcase/scripts
+        # HAZARD, handled here. `showcase/.gitignore` ignores
+        # `shell/src/data/*.json`, but harness tests consume those generated
+        # artifacts — `src/probes/frontend-matrix.test.ts` STATICALLY imports
+        # `shell/src/data/frontend-catalog.json` (a missing file is a module
+        # load error, not a test failure) and
+        # `src/fleet/control-plane/d0-gone-predicate.test.ts` reads
+        # `shell/src/data/registry.json` at runtime. A bare `vitest run` on a
+        # fresh checkout therefore errors out before it asserts anything.
+        #
+        # Invoked as a script rather than an nx target because no nx target
+        # wraps it; this mirrors how showcase_validate.yml drives the same
+        # generator (`working-directory: showcase/scripts` + tsx).
+        run: pnpm exec tsx generate-registry.ts
+
+      - name: Run harness unit suite
+        # THE GATE. Runs through nx per the repo's task convention (root
+        # CLAUDE.md: prefer `nx run` over the underlying tooling).
+        #
+        # `test:ci` == `test` minus the files listed in
+        # `showcase/harness/vitest.quarantine.json`. Three tests were ALREADY
+        # failing on main when this workflow was written (byte-identical to
+        # origin/main, confirmed pre-existing); a job that is red on arrival
+        # gets ignored or deleted, so they are quarantined explicitly, in
+        # source, each with a reason and an exit criterion. The next step is
+        # what stops that list from becoming a permanent hole.
+        #
+        # `test:ci` is declared `cache: false` (in the harness's own
+        # package.json `nx.targets` block, so the definition stays local to the
+        # project instead of becoming a workspace-wide default that would apply
+        # to any future project sharing the script name). Caching is off on
+        # purpose: the nx `test` named-input covers `src/**` and `*.test.*` but
+        # NOT `vitest.ci.config.ts` or `vitest.quarantine.json`, so a cached
+        # result could survive an edit to the quarantine list.
+        run: npx nx run @copilotkit/showcase-harness:test:ci
+
+      - name: Quarantine ratchet (every quarantined test must STILL fail)
+        # Keeps the exclusion above honest. Re-runs each quarantined file under
+        # the BASE config and requires it to fail. The moment someone fixes one,
+        # this step goes red and names the entry to delete — so a quarantine
+        # entry can never outlive the failure it excuses. Also fails if an entry
+        # points at a file that no longer exists, or matches more than one file.
+        #
+        # Runs even if the gate above failed, so a PR gets both signals in one
+        # pass instead of two round trips.
+        if: ${{ !cancelled() }}
+        run: npx nx run @copilotkit/showcase-harness:test:quarantine-ratchet
+
+  dashboard:
+    name: shell-dashboard unit suite
+    runs-on: depot-ubuntu-24.04-4
+    # Suite is ~7s wall-clock locally (67 files); the budget is install time.
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Depot OIDC auth (runs-on: depot-ubuntu-*).
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          # The dashboard is deliberately NOT a pnpm workspace member (see the
+          # note in pnpm-workspace.yaml) and ships its own package-lock.json,
+          # so cache npm against that lockfile.
+          cache: "npm"
+          cache-dependency-path: showcase/shell-dashboard/package-lock.json
+
+      - name: Install workspace dependencies (for the fixture generators)
+        # The generators live in `showcase/scripts`, which IS a pnpm workspace
+        # member, so the dashboard job needs both package managers.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Install dashboard dependencies
+        working-directory: showcase/shell-dashboard
+        # `--ignore-scripts` is load-bearing, not caution: this package's
+        # `postinstall` is `cd ../scripts && npm install`, which would lay an
+        # npm-resolved `showcase/scripts/node_modules` over the pnpm-managed one
+        # installed by the previous step. `npm ci` (not `npm install`) so ranges
+        # are not re-resolved.
+        run: npm ci --ignore-scripts
+
+      - name: Generate gitignored showcase data fixtures
+        working-directory: showcase/scripts
+        # HAZARD, handled here. `showcase/.gitignore` ignores
+        # `shell-dashboard/src/data/*.json`, and `src/lib/docs-status.ts`
+        # STATICALLY imports `@/data/docs-status.json` — without it, every test
+        # that transitively reaches that module fails to load. `registry.json`
+        # and the catalogs come from the same generator pair.
+        #
+        # This is why the run step below invokes vitest directly instead of
+        # `npm test`: the dashboard's `pretest` hook runs these same two
+        # generators, and `probe-docs.ts` makes ~50 outbound HEAD requests.
+        # Generating once here keeps that network dependency to a single pass
+        # instead of two.
+        run: |
+          pnpm exec tsx generate-registry.ts
+          pnpm exec tsx probe-docs.ts
+
+      - name: Run shell-dashboard unit suite
+        working-directory: showcase/shell-dashboard
+        # Not driven through nx: the dashboard is not an nx project (it is
+        # outside the pnpm workspace by design), so there is no target to run.
+        #
+        # HAZARD, handled here. The three `--exclude` values restate this
+        # package's `vitest.config.ts` excludes (CLI `--exclude` REPLACES the
+        # config value rather than extending it, so dropping the first two would
+        # silently re-enable them) and add the third:
+        #
+        #   tests/**/*.spike.test.ts — `runtime-env-switch.spike.test.ts` HANGS.
+        #   Reproduced locally: vitest sits at 0.0% CPU with zero output and
+        #   never even spawns the `next build` its `beforeAll` calls; an earlier
+        #   run was measured stalled for ~25 minutes. It is an integration spike
+        #   by construction — one `next build` plus two `next start` boots on
+        #   fixed ports 3801/3802 — and its own config comment already calls it
+        #   "too heavy for the per-file unit suite" even though the `include`
+        #   glob pulls it in anyway. Excluding is the right call over a hard
+        #   timeout: a timeout would convert a 25-minute stall into a red gate
+        #   with nothing actionable in it, and this suite must stay a fast,
+        #   trustworthy unit signal. The spike needs its own job with a real
+        #   server budget; that is out of scope for wiring up the unit gate.
+        run: |
+          npm exec -- vitest run \
+            --exclude 'tests/visual/**' \
+            --exclude 'node_modules/**' \
+            --exclude 'tests/**/*.spike.test.ts'

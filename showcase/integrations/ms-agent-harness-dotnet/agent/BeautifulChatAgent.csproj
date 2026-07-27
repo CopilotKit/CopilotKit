@@ -5,7 +5,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <NoWarn>$(NoWarn);MAAI001</NoWarn>
+    <!-- MAAI001: Microsoft.Agents.AI eval-only APIs (HarnessAgentOptions, etc.).
+         MEAI001: Microsoft.Extensions.AI eval-only APIs (AgentRunOptions.ContinuationToken). -->
+    <NoWarn>$(NoWarn);MAAI001;MEAI001</NoWarn>
     <UserSecretsId>beautiful-chat-harness-dotnet-e968873d-45cf-41e2-9d74-3fa127b7630b</UserSecretsId>
   </PropertyGroup>
 
@@ -19,6 +21,35 @@
     <Compile Include="AimockHeaderMiddleware.cs" />
     <Compile Include="AimockHeaderPolicy.cs" />
     <Compile Include="CvDiag.cs" />
+    <Compile Include="SalesAgent.cs" />
+    <Compile Include="AgentConfigAgent.cs" />
+    <Compile Include="ReasoningAgent.cs" />
+    <Compile Include="D5ParityAgents.cs" />
+    <Compile Include="DeclarativeGenUiAgent.cs" />
+    <Compile Include="A2uiFixedSchemaAgent.cs" />
+    <Compile Include="OpenGenUiAgent.cs" />
+    <Compile Include="OpenGenUiAdvancedAgent.cs" />
+    <Compile Include="ByocHashbrownAgent.cs" />
+    <Compile Include="ByocJsonRenderAgent.cs" />
+    <Compile Include="HitlInAppAgent.cs" />
+    <Compile Include="HitlInChatAgent.cs" />
+    <Compile Include="SharedStateReadWriteAgent.cs" />
+    <Compile Include="SharedStateAgent.cs" />
+    <Compile Include="InterruptAgent.cs" />
+    <Compile Include="McpAppsAgent.cs" />
+    <Compile Include="MultimodalAgent.cs" />
+    <Compile Include="MultimodalEndpoint.cs" />
+    <Compile Include="SubagentsAgent.cs" />
+    <Compile Include="CvdiagBackend.cs" />
+    <Compile Include="CvdiagInstrumentationMiddleware.cs" />
+    <!-- CVDIAG shared binding (plan unit L1-F). Source-include the single-source
+         _shared/dotnet/ emitter rather than a ProjectReference: _shared/ has no
+         production .csproj (L0-D). The `..\_shared\dotnet\` path resolves both
+         locally (agent/ -> integration-root _shared symlink -> ../_shared) and in
+         Docker (the agent-build stage COPYs _shared/dotnet to /_shared/dotnet,
+         and the csproj at /agent resolves ..\_shared\dotnet there). -->
+    <Compile Include="..\_shared\dotnet\CvdiagSchema.cs" />
+    <Compile Include="..\_shared\dotnet\CvdiagEmitter.cs" />
   </ItemGroup>
 
   <ItemGroup>

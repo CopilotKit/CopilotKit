@@ -10,7 +10,6 @@ export default defineConfig([
     outDir: "dist",
     unbundle: true,
     external: ["react", "@graphql-typed-document-node/core"],
-    exclude: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/*"],
     exports: true,
   },
   {
@@ -29,8 +28,8 @@ export default defineConfig([
       "@graphql-typed-document-node/core",
       "untruncate-json",
     ],
-    codeSplitting: false,
     outputOptions(options) {
+      options.codeSplitting = false;
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         react: "React",

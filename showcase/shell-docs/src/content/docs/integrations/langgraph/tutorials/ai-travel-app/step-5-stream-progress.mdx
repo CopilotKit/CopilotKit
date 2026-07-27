@@ -169,9 +169,9 @@ async def search_node(state: AgentState, config: RunnableConfig):
 </Step>
 </Steps>
 
-## Recieving and rendering the manaully emitted state
+## Receiving and rendering the manually emitted state
 
-Now that we are manually emitting the state of our search, we can recieve and render that state in the UI. To do this,
+Now that we are manually emitting the state of our search, we can receive and render that state in the UI. To do this,
 we'll be using the [useCoAgentStateRender](/reference/v1/hooks/useCoAgentStateRender) function in our `use-trips.tsx` hook.
 
 All we need to do is tell CopilotKit to conditionally render the `search_progress` state key through the `useCoAgentStateRender` hook.

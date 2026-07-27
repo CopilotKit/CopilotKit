@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "run_id": "b4e9d1",
+  "trigger": "cli",
+  "operator_email": "jordan@copilotkit.ai",
+  "operator_git_name": "Jordan Ritter",
+  "started_at": "2026-06-17T10:00:00Z",
+  "elapsed_seconds": 302,
+  "pre_staging": "amber",
+  "abort_reason": null,
+  "succeeded": [
+    "aimock",
+    "dashboard",
+    "docs",
+    "dojo",
+    "harness",
+    "harness-workers",
+    "pocketbase",
+    "shell",
+    "showcase-agno",
+    "showcase-built-in-agent",
+    "showcase-claude-sdk-python",
+    "showcase-claude-sdk-typescript",
+    "showcase-crewai-crews",
+    "showcase-google-adk",
+    "showcase-langgraph-fastapi",
+    "showcase-langgraph-python",
+    "showcase-langgraph-typescript",
+    "showcase-langroid",
+    "showcase-mastra",
+    "showcase-ms-agent-dotnet",
+    "showcase-ms-agent-harness-dotnet",
+    "showcase-ms-agent-python",
+    "showcase-pydantic-ai",
+    "showcase-spring-ai",
+    "showcase-strands"
+  ],
+  "failed": [
+    {
+      "service": "showcase-llamaindex",
+      "exit": 42,
+      "category": "staging-divergence"
+    },
+    {
+      "service": "showcase-ag2",
+      "exit": 1,
+      "category": "verify-prod-timeout"
+    },
+    {
+      "service": "webhooks",
+      "exit": 137,
+      "category": "sigkill"
+    }
+  ]
+}

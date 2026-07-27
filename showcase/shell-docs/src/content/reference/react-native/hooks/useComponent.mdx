@@ -1,0 +1,98 @@
+---
+title: "useComponent"
+description: "Register a React component as a frontend tool renderer in chat"
+---
+
+## Overview
+
+`useComponent` is a convenience hook built on top of `useFrontendTool`.
+It registers a tool and renders a React Native component in chat using the tool call parameters.
+
+<Callout type="info">
+  Re-exported from `@copilotkit/react-core/v2`. It is identical to the [React (V2) `useComponent`](/reference/v2/hooks/useComponent); only the import path differs.
+</Callout>
+
+Use this when you want a visual component renderer without writing a full frontend tool config manually. The component you pass to `render` returns React Native elements that CopilotKit surfaces in the chat. See [`useRenderTool`](/reference/react-native/hooks/useRenderTool) for the underlying React Native render mechanism.
+
+## Signature
+
+```tsx
+import { z } from "zod";
+import type { ComponentType } from "react";
+import { useComponent } from "@copilotkit/react-native";
+
+function useComponent<TSchema extends z.ZodTypeAny | undefined = undefined>(
+  config: {
+    name: string;
+    description?: string;
+    parameters?: TSchema;
+    // When parameters is provided, props are inferred via z.infer.
+    // When omitted, render accepts any props.
+    render: ComponentType<InferRenderProps<TSchema>>;
+    agentId?: string;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+- `config.name`: tool name used by the agent to invoke this component tool.
+- `config.description`: optional extra description for model guidance.
+- `config.parameters`: optional Zod schema for typed/validated parameters. When provided, `render` props are inferred from the schema.
+- `config.render`: React Native component rendered with parsed tool parameters. Accepts any props when `parameters` is omitted.
+- `config.agentId`: optional agent scope for the registration.
+- `deps`: optional dependency array for refreshing registration.
+
+## Behavior
+
+- Prepends a default instruction to the description: _"Use this tool to display the \"&lt;name&gt;\" component in the chat..."_.
+- Calls `useFrontendTool` internally with a render function that spreads the tool parameters as component props.
+- Inherits `useFrontendTool` lifecycle behavior: duplicate-name override warning, tool removal on unmount, and renderer retention for chat history.
+- Tracks updates by `config.name` plus `deps` (include any changing captured values in `deps`).
+
+## Usage
+
+```tsx
+import { Text, View } from "react-native";
+import { useComponent } from "@copilotkit/react-native";
+import { z } from "zod";
+
+const weatherCardSchema = z.object({
+  city: z.string().describe("City name"),
+  unit: z.enum(["c", "f"]).default("c"),
+});
+
+type WeatherCardProps = z.infer<typeof weatherCardSchema>;
+
+function WeatherCard({ city, unit }: WeatherCardProps) {
+  return (
+    <View style={{ borderWidth: 1, borderRadius: 8, padding: 12 }}>
+      <Text style={{ fontSize: 12, color: "#71717a" }}>Weather request</Text>
+      <Text style={{ fontWeight: "500" }}>
+        {city} ({unit.toUpperCase()})
+      </Text>
+    </View>
+  );
+}
+
+function App() {
+  useComponent(
+    {
+      name: "showWeatherCard",
+      description: "Render a weather card in chat for the requested city.",
+      parameters: weatherCardSchema,
+      render: WeatherCard,
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool)
+- [`useRenderTool`](/reference/react-native/hooks/useRenderTool)
+- [React (V2) reference](/reference/v2/hooks/useComponent)

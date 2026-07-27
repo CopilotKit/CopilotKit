@@ -10,6 +10,10 @@
  *   3. non-`build-result-*` dirs are ignored
  *   4. mixed success/failure → correct merged array + any_success=true
  *   5. GITHUB_OUTPUT receives heredoc-form `results` block + any_success
+ *   6. a CANCELLED slot (a slot killed by `timeout-minutes`) survives into
+ *      results.json as `cancelled` and drives the `any_cancelled` /
+ *      `cancelled_services` outputs — the only signal that distinguishes a
+ *      partially-cancelled fleet build from a clean one
  */
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -20,7 +24,7 @@ import { run } from "../aggregate-build-results";
 function makeSlot(
   inputDir: string,
   service: string,
-  status: "success" | "failure" | "skipped",
+  status: "success" | "failure" | "cancelled" | "skipped",
 ): void {
   const dir = join(inputDir, `build-result-${service}`);
   mkdirSync(dir, { recursive: true });
@@ -60,6 +64,20 @@ describe("aggregate-build-results.run", () => {
     expect(() => run({ inputDir, outputDir, githubOutput })).toThrow(
       /aggregate-build-results: found 0 build-result-\* slot dirs/,
     );
+  });
+
+  it("reads a single artifact extracted directly into INPUT_DIR", () => {
+    writeFileSync(
+      join(inputDir, "result.json"),
+      JSON.stringify({ service: "shell-docs", status: "success" }),
+    );
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const results = JSON.parse(
+      readFileSync(join(outputDir, "results.json"), "utf-8"),
+    );
+    expect(results).toEqual([{ service: "shell-docs", status: "success" }]);
   });
 
   it("throws naming the slot when build-result-<x>/result.json is missing", () => {
@@ -114,6 +132,70 @@ describe("aggregate-build-results.run", () => {
 
     const gh = readFileSync(githubOutput, "utf-8");
     expect(gh).toContain("any_success=true");
+  });
+
+  // ── any_cancelled / cancelled_services ────────────────────────────────
+  //
+  // These two outputs are the ONLY machine-readable signal that a fleet
+  // build was partially cancelled. GitHub's `cancelled()` status function
+  // is documented as "returns true if the workflow was canceled" — it is
+  // workflow-scoped, and empirically returns FALSE when only individual
+  // matrix legs are killed (see build run 30162773601, where both
+  // `!cancelled()`-guarded jobs ran alongside 5 cancelled legs). And a
+  // cancelled leg is not a FAILED ancestor, so `failure()` is false too.
+  // With some legs succeeding, `any_success` is 'true'. That leaves the
+  // pre-fix notify guard with nothing to trip on — hence an explicit
+  // per-slot-derived signal.
+  it("sets any_cancelled=true and lists cancelled services on a partial cancel", () => {
+    makeSlot(inputDir, "mastra", "success");
+    makeSlot(inputDir, "shell", "cancelled");
+    makeSlot(inputDir, "shell-docs", "cancelled");
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const gh = readFileSync(githubOutput, "utf-8");
+    // Some slots DID build, so the redeploy still fires — this is exactly
+    // the case that shipped silently.
+    expect(gh).toContain("any_success=true");
+    expect(gh).toContain("any_cancelled=true");
+    expect(gh).toMatch(/^cancelled_services=shell,shell-docs$/m);
+  });
+
+  it("sets any_cancelled=false with an empty service list on a clean build", () => {
+    makeSlot(inputDir, "alpha", "success");
+    makeSlot(inputDir, "beta", "failure");
+    makeSlot(inputDir, "gamma", "skipped");
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const gh = readFileSync(githubOutput, "utf-8");
+    expect(gh).toContain("any_cancelled=false");
+    expect(gh).toMatch(/^cancelled_services=$/m);
+  });
+
+  it("sets any_cancelled=true and any_success=false when every slot was cancelled", () => {
+    makeSlot(inputDir, "shell", "cancelled");
+    makeSlot(inputDir, "shell-docs", "cancelled");
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const gh = readFileSync(githubOutput, "utf-8");
+    expect(gh).toContain("any_success=false");
+    expect(gh).toContain("any_cancelled=true");
+  });
+
+  it("preserves 'cancelled' verbatim in the published results.json", () => {
+    makeSlot(inputDir, "shell", "cancelled");
+    makeSlot(inputDir, "mastra", "success");
+
+    run({ inputDir, outputDir, githubOutput });
+
+    const results = JSON.parse(
+      readFileSync(join(outputDir, "results.json"), "utf-8"),
+    ) as Array<{ service: string; status: string }>;
+    expect(results.find((r) => r.service === "shell")?.status).toBe(
+      "cancelled",
+    );
   });
 
   it("writes results to GITHUB_OUTPUT in multi-line heredoc form", () => {

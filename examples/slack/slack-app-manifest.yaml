@@ -6,6 +6,22 @@ features:
   bot_user:
     display_name: CopilotKit Triage
     always_online: true
+  # App Home: enable the Messages tab so users can DM the bot (and so the tab
+  # isn't read-only — otherwise Slack shows "Sending messages to this app has
+  # been turned off").
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  # Enables the assistant pane ("Agents & AI Apps"). The greeting + chips here
+  # mirror the `assistant` option in app/index.ts.
+  assistant_view:
+    assistant_description: On-call triage assistant — query/file Linear issues and find/write Notion pages.
+    suggested_prompts:
+      - title: Triage my open issues
+        message: Triage my open issues
+      - title: What shipped this week?
+        message: Summarize what shipped this week
   slash_commands:
     - command: /agent
       description: Talk to the AG-UI agent from any channel
@@ -15,11 +31,22 @@ features:
       description: Triage this thread — summarize and propose Linear issues
       usage_hint: ""
       should_escape: false
+    - command: /preview
+      description: Privately preview the issue I'd file
+      usage_hint: "<issue title>"
+      should_escape: false
+    - command: /file-issue
+      description: Open a form to file a Linear issue
+      usage_hint: ""
+      should_escape: false
 oauth_config:
   scopes:
+    user:
+      - chat:write # user-token write access (e.g. grab-user-token.ts for e2e)
     bot:
       # --- Read what the user said ---
       - app_mentions:read # see @mentions of the bot
+      - assistant:write # assistant pane: status, title, suggested prompts
       - channels:history # read messages in public channels bot is in
       - groups:history # read messages in private channels bot is in
       - im:history # read DMs
@@ -37,8 +64,6 @@ oauth_config:
       - chat:write.customize # per-message username/icon (handy for branding)
       - im:write # open DMs
       - mpim:write # open group DMs
-      - reactions:read
-      - reactions:write # 👀 / ✅ reactions as "thinking" / "done" affordance
       # --- Files (for future image/file passing) ---
       - files:read
       - files:write
@@ -50,7 +75,12 @@ settings:
   event_subscriptions:
     bot_events:
       - app_mention
-      - message.im # DMs to the bot (for later, when we add DM flow)
+      - assistant_thread_started # user opened the assistant pane
+      - assistant_thread_context_changed # the channel/context the user is viewing
+      - message.im # DMs to the bot + assistant-pane messages
+      - message.mpim # messages in group DMs the bot is in
+      # Add message.channels/message.groups only when using
+      # respondTo.threadReplies: "afterBotReply" for legacy plain thread continuation.
   interactivity:
     is_enabled: true
   socket_mode_enabled: true

@@ -11,6 +11,17 @@
     "frontend-tools",
     "shared-state",
     "---Human in the Loop---",
-    "...human-in-the-loop"
+    "...human-in-the-loop",
+    "---Intelligence Platform---",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    }
   ]
 }

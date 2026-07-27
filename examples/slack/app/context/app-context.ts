@@ -1,14 +1,15 @@
 /**
  * App-specific context entries — bot identity, tone, policy.
- * Universal-Slack knowledge (how to tag, how mrkdwn works, the thread
- * model) ships in `defaultSlackContext` and is spread in `app/index.ts`;
- * this file is where app-level knowledge belongs.
+ * Platform tagging/formatting/thread-model guidance ships in each adapter's
+ * default context (`defaultSlackContext` / `defaultTelegramContext`) and is
+ * spread per-bot in `app/index.ts`; this file holds platform-neutral identity
+ * and triage policy only.
  *
  * Each entry is `{description, value}`. The SDK forwards them as AG-UI
  * `context` on every turn; the agent backend surfaces them as a
  * system-level "App Context:" message.
  */
-import type { ContextEntry } from "@copilotkit/bot";
+import type { ContextEntry } from "@copilotkit/channels";
 
 export const appContext: ReadonlyArray<ContextEntry> = [
   {
@@ -24,8 +25,8 @@ export const appContext: ReadonlyArray<ContextEntry> = [
     value: [
       "When asked to file an issue or write a postmortem from a thread, read the",
       "thread first, draft a clear title and a short description, then confirm",
-      "with the user before writing. Tag the relevant people with real Slack",
-      "mentions when you know who they are.",
+      "with the user before writing. Tag the relevant people using the",
+      "platform's tagging procedure when you know who they are.",
     ].join("\n"),
   },
 ];

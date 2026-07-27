@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CopilotKit Web Inspector Standalone</title>
+    <script type="module" src="/main.ts"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: #f7f7f9;
+        color: #010507;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+      }
+
+      main {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 100vh;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 18px;
+        border-bottom: 1px solid #dbdbe5;
+        background: #ffffff;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 650;
+      }
+
+      p {
+        margin: 4px 0 0;
+        color: #57575b;
+        font-size: 12px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 8px;
+      }
+
+      button {
+        border: 1px solid #dbdbe5;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #010507;
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+        padding: 7px 10px;
+      }
+
+      button:hover {
+        border-color: #bec2ff;
+      }
+
+      #inspector-host {
+        min-height: 0;
+        padding: 16px;
+      }
+
+      cpk-thread-inspector {
+        display: block;
+        height: calc(100vh - 98px);
+        min-height: 520px;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Web Inspector Standalone Thread Detail</h1>
+          <p>
+            Demo provider data only. Product validation still needs a real
+            Intelligence backend.
+          </p>
+        </div>
+        <div class="controls" aria-label="Demo scenarios">
+          <button type="button" data-scenario="events">AG-UI events</button>
+          <button type="button" data-scenario="messages">Messages only</button>
+          <button type="button" data-scenario="raw">Raw event only</button>
+        </div>
+      </header>
+      <section id="inspector-host"></section>
+    </main>
+  </body>
+</html>

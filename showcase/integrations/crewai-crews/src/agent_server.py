@@ -5,6 +5,15 @@ FastAPI server that hosts the CrewAI crew backend.
 The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
 """
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT crewai / litellm), so it is safe to run before ``load_dotenv`` /
+# ``configure_aimock`` — it does not pull any LLM SDK into ``sys.modules``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # ORDER-CRITICAL: load .env and apply aimock redirection FIRST — before any
 # crewai / litellm / openai module is imported. Those modules can construct
 # clients at import time that latch onto OPENAI_BASE_URL / OPENAI_API_KEY as
@@ -41,6 +50,7 @@ from typing import Any
 # (and before crewai / litellm / openai) imports. CrewAI / litellm
 # construct httpx clients per-call; this patch ensures every new client
 # auto-attaches the forwarded-header hook on construction.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
@@ -398,6 +408,15 @@ app.add_middleware(ForwardedPropsASGIMiddleware)
 # made inside the request scope copies them onto its outbound request.
 # Paired with ``install_global_httpx_hook`` at the top of this file.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added here so
+# it wraps the Health + ForwardedProps + HeaderForwarding layers but stays
+# INSIDE the outermost CORS layer (CORS handles preflight first). Gated behind
+# ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
+# fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`

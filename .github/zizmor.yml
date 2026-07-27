@@ -40,19 +40,13 @@ rules:
       # (which is also main per the upstream filter).
       - showcase_deploy.yml
       - showcase_capture-previews.yml
-      # Dependabot auto-merge: uses pull_request_target for write token.
-      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
-      - dependabot-auto-merge.yml
-      # Dependabot major analysis: uses pull_request_target for PR comments.
-      # Does NOT checkout PR code. Actor-gated to dependabot[bot].
-      - dependabot-major-analysis.yml
       # test_smoke-starter.yml: workflow_run triggered by the in-repo
       # "publish / release" workflow. Listens to release completions; no
       # fork-controlled refs reach this workflow.
       - test_smoke-starter.yml
 
   # `unpinned-uses` is satisfied because every `uses:` is SHA-pinned and
-  # Dependabot keeps them current (see .github/dependabot.yml).
+  # Renovate keeps them current (see renovate.json → local>CopilotKit/renovate).
 
   # `excessive-permissions` flags jobs that grant token scopes they don't
   # need. We surface but don't auto-suppress — fixing requires per-job
@@ -83,10 +77,3 @@ rules:
       # pkg-pr-new posts snapshot comments on the PR using the repo token
       # — credentials must remain persisted for the action to authenticate.
       - publish-commit.yml
-
-  # dependabot-cooldown: cooldown configured (default-days: 1) but zizmor
-  # wants longer. Migrating to Renovate — suppressing rather than tuning
-  # Dependabot config that will be removed.
-  dependabot-cooldown:
-    ignore:
-      - dependabot.yml

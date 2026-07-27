@@ -10,6 +10,7 @@ import { ShellSearchProvider } from "@/components/search-trigger";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
+import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import { getRuntimeConfig } from "@/lib/runtime-config";
 import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 import "./globals.css";
@@ -18,17 +19,6 @@ import "./globals.css";
 // so it can be unit-tested for the OWASP escape behavior (XSS via
 // `</script>`, U+2028/U+2029 line-terminator injection) without
 // importing the layout into the test runner.
-
-// Top-level route segments in src/app/ that must not be mistaken for
-// framework slugs by FrameworkProvider.urlFramework. If an integration
-// registry entry ever ships a slug colliding with one of these, the
-// framework URL-resolver would otherwise hijack the route.
-export const RESERVED_ROUTE_SLUGS = [
-  "docs",
-  "ag-ui",
-  "reference",
-  "api",
-] as const;
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],

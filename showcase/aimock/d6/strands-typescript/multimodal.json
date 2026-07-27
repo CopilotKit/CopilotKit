@@ -1,0 +1,51 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "multimodal \u2014 image upload turn. The D5 script clicks the 'Try with sample image' button (auto-sends), then asserts the assistant transcript contains 'image'. The input text is a label only (skipSend:true in the script).",
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. The colors form a gradient grid that confirms the binary payload round-tripped through the runtime without corruption."
+      }
+    },
+    {
+      "_comment": "multimodal \u2014 PDF upload turn. The D5 script clicks the 'Try with sample PDF' button (auto-sends), then asserts the assistant transcript contains 'document'.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was extracted and forwarded as content to the model. Receiving this response confirms the document upload path works end-to-end."
+      }
+    },
+    {
+      "_comment": "multimodal \u2014 fallback for image analysis when the auto-send injects a different message shape.",
+      "match": {
+        "userMessage": "image",
+        "turnIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "I can see the image you uploaded. It appears to be a test pattern used to validate the image processing pipeline in the multimodal demo."
+      }
+    },
+    {
+      "_comment": "multimodal \u2014 fallback for document analysis when the auto-send injects a different message shape.",
+      "match": {
+        "userMessage": "document",
+        "turnIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "I've reviewed the document you uploaded. It contains test content used to validate the PDF processing pipeline in the multimodal demo."
+      }
+    }
+  ]
+}

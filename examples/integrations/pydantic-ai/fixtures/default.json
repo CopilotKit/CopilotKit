@@ -7,6 +7,24 @@
       }
     },
     {
+      "match": { "userMessage": "what can you do" },
+      "response": {
+        "content": "I can help you manage and discuss proverbs. I can show you the current list, add new proverbs, replace the whole list, or just chat about them. I can also look up the weather for any location, and change the app's theme color on request."
+      }
+    },
+    {
+      "match": { "userMessage": "proverb" },
+      "response": {
+        "content": "Here are the proverbs in your list so far: \"CopilotKit may be new, but it's the best thing since sliced bread.\" Would you like to add more, update the list, or discuss one of them?"
+      }
+    },
+    {
+      "match": { "userMessage": "weather" },
+      "response": {
+        "content": "I can look up the weather for any location! Which city or place would you like to check?"
+      }
+    },
+    {
       "match": {},
       "response": {
         "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`."

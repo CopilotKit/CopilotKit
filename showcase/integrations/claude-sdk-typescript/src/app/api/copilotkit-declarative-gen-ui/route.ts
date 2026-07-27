@@ -1,24 +1,34 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI) cell.
-// The A2UI middleware injects a `render_a2ui` tool into every request.
-// The Claude pass-through agent receives it via AG-UI and invokes it
-// against the page-registered catalog on the provider.
+// The backend owns the `generate_a2ui` tool and performs a secondary Claude
+// call against `render_a2ui`, so the runtime must not inject a competing
+// A2UI tool. It still reads the page-registered catalog and forwards
+// `a2ui_operations` tool results to the renderer.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// @region[a2ui-runtime-setup]
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
-  agents: { "declarative-gen-ui": new HttpAgent({ url: `${AGENT_URL}/` }) },
-  // `injectA2UITool` defaults to true — Claude receives the runtime-injected
-  // `render_a2ui` tool and calls it to emit A2UI operations.
+  agents: {
+    "declarative-gen-ui": createClaudeHttpAgent(
+      `${AGENT_URL}/declarative-gen-ui`,
+    ),
+  },
+  a2ui: {
+    injectA2UITool: false,
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
 });
+// @endregion[a2ui-runtime-setup]
 
 export const POST = async (req: NextRequest) => {
   try {
@@ -29,10 +39,9 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
+    return internalRuntimeErrorResponse(
+      "/api/copilotkit-declarative-gen-ui",
+      error,
     );
   }
 };

@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -12,6 +14,14 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
+
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
 function createAgent(path = "/") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
@@ -48,7 +58,6 @@ const agentNames = [
   "agent-config",
   // Tool rendering variants
   "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain",
   // HITL
   "hitl-in-chat",
@@ -94,6 +103,15 @@ agents["interrupt-headless"] = createAgent("/interrupt-adapted");
 // per-tool state mutations to the AG-UI bridge — same architectural
 // reason as shared-state-read-write and subagents.
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
+// backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
+// AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price`. The
+// shared `LatestAiDevelopment` ChatWithCrewFlow on "/" runs backend
+// tools internally without emitting tool-call events, so the frontend's
+// custom wildcard renderer (`useDefaultRenderTool`) would never paint
+// the `[data-testid="custom-wildcard-card"]` shell that the
+// `d5-tool-rendering-custom-catchall` probe asserts on.
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["default"] = createAgent();
 
 console.log(
@@ -103,7 +121,11 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
@@ -116,7 +138,11 @@ export const POST = async (req: NextRequest) => {
     });
 
     const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: unknown) {
     // Log full details server-side (operators grep `errorId` to correlate),
@@ -142,7 +168,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

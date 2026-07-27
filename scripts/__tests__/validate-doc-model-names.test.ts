@@ -189,7 +189,7 @@ describe("loadAllowlist", () => {
   it("loads all model names from allowlist JSON", () => {
     const allowlistPath = path.resolve(
       __dirname,
-      "../../docs/model-allowlist.json",
+      "../../showcase/shell-docs/model-allowlist.json",
     );
     const allowed = loadAllowlist(allowlistPath);
 
@@ -203,7 +203,7 @@ describe("loadAllowlist", () => {
   it("excludes the _comment field", () => {
     const allowlistPath = path.resolve(
       __dirname,
-      "../../docs/model-allowlist.json",
+      "../../showcase/shell-docs/model-allowlist.json",
     );
     const allowed = loadAllowlist(allowlistPath);
 

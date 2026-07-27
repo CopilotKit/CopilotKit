@@ -18,6 +18,7 @@ export interface CopilotChatLabels {
   userMessageToolbarCopyMessageLabel: string;
   userMessageToolbarEditMessageLabel: string;
   chatDisclaimerText: string;
+  welcomeMessageText: string;
 }
 
 // Default labels constant
@@ -39,6 +40,7 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   userMessageToolbarEditMessageLabel: "Edit",
   chatDisclaimerText:
     "AI can make mistakes. Please verify important information.",
+  welcomeMessageText: "How can I help you today?",
 };
 
 export const COPILOT_CHAT_LABELS = new InjectionToken<CopilotChatLabels>(

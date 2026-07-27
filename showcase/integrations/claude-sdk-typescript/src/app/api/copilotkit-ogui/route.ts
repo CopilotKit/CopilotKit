@@ -9,19 +9,20 @@
 // `open-generative-ui` activity event that the built-in
 // `OpenGenerativeUIActivityRenderer` mounts as a sandboxed iframe.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const agents = {
-  "open-gen-ui": new HttpAgent({ url: `${AGENT_URL}/` }),
-  "open-gen-ui-advanced": new HttpAgent({ url: `${AGENT_URL}/` }),
+  "open-gen-ui": createClaudeHttpAgent(`${AGENT_URL}/`),
+  "open-gen-ui-advanced": createClaudeHttpAgent(`${AGENT_URL}/`),
 };
 
 export const POST = async (req: NextRequest) => {
@@ -43,10 +44,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-ogui", error);
   }
 };

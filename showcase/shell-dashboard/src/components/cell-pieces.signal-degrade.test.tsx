@@ -120,8 +120,11 @@ function degradedHealthRowNoSignal(): StatusRow {
 }
 
 function rtTitle(container: HTMLElement): string | null {
+  // The e2e badge — taxonomy cleanup renamed it from the crossed "RT" label
+  // to "UI" (formerly "E2E"; the grid's BE name (formerly RT) now belongs to
+  // the D4 chat/tools badge in unified-cell).
   const span = Array.from(container.querySelectorAll("span[title]")).find(
-    (s) => s.querySelector("span:first-child")?.textContent?.trim() === "RT",
+    (s) => s.querySelector("span:first-child")?.textContent?.trim() === "UI",
   );
   return span ? span.getAttribute("title") : null;
 }

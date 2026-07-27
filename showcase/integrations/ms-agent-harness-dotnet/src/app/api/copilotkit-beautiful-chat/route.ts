@@ -43,6 +43,10 @@ const runtime = new CopilotRuntime({
     // The .NET agent has its own `generate_a2ui` tool; don't inject the
     // runtime's default A2UI tool on top.
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "copilotkit://app-dashboard-catalog",
   },
   mcpApps: {
     servers: [

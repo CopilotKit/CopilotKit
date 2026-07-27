@@ -614,6 +614,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       transition: probeState === "error" ? "error" : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
+      // A2: this outcome is synthesized for cron-driven rule evaluation —
+      // no status-writer runs on this path and nothing reaches durable
+      // storage (see the newState note above: status-writer does NOT
+      // consume this outcome). Truthfully stamp non-persisted.
+      persisted: false,
     };
     if (fakeResult.state === "error" && rule.onError) {
       // A1: apply the same `passesGuards` filter as the status.changed

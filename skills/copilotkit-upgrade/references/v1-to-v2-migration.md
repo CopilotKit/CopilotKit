@@ -4,37 +4,40 @@
 
 ### Step 1: Replace Dependencies
 
-Remove v1 packages and install v2 equivalents:
+The `@copilotkit/*` package names are unchanged in v2 -- the v2 APIs ship from the **`/v2` subpath** of the same packages. There is **no** `@copilotkit/react` or `@copilotkit/agent` package; do not install them. You only need to remove the packages that no longer have a v2 surface and upgrade the rest to their latest versions:
 
 ```bash
-# Remove v1
-npm uninstall @copilotkit/react-core @copilotkit/react-ui @copilotkit/react-textarea \
-  @copilotkit/runtime @copilotkit/runtime-client-gql @copilotkit/shared @copilotkit/sdk-js
+# Remove packages with no v2 surface (uninstall @copilotkit/react-textarea only
+# AFTER you have migrated off CopilotTextarea -- the v1 package still exists and
+# stays installable for backward compatibility)
+npm uninstall @copilotkit/runtime-client-gql @copilotkit/sdk-js
 
-# Install v2
-npm install @copilotkit/react @copilotkit/runtime @copilotkit/agent @copilotkit/shared
+# Upgrade the packages you keep to their latest (v2) versions.
+# `hono` is only needed for the Hono endpoint (createCopilotHonoHandler); `zod` is
+# the peer dep used for tool parameter schemas.
+npm install @copilotkit/react-core@latest @copilotkit/runtime@latest @copilotkit/shared@latest zod
 ```
 
 **Package mapping:**
 
-| v1 Package                       | v2 Package            | Notes                                          |
-| -------------------------------- | --------------------- | ---------------------------------------------- |
-| `@copilotkit/react-core`         | `@copilotkit/react`   | Hooks, provider, types merged into one package |
-| `@copilotkit/react-ui`           | `@copilotkit/react`   | Chat components merged into same package       |
-| `@copilotkit/react-textarea`     | --                    | Removed entirely, no v2 equivalent             |
-| `@copilotkit/runtime`            | `@copilotkit/runtime` | New agent-based architecture                   |
-| `@copilotkit/runtime-client-gql` | `@ag-ui/client`       | Re-exported by `@copilotkit/react`             |
-| `@copilotkit/shared`             | `@copilotkit/shared`  | Utility types and constants                    |
-| `@copilotkit/sdk-js`             | `@copilotkit/agent`   | Agent definitions (BuiltInAgent, etc.)         |
+| v1 Package                       | v2 Package                  | Notes                                                                                                                                     |
+| -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `@copilotkit/react-core`         | `@copilotkit/react-core/v2` | Same package; v2 hooks, provider, types, and chat components live under the `/v2` subpath                                                 |
+| `@copilotkit/react-ui`           | `@copilotkit/react-core/v2` | Chat components moved into `react-core/v2`; `react-ui` contributes only styles in v2                                                      |
+| `@copilotkit/react-textarea`     | --                          | No v2 equivalent; the v1 `@copilotkit/react-textarea@1.x` package stays installable -- drop it only after migrating off `CopilotTextarea` |
+| `@copilotkit/runtime`            | `@copilotkit/runtime/v2`    | Same package; v2 runtime/agents live under the `/v2` subpath                                                                              |
+| `@copilotkit/runtime-client-gql` | `@ag-ui/client`             | Re-exported by `@copilotkit/react-core/v2`                                                                                                |
+| `@copilotkit/shared`             | `@copilotkit/shared`        | Utility types and constants                                                                                                               |
+| `@copilotkit/sdk-js`             | `@copilotkit/runtime/v2`    | `BuiltInAgent` and agent definitions now ship from `runtime/v2`                                                                           |
 
 ### Step 2: Update All Imports
 
 Find-and-replace import paths across your codebase:
 
 ```
-@copilotkit/react-core  ->  @copilotkit/react
-@copilotkit/react-ui    ->  @copilotkit/react
-@copilotkit/runtime     ->  @copilotkit/runtime
+@copilotkit/react-core  ->  @copilotkit/react-core/v2
+@copilotkit/react-ui    ->  @copilotkit/react-core/v2   (plus import "@copilotkit/react-core/v2/styles.css")
+@copilotkit/runtime     ->  @copilotkit/runtime/v2      (Express helpers: @copilotkit/runtime/v2/express)
 @copilotkit/shared      ->  @copilotkit/shared
 ```
 
@@ -75,7 +78,7 @@ function App() {
 **Key differences:**
 
 - Same component name; the import path changes from the package root (legacy v1) to the `/v2` subpath
-- The props type keeps the name `CopilotKitProps` (also exported from `/v2`); it extends `CopilotKitProviderProps`, so every `CopilotKitProvider` prop also works on it
+- The props type keeps the name `CopilotKitProps` (also exported from `/v2`); it extends `Omit<CopilotKitProviderProps, "children">` (with a narrowed `children` type), so every non-`children` `CopilotKitProvider` prop also works on it
 - v2 adds `credentials`, `selfManagedAgents`, `renderToolCalls`, `renderActivityMessages` props
 - v2 removes `agents` prop (use `selfManagedAgents` or `agents__unsafe_dev_only` for local dev)
 
@@ -118,7 +121,7 @@ useCopilotAction({
 **v2:**
 
 ```tsx
-import { useFrontendTool } from "@copilotkit/react";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 useFrontendTool({
@@ -144,8 +147,8 @@ useFrontendTool({
 - Hook renamed from `useCopilotAction` to `useFrontendTool`
 - Parameters use Zod schemas instead of the v1 parameter descriptor array (`{ name, type, required }`)
 - The `handler` receives the full args object directly (not destructured from `{ arg1, arg2 }`)
-- The `render` prop works similarly but uses `ToolCallStatus` enum (`"inProgress"`, `"executing"`, `"complete"`)
-- v2 adds `available` prop (`"enabled"` | `"disabled"`) replacing the v1 `disabled` boolean
+- The `render` prop works similarly but `status` is now a `ToolCallStatus` enum member (`ToolCallStatus.InProgress` / `.Executing` / `.Complete`, whose values are `"inProgress"` / `"executing"` / `"complete"`)
+- v2 replaces the v1 `disabled` boolean with `available` -- also a boolean (defaults to `true`; set `false` to hide the tool)
 - v2 adds `agentId` prop to scope a tool to a specific agent
 
 ### useCopilotReadable -> useAgentContext
@@ -168,7 +171,7 @@ function EmployeeList({ employees }) {
 **v2:**
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 function EmployeeList({ employees }) {
   useAgentContext({
@@ -199,7 +202,7 @@ useMakeCopilotDocumentReadable(documentPointer, ["category1"]);
 **v2:**
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 useAgentContext({
   description: "Document content for category1",
@@ -211,6 +214,7 @@ useAgentContext({
 
 - No direct `DocumentPointer` equivalent in v2; pass document content directly via `useAgentContext`
 - Categories are not supported; use the `description` field to provide context
+- v1 returned a document `id` (used for `parentId` chaining); `useAgentContext` returns nothing, and hierarchical context via `parentId` is gone -- flatten instead
 
 ### useCoAgent -> useAgent
 
@@ -231,7 +235,7 @@ const { name, state, setState, running, start, stop, run } =
 **v2:**
 
 ```tsx
-import { useAgent } from "@copilotkit/react";
+import { useAgent } from "@copilotkit/react-core/v2";
 
 const agent = useAgent({ agentId: "my-agent" });
 
@@ -247,7 +251,7 @@ const agent = useAgent({ agentId: "my-agent" });
 - v2 returns an `AbstractAgent` instance instead of a destructured state object
 - The `run` / `start` / `stop` API surface differs -- v2 uses AG-UI protocol methods
 
-### useCoAgentStateRender -> useRenderToolCall / useRenderActivityMessage
+### useCoAgentStateRender -> useRenderTool / useRenderActivityMessage
 
 **v1:**
 
@@ -266,27 +270,24 @@ useCoAgentStateRender<YourAgentState>({
 **v2:**
 
 ```tsx
-import { useRenderToolCall } from "@copilotkit/react";
+import { useRenderTool } from "@copilotkit/react-core/v2";
 
-// For tool call rendering:
-useRenderToolCall({
-  toolCall,
-  toolMessage,
-});
-
-// Or for activity messages:
-import { useRenderActivityMessage } from "@copilotkit/react";
-
-useRenderActivityMessage({
-  // renders activity/progress messages from the agent
+// Register a render-only renderer for a tool BY NAME (the declarative successor):
+useRenderTool({
+  name: "basic_agent",
+  render: ({ name, args, status, result }) => (
+    <SearchProgress args={args} status={status} />
+  ),
 });
 ```
 
 **Key differences:**
 
-- `useCoAgentStateRender` is split into `useRenderToolCall` (for tool execution UI) and `useRenderActivityMessage` (for progress/activity rendering)
-- v2 does not have the `nodeName` filtering -- tool rendering is keyed by tool call ID
-- v2 uses AG-UI `ToolCall` and `ToolMessage` types instead of the v1 agent state shape
+- The idiomatic successor is `useRenderTool({ name, render })` -- a declarative, render-only registration keyed by tool **name** (no handler). If you also need execution behavior, use `useFrontendTool`, which accepts both a `handler` and a `render`.
+- For agent progress/activity (not tool calls), use `useRenderActivityMessage()` -- a zero-arg hook returning `{ renderActivityMessage, findRenderer }`.
+- `useRenderToolCall()` is the lower-level imperative hook (zero-arg, returns a `renderToolCall({ toolCall, toolMessage })` function) used internally by the chat views; prefer `useRenderTool` for migration.
+- v2 has no `nodeName` filtering; renderers match by tool name (with an `agentId` tie-break and a `"*"` wildcard fallback).
+- v2 uses AG-UI `ToolCall` / `ToolMessage` types instead of the v1 agent state shape.
 
 ### useLangGraphInterrupt -> useInterrupt
 
@@ -312,7 +313,7 @@ useLangGraphInterrupt({
 **v2:**
 
 ```tsx
-import { useInterrupt } from "@copilotkit/react";
+import { useInterrupt } from "@copilotkit/react-core/v2";
 
 const interruptElement = useInterrupt({
   renderInChat: false, // false = you render it yourself; true = renders in CopilotChat
@@ -343,7 +344,7 @@ return <div>{interruptElement}</div>;
 - v2 adds optional `handler` for programmatic interrupt handling before rendering
 - v2 returns a `React.ReactElement | null` when `renderInChat: false`
 
-### useCopilotChat -> useAgent + useSuggestions
+### useCopilotChat -> useAgent
 
 **v1:**
 
@@ -362,7 +363,7 @@ await appendMessage(
 **v2:**
 
 ```tsx
-import { useAgent } from "@copilotkit/react";
+import { useAgent } from "@copilotkit/react-core/v2";
 
 const agent = useAgent({ agentId: "my-agent" });
 
@@ -392,7 +393,10 @@ useCopilotChatSuggestions({
 **v2:**
 
 ```tsx
-import { useConfigureSuggestions, useSuggestions } from "@copilotkit/react";
+import {
+  useConfigureSuggestions,
+  useSuggestions,
+} from "@copilotkit/react-core/v2";
 
 // Configure suggestion generation:
 useConfigureSuggestions({
@@ -427,7 +431,7 @@ useCopilotAdditionalInstructions({
 **v2:**
 
 ```tsx
-import { useAgentContext } from "@copilotkit/react";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 useAgentContext({
   description: "Additional instructions for the agent",
@@ -446,7 +450,7 @@ import { useHumanInTheLoop } from "@copilotkit/react-core";
 **v2:**
 
 ```tsx
-import { useHumanInTheLoop } from "@copilotkit/react";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 ```
 
 The API is similar -- registers a tool that pauses for user input via a render function with a `respond` callback.
@@ -463,7 +467,7 @@ import {
   OpenAIAdapter,
   GoogleGenerativeAIAdapter,
 } from "@copilotkit/runtime";
-import { copilotKitEndpoint } from "@copilotkit/runtime"; // Next.js App Router
+import { copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime"; // Next.js App Router
 
 const serviceAdapter = new OpenAIAdapter({ model: "gpt-4o" });
 const runtime = new CopilotRuntime({
@@ -481,41 +485,54 @@ const runtime = new CopilotRuntime({
 });
 
 // Next.js App Router
-export const POST = copilotKitEndpoint(runtime, serviceAdapter);
+export const POST = copilotRuntimeNextJSAppRouterEndpoint({
+  runtime,
+  serviceAdapter,
+  endpoint: "/api/copilotkit",
+});
 ```
 
 ### v2: AG-UI Agent Pattern
 
 ```ts
-import { CopilotRuntime, createCopilotEndpoint } from "@copilotkit/runtime";
-import { BuiltInAgent } from "@copilotkit/agent";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import {
+  CopilotRuntime,
+  BuiltInAgent,
+  createCopilotHonoHandler,
+} from "@copilotkit/runtime/v2";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
   agents: {
     default: new BuiltInAgent({
-      model: "openai:gpt-4o",
+      model: "openai/gpt-4o",
       // Frontend tools are registered client-side via useFrontendTool
     }),
     myLangGraphAgent: new LangGraphAgent({
-      url: "http://localhost:8000",
+      deploymentUrl: "http://localhost:8000",
       graphId: "my-graph",
     }),
   },
   // Optional middleware
   a2ui: {}, // A2UI middleware config
   mcpApps: {
-    // MCP Apps middleware
-    servers: [{ transport: { type: "sse", url: "http://localhost:3001/sse" } }],
+    // MCP Apps middleware -- each server config is flat (type + url at the top level)
+    servers: [{ type: "sse", url: "http://localhost:3001/sse" }],
   },
 });
 
-// Hono-based endpoint (works with Next.js, Express, standalone)
-const app = createCopilotEndpoint({
+// Hono-based endpoint. `createCopilotEndpoint` is a deprecated alias for
+// `createCopilotHonoHandler`. For Express, use `createCopilotExpressHandler`
+// from "@copilotkit/runtime/v2/express".
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 
+// Standalone Hono: `export default app`.
+// Next.js App Router (app/api/copilotkit/route.ts): export the fetch handler instead:
+//   export const POST = app.fetch;
+//   export const GET = app.fetch;
 export default app;
 ```
 
@@ -524,7 +541,7 @@ export default app;
 - No more service adapters (`OpenAIAdapter`, `LangChainAdapter`, etc.) -- model selection is done inside agents
 - No more `actions` array on the runtime -- frontend tools are registered via `useFrontendTool`, backend tools via agent configuration
 - No more `remoteEndpoints` -- agents are passed directly as `AbstractAgent` instances
-- Endpoint setup uses `createCopilotEndpoint` (Hono) or `createCopilotEndpointExpress` (Express) instead of framework-specific integrations
+- Endpoint setup uses `createCopilotHonoHandler` (Hono, from `@copilotkit/runtime/v2`; also exported as the deprecated alias `createCopilotEndpoint`) or `createCopilotExpressHandler` (Express, from `@copilotkit/runtime/v2/express`) instead of framework-specific integrations
 - v2 runtime supports SSE mode and Intelligence mode (durable threads with realtime events)
 
 ### v2 Runtime Modes
@@ -536,7 +553,7 @@ const runtime = new CopilotRuntime({
 });
 
 // Intelligence Mode (durable threads, realtime, requires CopilotKitIntelligence)
-import { CopilotKitIntelligence } from "@copilotkit/runtime";
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -552,7 +569,7 @@ const runtime = new CopilotRuntime({
 
 ## Chat Component Migration
 
-Chat components have the same names but move to `@copilotkit/react`:
+Chat components have the same names but move to `@copilotkit/react-core/v2`:
 
 **v1:**
 
@@ -567,7 +584,11 @@ import {
 **v2:**
 
 ```tsx
-import { CopilotChat, CopilotPopup, CopilotSidebar } from "@copilotkit/react";
+import {
+  CopilotChat,
+  CopilotPopup,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 ```
 
 v2 adds new chat sub-components for granular customization:
@@ -602,14 +623,16 @@ v1 used GraphQL-based message types from `@copilotkit/runtime-client-gql`:
 import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
 ```
 
-v2 uses AG-UI protocol types from `@ag-ui/client` (re-exported by `@copilotkit/react`):
+v2 uses AG-UI protocol types from `@ag-ui/client` (re-exported by `@copilotkit/react-core/v2`):
 
 ```tsx
 import {
-  Message,
-  TextMessage,
+  Message, // the message union
+  AssistantMessage, // per-role message types (UserMessage, SystemMessage, ToolMessage, ...)
   ToolCall,
   ToolMessage,
   EventType,
-} from "@copilotkit/react"; // re-exports from @ag-ui/client
+} from "@copilotkit/react-core/v2"; // re-exports from @ag-ui/client
 ```
+
+> v2 has no standalone `TextMessage` type (that was the v1 GraphQL name). Use the `Message` union or the per-role types (`AssistantMessage` / `UserMessage` / ...); streamed text arrives via events such as `TextMessageChunkEvent`.
