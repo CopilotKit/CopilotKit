@@ -12,7 +12,6 @@
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart } from "@copilotkit/channels/charts";
 import { REPO, ghFetch, ageInDays, sampleTag } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
@@ -109,7 +108,7 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 }
 
-function prRow(pr: Pr): ChannelNode {
+function prRow(pr: Pr) {
   const badge = ageBadge(pr.ageDays);
   return (
     <div key={pr.number} className="flex flex-row items-center gap-3 w-full">
@@ -133,7 +132,7 @@ export interface PrRadarCardProps {
 }
 
 /** Presentational — Tailwind host-tag JSX rendered to a branded image via Takumi. */
-export function PrRadarCard({ prs, live }: PrRadarCardProps): ChannelNode {
+export function PrRadarCard({ prs, live }: PrRadarCardProps) {
   const shown = prs.slice(0, 8);
   return (
     <div className="flex flex-col gap-3.5 w-full h-full p-7 bg-brand-bg font-brand">
