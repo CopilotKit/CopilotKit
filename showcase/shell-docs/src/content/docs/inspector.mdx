@@ -5,6 +5,10 @@ description: Inspector for debugging actions, readables, agent status, messages,
 ---
 <Inspector />
 
+Inspector telemetry uses its own browser identity and direct delivery path. It
+works whether or not the Runtime has `CPK_TELEMETRY_ID`, and it follows the
+existing telemetry opt-outs.
+
 <OpsPlatformCTA
   variant="inline"
   title="The threads tab needs Intelligence"
