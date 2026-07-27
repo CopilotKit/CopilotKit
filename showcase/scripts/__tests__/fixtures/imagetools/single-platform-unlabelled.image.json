@@ -15,16 +15,8 @@
       "NEXT_PUBLIC_COMMIT_SHA=3ff7a5160655e4fd1d59b541da1b83887d50307f",
       "NEXT_PUBLIC_BRANCH=main"
     ],
-    "Entrypoint": [
-      "docker-entrypoint.sh"
-    ],
-    "Cmd": [
-      "npx",
-      "next",
-      "start",
-      "-p",
-      "10000"
-    ],
+    "Entrypoint": ["docker-entrypoint.sh"],
+    "Cmd": ["npx", "next", "start", "-p", "10000"],
     "WorkingDir": "/app",
     "ArgsEscaped": true
   },

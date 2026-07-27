@@ -346,10 +346,7 @@ export function parseCompareStatus(raw: string): CompareStatus | null {
  * command must begin a line, and after this there are no more lines.
  */
 export function escapeAnnotationData(value: string): string {
-  return value
-    .replace(/%/g, "%25")
-    .replace(/\r/g, "%0D")
-    .replace(/\n/g, "%0A");
+  return value.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
 /** Escape a workflow-command PROPERTY value (e.g. `title=`). */
@@ -443,7 +440,11 @@ export function classifyProbeFailure(error: unknown): ProbeFailure {
     | null
     | undefined;
 
-  if (e?.killed === true || e?.signal === "SIGTERM" || e?.code === "ETIMEDOUT") {
+  if (
+    e?.killed === true ||
+    e?.signal === "SIGTERM" ||
+    e?.code === "ETIMEDOUT"
+  ) {
     return { kind: "timeout", detail };
   }
   if (/429|too\s?many\s?requests|rate[\s_-]?limit|throttl/.test(hay)) {
@@ -784,7 +785,8 @@ export function advanceLatestTags(
         io,
       );
       if (decision.action === "advance") result.advanced.push(image);
-      else if (decision.action === "already-current") result.unchanged.push(image);
+      else if (decision.action === "already-current")
+        result.unchanged.push(image);
       else result.declined.push(image);
     } catch (error) {
       // `::error::` so the annotation surfaces on the run, not just in the log.
@@ -839,7 +841,8 @@ export function readFlag(argv: string[], flag: string): FlagResult {
     const arg = argv[i];
     if (arg === flag) {
       const next = argv[i + 1];
-      if (next === undefined || next.startsWith("--")) return { kind: "no-value" };
+      if (next === undefined || next.startsWith("--"))
+        return { kind: "no-value" };
       return { kind: "value", value: next };
     }
     if (arg.startsWith(`${flag}=`)) {
@@ -871,7 +874,9 @@ function main(argv: string[]): void {
     result.kind === "value" ? result.value : undefined;
 
   const rawImages =
-    valueOf(flags["--images"]) ?? valueOf(flags["--image"]) ?? process.env.IMAGES;
+    valueOf(flags["--images"]) ??
+    valueOf(flags["--image"]) ??
+    process.env.IMAGES;
   const sha = valueOf(flags["--sha"]) ?? process.env.GITHUB_SHA;
   const repo = valueOf(flags["--repo"]) ?? process.env.GITHUB_REPOSITORY;
 
