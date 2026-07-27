@@ -62,14 +62,29 @@ CopilotKit Intelligence provides durable, multi-turn conversation threads with m
 
 - Docker Desktop or equivalent
 - CopilotKit License Token (get from [CopilotKit Cloud](https://cloud.copilotkit.ai))
+- **Intelligence Repository** - Clone the [CopilotKit Intelligence](https://github.com/CopilotKit/Intelligence) repository locally
 
 ### Setup
 
-1. Start the intelligence stack:
+1. Clone the Intelligence repository (if not already cloned):
+
+```bash
+# Clone to a sibling directory (recommended)
+cd ..
+git clone https://github.com/CopilotKit/Intelligence.git
+cd -
+```
+
+2. Start the intelligence stack:
 
 ```bash
 # Set your license token
 echo "COPILOTKIT_LICENSE_TOKEN=your-token-here" >> .env
+
+# Set the path to your Intelligence repo checkout
+# Default: ../../../Intelligence (assumes CopilotKit monorepo layout)
+# For standalone starters, adjust to your actual path:
+export INTELLIGENCE_REPO=../Intelligence  # if cloned as sibling
 
 # Start intelligence services (postgres, redis, intelligence API)
 docker compose -f docker-compose.intelligence.yml up -d
@@ -78,7 +93,7 @@ docker compose -f docker-compose.intelligence.yml up -d
 docker compose -f docker-compose.intelligence.yml ps
 ```
 
-2. Add intelligence configuration to `.env`:
+3. Add intelligence configuration to `.env`:
 
 ```bash
 COPILOTKIT_LICENSE_TOKEN=your-token-here
@@ -86,13 +101,15 @@ INTELLIGENCE_API_URL=http://localhost:4201
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
 ```
 
-3. Run your application:
+4. Run your application:
 
 ```bash
 npm run dev
 ```
 
 The intelligence stack will now handle conversation threads, state persistence, and memory. See `docker-compose.intelligence.yml` and `docker/01-create-databases.sql` for configuration details.
+
+> **Note:** The Intelligence service is built from source and requires the Intelligence repository. If you're using this as a standalone starter (extracted from the CopilotKit monorepo), you must clone the Intelligence repo separately and set `INTELLIGENCE_REPO` to point to it.
 
 ### Stopping Intelligence
 
