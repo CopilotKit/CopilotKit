@@ -59,6 +59,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
 import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import { extractRegions } from "./lib/source-regions.js";
+import type { ExtractedRegion } from "./lib/source-regions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -185,123 +187,6 @@ const SKIP_EXTENSIONS = new Set([
   ".webm",
   ".ogg",
 ]);
-
-// ---------------------------------------------------------------------------
-// Region extraction
-// ---------------------------------------------------------------------------
-
-/**
- * Matches a start marker in any line-comment flavour:
- *   `// @region[name]`      (JS/TS/Java/C#)
- *   `# @region[name]`       (Python/YAML/Bash)
- *   `<!-- @region[name] -->`  (HTML/MDX)  — only `@region[name]` token matters
- *
- * We don't mandate a prefix because anything before `@region[` is noise:
- * comment tokens, whitespace, etc. The whole line is dropped on strip.
- */
-const REGION_START_RE = /@region\[([a-z0-9][a-z0-9-]*)\]/;
-const REGION_END_RE = /@endregion\[([a-z0-9][a-z0-9-]*)\]/;
-
-/**
- * A loose detector for ANY `@region[...]` or `@endregion[...]` marker,
- * including malformed names. We use this to reject bad syntax early instead
- * of silently leaving a stray marker in the bundled output.
- */
-const REGION_ANY_RE = /@(?:end)?region\[[^\]]*\]/;
-
-interface ExtractedRegion {
-  startLine: number; // 1-based, post-strip
-  endLine: number; // 1-based, post-strip, inclusive
-  lines: string[];
-}
-
-/**
- * Strip region markers from a file and return:
- *  - `cleaned`: the file contents with all marker lines removed
- *  - `regions`: a map of region name → extracted slice(s) of `cleaned`
- *
- * Nested regions are supported. A region whose start has no matching end
- * (or vice-versa) throws — bundling should fail loudly rather than produce
- * a silently-broken snippet.
- */
-function extractRegions(
-  source: string,
-  fileLabel: string,
-): { cleaned: string; regions: Record<string, ExtractedRegion[]> } {
-  const srcLines = source.split("\n");
-  const cleaned: string[] = [];
-  // Stack of active regions: name → start line (1-based index into cleaned).
-  const stack: Array<{ name: string; startLine: number }> = [];
-  const regions: Record<string, ExtractedRegion[]> = {};
-  // While a region is open we accumulate its body lines here (indexed by
-  // position in `stack` so nested regions each get their own buffer).
-  const buffers: string[][] = [];
-
-  for (const rawLine of srcLines) {
-    const startMatch = rawLine.match(REGION_START_RE);
-    const endMatch = rawLine.match(REGION_END_RE);
-
-    if (startMatch && endMatch) {
-      throw new Error(
-        `${fileLabel}: same line contains both @region and @endregion — that's not supported.`,
-      );
-    }
-
-    if (startMatch) {
-      const name = startMatch[1];
-      stack.push({ name, startLine: cleaned.length + 1 });
-      buffers.push([]);
-      continue;
-    }
-
-    if (endMatch) {
-      const name = endMatch[1];
-      const top = stack.pop();
-      const buf = buffers.pop();
-      if (!top || !buf) {
-        throw new Error(
-          `${fileLabel}: @endregion[${name}] without a matching @region[...].`,
-        );
-      }
-      if (top.name !== name) {
-        throw new Error(
-          `${fileLabel}: @endregion[${name}] does not match innermost open region @region[${top.name}].`,
-        );
-      }
-      const startLine = top.startLine;
-      const endLine = cleaned.length; // last line pushed into `cleaned`
-      if (endLine < startLine) {
-        // Empty region — still record, but as a zero-line span.
-        (regions[name] ||= []).push({
-          startLine,
-          endLine: startLine - 1,
-          lines: [],
-        });
-      } else {
-        (regions[name] ||= []).push({ startLine, endLine, lines: buf });
-      }
-      continue;
-    }
-
-    // Reject any stray, malformed marker that didn't match the strict regex.
-    if (REGION_ANY_RE.test(rawLine)) {
-      throw new Error(
-        `${fileLabel}: malformed region marker "${rawLine.trim()}". Use @region[kebab-case-name] / @endregion[kebab-case-name].`,
-      );
-    }
-
-    cleaned.push(rawLine);
-    // Push this line into every currently-open region buffer.
-    for (const buf of buffers) buf.push(rawLine);
-  }
-
-  if (stack.length > 0) {
-    const unclosed = stack.map((s) => s.name).join(", ");
-    throw new Error(`${fileLabel}: unclosed @region[${unclosed}].`);
-  }
-
-  return { cleaned: cleaned.join("\n"), regions };
-}
 
 function collectDemoFiles(
   demoDir: string,

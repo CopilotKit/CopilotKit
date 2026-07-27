@@ -34,6 +34,7 @@ import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
 import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
+import { VueDocExample } from "@/components/vue-doc-example";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -503,6 +504,7 @@ export const docsComponents = {
     }
     return <div>{children}</div>;
   },
+  VueDocExample,
   Info: Callout,
   Caution: ({ children }: { children: React.ReactNode }) => (
     <Callout type="warn">{children}</Callout>

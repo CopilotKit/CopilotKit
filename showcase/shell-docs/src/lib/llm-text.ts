@@ -46,6 +46,10 @@ import {
   DOCS_CONTENT_DIR,
   walkMdx,
 } from "./sitemap-helpers";
+import {
+  resolveVueDocExample,
+  vueDocExampleDiagnostic,
+} from "./vue-doc-examples";
 import demoContent from "@/data/demo-content.json";
 
 interface Region {
@@ -445,6 +449,7 @@ function fileHeaderComment(language: string, text: string): string {
     lang === "html" ||
     lang === "xml" ||
     lang === "svg" ||
+    lang === "vue" ||
     lang === "md" ||
     lang === "markdown" ||
     lang === "mdx"
@@ -563,6 +568,45 @@ function expandSnippets(
   });
 }
 
+function literalAttribute(
+  source: string,
+  attribute: string,
+): string | undefined {
+  const expression = new RegExp(
+    `(?:^|\\s)${attribute}\\s*=\\s*(["'])(.*?)\\1`,
+    "s",
+  ).exec(source);
+  return expression?.[2];
+}
+
+/**
+ * Replace canonical Vue source references with fenced code from the generated
+ * consumer bundle. Invalid references remain visible as stable diagnostics.
+ */
+export function expandVueDocExamples(body: string): string {
+  return body.replace(
+    /<VueDocExample\b([\s\S]*?)\/>/g,
+    (_match, inner: string) => {
+      try {
+        const file = literalAttribute(inner, "file");
+        const region = literalAttribute(inner, "region");
+        if (/\bfile\s*=/.test(inner) && file === undefined) {
+          throw new Error('"file" must be a quoted string');
+        }
+        if (/\bregion\s*=/.test(inner) && region === undefined) {
+          throw new Error('"region" must be a quoted string');
+        }
+        const example = resolveVueDocExample(file, region);
+        const header = fileHeaderComment(example.language, example.file);
+        const code = header ? `${header}\n${example.code}` : example.code;
+        return fenceFor(example.language, code);
+      } catch (error) {
+        return `[${vueDocExampleDiagnostic(error)}]`;
+      }
+    },
+  );
+}
+
 /**
  * Drop `<InlineDemo ... />` tags — these mount live iframes in the
  * browser; in plain markdown they're noise. Leave a short note so the
@@ -627,10 +671,13 @@ export function renderPageToLlmText(
   // 2) Resolve `<Snippet ... />` to fenced code.
   body = expandSnippets(body, framework, frontmatterCell);
 
-  // 3) Drop `<InlineDemo />`.
+  // 3) Resolve canonical consumer-compiled Vue examples.
+  body = expandVueDocExamples(body);
+
+  // 4) Drop `<InlineDemo />`.
   body = stripInlineDemos(body);
 
-  // 4) Prepend an H1 (and description blockquote) so consumers always
+  // 5) Prepend an H1 (and description blockquote) so consumers always
   //    get a clear page title — frontmatter alone wouldn't survive the
   //    strip step.
   const header: string[] = [`# ${title}`];
