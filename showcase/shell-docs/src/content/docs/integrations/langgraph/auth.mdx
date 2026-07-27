@@ -101,7 +101,7 @@ In your `langgraph.json`, allow `x-*` headers to be forwarded into `config["conf
 {
   "http": {
     "configurable_headers": {
-      "include": ["x-*"]
+      "includes": ["x-*"]
     }
   }
 }
@@ -166,7 +166,7 @@ async def authenticated_node(state: dict[str, Any], config: RunnableConfig) -> d
 
 1. The CopilotKit v2 runtime receives the inbound `x-copilotkit-auth` request header.
 2. `mergeForwardableHeaders` in the runtime attaches eligible `x-*` headers to the outgoing `LangGraphAgent` call.
-3. Because `langgraph.json` sets `configurable_headers.include: ["x-*"]`, the langgraph-api server maps those headers into `config["configurable"]`.
+3. Because `langgraph.json` sets `configurable_headers.includes: ["x-*"]`, the langgraph-api server maps those headers into `config["configurable"]`.
 4. Your graph node receives `config: RunnableConfig` with `config["configurable"]["x-copilotkit-auth"]` populated.
 5. The same path works on every subsequent turn of the same thread — no token reset between runs.
 
@@ -208,17 +208,17 @@ async def my_agent_node(state: dict[str, Any], config: RunnableConfig) -> dict[s
 
 ### What NOT to do
 
-```python
-# ❌ WRONG — auth tokens in useAgentContext are sent to the LLM
+```tsx
+// ❌ WRONG — auth tokens in useAgentContext are sent to the LLM
 useAgentContext({
     description: "auth context",
-    value: { authToken: userToken },  # token visible in LLM logs!
+    value: { authToken: userToken }, // token visible in LLM logs!
 })
 
-# ❌ WRONG — same problem: state["copilotkit"]["context"] is model-visible
+// ❌ WRONG — same problem: state["copilotkit"]["context"] is model-visible
 state = {
     "copilotkit": {
-        "context": [{"value": {"authToken": token}}]  # visible to LLM!
+        "context": [{"value": {"authToken": token}}] // visible to LLM!
     }
 }
 ```
@@ -239,7 +239,7 @@ state = {
 
 ### Token not reaching the agent
 
-- Confirm `langgraph.json` has `"configurable_headers": {"include": ["x-*"]}`.
+- Confirm `langgraph.json` has `"http": {"configurable_headers": {"includes": ["x-*"]}}`.
 - Confirm the CopilotKit runtime `forwardHeadersPolicy` is not explicitly blocking `x-copilotkit-auth`.
 - Confirm the frontend is passing the header via `<CopilotKit headers={{...}}>`.
 

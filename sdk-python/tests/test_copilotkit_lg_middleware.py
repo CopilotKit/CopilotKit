@@ -832,7 +832,7 @@ def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
 
 def test_wrap_model_call_strips_raw_x_keys_from_runtime_context():
     """When ``runtime.context`` contains raw ``x-*`` keys (e.g. from
-    langgraph-api ``configurable_headers.include: ["x-*"]``), those keys
+    langgraph-api ``configurable_headers.includes: ["x-*"]``), those keys
     must be stripped from the model-visible App Context note.
 
     ``langgraph-api`` copies admitted ``x-*`` request headers into
@@ -844,7 +844,7 @@ def test_wrap_model_call_strips_raw_x_keys_from_runtime_context():
     middleware = CopilotKitMiddleware()
     request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
     # Simulate what langgraph-api puts in runtime.context when
-    # configurable_headers.include: ["x-*"] is set: the x-* headers appear
+    # configurable_headers.includes: ["x-*"] is set: the x-* headers appear
     # as direct dict keys alongside ordinary app context.
     request.runtime.context = {
         "user_role": "admin",
@@ -1224,22 +1224,22 @@ class TestExtractForwardedHeadersFromConfig:
             {
                 "context": {
                     "copilotkit_forwarded_headers": {
-                        "X-Trace": "from-context",
+                        "X-Trace-Id": "from-context",
                     },
                 },
                 "configurable": {
                     "copilotkit_forwarded_headers": {
-                        "x-trace": "from-configurable",
+                        "x-trace-id": "from-configurable",
                     },
                 },
             },
         )
         _extract_forwarded_headers_from_config()
         headers = get_forwarded_headers()
-        # Context wins via first-write-wins (both lowercase to "x-trace").
-        assert headers["x-trace"] == "from-context"
+        # Context wins via first-write-wins (both lowercase to "x-trace-id").
+        assert headers["x-trace-id"] == "from-context"
         # Only the lowercased key exists — no mixed-case duplicate.
-        assert "X-Trace" not in headers
+        assert "X-Trace-Id" not in headers
 
     def test_multiple_raw_x_headers_extracted(self, monkeypatch):
         self._patch_get_config(
@@ -1325,7 +1325,7 @@ class TestExtractForwardedHeadersFromConfig:
             monkeypatch,
             {
                 "configurable": {
-                    "x-valid": "yes",
+                    "x-diag-valid": "yes",
                     "x-list-value": ["a", "b"],
                     "x-int-value": 42,
                     "x-dict-value": {"nested": True},
@@ -1334,7 +1334,7 @@ class TestExtractForwardedHeadersFromConfig:
         )
         _extract_forwarded_headers_from_config()
         headers = get_forwarded_headers()
-        assert headers == {"x-valid": "yes"}
+        assert headers == {"x-diag-valid": "yes"}
 
     def test_contextvar_cleared_when_no_headers(self, monkeypatch):
         """When the current call has no x-* headers, the ContextVar must be

@@ -3,7 +3,7 @@
   "env": ".env",
   "http": {
     "configurable_headers": {
-      "include": ["x-*"]
+      "includes": ["x-*"]
     }
   },
   "graphs": {

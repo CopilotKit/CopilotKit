@@ -6,7 +6,7 @@ agents:
   CopilotRuntime
     → mergeForwardableHeaders (x-* admitted, agent.headers set)
     → HTTP backend (langgraph-api or this standalone FastAPI server)
-        configurable_headers.include: ["x-*"]  (in langgraph.json)
+        configurable_headers.includes: ["x-*"]  (in langgraph.json)
     → LangGraph RunnableConfig: config["configurable"]["x-copilotkit-auth"]
     → graph node reads token via (config.get("configurable") or {}).get("x-copilotkit-auth")
 
@@ -102,7 +102,7 @@ async def run_stream(request: Request):
 
     Reads x-* headers from the incoming HTTP request and places them into
     config["configurable"] — exactly what langgraph-api does when
-    configurable_headers.include: ["x-*"] is set in langgraph.json.
+    configurable_headers.includes: ["x-*"] is set in langgraph.json.
     """
     body = await request.json()
     # HttpAgent sends threadId (camelCase) as a top-level field in the body.

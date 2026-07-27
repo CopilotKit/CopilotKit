@@ -90,7 +90,7 @@ def _extract_forwarded_headers_from_config() -> None:
     """Extract provider-correlation headers from the current LangGraph config.
 
     When an agent runs inside **langgraph-api** with
-    ``LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}``,
+    ``LANGGRAPH_HTTP={"configurable_headers":{"includes":["x-*"]}}``,
     the server copies inbound HTTP ``x-*`` headers into
     ``config["configurable"]`` as individual keys (e.g.
     ``configurable["x-aimock-context"] = "value"``). This function forwards only

@@ -26,7 +26,7 @@
  *
  * The Node.js backend fixture implements the same configurable-header
  * admission layer that langgraph-api applies when
- * `configurable_headers.include: ["x-*"]` is set in langgraph.json.
+ * `configurable_headers.includes: ["x-*"]` is set in langgraph.json.
  * It invokes a real JavaScript graph node function (not a hardcoded stub)
  * so the proof is bound to the actual received header value.
  *
@@ -120,7 +120,7 @@ async function startBackendFixture(): Promise<BackendHandle> {
         // Configurable-header admission layer (mirrors langgraph-api behavior):
         // copy admitted x-* request headers into a configurable object that the
         // graph node reads from.  langgraph-api does this when
-        // configurable_headers.include: ["x-*"] is set in langgraph.json.
+        // configurable_headers.includes: ["x-*"] is set in langgraph.json.
         const configurable: Record<string, string> = {};
         for (const [name, value] of Object.entries(req.headers)) {
           if (
