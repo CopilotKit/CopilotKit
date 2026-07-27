@@ -87,8 +87,12 @@ agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "tool_rendering_reasoning_chain",
 );
-agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
-agents["reasoning-default-render"] = createAgent("reasoning_agent");
+// Reasoning variants. The Custom demo (`reasoning-custom`) and the
+// Default demo (`reasoning-default`) both share the same backend graph;
+// the only difference is whether the frontend overrides the
+// `messageView.reasoningMessage` slot. Mirrors langgraph-python.
+agents["reasoning-custom"] = createAgent("reasoning_agent");
+agents["reasoning-default"] = createAgent("reasoning_agent");
 
 // Agentic Generative UI — dedicated `gen_ui_agent` graph. The agent defines
 // its own `steps` state + a `set_steps` tool the model calls to publish plan
