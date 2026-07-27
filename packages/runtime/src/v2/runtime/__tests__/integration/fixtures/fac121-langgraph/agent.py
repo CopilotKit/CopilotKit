@@ -107,9 +107,9 @@ async def run_stream(request: Request):
     body = await request.json()
     # HttpAgent sends threadId (camelCase) as a top-level field in the body.
     # Fall back to the legacy configurable path for direct langgraph-api usage.
-    thread_id = body.get("threadId") or body.get(
-        "config", {}
-    ).get("configurable", {}).get("thread_id", "default")
+    thread_id = body.get("threadId") or body.get("config", {}).get(
+        "configurable", {}
+    ).get("thread_id", "default")
     run_id = body.get("runId") or body.get("run_id", "run-1")
 
     # Admission layer: copy x-* headers into configurable (langgraph-api behavior)
