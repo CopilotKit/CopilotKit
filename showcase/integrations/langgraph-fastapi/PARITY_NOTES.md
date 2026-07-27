@@ -62,7 +62,7 @@ Live-trace findings (2026-07-27):
   seq0(invalid)→seq1(valid): narration claims "I recovered and painted your
   metrics overview" while the DOM shows the hard-fail card "Couldn't generate
   the UI." Worker log: `waitForTurnComplete: turn 1 did not complete …
-  reason=surface-missing`.
+reason=surface-missing`.
 - The failing run's second SSE stream balloons to ~13 MB (`transferSize`
   ~12–14M on both fastapi and LGP) vs a clean short stream on the green
   sibling — consistent with the recovery loop over-iterating / re-emitting
@@ -73,7 +73,7 @@ Live-trace findings (2026-07-27):
   container — not in this repo), which is the suspected locus.
 - Ruled out via trace: aimock no-match/404/STRICT (none), `injectA2UITool`
   (present, correct), catalog registration (`defaultCatalogId:
-  "declarative-gen-ui-catalog"`, identical to LGP), and any fastapi wiring
+"declarative-gen-ui-catalog"`, identical to LGP), and any fastapi wiring
   drift (`route.ts`, `recovery_agent.py`, `langgraph.json` are structurally
   identical to LGP).
 
@@ -99,7 +99,7 @@ A **scoped** `bin/showcase test langgraph-fastapi:declarative-json-render --d6`
 reds, for two layered reasons — neither is a fastapi defect:
 
 1. **Probe limitation (harness, fleet-wide).** `d5-byoc.ts` always sends the
-   *hashbrown* pill even when navigation is forced to the json-render page —
+   _hashbrown_ pill even when navigation is forced to the json-render page —
    its NOTE says the build context doesn't expose `demos[]`, so it can't pick
    the per-page pill. So the scoped json-render run is driven with the wrong
    pill by design. Tracked as a follow-up (improve the probe to select the
