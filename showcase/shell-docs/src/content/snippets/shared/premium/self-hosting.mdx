@@ -542,11 +542,12 @@ The migrations Job runs as a **pre-install/pre-upgrade** Helm hook (weight `-5`)
 
 | Key | Description | Default |
 |---|---|---|
-| `threadCuller.enabled` | Run a CronJob that soft-deletes stale threads in unlicensed deployments | `false` |
+| `threadCuller.enabled` | Run the destructive cleanup CronJob. Keep this off unless your policy permits deletion for an explicitly expired verified license. | `false` |
 | `threadCuller.schedule` | Cron expression | `0 * * * *` |
 | `threadCuller.staleHours` | Threads older than this many hours (since last update) are culled | `"3"` |
 | `threadCuller.batchSize` | Maximum threads to cull per run | `"1000"` |
-| `threadCuller.licenseSecret.existingSecret` | Secret containing `COPILOTKIT_LICENSE_TOKEN`. When set, the CronJob skips culling (licensed install). When empty, it culls. | `""` |
+| `appApi.licenseSecret.existingSecret` | Existing Secret that supplies `COPILOTKIT_LICENSE_TOKEN` to App API and Thread Culler. | `""` |
+| `appApi.licenseSecret.key` | Key that holds the token in the existing Secret. | `license-token` |
 
 ### Shared config (CORS, logging)
 
