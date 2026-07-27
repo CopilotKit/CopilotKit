@@ -167,6 +167,90 @@
       "status": null
     }
   },
+  "hetero-d4-green-stripped-infra-red": {
+    "supported": true,
+    "achievedDepth": 3,
+    "ceilingDepth": 6,
+    "chipColor": "gray",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "gray",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "red"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "green"
+    }
+  },
+  "hetero-d4-red-failcount-max": {
+    "supported": true,
+    "achievedDepth": 3,
+    "ceilingDepth": 6,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "red"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "green"
+    }
+  },
+  "hetero-starter-mixed-soft-hard": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 0,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": false,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
+    "commErrorKind": null,
+    "d3": {
+      "exists": false,
+      "status": null
+    },
+    "d4": {
+      "exists": false,
+      "status": null
+    },
+    "d5": {
+      "exists": false,
+      "status": null
+    },
+    "d6": {
+      "exists": false,
+      "status": null
+    }
+  },
   "liveness-absent-over-green": {
     "supported": true,
     "achievedDepth": 6,
@@ -261,6 +345,62 @@
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
     "surfaceState": "green",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "green"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "green"
+    }
+  },
+  "liveness-red-signal-unknown-d1": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 6,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
+    "commErrorKind": null,
+    "d3": {
+      "exists": true,
+      "status": "green"
+    },
+    "d4": {
+      "exists": true,
+      "status": "green"
+    },
+    "d5": {
+      "exists": true,
+      "status": "green"
+    },
+    "d6": {
+      "exists": true,
+      "status": "green"
+    }
+  },
+  "liveness-red-signal-unknown-d2": {
+    "supported": true,
+    "achievedDepth": 0,
+    "ceilingDepth": 6,
+    "chipColor": "red",
+    "d6Effective": null,
+    "isRegression": true,
+    "isStaleCell": false,
+    "observedAtAgeMs": 60000,
+    "surfaceState": "red",
     "commErrorKind": null,
     "d3": {
       "exists": true,
@@ -535,12 +675,12 @@
     "supported": true,
     "achievedDepth": 2,
     "ceilingDepth": 6,
-    "chipColor": "gray",
+    "chipColor": "red",
     "d6Effective": null,
-    "isRegression": false,
+    "isRegression": true,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
-    "surfaceState": "gray",
+    "surfaceState": "red",
     "commErrorKind": null,
     "d3": {
       "exists": true,
@@ -787,12 +927,12 @@
     "supported": true,
     "achievedDepth": 3,
     "ceilingDepth": 6,
-    "chipColor": "gray",
+    "chipColor": "amber",
     "d6Effective": null,
     "isRegression": false,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
-    "surfaceState": "gray",
+    "surfaceState": "amber",
     "commErrorKind": null,
     "d3": {
       "exists": true,
@@ -983,12 +1123,12 @@
     "supported": true,
     "achievedDepth": 4,
     "ceilingDepth": 6,
-    "chipColor": "gray",
+    "chipColor": "red",
     "d6Effective": null,
-    "isRegression": false,
+    "isRegression": true,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
-    "surfaceState": "gray",
+    "surfaceState": "red",
     "commErrorKind": null,
     "d3": {
       "exists": true,
@@ -1180,8 +1320,8 @@
     "achievedDepth": 5,
     "ceilingDepth": 6,
     "chipColor": "amber",
-    "d6Effective": null,
-    "isRegression": false,
+    "d6Effective": "red",
+    "isRegression": true,
     "isStaleCell": false,
     "observedAtAgeMs": 60000,
     "surfaceState": "amber",
