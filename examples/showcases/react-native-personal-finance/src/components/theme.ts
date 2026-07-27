@@ -1,5 +1,5 @@
 /**
- * Shared visual tokens for the finance-tracker UI.
+ * Shared visual tokens for the Personal Finance Copilot UI.
  *
  * A tiny, dependency-free design system so every screen and card pulls from
  * one palette/scale instead of scattering hex codes and magic numbers. Matches
