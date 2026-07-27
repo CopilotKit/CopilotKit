@@ -1,0 +1,46 @@
+---
+title: "Inspector and dev console"
+icon: "lucide/PanelTop"
+description: "Control the Vue v2 Inspector and development console safely."
+---
+
+Vue v2 exposes one `CopilotKitProvider` prop for its on-screen debugging UI:
+`showDevConsole`. It controls the Inspector launcher and its error
+notifications.
+
+## Vue v2 development console behavior
+
+`showDevConsole` accepts:
+
+| Value | Behavior |
+| --- | --- |
+| `true` | Always render the Inspector, including in production. |
+| `false` | Never render it. This is the default. |
+| `"auto"` | Render only on `localhost` or `127.0.0.1`. |
+
+Use `"auto"` for a localhost-only Inspector:
+
+<VueDocExample file="inspector/auto.vue" region="localhost-inspector-provider" />
+
+`"auto"` is the safest default for most applications: developers get the
+Inspector locally while production users do not see internal events or errors.
+Use `true` only in a controlled environment.
+
+<Callout type="warn">
+Do not ship an always-on Inspector to end users. It exposes internal agent,
+message, state, context, tool, and error details.
+</Callout>
+
+## Inspector versus debug logging
+
+`showDevConsole` controls the visual Inspector. The provider's `debug` option
+configures AG-UI transport logging. The two controls are independent; use the
+[debug-mode guide](/vue/troubleshooting/debug-mode) when you need pipeline
+logs, and [Error Debugging](/vue/troubleshooting/error-debugging) for
+programmatic callbacks.
+
+## Related
+
+- [Inspector](/vue/inspector) explains each panel and the development workflow.
+- [Error Debugging](/vue/troubleshooting/error-debugging) covers visual and
+  programmatic error handling.

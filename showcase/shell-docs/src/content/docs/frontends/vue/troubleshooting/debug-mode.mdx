@@ -1,0 +1,123 @@
+---
+title: "Debug Mode"
+description: "Enable detailed logging of the AG-UI event pipeline on both the runtime and Vue client."
+icon: "lucide/Bug"
+---
+
+# Debug Mode
+
+Debug mode exposes the request and event pipeline when events are missing,
+state is not updating, or tools are not executing. Use it to see which events
+an agent emits, whether they reach the client, and where validation or
+transport fails.
+
+<Callout type="info">
+For visual error display and production callbacks, see
+[Error Debugging](/vue/troubleshooting/error-debugging). Debug mode is pipeline
+logging; `showDevConsole` is the independent visual Inspector control.
+</Callout>
+
+## Enabling debug mode
+
+### Server-side runtime
+
+Pass `debug: true` to `CopilotRuntime`:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: {
+    // your agents
+  },
+  debug: true,
+});
+```
+
+The runtime emits structured Pino logs under the `copilotkit-debug` component,
+including run lifecycle, SSE lifecycle, and summarized AG-UI events.
+
+### Client-side Vue
+
+The canonical provider configures both transport debugging and a local
+Inspector:
+
+<VueDocExample file="inspector/provider.vue" region="inspector-debug-provider" />
+
+The provider forwards `debug` to the AG-UI transport. The richest structured
+event log is produced by the runtime, so enable server-side debugging when
+tracing a complete run.
+
+The client and server toggles are independent.
+
+## Granular configuration
+
+Both sides accept the same shape:
+
+```ts
+debug: {
+  events: true,     // log events emitted or received
+  lifecycle: true,  // log request and run lifecycle
+  verbose: false,   // include full payloads instead of summaries
+}
+```
+
+| Input | `events` | `lifecycle` | `verbose` |
+| --- | --- | --- | --- |
+| `debug: true` | `true` | `true` | `false` |
+| `debug: {}` | `true` | `true` | `false` |
+| `debug: { events: false }` | `false` | `true` | `false` |
+
+Verbose mode is off by default to reduce accidental disclosure of message and
+tool payloads. Enable it explicitly only while diagnosing a controlled
+environment.
+
+To log only lifecycle activity:
+
+```ts
+debug: { events: false, lifecycle: true }
+```
+
+To log full event payloads without lifecycle entries:
+
+```ts
+debug: { events: true, lifecycle: false, verbose: true }
+```
+
+## Troubleshooting with debug mode
+
+### Events not reaching the client
+
+1. Look for runtime `Event emitted` entries.
+2. Compare the final SSE event count with the expected run.
+3. Inspect the browser Network panel and confirm the SSE stream arrives.
+
+### Tool calls not executing
+
+Look for `TOOL_CALL_START`, followed by argument and end events. Then confirm
+the same sequence reaches the browser stream and appears in the
+[Inspector](/vue/inspector).
+
+### State not updating
+
+Look for `STATE_SNAPSHOT` or `STATE_DELTA`. If the runtime logs the state event
+but the browser stream does not contain it, investigate the connection rather
+than the state binding.
+
+## What gets logged
+
+| Category | Runtime log | Meaning |
+| --- | --- | --- |
+| Lifecycle | `Agent run started` | A run began, with agent and thread identifiers. |
+| Lifecycle | `SSE stream opened` | The response stream was created. |
+| Lifecycle | `SSE stream completed` | The stream closed with an event count. |
+| Lifecycle | `SSE stream errored` | Streaming failed. |
+| Events | `Event emitted` | An AG-UI event was written to the stream. |
+
+Summary mode records identifiers and content lengths rather than full payloads.
+On the client, the AG-UI transport controls the debug output; CopilotKit passes
+through the configuration.
+
+<Callout type="warn">
+Debug mode can produce high-volume or sensitive logs, especially with
+`verbose: true`. Use it for development and incident diagnosis, not as a
+permanent production setting.
+</Callout>

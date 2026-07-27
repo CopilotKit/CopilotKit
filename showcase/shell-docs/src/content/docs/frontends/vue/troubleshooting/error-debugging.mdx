@@ -1,0 +1,69 @@
+---
+title: "Error Debugging & Observability"
+description: "Surface errors visually in development, and wire programmatic error handlers for your production observability pipeline."
+icon: "lucide/TriangleAlert"
+---
+
+# How to debug errors
+
+CopilotKit provides an on-screen development console and `onError` callbacks
+for programmatic observability. The visual console is free and requires no API
+key.
+
+## Quick setup
+
+<VueDocExample file="inspector/provider.vue" region="inspector-debug-provider" />
+
+<Callout type="warn">
+Do not force the development console on in production; it exposes internal
+error and event details. Use `"auto"` for localhost-only display.
+</Callout>
+
+## When to use development debugging
+
+- **Local development:** see failures immediately inside the application.
+- **Quick diagnosis:** inspect an error without configuring an external tracker.
+- **Testing:** verify the application's recovery and error presentation.
+
+For the complete event, message, state, context, and tool view, see the
+[Inspector](/vue/inspector).
+
+## Programmatic error handling
+
+Both `CopilotKitProvider` and `CopilotChat` accept `onError`. The provider
+handler sees application-wide errors. A chat handler is filtered to that
+chat's resolved agent and fires in addition to the provider handler.
+
+<VueDocExample file="inspector/error-handling.vue" region="provider-chat-error-handling" />
+
+Forward the event's `code`, `error`, and safe operational context to your
+production telemetry system. Do not include credentials or sensitive request
+properties.
+
+### Error codes
+
+| Code | Description |
+| --- | --- |
+| `runtime_info_fetch_failed` | The runtime's `/info` endpoint could not be reached. |
+| `agent_connect_failed` | Agent connection or thread setup failed. |
+| `agent_run_failed` | The agent run request failed. |
+| `agent_run_failed_event` | The agent's run-failed subscriber fired. |
+| `agent_run_error_event` | The agent emitted a `RUN_ERROR` event. |
+| `tool_argument_parse_failed` | Tool arguments were not valid JSON. |
+| `tool_handler_failed` | A frontend tool handler threw. |
+
+## Troubleshooting
+
+### Development console not showing
+
+- Confirm `showDevConsole` is `true` or `"auto"` on localhost.
+- Check the browser console for an earlier JavaScript error.
+- Confirm application CSS is not covering the inspector launcher or banner.
+
+### Production error pipeline checklist
+
+- The provider-level callback forwards errors to your telemetry system.
+- `showDevConsole` is `false` or localhost-gated in production.
+- Error agent IDs match runtime registrations.
+- Critical codes such as `agent_run_failed` and `tool_handler_failed` alert an
+  operator instead of only being logged.

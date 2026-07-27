@@ -1,0 +1,125 @@
+---
+title: Common Copilot Issues
+description: Network errors, endpoint not found, tunnel timeouts, and other common issues when wiring up CopilotKit with the Built-in Agent.
+icon: "lucide/LifeBuoy"
+---
+
+This page covers the most common problems when wiring a Vue application to a
+Built-in Agent and the checks that usually isolate them.
+
+<Callout type="info">
+Have an issue not listed here? Open a ticket on [GitHub](https://github.com/CopilotKit/CopilotKit/issues)
+or ask in [Discord](https://discord.com/invite/6dffbvGU3D).
+</Callout>
+
+## Network errors / API not found
+
+Start with the connection configured on `CopilotKitProvider`:
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+The URL must point to the CopilotKit Runtime, include the leading slash for a
+same-origin path, and include the full origin when the runtime is a separate
+process. If you use Copilot Cloud, configure its public key instead of also
+setting `runtimeUrl`.
+
+<Accordions>
+<Accordion title="Check localhost and 127.0.0.1">
+Local DNS and hosts-file configuration can make one loopback name work while
+the other fails. If `http://localhost:4000/api/copilotkit` is unreachable, try
+the same URL with `127.0.0.1`.
+</Accordion>
+
+<Accordion title="Verify the backend and CORS">
+Confirm the runtime is listening on the expected port, is reachable from the
+browser, and permits the Vue development server's origin. The
+[quickstart](/vue) shows the complete two-process Vite and runtime setup.
+</Accordion>
+
+<Accordion title="Probe discovery directly">
+The runtime advertises agents from its `/info` route:
+
+```bash
+curl http://localhost:4000/api/copilotkit/info
+```
+
+If this request fails, fix the runtime URL, server process, proxy, firewall, or
+CORS configuration before debugging the chat component.
+</Accordion>
+</Accordions>
+
+## "Remote Endpoint not found" error
+
+This error means the runtime could not reach the remote agent service's
+`/info` endpoint. Confirm that the agent SDK is mounted at the URL configured
+on the runtime, then test that URL directly:
+
+```bash
+curl -v -d '{}' http://localhost:8000/copilotkit/info
+```
+
+A healthy endpoint returns `200 OK` with an `agents` array. A different status
+or response belongs to the remote agent service; inspect that process's logs
+and mounting path.
+
+## Tunnel creation hangs
+
+A tunnel that spins indefinitely is often being blocked by a router, firewall,
+or ISP. Test DNS and HTTPS reachability:
+
+```bash
+ping tunnels.devcopilotkit.com
+curl -I https://tunnels.devcopilotkit.com
+telnet tunnels.devcopilotkit.com 443
+```
+
+If these fail, try another network and review router security rules before
+changing application code.
+
+## The Built-in Agent responds with an empty message
+
+Common causes are:
+
+- The runtime does not support the selected model string. Verify it against
+  [Model Selection](/vue/model-selection).
+- The Built-in Agent has no useful prompt or user instruction.
+- A frontend tool handler throws and the turn produces no useful result. See
+  [Error Debugging](/vue/troubleshooting/error-debugging) and look for
+  `tool_handler_failed`.
+
+## Tools I registered don't show up
+
+- Open the [Inspector](/vue/inspector) and inspect **Frontend Tools**. If the
+  tool is absent, confirm the component that registers it is mounted.
+- If the tool is registered but never selected, make its description state
+  clearly when the agent should call it.
+- Use the API that matches the journey:
+  [frontend tools](/vue/frontend-tools), display components, or
+  [human-in-the-loop interactions](/vue/generative-ui/your-components/interactive).
+
+## Connect route returns 404 on a fresh thread
+
+### The agent ID is not registered
+
+The runtime returns `404` when the ID in `/agent/:agentId/connect` does not
+match an agent. Prebuilt chat components use `"default"` unless you pass
+`agentId`, so register that key or configure the intended ID consistently:
+
+```ts
+new CopilotRuntime({ agents: { default: myAgent } });
+```
+
+Confirm it appears in `GET {runtimeUrl}/info`. See
+[Runtime HTTP endpoints](/vue/backend/runtime-endpoints) and the
+[error reference](/vue/troubleshooting/error-reference#agent-route-returned-404).
+
+### `connect()` runs before the first `run()`
+
+The frontend can mint a thread ID and reconnect before the first run emits any
+events. A persistence layer that only learns about threads during `run()` may
+therefore reject the initial connection.
+
+The built-in [Agent Runner](/vue/backend/agent-runner) handles this lifecycle.
+A custom runner must treat an unknown, not-yet-run thread as empty instead of
+failing. The [AWS AgentCore deployment guide](/vue/deploy/agentcore) explains
+the replay pattern used by that integration.

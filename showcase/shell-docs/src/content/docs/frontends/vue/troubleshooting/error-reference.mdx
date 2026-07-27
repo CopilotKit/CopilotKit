@@ -1,0 +1,102 @@
+---
+title: "Error message reference"
+icon: "lucide/CircleAlert"
+description: "Find the cause and fix for common CopilotKit console, network, and error UI messages."
+---
+
+Search this page for a distinctive phrase from a console message, HTTP
+response, or error UI. For programmatic `onError` codes such as
+`runtime_info_fetch_failed`, see
+[Error Debugging](/vue/troubleshooting/error-debugging).
+
+## Missing runtime configuration
+
+```txt
+Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
+```
+
+**Where:** `CopilotKitProvider`. In production, missing configuration throws;
+in development it warns so local-agent and test setups can still run.
+
+**Cause:** the provider has neither a runtime or Copilot Cloud connection nor a
+registered local agent.
+
+**Fix:** give the provider one verified connection. A runtime-backed app uses:
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+For a client-managed agent, use the dedicated provider surface:
+
+<VueDocExample file="backend/self-managed.vue" region="self-managed-agent-provider" />
+
+See [Self-managed agents](/vue/backend/self-managed-agents) for precedence,
+security, and licensing details.
+
+## Agent discovery failed
+
+```txt
+CopilotKitAgentDiscoveryError
+```
+
+The accompanying message names a requested agent that was absent, lists the
+available agents, or says that no agents are registered.
+
+**Cause:** `agentId` does not match `/info` discovery, the runtime registration
+is missing, or discovery returned no agents. Chat components use `"default"`
+when no explicit ID is configured.
+
+**Fix:**
+
+- Register the ID the client requests, or register `default`.
+- Compare the ID with the available-agent list in the message.
+- Probe `GET {runtimeUrl}/info`; a failed discovery request cascades into this
+  error. See [Runtime HTTP endpoints](/vue/backend/runtime-endpoints).
+
+This is a banner error in the development console rather than a dismissible
+toast.
+
+## Agent route returned 404
+
+```txt
+Agent not found
+Agent '<id>' does not exist
+```
+
+The runtime returns this JSON from `/agent/:agentId/run`, `/connect`, or
+`/stop/:threadId` when the requested agent is not registered:
+
+```json
+{ "error": "Agent not found", "message": "Agent 'my-agent' does not exist" }
+```
+
+Register the agent under that key. If `/connect` fails before the first
+message, also follow the
+[fresh-thread connection check](/vue/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread).
+
+## Agent run failed
+
+```txt
+Failed to run agent
+```
+
+This is a `500` response from a run or connect route. Its `message` carries the
+underlying error. Inspect the runtime logs for a missing server-side model key,
+unsupported model name, provider failure, or exception in the agent.
+
+## Capability discovery failed
+
+```txt
+Failed to fetch capabilities for agent "<name>"
+```
+
+The runtime was unreachable or the named agent's capability discovery failed.
+Verify `runtimeUrl`, start the server, and confirm that `/info` returns the
+agent. The [network checklist](/vue/troubleshooting/common-issues#network-errors--api-not-found)
+covers the transport checks.
+
+## Related
+
+- [Error Debugging](/vue/troubleshooting/error-debugging) for `onError` codes.
+- [Common Issues](/vue/troubleshooting/common-issues) for network and tunnel
+  problems.
+- [Runtime HTTP endpoints](/vue/backend/runtime-endpoints) for direct probes.
