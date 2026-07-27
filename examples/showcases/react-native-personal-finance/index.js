@@ -23,6 +23,11 @@ import { AppRegistry, LogBox } from "react-native";
 // also cleaner without it. Real errors still log to the Metro console.
 LogBox.ignoreAllLogs();
 
+// Secure crypto.getRandomValues, backed by the platform RNG. Imported before
+// CopilotKit's crypto polyfill so that polyfill sees a real implementation and
+// skips its non-secure Math.random fallback (session/uuid ids must be
+// cryptographically sound). Ships a native module, autolinked on iOS + Android.
+import "react-native-get-random-values";
 import "@copilotkit/react-native/polyfills/crypto";
 import "@copilotkit/react-native/polyfills/streams";
 import "@copilotkit/react-native/polyfills/encoding";
