@@ -63,8 +63,18 @@ const AutoResizingTextarea = forwardRef<
     useEffect(() => {
       const textarea = internalTextareaRef.current;
       if (textarea) {
+        // Save cursor position before height reset — Chrome reflows on `height = "auto"`
+        // which resets selectionStart/End to the end of the text (issue #6167).
+        const { selectionStart, selectionEnd, selectionDirection } = textarea;
         textarea.style.height = "auto";
         textarea.style.height = `${Math.min(textarea.scrollHeight, maxHeight)}px`;
+        if (document.activeElement === textarea) {
+          textarea.setSelectionRange(
+            selectionStart,
+            selectionEnd,
+            selectionDirection as "forward" | "backward" | "none",
+          );
+        }
       }
     }, [value, maxHeight]);
 
