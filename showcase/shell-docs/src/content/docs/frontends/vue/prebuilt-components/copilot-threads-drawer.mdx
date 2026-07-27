@@ -24,21 +24,23 @@ That shared configuration is the connection between the two surfaces. Selecting 
 
 The drawer works with no props. Current optional controls include:
 
-| Prop | Purpose |
+| Prop or slot | Purpose |
 | --- | --- |
 | `agentId` | Choose the agent whose threads are listed; otherwise inherit the shared chat configuration. |
 | `label` | Set the accessible name for the drawer and list. |
 | `recentLabel` | Change the heading above recent conversations. |
 | `onThreadSelect` | Take over selection instead of shared configuration. |
 | `onNewThread` | Take over new-conversation behavior. |
-| `renderRow` | Supply custom row content while retaining drawer behavior. |
+| `#row="{ thread }"` | Render custom content for every thread row. Defining the slot replaces the built-in content for all rows; there is no per-row fallback. |
 | `limit` | Enable paginated loading at the requested page size. |
 
 Callbacks are escape hatches. Omit them when the standard shared-configuration behavior is correct.
 
 ## Customization
 
-The underlying drawer uses self-contained styles that inherit the application theme. Customize it through its supported projected slots, row renderer, CSS parts, and `--cpk-drawer-*` variables. Keep archive and delete semantics visible when replacing row content, and add confirmations in your own flow when required by your product.
+The underlying drawer uses self-contained styles that inherit the application theme. Default-slot children can target its supported web-component slots, while the scoped `#row` slot is Vue's per-thread projection API. Once `#row` is defined, Vue projects custom content for every thread and the element does not fall back to its built-in row content for selected rows. Recreate any required row controls in the slot.
+
+Use the drawer's supported CSS parts and `--cpk-drawer-*` variables for structural and token-level styling.
 
 For broader chat customization, see [Slots](/vue/custom-look-and-feel/slots). For complete list ownership, see [Headless Threads](/vue/headless-threads).
 
