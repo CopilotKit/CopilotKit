@@ -79,6 +79,11 @@ await thread.post(
 | `Input` | A text input. `onSubmit`, `placeholder`, `multiline`. |
 | `Image`, `Divider`, `Table`, `Chart`, `Markdown` | Display blocks. |
 
+Want to post a component from your own app, a styled dashboard card or a shadcn
+tile, that is not in this vocabulary? Pass it to `thread.post` and it renders to
+an image. See [Posting JSX as images](/channels/posting-jsx-as-images) and
+[Charts](/channels/charts).
+
 ## Callbacks
 
 `onClick`, `onSelect`, `onSubmit`, and `onReaction` all hand your function an
