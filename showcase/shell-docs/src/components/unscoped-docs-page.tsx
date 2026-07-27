@@ -21,8 +21,9 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
-import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
+import { buildRootSurfaceNav } from "@/lib/docs-render";
+import { getDocsFolder, ROOT_FRAMEWORK } from "@/lib/registry";
+import { resolveRootSurfaceContent } from "@/lib/root-surface-content";
 
 export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   // The legacy `/integrations/<framework>/<slug>` URL scheme is dead.
@@ -36,35 +37,15 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   const docsFolder = getDocsFolder(ROOT_FRAMEWORK);
   const navTree = buildRootSurfaceNav(docsFolder);
 
-  // BIA-authored page for this slug → render it BIA-scoped at the root
-  // URL: BIA snippet resolution, root-relative hrefs.
-  const overridePath = `integrations/${docsFolder}/${slugPath}`;
-  if (getDocsMode(ROOT_FRAMEWORK) === "authored" && loadDoc(overridePath)) {
-    return (
-      <DocsPageView
-        slugPath={slugPath}
-        contentSlugPath={overridePath}
-        slugHrefPrefix=""
-        frameworkOverride={ROOT_FRAMEWORK}
-        navTree={navTree}
-      />
-    );
-  }
+  const content = resolveRootSurfaceContent(slugPath);
+  if (!content) notFound();
 
-  const doc = loadDoc(slugPath);
-  if (!doc) notFound();
-
-  // Agnostic page. Feature pages (those declaring a snippet cell) used to
-  // bounce every visitor to `/built-in-agent/<slug>` via a client-side
-  // redirect and hide the body in the meantime. Render them in place
-  // instead, resolved against the default framework — the same content
-  // the bounce produced, minus the redirect. Pages without a cell render
-  // framework-agnostic. Both keep the unified root-surface sidebar.
   return (
     <DocsPageView
       slugPath={slugPath}
+      contentSlugPath={content.contentSlugPath}
       slugHrefPrefix=""
-      frameworkOverride={doc.fm.defaultCell ? ROOT_FRAMEWORK : undefined}
+      frameworkOverride={content.frameworkOverride}
       navTree={navTree}
     />
   );
