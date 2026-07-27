@@ -235,8 +235,38 @@ jobs:
           # reference. The actual verify probe is driven by per-service
           # drivers in verify-deploy.ts (showcase/scripts/verify-deploy.ts),
           # NOT by this field — it is informational only at this layer.
+          #
+          # timeout: the per-slot `timeout-minutes` budget. It is a BACKSTOP
+          # against a hung build, not a schedule — GitHub kills the job when
+          # it is exceeded and reports the kill as conclusion `cancelled`
+          # (Depot surfaces it as "Step canceled by GitHub"), which is a
+          # cancelled slot that pushed no image.
+          #
+          # The `context: "."` shell slots build the whole monorepo root and
+          # are the HEAVIEST builds in the fleet, yet they used to carry the
+          # SMALLEST budgets (10 min, vs 15 for each small per-integration
+          # build) — inverted, with no headroom for a cold Depot cache. When
+          # three full-fleet rebuilds ran concurrently on 2026-07-25 (~84
+          # simultaneous amd64 Depot builds), the shell builds were making
+          # real but slow progress — repeated docker.io base-image pull
+          # stalls, and the final `generate-registry` layer alone took 54s —
+          # and were still 2 steps from done when the 10-minute budget killed
+          # them. Measured evidence, same slots:
+          #   warm/uncontended ......... 2–5 min
+          #   contended, killed at ..... 10 min (runs 30162773601, 30162770765)
+          #   showcase-pocketbase ...... 8.8 min of a 10 min budget (near-miss)
+          # So the four shell slots get 20, showcase-aimock (killed at its 5
+          # min budget) gets 12, and showcase-pocketbase gets 15. `webhooks`
+          # stays at 5: it is `skip_build`, and measured at 0.6 min.
+          #
+          # NOTE this is mitigation, not the root fix. The root cause is
+          # Depot builder contention from concurrent full-fleet rebuilds; the
+          # durable fix is to not run three of them at once (this workflow
+          # deliberately has NO concurrency group — see the header — so a
+          # non-cancelling `concurrency` queue would be the lever, at the
+          # cost of serializing main builds). Left as a follow-up.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -257,12 +287,12 @@ jobs:
             {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","railway_id":"6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","railway_id":"f4f8371a-bc46-45b2-b6d4-9c9af608bdbf","timeout":15,"build_args":"","dockerfile":"","health_path":"/api/health"},
-            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":20,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":20,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"},
             {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","railway_id":"3a14bfed-0537-4d71-897b-7c593dca161d","timeout":20,"build_args":"","dockerfile":"showcase/harness/Dockerfile","health_path":"/health"},
-            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
-            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":10,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":12,"build_args":"","dockerfile":"showcase/aimock/Dockerfile","health_path":"/health"},
+            {"dispatch_name":"showcase-pocketbase","filter_key":"pocketbase","context":"showcase/pocketbase","image":"showcase-pocketbase","railway_id":"ba11e854-d695-4738-9a45-2b0776788824","timeout":15,"build_args":"","dockerfile":"showcase/pocketbase/Dockerfile","health_path":"/api/health"},
             {"dispatch_name":"webhooks","filter_key":"webhooks","context":".","image":"showcase-eval-webhook","railway_id":"ba6acc13-7585-41fe-a5ee-585b34a58fcd","timeout":5,"build_args":"","dockerfile":"","health_path":"/health","skip_build":true}
           ]'
 
@@ -556,17 +586,35 @@ jobs:
           SERVICE: ${{ matrix.service.dispatch_name }}
           BUILD_STATUS: ${{ job.status }}
         run: |
-          # job.status is one of: success, failure, cancelled. Normalize
-          # cancelled→skipped to match the BuildOutcome contract in
+          # job.status is one of: success, failure, cancelled — mapped
+          # 1:1 onto the BuildOutcome contract in
           # showcase/scripts/lib/build-outputs.ts. We deliberately do NOT
           # write to $GITHUB_OUTPUT — matrix-slot outputs are not
           # aggregable across slots in GitHub Actions, so we publish the
           # per-slot result as an artifact instead. The downstream
           # aggregator job downloads every `build-result-*` artifact.
+          #
+          # `cancelled` used to be laundered into `skipped` here. That one
+          # line is what made a partially-cancelled fleet build silent:
+          # this slot's result is the ONLY place the cancellation is
+          # recorded, because GitHub's own status functions cannot see it
+          # downstream. Proven on run 30166429073 (a purpose-built probe:
+          # matrix leg killed by `timeout-minutes` → job.status=cancelled,
+          # rollup `needs.*.result`=cancelled, yet BOTH `if: cancelled()`
+          # and `if: failure()` evaluated FALSE in dependent jobs). With
+          # `cancelled` collapsed to `skipped` it was indistinguishable
+          # from a slot that legitimately never built, so nothing could
+          # alert and nothing could red the run. Keep it distinct.
+          #
+          # The `*)` catch-all stays as a defensive fallback in case
+          # GitHub ever introduces a fourth job.status value; `skipped` is
+          # the conservative choice because it is excluded from both the
+          # redeploy success-set and the cancelled-slot alert.
           case "$BUILD_STATUS" in
-            success) STATUS=success ;;
-            failure) STATUS=failure ;;
-            *)       STATUS=skipped ;;
+            success)   STATUS=success ;;
+            failure)   STATUS=failure ;;
+            cancelled) STATUS=cancelled ;;
+            *)         STATUS=skipped ;;
           esac
           mkdir -p "$RUNNER_TEMP/build-result"
           printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
@@ -808,6 +856,14 @@ jobs:
     outputs:
       results: ${{ steps.collect.outputs.results }}
       any_success: ${{ steps.collect.outputs.any_success }}
+      # `any_cancelled` / `cancelled_services` are the ONLY downstream
+      # signal that one or more build slots were cancelled (in practice:
+      # killed by `timeout-minutes`). They are derived from the per-slot
+      # artifacts, NOT from GitHub's status functions, because those
+      # cannot see a leg-level cancellation — see the comment on the
+      # `notify-cancelled-builds` job below for the measured proof.
+      any_cancelled: ${{ steps.collect.outputs.any_cancelled }}
+      cancelled_services: ${{ steps.collect.outputs.cancelled_services }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -846,8 +902,9 @@ jobs:
           # The aggregator script (showcase/scripts/aggregate-build-results.ts)
           # reads them, merges via the shared helper (mergeBuildResultFiles),
           # writes $OUTPUT_DIR/results.json, and appends `results` +
-          # `any_success` to $GITHUB_OUTPUT. The contract (service +
-          # status enum) is enforced in one place (build-outputs.ts).
+          # `any_success` + `any_cancelled` + `cancelled_services` to
+          # $GITHUB_OUTPUT. The contract (service + status enum) is
+          # enforced in one place (build-outputs.ts).
           npx tsx showcase/scripts/aggregate-build-results.ts
 
       - name: Upload aggregated build-results artifact
@@ -1229,6 +1286,94 @@ jobs:
           payload: |
             { "text": ${{ toJSON(format(':x: *Showcase: all builds failed*{4}staging unchanged (no redeploy){4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
+  notify-cancelled-builds:
+    name: Notify cancelled/timed-out build slots
+    needs: [detect-changes, build, aggregate-build-results]
+    # ── Why this job exists ───────────────────────────────────────────────
+    #
+    # A PARTIALLY-CANCELLED fleet build used to be indistinguishable from a
+    # clean one, in BOTH directions: no alert, and no post-deploy verify.
+    # Observed on build run 30162773601 (merge of #6160): 5 of 28 slots were
+    # killed by `timeout-minutes`, 23 built and were redeployed to staging,
+    # `redeploy-staging` SUCCEEDED and uploaded `redeploy-summary` — and
+    # then:
+    #   - `notify` was SKIPPED, so no Slack alert fired, and
+    #   - the run rolled up to conclusion `cancelled`, which failed
+    #     showcase_deploy.yml's `conclusion == 'success'` gate, so the
+    #     staging redeploy was never verified.
+    # A real, partial, unverified staging deploy looked exactly like a
+    # silent success.
+    #
+    # The reason no existing guard caught it is that GitHub's status
+    # functions are blind to a leg-level cancellation. Measured on purpose-
+    # built probe run 30166429073 (matrix leg killed by `timeout-minutes`,
+    # sibling leg green):
+    #   job.status of the killed leg .... cancelled
+    #   needs.<matrix>.result (rollup) .. cancelled
+    #   `if: cancelled()` ............... SKIPPED  (i.e. evaluated FALSE)
+    #   `if: failure()` ................. SKIPPED  (i.e. evaluated FALSE)
+    #   pre-fix `notify` condition ...... SKIPPED  ← the bug
+    #   post-fix `notify` condition ..... RAN      ← the fix
+    #   workflow run conclusion ......... cancelled
+    # This matches the docs: `cancelled()` "returns true if the workflow was
+    # canceled" (workflow-scoped, not job-scoped), and `failure()` "returns
+    # true if any ancestor job fails" — a CANCELLED ancestor did not FAIL.
+    # So `failure() || cancelled()` would NOT have fixed this; the signal
+    # has to come from the per-slot build results.
+    #
+    # This job does the two things a cancelled slot must do:
+    #   1. RED THE RUN (step 1 exits 1) so the conclusion becomes `failure`
+    #      instead of `cancelled`. That is honest — a slot killed by its
+    #      timeout budget is a failure, not a cancellation — and it makes
+    #      the incomplete build visible on the commit status. It does NOT
+    #      block verification: showcase_deploy.yml no longer requires
+    #      `conclusion == 'success'` (it self-gates on the presence of the
+    #      redeploy-summary artifact instead), so the subset that really
+    #      shipped still gets probed.
+    #   2. ALERT, naming the affected services so the run can be re-run
+    #      with "Re-run failed jobs" without re-reading 28 job logs.
+    #
+    # `!cancelled()` is retained as the intentional-vs-flake discriminator:
+    # a human cancelling the whole RUN makes `cancelled()` TRUE and keeps
+    # this silent, while a leg-level timeout leaves it FALSE (proven above)
+    # so the alert still fires. Belt and braces: on a run-level cancel
+    # `aggregate-build-results` is itself skipped by its own `!cancelled()`
+    # guard, so `any_cancelled` would be '' rather than 'true' anyway.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-changes.outputs.has_changes == 'true'
+          && needs.aggregate-build-results.outputs.any_cancelled == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Mark workflow red (build incomplete)
+        env:
+          CANCELLED_SERVICES: ${{ needs.aggregate-build-results.outputs.cancelled_services }}
+        run: |
+          echo "::error::Build INCOMPLETE — these slots were cancelled (typically killed by timeout-minutes) and pushed NO image: ${CANCELLED_SERVICES}"
+          echo "Those services were correctly excluded from the staging redeploy (matrix ∩ build-success), so staging still serves their previous :latest."
+          echo "Re-run the failed jobs on this run to finish the fleet."
+          exit 1
+      - name: Slack #oss-alerts
+        # `always()` so the alert still goes out after step 1 deliberately
+        # exits non-zero to red the run.
+        if: always() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({5}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
+          payload: |
+            { "text": ${{ toJSON(format(':warning: *Showcase build INCOMPLETE — slots cancelled*{5}Cancelled (no image pushed): `{4}`{5}Staging keeps the previous :latest for those services.{5}Commit: `{0}` by {1}{5}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, needs.aggregate-build-results.outputs.cancelled_services, fromJSON('"\n"'))) }} }
+
   notify:
     name: Notify on failure
     # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
@@ -1275,10 +1420,25 @@ jobs:
         redeploy-staging,
         redeploy-staging-starters,
       ]
+    #
+    # The third clause, `any_cancelled == 'true'`, closes the partial-cancel
+    # hole: with SOME slots green, `failure()` is false (a cancelled ancestor
+    # did not fail) and `any_success` is 'true', so the first two clauses both
+    # go false and this job was SKIPPED on a genuinely incomplete build — see
+    # `notify-cancelled-builds` above for the measured proof (probe run
+    # 30166429073) and the production incident (run 30162773601). This clause
+    # also restores the PR comment on that path, which is the only place the
+    # merge author gets told. It cannot add noise to a clean run: a build with
+    # no cancelled slot emits `any_cancelled=false`, and a build with no
+    # changes skips the aggregator entirely so the output is '' — neither
+    # equals 'true'. `notify-cancelled-builds` fires alongside this job on
+    # that path; two alerts for one event is the same convention already used
+    # by `notify-all-builds-failed` + this job, and matches the alert SOP.
     if: >-
       ${{ !cancelled()
           && (failure()
-              || needs.aggregate-build-results.outputs.any_success == 'false') }}
+              || needs.aggregate-build-results.outputs.any_success == 'false'
+              || needs.aggregate-build-results.outputs.any_cancelled == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -1302,6 +1462,11 @@ jobs:
             { "text": ${{ toJSON(format(':x: *Showcase Build Failed*{4}Commit: `{0}` by {1}{4}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, fromJSON('"\n"'))) }} }
 
       - name: Comment on PR
+        env:
+          # Non-empty only on the partial-cancel path, where the generic
+          # "the build failed" wording would be wrong (most slots built and
+          # were redeployed; a subset was killed mid-build).
+          CANCELLED_SERVICES: ${{ needs.aggregate-build-results.outputs.cancelled_services }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -1315,12 +1480,27 @@ jobs:
               console.log('No merged PR found for this commit — skipping comment');
               return;
             }
+            const cancelled = (process.env.CANCELLED_SERVICES || '')
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
             const marker = '<!-- showcase-build-failure -->';
             const body = [
               marker,
-              `### :x: Showcase Build Failed`,
+              cancelled.length > 0
+                ? `### :warning: Showcase Build Incomplete`
+                : `### :x: Showcase Build Failed`,
               ``,
-              `The Docker build triggered by this PR's merge failed.`,
+              cancelled.length > 0
+                ? [
+                    `The Docker build triggered by this PR's merge did not finish for every service.`,
+                    `These slots were cancelled (typically killed by \`timeout-minutes\`) and pushed **no** image, so staging still serves their previous \`:latest\`:`,
+                    ``,
+                    cancelled.map(s => `- \`${s}\``).join('\n'),
+                    ``,
+                    `Everything else built and was redeployed. Use **Re-run failed jobs** on the run to finish the fleet.`,
+                  ].join('\n')
+                : `The Docker build triggered by this PR's merge failed.`,
               ``,
               `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
               `**Commit:** \`${context.sha.slice(0, 8)}\``,
