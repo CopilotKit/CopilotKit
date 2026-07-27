@@ -2,21 +2,30 @@
 <script setup lang="ts">
 import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
 
-const { hasInterrupt, interrupt, result, resolve } = useInterrupt<
-  { action: string },
-  { label: string }
->({
-  handler: ({ event }) => ({
-    label: `Approve ${event.value.action}?`,
-  }),
+const { slotProps } = useInterrupt({
+  agentId: "default",
+  renderInChat: false,
 });
 </script>
 
 <template>
-  <CopilotChat />
-  <div v-if="hasInterrupt && interrupt" role="alert">
-    <p>{{ result?.label ?? `Approve ${interrupt.value.action}?` }}</p>
-    <button type="button" @click="resolve({ approved: true })">Approve</button>
-  </div>
+  <CopilotChat agent-id="default" />
+  <section v-if="slotProps?.interrupt" role="alert">
+    <p>
+      {{ slotProps.interrupt.message ?? slotProps.interrupt.reason }}
+    </p>
+    <p v-if="slotProps.interrupts.length > 1">
+      {{ slotProps.interrupts.length }} decisions require a response.
+    </p>
+    <button
+      type="button"
+      @click="slotProps.resolve({ approved: true }, slotProps.interrupt.id)"
+    >
+      Approve
+    </button>
+    <button type="button" @click="slotProps.cancel(slotProps.interrupt.id)">
+      Cancel
+    </button>
+  </section>
 </template>
 <!-- @endregion[interrupt-handling] -->

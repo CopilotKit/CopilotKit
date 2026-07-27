@@ -1,25 +1,34 @@
 <!-- @region[interactive-generative-ui] -->
 <script setup lang="ts">
-import { ref } from "vue";
-import { z } from "zod";
-import { useFrontendTool } from "@copilotkit/vue/v2";
+import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
 
-const theme = ref<"light" | "dark">("light");
-
-useFrontendTool({
-  name: "setTheme",
-  description: "Change the dashboard color theme",
-  parameters: z.object({
-    theme: z.enum(["light", "dark"]),
-  }),
-  handler: async ({ theme: nextTheme }) => {
-    theme.value = nextTheme;
-    return `Theme changed to ${nextTheme}`;
-  },
+const { slotProps } = useInterrupt({
+  agentId: "default",
+  renderInChat: true,
 });
 </script>
 
 <template>
-  <section :data-theme="theme">Current theme: {{ theme }}</section>
+  <CopilotChat agent-id="default">
+    <template #interrupt>
+      <section v-if="slotProps?.interrupt">
+        <p>
+          {{ slotProps.interrupt.message ?? slotProps.interrupt.reason }}
+        </p>
+        <p v-if="slotProps.interrupts.length > 1">
+          {{ slotProps.interrupts.length }} decisions require a response.
+        </p>
+        <button
+          type="button"
+          @click="slotProps.resolve({ approved: true }, slotProps.interrupt.id)"
+        >
+          Approve
+        </button>
+        <button type="button" @click="slotProps.cancel(slotProps.interrupt.id)">
+          Cancel
+        </button>
+      </section>
+    </template>
+  </CopilotChat>
 </template>
 <!-- @endregion[interactive-generative-ui] -->

@@ -2,6 +2,7 @@
 <script setup lang="ts">
 import {
   CopilotChat,
+  CopilotChatConfigurationProvider,
   CopilotKitProvider,
   CopilotThreadsDrawer,
 } from "@copilotkit/vue/v2";
@@ -9,10 +10,12 @@ import {
 
 <template>
   <CopilotKitProvider runtime-url="/api/copilotkit">
-    <div class="chat-with-threads">
-      <CopilotThreadsDrawer agent-id="default" />
-      <CopilotChat agent-id="default" />
-    </div>
+    <CopilotChatConfigurationProvider agent-id="default">
+      <div class="chat-with-threads">
+        <CopilotThreadsDrawer />
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 </template>
 <!-- @endregion[threads-drawer] -->

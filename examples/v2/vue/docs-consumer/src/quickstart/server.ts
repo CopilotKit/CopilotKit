@@ -21,5 +21,11 @@ const handler = createCopilotNodeHandler(
   }),
 );
 
-createServer(handler).listen(4000);
+const port = 4000;
+
+createServer(handler).listen(port, () => {
+  console.log(
+    `CopilotKit runtime listening at http://localhost:${port}/api/copilotkit`,
+  );
+});
 // @endregion[runtime-server]

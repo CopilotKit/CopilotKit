@@ -4,7 +4,7 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
+  <CopilotKitProvider runtime-url="http://localhost:4000/api/copilotkit">
     <CopilotChat agent-id="default" />
   </CopilotKitProvider>
 </template>
