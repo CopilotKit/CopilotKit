@@ -29,6 +29,12 @@ export const SEEDED_USER_IDS: readonly string[] = Object.values(
   MEMBER_IDENTITY,
 ).map((m) => m.userId);
 
+/** The default/fallback identity used when no member is mapped and no role is
+ *  set (roleSlug with no role). A lot of demo memory lands here (e.g. facts
+ *  taught before a member is actively selected), and a full reset intentionally
+ *  does NOT clear it, so the inspector must include it to "show everything". */
+export const DEMO_DEFAULT_USER_ID = "northwind-demo-user";
+
 export type IdentityInput = { memberId?: string; role?: string };
 
 function roleSlug(role?: string): string {

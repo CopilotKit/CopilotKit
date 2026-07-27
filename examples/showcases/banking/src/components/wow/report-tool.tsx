@@ -30,18 +30,46 @@ export function ReportCopilotTools() {
       title: z
         .string()
         .describe('A concise report title, e.g. "Q2 Spend Report".'),
+      // The report card renders KPI tiles, three charts and an over-limit list,
+      // all computed from the live ledger. Narrative is the caption on that, not
+      // the report — so these are capped hard. Long prose here produced a wall
+      // of text with the graphics buried underneath.
       summary: z
         .string()
         .describe(
-          "2-4 sentence executive summary of the findings, grounded in the real data.",
+          "ONE short sentence — the single takeaway. The card already shows the " +
+            "figures, charts and over-limit charges, so do NOT restate numbers, " +
+            "list the pending charges, or write a paragraph.",
         ),
       highlights: z
         .array(z.string())
+        .max(3)
         .describe(
-          "3-6 short bullet highlights: key figures, risks, and recommendations.",
+          "At most 3 notes, each under 12 words, covering only what the charts " +
+            "do NOT already show (e.g. a recommendation or a risk). Omit " +
+            "anything that just repeats a figure on the card.",
+        ),
+      additions: z
+        .array(
+          z.object({
+            team: z
+              .string()
+              .describe(
+                "The team/policy this spend belongs to (e.g. Marketing, Engineering, Executive) so it lands in the right chart segment.",
+              ),
+            amount: z.number().describe("The spend amount in USD (positive)."),
+            label: z
+              .string()
+              .optional()
+              .describe("Short source label, e.g. the vendor or line item."),
+          }),
+        )
+        .optional()
+        .describe(
+          "Spend pulled from an ATTACHED document (e.g. an uploaded invoice) to merge INTO the report's Spend Breakdown + Income vs Expenses charts, on top of the live ledger. Provide one entry per line item or per team. Omit when no document contributes spend.",
         ),
     }),
-    handler: async ({ title, summary, highlights }) => {
+    handler: async ({ title, summary, highlights, additions }) => {
       const res = await fetch("/api/v1/reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,6 +77,7 @@ export function ReportCopilotTools() {
           title,
           summary,
           highlights,
+          additions,
           createdBy: `Copilot, for ${currentUser.name}`,
         }),
       });
