@@ -9,7 +9,6 @@
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import type { ChannelNode } from "@copilotkit/channels";
 import { StackedBar, Meter } from "@copilotkit/channels/charts";
 import { FETCH_TIMEOUT_MS, sampleTag } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
@@ -127,7 +126,7 @@ function pctColor(pct: number): string {
 }
 
 /** One team row: name + "pct% · done/total" over a progress meter. */
-function teamRow(t: TeamProgress): ChannelNode {
+function teamRow(t: TeamProgress) {
   return (
     <div key={t.name} className="flex flex-col gap-1.5 w-full">
       <div className="flex flex-row justify-between w-full">
@@ -139,7 +138,7 @@ function teamRow(t: TeamProgress): ChannelNode {
   );
 }
 
-export function StandupCard(s: Standup): ChannelNode {
+export function StandupCard(s: Standup) {
   const teams = s.teams.slice(0, 8);
   return (
     <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg font-brand">

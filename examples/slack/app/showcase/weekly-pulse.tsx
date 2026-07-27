@@ -8,7 +8,6 @@
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import type { ChannelNode } from "@copilotkit/channels";
 import { BarChart, LineChart } from "@copilotkit/channels/charts";
 import {
   REPO,
@@ -109,7 +108,7 @@ async function fetchPulse(): Promise<Pulse> {
   }
 }
 
-function kpi(label: string, value: string): ChannelNode {
+function Kpi({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-1.5 grow p-4 bg-brand-surface border border-brand-border rounded-xl">
       <span className="text-sm text-brand-muted">{label}</span>
@@ -118,7 +117,7 @@ function kpi(label: string, value: string): ChannelNode {
   );
 }
 
-export function PulseCard(p: Pulse): ChannelNode {
+export function PulseCard(p: Pulse) {
   return (
     <div className="flex flex-col gap-4 w-full h-full p-7 bg-brand-bg font-brand">
       <div className="flex flex-row items-center justify-between w-full">
@@ -133,9 +132,9 @@ export function PulseCard(p: Pulse): ChannelNode {
       </div>
       <span className="text-sm text-brand-muted">{`${REPO} · past 7 days`}</span>
       <div className="flex flex-row gap-3.5 w-full">
-        {kpi("Stars", compact(p.stars))}
-        {kpi("Weekly downloads", compact(p.weeklyDownloads))}
-        {kpi("Open issues", compact(p.openIssues))}
+        <Kpi label="Stars" value={compact(p.stars)} />
+        <Kpi label="Weekly downloads" value={compact(p.weeklyDownloads)} />
+        <Kpi label="Open issues" value={compact(p.openIssues)} />
       </div>
     </div>
   );

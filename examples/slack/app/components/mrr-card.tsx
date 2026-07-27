@@ -4,17 +4,15 @@
  * The compiled brand stylesheet + Plus Jakarta Sans are fed to
  * `createChannel({ render })`, and Takumi resolves the classes when it rasterizes.
  *
- * Return type is `ChannelNode` (what `JSX.Element` is under the channels pragma);
- * the runtime value is a React element, which `thread.post` rasterizes.
+ * The JSX evaluates to a React element (host tags under the channels pragma),
+ * which `thread.post` rasterizes to an image.
  */
-import type { ChannelNode } from "@copilotkit/channels";
-
 export interface MrrCardProps {
   value: string;
   delta: number;
 }
 
-export function MrrCard({ value, delta }: MrrCardProps): ChannelNode {
+export function MrrCard({ value, delta }: MrrCardProps) {
   const up = delta >= 0;
   return (
     <div className="flex flex-col gap-2 w-full h-full p-8 bg-brand-bg font-brand">
