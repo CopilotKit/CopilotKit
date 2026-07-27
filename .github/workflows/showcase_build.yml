@@ -225,6 +225,13 @@ jobs:
           GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
+          # `set -euo pipefail` (the sibling "Build starter matrix" step has it,
+          # this one did not): without it, a failing `jq` in the MATRIX=$(...)
+          # assignment below leaves MATRIX empty, the step still exits 0, and it
+          # writes `matrix=` plus `has_changes=true` — which surfaces much later
+          # as an opaque `fromJSON('')` error in the `build` job's strategy
+          # instead of a clear failure here.
+          set -euo pipefail
           # Full service config as JSON
           # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
           # skip_build (optional, boolean): when true, the Docker build step
