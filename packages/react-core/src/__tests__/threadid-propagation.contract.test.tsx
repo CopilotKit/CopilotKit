@@ -74,7 +74,9 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
             runtimeUrl: mockCopilotkit.runtimeUrl,
             agentId,
             runtimeAgentId,
-            transport: mockCopilotkit.runtimeTransport,
+            // transport left at its "auto" default — the harness's loosely-typed
+            // runtimeTransport string isn't assignable, and these tests assert
+            // threadId/runtimeAgentId only, never transport behavior.
             runtimeMode: "pending",
           }) as unknown as AbstractAgent;
           mockCopilotkit.agents[agentId] = proxy;
