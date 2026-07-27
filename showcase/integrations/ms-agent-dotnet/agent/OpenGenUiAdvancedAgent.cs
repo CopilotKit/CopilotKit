@@ -38,8 +38,6 @@ using System.ClientModel;
 /// </summary>
 public class OpenGenUiAdvancedAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private const string SystemPrompt = @"You are a UI-generating assistant for the Open Generative UI (Advanced) demo.
 
 On every user turn you MUST call the `generateSandboxedUi` frontend tool
@@ -91,16 +89,12 @@ Generation guidance:
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new OpenAIClient(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

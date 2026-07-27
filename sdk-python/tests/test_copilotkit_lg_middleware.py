@@ -30,19 +30,30 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from ag_ui.core import RunAgentInput, UserMessage
+from pydantic import Field
+from typing_extensions import TypedDict
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langgraph.constants import END, START
+from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents.middleware import ModelRequest
+from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
+from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
 # ---------------------------------------------------------------------------
@@ -58,13 +69,15 @@ def _make_request(
     messages: list[Any] | None = None,
 ) -> ModelRequest:
     """Build a ModelRequest with sensible defaults for testing."""
+    runtime = MagicMock(name="runtime")
+    runtime.context = None
     return ModelRequest(
         model=MagicMock(name="model"),
         messages=messages if messages is not None else [],
         system_message=system_message,
         tools=tools if tools is not None else [],
         state=state if state is not None else {"messages": []},
-        runtime=MagicMock(name="runtime", context=None),
+        runtime=runtime,
     )
 
 
@@ -85,6 +98,39 @@ def _run_wrap(middleware: CopilotKitMiddleware, request: ModelRequest):
     result = middleware.wrap_model_call(request, handler)
     assert handler.received is not None, "handler must be called"
     return handler.received, result
+
+
+class _RecordingToolAwareChatModel(BaseChatModel):
+    """Minimal model that records the messages/tools LangChain bound to it."""
+
+    bound_tools: list[Any] = Field(default_factory=list)
+    last_messages: list[BaseMessage] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        return "recording-tool-aware-chat-model"
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        self.bound_tools = list(tools)
+        return self
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager=None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self.last_messages = list(messages)
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="ok"))])
+
+
+class _ParentState(TypedDict):
+    messages: list[Any]
+
+
+class _ParentContext(TypedDict, total=False):
+    copilotkit: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +177,215 @@ def test_frontend_tools_merge_does_not_mutate_input_request():
     # The override(...) contract is to return a fresh request — the original
     # tools list must not have grown.
     assert [t["name"] for t in request.tools] == ["backend"]
+
+
+# ---------------------------------------------------------------------------
+# _get_copilotkit_context — fallback to LangGraph runtime carriers
+# ---------------------------------------------------------------------------
+
+
+def test_get_copilotkit_context_returns_state_level_when_present(monkeypatch):
+    """When state["copilotkit"] has actions, return it unchanged."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_one"}],
+            "context": "some context",
+        }
+    }
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == state["copilotkit"]
+
+
+def test_get_copilotkit_context_falls_back_to_langgraph_context(monkeypatch):
+    """When state lacks copilotkit, prefer config.context.copilotkit."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_context"}],
+        "context": [{"description": "viewer role", "value": "admin"}],
+    }
+
+    def mock_get_config():
+        return {"context": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_falls_back_to_configurable_when_context_missing(
+    monkeypatch,
+):
+    """Older configurable-only carriers still work as a fallback."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_configurable"}],
+        "context": [{"description": "workspace", "value": "prod"}],
+    }
+
+    def mock_get_config():
+        return {"configurable": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context({})
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_prefers_state_over_runtime_carriers(monkeypatch):
+    """State-level copilotkit takes precedence over config/context fallbacks."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_state"}],
+        }
+    }
+
+    def mock_get_config():
+        return {
+            "configurable": {
+                "copilotkit": {
+                    "actions": [{"name": "fe_config"}],
+                }
+            }
+        }
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result["actions"][0]["name"] == "fe_state"
+
+
+def test_get_copilotkit_context_returns_empty_dict_when_not_found(monkeypatch):
+    """When copilotkit is not in state or config, return empty dict."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        return {"configurable": {}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_get_copilotkit_context_handles_missing_config(monkeypatch):
+    """When get_config raises, return empty state copilotkit."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        raise RuntimeError("No active context")
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_wrap_model_call_injects_frontend_tools_from_context_bridge(monkeypatch):
+    """wrap_model_call uses the runtime context bridge when state lacks copilotkit."""
+    middleware = CopilotKitMiddleware()
+    backend_tool = {"name": "backend_tool"}
+    fe_tools = [{"name": "fe_from_context"}]
+
+    def mock_get_config():
+        return {"context": {"copilotkit": {"actions": fe_tools}}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    # State has no copilotkit key, but config does.
+    request = _make_request(state={"messages": []}, tools=[backend_tool])
+
+    seen, _ = _run_wrap(middleware, request)
+
+    seen_names = [t["name"] for t in seen.tools]
+    assert "backend_tool" in seen_names
+    assert "fe_from_context" in seen_names
+
+
+def test_real_subgraph_context_bridge_reaches_child_agent():
+    """A real AG-UI run carries tools and app context into a child agent."""
+    model = _RecordingToolAwareChatModel()
+    middleware = CopilotKitMiddleware()
+    child_agent = create_agent(
+        model=model,
+        tools=[],
+        middleware=[middleware],
+        context_schema=_ParentContext,
+    )
+    parent = StateGraph(_ParentState, context_schema=_ParentContext)
+    parent.add_node("child", child_agent)
+    parent.add_edge(START, "child")
+    parent.add_edge("child", END)
+    agent = LangGraphAGUIAgent(
+        name="parent", graph=parent.compile(checkpointer=MemorySaver())
+    )
+
+    async def consume_run():
+        return [
+            event
+            async for event in agent.run(
+                RunAgentInput(
+                    thread_id="t-1",
+                    run_id="r-1",
+                    state={},
+                    messages=[UserMessage(id="m-1", content="hi")],
+                    tools=[
+                        {
+                            "name": "frontend_lookup",
+                            "description": "frontend tool",
+                        }
+                    ],
+                    context=[
+                        {
+                            "description": "viewer role",
+                            "value": "admin",
+                        }
+                    ],
+                    forwarded_props={},
+                )
+            )
+        ]
+
+    asyncio.run(consume_run())
+
+    assert model.last_messages, "child model should receive the parent run"
+    assert [tool.get("name") for tool in model.bound_tools] == ["frontend_lookup"]
+    system_messages = [
+        msg for msg in model.last_messages if isinstance(msg, SystemMessage)
+    ]
+    assert system_messages, "middleware should inject an app-context system message"
+    assert any("App Context:" in msg.content for msg in system_messages)
+    assert any("admin" in msg.content for msg in system_messages)
 
 
 # ---------------------------------------------------------------------------
