@@ -598,7 +598,8 @@ describe("framework nav", () => {
         "does not load `.env` or `.copilotkit/project.json` automatically",
       );
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
-      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk-..."');
+      expect(source).not.toContain('export INTELLIGENCE_API_KEY="cpk_..."');
       expect(source).toContain(
         "does not need an Enterprise Intelligence URL or API key",
       );
