@@ -4,10 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { FileText, Sparkles } from "lucide-react";
 import type { Report } from "@/app/api/v1/data";
 import useCreditCards from "@/app/actions";
-import {
-  SpendBreakdownChart,
-  IncomeExpenseChart,
-} from "@/components/analytics-charts";
+
+import { ReportCard } from "@/components/wow/report-card";
 import { useAskCopilot } from "./use-ask-copilot";
 import { REPORTS_CHANGED_EVENT } from "./report-tool";
 
@@ -70,40 +68,12 @@ export function ReportsView() {
   return (
     <div className="space-y-5">
       {reports.map((report) => (
-        <article
+        <ReportCard
           key={report.id}
-          data-testid="report-card"
-          className="space-y-4 rounded-2xl border border-hairline bg-surface p-6 shadow-soft"
-        >
-          <header className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="text-lg font-semibold text-ink">{report.title}</h3>
-            <p className="text-xs text-ink-muted">
-              {new Date(report.createdAt).toLocaleString()} · {report.createdBy}
-            </p>
-          </header>
-          <p className="text-sm leading-relaxed text-ink">{report.summary}</p>
-          {report.highlights.length > 0 && (
-            <ul className="list-disc space-y-1 pl-5 text-sm text-ink">
-              {report.highlights.map((highlight) => (
-                <li key={highlight}>{highlight}</li>
-              ))}
-            </ul>
-          )}
-          <div className="grid gap-5 border-t border-hairline pt-4 md:grid-cols-2">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Spend breakdown
-              </p>
-              <SpendBreakdownChart policies={policies} />
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Income vs expenses
-              </p>
-              <IncomeExpenseChart transactions={transactions} />
-            </div>
-          </div>
-        </article>
+          report={report}
+          policies={policies}
+          transactions={transactions}
+        />
       ))}
       <div className="flex justify-end">
         <button
