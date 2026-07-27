@@ -132,19 +132,14 @@ export function SpendDonut({ slices, currency, title }: SpendDonutProps) {
     );
   }
 
-  // Build per-slice cumulative angles + colors + percentages.
+  // Per-slice colors + percentages. Cumulative start/end angles are derived at
+  // render time below from each slice's pct, so no angle accumulator is kept.
   const TAU = Math.PI * 2;
-  let angle = 0;
-  const rendered: RenderedSlice[] = compressed.map((s, i) => {
-    const startAngle = angle;
-    const sweep = (s.total / total) * TAU;
-    angle += sweep;
-    return {
-      ...s,
-      color: SLICE_COLORS[i] ?? SLICE_COLORS[SLICE_COLORS.length - 1],
-      pct: s.total / total,
-    };
-  });
+  const rendered: RenderedSlice[] = compressed.map((s, i) => ({
+    ...s,
+    color: SLICE_COLORS[i] ?? SLICE_COLORS[SLICE_COLORS.length - 1],
+    pct: s.total / total,
+  }));
 
   const isSingleSlice = rendered.length === 1;
 

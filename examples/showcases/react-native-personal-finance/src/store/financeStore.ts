@@ -27,11 +27,6 @@ function makeId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${__idCounter.toString(36)}`;
 }
 
-/** ISO yyyy-mm-dd for "today" in local time. */
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 interface FinanceState {
   accounts: Account[];
   transactions: Transaction[];
