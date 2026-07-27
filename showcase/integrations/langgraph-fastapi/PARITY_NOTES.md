@@ -67,3 +67,40 @@ Fixing the shared Python recovery loop is tracked as a **separate PR against
 the north star / the `ag_ui_langgraph` package**, not in this fastapi
 alignment branch. A single one-off green does not reproduce — do not treat a
 lone green run as "fixed".
+
+## declarative-json-render — scoped D6 divergence (grid cell is green)
+
+The `byoc` D6 featureType covers BOTH declarative demos:
+`declarative-hashbrown` (`@hashbrownai/react`, streamed structured output) and
+`declarative-json-render` (`@json-render/react`, hierarchical JSON spec + a
+Zod-validated catalog). Both render the same sales dashboard (metric card +
+pie/bar chart) via two **different** third-party rendering libraries.
+
+**The grid `byoc` cell is GREEN on fastapi.** The shared probe
+(`harness/src/probes/scripts/d5-byoc.ts`) navigates to the preferred route
+(`declarative-hashbrown`) and sends the hashbrown pill, which matches
+fastapi's hashbrown fixture → pass.
+
+A **scoped** `bin/showcase test langgraph-fastapi:declarative-json-render --d6`
+reds, for two layered reasons — neither is a fastapi defect:
+
+1. **Probe limitation (harness, fleet-wide).** `d5-byoc.ts` always sends the
+   *hashbrown* pill even when navigation is forced to the json-render page —
+   its NOTE says the build context doesn't expose `demos[]`, so it can't pick
+   the per-page pill. So the scoped json-render run is driven with the wrong
+   pill by design. Tracked as a follow-up (improve the probe to select the
+   pill per page).
+2. **Deliberate architecture choice.** langgraph-python collapses both
+   renderers behind ONE unified `render_dashboard` tool-call shape (any pill
+   → same payload both pages consume), so its scoped json-render run happens
+   to pass. fastapi keeps the two libraries as **genuinely separate**
+   integrations with their own pills/fixtures (hashbrown pill vs the shorter
+   `"Show me the sales dashboard with metrics and a revenue chart"` json-render
+   pill). fastapi's split is arguably more faithful to what each library
+   actually does; collapsing it to LGP's unified contract would be a content
+   downgrade, so it is NOT done here.
+
+Net: sanctioned divergence on a manual scoped test path only. The gating grid
+cell (`byoc`) is green and both demos render correctly live. Do not "fix" this
+by rewriting fastapi's json-render demo to the unified `render_dashboard`
+contract — the real fix is probe-side (see follow-up).
