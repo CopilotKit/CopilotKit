@@ -332,7 +332,9 @@ describe("FAC-121: x-copilotkit-auth forwarding through CopilotKit runtime", () 
     );
 
     expect(sseOutput).toContain("token_present:true");
-    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_RUN_1_HASH_PREFIX}`);
+    expect(sseOutput).toContain(
+      `token_hash_prefix:${EXPECTED_RUN_1_HASH_PREFIX}`,
+    );
     // Raw token must never appear in the SSE stream.
     expect(sseOutput).not.toContain(RUN_1_TOKEN);
   });
@@ -348,7 +350,9 @@ describe("FAC-121: x-copilotkit-auth forwarding through CopilotKit runtime", () 
     );
 
     expect(sseOutput).toContain("token_present:true");
-    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_RUN_2_HASH_PREFIX}`);
+    expect(sseOutput).toContain(
+      `token_hash_prefix:${EXPECTED_RUN_2_HASH_PREFIX}`,
+    );
     expect(sseOutput).not.toContain(EXPECTED_RUN_1_HASH_PREFIX);
     expect(sseOutput).not.toContain(RUN_1_TOKEN);
     expect(sseOutput).not.toContain(RUN_2_TOKEN);
