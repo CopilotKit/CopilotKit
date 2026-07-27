@@ -1,0 +1,60 @@
+---
+title: OSS vs Enterprise Intelligence Platform
+description: What ships in CopilotKit's open-source Vue stack and what the Enterprise Intelligence Platform adds.
+icon: "lucide/Cloud"
+doc_type: explanation
+---
+
+CopilotKit has an **open-source frontend stack**—npm packages with no required external CopilotKit service—and an **Enterprise Intelligence Platform** for durable conversations, realtime sync, hosted inspection, and administration. The platform extends OSS: the Vue SDK and runtime boundary stay the same while platform capabilities are enabled by configuration.
+
+## The 30-second version
+
+- **OSS is enough for** a working Vue agentic application with composables, prebuilt chat, frontend tools, generative UI, and AG-UI integrations. It is Apache 2.0 and runs where you host it.
+- **Enterprise Intelligence Platform adds** threads that survive reloads and devices, realtime WebSocket synchronization, hosted inspection, and an admin console.
+- **It runs two ways:** [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform) or self-hosted with the `copilot-intelligence` Helm chart on Kubernetes.
+- **Application code does not change** between OSS-only, cloud-hosted, and self-hosted options; the platform endpoint and credentials do.
+
+| | OSS only | Needs Enterprise Intelligence Platform |
+| --- | --- | --- |
+| Agent chat, frontend tools, agent state, generative UI | Yes | |
+| AG-UI integrations such as LangGraph, Mastra, Built-in, or custom agents | Yes | |
+| Conversation history across reloads and devices | | Yes |
+| `useThreads` and realtime sync across tabs or devices | | Yes |
+| Hosted inspector, history, admin console, and multi-tenancy | | Yes |
+
+## What's in the open-source core
+
+- **Vue SDK:** `@copilotkit/vue`, with `useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, and prebuilt `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`.
+- **Runtime:** `@copilotkit/runtime`, a framework-neutral request handler with server adapters.
+- **AG-UI:** the open standard for agent-to-frontend events and bidirectional tool interaction.
+- **Built-in Agent:** an in-process agent loop without an external agent framework.
+- **Integrations:** adapters for LangGraph, Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
+- **Generative UI:** tool rendering, state rendering, headless composables, and slot-based theming.
+
+The open-source core is Apache 2.0 licensed and can run on your host, cloud, and chosen LLM provider.
+
+## What's in the Enterprise Intelligence Platform
+
+- **Threads and persistence:** resumable conversations across reloads and devices, with realtime synchronization and single-writer protection for active runs.
+- **Inspection and history:** project-scoped thread histories, event timelines, admin views, and API-key management.
+- **Inspector and admin console:** hosted views for traces, projects, organizations, and operational controls.
+- **Multi-tenancy:** organization, project, and user isolation for production and staging workloads.
+
+### Cloud-Hosted vs Self-Hosted
+
+- **[Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform):** sign up, obtain an API key, and point the runtime at the service when platform operations should be managed for you.
+- **Self-hosted:** run the `copilot-intelligence` Helm chart when data residency, on-premises deployment, or compliance control requires operating Postgres, Redis, ingress, OIDC, and secret rotation yourself.
+
+Both use the same platform capability set and application-facing SDK/runtime relationship.
+
+## Where the boundary lives
+
+The OSS runtime can communicate with the Enterprise Intelligence Platform but does not require it. If your own backend owns persistence and authentication and you can reconstruct conversation context, OSS may be sufficient. If CopilotKit must be the durable conversation layer across users, devices, and sessions, use the Enterprise Intelligence Platform.
+
+## Where to go next
+
+- [Quickstart](/vue)
+- [Threads](/vue/threads)
+- [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform)
+- [Self-Hosting Enterprise Intelligence](/vue/premium/self-hosting)
+- [Enterprise Intelligence Architecture](/vue/premium/intelligence-platform)

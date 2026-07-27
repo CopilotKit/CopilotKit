@@ -1,0 +1,44 @@
+---
+title: Generative UI
+icon: "lucide/Sparkles"
+description: How CopilotKit lets agents drive Vue UI, how the primitives differ, and how to choose one.
+doc_type: explanation
+---
+
+Generative UI is the set of CopilotKit primitives that lets an agent decide what appears on screen: rendering a Vue component you authored, rendering an existing tool call, updating UI from streamed state, or embedding UI supplied by an MCP server.
+
+## What CopilotKit ships
+
+| Primitive | What it does |
+| --- | --- |
+| **[Components as Tools](/vue/generative-ui/your-components/display-only)** | Register a Vue component with `useComponent`; an agent calls it as a tool and CopilotKit renders it inline with typed props. |
+| **[Tool Call Rendering](/vue/generative-ui/tool-rendering)** | Render existing backend tool calls with `useRenderTool`, including their arguments, status, and result. |
+| **[State Rendering](/vue/generative-ui/state-rendering)** | Subscribe to agent state and update Vue UI as values stream. |
+| **[Reasoning](/vue/generative-ui/reasoning)** | Render reasoning messages inline using the chat’s built-in surface or slots. |
+| **A2UI** | A declarative, agent-emitted UI schema. Vue-specific A2UI guide and API decisions are intentionally deferred while the related public API is unsettled. |
+| **[MCP Apps](/vue/generative-ui/mcp-apps)** | Render UI an MCP server ships with its tools in a sandboxed iframe; no application-specific renderer is required. |
+
+## Pick one
+
+| You want to… | Use |
+| --- | --- |
+| Let the agent render a Vue component you already built | **[Components as Tools](/vue/generative-ui/your-components/display-only)** |
+| Brand cards for existing backend tools | **[Tool Call Rendering](/vue/generative-ui/tool-rendering)** |
+| Update progress, drafts, or dashboards from streamed agent state | **[State Rendering](/vue/generative-ui/state-rendering)** |
+| Surface model reasoning in chat | **[Reasoning](/vue/generative-ui/reasoning)** |
+| Embed UI hosted by an MCP server | **[MCP Apps](/vue/generative-ui/mcp-apps)** |
+
+## How the primitives compare
+
+These choices are per feature, not per product; they use the same Vue frontend, runtime, and AG-UI protocol.
+
+- **Controlled:** you author the component or renderer, while the agent chooses the tool and data. This gives the strongest predictability, at the cost of implementing each capability. Components as Tools, Tool Call Rendering, State Rendering, and Reasoning are controlled approaches.
+- **Declarative:** the agent emits a structured specification and the frontend composes from a registered catalog. A2UI is the declarative option; its Vue-specific public documentation is not part of this guide slice.
+- **Open-ended:** an MCP server supplies the UI and the frontend sandboxes it. This has the broadest expressive range and requires the most care around accessibility, branding, and security.
+
+## Where to go next
+
+- [Components as Tools](/vue/generative-ui/your-components/display-only) for display-only components.
+- [Interactive Components](/vue/generative-ui/your-components/interactive) for user decisions that pause an agent.
+- [Tool Call Rendering](/vue/generative-ui/tool-rendering) for backend tools.
+- [MCP](/vue/agentic-protocols/mcp) for server connections and [MCP Apps](/vue/generative-ui/mcp-apps) for server-hosted UI.

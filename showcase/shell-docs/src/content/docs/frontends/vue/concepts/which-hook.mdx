@@ -1,0 +1,44 @@
+---
+title: Which Composable for Which Job
+description: Choose the Vue v2 composable for tools, rendering, human review, and custom chat surfaces.
+icon: "lucide/Map"
+doc_type: explanation
+---
+
+CopilotKit Vue separates composables that register agent behavior from composables and slots that determine how a tool call appears. Use this map to choose the boundary, then follow the linked Vue guide or reference.
+
+## The 30-second version
+
+| Composable or surface | Use it when you want to |
+| --- | --- |
+| [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) | Give the agent a browser-side tool with a schema and handler; it may also render inline UI. |
+| [`useRenderTool`](/reference/vue/hooks/useRenderTool) | Render one named existing tool call with typed arguments, without defining its handler. |
+| [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) | Provide a wildcard renderer for tool calls without a specific renderer. |
+| [`useComponent`](/reference/vue/hooks/useComponent) | Register a Vue component as a named display tool. |
+| [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) | Pause an agent on a tool call until a person approves, edits, or supplies input. |
+| [`useInterrupt`](/reference/vue/hooks/useInterrupt) | Handle a backend-initiated AG-UI interrupt and resume or cancel it from user input. |
+| `CopilotChat` tool-call slots | Place named or wildcard tool-call UI inside a Vue chat surface you customize. |
+
+## How to choose
+
+Start with the verb.
+
+- **“The agent should run something in my application.”** Use [`useFrontendTool`](/reference/vue/hooks/useFrontendTool). Define its schema and browser handler; add a renderer only when the call also needs inline UI.
+- **“The agent’s tool call should look like something.”** Use [`useRenderTool`](/reference/vue/hooks/useRenderTool) for one named tool, [`useComponent`](/reference/vue/hooks/useComponent) for a new component-first tool, or [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) for the otherwise-unhandled fallback.
+- **“The agent should stop and ask me before continuing.”** Use [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) for a browser-owned approval/edit gate. Use [`useInterrupt`](/reference/vue/hooks/useInterrupt) when a backend agent emits the standard interrupt and your UI resumes or cancels it.
+- **“I’m building my own chat UI.”** Use the named `tool-call-{toolName}` or wildcard `tool-call` slots at the chat/view boundary, or register renderers with `useRenderTool` when the rendering belongs to component scope rather than one template.
+
+### Tool versus renderer
+
+`useFrontendTool` and `useComponent` register a tool an agent may call. The former has a browser handler; the latter is a component-first display tool built on top of frontend-tool registration. `useHumanInTheLoop` also registers a tool, but owns the pending response until the person calls `respond`.
+
+`useRenderTool`, `useDefaultRenderTool`, and chat tool-call slots do not define a backend tool. They render calls that already exist, whether the call originated from a backend agent or another frontend registration. This is why a backend tool can use `useRenderTool` without a client handler.
+
+Vue does not expose a `useRenderToolCall` composable. The slot and renderer surfaces above are the stable Vue way to own tool-call placement in a custom chat UI.
+
+## Related
+
+- [Frontend Tools](/vue/frontend-tools)
+- [Tool Call Rendering](/vue/generative-ui/tool-rendering)
+- [Interactive Components](/vue/generative-ui/your-components/interactive)
+- [Vue reference](/reference/vue)

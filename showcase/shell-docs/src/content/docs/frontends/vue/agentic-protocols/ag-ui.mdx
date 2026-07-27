@@ -1,0 +1,40 @@
+---
+title: AG-UI
+icon: "lucide/Zap"
+description: Bring agents from any supported framework to Vue users through AG-UI and CopilotKit.
+---
+
+## What is the AG-UI Protocol?
+
+AG-UI is a lightweight, event-based open protocol for connecting AI agents to user-facing applications. It standardizes the connection among agents, realtime application context, and UI without making the frontend depend on one agent framework.
+
+<Image
+  src="/images/agui-ecosystem-light.png"
+  alt="AG-UI Ecosystem Diagram"
+  width={4096}
+  height={2304}
+  className="block dark:hidden"
+/>
+<Image
+  src="/images/agui-ecosystem-dark.png"
+  alt="AG-UI Ecosystem Diagram"
+  width={4096}
+  height={2304}
+  className="hidden dark:block"
+/>
+
+## How CopilotKit uses AG-UI
+
+CopilotKit uses AG-UI to abstract the connection between a Vue application and its agent. Choose any AG-UI-compatible agent framework, including LangGraph, Mastra, Pydantic AI, and others, without replacing the Vue chat surface.
+
+- **Flexibility and interoperability:** Vue components and composables can work with an AG-UI-compatible agent, so changing backend models or frameworks does not require a UI rewrite.
+- **Unified communication:** AG-UI carries the bidirectional agent/frontend exchange instead of application-specific WebSocket formats or text parsing.
+- **Frontend tool calls:** the event stream carries requests for browser-owned tools and their results.
+- **Vue UI components:** `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` consume streamed AG-UI responses and state updates in realtime.
+- **State management:** AG-UI state events keep agent and application state synchronized while a run is active.
+
+The frontend connection is the same provider-and-runtime boundary used in the [Quickstart](/vue):
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+AG-UI’s event specification, transports, and protocol design are maintained upstream. See [AG-UI](https://ag-ui.com) for protocol documentation and [Architecture](/vue/concepts/architecture) for CopilotKit’s runtime/agent placement.

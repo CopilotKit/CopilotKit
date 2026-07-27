@@ -1,0 +1,79 @@
+---
+title: MCP
+description: Connect Model Context Protocol servers to a Vue CopilotKit application.
+icon: "lucide/Network"
+---
+
+## Introduction
+
+The Model Context Protocol (MCP) is an open standard for secure, two-way connections between AI applications and external data sources or tools. It lets you connect an agent to data, make those tools available securely, and build AI features with application context.
+
+For protocol background, see the [Model Context Protocol introduction](https://modelcontextprotocol.io/introduction).
+
+<Callout type="info" title="Looking for MCP Apps?">
+  When an MCP server returns interactive UI that should render in chat, use [MCP Apps](/vue/generative-ui/mcp-apps). This page connects MCP tools; MCP Apps is the server-hosted UI path.
+</Callout>
+
+<Image
+  src="/images/any-agentic-backend-light.png"
+  alt="CopilotKit with Agentic Protocols"
+  width={4096}
+  height={2304}
+  className="block dark:hidden w-full mx-auto"
+/>
+<Image
+  src="/images/any-agentic-backend-dark.png"
+  alt="CopilotKit with Agentic Protocols"
+  width={4096}
+  height={2304}
+  className="hidden dark:block w-full mx-auto"
+/>
+
+MCP is one of the agentic protocols CopilotKit uses to connect agents to user-facing frontends.
+
+## Quickstart with CopilotKit
+
+### 1. Get an MCP server
+
+Start with an MCP endpoint you control or have configured, such as an SSE endpoint from a provider or your own MCP server. Keep server authentication and credentials on the trusted side of your deployment.
+
+### 2. Configure the runtime
+
+The runtime resolves MCP tools. Configure its `mcpServers` support and `createMCPClient` implementation for the MCP client library and transport you use. The runtime requires that factory whenever MCP servers are supplied; its MCP server configuration is currently experimental.
+
+```ts
+const runtime = new CopilotRuntime({
+  createMCPClient: async (config) =>
+    createMCPClientForYourTransport({ endpoint: config.endpoint }),
+});
+```
+
+For a self-hosted runtime, this is the same runtime-side responsibility: provide `createMCPClient`, select the MCP SDK/transport implementation, and protect the endpoint and credentials according to your server environment.
+
+### 3. Connect the Vue frontend
+
+Pass the selected endpoint as request properties on `CopilotKitProvider`. Vue forwards those properties with agent runs; the runtime merges request-scoped `mcpServers` with its runtime configuration.
+
+<VueDocExample file="protocols/mcp.vue" region="mcp-provider" />
+
+Use a new properties object when the selected server changes so the provider can update the runtime configuration. Do not put private MCP credentials in browser-visible properties.
+
+### 4. Add the chat interface
+
+`CopilotChat` is inside the provider in the fixture. Its agent ID selects the runtime agent that can use the resolved MCP tools. Keep the existing separate-runtime topology from the [Vue Quickstart](/vue) for local development.
+
+### 5. Visualize MCP tool calls (optional)
+
+MCP tools are ordinary backend tool calls once the runtime resolves them. Use [`useRenderTool`](/reference/vue/hooks/useRenderTool) for a named tool, [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) as a wildcard fallback, or a `tool-call-{name}`/`tool-call` slot on the chat. A renderer should handle partial arguments, `inProgress`/`executing` work, and the completed result.
+
+<VueDocExample file="generative-ui/tool-rendering.vue" region="programmatic-tool-rendering" />
+
+## Advanced Usage
+
+### Implementing an MCP tool-call component
+
+For a custom card, display the tool name, parameters, lifecycle status, and result. Keep the rendering separate from the tool implementation: the backend or MCP server owns execution; the Vue renderer only observes its events. A named renderer has priority over the wildcard fallback, so use a named card for important tools and one default renderer for the rest.
+
+### Self-hosting option
+
+Self-hosting does not move MCP connection logic to the browser. Your runtime still owns the MCP client factory, outbound transport, credentials, and authorization. The Vue app only forwards the selected, safe-to-expose endpoint configuration and renders streamed tool calls. See [Architecture](/vue/concepts/architecture) for the runtime boundary.

@@ -1,0 +1,79 @@
+---
+title: A2A
+icon: "custom/a2a"
+description: Bring A2A agents to Vue users through AG-UI and CopilotKit.
+---
+
+## What is the A2A Protocol?
+
+A2A (Agent2Agent) is a Google-introduced protocol for AI agents to interact and collaborate securely across frameworks. CopilotKit connects an A2A agent or mesh to the frontend through an AG-UI-compatible coordinator, so the agent implementation does not need to become a Vue-specific integration.
+
+<Image
+  src="/images/any-agentic-backend-light.png"
+  alt="CopilotKit with Agentic Protocols"
+  width={4096}
+  height={2304}
+  className="block dark:hidden w-full mx-auto"
+/>
+<Image
+  src="/images/any-agentic-backend-dark.png"
+  alt="CopilotKit with Agentic Protocols"
+  width={4096}
+  height={2304}
+  className="hidden dark:block w-full mx-auto"
+/>
+
+A2A is one of the agentic protocols CopilotKit supports to connect agents to user-facing frontends.
+
+## How CopilotKit uses A2A agents
+
+CopilotKit uses middleware to expose A2A agents to an AG-UI-compatible coordinator. That yields two useful boundaries:
+
+- **Flexibility and interoperability:** A2A agents become available through AG-UI, so the same Vue components can present their work.
+- **Unified communication:** A2A governs agent-to-agent communication; AG-UI carries the frontend-facing stream, including tool activity and final responses.
+
+Read the [A2A protocol documentation](https://a2a-protocol.org/latest/) for the protocol itself.
+
+## How to use A2A agents with CopilotKit
+
+### 1. Run and connect an agent
+
+Begin with an AG-UI coordinator. If you already have one, continue with it. To start from a prepared example, the CopilotKit CLI can create an A2A project:
+
+```bash
+npx copilotkit@latest create -f a2a
+```
+
+The scaffold uses an ADK AG-UI coordinator and A2A agents, but the coordinator may be any AG-UI-compatible agent.
+
+### 2. Install and configure the middleware
+
+Install `@ag-ui/a2a-middleware` in the backend that owns the coordinator. Create an `HttpAgent` (or another AG-UI `AbstractAgent`) for the coordinator, list the A2A agent URLs, then wrap it in `A2AMiddlewareAgent`. Its description and instructions explain the available agents and orchestration policy.
+
+```ts
+const coordinator = new HttpAgent({ url: process.env.ORCHESTRATOR_URL! });
+const a2aAgent = new A2AMiddlewareAgent({
+  description: "Research assistant with Research and Analysis agents.",
+  agentUrls: [process.env.RESEARCH_AGENT_URL!, process.env.ANALYSIS_AGENT_URL!],
+  orchestrationAgent: coordinator,
+  instructions: "Call agents one at a time, pass results forward, then synthesize.",
+});
+
+const runtime = new CopilotRuntime({
+  agents: { a2a_chat: a2aAgent },
+});
+```
+
+Mount that runtime with the server adapter for your application. The selected agent ID must match the `a2a_chat` runtime entry.
+
+### 3. Render coordinator-to-agent activity in Vue
+
+The middleware exposes `send_message_to_a2a_agent`. In Vue, render that existing backend tool with `useRenderTool`; this observes its status without registering a browser handler.
+
+<VueDocExample file="protocols/a2a.vue" region="a2a-tool-rendering" />
+
+The component displays the outgoing message while its status is `executing` or `complete`; it shows a received response at `complete`. An `inProgress` call may have incomplete arguments, so avoid presenting it as a message that was already sent. You can provide a loading state for `executing` and reserve the final response UI for `complete`.
+
+### 4. Give it a try
+
+Ask the coordinator to research a topic. The coordinator sends work to the configured specialist agents, waits for results according to its orchestration instructions, then presents the synthesized result. The Vue renderer makes the intermediate A2A tool activity visible in the chat while AG-UI carries the final response.

@@ -1,0 +1,68 @@
+---
+title: Architecture
+description: How CopilotKit's Vue frontend, runtime, and agent fit together over AG-UI.
+icon: "lucide/Boxes"
+doc_type: explanation
+---
+
+CopilotKit is a three-layer stack—**frontend, runtime, and agent**—connected by the open [AG-UI](/vue/agentic-protocols/ag-ui) event protocol. The runtime runs in your application server, so the contract between your Vue UI and agent remains a wire format you can inspect.
+
+## The 30-second version
+
+- **Frontend.** Vue composables and prebuilt chat components connect your UI to a running agent.
+- **Runtime.** A request handler in your app server brokers authentication, tool calls, and the AG-UI stream.
+- **Agent.** Any AG-UI-compatible backend—Built-in, LangGraph, Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, or your own.
+- **AG-UI.** The transport- and framework-agnostic event protocol. Its standardized events let you replace a layer without rewriting the others.
+
+## The three layers
+
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/architecture-diagram.png"
+  className="rounded-2xl"
+  width={1000}
+  height={1000}
+/>
+
+### 1. Frontend
+
+The Vue application your users interact with. `@copilotkit/vue/v2` provides composables such as `useAgent`, `useFrontendTool`, `useAgentContext`, and `useThreads`, plus `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`. Use a prebuilt chat surface, build a custom UI with the headless composables, or combine the two.
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+### 2. Runtime
+
+The runtime is a request handler mounted in your application server. It accepts frontend requests, mediates authentication and tool calls, and forwards work to the agent over AG-UI. A Built-in Agent can run in-process for the framework-neutral path, so an external agent process is optional.
+
+<VueDocExample file="quickstart/server.ts" region="runtime-server" />
+
+### 3. Agent
+
+Choose the backend that runs prompts, calls tools, emits state, and streams events: LangGraph, Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, the Built-in Agent, or a custom AG-UI-compatible implementation.
+
+## AG-UI: the protocol bridge
+
+The runtime talks to the agent through [AG-UI](/vue/agentic-protocols/ag-ui), an open event-driven protocol:
+
+- **Event-driven:** text deltas, tool calls, state snapshots and deltas, and run lifecycle events stream through the runtime.
+- **Bidirectional:** users send input; agents can respond, pause for human input, and call browser-owned tools.
+- **Transport-agnostic:** an integration may use SSE, WebSockets, webhooks, or another transport.
+- **Framework-agnostic:** thin adapters let one frontend work with supported backends.
+
+Because this is a protocol contract rather than SDK lock-in, you can replace the agent layer, run multiple backends side by side, and integrate AG-UI-compatible services such as MCP servers and A2A coordinators.
+
+## Request flow at a glance
+
+1. A user sends a message from the Vue application.
+2. `useAgent` (or a prebuilt chat component) sends the run to the runtime endpoint.
+3. The runtime opens an AG-UI session with the configured agent.
+4. The agent emits text, tool calls, and state updates as AG-UI events.
+5. The runtime streams events back and Vue renders them as they arrive.
+6. For a frontend tool call, the runtime relays the request, the browser handler runs, and its result returns to the agent.
+7. When configured, the Enterprise Intelligence Platform mediates threads, persistence, and realtime sync beside the runtime.
+
+## Where to go next
+
+- [Quickstart](/vue) wires the three layers to a local runtime.
+- [AG-UI](/vue/agentic-protocols/ag-ui) explains the frontend connection to the protocol.
+- [Threads](/vue/threads) covers durable conversations and their runtime relationship.
+- [Enterprise Intelligence Platform](/vue/concepts/oss-vs-enterprise) explains the hosted and self-hosted capability boundary.
