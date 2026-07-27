@@ -2,12 +2,17 @@ import type { AfterViewInit } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  Injector,
   ViewContainerRef,
   inject,
   input,
   inputBinding,
 } from "@angular/core";
-import { CopilotChat } from "@copilotkit/angular";
+import {
+  CopilotChat,
+  provideCopilotChatConfiguration,
+} from "@copilotkit/angular";
 
 import { agentIdForCurrentIntegration } from "../feature-agent";
 import { FeatureHeaderComponent } from "./feature-header.component";
@@ -54,10 +59,18 @@ export class CustomAssistantMessageComponent {
 })
 export class ChatSlotsFeatureComponent implements AfterViewInit {
   private readonly chatHost = inject(ViewContainerRef);
+  private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
 
   ngAfterViewInit(): void {
     const agentId = agentIdForCurrentIntegration("chat-slots");
+    const childInjector = Injector.create({
+      parent: this.injector,
+      providers: [...provideCopilotChatConfiguration({ agentId })],
+    });
+    this.destroyRef.onDestroy(() => childInjector.destroy());
     const chat = createDynamicComponent(this.chatHost, CopilotChat, {
+      injector: childInjector,
       bindings: [
         inputBinding("agentId", () => agentId),
         inputBinding(

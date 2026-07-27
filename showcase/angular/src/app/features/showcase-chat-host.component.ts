@@ -15,6 +15,7 @@ import { ActivatedRoute } from "@angular/router";
 import {
   CopilotChat,
   CopilotKit,
+  provideCopilotChatConfiguration,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
 
@@ -53,22 +54,24 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
     if (headers) {
       this.injector.get(CopilotKit).updateRuntime({ headers });
     }
-    const placeholder = this.chatPlaceholder();
-    const childInjector = placeholder
-      ? Injector.create({
-          parent: this.injector,
-          providers: [
-            provideCopilotChatLabels({ chatInputPlaceholder: placeholder }),
-          ],
-        })
-      : undefined;
-    if (childInjector) {
-      this.destroyRef.onDestroy(() => childInjector.destroy());
-    }
     const feature =
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
     const agentId = this.agentId() ?? agentIdForCurrentIntegration(feature);
     const threadId = threadIdForFeature(feature);
+    const placeholder = this.chatPlaceholder();
+    const childInjector = Injector.create({
+      parent: this.injector,
+      providers: [
+        ...provideCopilotChatConfiguration({
+          agentId,
+          ...(threadId !== undefined ? { threadId } : {}),
+        }),
+        ...(placeholder
+          ? [provideCopilotChatLabels({ chatInputPlaceholder: placeholder })]
+          : []),
+      ],
+    });
+    this.destroyRef.onDestroy(() => childInjector.destroy());
     const bindings = [
       inputBinding("agentId", () => agentId),
       inputBinding("reasoningMessageComponent", () =>
@@ -83,7 +86,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
       bindings.push(inputBinding("threadId", () => threadId));
     }
     const chat = createDynamicComponent(this.viewContainer, CopilotChat, {
-      ...(childInjector ? { injector: childInjector } : {}),
+      injector: childInjector,
       bindings,
     });
     this.chat = chat;
