@@ -669,28 +669,6 @@ describe("framework nav", () => {
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("names create as the init command alias across managed setup guides", () => {
-    const managed =
-      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
-    const cli = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/cli/cli.mdx"),
-      "utf8",
-    );
-    const headless = fs.readFileSync(
-      path.join(SNIPPETS_DIR, "shared/threads/headless-threads.mdx"),
-      "utf8",
-    );
-    const reversedAlias =
-      /`create`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`init`/;
-    const canonicalAlias =
-      /`init`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`create`/;
-
-    for (const source of [managed, cli, headless]) {
-      expect(source).toMatch(canonicalAlias);
-      expect(source).not.toMatch(reversedAlias);
-    }
-  });
-
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 

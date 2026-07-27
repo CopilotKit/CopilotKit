@@ -95,3 +95,19 @@ test("points managed onboarding calls to action at the hosted dashboard", () => 
     expect(managedCta).toContain(`href="${MANAGED_DASHBOARD_URL}"`);
   }
 });
+
+test("names create as the init command alias across managed setup guides", () => {
+  const sources = readSources([
+    ...MANAGED_ONBOARDING_GUIDES,
+    "snippets/shared/threads/headless-threads.mdx",
+  ]);
+  const reversedAlias =
+    /`create`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`init`/;
+  const canonicalAlias =
+    /`init`(?:\s+\(aliased as|\s+(?:and|or)\s+its)\s+`create`/;
+
+  for (const source of sources) {
+    expect(source).toMatch(canonicalAlias);
+    expect(source).not.toMatch(reversedAlias);
+  }
+});
