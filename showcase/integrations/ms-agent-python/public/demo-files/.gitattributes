@@ -1,9 +1,0 @@
-# These two demo files are committed as real binaries (not LFS pointers)
-# because the CI Docker build doesn't run `git lfs pull` — production
-# would otherwise ship the pointer-text and the Try-with-sample-{image,pdf}
-# buttons reject it with "Git LFS pointer, not the real asset".
-#
-# langgraph-python's demo-files have the same setup (their root
-# `.gitattributes` `*.png filter=lfs` is overridden here per-path).
-sample.png -filter -diff -merge
-sample.pdf -filter -diff -merge

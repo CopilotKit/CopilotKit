@@ -266,9 +266,14 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn egress sequence; reset at the start of each turn's processing so
-   * a redelivered turn reproduces the same operation id sequence. */
-  private readonly seq = new Map<string, number>();
+  /** Per-turn render state; reset at the start of each turn's processing so a
+   * redelivery reproduces the same operation ids. A realtime turn starts
+   * non-terminal: even an output-free handler must durably accept `finalize`
+   * before its delivery may complete. */
+  private readonly renderState = new Map<
+    string,
+    { nextSeq: number; needsFinalize: boolean }
+  >();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -355,9 +360,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
-    this.seq.set(env.turnId, 0);
+    this.renderState.set(env.turnId, {
+      nextSeq: 0,
+      needsFinalize: this.renderSink !== undefined,
+    });
     try {
       await this.dispatchTo(env);
+      await this.finalizeRenderedTurn(env);
       await this.requireSource().ack(env.deliveryId);
     } catch (err) {
       await this.requireSource().nack(
@@ -365,10 +374,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
         err instanceof Error ? err.message : String(err),
       );
     } finally {
-      // Drop the per-turn counter once the turn is fully processed (renderer
+      // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
-      this.seq.delete(env.turnId);
+      this.renderState.delete(env.turnId);
     }
   }
 
@@ -516,9 +525,67 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * renderer and discrete post/update so all of a turn's render frames land on
    * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
   private nextFrameSeq(turnId: string): number {
-    const seq = this.seq.get(turnId) ?? 0;
-    this.seq.set(turnId, seq + 1);
+    const state = this.renderState.get(turnId);
+    if (!state) {
+      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      return 0;
+    }
+    const seq = state.nextSeq;
+    state.nextSeq += 1;
     return seq;
+  }
+
+  /**
+   * Records the terminal state only after the render sink durably accepts a
+   * frame. A later post/update/file/delete after an agent-run finalize flips
+   * the turn back to non-terminal so dispatch emits one final finalize.
+   */
+  private recordAcceptedRenderEvent(
+    turnId: string,
+    event: ChannelRenderEvent,
+  ): void {
+    const state = this.renderState.get(turnId);
+    if (!state) return;
+    state.needsFinalize = event.kind !== "finalize";
+  }
+
+  /**
+   * Pushes one realtime frame immediately and records its accepted terminal
+   * state. Sequence allocation stays deterministic across delivery retries.
+   */
+  private async pushRenderFrame(
+    target: ChannelReplyTarget,
+    event: ChannelRenderEvent,
+  ): Promise<{ receipt: RenderAccepted; seq: number }> {
+    const seq = this.nextFrameSeq(target.turnId);
+    const receipt = await this.requireRenderSink().push({
+      deliveryId: target.deliveryId,
+      turnId: target.turnId,
+      slot: "main",
+      seq,
+      event,
+    });
+    this.recordAcceptedRenderEvent(target.turnId, event);
+    return { receipt, seq };
+  }
+
+  /**
+   * Closes a successfully handled delivery's realtime render lane when a
+   * discrete post/update/file/delete was its last accepted frame. Agent runs
+   * already finish themselves, so their terminal frame is not duplicated.
+   */
+  private async finalizeRenderedTurn(
+    env: ChannelIngressEnvelope,
+  ): Promise<void> {
+    if (!this.renderState.get(env.turnId)?.needsFinalize) return;
+    await this.pushRenderFrame(
+      {
+        route: env.route,
+        turnId: env.turnId,
+        deliveryId: env.deliveryId,
+      },
+      { kind: "finalize" },
+    );
   }
 
   private mintOp(target: ChannelReplyTarget, op: EgressOp): EgressOperation {
@@ -542,14 +609,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
-    const seq = this.nextFrameSeq(target.turnId);
-    const receipt = await this.requireRenderSink().push({
-      deliveryId: target.deliveryId,
-      turnId: target.turnId,
-      slot: "main",
-      seq,
-      event,
-    });
+    const { receipt, seq } = await this.pushRenderFrame(target, event);
     return {
       id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
       __route: target.route,
@@ -793,6 +853,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         if (pushError !== undefined) return;
         try {
           await sink.push(frame);
+          this.recordAcceptedRenderEvent(t.turnId, event);
         } catch (err) {
           pushError = err;
         }

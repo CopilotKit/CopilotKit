@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json.schemastore.org/angular-cli",
+  "version": 1,
+  "projects": {
+    "showcase-angular": {
+      "projectType": "application",
+      "root": ".",
+      "sourceRoot": "src",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/showcase-angular",
+            "index": "src/index.html",
+            "browser": "src/main.ts",
+            "tsConfig": "tsconfig.app.json",
+            "assets": [{ "glob": "**/*", "input": "public" }],
+            "styles": [".staged-angular-package/styles.css", "src/styles.css"],
+            "baseHref": "/angular/"
+          },
+          "configurations": {
+            "development": {
+              "optimization": false,
+              "sourceMap": true
+            },
+            "production": {
+              "optimization": true,
+              "outputHashing": "all",
+              "sourceMap": false,
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "4400000b",
+                  "maximumError": "4600000b"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "28kB",
+                  "maximumError": "32kB"
+                }
+              ]
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "runner": "vitest",
+            "tsConfig": "tsconfig.spec.json",
+            "include": ["src/**/*.test.ts"],
+            "setupFiles": ["src/test-setup.ts"]
+          }
+        }
+      }
+    }
+  },
+  "cli": { "analytics": false }
+}

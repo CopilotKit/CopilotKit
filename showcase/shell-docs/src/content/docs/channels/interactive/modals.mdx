@@ -1,0 +1,121 @@
+---
+title: Modals
+icon: "lucide/PanelTopOpen"
+description: Open a form dialog, collect fields, and handle the submission.
+---
+
+A modal is a form dialog: a title, some inputs, a submit button. Open it from a
+button click or a slash command, collect the fields, and handle the
+submission.
+
+Modals are capability-gated. Slack and Discord support them; on a platform that
+does not, `openModal` resolves `{ ok: false }`. This builds on [component
+rendering](/channels/ui-library).
+
+## Build the view
+
+Compose a modal from `@copilotkit/channels/ui`. The `callbackId` is how the
+submission routes back to your handler.
+
+```tsx
+import {
+  Modal,
+  TextInput,
+  ModalSelect,
+  ModalSelectOption,
+  type ModalView,
+} from "@copilotkit/channels/ui";
+
+function FileIssueModal(): ModalView {
+  return (
+    <Modal callbackId="file-issue" title="File an issue" submitLabel="Create">
+      <TextInput id="title" label="Title" />
+      <TextInput id="body" label="Description" multiline optional />
+      <ModalSelect id="priority" label="Priority" initialOption="medium">
+        <ModalSelectOption label="High" value="high" />
+        <ModalSelectOption label="Medium" value="medium" />
+        <ModalSelectOption label="Low" value="low" />
+      </ModalSelect>
+    </Modal>
+  );
+}
+```
+
+### Elements
+
+| Component | Use |
+| --- | --- |
+| `Modal` | The dialog. `callbackId` (routes the submit/close), `title`, `submitLabel?`, `closeLabel?`, `notifyOnClose?`, `privateMetadata?`. |
+| `TextInput` | A text field. `id`, `label`, `placeholder?`, `multiline?`, `optional?`, `maxLength?`, `initialValue?`. |
+| `ModalSelect` + `ModalSelectOption` | A dropdown. `ModalSelect` takes `id`, `label`, `initialOption?`; each option is `{ label, value }`. |
+| `RadioButtons` | A single-choice group, same shape as `ModalSelect`. |
+
+## Open it
+
+A modal needs a fresh interaction trigger, so open it from a button click or a
+slash command, not from `onMessage`.
+
+From a button:
+
+```tsx
+<Button
+  onClick={async ({ openModal }) => {
+    await openModal?.(<FileIssueModal />);
+  }}
+>
+  File an issue
+</Button>
+```
+
+From a slash command:
+
+```ts
+defineChannelCommand({
+  name: "file-issue",
+  description: "Open the file-an-issue form.",
+  async handler({ openModal }) {
+    await openModal?.(<FileIssueModal />);
+  },
+});
+```
+
+<Callout type="warn" title="Discord expires the trigger fast">
+On Discord the interaction trigger expires about 3 seconds after the click.
+Call `openModal` first, before any slow work.
+</Callout>
+
+## Handle the submission
+
+Register a handler for the `callbackId`. Field values arrive on `evt.values`,
+keyed by each input's `id`. Return `{ errors }` to keep the modal open with
+per-field messages.
+
+```ts
+channel.onModalSubmit("file-issue", async (evt) => {
+  const { title, body, priority } = evt.values as {
+    title: string;
+    body?: string;
+    priority: string;
+  };
+
+  if (!title) {
+    return { errors: { title: "Title is required" } }; // keeps the modal open
+  }
+
+  await createIssue({ title, body, priority });
+  await evt.thread?.post(`Filed: ${title}`);
+});
+```
+
+To know when a user dismisses the modal, set `notifyOnClose` on the `Modal` and
+register `onModalClose`:
+
+```ts
+channel.onModalClose("file-issue", (evt) => {
+  // the user closed the form without submitting
+});
+```
+
+The submit event carries `values`, `user`, `thread?` (when the submission has a
+conversation context), and `privateMetadata` (the opaque string you set on the
+`Modal`).

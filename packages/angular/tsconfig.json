@@ -18,6 +18,7 @@
     "importHelpers": true,
     "types": ["node"],
     "paths": {
+      "@copilotkit/angular": ["./src/public-api.ts"],
       "@copilotkit/a2ui-renderer/web-components": [
         "../a2ui-renderer/src/web-components/index.ts"
       ],

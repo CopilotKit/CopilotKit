@@ -1,4 +1,5 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import type { TanStackChatMessage } from "@copilotkit/runtime/v2";
 import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat, toolDefinition } from "@tanstack/ai";
@@ -200,6 +201,36 @@ async function* convertStream(
           ],
         };
       }
+      // `set_notes` is the shared-state-read-write demo's agent-authored
+      // notes tool (see server-tools.ts). Its server handler returns
+      // `{ notes }`; translate that into a STATE_DELTA that adds `/notes`
+      // on the agent state, so the frontend `useAgent` subscriber sees the
+      // update and the notes card (`notes-list` / `note-item`) populates.
+      //
+      // Same RFC-6902 `add`-not-`replace` rationale as `set_steps` above:
+      // the agent's initial state carries no `/notes` snapshot before the
+      // first delta, and `fast-json-patch` strict mode rejects `replace` on
+      // an unresolvable path (OPERATION_PATH_UNRESOLVABLE), which
+      // `@ag-ui/client` swallows with a console.warn and never applies —
+      // leaving the panel in its placeholder. `add` creates `/notes` on the
+      // first emission and idempotently overwrites on subsequent calls.
+      if (
+        toolName === "set_notes" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "notes" in parsedContent
+      ) {
+        yield {
+          type: EventType.STATE_DELTA,
+          delta: [
+            {
+              op: "add",
+              path: "/notes",
+              value: (parsedContent as { notes: unknown }).notes,
+            },
+          ],
+        };
+      }
 
       let serializedContent: string;
       if (typeof rawPayload === "string") {
@@ -233,7 +264,24 @@ function safeParseJSON(value: string): unknown {
   }
 }
 
-export function createBuiltInAgent() {
+/**
+ * Options for {@link createBuiltInAgent}. All fields are OPT-IN — omitting them
+ * (the default for every demo except multimodal) preserves the base agent's
+ * behaviour byte-for-byte.
+ */
+export interface BuiltInAgentOptions {
+  /**
+   * Async hook to rewrite the converted TanStack messages before they reach
+   * the model. Used by the multimodal factory to flatten PDF `document`
+   * content parts to text server-side (the OpenAI text adapter cannot consume
+   * `document` parts and drops the turn otherwise). Left undefined by default.
+   */
+  preprocessMessages?: (
+    messages: TanStackChatMessage[],
+  ) => TanStackChatMessage[] | Promise<TanStackChatMessage[]>;
+}
+
+export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
   return new BuiltInAgent({
     // Use "custom" to bypass the runtime's convertTanStackStream which
     // has a runFinished flag (PR #4476) that blocks all events after the
@@ -241,7 +289,12 @@ export function createBuiltInAgent() {
     // for server-tool execution (tool-rendering, shared-state).
     type: "custom",
     factory: async ({ input, abortController }) => {
-      const { messages, systemPrompts } = convertInputToTanStackAI(input);
+      const { messages: convertedMessages, systemPrompts } =
+        convertInputToTanStackAI(input);
+      // Opt-in message rewrite (multimodal PDF flatten). Default: pass-through.
+      const messages = options.preprocessMessages
+        ? await options.preprocessMessages(convertedMessages)
+        : convertedMessages;
       // Subagent tools are built per-run so their nested chat() calls
       // abort with the parent.
       const subagentTools = buildSubagentTools(abortController);
@@ -273,7 +326,7 @@ export function createBuiltInAgent() {
         // x-* headers (e.g. x-aimock-context) bound into ALS by the
         // route handler. Without this, /v1/responses calls to aimock
         // miss every fixture (404) and the D6 subset goes 0/6.
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
         systemPrompts,
         tools: [...serverTools, ...frontendTools],

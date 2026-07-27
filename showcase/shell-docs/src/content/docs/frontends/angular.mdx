@@ -5,15 +5,28 @@ icon: "lucide/Triangle"
 hideTOC: true
 ---
 
-`@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`.
+`@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it; without a selection, the guide uses CopilotKit's `BuiltInAgent`.
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Take your Angular copilot from local to production"
+  body="Add durable threads, inspection, and managed or self-hosted Enterprise Intelligence without changing the Angular frontend APIs in this guide."
+  surface="docs:angular/quickstart:production"
+/>
+
+## What is CopilotKit for Angular?
+
+CopilotKit for Angular is the first-party, signal-based Angular frontend for
+AG-UI agents and Copilot Runtime. It provides complete chat surfaces and
+headless APIs, and it supports zoneless applications.
 
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- Angular 19, 20, or 21 (Angular 22 is not supported yet)
-- Node.js 20+
+- Angular 20, 21, or 22
+- Node.js 22
 
 ## Getting started
 
@@ -21,10 +34,10 @@ The runtime runs on your server, keeps model credentials out of the browser, and
     <Step>
         ### Create your Angular app
 
-        If you don't have one already. The package supports Angular up to 21, so pin the CLI to a supported major rather than `@latest`:
+        If you don't have one already, pin the CLI to one of the supported majors. This example uses Angular 22:
 
         ```bash
-        npx @angular/cli@21 new my-copilot-app
+        npx @angular/cli@22 new my-copilot-app
         cd my-copilot-app
         ```
     </Step>
@@ -55,10 +68,11 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         </Tabs>
 
         <Callout type="info" title="Match @angular/cdk to your Angular version">
-          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^21`).
+          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^22`).
         </Callout>
     </Step>
-    <Step>
+    <WhenAngularBackend selected={false}>
+      <Step>
         ### Create the Copilot Runtime
 
         Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
@@ -91,7 +105,27 @@ The runtime runs on your server, keeps model credentials out of the browser, and
           );
         });
         ```
-    </Step>
+      </Step>
+    </WhenAngularBackend>
+    <WhenAngularBackend selected>
+      <Step>
+        ### Connect the selected agent backend
+
+        This URL keeps the agent backend selected. The Angular setup remains
+        shared; the backend setup below comes from that integration's canonical
+        showcase source.
+
+        <FrameworkSetup concept="agent-setup" />
+
+        <Callout type="info" title="Expose the selected backend through Copilot Runtime">
+          Configure Copilot Runtime to register this backend as the `default`
+          agent at `/api/copilotkit`. Continue with the selected backend's
+          [Copilot Runtime guide](backend/copilot-runtime) for its runtime
+          adapter, credentials, and server command. Do not replace it with the
+          `BuiltInAgent` server from the standalone Angular path.
+        </Callout>
+      </Step>
+    </WhenAngularBackend>
     <Step>
         ### Import the styles
 
@@ -104,7 +138,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
     <Step>
         ### Connect to Copilot Runtime
 
-        Point `provideCopilotKit` at the runtime endpoint. Because the runtime registers an agent named `default`, the chat picks it up automatically.
+        Point `provideCopilotKit` at the runtime endpoint. The chat uses the agent that your runtime registers as `default`.
 
         ```ts title="src/app/app.config.ts"
         import { ApplicationConfig } from "@angular/core";
@@ -142,11 +176,9 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         export class App {}
         ```
 
-        <Callout type="info" title="Older Angular projects">
-          Angular 19 names the root component `app.component.ts` with class `AppComponent`. Add the same imports and template there.
-        </Callout>
     </Step>
-    <Step>
+    <WhenAngularBackend selected={false}>
+      <Step>
         ### Run the runtime and app
 
         Start Copilot Runtime in one terminal:
@@ -170,18 +202,38 @@ The runtime runs on your server, keeps model credentials out of the browser, and
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
-                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^21` on Angular 21.
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
                 - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
             </Accordion>
         </Accordions>
-    </Step>
+      </Step>
+    </WhenAngularBackend>
+    <WhenAngularBackend selected>
+      <Step>
+        ### Run the backend, runtime, and Angular app
+
+        Start the selected agent backend and Copilot Runtime with the commands
+        from its runtime guide. Confirm
+        `http://localhost:8200/api/copilotkit/info` reports the `default`
+        agent, then start Angular:
+
+        ```bash
+        npm start
+        ```
+
+        Open the Angular CLI URL (usually `http://localhost:4200`) and send a
+        message. The request now follows the selected path end to end:
+        Angular → Copilot Runtime → your selected agent backend.
+      </Step>
+    </WhenAngularBackend>
+
 </Steps>
 
-## Where to go next
+## Next steps
 
-- [Copilot Runtime](/backend/copilot-runtime): runtime setup, auth, middleware, and routing.
-- [Built-in Agent quickstart](/quickstart): configure the in-process agent used in this quickstart.
-- [Integrations](/integrations/langgraph): connect LangGraph, CrewAI, Mastra, and other agents through the runtime.
-- [Angular + Google ADK in production](/cookbook/angular-adk-agentic-app): the non-obvious gotchas when you wire Angular to an ADK agent with threads and memory.
-
-For headless setups, custom UIs with `injectAgentStore`, and the full component list, see the [`@copilotkit/angular` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular).
+- [Runtime and backend docs](backend/copilot-runtime): configure the server, secure requests, and deploy without leaving the selected Angular surface.
+- [Enterprise Intelligence](premium/overview): add durable threads, inspection, and cloud-hosted or self-hosted operations.
+- [Angular task guides](guides/chat-ui): build chat UI, tools, generative UI, interrupts, shared state, threads, memory, attachments, and headless UI.
+- [Angular feature examples](features): find runnable examples and canonical shared Angular source for each supported feature.
+- [Angular API reference](/reference/angular): use components, signals, tools, context, and runtime services.
+- [Production and lifecycle](/reference/angular/production-lifecycle): handle cleanup, errors, server rendering, hydration, zoneless Angular, and browser-only features.

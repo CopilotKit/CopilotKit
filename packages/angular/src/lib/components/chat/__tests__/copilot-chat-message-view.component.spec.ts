@@ -1,6 +1,7 @@
 import {
   Component,
   EnvironmentInjector,
+  input,
   runInInjectionContext,
   signal,
 } from "@angular/core";
@@ -33,6 +34,26 @@ const reasoningMessage: ReasoningMessage = {
 };
 
 @Component({
+  standalone: true,
+  template: `
+    <div data-testid="custom-reasoning">{{ message().content }}</div>
+  `,
+})
+class TestReasoningMessage {
+  readonly message = input.required<ReasoningMessage>();
+}
+
+@Component({
+  standalone: true,
+  template: `
+    <div data-testid="transcript-children">{{ messages().length }} messages</div>
+  `,
+})
+class TestTranscriptChildren {
+  readonly messages = input<Message[]>([]);
+}
+
+@Component({
   imports: [CopilotChatMessageView],
   template: `
     <copilot-chat-message-view
@@ -62,6 +83,18 @@ type MessageViewTestHarness = CopilotChatMessageView & {
 };
 
 describe("CopilotChatMessageView", () => {
+  it("renders transcript children after the message collection", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage]);
+    fixture.componentRef.setInput("childrenComponent", TestTranscriptChildren);
+    fixture.detectChanges();
+
+    const children = (
+      fixture.nativeElement as HTMLElement
+    ).querySelector<HTMLElement>('[data-testid="transcript-children"]');
+    expect(children?.textContent).toContain("1 messages");
+  });
+
   let injector: EnvironmentInjector;
   let component: CopilotChatMessageView;
   let harness: MessageViewTestHarness;
@@ -73,6 +106,7 @@ describe("CopilotChatMessageView", () => {
     renderers.set([]);
     getAgent.mockReset();
     TestBed.configureTestingModule({
+      imports: [MessageViewHostComponent],
       providers: [
         {
           provide: CopilotKit,
@@ -112,6 +146,20 @@ describe("CopilotChatMessageView", () => {
 
     component.handleAssistantThumbsUp({ message: assistantMessage });
     expect(thumbsUpSpy).toHaveBeenCalledWith({ message: assistantMessage });
+  });
+
+  it("renders canonical cross-frontend message markers", () => {
+    const fixture = TestBed.createComponent(MessageViewHostComponent);
+    fixture.componentInstance.messages = [userMessage, assistantMessage];
+    fixture.detectChanges();
+
+    const assistant = fixture.nativeElement.querySelector(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    expect(assistant?.getAttribute("data-message-role")).toBe("assistant");
+    expect(
+      fixture.nativeElement.querySelector('[data-message-role="user"]'),
+    ).not.toBeNull();
   });
 
   it("resolves activity messages with registered renderers", () => {
@@ -208,6 +256,26 @@ describe("CopilotChatMessageView", () => {
     expect(header?.getAttribute("aria-expanded")).toBe("false");
     expect(panel?.style.gridTemplateRows).toBe("0fr");
     expect(chevron?.classList.contains("cpk:rotate-90")).toBe(false);
+  });
+
+  it("renders a custom reasoning-message component with the reasoning context", () => {
+    const fixture = TestBed.createComponent(CopilotChatMessageView);
+    fixture.componentRef.setInput("messages", [userMessage, reasoningMessage]);
+    fixture.componentRef.setInput(
+      "reasoningMessageComponent",
+      TestReasoningMessage,
+    );
+    fixture.detectChanges();
+
+    expect(
+      fixture.nativeElement.querySelector('[data-testid="custom-reasoning"]')
+        ?.textContent,
+    ).toContain("I should choose the right renderer.");
+    expect(
+      fixture.nativeElement.querySelector(
+        '[data-testid="copilot-chat-reasoning-message"]',
+      ),
+    ).toBeNull();
   });
 
   it("renders completed reasoning collapsed by default", () => {

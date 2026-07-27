@@ -1,0 +1,97 @@
+---
+title: Microsoft Teams
+icon: "lucide/MessageSquare"
+description: Connect Microsoft Teams directly with the Teams adapter.
+---
+
+Connect Teams yourself with the Teams adapter when you want to hold the
+platform credentials. If you would rather CopilotKit hold them, use a [managed
+channel](/channels/quickstart) instead. Either way the runtime runs the
+channel, so a CopilotKit Intelligence key is required (free tier available).
+
+## Install
+
+```bash
+npm install @copilotkit/channels @copilotkit/runtime @tanstack/ai @tanstack/ai-openai
+```
+
+## Credentials
+
+The Teams adapter authenticates with an Entra (Azure AD) app. It reads
+`clientId`, `clientSecret`, and `tenantId` from the environment, or you can
+pass them directly.
+
+```bash
+clientId=...
+clientSecret=...
+tenantId=...
+
+# The runtime runs every channel, so a CopilotKit Intelligence key is required
+# even for a direct adapter (free tier available).
+COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_API_KEY=cpk-...
+```
+
+## Connect
+
+The adapter serves the Bot Framework messaging endpoint at `POST
+/api/messages`.
+
+```ts
+import { createChannel } from "@copilotkit/channels";
+import { teams } from "@copilotkit/channels/teams";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import { agent } from "./agent"; // your TanStack AI agent, see the Quickstart
+
+const channel = createChannel({
+  name: "support-bot",
+  agent,
+  adapters: [
+    teams({
+      port: 3978, // Bot Framework endpoint at /api/messages
+      // clientId, clientSecret, tenantId fall back to env
+    }),
+  ],
+});
+
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({ prompt: message.text });
+});
+
+// The runtime drives the channel — it starts the Teams adapter, you don't call
+// channel.start() yourself. `ready()` activates it.
+const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
+const runtime = new CopilotRuntime({
+  agents: {},
+  intelligence: new CopilotKitIntelligence({
+    apiUrl,
+    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiKey: process.env.COPILOTKIT_API_KEY!,
+  }),
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+  channels: [channel],
+});
+
+const listener = createCopilotNodeListener({ runtime });
+await listener.channels?.ready();
+```
+
+## Set up the Teams side
+
+You need an Entra app, an Azure Bot resource pointing at your public
+`/api/messages` URL with the Teams channel enabled, and a sideloaded Teams app
+package. For a tunnel during local development, point the Azure Bot messaging
+endpoint at your public tunnel URL.
+
+<Callout type="info">
+Teams reactions arrive as tokens like `1f504_refresh`. The SDK normalizes
+them to canonical names, so `emoji === "refresh"` works the same as on every
+other platform. See [reactions](/channels/interactive/reactions).
+</Callout>
+
+## Send files
+
+Teams accepts image attachments. `thread.postFile` with an image mime type
+posts an inline image. See [files and
+multimodality](/channels/files-and-multimodality).

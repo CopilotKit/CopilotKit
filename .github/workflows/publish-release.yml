@@ -33,13 +33,18 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "What to release"
+        description: "What to release ('all' is prerelease-only: every scope under one shared canary id)"
         required: true
         type: choice
         options:
           - monorepo
           - angular
           - channels
+          # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
+          # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
+          # mode" guard below, since a stable release derives its tag, release
+          # branch, and Slack/npm links from a single scope name.
+          - all
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -113,6 +118,15 @@ jobs:
             SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
+          # `all` is a prerelease-only selector: it publishes every scope under one
+          # shared canary id so cross-scope `workspace:` deps resolve within the run.
+          # A stable release cannot be multi-scope — the tag (`<scope>/v<version>`),
+          # the release branch, and the notify job's npm URL each assume ONE scope,
+          # and the scopes carry independent version lines.
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
+            exit 1
+          fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
           echo "Detected scope: $SCOPE, mode: $MODE"
@@ -221,6 +235,13 @@ jobs:
             exit 1
           fi
           MODE="${INPUT_MODE:-stable}"
+          # Same guard as the build job (this job re-derives scope/mode from the
+          # event rather than inheriting them). Defense in depth: nothing may reach
+          # the tag/GH-Release/notify path with the multi-scope sentinel.
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary)."
+            exit 1
+          fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
 
@@ -416,7 +437,9 @@ jobs:
             echo "## Prerelease Published"
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
-            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            # `versions` lists every published scope (`<scope>@<version>`), which is
+            # the whole story for scope=all; `version` alone names only the first.
+            echo "**Versions:** ${{ steps.publish.outputs.versions || steps.publish.outputs.version }}"
             echo "**Tag:** (prerelease — no tag created)"
           } >> "$GITHUB_STEP_SUMMARY"
 

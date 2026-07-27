@@ -60,9 +60,10 @@ afterEach(() => {
  * Build a minimal throwaway showcase tree the generator can run against:
  *
  *   <root>/scripts/{generate-registry.ts, validate-constraints.ts,
+ *                   lib/{frontend-registry.ts,frontend-catalog.ts},
  *                   package.json, node_modules -> real node_modules}
- *   <root>/shared/{manifest.schema.json, feature-registry.json[,
- *                  constraints.yaml]}
+ *   <root>/shared/{manifest.schema.json, feature-registry.json,
+ *                  frontend-registry.json[, constraints.yaml]}
  *   <root>/integrations/<slug>/manifest.yaml   (copied real manifests)
  *
  * The generator resolves every path relative to its own location, so all
@@ -89,6 +90,14 @@ function makeHarness(
   ]) {
     fs.copyFileSync(path.join(SCRIPTS_DIR, f), path.join(scriptsDir, f));
   }
+  const scriptsLibDir = path.join(scriptsDir, "lib");
+  fs.mkdirSync(scriptsLibDir, { recursive: true });
+  for (const f of ["frontend-registry.ts", "frontend-catalog.ts"]) {
+    fs.copyFileSync(
+      path.join(SCRIPTS_DIR, "lib", f),
+      path.join(scriptsLibDir, f),
+    );
+  }
   // Bare-specifier resolution (yaml, ajv, ajv-formats) for the copied
   // script — symlink the real node_modules instead of installing.
   fs.symlinkSync(
@@ -99,7 +108,11 @@ function makeHarness(
 
   const sharedDir = path.join(root, "shared");
   fs.mkdirSync(sharedDir, { recursive: true });
-  const sharedFiles = ["manifest.schema.json", "feature-registry.json"];
+  const sharedFiles = [
+    "manifest.schema.json",
+    "feature-registry.json",
+    "frontend-registry.json",
+  ];
   if (constraints) sharedFiles.push("constraints.yaml");
   for (const f of sharedFiles) {
     fs.copyFileSync(
@@ -168,7 +181,12 @@ function runGenerator(
   harness: Harness,
   env: Record<string, string | undefined> = {},
 ): string {
-  const childEnv: NodeJS.ProcessEnv = { ...process.env };
+  const childEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    SHOWCASE_SOURCE_COMMIT: "test-source-commit",
+    SHOWCASE_CONTAINER_IMAGE_REVISION: "test-container-image",
+    SHOWCASE_FIXTURE_REVISION: "test-fixture-revision",
+  };
   delete childEnv.SHOWCASE_BACKEND_HOST_PATTERN;
   delete childEnv.NEXT_PUBLIC_SHOWCASE_BACKEND_HOST_PATTERN;
   for (const [k, v] of Object.entries(env)) {
@@ -215,6 +233,30 @@ const DEFAULT_BACKEND_HOST_PATTERN =
   "showcase-{slug}-production.up.railway.app";
 
 describe("generate-registry reference-integration error contract (SU7-F3 #1)", () => {
+  it("uses the image build commit when the source override is absent", () => {
+    const harness = makeHarness();
+    runGenerator(harness, {
+      SHOWCASE_SOURCE_COMMIT: undefined,
+      SHOWCASE_CONTAINER_IMAGE_REVISION: undefined,
+      SHOWCASE_FIXTURE_REVISION: undefined,
+      NEXT_PUBLIC_COMMIT_SHA: "image-build-commit",
+    });
+
+    const catalog = readJson(
+      harness,
+      "shell",
+      "src",
+      "data",
+      "frontend-catalog.json",
+    );
+    expect(catalog.cells.length).toBeGreaterThan(0);
+    expect(catalog.cells[0]).toMatchObject({
+      source_commit: "image-build-commit",
+      container_image_revision: "git:image-build-commit",
+      fixture_revision: "image-build-commit",
+    });
+  });
+
   it("supports the zero-manifests path: emits an empty registry AND an empty catalog, exit 0", () => {
     // main() explicitly logs "No integration packages found. Generating
     // empty registry." — generateCatalog used to crash right after on a

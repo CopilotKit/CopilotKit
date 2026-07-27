@@ -7,12 +7,21 @@
  *
  * Always publishes with the "canary" dist-tag.
  *
- * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json> [--dry-run]
+ * Multi-scope caveat (scope=all): packages publish scope by scope, and the
+ * cross-scope dependency graph has cycles (runtime -> channels-intelligence,
+ * channels-core -> core), so NO order avoids publishing a package before the
+ * same-run version it pins. A run that dies partway therefore leaves published
+ * canaries pinning versions that never shipped — uninstallable until the rest
+ * lands. There is no resume: npm rejects republishing a version, so retry with a
+ * NEW suffix and abandon the half-published id.
+ *
+ * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 
 import { spawnSync } from "child_process";
-import { getPackagesForScope } from "./lib/versions.js";
-import { ROOT, loadConfig } from "./lib/config.js";
+import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
+import type { PublishablePackage } from "./lib/versions.js";
+import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 
@@ -35,38 +44,67 @@ function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
   const scopeIdx = argv.indexOf("--scope");
-  const scope = (
-    scopeIdx !== -1 ? argv[scopeIdx + 1] : null
-  ) as ReleaseScope | null;
+  const selector = scopeIdx !== -1 ? argv[scopeIdx + 1] : null;
+  const usage = `Usage: prerelease.ts --scope <${[...VALID_SCOPES, ALL_SCOPES].join("|")}> [--dry-run]`;
 
-  if (!scope || !VALID_SCOPES.includes(scope)) {
-    console.error(
-      `Usage: prerelease.ts --scope <${VALID_SCOPES.join("|")}> [--dry-run]`,
-    );
+  if (!selector) {
+    console.error(usage);
+    process.exit(1);
+  }
+
+  let scopes: ReleaseScope[];
+  try {
+    scopes = resolveScopes(selector);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    console.error(usage);
     process.exit(1);
   }
 
   const config = loadConfig();
   const distTag = config.prereleaseTag;
 
-  // Read the version from package.json — already bumped by bump-prerelease.ts
+  // Read the versions from package.json — already bumped by bump-prerelease.ts
   // in the CI build job.
-  const packages = getPackagesForScope(scope);
+  const scopeVersions = scopes.map((scope) => {
+    const version = getCurrentVersion(scope);
+    if (!version) {
+      console.error(
+        `Scope "${scope}" version source has no version field; refusing to publish.`,
+      );
+      process.exit(1);
+    }
+    return { scope, version };
+  });
+
+  // Union of every scope's packages, in per-scope publish order. Deduplicated by
+  // name: a package enrolled in two scopes must be published once, not twice
+  // (the second publish would fail on an already-taken version).
+  const packages: PublishablePackage[] = [];
+  const seen = new Set<string>();
+  for (const scope of scopes) {
+    for (const p of getPackagesForScope(scope)) {
+      if (seen.has(p.name)) continue;
+      seen.add(p.name);
+      packages.push(p);
+    }
+  }
   if (packages.length === 0) {
     console.error(
-      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+      `No packages found for scope "${selector}" — refusing to emit a version for a publish that did nothing.`,
     );
     process.exit(1);
   }
-  const publishVersion = packages[0].pkg.version;
-  if (!publishVersion) {
-    console.error(
-      `Package ${packages[0].name} has no version field; refusing to publish.`,
-    );
-    process.exit(1);
-  }
-  console.log(`Scope: ${scope}`);
-  console.log(`Publishing version: ${publishVersion}`);
+
+  // `version` stays single-valued for the workflow's emitted-version guard and
+  // the stable-shaped summary; `versions` carries every scope for a multi-scope
+  // canary, where no single version describes the publish.
+  const publishVersion = scopeVersions[0].version;
+  const publishVersions = scopeVersions
+    .map(({ scope, version }) => `${scope}@${version}`)
+    .join(" ");
+  console.log(`Scope: ${selector} -> ${scopes.join(", ")}`);
+  console.log(`Publishing versions: ${publishVersions}`);
   console.log(`Dist tag: ${distTag}`);
 
   if (dryRun) {
@@ -77,7 +115,11 @@ function main() {
     // Emitting in dry-run is safe — the publish workflow gates both the
     // publish step and the verify guard on `inputs.dry-run != true`, so this
     // only serves local/e2e verification of the output contract.
-    emitGithubOutputs({ version: publishVersion, scope });
+    emitGithubOutputs({
+      version: publishVersion,
+      versions: publishVersions,
+      scope: selector,
+    });
     console.log("\n[DRY RUN] Exiting.");
     return;
   }
@@ -114,9 +156,13 @@ function main() {
 
   // The workflow's "Verify publish step emitted version" guard and the
   // prerelease summary read these from steps.publish.outputs.
-  emitGithubOutputs({ version: publishVersion, scope });
+  emitGithubOutputs({
+    version: publishVersion,
+    versions: publishVersions,
+    scope: selector,
+  });
 
-  console.log(`\nPrerelease published: ${publishVersion} (tag: ${distTag})`);
+  console.log(`\nPrerelease published: ${publishVersions} (tag: ${distTag})`);
 }
 
 main();

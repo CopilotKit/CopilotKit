@@ -83,7 +83,7 @@ export class InMemoryDeliverySource implements DeliverySource {
   async deliver(env: ChannelIngressEnvelope): Promise<void> {
     if (!this.onDelivery) {
       throw new Error(
-        "InMemoryDeliverySource: not started — call channel.start() first",
+        "InMemoryDeliverySource: not started — the runner must start the channel first",
       );
     }
     await this.onDelivery(env);
