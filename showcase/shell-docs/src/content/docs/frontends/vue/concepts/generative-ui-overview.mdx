@@ -13,8 +13,8 @@ Generative UI is the set of CopilotKit primitives that lets an agent decide what
 | --- | --- |
 | **[Components as Tools](/vue/generative-ui/your-components/display-only)** | Register a Vue component with `useComponent`; an agent calls it as a tool and CopilotKit renders it inline with typed props. |
 | **[Tool Call Rendering](/vue/generative-ui/tool-rendering)** | Render existing backend tool calls with `useRenderTool`, including their arguments, status, and result. |
-| **[State Rendering](/vue/generative-ui/state-rendering)** | Subscribe to agent state and update Vue UI as values stream. |
-| **[Reasoning](/vue/generative-ui/reasoning)** | Render reasoning messages inline using the chat’s built-in surface or slots. |
+| **State Rendering** | Subscribe to agent state and update Vue UI as values stream. |
+| **Reasoning** | Render reasoning messages inline using the chat’s built-in surface or slots. |
 | **A2UI** | A declarative, agent-emitted UI schema. Vue-specific A2UI guide and API decisions are intentionally deferred while the related public API is unsettled. |
 | **[MCP Apps](/vue/generative-ui/mcp-apps)** | Render UI an MCP server ships with its tools in a sandboxed iframe; no application-specific renderer is required. |
 
@@ -24,8 +24,8 @@ Generative UI is the set of CopilotKit primitives that lets an agent decide what
 | --- | --- |
 | Let the agent render a Vue component you already built | **[Components as Tools](/vue/generative-ui/your-components/display-only)** |
 | Brand cards for existing backend tools | **[Tool Call Rendering](/vue/generative-ui/tool-rendering)** |
-| Update progress, drafts, or dashboards from streamed agent state | **[State Rendering](/vue/generative-ui/state-rendering)** |
-| Surface model reasoning in chat | **[Reasoning](/vue/generative-ui/reasoning)** |
+| Update progress, drafts, or dashboards from streamed agent state | **State Rendering** |
+| Surface model reasoning in chat | **Reasoning** |
 | Embed UI hosted by an MCP server | **[MCP Apps](/vue/generative-ui/mcp-apps)** |
 
 ## How the primitives compare

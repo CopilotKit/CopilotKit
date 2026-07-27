@@ -1,6 +1,6 @@
 ---
 title: MCP
-description: Connect Model Context Protocol servers to a Vue CopilotKit application.
+description: Understand MCP's role in a Vue CopilotKit application and the current integration boundary.
 icon: "lucide/Network"
 ---
 
@@ -11,7 +11,7 @@ The Model Context Protocol (MCP) is an open standard for secure, two-way connect
 For protocol background, see the [Model Context Protocol introduction](https://modelcontextprotocol.io/introduction).
 
 <Callout type="info" title="Looking for MCP Apps?">
-  When an MCP server returns interactive UI that should render in chat, use [MCP Apps](/vue/generative-ui/mcp-apps). This page connects MCP tools; MCP Apps is the server-hosted UI path.
+  When an MCP server returns interactive UI that should render in chat, see [MCP Apps](/vue/generative-ui/mcp-apps). MCP Apps is a distinct server-hosted UI path; it does not establish the MCP tool connection described on this page.
 </Callout>
 
 <Image
@@ -31,42 +31,49 @@ For protocol background, see the [Model Context Protocol introduction](https://m
 
 MCP is one of the agentic protocols CopilotKit uses to connect agents to user-facing frontends.
 
+## How the responsibilities divide
+
+- **MCP server:** exposes data and tools over an MCP transport and owns any server-side authentication requirements.
+- **CopilotKit runtime:** creates the MCP client, discovers tools, invokes them, and relays their activity through the agent run.
+- **Vue frontend:** connects to the CopilotKit runtime and may render tool-call events. It should not own private MCP credentials or create the server-side MCP client.
+
+This separation keeps external credentials and data access on the trusted server side while AG-UI carries agent activity to the browser.
+
 ## Quickstart with CopilotKit
 
-### 1. Get an MCP server
+### Get an MCP server
 
 Start with an MCP endpoint you control or have configured, such as an SSE endpoint from a provider or your own MCP server. Keep server authentication and credentials on the trusted side of your deployment.
 
-### 2. Configure the runtime
+### CLI setup
 
-The runtime resolves MCP tools. Configure its `mcpServers` support and `createMCPClient` implementation for the MCP client library and transport you use. The runtime requires that factory whenever MCP servers are supplied; its MCP server configuration is currently experimental.
+The React quickstart offers `npx copilotkit@latest init -m MCP` for a Next.js application. Repository evidence does not establish a corresponding Vue initializer or generated Vue configuration, so this guide does not present that command as a Vue setup path.
 
-```ts
-const runtime = new CopilotRuntime({
-  createMCPClient: async (config) =>
-    createMCPClientForYourTransport({ endpoint: config.endpoint }),
-});
-```
+### Dynamic server configuration
 
-For a self-hosted runtime, this is the same runtime-side responsibility: provide `createMCPClient`, select the MCP SDK/transport implementation, and protect the endpoint and credentials according to your server environment.
+There is currently no supported, verified Vue frontend configuration path for selecting MCP servers.
 
-### 3. Connect the Vue frontend
+`CopilotKitProvider` can forward generic request properties, but the current runtime invocation of its MCP tool resolver does not pass those request properties into the resolver. Consequently, setting `properties.mcpServers` in Vue does not establish the MCP tools. The React page's dynamic `setMcpServers` journey also lacks a verified current Vue counterpart.
 
-Pass the selected endpoint as request properties on `CopilotKitProvider`. Vue forwards those properties with agent runs; the runtime merges request-scoped `mcpServers` with its runtime configuration.
+<Callout type="warning" title="Current Vue limitation">
+  No end-to-end MCP setup is shown because repository evidence does not support a working Vue frontend configuration path. Configure and validate MCP at the runtime/agent boundary appropriate to your deployment; do not treat provider properties as an MCP API.
+</Callout>
 
-<VueDocExample file="protocols/mcp.vue" region="mcp-provider" />
+### Add the chat interface
 
-Use a new properties object when the selected server changes so the provider can update the runtime configuration. Do not put private MCP credentials in browser-visible properties.
+Once an independently configured agent exposes MCP-backed tools through the runtime, a normal Vue chat surface can display their AG-UI events. The [Vue Quickstart](/vue) documents the supported provider, runtime URL, agent ID, and chat composition. That connection alone does not configure MCP.
 
-### 4. Add the chat interface
-
-`CopilotChat` is inside the provider in the fixture. Its agent ID selects the runtime agent that can use the resolved MCP tools. Keep the existing separate-runtime topology from the [Vue Quickstart](/vue) for local development.
-
-### 5. Visualize MCP tool calls (optional)
+### Visualize MCP tool calls
 
 MCP tools are ordinary backend tool calls once the runtime resolves them. Use [`useRenderTool`](/reference/vue/hooks/useRenderTool) for a named tool, [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) as a wildcard fallback, or a `tool-call-{name}`/`tool-call` slot on the chat. A renderer should handle partial arguments, `inProgress`/`executing` work, and the completed result.
 
 <VueDocExample file="generative-ui/tool-rendering.vue" region="programmatic-tool-rendering" />
+
+This renderer is a supported Vue tool-call presentation example. It does not prove that the MCP server connection itself is configured.
+
+### Complete implementation
+
+A complete Vue MCP implementation cannot be documented from current repository evidence because the frontend configuration step is unresolved. This page therefore stops at the verified responsibility boundary instead of combining individually valid snippets into an unsupported integration.
 
 ## Advanced Usage
 
@@ -76,4 +83,4 @@ For a custom card, display the tool name, parameters, lifecycle status, and resu
 
 ### Self-hosting option
 
-Self-hosting does not move MCP connection logic to the browser. Your runtime still owns the MCP client factory, outbound transport, credentials, and authorization. The Vue app only forwards the selected, safe-to-expose endpoint configuration and renders streamed tool calls. See [Architecture](/vue/concepts/architecture) for the runtime boundary.
+Self-hosting does not move MCP connection logic to the browser. The trusted runtime or agent layer must own the MCP client, outbound transport, credentials, authorization, and tool discovery. The Vue app may render resulting tool-call events, but this guide does not claim a complete static runtime configuration path without verified end-to-end evidence. See [Architecture](/vue/concepts/architecture) for the layer boundary.

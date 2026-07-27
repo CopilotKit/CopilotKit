@@ -3,17 +3,22 @@
 import { h } from "vue";
 import { z } from "zod";
 import { useRenderTool } from "@copilotkit/vue/v2";
-import type { RenderToolProps } from "@copilotkit/vue/v2";
 
 const a2aMessageParameters = z.object({
   agentName: z.string(),
   task: z.string(),
 });
 
+interface A2AMessageRenderProps {
+  parameters: Partial<z.infer<typeof a2aMessageParameters>>;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
+}
+
 useRenderTool({
   name: "send_message_to_a2a_agent",
   parameters: a2aMessageParameters,
-  render: (props: RenderToolProps<typeof a2aMessageParameters>) =>
+  render: (props: A2AMessageRenderProps) =>
     h("article", { class: "a2a-message" }, [
       h("strong", `Orchestrator → ${props.parameters.agentName ?? "agent"}`),
       h("p", props.parameters.task ?? "Preparing the request…"),
