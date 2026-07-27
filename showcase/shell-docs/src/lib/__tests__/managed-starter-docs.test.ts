@@ -22,3 +22,25 @@ test("names create as the init command alias across managed setup guides", () =>
     expect(source).not.toMatch(reversedAlias);
   }
 });
+
+test("documents the managed CLI credential without an offline license token", () => {
+  const sources = [
+    "docs/premium/managed-intelligence-platform.mdx",
+    "snippets/shared/cli/cli.mdx",
+  ].map((relativePath) =>
+    fs
+      .readFileSync(path.join(CONTENT_DIR, relativePath), "utf8")
+      .replace(/\s+/g, " "),
+  );
+
+  for (const source of sources) {
+    expect(source).toContain(
+      "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`.",
+    );
+    expect(source).toContain("`CPK_INTELLIGENCE_API_KEY`");
+    expect(source).not.toMatch(
+      /copy[^.]*`INTELLIGENCE_API_KEY`[^.]*`CPK_INTELLIGENCE_API_KEY`/i,
+    );
+    expect(source).not.toContain("COPILOTKIT_LICENSE_TOKEN=...");
+  }
+});
