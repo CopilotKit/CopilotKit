@@ -1,6 +1,7 @@
 export * from "./telemetry-client";
 export * from "./sampling";
 export {
+  firstNonBlankTelemetryId,
   lambdaClient,
   parseTelemetryIdFromLicense,
   parseAndWarnTelemetryId,

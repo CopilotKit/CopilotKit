@@ -2,7 +2,11 @@ import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import { lambdaClient, parseAndWarnTelemetryId } from "./lambda-client";
+import {
+  firstNonBlankTelemetryId,
+  lambdaClient,
+  parseAndWarnTelemetryId,
+} from "./lambda-client";
 import { computeSamplingMeta, TELEMETRY_EMITTER_V1 } from "./sampling";
 
 /**
@@ -23,6 +27,26 @@ export function isTelemetryDisabled(): boolean {
   );
 }
 
+/** Transport identity and sampling authority resolved for one runtime. */
+export interface TelemetryIdentity {
+  telemetryId?: string;
+  licenseToken?: string;
+}
+
+/** Capture-only telemetry client bound to one runtime identity. */
+export interface TelemetryCapture {
+  capture<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+  ): Promise<void>;
+}
+
+interface ResolvedTelemetryIdentity {
+  telemetryId: string | null;
+  licenseToken: string | null;
+  licenseTelemetryId: string | null;
+}
+
 export class TelemetryClient {
   segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
@@ -31,11 +55,13 @@ export class TelemetryClient {
   // client decodes its payload to extract telemetry_id. Customer API
   // keys are NOT used here — they flow only into Segment.
   private licenseToken: string | null = null;
-  // Parsed telemetry_id from the license-token JWT payload. Cached at
-  // setLicenseToken time so `capture()` can branch on identified vs
-  // anonymous without re-parsing per event. Null when the token is
-  // absent or yielded no telemetry_id.
+  // Standalone analytics identity. This stays separate from the effective
+  // identity so legacy callers continue sending only their license token to
+  // the Lambda transport.
   private telemetryId: string | null = null;
+  // License-derived identity used only as sampling authority. A standalone
+  // telemetry id remains a transport claim and does not bypass sampleRate.
+  private licenseTelemetryId: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
@@ -92,23 +118,35 @@ export class TelemetryClient {
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
-  ) {
+  ): Promise<void> {
+    return this.captureWithIdentity(event, properties, {
+      telemetryId: this.telemetryId,
+      licenseToken: this.licenseToken,
+      licenseTelemetryId: this.licenseTelemetryId,
+    });
+  }
+
+  private async captureWithIdentity<K extends keyof AnalyticsEvents>(
+    event: K,
+    properties: AnalyticsEvents[K],
+    identity: ResolvedTelemetryIdentity,
+  ): Promise<void> {
     if (this.telemetryDisabled) {
       return;
     }
 
-    // Anonymous callers (no telemetry_id) are gated by sampleRate.
-    // Identified callers (license token with telemetry_id) always send —
+    // Callers without license-derived sampling authority are gated by
+    // sampleRate. Legacy license tokens with telemetry_id always send —
     // the volume is bounded by paying-customer count and full fidelity
     // per identified customer is worth the marginal cost.
-    if (!this.telemetryId && !this.shouldSendEvent()) {
+    if (!identity.licenseTelemetryId && !this.shouldSendEvent()) {
       return;
     }
 
     // Sampling metadata is computed in ./sampling so this client and the
     // v2 runtime client can't drift apart again — see the note there.
     const samplingMeta = computeSamplingMeta({
-      telemetryId: this.telemetryId,
+      telemetryId: identity.licenseTelemetryId,
       sampleRate: this.sampleRate,
     });
 
@@ -151,7 +189,8 @@ export class TelemetryClient {
       },
       packageName: this.packageName,
       packageVersion: this.packageVersion,
-      licenseToken: this.licenseToken ?? undefined,
+      telemetryId: identity.telemetryId ?? undefined,
+      licenseToken: identity.licenseToken ?? undefined,
     });
 
     if (this.segment) {
@@ -182,12 +221,75 @@ export class TelemetryClient {
     });
   }
 
-  // The license token isn't added to globalProperties — we don't want
-  // the JWT itself shipped on every event. Only its decoded telemetry_id
-  // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
+  /**
+   * Atomically configure standalone, legacy, or anonymous telemetry identity.
+   *
+   * A standalone id takes transport precedence over a supplied legacy license
+   * token, but only a license-derived id grants sampling authority. Neither
+   * value is added to event properties.
+   *
+   * @param identity - One standalone id, one legacy license token, or neither.
+   */
+  setTelemetryIdentity(identity: {
+    telemetryId?: string;
+    licenseToken?: string;
+  }): void {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
+  }
+
+  /**
+   * Configure legacy license-derived telemetry identity.
+   *
+   * @param licenseToken - License token whose telemetry claim identifies sends.
+   */
   setLicenseToken(licenseToken: string) {
-    this.licenseToken = licenseToken;
-    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
+    this.setTelemetryIdentity({ licenseToken });
+  }
+
+  /**
+   * Create an immutable capture scope for one runtime.
+   *
+   * The scope shares this client's sinks, process-wide opt-out, global
+   * properties, and sampling settings, but snapshots transport identity and
+   * license-derived sampling authority. Constructing another runtime cannot
+   * rewrite an existing scope.
+   *
+   * @param identity - The runtime's construction-time telemetry identity.
+   * @returns A capture-only client bound to that identity.
+   */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
+  }
+
+  private resolveTelemetryIdentity(
+    identity: TelemetryIdentity,
+  ): ResolvedTelemetryIdentity {
+    const telemetryId = firstNonBlankTelemetryId(identity.telemetryId);
+    if (telemetryId !== undefined) {
+      return {
+        telemetryId,
+        licenseToken: null,
+        licenseTelemetryId: null,
+      };
+    }
+
+    return {
+      telemetryId: null,
+      licenseToken: identity.licenseToken ?? null,
+      licenseTelemetryId: identity.licenseToken
+        ? parseAndWarnTelemetryId(identity.licenseToken)
+        : null,
+    };
   }
 
   private setSampleRate(sampleRate: number | undefined) {
@@ -211,8 +313,8 @@ export class TelemetryClient {
 
     this.sampleRate = _sampleRate;
     // Per-event sampling metadata (sampleRate/sampleRateAdjustmentFactor/
-    // sampleWeight) is computed per capture() in ./sampling, so identified
-    // events get their own effectiveSampleRate=1 weight instead of the
-    // anonymous population's 1/sampleRate.
+    // sampleWeight) is computed per capture() in ./sampling. Only license-
+    // authorized events get effectiveSampleRate=1; standalone transport
+    // identity stays in the sampled population.
   }
 }
