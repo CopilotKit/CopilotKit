@@ -4,6 +4,8 @@ import type {
   FrameworkOverviewData,
   SupportedFeature,
 } from "@/data/frameworks/types";
+import { resolveAngularDoc } from "./angular-doc-navigation";
+import { getFrontendCanonicalSlug } from "./frontend-page-content";
 
 const SHOWCASE_ORIGIN = "https://showcase.copilotkit.ai";
 
@@ -76,6 +78,56 @@ function findDemoForFeature(
   return bestScore >= 0.5 ? best : null;
 }
 
+function sourceDocumentationSlug(
+  documentationLink: string,
+  overviewSourceSlug: string,
+): string | null {
+  if (
+    !documentationLink.startsWith("/") ||
+    documentationLink.startsWith("//")
+  ) {
+    return null;
+  }
+
+  const pathname = documentationLink.split(/[?#]/, 1)[0];
+  const sourcePrefix = `/${overviewSourceSlug}/`;
+  return pathname.startsWith(sourcePrefix)
+    ? pathname.slice(sourcePrefix.length)
+    : pathname.replace(/^\/+/, "");
+}
+
+function angularDocumentationLink(
+  feature: SupportedFeature,
+  demo: RunnableDemo | null,
+  overviewSourceSlug: string,
+  integration: string,
+): string {
+  const sourceSlug = sourceDocumentationSlug(
+    feature.documentationLink,
+    overviewSourceSlug,
+  );
+  if (sourceSlug) {
+    const canonicalSlug = getFrontendCanonicalSlug("angular", sourceSlug);
+    if (resolveAngularDoc(integration, canonicalSlug)) {
+      return `/${integration}/${canonicalSlug}`;
+    }
+  }
+
+  // A generated React overview can name a leaf that Angular intentionally
+  // consolidates into its capability catalog. Fall back to the exact matched
+  // catalog feature instead of inventing another URL or borrowing a different
+  // backend's page.
+  if (demo && resolveAngularDoc(integration, "features")) {
+    return `/${integration}/features#${demo.cell.feature}`;
+  }
+
+  throw new Error(
+    `Angular overview documentation link ${JSON.stringify(
+      feature.documentationLink,
+    )} does not resolve for ${JSON.stringify(integration)}.`,
+  );
+}
+
 /**
  * Adapt a generated backend overview to the Angular docs surface.
  *
@@ -116,13 +168,12 @@ export function buildAngularBackendOverview(
         (match) =>
           match.endsWith("s") ? "Angular components" : "an Angular component",
       ),
-      documentationLink: feature.documentationLink.startsWith(
-        `/${overviewSourceSlug}/`,
-      )
-        ? `/${integration}${feature.documentationLink.slice(
-            overviewSourceSlug.length + 1,
-          )}`
-        : feature.documentationLink,
+      documentationLink: angularDocumentationLink(
+        feature,
+        demo,
+        overviewSourceSlug,
+        integration,
+      ),
       demoLink: demo ? showcaseHref(demo.cell) : undefined,
     };
 

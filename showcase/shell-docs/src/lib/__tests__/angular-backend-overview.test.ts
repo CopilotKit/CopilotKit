@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { frameworkOverviews } from "@/data/frameworks";
 import frontendCatalogData from "@/data/frontend-catalog.json";
 import { buildAngularBackendOverview } from "../angular-backend-overview";
+import { resolveAngularDoc } from "../angular-doc-navigation";
+import { getFrontendCanonicalSlug } from "../frontend-page-content";
 import { getIntegrations } from "../registry";
 
 interface CatalogCell {
@@ -25,7 +27,86 @@ function exactRunnableAngularHref(href: string, integration: string): boolean {
   );
 }
 
+function expectResolvableAngularDocumentationHref(
+  href: string,
+  integration: string,
+): void {
+  const prefix = `/${integration}/`;
+  expect(href.startsWith(prefix), integration).toBe(true);
+  const scopedSlug = href.slice(prefix.length).split(/[?#]/, 1)[0];
+  const canonicalSlug = getFrontendCanonicalSlug("angular", scopedSlug);
+
+  expect(canonicalSlug, href).toBe(scopedSlug);
+  expect(resolveAngularDoc(integration, canonicalSlug), href).not.toBeNull();
+}
+
 describe("buildAngularBackendOverview", () => {
+  it("resolves every generated documentation link through the Angular routing pipeline", () => {
+    const generatedBackends = getIntegrations().filter(
+      (integration) =>
+        integration.docs_mode === "generated" &&
+        frameworkOverviews[integration.slug] !== undefined,
+    );
+
+    for (const backend of generatedBackends) {
+      const overview = buildAngularBackendOverview(
+        frameworkOverviews[backend.slug],
+        backend.slug,
+      );
+
+      for (const feature of overview.supportedFeatures) {
+        expectResolvableAngularDocumentationHref(
+          feature.documentationLink,
+          backend.slug,
+        );
+      }
+    }
+  });
+
+  it("canonicalizes Strands backend-tool docs to the Angular generative UI guide", () => {
+    for (const integration of ["strands", "strands-typescript"]) {
+      const overview = buildAngularBackendOverview(
+        frameworkOverviews[integration],
+        integration,
+      );
+      const generativeUi = overview.supportedFeatures.find(
+        (feature) => feature.title === "Generative UI",
+      );
+
+      expect(generativeUi?.documentationLink).toBe(
+        `/${integration}/guides/frontend-tools-generative-ui`,
+      );
+      expectResolvableAngularDocumentationHref(
+        generativeUi!.documentationLink,
+        integration,
+      );
+    }
+  });
+
+  it("falls back to the exact catalog capability when a source leaf has no Angular page", () => {
+    const source = frameworkOverviews["langgraph-python"];
+    const overview = buildAngularBackendOverview(
+      {
+        ...source,
+        supportedFeatures: [
+          {
+            ...source.supportedFeatures[0],
+            documentationLink: "/langgraph/not-an-angular-page",
+          },
+        ],
+      },
+      "langgraph-python",
+    );
+
+    expect(overview.supportedFeatures[0].documentationLink).toBe(
+      "/langgraph-python/features#gen-ui-tool-based",
+    );
+    expectResolvableAngularDocumentationHref(
+      overview.supportedFeatures[0].documentationLink,
+      "langgraph-python",
+    );
+  });
+
   it("uses exact runnable cells for every generated Angular backend overview", () => {
     const generatedBackends = getIntegrations().filter(
       (integration) =>

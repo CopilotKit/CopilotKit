@@ -62,6 +62,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "generative-ui/interactive": "guides/frontend-tools-generative-ui",
   "generative-ui/tool-based": "guides/frontend-tools-generative-ui",
   "generative-ui/tool-rendering": "guides/frontend-tools-generative-ui",
+  "generative-ui/backend-tools": "guides/frontend-tools-generative-ui",
   "generative-ui/state-rendering": "guides/frontend-tools-generative-ui",
   "generative-ui/open-generative-ui": "guides/frontend-tools-generative-ui",
   "generative-ui/open-json-ui": "guides/frontend-tools-generative-ui",
