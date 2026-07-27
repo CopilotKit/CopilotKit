@@ -2,21 +2,35 @@
 
 Tracks where this integration **intentionally** diverges from the
 `langgraph-python` north star. Everything not listed here is expected to be
-byte-identical (modulo the integration's own name/title). `fe-parity.ts` reads
-the machine-readable allowlist block below and reports these files as
-`ALLOWED` (sanctioned) instead of `DRIFT`, so the parity gate is not driven
-toward an impossible goal.
+byte-identical (modulo the integration's own name/title). The real judge of
+parity is behavior (`bin/showcase test langgraph-fastapi:<demo> --d6`); the
+entries below are known, sanctioned divergences that should NOT be "fixed"
+toward byte-identity.
 
 **Rule for agents:** if a file is listed below, it is different **on purpose** —
 do not "fix" it to match langgraph-python. If you think an entry is wrong,
 verify with D6 first (`bin/showcase test langgraph-fastapi:<demo> --d6`) and
 discuss before changing.
 
-<!-- fe-parity-allow
-app/demos/a2ui-recovery/suggestions.ts | a2ui-recovery fixtures carry NO x-aimock-context, so each integration MUST use a UNIQUE pill prompt or fixtures collide across integrations. fastapi's prompt ("Put together a quarterly metrics overview…") differs from langgraph-python's ("Build my Q2 revenue summary…") by design. See harness/src/probes/scripts/d5-a2ui-recovery.ts ("per-framework prompt isolation, load-bearing"). Verified: aligning to LGP's prompt makes aimock fail to match (STRICT no-match). NOTE: a2ui-recovery ALSO has a separate DOM-level D6 red (surface-missing) that is NOT a fastapi defect — it reproduces identically on the langgraph-python north star (shared Python ag_ui_langgraph recovery loop). See the "a2ui-recovery — D6 red is a shared north-star defect" section below. Do not "fix" it by byte-aligning the prompt.
-app/demos/a2ui-recovery/chat.tsx | Consequence of the unique-prompt design above: this integration does not inject the declarative-gen-ui sales-context hook into the recovery demo (the backend prompt + fixtures carry the dataset). Kept as fastapi's own working version.
-app/demos/a2ui-recovery/page.tsx | Per-slug backend path reference in the doc comment (src/agents/src/recovery_agent.py — fastapi nests agents under src/agents/src/, langgraph-python uses src/agents/). Cosmetic comment divergence, not behavior.
--->
+### Sanctioned file-level divergences (a2ui-recovery)
+
+- `app/demos/a2ui-recovery/suggestions.ts` — a2ui-recovery fixtures carry NO
+  `x-aimock-context`, so each integration MUST use a UNIQUE pill prompt or
+  fixtures collide across integrations. fastapi's prompt ("Put together a
+  quarterly metrics overview…") differs from langgraph-python's ("Build my Q2
+  revenue summary…") by design. See
+  `harness/src/probes/scripts/d5-a2ui-recovery.ts` ("per-framework prompt
+  isolation, load-bearing"). Aligning to LGP's prompt makes aimock fail to
+  match (STRICT no-match). (a2ui-recovery ALSO has a separate DOM-level D6 red
+  that is NOT a fastapi defect — see the shared-north-star-defect section
+  below.)
+- `app/demos/a2ui-recovery/chat.tsx` — consequence of the unique-prompt design
+  above: this integration does not inject the declarative-gen-ui sales-context
+  hook into the recovery demo (the backend prompt + fixtures carry the
+  dataset). Kept as fastapi's own working version.
+- `app/demos/a2ui-recovery/page.tsx` — per-slug backend path reference in the
+  doc comment (`src/agents/src/recovery_agent.py`). Cosmetic comment
+  divergence, not behavior.
 
 ## a2ui-recovery — per-slug prompt isolation
 
