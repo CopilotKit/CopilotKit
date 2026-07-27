@@ -25,9 +25,9 @@ from copilotkit import CopilotKitMiddleware
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. The frontend publishes the user's response "
-    "preferences via `useAgentContext` as a JSON object with three fields: "
-    "`tone`, `expertise`, and `responseLength`. Read that context entry on "
-    "every turn and follow these rulebooks exactly:\n\n"
+    "preferences via `useAgentContext` as an App Context entry whose value is "
+    "JSON with three fields: `tone`, `expertise`, and `responseLength`. Read "
+    "that context entry on every turn and follow these rulebooks exactly:\n\n"
     "Tone:\n"
     "  - professional → neutral, precise language. No emoji. Short sentences.\n"
     "  - casual → friendly, conversational. Contractions OK. Light humor "

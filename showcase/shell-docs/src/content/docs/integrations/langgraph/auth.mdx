@@ -69,7 +69,7 @@ from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
     # Access user from LangGraph Platform authentication
-    user_info = config["configuration"]["langgraph_auth_user"]
+    user_info = config["configurable"]["langgraph_auth_user"]
     user_id = user_info["identity"]
     user_role = user_info.get("role")
 

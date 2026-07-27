@@ -12,7 +12,7 @@
  *     → POST /api/copilotkit/agent/default/run  (with x-copilotkit-auth header)
  *     → CopilotKit Express runtime
  *         configureAgentForRequest merges x-* headers onto agent.headers
- *     → HttpAgent → POST <backend-fixture-url>  (x-copilotkit-auth forwarded)
+ *     → HttpAgent → POST <backend-fixture-url>/runs/stream  (x-copilotkit-auth forwarded)
  *     → Node.js backend fixture
  *         extracts x-copilotkit-auth from incoming request headers
  *         builds configurable = { "x-copilotkit-auth": "<token>" }
@@ -91,6 +91,12 @@ async function startBackendFixture(): Promise<BackendHandle> {
   return new Promise((resolve) => {
     const server = createServer(
       async (req: IncomingMessage, res: ServerResponse) => {
+        if (req.method !== "POST" || req.url !== "/runs/stream") {
+          res.writeHead(404, { "Content-Type": "text/plain" });
+          res.end("expected POST /runs/stream");
+          return;
+        }
+
         // Consume request body (RunAgentInput sent by HttpAgent)
         const chunks: Buffer[] = [];
         for await (const chunk of req) {
@@ -205,7 +211,7 @@ async function startRuntimeServer(
   // HttpAgent uses the documented header-forwarding path:
   // configureAgentForRequest reads x-* from the inbound request and
   // sets agent.headers so HttpAgent includes them on the outgoing call.
-  const agent = new HttpAgent({ url: backendUrl });
+  const agent = new HttpAgent({ url: `${backendUrl}/runs/stream` });
 
   // The default forwardHeaders policy (undefined) already admits
   // authorization + custom x-* headers (including x-copilotkit-auth)
@@ -289,16 +295,21 @@ async function runAgent(
 // ---------------------------------------------------------------------------
 
 describe("FAC-121: x-copilotkit-auth forwarding through CopilotKit runtime", () => {
-  let backend: BackendHandle;
-  let runtime: RuntimeServerHandle;
+  let backend: BackendHandle | undefined;
+  let runtime: RuntimeServerHandle | undefined;
 
   /**
    * Token value used for repeated-run proof.  Only a boolean flag and a
    * 12-char hash prefix appear in SSE output — never the raw value.
    */
-  const TEST_TOKEN = "fac121-integration-proof-token";
-  const EXPECTED_HASH_PREFIX = createHash("sha256")
-    .update(TEST_TOKEN)
+  const RUN_1_TOKEN = "fac121-integration-proof-token-run-1";
+  const RUN_2_TOKEN = "fac121-integration-proof-token-run-2";
+  const EXPECTED_RUN_1_HASH_PREFIX = createHash("sha256")
+    .update(RUN_1_TOKEN)
+    .digest("hex")
+    .slice(0, 12);
+  const EXPECTED_RUN_2_HASH_PREFIX = createHash("sha256")
+    .update(RUN_2_TOKEN)
     .digest("hex")
     .slice(0, 12);
 
@@ -308,101 +319,111 @@ describe("FAC-121: x-copilotkit-auth forwarding through CopilotKit runtime", () 
   });
 
   afterAll(async () => {
-    await runtime.close();
-    await backend.close();
+    await Promise.allSettled([runtime?.close(), backend?.close()]);
   });
 
   it("Run 1: token accessible via configurable channel — token_present:true", async () => {
     const sseOutput = await runAgent(
-      runtime.baseUrl,
-      runtime.basePath,
+      runtime!.baseUrl,
+      runtime!.basePath,
       "fac121-thread",
       "run-1",
-      { "x-copilotkit-auth": TEST_TOKEN },
+      { "x-copilotkit-auth": RUN_1_TOKEN },
     );
 
     expect(sseOutput).toContain("token_present:true");
-    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_HASH_PREFIX}`);
+    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_RUN_1_HASH_PREFIX}`);
     // Raw token must never appear in the SSE stream.
-    expect(sseOutput).not.toContain(TEST_TOKEN);
+    expect(sseOutput).not.toContain(RUN_1_TOKEN);
   });
 
-  it("Run 2 (same thread): token still accessible on repeated run — token_present:true", async () => {
+  it("Run 2 (same thread): current request token replaces run 1 token", async () => {
     // Second run on the same thread simulates the multi-turn scenario.
     const sseOutput = await runAgent(
-      runtime.baseUrl,
-      runtime.basePath,
+      runtime!.baseUrl,
+      runtime!.basePath,
       "fac121-thread",
       "run-2",
-      { "x-copilotkit-auth": TEST_TOKEN },
+      { "x-copilotkit-auth": RUN_2_TOKEN },
     );
 
     expect(sseOutput).toContain("token_present:true");
-    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_HASH_PREFIX}`);
-    expect(sseOutput).not.toContain(TEST_TOKEN);
+    expect(sseOutput).toContain(`token_hash_prefix:${EXPECTED_RUN_2_HASH_PREFIX}`);
+    expect(sseOutput).not.toContain(EXPECTED_RUN_1_HASH_PREFIX);
+    expect(sseOutput).not.toContain(RUN_1_TOKEN);
+    expect(sseOutput).not.toContain(RUN_2_TOKEN);
   });
 
-  it("Runs 1 and 2 report the same token identity (stable across turns)", async () => {
-    // Run two more requests in sequence and compare hash prefixes.
+  it("Run 3 (same thread, no header): no stale token is reused", async () => {
+    const sseOutput = await runAgent(
+      runtime!.baseUrl,
+      runtime!.basePath,
+      "fac121-thread",
+      "run-3",
+    );
+
+    expect(sseOutput).toContain("token_present:false");
+    expect(extractHash(sseOutput)).toBe("");
+    expect(sseOutput).not.toContain(EXPECTED_RUN_1_HASH_PREFIX);
+    expect(sseOutput).not.toContain(EXPECTED_RUN_2_HASH_PREFIX);
+    expect(sseOutput).not.toContain(RUN_1_TOKEN);
+    expect(sseOutput).not.toContain(RUN_2_TOKEN);
+  });
+
+  it("Runs 1 and 2 report the current request token identity", async () => {
     const sseA = await runAgent(
-      runtime.baseUrl,
-      runtime.basePath,
+      runtime!.baseUrl,
+      runtime!.basePath,
       "fac121-stability-thread",
       "run-a",
-      { "x-copilotkit-auth": TEST_TOKEN },
+      { "x-copilotkit-auth": RUN_1_TOKEN },
     );
     const sseB = await runAgent(
-      runtime.baseUrl,
-      runtime.basePath,
+      runtime!.baseUrl,
+      runtime!.basePath,
       "fac121-stability-thread",
       "run-b",
-      { "x-copilotkit-auth": TEST_TOKEN },
+      { "x-copilotkit-auth": RUN_2_TOKEN },
     );
 
-    // Both runs must report the same hash prefix (same token, same identity).
-    const extractHash = (sse: string): string => {
-      const match = sse.match(/token_hash_prefix:([a-f0-9]+)/);
-      return match?.[1] ?? "";
-    };
-
-    expect(extractHash(sseA)).toBe(EXPECTED_HASH_PREFIX);
-    expect(extractHash(sseB)).toBe(EXPECTED_HASH_PREFIX);
-    expect(extractHash(sseA)).toBe(extractHash(sseB));
+    expect(extractHash(sseA)).toBe(EXPECTED_RUN_1_HASH_PREFIX);
+    expect(extractHash(sseB)).toBe(EXPECTED_RUN_2_HASH_PREFIX);
+    expect(extractHash(sseA)).not.toBe(extractHash(sseB));
   });
 
   it("No-header run: token_present:false when x-copilotkit-auth is absent", async () => {
     const sseOutput = await runAgent(
-      runtime.baseUrl,
-      runtime.basePath,
+      runtime!.baseUrl,
+      runtime!.basePath,
       "fac121-no-auth-thread",
       "run-no-auth",
       // No x-copilotkit-auth header.
     );
 
     expect(sseOutput).toContain("token_present:false");
-    // Hash prefix must be empty (no token to hash).
-    expect(sseOutput).toContain("token_hash_prefix:");
-    // The hash prefix must not contain any hex characters after the colon —
-    // it should be "token_hash_prefix:" followed immediately by a non-hex
-    // character (space, newline, quote, etc.).  When the prefix is empty,
-    // the value ends at the colon with no trailing hex digits.
-    expect(sseOutput).toMatch(/token_hash_prefix:[^0-9a-f]/);
-    expect(sseOutput).not.toContain(TEST_TOKEN);
+    expect(extractHash(sseOutput)).toBe("");
+    expect(sseOutput).not.toContain(RUN_1_TOKEN);
+    expect(sseOutput).not.toContain(RUN_2_TOKEN);
   });
 
   it("Raw token never appears in SSE stream for any run", async () => {
     const runs = await Promise.all([
-      runAgent(runtime.baseUrl, runtime.basePath, "leak-check-1", "lc-1", {
-        "x-copilotkit-auth": TEST_TOKEN,
+      runAgent(runtime!.baseUrl, runtime!.basePath, "leak-check-1", "lc-1", {
+        "x-copilotkit-auth": RUN_1_TOKEN,
       }),
-      runAgent(runtime.baseUrl, runtime.basePath, "leak-check-2", "lc-2", {
-        "x-copilotkit-auth": TEST_TOKEN,
+      runAgent(runtime!.baseUrl, runtime!.basePath, "leak-check-2", "lc-2", {
+        "x-copilotkit-auth": RUN_2_TOKEN,
       }),
-      runAgent(runtime.baseUrl, runtime.basePath, "leak-check-3", "lc-3"),
+      runAgent(runtime!.baseUrl, runtime!.basePath, "leak-check-3", "lc-3"),
     ]);
 
     for (const sseOutput of runs) {
-      expect(sseOutput).not.toContain(TEST_TOKEN);
+      expect(sseOutput).not.toContain(RUN_1_TOKEN);
+      expect(sseOutput).not.toContain(RUN_2_TOKEN);
     }
   });
 });
+
+function extractHash(sse: string): string {
+  return sse.match(/token_hash_prefix:([^\s"]*)/)?.[1] ?? "";
+}

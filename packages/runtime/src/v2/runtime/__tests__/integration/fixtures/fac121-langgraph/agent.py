@@ -141,7 +141,8 @@ async def run_stream(request: Request):
             )
         )
         proof_text = (
-            f"token_present:{token_present} token_hash_prefix:{token_hash_prefix}"
+            f"token_present:{str(bool(token_present)).lower()} "
+            f"token_hash_prefix:{token_hash_prefix}"
         )
         yield _format_sse(
             json.dumps(

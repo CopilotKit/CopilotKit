@@ -85,7 +85,7 @@ function YourMainContent() {
 Add `CopilotKitMiddleware` to your LangGraph agent. The middleware automatically injects the context into the LLM's system message:
 
 ```python title="agent.py"
-from langgraph.prebuilt import create_agent
+from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware  # [!code highlight]
 
@@ -104,7 +104,16 @@ The context published via `useAgentContext` is accessible through the agent `sta
 **For programmatic access** (e.g., to branch logic based on preferences):
 
 ```python title="agent_node.py"
+import json
 from typing import Any
+
+def parse_context_value(value: Any) -> Any:
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
 
 async def agent_node(state: dict[str, Any]) -> dict[str, Any]:
     # Access the context published from useAgentContext.
@@ -117,7 +126,7 @@ async def agent_node(state: dict[str, Any]) -> dict[str, Any]:
     response_length = "concise"
 
     for entry in context_entries:
-        value = entry.get("value", {})
+        value = parse_context_value(entry.get("value", {}))
         if isinstance(value, dict):
             tone = value.get("tone") or tone
             expertise = value.get("expertise") or expertise

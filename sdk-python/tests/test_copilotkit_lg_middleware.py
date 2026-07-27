@@ -775,44 +775,28 @@ def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
     assert "/dashboard" in body
 
 
-def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
+def test_wrap_model_call_strips_only_forwarded_headers_runtime_context():
     """``copilotkit_forwarded_headers`` is a transport-layer plumbing key that
     langgraph-api auto-copies from ``configurable`` into ``context``. It must
     never be rendered into the LLM prompt as App Context — the forwarded-headers
     httpx conveyance path reads it from a separate ContextVar.
 
-    When that key is the ONLY thing in ``runtime.context``, ``before_agent``
+    When that key is the ONLY thing in ``runtime.context``, the model-call path
     must treat it as empty App Context and not inject an "App Context:" system
     message at all.
     """
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(
-        name="runtime",
-        context={
-            "copilotkit_forwarded_headers": {
-                "x-aimock-context": "showcase/d6",
-                "x-aimock-strict": "true",
-            }
-        },
-    )
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "copilotkit_forwarded_headers": {
+            "x-aimock-context": "showcase/d6",
+            "x-aimock-strict": "true",
+        }
+    }
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    # Contract: when ``runtime.context`` contains ONLY
-    # ``copilotkit_forwarded_headers``, the strip leaves an empty App Context,
-    # so ``before_agent`` MUST short-circuit and return None (no App Context
-    # system message). A non-None result here means the strip regressed and
-    # the transport-layer wrapper is being injected into the prompt.
-    #
-    # NOTE: an earlier version of this test guarded the leak assertions with
-    # ``if result is not None``, which silently passed if the strip stopped
-    # short-circuiting — exactly the regression we need to catch. Assert
-    # explicitly instead.
-    assert result is None, (
-        "expected short-circuit (no App Context message) when only "
-        "copilotkit_forwarded_headers is present in runtime.context"
-    )
+    assert seen.system_message is None
 
 
 def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
@@ -905,6 +889,26 @@ def test_wrap_model_call_empty_after_stripping_all_x_keys():
     assert seen.system_message is None, (
         "No App Context note should be emitted when only x-* headers are present"
     )
+
+
+def test_wrap_model_call_actions_only_context_does_not_inject_runtime_plumbing():
+    middleware = CopilotKitMiddleware()
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("hi")],
+            "copilotkit": {"actions": [{"name": "frontend_action"}], "context": []},
+        }
+    )
+    request.runtime.context = {
+        "copilotkit": {
+            "actions": [{"name": "frontend_action"}],
+            "context": [],
+        }
+    }
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is None
 
 
 def test_wrap_model_call_strips_x_keys_from_copilotkit_context_state():
@@ -1183,7 +1187,7 @@ class TestExtractForwardedHeadersFromConfig:
                 "configurable": {
                     "copilotkit_forwarded_headers": {
                         "x-aimock-strict": "true",
-                        "x-custom-trace": "abc",
+                        "x-diag-run-id": "abc",
                     },
                 },
             },
@@ -1191,7 +1195,7 @@ class TestExtractForwardedHeadersFromConfig:
         _extract_forwarded_headers_from_config()
         headers = get_forwarded_headers()
         assert headers["x-aimock-strict"] == "true"
-        assert headers["x-custom-trace"] == "abc"
+        assert headers["x-diag-run-id"] == "abc"
 
     def test_wrapper_dict_takes_precedence_over_raw_key(self, monkeypatch):
         """When both the wrapper dict and a raw key provide the same header,
@@ -1256,6 +1260,41 @@ class TestExtractForwardedHeadersFromConfig:
             "x-aimock-strict": "true",
             "x-request-id": "req-123",
         }
+
+    def test_auth_header_is_not_extracted_for_provider_forwarding(self, monkeypatch):
+        """FAC-121 auth headers stay graph-readable in config, not provider-forwarded."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-copilotkit-auth": "secret-token",
+                    "x-aimock-context": "showcase/d5",
+                },
+            },
+        )
+
+        _extract_forwarded_headers_from_config()
+
+        headers = get_forwarded_headers()
+        assert headers == {"x-aimock-context": "showcase/d5"}
+        assert "x-copilotkit-auth" not in headers
+
+    def test_unknown_raw_x_header_is_not_provider_forwarded(self, monkeypatch):
+        """Raw configurable x-* values are graph config, not provider headers."""
+        self._patch_get_config(
+            monkeypatch,
+            {
+                "configurable": {
+                    "x-user-jwt": "secret-token",
+                    "x-tenant-id": "tenant-1",
+                    "x-trace-id": "trace-123",
+                },
+            },
+        )
+
+        _extract_forwarded_headers_from_config()
+
+        assert get_forwarded_headers() == {"x-trace-id": "trace-123"}
 
     def test_no_headers_when_config_has_no_x_keys(self, monkeypatch):
         self._patch_get_config(

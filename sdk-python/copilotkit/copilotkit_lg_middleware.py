@@ -61,6 +61,15 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 # acceptable edge — the deployed path always carries a thread id.
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
 
+_PROVIDER_FORWARDABLE_HEADER_NAMES = frozenset(
+    {
+        "x-request-id",
+        "x-test-id",
+        "x-trace-id",
+    }
+)
+_PROVIDER_FORWARDABLE_HEADER_PREFIXES = ("x-aimock-", "x-diag-")
+
 
 def _current_thread_id() -> "str | None":
     """Best-effort read of the active run's thread id from the LangGraph config.
@@ -78,17 +87,16 @@ def _current_thread_id() -> "str | None":
 
 
 def _extract_forwarded_headers_from_config() -> None:
-    """Extract raw ``x-*`` headers from the current LangGraph RunnableConfig and
-    push them into the header-propagation ContextVar so the httpx hook can
-    forward them on outgoing LLM requests.
+    """Extract provider-correlation headers from the current LangGraph config.
 
     When an agent runs inside **langgraph-api** with
     ``LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}``,
     the server copies inbound HTTP ``x-*`` headers into
     ``config["configurable"]`` as individual keys (e.g.
-    ``configurable["x-aimock-context"] = "value"``).  This function reads those
-    keys and calls :func:`set_forwarded_headers` so they propagate to the
-    underlying LLM provider SDK via the httpx event hook.
+    ``configurable["x-aimock-context"] = "value"``). This function forwards only
+    non-secret diagnostics/correlation headers to the underlying provider SDK.
+    Credential-bearing headers remain graph-readable in ``config["configurable"]``
+    and are never copied onto outbound provider HTTP calls.
 
     Precedence: the wrapper dict ``copilotkit_forwarded_headers`` (if present)
     takes priority over raw ``x-*`` keys.  Raw keys are only used when the
@@ -131,7 +139,12 @@ def _extract_forwarded_headers_from_config() -> None:
             if isinstance(wrapper, dict):
                 for k, v in wrapper.items():
                     lk = k.lower() if isinstance(k, str) else k
-                    if isinstance(k, str) and isinstance(v, str) and lk not in headers:
+                    if (
+                        isinstance(k, str)
+                        and isinstance(v, str)
+                        and _is_provider_forwardable_header(lk)
+                        and lk not in headers
+                    ):
                         headers[lk] = v
 
         # 2) Raw x-* keys directly on context and configurable.  These appear
@@ -150,7 +163,7 @@ def _extract_forwarded_headers_from_config() -> None:
                     # Lowercase at insertion so precedence checks are
                     # deterministic regardless of source casing.
                     lk = k.lower()
-                    if lk not in headers:
+                    if _is_provider_forwardable_header(lk) and lk not in headers:
                         headers[lk] = v
 
         # Always set the ContextVar — even with an empty dict — so stale
@@ -168,6 +181,16 @@ def _extract_forwarded_headers_from_config() -> None:
             "Header forwarding extraction failed; continuing without forwarded headers: %s",
             e,
         )
+
+
+def _is_provider_forwardable_header(name: Any) -> bool:
+    """Return whether a header may be copied onto outbound provider requests."""
+    if not isinstance(name, str):
+        return False
+    key = name.lower()
+    return key in _PROVIDER_FORWARDABLE_HEADER_NAMES or any(
+        key.startswith(prefix) for prefix in _PROVIDER_FORWARDABLE_HEADER_PREFIXES
+    )
 
 
 def _ensure_httpx_hook(model: Any) -> None:
@@ -397,8 +420,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> str | None:
         copilotkit_state = self._get_copilotkit_context(state, runtime_context)
         app_context = copilotkit_state.get("context")
+        has_copilotkit_payload = self._has_copilotkit_payload(copilotkit_state)
 
-        if not app_context:
+        if not app_context and not has_copilotkit_payload:
             if isinstance(runtime_context, dict):
                 app_context = {
                     k: v
