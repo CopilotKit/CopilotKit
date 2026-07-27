@@ -17,7 +17,10 @@ import {
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
 
-import { agentIdForRoute, threadIdForFeature } from "../feature-agent";
+import {
+  agentIdForCurrentIntegration,
+  threadIdForFeature,
+} from "../feature-agent";
 import {
   createDynamicComponent,
   renderDynamicComponent,
@@ -69,7 +72,7 @@ export class ShowcaseChatHostComponent implements AfterViewInit {
       (this.route.snapshot.data["feature"] as string | undefined) ?? "default";
     chat.setInput(
       "agentId",
-      this.agentId() ?? agentIdForRoute(feature, this.route),
+      this.agentId() ?? agentIdForCurrentIntegration(feature),
     );
     const threadId = threadIdForFeature(feature);
     if (threadId !== undefined) chat.setInput("threadId", threadId);

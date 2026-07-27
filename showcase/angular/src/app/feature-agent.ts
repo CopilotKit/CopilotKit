@@ -1,4 +1,3 @@
-import type { ActivatedRoute } from "@angular/router";
 import { integrationId } from "./runtime-context";
 
 const AGENT_BY_FEATURE: Readonly<Record<string, string>> = {
@@ -8,12 +7,6 @@ const AGENT_BY_FEATURE: Readonly<Record<string, string>> = {
   "frontend-tools": "frontend_tools",
   multimodal: "multimodal-demo",
   voice: "voice-demo",
-};
-
-const BUILT_IN_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
-  "reasoning-custom": "agentic-chat-reasoning",
-  "reasoning-default": "reasoning-default-render",
-  "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 
 const INTEGRATION_AGENT_OVERRIDES: Readonly<Record<string, string>> = {
@@ -31,9 +24,6 @@ export function agentIdForFeature(
   feature: string,
   integration: string,
 ): string {
-  if (integration === "built-in-agent") {
-    return BUILT_IN_AGENT_OVERRIDES[feature] ?? "default";
-  }
   const integrationOverride =
     INTEGRATION_AGENT_OVERRIDES[`${integration}/${feature}`];
   if (integrationOverride) {
@@ -42,11 +32,8 @@ export function agentIdForFeature(
   return AGENT_BY_FEATURE[feature] ?? feature;
 }
 
-/** Resolve the generated agent identifier for an activated Showcase route. */
-export function agentIdForRoute(
-  feature: string,
-  _route: ActivatedRoute,
-): string {
+/** Resolve the backend agent for the integration hosting this Angular app. */
+export function agentIdForCurrentIntegration(feature: string): string {
   return agentIdForFeature(feature, integrationId());
 }
 

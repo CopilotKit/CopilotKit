@@ -13,7 +13,7 @@ import {
   injectAgentStore,
 } from "@copilotkit/angular";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import { ACTIVITIES, ContextPanelComponent } from "./context-panel.component";
@@ -171,7 +171,7 @@ export class StateFeatureComponent {
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "shared-state-read-write";
-  private readonly agentId = agentIdForRoute(this.feature, this.route);
+  private readonly agentId = agentIdForCurrentIntegration(this.feature);
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly isRunning = computed(() => this.agentStore().isRunning());
   protected readonly readWriteState = computed(() =>

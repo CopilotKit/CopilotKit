@@ -7,9 +7,8 @@ import {
   input,
 } from "@angular/core";
 import { CopilotChat } from "@copilotkit/angular";
-import { ActivatedRoute } from "@angular/router";
 
-import { agentIdForRoute } from "../feature-agent";
+import { agentIdForCurrentIntegration } from "../feature-agent";
 import { FeatureHeaderComponent } from "./feature-header.component";
 import {
   createDynamicComponent,
@@ -54,11 +53,10 @@ export class CustomAssistantMessageComponent {
 })
 export class ChatSlotsFeatureComponent implements AfterViewInit {
   private readonly chatHost = inject(ViewContainerRef);
-  private readonly route = inject(ActivatedRoute);
 
   ngAfterViewInit(): void {
     const chat = createDynamicComponent(this.chatHost, CopilotChat);
-    chat.setInput("agentId", agentIdForRoute("chat-slots", this.route));
+    chat.setInput("agentId", agentIdForCurrentIntegration("chat-slots"));
     chat.setInput("assistantMessageComponent", CustomAssistantMessageComponent);
     renderDynamicComponent(chat);
   }

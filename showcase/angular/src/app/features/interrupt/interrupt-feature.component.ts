@@ -11,7 +11,7 @@ import { injectInterrupt, registerHumanInTheLoop } from "@copilotkit/angular";
 import type { HumanInTheLoopConfig } from "@copilotkit/angular";
 import { z } from "zod";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { integrationId } from "../../runtime-context";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
@@ -126,7 +126,7 @@ export class InterruptFeatureComponent {
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "gen-ui-interrupt";
   protected readonly isHeadless = this.feature === "interrupt-headless";
-  private readonly agentId = agentIdForRoute(this.feature, this.route);
+  private readonly agentId = agentIdForCurrentIntegration(this.feature);
   protected readonly controller = injectInterrupt({ agentId: this.agentId });
   protected readonly payload = computed(() =>
     parseInterruptPayload(this.controller.event()?.value),

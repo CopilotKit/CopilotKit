@@ -13,6 +13,9 @@ describe("usesFrontendSchedulingTool", () => {
     expect(usesFrontendSchedulingTool("gen-ui-interrupt", "mastra")).toBe(
       false,
     );
+    expect(
+      usesFrontendSchedulingTool("gen-ui-interrupt", "built-in-agent"),
+    ).toBe(false);
     expect(usesFrontendSchedulingTool("hitl-in-chat", "google-adk")).toBe(
       false,
     );
