@@ -23,7 +23,7 @@ vi.mock("@slack/bolt", () => ({
 }));
 
 import { attachAssistant } from "../assistant.js";
-import type { IngressSink, PlatformUser } from "@copilotkit/channels";
+import type { IngressSink, PlatformUser } from "@copilotkit/channels-core";
 import type { SlackAssistantOptions } from "../types.js";
 
 function setup(opts: SlackAssistantOptions = {}) {

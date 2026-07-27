@@ -3,13 +3,12 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  type OnChanges,
   afterRenderEffect,
   computed,
-  effect,
   inject,
   input,
   signal,
-  untracked,
   viewChild,
   InjectionToken,
 } from "@angular/core";
@@ -25,6 +24,7 @@ import {
   processPartialHtml,
 } from "./process-partial-html";
 import {
+  hasRenderableOpenGenerativeUIContent,
   parseOpenGenerativeUIContent,
   resolveWebsandboxConstructor,
   shouldFlushOpenGenerativeUIImmediately,
@@ -38,9 +38,9 @@ export const OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER = new InjectionToken<
 >("OPEN_GENERATIVE_UI_WEBSANDBOX_LOADER", {
   providedIn: "root",
   factory: () => async (): Promise<WebsandboxConstructor> => {
-    const module =
+    const websandboxModule =
       (await import("@jetbrains/websandbox")) as unknown as WebsandboxModuleShape;
-    return resolveWebsandboxConstructor(module);
+    return resolveWebsandboxConstructor(websandboxModule);
   },
 });
 
@@ -164,7 +164,7 @@ type OpenGenerativeUIRenderState = {
     `,
   ],
 })
-export class CopilotOpenGenerativeUIRenderer {
+export class CopilotOpenGenerativeUIRenderer implements OnChanges {
   readonly content = input.required<OpenGenerativeUIContent>();
 
   private readonly containerRef = viewChild<
@@ -258,32 +258,6 @@ export class CopilotOpenGenerativeUIRenderer {
       this.destroyFinalSandbox();
     });
 
-    effect(() => {
-      const next = parseOpenGenerativeUIContent(this.content());
-      this.latestContent = next;
-      const previous = untracked(() => this.throttledContent());
-
-      if (!this.hasReceivedContent) {
-        this.hasReceivedContent = true;
-        this.clearThrottle();
-        this.throttledContent.set(next);
-        return;
-      }
-
-      if (shouldFlushOpenGenerativeUIImmediately(previous, next)) {
-        this.clearThrottle();
-        this.throttledContent.set(next);
-        return;
-      }
-
-      if (!this.throttleTimer) {
-        this.throttleTimer = setTimeout(() => {
-          this.throttleTimer = undefined;
-          this.throttledContent.set(this.latestContent);
-        }, THROTTLE_MS);
-      }
-    });
-
     afterRenderEffect({
       write: () => {
         const state = this.renderState();
@@ -298,6 +272,51 @@ export class CopilotOpenGenerativeUIRenderer {
         if (cleanup) this.destroyRef.onDestroy(cleanup);
       },
     });
+  }
+
+  /** Applies input updates synchronously before the matching render pass. */
+  ngOnChanges(): void {
+    const next = parseOpenGenerativeUIContent(this.content());
+    this.latestContent = next;
+    const previous = this.throttledContent();
+
+    if (!this.hasReceivedContent) {
+      this.hasReceivedContent = true;
+      this.clearThrottle();
+      this.commitContent(previous, next);
+      return;
+    }
+
+    if (shouldFlushOpenGenerativeUIImmediately(previous, next)) {
+      this.clearThrottle();
+      this.commitContent(previous, next);
+      return;
+    }
+
+    if (!this.throttleTimer) {
+      this.throttleTimer = setTimeout(() => {
+        this.throttleTimer = undefined;
+        this.throttledContent.set(this.latestContent);
+      }, THROTTLE_MS);
+    }
+  }
+
+  /** Commits content and synchronously removes stale sandbox DOM on restart. */
+  private commitContent(
+    previous: OpenGenerativeUIContent,
+    next: OpenGenerativeUIContent,
+  ): void {
+    this.throttledContent.set(next);
+
+    if (
+      hasRenderableOpenGenerativeUIContent(previous) &&
+      !hasRenderableOpenGenerativeUIContent(next)
+    ) {
+      this.destroyPreviewSandbox();
+      this.destroyFinalSandbox();
+      this.resetFinalRuntimeState();
+      this.autoHeight.set(undefined);
+    }
   }
 
   private clearThrottle(): void {
@@ -334,7 +353,8 @@ export class CopilotOpenGenerativeUIRenderer {
         if (
           !this.containerRef() ||
           this.previewSandbox ||
-          this.renderState().fullHtml
+          this.renderState().fullHtml ||
+          !this.renderState().hasPreview
         ) {
           return;
         }

@@ -201,6 +201,11 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const openai = createOpenAI({
         apiKey: apiKey || process.env.OPENAI_API_KEY!,
+        // Honor an OpenAI-COMPATIBLE endpoint (Azure OpenAI, OpenRouter, a gateway,
+        // vLLM/LM Studio/Ollama, etc.) via the standard OPENAI_BASE_URL env var.
+        // Undefined when unset, so the provider falls back to its default
+        // (api.openai.com) — fully backward compatible.
+        baseURL: process.env.OPENAI_BASE_URL,
       });
       // Accepts any OpenAI model id, e.g. "gpt-4o", "gpt-4.1-mini", "o3-mini"
       return openai(model);
@@ -211,6 +216,8 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const anthropic = createAnthropic({
         apiKey: apiKey || process.env.ANTHROPIC_API_KEY!,
+        // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
+        baseURL: process.env.ANTHROPIC_BASE_URL,
       });
       // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
       return anthropic(model);
@@ -223,6 +230,8 @@ export function resolveModel(
       // Use provided apiKey, or fall back to environment variable
       const google = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_API_KEY!,
+        // Honor a custom Google-compatible endpoint via GOOGLE_GENERATIVE_AI_BASE_URL (see OpenAI note).
+        baseURL: process.env.GOOGLE_GENERATIVE_AI_BASE_URL,
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
@@ -546,12 +555,17 @@ export function convertMessagesToVercelAISDKMessages(
  * JSON Schema type definition
  */
 interface JsonSchema {
-  type: "object" | "string" | "number" | "integer" | "boolean" | "array";
+  type?: "object" | "string" | "number" | "integer" | "boolean" | "array";
   description?: string;
   properties?: Record<string, JsonSchema>;
   required?: string[];
   items?: JsonSchema;
   enum?: string[];
+  // Union combinators. A frontend tool authored with `z.discriminatedUnion`
+  // (or any `z.union`) serializes to a node carrying `anyOf` / `oneOf` and
+  // usually NO top-level `type`.
+  anyOf?: JsonSchema[];
+  oneOf?: JsonSchema[];
 }
 
 /**
@@ -561,6 +575,28 @@ export function convertJsonSchemaToZodSchema(
   jsonSchema: JsonSchema,
   required: boolean,
 ): z.ZodSchema {
+  // Handle `anyOf` / `oneOf` unions (e.g. `z.discriminatedUnion` or `z.union`
+  // on a frontend tool) as `z.union`. These nodes usually carry no top-level
+  // `type`, so they MUST be handled before the empty-schema guard below —
+  // otherwise the union collapses to an empty object (`z.object({})`), the
+  // reconstructed tool schema loses the union-typed field entirely, and the
+  // model can never emit it. This is especially load-bearing for a union
+  // nested inside array `items`, which OpenAI otherwise silently drops.
+  const unionVariants = jsonSchema.anyOf ?? jsonSchema.oneOf;
+  if (Array.isArray(unionVariants) && unionVariants.length > 0) {
+    // A single-variant union is just that variant.
+    if (unionVariants.length === 1) {
+      return convertJsonSchemaToZodSchema(unionVariants[0], required);
+    }
+    const variantSchemas = unionVariants.map((variant) =>
+      convertJsonSchemaToZodSchema(variant, true),
+    );
+    const schema = z
+      .union(variantSchemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]])
+      .describe(jsonSchema.description ?? "");
+    return required ? schema : schema.optional();
+  }
+
   // Handle empty schemas {} (no input required) - treat as empty object
   if (!jsonSchema.type) {
     return required ? z.object({}) : z.object({}).optional();

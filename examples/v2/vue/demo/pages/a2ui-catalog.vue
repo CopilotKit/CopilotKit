@@ -3,7 +3,7 @@ import {
   CopilotChat,
   CopilotKitProvider,
   vueBasicCatalog,
-} from "@copilotkit/vue";
+} from "@copilotkit/vue/v2";
 
 // Catalog-on-provider path (#5774): the runtime at /api/copilotkit-catalog has
 // NO a2ui config. A2UI must switch on purely because we pass a catalog here,

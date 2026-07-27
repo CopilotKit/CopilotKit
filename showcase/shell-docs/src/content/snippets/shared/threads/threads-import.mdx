@@ -1,0 +1,131 @@
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## What is this?
+
+Import and synchronization bring existing conversations into Enterprise Intelligence as Rich Threads without replacing the native storage or analytics you already use. Import supported history once, then continue running those conversations through CopilotKit so users can resume them through the same thread UI as new conversations.
+
+Built-in import currently supports Google ADK and LangGraph, with more sources coming soon. You can keep LangSmith, LangGraph, or ADK storage and analytics in place. For future CopilotKit-mediated runs, Enterprise Intelligence persists the Rich Thread event history. When your agent remains connected to a durable LangGraph checkpointer or durable ADK session service with appropriate retention, those future runs continue through the native persistence path as well.
+
+New to the feature? Read the [Rich Threads overview](/threads) first to understand the shared thread store and choose between the prebuilt Drawer and a custom headless UI.
+
+## Supported sources
+
+| Source | Import guide | Supported history |
+|---|---|---|
+| Google ADK | [Synchronize ADK threads](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
+| LangGraph | [Synchronize LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
+
+## What gets imported?
+
+The importer preserves conversation content that can render in the CopilotKit chat UI or help downstream learning systems:
+
+- user, assistant, tool, system, and developer messages
+- tool calls and tool results
+- reasoning traces when the source exposes them
+- media that can be resolved during extraction
+- original timestamps
+- import provenance and per-conversation import outcomes
+
+It does not import agent state snapshots, framework transport noise, LangSmith traces, or unsupported source stores.
+
+## Import flow
+
+<Steps>
+  <Step>
+    ### Confirm the target project
+
+    By default, the importer targets the Enterprise Intelligence project selected when you created the app with the CopilotKit CLI. If that is the project that should receive the imported threads, continue to the dry run.
+
+    To target a different cloud-hosted project, select it before the dry run:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest project select
+    ```
+
+    The command updates the project selected for the current directory and writes its project-scoped runtime key to the app's generated `.env`.
+  </Step>
+
+  <Step>
+    ### Run a dry run
+
+    A dry run reads the source, discovers source agent keys, counts conversations, reports skips, and estimates upload size without opening an import batch. It does not need an Enterprise Intelligence URL or API key.
+
+    <Tabs groupId="thread_import_source" items={['ADK', 'LangGraph']}>
+      <Tab value="ADK">
+        ```bash
+        npx copilotkit@latest import --source adk --dry-run
+        ```
+      </Tab>
+      <Tab value="LangGraph">
+        ```bash
+        npx copilotkit@latest import --source langgraph --dry-run
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Map source agents
+
+    The importer maps each source agent key to the `agentId` your live CopilotKit runtime uses. Keeping those labels aligned prevents imported history and future native traffic from splitting across different agent IDs.
+
+    For scripted imports, put the mapping in a JSON file:
+
+    ```json title="agent-map.json"
+    {
+      "support-agent": "support-agent",
+      "sales-agent": "sales-agent"
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Prepare the Enterprise Intelligence destination
+
+    A real import needs the destination app-api URL and project-scoped runtime key. A CLI-created starter writes them to `.env`, but the importer reads the current process environment and does not load `.env` or `.copilotkit/project.json` automatically.
+
+    Copy the generated values into your shell before importing:
+
+    ```bash title="Terminal"
+    export INTELLIGENCE_API_URL="https://..."
+    export INTELLIGENCE_API_KEY="cpk_..."
+    ```
+
+    `COPILOTKIT_API_KEY` is also accepted for the key. You can pass the same values directly with `--api-url` and `--api-key` instead.
+  </Step>
+
+  <Step>
+    ### Run the import
+
+    Run the source-specific import after the dry run looks right:
+
+    - [Synchronize ADK threads](/google-adk/threads-import)
+    - [Synchronize LangGraph threads](/langgraph-python/threads-import)
+
+    Re-running the same import is safe: already-imported conversations are skipped. Use `--replace` when you intentionally want to refresh previously imported threads.
+  </Step>
+
+  <Step>
+    ### Verify the imported conversations
+
+    Open the Threads Drawer, select an imported conversation, and confirm that its history appears in the chat.
+  </Step>
+
+  <Step>
+    ### Keep future conversations synced
+
+    Your CLI-created app sends future CopilotKit conversations to Enterprise Intelligence. Reopen a conversation with the same CopilotKit `threadId` so its Rich Thread history stays continuous. If the agent remains wired to its durable native persistence mechanism, the future run continues there as well.
+
+    - **Threads Drawer:** already included in CLI-created starters. Use the [Threads Drawer guide](/prebuilt-components/copilot-threads-drawer) to customize its ready-made thread UI.
+    - **Headless Threads:** use the [Headless Threads guide](/headless-threads) only when you need a custom UI. Select a thread with `useThreads`, store its `thread.id`, and pass that value to your chat component as `threadId`.
+
+    Create one new conversation through CopilotKit, then confirm that it appears in Enterprise Intelligence and in the native persistence store that remains connected to your agent.
+
+    For the underlying persistence and replay model, see [Threads & Persistence Architecture](/premium/threads-explained).
+  </Step>
+</Steps>
+
+## Deployment notes
+
+- **Cloud-hosted Enterprise Intelligence:** export the destination values generated in the CLI-created app's `.env`, or pass them with `--api-url` and `--api-key`. `project select` can rewrite the app's generated values, but the importer still reads only flags or the current process environment. See [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform).
+- **Self-hosted Enterprise Intelligence:** pass the deployment's app-api URL with `--api-url` and a project-scoped `cpk` runtime key with `--api-key`. See [Self-Hosting Enterprise Intelligence](/premium/self-hosting).

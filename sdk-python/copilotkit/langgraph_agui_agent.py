@@ -1,24 +1,27 @@
+import inspect
 import json
 import logging
-from typing import Dict, Any, List, Optional, Union, AsyncGenerator
 from enum import Enum
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+
+from ag_ui.core import (
+    CustomEvent,
+    EventType,
+    StateSnapshotEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+    ToolCallArgsEvent,
+    ToolCallEndEvent,
+    ToolCallStartEvent,
+)
+from ag_ui_langgraph import LangGraphAgent
+from langchain_core.runnables import RunnableConfig
+from langgraph.graph.state import CompiledStateGraph
+
 from .exc import CopilotKitMisuseError
 
 logger = logging.getLogger(__name__)
-from ag_ui_langgraph import LangGraphAgent
-from ag_ui.core import (
-    EventType,
-    CustomEvent,
-    TextMessageStartEvent,
-    TextMessageContentEvent,
-    TextMessageEndEvent,
-    ToolCallStartEvent,
-    ToolCallArgsEvent,
-    ToolCallEndEvent,
-    StateSnapshotEvent,
-)
-from langgraph.graph.state import CompiledStateGraph
-from langchain_core.runnables import RunnableConfig
 
 try:
     from langchain.schema import BaseMessage
@@ -68,6 +71,7 @@ class LangGraphAGUIAgent(LangGraphAgent):
     ):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
+        self._copilotkit_runtime_payload: dict[str, Any] | None = None
 
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
@@ -246,9 +250,15 @@ class LangGraphAGUIAgent(LangGraphAgent):
 
     async def run(self, input):
         """Override run to filter out None events from _dispatch_event filtering."""
-        async for event in super().run(input):
-            if event is not None:
-                yield event
+        self._copilotkit_runtime_payload = self._serialize_copilotkit_runtime_payload(
+            input
+        )
+        try:
+            async for event in super().run(input):
+                if event is not None:
+                    yield event
+        finally:
+            self._copilotkit_runtime_payload = None
 
     async def _handle_single_event(
         self, event: Any, state: State
@@ -266,6 +276,64 @@ class LangGraphAGUIAgent(LangGraphAgent):
         # Call the parent method to handle all other events
         async for event_str in super()._handle_single_event(event, state):
             yield event_str
+
+    @staticmethod
+    def _serialize_copilotkit_runtime_payload(input: Any) -> dict[str, Any]:
+        """Build the CopilotKit payload that subgraphs need in runtime context."""
+        tools = [
+            tool.model_dump() if hasattr(tool, "model_dump") else tool
+            for tool in (getattr(input, "tools", None) or [])
+        ]
+        context = [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in (getattr(input, "context", None) or [])
+        ]
+        return {
+            "actions": tools,
+            "context": context,
+        }
+
+    def get_stream_kwargs(
+        self,
+        input: Any,
+        subgraphs: bool = False,
+        version: str = "v2",
+        config: Union[Optional[RunnableConfig], dict] = None,
+        context: Optional[Dict[str, Any]] = None,
+        fork: Optional[Any] = None,
+    ) -> Dict[str, Any]:
+        """Thread CopilotKit payload through LangGraph runtime context for subgraphs."""
+        supports_context = (
+            "context" in inspect.signature(self.graph.astream_events).parameters
+        )
+        merged_context = dict(context or {})
+        captured_payload = self._copilotkit_runtime_payload
+        if captured_payload is not None:
+            if supports_context:
+                existing_copilotkit = merged_context.get("copilotkit") or {}
+                merged_context["copilotkit"] = {
+                    **existing_copilotkit,
+                    **captured_payload,
+                }
+            else:
+                next_config = dict(config or {})
+                configurable = dict(next_config.get("configurable") or {})
+                existing_copilotkit = configurable.get("copilotkit") or {}
+                configurable["copilotkit"] = {
+                    **existing_copilotkit,
+                    **captured_payload,
+                }
+                next_config["configurable"] = configurable
+                config = next_config
+        stream_kwargs = super().get_stream_kwargs(
+            input=input,
+            subgraphs=subgraphs,
+            version=version,
+            config=config,
+            context=merged_context,
+            fork=fork,
+        )
+        return stream_kwargs
 
     def langgraph_default_merge_state(
         self, state: State, messages: List[BaseMessage], input: Any

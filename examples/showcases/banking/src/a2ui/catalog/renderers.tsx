@@ -8,6 +8,7 @@ import {
   IncomeExpenseChart,
 } from "@/components/analytics-charts";
 import { TransactionsList } from "@/components/transactions-list";
+import { isOverLimit } from "@/lib/over-limit";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useReportData } from "../report-data";
 
@@ -110,17 +111,6 @@ const StatCard = ({
 }>) => {
   const { transactions, policies } = useReportData();
   const pending = transactions.filter((t) => t.status === "pending");
-  // A pending charge is "over limit" when approving it would push its policy
-  // past the limit and it has no clearing exception yet — mirrors `statusOf`
-  // in transactions-list.tsx (Transaction has no `overLimit` field).
-  const isOverLimit = (t: (typeof pending)[number]) => {
-    const policy = policies.find((p) => p.id === t.policyId);
-    return (
-      !!policy &&
-      policy.spent + Math.abs(t.amount) > policy.limit &&
-      !t.activeExceptionId
-    );
-  };
   let value = "";
   switch (props.metric) {
     case "totalSpend":
@@ -134,7 +124,7 @@ const StatCard = ({
       value = String(pending.length);
       break;
     case "overLimitCount":
-      value = String(pending.filter(isOverLimit).length);
+      value = String(pending.filter((t) => isOverLimit(t, policies)).length);
       break;
     case "policyCount":
       value = String(policies.length);

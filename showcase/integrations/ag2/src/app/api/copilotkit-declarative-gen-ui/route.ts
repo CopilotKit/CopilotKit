@@ -1,14 +1,16 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
 // cell. The backend is the dedicated `a2ui_dynamic.py` agent mounted at
-// `/declarative-gen-ui` (NOT the root catch-all `agent.py`): it owns the
-// `generate_a2ui` tool explicitly and runs its own secondary `render_a2ui`
-// LLM pass, returning an `a2ui_operations` container that the A2UI
-// middleware detects and streams to the frontend. This mirrors the sibling
-// dedicated routes (`/a2ui-fixed-schema/`, `/beautiful-chat/`, etc.) which
-// all point at their named mount, and matches the D6 fixtures + PARITY_NOTES.
+// `/declarative-gen-ui` (NOT the root catch-all `agent.py`): it wires a
+// no-arg `generate_a2ui` tool stub. The CopilotKit runtime middleware
+// (`a2ui.injectA2UITool: true`, enabled by default) intercepts the agent's
+// `generate_a2ui` toolcall before it reaches Python and drives the secondary
+// `render_a2ui` LLM pass itself, emitting `a2ui_operations` that the frontend
+// renderer paints. This is Option A (JS-runtime-injected A2UI) — same
+// pattern as the langgraph-python and crewai-crews siblings.
 //
-// `injectA2UITool: false` — the agent already owns `generate_a2ui`, so the
-// runtime must NOT double-bind a second injected A2UI tool over it.
+// `defaultCatalogId` pins the catalog the page registers so the middleware's
+// secondary-LLM pass uses the correct component set (omitting `catalogId`
+// falls back to the unregistered basic catalog → "Catalog not found" error).
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
@@ -29,14 +31,10 @@ const runtime = new CopilotRuntime({
     }),
   },
   a2ui: {
-    // The dedicated agent owns `generate_a2ui` and produces the
-    // `a2ui_operations` container itself; do not inject a second A2UI tool.
-    injectA2UITool: false,
-    // Pin the catalog the page registers (mirrors the sibling
-    // `/copilotkit-beautiful-chat` and `/copilotkit-a2ui-fixed-schema`
-    // routes). The agent's emitted ops already carry this catalogId, but
-    // pinning it guards against any op that omits it falling back to the
-    // unregistered basic catalog ("Catalog not found" → surface never mounts).
+    // Pin the catalog the page registers so the middleware's secondary-LLM
+    // pass uses the correct component set. Models that follow the tool-usage
+    // guide and omit `catalogId` would otherwise fall back to the unregistered
+    // basic catalog ("Catalog not found" render error).
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });

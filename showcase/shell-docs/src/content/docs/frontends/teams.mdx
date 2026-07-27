@@ -4,12 +4,12 @@ description: Bring custom agents into Microsoft Teams with Adaptive Cards, strea
 hideTOC: true
 ---
 
-Microsoft Teams can be the frontend for agents built on any harness or framework, so your organization can get work done where conversations, decisions, and approvals already happen. The open source Bot SDK gives you the adapter path for TypeScript handlers and JSX-authored Adaptive Cards. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for conversation mapping, durable agent state, approvals, observability, and release operations when Teams becomes a critical workflow.
+Microsoft Teams can be the frontend for agents built on any harness or framework, so your organization can get work done where conversations, decisions, and approvals already happen. The open source Channels SDK gives you the adapter path for TypeScript handlers and JSX-authored Adaptive Cards. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer for conversation mapping, durable agent state, approvals, observability, and release operations when Teams becomes a critical workflow.
 
 <OpsPlatformCTA
   variant="inline"
   title="Get early access to Slack and Teams agents in CopilotKit Enterprise Intelligence"
-  body="Use the open source Bot SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
+  body="Use the open source Channels SDK to run the adapter, runtime, platform credentials, tools, and storage inside your stack. CopilotKit Enterprise Intelligence adds the self-hosted or cloud-hosted production layer around that SDK: durable agent threads, platform conversation mapping, approvals, observability, and release operations for Slack and Teams."
   ctaLabel="Get early access"
   surface="docs_teams_agents_early_access"
   href="https://www.copilotkit.ai/opentag-managed"
@@ -33,7 +33,7 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
         npm init -y && npm pkg set type=module
         ```
 
-        Install the bot packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
+        Install the Channels packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
@@ -76,7 +76,7 @@ Microsoft Teams can be the frontend for agents built on any harness or framework
         ```
 
         <Callout type="info" title="ESM only">
-          The bot packages are ESM-only, so `"type": "module"` (set above) is required.
+          The Channels packages are ESM-only, so `"type": "module"` (set above) is required.
         </Callout>
     </Step>
     <Step>
@@ -396,5 +396,5 @@ In Microsoft Teams: open **Apps → Manage your apps → Upload a custom app**, 
 
 ## Next steps
 
-- **API reference:** the [Channels reference](/reference/channels), covering [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool), and the [component vocabulary](/reference/channels/components/Message)
+- **API reference:** the [Channels SDK reference](/reference/channels), covering [createBot](/reference/channels/functions/createBot), the [Thread API](/reference/channels/classes/Thread), [tools](/reference/channels/functions/defineBotTool), and the [component vocabulary](/reference/channels/components/Message)
 - **Full example:** the [Teams demo bot](https://github.com/CopilotKit/CopilotKit/tree/main/examples/teams), a `BuiltInAgent` with agent-rendered Adaptive Cards, a human-in-the-loop approval gate, and a deployable app package

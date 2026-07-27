@@ -1,5 +1,5 @@
 import type { Bot } from "grammy";
-import type { IngressSink } from "@copilotkit/channels";
+import type { IngressSink } from "@copilotkit/channels-core";
 import type { TelegramConversationStore } from "./conversation-store.js";
 import {
   conversationKeyOf,

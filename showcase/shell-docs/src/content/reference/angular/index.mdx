@@ -3,12 +3,12 @@ title: "Angular"
 description: "API reference for @copilotkit/angular: the CopilotKit providers, prebuilt chat components, services, and functions for building CopilotKit into an Angular app."
 ---
 
-`@copilotkit/angular` brings CopilotKit to Angular. It ships a set of [providers](/reference/angular/functions/provideCopilotKit), prebuilt chat components, a `CopilotKit` service, and standalone functions that mirror the React SDK. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
+`@copilotkit/angular` provides [providers](/reference/angular/functions/provideCopilotKit), prebuilt chat components, a `CopilotKit` service, and standalone functions for Angular applications. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 <Callout type="info">
-  The package targets Angular 19, 20, and 21, and ships as standalone
-  components and providers. Import everything from the package root,
-  `@copilotkit/angular`. There is no `/v2` subpath.
+  The package targets Angular 20, 21, and 22, and ships as standalone components
+  and providers. Import the main API from `@copilotkit/angular`. MCP Apps uses
+  the `@copilotkit/angular/mcp-apps` entry point. There is no `/v2` subpath.
 </Callout>
 
 ## Installation
@@ -29,7 +29,7 @@ When using the prebuilt UI components, import the stylesheet once in your global
 
 ## Provider setup
 
-CopilotKit is configured through Angular's dependency injection rather than a wrapper component. Add [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) to your application providers and configure the runtime connection there. Every component, service, and function reads this configuration through the injector, so they must be used within an application (or component) that has the provider in scope.
+Add [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) to your application providers and configure the runtime connection there. The root `CopilotKit` service reads this application-level configuration.
 
 ```ts title="src/app/app.config.ts"
 import { ApplicationConfig } from "@angular/core";
@@ -79,13 +79,35 @@ export class AppComponent {}
 
 ## Angular conventions
 
-A few patterns recur across this reference and differ from the React SDK:
+CopilotKit follows Angular's dependency-injection and signal patterns:
 
-- **Setup is a provider, not a component.** Where the React SDK wraps your app in `<CopilotKit>`, the Angular SDK registers [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in your application or component providers.
-- **State is exposed as signals.** Where React hooks return values that trigger re-renders, the Angular SDK exposes Angular [signals](https://angular.dev/guide/signals). Read them by calling the signal, for example `agentStore().messages()`.
-- **Functions run in an injection context.** Functions such as [`injectAgentStore`](/reference/angular/functions/injectAgentStore), [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), and [`connectAgentContext`](/reference/angular/functions/connectAgentContext) use Angular's `inject()` under the hood. Call them from a constructor, a field initializer, or another injection context. They clean themselves up when the owning component or service is destroyed.
-- **Components are standalone.** Import the component class into your `imports` array and use its element selector in the template, for example `<copilot-chat>` for [`CopilotChat`](/reference/angular/components/CopilotChat).
-- **Templates and directives replace render props.** Where the React SDK uses render props or `children`, the Angular components accept Angular templates and content projection for the same customization.
+- Register [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in application providers.
+- Read reactive state by calling signals such as `agentStore().messages()`.
+- Call injectable helpers from a constructor, field initializer, or another injection context.
+- Import standalone components in the component `imports` array.
+- Customize UI with component inputs, templates, directives, and content projection.
+
+## Lifecycle and rendering environments
+
+Injectable helpers bind their effects, subscriptions, runtime registrations,
+timers, and observers to the owning Angular `DestroyRef`. Call them from a
+field initializer, constructor, or explicit injection context. Do not cache an
+injected controller beyond that injector's lifetime. Application-owned work
+started inside a tool handler, such as a fetch, remains the application's
+responsibility to cancel.
+
+CopilotKit's main chat components use signals and support zoneless change
+detection. Browser-only behavior is inert during server rendering and
+activates after hydration. Keep configuration and
+initial model/input values identical for the server and the first client
+render, avoid running agents or tools on the server, and place
+application-owned DOM work behind an Angular platform guard or
+`afterNextRender`.
+
+A2UI, Open Generative UI, audio capture, and MCP Apps can be present in an SSR
+tree, but their custom elements, media APIs, sandboxes, and iframes become
+interactive only in the browser. See [Angular production and lifecycle](/reference/angular/production-lifecycle)
+for the full setup, cleanup, error, SSR, hydration, and zoneless contract.
 
 ## API Reference
 
@@ -100,7 +122,7 @@ A few patterns recur across this reference and differ from the React SDK:
 <Cards>
   <Card
     title="UI Components"
-    description="Prebuilt chat components: CopilotChat, CopilotChatView, CopilotChatInput, and the message components."
+    description="Prebuilt chat, popup, sidebar, and supported component-slot primitives."
     href="/reference/angular/components/CopilotChat"
     icon={<LinkIcon />}
   />
@@ -120,6 +142,12 @@ A few patterns recur across this reference and differ from the React SDK:
     title="Directives"
     description="The CopilotKitAgentContext directive for sharing application state with the agent from a template."
     href="/reference/angular/directives/CopilotKitAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Public API Inventory"
+    description="The complete root and MCP Apps export contract, including the explicitly internal extension token."
+    href="/reference/angular/public-api"
     icon={<LinkIcon />}
   />
 </Cards>

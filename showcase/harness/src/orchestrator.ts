@@ -138,6 +138,13 @@ import type {
 } from "./fleet/control-plane/job-producer.js";
 import { createMemoizedFamilySummary } from "./fleet/control-plane/run-view.js";
 import { createFamilySilenceMonitor } from "./fleet/control-plane/family-silence-monitor.js";
+import {
+  createD0GoneMonitor,
+  isEnabled as isD0MonitorEnabled,
+  loadRegistryDoc,
+  resolveMonitorEnv as resolveD0MonitorEnv,
+  shouldRegister as shouldRegisterD0Monitor,
+} from "./fleet/control-plane/d0-gone-monitor.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -2976,6 +2983,83 @@ export async function runControlPlane(
     bootAtMs: Date.now(),
     logger,
   });
+
+  // Prod D0-gone monitor (spec `2026-07-13-prod-d0-gone-monitor.md`): the one
+  // incident class the per-cell alert rules miss — a whole integration column
+  // collapsing to red-D0 ("completely gone" / backend unreachable). Runs on its
+  // own 15m cron, PROD ONLY and control-plane-only (this block already implies
+  // the control-plane role). It runs the dashboard's OWN `buildCellModel` fold
+  // over the same `status` rows, so its verdict equals the DepthChip the
+  // dashboard renders by construction. Registered as an `internal:` orchestrator
+  // cron (the `internal:s3-backup` block is the template), gated on the resolved
+  // env being production and the `PROD_D0_MONITOR_ENABLED` kill-switch.
+  // B-env: the env gate + kill-switch are resolved by the monitor module's
+  // OWN `shouldRegister` / `resolveMonitorEnv` (the gate test exercises the
+  // same functions), so env-precedence, empty-string-shadow, and case/space
+  // normalization can never drift between here and the test.
+  const d0MonitorEnv = resolveD0MonitorEnv();
+  if (shouldRegisterD0Monitor()) {
+    const d0GoneMonitor = createD0GoneMonitor({
+      pb,
+      alertState: alertStateStore,
+      // Reuse the SAME #oss-alerts webhook target the family-silence monitor
+      // posts through — throws on send failure so `last_alert_at` never advances
+      // on a dropped Slack post (§7 dedupe discipline).
+      postAlert: async (text: string): Promise<void> => {
+        await ossAlertsTarget.send(
+          { payload: { text }, contentType: "application/json" },
+          { kind: "slack_webhook", webhook: "oss_alerts" },
+        );
+      },
+      // The SAME shared memoized family-summary the routes + silence monitor use
+      // — the §2.5 producer-liveness source.
+      summary: familySummary,
+      schedules,
+      // A5: pass a LOADER thunk (not a fixed doc) so the monitor re-reads
+      // `registry.json` on subsequent ticks while the wired-cell set is empty —
+      // a transiently-missing file (slow volume mount / boot race) self-heals
+      // without a redeploy instead of silently disabling the monitor forever.
+      registry: () => loadRegistryDoc(logger),
+      dashboardUrl:
+        process.env.DASHBOARD_URL ?? "https://dashboard.showcase.copilotkit.ai",
+      logger,
+      now: () => Date.now(),
+    });
+    scheduler.register({
+      id: "internal:prod-d0-gone-monitor",
+      cron: "*/15 * * * *",
+      handler: async () => {
+        // Defense-in-depth: `tick()` already swallows its own errors, but wrap
+        // the scheduler handler too so a rejection here (e.g. a future refactor
+        // that lets tick throw) is caught + logged with an errorId and never
+        // wedges the control-plane scheduler.
+        try {
+          await d0GoneMonitor.tick();
+        } catch (err) {
+          logger.error("orchestrator.prod-d0-gone-monitor-tick-failed", {
+            errorId: "d0-monitor-scheduler-tick",
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    });
+    logger.info("orchestrator.prod-d0-gone-monitor-registered", {
+      env: d0MonitorEnv,
+    });
+  } else {
+    // Log at WARN so an env-gate misconfig (a prod deploy whose SHOWCASE_ENV /
+    // RAILWAY_ENVIRONMENT_NAME is not exactly "production", or the kill-switch
+    // left off) is visible in log-based alerting — a silent info-level skip is
+    // how the whole-column-gone blind spot goes unnoticed in the first place.
+    logger.warn("orchestrator.prod-d0-gone-monitor-skipped", {
+      env: d0MonitorEnv ?? "(unset)",
+      enabled: isD0MonitorEnabled(),
+      reason:
+        d0MonitorEnv !== "production"
+          ? "env-not-production"
+          : "kill-switch-disabled",
+    });
+  }
 
   // REQ-B: wire the real aggregator + fleet-health monitor + sweep-key resolver
   // into the control-plane assembly so BOTH crash-path legs surface onto the

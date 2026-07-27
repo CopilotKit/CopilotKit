@@ -83,12 +83,15 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     new Map(),
   );
 
-  const agent: AbstractAgent = useMemo(() => {
+  const { agent, isReady } = useMemo<{
+    agent: AbstractAgent;
+    isReady: boolean;
+  }>(() => {
     const existing = copilotkit.getAgent(resolvedAgentId);
     if (existing) {
       // Real agent found — clear any cached provisional for this ID
       provisionalAgentCache.current.delete(resolvedAgentId);
-      return existing;
+      return { agent: existing, isReady: true };
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -103,21 +106,20 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       // Return cached provisional if available (keeps reference stable)
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        // Update headers on the cached agent in case they changed
-        copilotkit.applyHeadersToAgent(cached);
-        return cached;
+        return { agent: cached, isReady: false };
       }
 
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
-      return provisional;
+      return { agent: provisional, isReady: false };
     }
 
     // Runtime is in Error state — return a provisional agent instead of throwing.
@@ -131,18 +133,18 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     ) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        copilotkit.applyHeadersToAgent(cached);
-        return cached;
+        return { agent: cached, isReady: false };
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
-      return provisional;
+      return { agent: provisional, isReady: false };
     }
 
     // No runtime configured and agent doesn't exist — this is a configuration error.
@@ -164,6 +166,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
+    copilotkit.credentials,
     JSON.stringify(copilotkit.headers),
   ]);
 
@@ -223,9 +226,9 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
 
-  // Keep HttpAgent headers fresh without mutating inside useMemo, which is
-  // unsafe in concurrent mode (React may invoke useMemo multiple times and
-  // discard intermediate results, but mutations always land).
+  // Keep HttpAgent request settings fresh without mutating inside useMemo,
+  // which is unsafe in concurrent mode (React may invoke useMemo multiple
+  // times and discard intermediate results, but mutations always land).
   useEffect(() => {
     if (agent instanceof HttpAgent) {
       // Merge core headers on top of the agent's own headers rather than
@@ -233,8 +236,11 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       // self-hosted backend) are preserved (see #5635).
       copilotkit.applyHeadersToAgent(agent);
     }
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.credentials = copilotkit.credentials;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers)]);
+  }, [agent, JSON.stringify(copilotkit.headers), copilotkit.credentials]);
 
   // Propagate the caller-supplied threadId from the chat configuration onto
   // the agent. AbstractAgent's constructor auto-mints a UUID when no threadId
@@ -253,5 +259,20 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
 
   return {
     agent,
+    /**
+     * Whether `agent` is the real, runtime-synced (or locally-registered) agent
+     * rather than a provisional stand-in returned while the runtime is still
+     * connecting (or in an error state).
+     *
+     * `agent` is always a fully-constructed `AbstractAgent`, so calling
+     * `agent.subscribe(...)`, `agent.setState(...)`, etc. is always safe. But
+     * while `isReady` is `false` the instance is a placeholder that will be
+     * swapped for the real agent once the runtime `/info` sync resolves, at
+     * which point `agent` changes reference and dependent effects re-run.
+     * Guard on `isReady` when you only want to act against the real agent —
+     * e.g. subscribing to run-lifecycle events you don't want to miss during
+     * the provisional window (#5000).
+     */
+    isReady,
   };
 }

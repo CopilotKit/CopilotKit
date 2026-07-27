@@ -3,7 +3,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { ChunkedEditStream } from "./chunked-edit-stream.js";
 import { telegramHtml } from "./telegram-html.js";
 

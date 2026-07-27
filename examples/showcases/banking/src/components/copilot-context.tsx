@@ -20,6 +20,7 @@ import {
 } from "@/components/analytics-charts";
 import { ApprovalFlowDiagram } from "@/components/approval-flow-diagram";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
+import { withOverLimit } from "@/lib/over-limit";
 import { Button } from "./ui/button";
 
 export enum Page {
@@ -113,14 +114,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     value: JSON.stringify({
       cards,
       policies,
-      transactions: transactions.map((t) => {
-        const policy = policies.find((p) => p.id === t.policyId);
-        const overLimit =
-          !!policy &&
-          policy.spent + Math.abs(t.amount) > policy.limit &&
-          !t.activeExceptionId;
-        return { ...t, overLimit };
-      }),
+      transactions: withOverLimit(transactions, policies),
     }),
   });
 

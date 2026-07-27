@@ -190,9 +190,12 @@ export function readTitle(filePath: string): string | null {
   // code sample or example config). Falls back to the first H1 when no
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
+  const navTitleMatch = fm.match(/^nav_title:\s*["']?(.+?)["']?\s*$/m);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
-  if (fmMatch) {
+  if (navTitleMatch) {
+    title = navTitleMatch[1].replace(/["']$/, "");
+  } else if (fmMatch) {
     title = fmMatch[1].replace(/["']$/, "");
   } else {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
@@ -640,7 +643,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    appendSharedThreadArchitecturePage(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -726,6 +731,48 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
     if (node.type === "page") return node.slug === slug;
     if (node.type === "group") return hasPageSlug(node.children, slug);
     return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function isRichThreadsGroup(
+  node: NavNode,
+): node is Extract<NavNode, { type: "group" }> {
+  return (
+    node.type === "group" &&
+    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "headless-threads")
+  );
+}
+
+function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      isRichThreadsGroup(node),
+  );
+  if (!rootGroup) return navTree;
+
+  const architecturePage = findPageBySlug(
+    rootGroup.children,
+    "premium/threads-explained",
+  );
+  if (architecturePage?.type !== "page") return navTree;
+
+  return navTree.map((node) => {
+    if (!isRichThreadsGroup(node)) return node;
+    if (hasPageSlug(node.children, architecturePage.slug)) return node;
+
+    return { ...node, children: [...node.children, architecturePage] };
   });
 }
 
@@ -1025,7 +1072,9 @@ export const SNIPPET_MAP: Record<string, string> = {
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
@@ -1826,7 +1875,10 @@ export function buildBreadcrumbs(
         .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
-    crumbs.push({ label, href: isLast ? null : href });
+    const hasLandingPage =
+      (mdxFile && fs.existsSync(mdxFile)) ||
+      (indexFile && fs.existsSync(indexFile));
+    crumbs.push({ label, href: isLast || !hasLandingPage ? null : href });
   }
 
   return crumbs;

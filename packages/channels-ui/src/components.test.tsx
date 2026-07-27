@@ -1,4 +1,4 @@
-import type { BotNode } from "./ir.js";
+import type { ChannelNode } from "./ir.js";
 import { describe, it, expect } from "vitest";
 import { renderToIR } from "./render.js";
 import {
@@ -92,7 +92,7 @@ describe("component vocabulary", () => {
       </Actions>,
     );
     const actions = out[0]!;
-    const button = (actions.props.children as BotNode[])[0] as BotNode;
+    const button = (actions.props.children as ChannelNode[])[0] as ChannelNode;
     expect(button.type).toBe("button");
     expect(button.props.onClick).toBe(fn);
     expect(button.props.style).toBe("primary");
@@ -115,13 +115,13 @@ describe("component vocabulary", () => {
     const table = out[0]!;
     expect(table.type).toBe("table");
     expect((table.props.columns as unknown[]).length).toBe(2);
-    const rows = table.props.children as BotNode[];
+    const rows = table.props.children as ChannelNode[];
     const row = rows[0]!;
     expect(row.type).toBe("row");
-    const cells = row.props.children as BotNode[];
+    const cells = row.props.children as ChannelNode[];
     expect(cells.length).toBe(2);
     expect(cells[0]!.type).toBe("cell");
-    const cellText = (cells[0]!.props.children as BotNode[])[0]!;
+    const cellText = (cells[0]!.props.children as ChannelNode[])[0]!;
     expect(cellText).toMatchObject({ type: "text", props: { value: "Ana" } });
   });
   it("Chart carries type, title, axis titles, and data in props", () => {

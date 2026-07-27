@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+import { renderToIR } from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 
 // Mock the local renderers so no headless browser is launched.
 const renderChart = vi.fn(async () => Buffer.from("CHARTPNG"));
@@ -11,7 +11,7 @@ vi.mock("../../render/diagram.js", () => ({ renderDiagram }));
 const { renderChartTool } = await import("../render-chart.js");
 const { renderDiagramTool } = await import("../render-diagram.js");
 
-/** The ctx a BotTool handler receives. */
+/** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof renderChartTool.handler>[1];
 
 function makeCtx() {

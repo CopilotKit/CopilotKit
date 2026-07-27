@@ -1,16 +1,28 @@
 import { spawnSync } from "child_process";
 import { ROOT } from "./config.js";
+import type { ReleaseScope } from "./config.js";
 
-export function getLastReleaseTag(): string | null {
+function getReleaseTagPattern(scope: ReleaseScope): string {
+  return scope === "monorepo" ? "v*" : `${scope}/v*`;
+}
+
+function isReleaseTag(scope: ReleaseScope, tag: string): boolean {
+  const prefix = scope === "monorepo" ? "" : `${scope}/`;
+  return (
+    tag.startsWith(prefix) && /^v\d+\.\d+\.\d+$/.test(tag.slice(prefix.length))
+  );
+}
+
+export function getLastReleaseTag(scope: ReleaseScope): string | null {
   const result = spawnSync(
     "git",
-    ["tag", "--list", "v*", "--sort=-v:refname"],
+    ["tag", "--list", getReleaseTagPattern(scope), "--sort=-v:refname"],
     { cwd: ROOT, encoding: "utf8" },
   );
   const tags = result.stdout.trim().split("\n").filter(Boolean);
 
   for (const tag of tags) {
-    if (/^v\d+\.\d+\.\d+$/.test(tag)) {
+    if (isReleaseTag(scope, tag)) {
       return tag;
     }
   }
@@ -23,8 +35,7 @@ export interface Commit {
   subject: string;
 }
 
-export function getCommitsSinceLastRelease(): Commit[] {
-  const lastTag = getLastReleaseTag();
+function getCommitsSince(lastTag: string | null): Commit[] {
   const range = lastTag ? `${lastTag}..HEAD` : "HEAD";
 
   const result = spawnSync(
@@ -46,6 +57,10 @@ export function getCommitsSinceLastRelease(): Commit[] {
     });
 }
 
+export function getCommitsSinceLastRelease(scope: ReleaseScope): Commit[] {
+  return getCommitsSince(getLastReleaseTag(scope));
+}
+
 export interface ChangesSummary {
   lastTag: string | null;
   commitCount: number;
@@ -53,9 +68,9 @@ export interface ChangesSummary {
   oneline: string;
 }
 
-export function getChangesSummary(): ChangesSummary {
-  const lastTag = getLastReleaseTag();
-  const commits = getCommitsSinceLastRelease();
+export function getChangesSummary(scope: ReleaseScope): ChangesSummary {
+  const lastTag = getLastReleaseTag(scope);
+  const commits = getCommitsSince(lastTag);
 
   return {
     lastTag,

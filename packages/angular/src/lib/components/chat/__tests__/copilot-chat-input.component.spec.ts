@@ -55,6 +55,19 @@ describe("CopilotChatInput", () => {
     expect(component.computedMode()).toBe("input");
   });
 
+  it("uses the public mode input when one is provided", () => {
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("mode", "processing");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedMode()).toBe("processing");
+
+    fixture.componentRef.setInput("mode", "transcribe");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedMode()).toBe("transcribe");
+  });
+
   it("emits value changes and updates chat state", () => {
     const valueSpy = vi.fn();
     component.valueChange.subscribe(valueSpy);
@@ -63,6 +76,15 @@ describe("CopilotChatInput", () => {
 
     expect(valueSpy).toHaveBeenCalledWith("Hello world");
     expect(chatState.changeInput).toHaveBeenCalledWith("Hello world");
+  });
+
+  it("keeps an explicit empty controlled value", () => {
+    chatState.inputValue.set("stale draft");
+    const fixture = TestBed.createComponent(CopilotChatInput);
+    fixture.componentRef.setInput("value", "");
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.computedValue()).toBe("");
   });
 
   it("submits trimmed messages and clears input", () => {

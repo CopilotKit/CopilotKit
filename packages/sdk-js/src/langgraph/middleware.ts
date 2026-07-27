@@ -360,6 +360,48 @@ const copilotKitStateSchema = z.object({
   ),
 });
 
+const isToolCallContentBlock = (block: unknown) =>
+  typeof block === "object" &&
+  block !== null &&
+  "type" in block &&
+  (block.type === "tool_call" || block.type === "tool_call_chunk");
+
+const usesV1ContentBlocks = (responseMetadata: unknown) =>
+  typeof responseMetadata === "object" &&
+  responseMetadata !== null &&
+  "output_version" in responseMetadata &&
+  responseMetadata.output_version === "v1";
+
+/**
+ * Rebuilds an AIMessage with `toolCalls` as the source of truth while
+ * preserving its non-tool content and metadata. For v1 content blocks, old
+ * tool blocks must be removed before construction so they cannot duplicate or
+ * override the supplied tool calls when AIMessage synchronizes both fields.
+ */
+const rebuildAIMessageWithToolCalls = (
+  message: AIMessage,
+  toolCalls: AIMessage["tool_calls"],
+) => {
+  let content = message.content;
+  if (
+    usesV1ContentBlocks(message.response_metadata) &&
+    Array.isArray(content)
+  ) {
+    content = content.filter((block) => !isToolCallContentBlock(block));
+  }
+
+  return new AIMessage({
+    content,
+    additional_kwargs: message.additional_kwargs,
+    response_metadata: message.response_metadata,
+    tool_calls: toolCalls,
+    invalid_tool_calls: message.invalid_tool_calls,
+    usage_metadata: message.usage_metadata,
+    id: message.id,
+    name: message.name,
+  });
+};
+
 const buildMiddlewareInput = (
   exposeState: ExposeStateOption,
   a2uiParams?: Omit<A2UIToolParams, "model">,
@@ -487,11 +529,10 @@ const buildMiddlewareInput = (
       if (AIMessage.isInstance(msg) && msg.id === originalMessageId) {
         messageFound = true;
         const existingToolCalls = msg.tool_calls || [];
-        return new AIMessage({
-          content: msg.content,
-          tool_calls: [...existingToolCalls, ...interceptedToolCalls],
-          id: msg.id,
-        });
+        return rebuildAIMessageWithToolCalls(msg, [
+          ...existingToolCalls,
+          ...interceptedToolCalls,
+        ]);
       }
       return msg;
     });
@@ -541,11 +582,10 @@ const buildMiddlewareInput = (
 
     if (frontendToolCalls.length === 0) return;
 
-    const updatedAIMessage = new AIMessage({
-      content: lastMessage.content,
-      tool_calls: backendToolCalls,
-      id: lastMessage.id,
-    });
+    const updatedAIMessage = rebuildAIMessageWithToolCalls(
+      lastMessage,
+      backendToolCalls,
+    );
 
     return {
       messages: [...state.messages.slice(0, -1), updatedAIMessage],

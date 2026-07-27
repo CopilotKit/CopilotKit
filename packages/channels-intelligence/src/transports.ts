@@ -1,6 +1,6 @@
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 import type {
-  ManagedIngressEnvelope,
+  ChannelIngressEnvelope,
   EgressRoute,
   EgressOperation,
   EgressResult,
@@ -10,7 +10,7 @@ import type {
 
 /**
  * A conversation-history message the adapter seeds onto a fresh agent's
- * `messages` before a turn runs, giving the managed bot visibility into prior
+ * `messages` before a turn runs, giving the Channel runtime visibility into prior
  * thread turns (parity with bot-slack/bot-discord/bot-whatsapp's
  * reconstructed-history conversation stores). Structurally compatible with —
  * but intentionally looser than — the AG-UI `Message` union (which types an
@@ -25,7 +25,7 @@ export interface AgentMessage {
 }
 
 /**
- * Inbound transport for managed delivery. Implemented by the Intelligence
+ * Inbound transport for Intelligence Channel delivery. Implemented by the Intelligence
  * Realtime Gateway client in production, and by {@link InMemoryDeliverySource}
  * for headless/standalone runs and tests. The bridge adapter is the only
  * consumer — it never knows which implementation is wired.
@@ -33,14 +33,14 @@ export interface AgentMessage {
 export interface DeliverySource {
   /** Begin delivering. `onDelivery` is invoked once per leased envelope. */
   start(
-    onDelivery: (env: ManagedIngressEnvelope) => Promise<void>,
+    onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void>;
   /** Acknowledge successful processing of a delivery (lease release). */
   ack(deliveryId: string): Promise<void>;
   /** Negatively acknowledge — the work will be redelivered (at-least-once). */
   nack(deliveryId: string, reason: string): Promise<void>;
   /**
-   * Fetch an inbound file's bytes by handle (managed multimodal content).
+   * Fetch an inbound file's bytes by handle (Channel multimodal content).
    * Optional: sources without a file-serve backing omit it and the adapter
    * skips content-part hydration (text-only turn).
    */
@@ -74,7 +74,7 @@ export interface DeliverySource {
 }
 
 /**
- * Outbound transport for managed replies. Implemented by the Intelligence
+ * Outbound transport for Channel replies. Implemented by the Intelligence
  * Connector Outbox client in production, and by {@link InMemoryEgressSink} for
  * tests. Receives generic egress operations with deterministic ids; the real
  * platform render + credentialed send happen on the Intelligence side.
@@ -89,7 +89,7 @@ export interface EgressSink {
  * {@link RenderAccepted} receipt for each before proceeding — the SDK never
  * assumes acceptance and never commits the delivery ack (app-api owns that;
  * the {@link DeliverySource} completion signal is the SDK's only terminal
- * intent). Implemented by the Realtime Gateway (Phoenix) client in production;
+ * intent). Implemented by the Realtime Gateway client in production;
  * headless/HTTP-fallback runs translate frames back to {@link EgressSink}
  * `post` operations so a Connector Outbox isn't required to see plain-text
  * replies.

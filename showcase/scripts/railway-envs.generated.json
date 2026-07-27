@@ -21,6 +21,10 @@
         "staging": "aimock-staging.up.railway.app",
         "prod": "showcase-aimock-production.up.railway.app"
       },
+      "internalDomains": {
+        "staging": "showcase-aimock.railway.internal",
+        "prod": "showcase-aimock.railway.internal"
+      },
       "probe": {
         "staging": true,
         "prod": true,
@@ -30,6 +34,10 @@
       "healthcheckPath": {
         "prod": "/health",
         "staging": "/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -54,7 +62,11 @@
         "driver": "dashboard"
       },
       "promoteTier": 1,
-      "runtimeDeps": ["pocketbase", "harness"]
+      "runtimeDeps": ["pocketbase", "harness"],
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
     },
     {
       "name": "docs",
@@ -78,7 +90,11 @@
         "driver": "docs"
       },
       "promoteTier": 2,
-      "standalone": true
+      "standalone": true,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
     },
     {
       "name": "dojo",
@@ -101,7 +117,11 @@
         "prod": true,
         "driver": "dojo"
       },
-      "promoteTier": 2
+      "promoteTier": 2,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
     },
     {
       "name": "harness",
@@ -128,6 +148,10 @@
       "healthcheckPath": {
         "prod": "/health",
         "staging": "/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -172,6 +196,10 @@
           "overlapSeconds": 45,
           "drainingSeconds": 180
         }
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -195,7 +223,11 @@
         "prod": true,
         "driver": "pocketbase"
       },
-      "promoteTier": 0
+      "promoteTier": 0,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
     },
     {
       "name": "shell",
@@ -222,6 +254,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -252,6 +288,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -282,6 +322,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -312,6 +356,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -337,11 +385,19 @@
         {
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
+        },
+        {
+          "key": "ANTHROPIC_BASE_URL",
+          "target": "aimock"
         }
       ],
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -372,6 +428,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -402,6 +462,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -432,6 +496,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -462,6 +530,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -492,6 +564,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -522,6 +598,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -552,6 +632,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -582,6 +666,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -612,6 +700,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -642,6 +734,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -672,6 +768,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -702,6 +802,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -732,6 +836,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -762,6 +870,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -792,6 +904,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -822,6 +938,10 @@
       "healthcheckPath": {
         "prod": "/api/health",
         "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -852,6 +972,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -882,6 +1006,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -912,6 +1040,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -942,6 +1074,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -972,6 +1108,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1002,6 +1142,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1032,6 +1176,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1062,6 +1210,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1092,6 +1244,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1122,6 +1278,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1152,6 +1312,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1182,6 +1346,10 @@
       "healthcheckPath": {
         "prod": "/",
         "staging": "/"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
       }
     },
     {
@@ -1205,7 +1373,11 @@
         "prod": true,
         "driver": "webhooks"
       },
-      "promoteTier": 0
+      "promoteTier": 0,
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
     }
   ],
   "closure": {

@@ -115,7 +115,7 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
     expect(dist.d0).toBe(1);
   });
 
-  it("lands a wired-but-unverified cell in d0 and sums to the wired total", () => {
+  it("lands a wired-but-unverified cell in d0 and sums to the wired+stub total", () => {
     // Three wired cells: one reaches D6, two have no live data → D0.
     const d6Cell = wiredCell({ integration: "agno", feature: "agentic-chat" });
     const d0CellA = wiredCell({
@@ -126,7 +126,8 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
       integration: "crewai",
       feature: "agentic-chat",
     });
-    // A non-wired cell must NOT be counted toward the wired total.
+    // A stub cell IS wired-in-the-engine (Finding A10) — the matrix renders a
+    // real chip for it, so it must be counted here too (no live data → d0).
     const stub = wiredCell({
       integration: "x",
       feature: "agentic-chat",
@@ -138,21 +139,75 @@ describe("computeDepthDistribution — D6 (Finding #1)", () => {
 
     const dist = computeDepthDistribution(cells, live, now);
 
-    // The two no-data wired cells land in d0 (visible, not vanished).
-    expect(dist.d0).toBe(2);
+    // The three no-data cells (two wired, one stub) land in d0.
+    expect(dist.d0).toBe(3);
     expect(dist.d6).toBe(1);
 
     // The distribution exposes EXACTLY the reachable buckets — no dead d1/d2
     // keys that buildCellModel().achievedDepth (0|3|4|5|6) can never populate.
     expect(Object.keys(dist).sort()).toEqual(["d0", "d3", "d4", "d5", "d6"]);
 
-    // Every bucket sums to the count of wired cells (3), not including the stub.
+    // Every bucket sums to the count of wired+stub cells (4).
     const wiredCount = cells.filter(
-      (c) => c.status === "wired" && c.feature !== null,
+      (c) =>
+        (c.status === "wired" || c.status === "stub") && c.feature !== null,
     ).length;
     const total = Object.values(dist).reduce((a, b) => a + b, 0);
     expect(total).toBe(wiredCount);
-    expect(total).toBe(3);
+    expect(total).toBe(4);
+  });
+
+  // ── Finding A10 — stub is wired-in-the-engine, must not be undercounted ──
+  it("counts a stub cell (Finding A10) in the depth distribution, not vanished", () => {
+    const stub = wiredCell({
+      integration: "x",
+      feature: "agentic-chat",
+      status: "stub",
+    });
+    const dist = computeDepthDistribution([stub], mapOf([]), Date.now());
+    expect(dist.d0).toBe(1);
+    const total = Object.values(dist).reduce((a, b) => a + b, 0);
+    expect(total).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Finding A9 — page-stats must route through the shared `catalogCellToInput`
+// mapping so a starter cell can never mis-resolve on the agent ladder.
+// ---------------------------------------------------------------------------
+
+describe("starter routing via the shared catalogCellToInput mapping (Finding A9)", () => {
+  // Real starter cells always have `feature: null` (catalog-flatten.ts), so
+  // the `cell.feature === null` guard masks the bug in production data today.
+  // This test uses a synthetic non-null-feature starter cell to exercise the
+  // routing directly — proving page-stats resolves via the shared mapping
+  // (probeAxis "starter") instead of relying on that unstated invariant.
+  const starterCell = wiredCell({
+    manifestation: "starter",
+    integration: "agno",
+    feature: "agentic-chat",
+    status: "wired",
+  });
+
+  it("does NOT resolve a starter cell on the agent ladder even with a full green agent ladder", () => {
+    // These rows would drive achievedDepth 6 / green on the AGENT axis. A
+    // starter cell must ignore them entirely (no D0-D6 ladder on the starter
+    // axis) — if page-stats omitted `probeAxis` (the pre-fix bug), it would
+    // wrongly resolve green/d6 here instead of gray/d0.
+    const live = mapOf(fullDepth6Rows("agno", "agentic-chat"));
+    const now = Date.parse(FRESH);
+
+    const health = computeHealthStats([starterCell], live, now);
+    expect(health.green).toBe(0);
+    expect(health.noData).toBe(1);
+
+    const dist = computeDepthDistribution([starterCell], live, now);
+    expect(dist.d6).toBe(0);
+    expect(dist.d0).toBe(1);
+
+    const d6 = computeD6Stats([starterCell], live, now);
+    expect(d6.green).toBe(0);
+    expect(d6.gray).toBe(1);
   });
 });
 
@@ -287,11 +342,22 @@ describe("computeHealthStats — gray is no-data, not green (Finding #3)", () =>
     expect(stats.noData).toBe(0);
   });
 
-  it("ignores non-wired cells", () => {
-    const stub = wiredCell({ status: "stub" });
+  it("ignores unshipped/unsupported cells (but NOT stub — Finding A10)", () => {
     const unshipped = wiredCell({ status: "unshipped" });
-    const stats = computeHealthStats([stub, unshipped], mapOf([]), Date.now());
+    const unsupported = wiredCell({ status: "unsupported" });
+    const stats = computeHealthStats(
+      [unshipped, unsupported],
+      mapOf([]),
+      Date.now(),
+    );
     expect(stats).toEqual({ green: 0, amber: 0, red: 0, noData: 0 });
+  });
+
+  // ── Finding A10 — a stub is wired-in-the-engine, must be counted ──
+  it("counts a stub cell with no live data as noData, not skipped", () => {
+    const stub = wiredCell({ status: "stub" });
+    const stats = computeHealthStats([stub], mapOf([]), Date.now());
+    expect(stats).toEqual({ green: 0, amber: 0, red: 0, noData: 1 });
   });
 });
 

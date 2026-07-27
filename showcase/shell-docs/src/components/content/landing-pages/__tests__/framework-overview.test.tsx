@@ -59,4 +59,26 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain('class="pb-8 sm:pb-12"');
     expect(markup).not.toContain("pt-2 sm:pt-4");
   });
+
+  it("renders framework feature copy for the selected Angular frontend", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={{
+          ...overviewData,
+          supportedFeatures: [
+            {
+              title: "Generative UI",
+              description: "Render custom React components from agent output.",
+              documentationLink: "/langgraph-python/quickstart",
+            },
+          ],
+        }}
+        currentFramework="langgraph-python"
+        frontendOverride="angular"
+      />,
+    );
+
+    expect(markup).toContain("custom Angular components");
+    expect(markup).not.toContain("React components");
+  });
 });

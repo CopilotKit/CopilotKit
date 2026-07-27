@@ -7,14 +7,14 @@
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
+      "_comment": "tool-rendering pill: Chain tools \u2014 follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
         "toolCallId": "call_tr_chain_roll_001",
         "context": "mastra"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
@@ -24,7 +24,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
@@ -34,15 +34,15 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+        "content": "Done \u2014 Tokyo is sunny, three flights found, and the d20 came up 11."
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "_comment": "tool-rendering pill: Chain tools \u2014 emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -65,21 +65,21 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
+      "_comment": "tool-rendering pill: Weather in SF \u2014 follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
       "match": {
         "userMessage": "What's the weather in San Francisco?",
         "toolCallId": "call_tr_weather_sf_001",
         "context": "mastra"
       },
       "response": {
-        "content": "San Francisco is currently 68°F and sunny with light winds."
+        "content": "San Francisco is currently 68\u00b0F and sunny with light winds."
       }
     },
     {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -92,18 +92,18 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "_comment": "tool-rendering pill: Find flights \u2014 second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below \u2014 the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
       "match": {
         "userMessage": "Find flights from SFO to JFK.",
         "toolCallId": "call_tr_flights_sfo_jfk_001",
         "context": "mastra"
       },
       "response": {
-        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+        "content": "Three flights from SFO to JFK \u2014 United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
       }
     },
     {
-      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
+      "_comment": "tool-rendering pill: Stock price \u2014 follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "toolCallId": "call_tr_stock_aapl_001",
@@ -116,8 +116,8 @@
     {
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "toolName": "get_stock_price"
       },
       "response": {
         "toolCalls": [
@@ -130,7 +130,7 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
+      "_comment": "tool-rendering pill: Roll a d20 \u2014 exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_001",
@@ -201,14 +201,13 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+        "content": "Rolled the d20 five times \u2014 landed on 20 on the final roll."
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "_comment": "First roll. Matches the initial user prompt on userMessage only (mirrors gold tool_rendering_agent fixture) — the toolCallId-chained fixtures above win for iterations 2-6, so no hasToolResult gate is needed here (and the gate broke when prior-pill tool results linger in thread history).",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
         "context": "mastra"
       },
       "response": {
@@ -229,7 +228,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Tokyo is 22°C and partly cloudy."
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
       }
     },
     {
@@ -270,14 +269,14 @@
       }
     },
     {
-      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered \u2014 return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
-        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+        "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
       }
     },
     {
@@ -293,8 +292,8 @@
     {
       "match": {
         "userMessage": "AAPL",
-        "turnIndex": 0,
-        "context": "mastra"
+        "context": "mastra",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
@@ -329,7 +328,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+        "content": "Two flights shown above \u2014 United at $349 (08:00) and Delta at $289 (10:15), both on time."
       }
     },
     {
@@ -371,7 +370,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — the poem has been written into the shared document state."
+        "content": "Done \u2014 the poem has been written into the shared document state."
       }
     },
     {
@@ -386,7 +385,7 @@
           {
             "id": "call_d5_write_document_poem_001",
             "name": "write_document",
-            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
+            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief \u2014 / autumn keeps its books in vermilion and gold leaf.\"}"
           }
         ]
       }
@@ -398,7 +397,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — the decline-email draft has been written into the shared document state."
+        "content": "Done \u2014 the decline-email draft has been written into the shared document state."
       }
     },
     {
@@ -413,7 +412,7 @@
           {
             "id": "call_d5_write_document_email_001",
             "name": "write_document",
-            "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
+            "arguments": "{\"document\":\"Hi \u2014 thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
           }
         ]
       }
@@ -425,7 +424,7 @@
         "context": "mastra"
       },
       "response": {
-        "content": "Done — the quantum-computing explainer has been written into the shared document state."
+        "content": "Done \u2014 the quantum-computing explainer has been written into the shared document state."
       }
     },
     {
@@ -440,7 +439,7 @@
           {
             "id": "call_d5_write_document_quantum_001",
             "name": "write_document",
-            "arguments": "{\"document\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
+            "arguments": "{\"document\":\"A regular computer stores information in bits \u2014 tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure \u2014 like factoring big numbers, simulating molecules, or searching certain databases \u2014 but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
           }
         ]
       }

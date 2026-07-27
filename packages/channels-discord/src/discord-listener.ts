@@ -1,4 +1,4 @@
-import type { IncomingReaction } from "@copilotkit/channels";
+import type { IncomingReaction } from "@copilotkit/channels-core";
 import type { IncomingTurn, ReplyTarget } from "./types.js";
 import { decodeReaction } from "./interaction.js";
 import type { PendingInteractions } from "./pending-interactions.js";

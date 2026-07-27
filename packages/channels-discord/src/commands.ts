@@ -1,5 +1,5 @@
 import { Routes } from "discord.js";
-import type { CommandSpec } from "@copilotkit/channels";
+import type { CommandSpec } from "@copilotkit/channels-core";
 import { truncateText } from "./render/budget.js";
 
 // Discord caps command and option descriptions at 100 chars; a longer one

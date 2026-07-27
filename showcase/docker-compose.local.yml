@@ -5,7 +5,11 @@ x-integration-defaults: &integration-defaults
   env_file: .env
   environment:
     - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
-    - OPENAI_BASE_URL=http://aimock:4010/v1
+    # Defaults to the in-network aimock replay. Override in .env (e.g.
+    # OPENAI_BASE_URL=https://api.openai.com/v1) to run a real-LLM cell such as
+    # browser-use against live OpenAI. Default unchanged, so aimock replay for
+    # every other cell is unaffected.
+    - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
     - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}

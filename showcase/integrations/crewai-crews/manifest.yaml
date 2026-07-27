@@ -22,6 +22,21 @@ managed_platform:
   name: CrewAI Enterprise
   url: https://crewai.com/amp
 not_supported_features:
+  # NEVER IMPLEMENTED, not an oversight. `multimodal` (Attachments) has no
+  # backend on this integration: `src/agent_server.py` registers a dedicated
+  # AG-UI endpoint for every other demo but NO `/multimodal` route (see the
+  # endpoint block that ends with the catch-all
+  # `add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")`), and
+  # there is no `src/agents/multimodal_agent.py`. The demo's route
+  # (`src/app/api/copilotkit-multimodal/route.ts`) therefore aliases the generic
+  # shared crew, which has no vision handling and dies on a content-part
+  # message — surfacing as the opaque `CrewAI flow failed; see server logs`.
+  # Building the dedicated vision-tuned crew is tracked follow-up work (that
+  # route file's header comment already concedes the gap). Marked not-supported
+  # so the cell reads unsupported (gray/🚫) rather than green (which would claim
+  # it works) or red (which would claim a regression). The demo entry stays
+  # wired below, matching every other not-supported feature here.
+  - multimodal
   - shared-state-streaming
   - gen-ui-interrupt
   - interrupt-headless
@@ -57,7 +72,6 @@ features:
   - agent-config
   - auth
   - voice
-  - multimodal
   - declarative-gen-ui
   - a2ui-fixed-schema
   - byoc-hashbrown

@@ -1,5 +1,5 @@
 import { Header, Message, Section, renderToIR } from "@copilotkit/channels-ui";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { describe, expect, it } from "vitest";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 
@@ -20,7 +20,7 @@ describe("renderBlockKit", () => {
   });
 
   it("renders a pre-bound button inside actions with its stamped action_id", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       {
         type: "actions",
         props: {
@@ -116,7 +116,7 @@ describe("renderBlockKit", () => {
   });
 
   it("renders a Table IR into a native Slack table block", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       {
         type: "table",
         props: {

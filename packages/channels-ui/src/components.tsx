@@ -1,4 +1,4 @@
-import type { BotNode } from "./ir.js";
+import type { ChannelNode } from "./ir.js";
 import type { ClickHandler, MessageReactionHandler } from "./types.js";
 
 /**
@@ -7,7 +7,7 @@ import type { ClickHandler, MessageReactionHandler } from "./types.js";
  * nothing), plus arrays thereof.
  */
 export type BotChildren =
-  | BotNode
+  | ChannelNode
   | string
   | number
   | boolean
@@ -157,7 +157,7 @@ export interface ChartProps {
 
 export const intrinsic =
   <P,>(type: string) =>
-  (props: P): BotNode => ({
+  (props: P): ChannelNode => ({
     type,
     props: (props ?? {}) as Record<string, unknown>,
   });
@@ -176,15 +176,17 @@ export const Chart = intrinsic<ChartProps>("chart");
 export const Row = intrinsic<RowProps>("row");
 export const Cell = intrinsic<CellProps>("cell");
 
-export function Button<TValue = unknown>(props: ButtonProps<TValue>): BotNode {
+export function Button<TValue = unknown>(
+  props: ButtonProps<TValue>,
+): ChannelNode {
   return { type: "button", props: props as unknown as Record<string, unknown> };
 }
-export function Select(props: SelectProps): BotNode {
+export function Select(props: SelectProps): ChannelNode {
   return { type: "select", props: props as unknown as Record<string, unknown> };
 }
-export function Input(props: InputProps): BotNode {
+export function Input(props: InputProps): ChannelNode {
   return { type: "input", props: props as unknown as Record<string, unknown> };
 }
-export function Table(props: TableProps): BotNode {
+export function Table(props: TableProps): ChannelNode {
   return { type: "table", props: props as unknown as Record<string, unknown> };
 }

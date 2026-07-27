@@ -222,7 +222,23 @@ Examples:
 - "build me a spend report" / "give me an overview of our spending" / "show it on the canvas" -> render_report (canvas).
 - "show the spending trend" / "what's our budget usage?" -> in-chat chart tool (inline).
 
-render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses; transactions (optional) is one of all | pending | approved | denied. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.`,
+render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses; transactions (optional) is one of all | pending | approved | denied. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.
+
+OPEN GENERATIVE UI (generateSandboxedUi): You can also author a custom, sandboxed
+interactive UI on demand with the built-in generateSandboxedUi tool. Use it ONLY
+for something the standard charts and the render_report canvas cannot express: an
+interactive tool, calculator, explorer, what-if/scenario simulator, playground,
+prototype, or a custom/novel visualization (e.g. a treemap, heatmap, sankey, 3D
+view, or a specific chart library like Chart.js / D3 / Three.js).
+- NOT for a report, overview, dashboard, or a standard chart — those ALWAYS use
+  render_report or the in-chat chart tools, EVEN WHEN the user says "build" or
+  "make" (e.g. "build a spend report on the canvas" -> render_report, never
+  generateSandboxedUi).
+- When you build such a UI you MUST obtain every figure by calling the exposed
+  sandbox functions (getTransactions, getPolicies, getCards, getKpis) from inside
+  the generated JavaScript. NEVER invent, inline, or hardcode numbers.
+- generateSandboxedUi is NEVER part of the over-limit approval / teach-recall arc,
+  the approvals queue, or the standard chart/report responses.`,
   tools: [renderReportTool],
   // Temperature 0 for consistent tool routing — the teach-flow sequencing
   // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
@@ -322,6 +338,7 @@ function createRuntime(): CopilotRuntime {
       lockHeartbeatIntervalSeconds: 12,
       generateThreadNames: true,
       a2ui: { injectA2UITool: false },
+      openGenerativeUI: { agents: ["default"] },
     });
   }
 
@@ -330,6 +347,7 @@ function createRuntime(): CopilotRuntime {
     agents: { default: bankingAgent },
     runner: new InMemoryAgentRunner(),
     a2ui: { injectA2UITool: false },
+    openGenerativeUI: { agents: ["default"] },
   });
 }
 

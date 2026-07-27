@@ -69,6 +69,7 @@ export interface MdxFrameworkOverviewProps {
    * toward.
    */
   currentFramework?: string;
+  hrefPrefix?: string;
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -104,6 +105,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
     <FrameworkOverview
       data={synthData}
       currentFramework={currentFramework}
+      hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
     />
   );

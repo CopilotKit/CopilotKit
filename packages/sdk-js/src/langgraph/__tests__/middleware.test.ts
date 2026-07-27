@@ -496,6 +496,103 @@ describe("afterAgent", () => {
     expect(result!.copilotkit.interceptedToolCalls).toBeUndefined();
     expect(result!.copilotkit.originalAIMessageId).toBeUndefined();
   });
+
+  it("preserves v1 metadata and content blocks through interception and restoration", () => {
+    const backendToolCall = {
+      id: "backend-1",
+      name: "search",
+      args: { query: "CopilotKit" },
+    };
+    const frontendToolCall = {
+      id: "frontend-1",
+      name: "navigate",
+      args: { path: "/results" },
+    };
+    const original = new AIMessage({
+      content: [
+        { type: "reasoning", reasoning: "Search, then open the result." },
+        { type: "tool_call", ...backendToolCall },
+        { type: "tool_call", ...frontendToolCall },
+        {
+          type: "tool_call_chunk",
+          id: "stale-1",
+          name: "stale",
+          args: "{}",
+        },
+      ],
+      tool_calls: [backendToolCall, frontendToolCall],
+      additional_kwargs: { provider_request_id: "request-1" },
+      response_metadata: {
+        output_version: "v1",
+        status: "completed",
+      },
+      usage_metadata: {
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+      },
+      invalid_tool_calls: [
+        {
+          id: "invalid-1",
+          name: "broken_tool",
+          args: "{",
+          error: "Invalid JSON",
+          type: "invalid_tool_call",
+        },
+      ],
+      id: "ai-v1",
+      name: "assistant-with-tools",
+    });
+    const state = {
+      messages: [new HumanMessage("open the search result"), original],
+      copilotkit: { actions: [{ name: "navigate" }] },
+    };
+
+    const intercepted = copilotkitMiddleware.afterModel(state, {} as any)!;
+    const interceptedMessage = intercepted.messages.at(-1) as AIMessage;
+    const interceptedContent = interceptedMessage.content as any[];
+
+    expect(interceptedMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall],
+    });
+    expect(
+      interceptedContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search"]);
+    expect(
+      interceptedContent.some((block) => block.type === "tool_call_chunk"),
+    ).toBe(false);
+
+    const restored = copilotkitMiddleware.afterAgent(intercepted, {} as any)!;
+    const restoredMessage = restored.messages.at(-1) as AIMessage;
+    const restoredContent = restoredMessage.content as any[];
+
+    expect(restoredMessage).toMatchObject({
+      additional_kwargs: original.additional_kwargs,
+      response_metadata: original.response_metadata,
+      usage_metadata: original.usage_metadata,
+      invalid_tool_calls: original.invalid_tool_calls,
+      id: original.id,
+      name: original.name,
+      tool_calls: [backendToolCall, frontendToolCall],
+    });
+    expect(
+      restoredContent
+        .filter((block) => block.type === "tool_call")
+        .map((block) => block.name),
+    ).toEqual(["search", "navigate"]);
+    expect(restoredContent[0]).toEqual({
+      type: "reasoning",
+      reasoning: "Search, then open the result.",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,10 @@
 import { test, expect } from "vitest";
-import { runStateStoreConformance } from "@copilotkit/channels/testing";
+import { runStateStoreConformance } from "@copilotkit/channels-core/testing";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
 
 /**
- * A fake `/api/bots/kv/*` server over an in-memory Map, honoring TTL the same
+ * A fake `/api/channels/kv/*` server over an in-memory Map, honoring TTL the same
  * way app-api does (lazy expiry on read). Lets the full StateStore conformance
  * suite run against IntelligenceStateStore: `kv` exercises this HTTP layer;
  * list/lock/dedup/queue exercise the delegated in-memory MemoryStore.
@@ -20,7 +20,7 @@ function fakeKvFetch(): FetchLike {
       ttlMs?: number;
     };
     let payload: unknown = { ok: true };
-    if (url.endsWith("/api/bots/kv/get")) {
+    if (url.endsWith("/api/channels/kv/get")) {
       const e = map.get(body.key);
       if (!live(e)) {
         map.delete(body.key);
@@ -28,13 +28,15 @@ function fakeKvFetch(): FetchLike {
       } else {
         payload = { value: e!.value };
       }
-    } else if (url.endsWith("/api/bots/kv/set")) {
+    } else if (url.endsWith("/api/channels/kv/set")) {
       map.set(body.key, {
         value: body.value,
         expiresAt: body.ttlMs ? Date.now() + body.ttlMs : undefined,
       });
-    } else if (url.endsWith("/api/bots/kv/delete")) {
+    } else if (url.endsWith("/api/channels/kv/delete")) {
       map.delete(body.key);
+    } else {
+      throw new Error(`unexpected KV route: ${url}`);
     }
     const text = JSON.stringify(payload);
     return { ok: true, status: 200, text: async () => text };

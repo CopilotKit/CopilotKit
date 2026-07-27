@@ -185,4 +185,17 @@ describe("FrameworkSelector", () => {
       "router.replace(\n      backendPathForCurrentPath(",
     );
   });
+
+  it("attributes explicit frontend switches with their origin and backend", () => {
+    const componentSource = readFileSync(
+      new URL("../framework-selector.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(componentSource).toContain('"docs.frontend_selected"');
+    expect(componentSource).toContain("from_frontend: effectiveFrontendId");
+    expect(componentSource).toContain("backend: effectiveFramework");
+    expect(componentSource).toContain("from_path: pathname");
+    expect(componentSource).toContain("destination_path: destinationPath");
+  });
 });

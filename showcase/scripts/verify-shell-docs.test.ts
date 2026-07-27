@@ -6,6 +6,7 @@ import { checkInternalLinks } from "./verify-shell-docs.js";
 import { checkImportPaths } from "./verify-shell-docs.js";
 import { checkComponentImports } from "./verify-shell-docs.js";
 import { checkClaudeQuickstarts } from "./verify-shell-docs.js";
+import { checkUnexpectedMultiFileRegionSources } from "./verify-shell-docs.js";
 
 describe("runBuildCheck", () => {
   it("returns a result with name, status, and messages", () => {
@@ -133,6 +134,37 @@ describe("checkSnippetRegions", () => {
       },
     ];
     const result = checkSnippetRegions({ pages, demoContent });
+    expect(result.status).toBe("pass");
+  });
+});
+
+describe("checkUnexpectedMultiFileRegionSources", () => {
+  it("fails when a multi-file region is not explicitly allowlisted", () => {
+    const result = checkUnexpectedMultiFileRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::gen-ui-tool-based",
+          regionName: "bar-chart-renderer",
+          files: ["page.tsx", "bar-chart-renderer.snippet.tsx"],
+        },
+      ],
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.messages.join(" ")).toContain("bar-chart-renderer");
+  });
+
+  it("passes for the known intentional multi-file snippets", () => {
+    const result = checkUnexpectedMultiFileRegionSources({
+      sources: [
+        {
+          demoKey: "claude-sdk-python::open-gen-ui-advanced",
+          regionName: "sandbox-function-registration",
+          files: ["page.tsx", "sandbox-functions.ts"],
+        },
+      ],
+    });
+
     expect(result.status).toBe("pass");
   });
 });

@@ -24,8 +24,6 @@ using OpenAI;
 /// </summary>
 public class ByocHashbrownAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private const string SystemPrompt = @"You are a sales analytics assistant that replies by emitting a single JSON
 object consumed by a streaming JSON parser on the frontend.
 
@@ -86,17 +84,13 @@ Example response (sales dashboard):
 
         _logger = loggerFactory.CreateLogger<ByocHashbrownAgentFactory>();
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _logger.LogInformation("ByocHashbrownAgent using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

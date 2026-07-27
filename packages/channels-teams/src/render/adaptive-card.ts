@@ -1,4 +1,4 @@
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
 
 /** Teams attachment content type for an Adaptive Card. */
@@ -38,7 +38,7 @@ const VERSION = "1.5";
  * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
  * ceiling.
  */
-export function renderAdaptiveCard(ir: BotNode[]): AdaptiveCard {
+export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   const body: CardElement[] = [];
   const actions: CardAction[] = [];
   for (const node of ir) renderNode(node, body, actions);
@@ -56,7 +56,7 @@ export function renderAdaptiveCard(ir: BotNode[]): AdaptiveCard {
 
 /** Render a single IR node, pushing body elements and/or top-level actions. */
 function renderNode(
-  node: BotNode,
+  node: ChannelNode,
   body: CardElement[],
   actions: CardAction[],
 ): void {
@@ -151,7 +151,7 @@ function textBlock(text: string): CardElement {
 
 /** A `<Fields>`/`<Field>` group → a `FactSet`. Each field's text is split on
  *  its first colon into title/value (falling back to a value-only fact). */
-function factSet(fieldNodes: BotNode[]): CardElement {
+function factSet(fieldNodes: ChannelNode[]): CardElement {
   const { items } = clampArray(fieldNodes, TEAMS_LIMITS.factsPerSet);
   const facts = items.map((f) => {
     const text = collectText(f);
@@ -167,7 +167,7 @@ function factSet(fieldNodes: BotNode[]): CardElement {
   return { type: "FactSet", facts };
 }
 
-function renderButton(node: BotNode): CardAction {
+function renderButton(node: ChannelNode): CardAction {
   const props = node.props ?? {};
   // Link button → Action.OpenUrl (opens the URL; carries no submit data).
   if (typeof props.url === "string" && props.url.length > 0) {
@@ -196,7 +196,7 @@ function renderButton(node: BotNode): CardAction {
   return action;
 }
 
-function renderSelect(node: BotNode): CardElement {
+function renderSelect(node: ChannelNode): CardElement {
   const props = node.props ?? {};
   const options =
     (props.options as { label: string; value: unknown }[] | undefined) ?? [];
@@ -215,7 +215,7 @@ function renderSelect(node: BotNode): CardElement {
   return el;
 }
 
-function renderInput(node: BotNode): CardElement {
+function renderInput(node: ChannelNode): CardElement {
   const props = node.props ?? {};
   const el: CardElement = {
     type: "Input.Text",
@@ -227,7 +227,7 @@ function renderInput(node: BotNode): CardElement {
 }
 
 /** A `<Table>` → a native Adaptive Cards `Table` (1.5). */
-function renderTable(node: BotNode): CardElement {
+function renderTable(node: ChannelNode): CardElement {
   const props = node.props ?? {};
   const cell = (text: string, header = false): Record<string, unknown> => ({
     type: "TableCell",
@@ -287,7 +287,7 @@ function renderTable(node: BotNode): CardElement {
  * opts into chart support; other Adaptive Card hosts ignore the unknown
  * element. Data points clamp and labels/title truncate to the budget.
  */
-function renderChart(node: BotNode): CardElement {
+function renderChart(node: ChannelNode): CardElement {
   const props = node.props ?? {};
   const type = String(props.type ?? "verticalBar");
   const title =
@@ -345,7 +345,7 @@ function renderChart(node: BotNode): CardElement {
 }
 
 /** When no explicit `columns` are given, size the grid to the widest row. */
-function inferColumns(rowNodes: BotNode[]): { align?: undefined }[] {
+function inferColumns(rowNodes: ChannelNode[]): { align?: undefined }[] {
   let widest = 0;
   for (const r of rowNodes) {
     const n = childNodes(r).filter((c) => c.type === "cell").length;
@@ -370,22 +370,22 @@ function idFromHandler(handler: unknown): string | undefined {
   return undefined;
 }
 
-/** The expanded `children` of an IR node as a `BotNode[]` (empty if none). */
-function childNodes(node: BotNode): BotNode[] {
+/** The expanded `children` of an IR node as a `ChannelNode[]` (empty if none). */
+function childNodes(node: ChannelNode): ChannelNode[] {
   const children = node.props?.children;
-  if (Array.isArray(children)) return children as BotNode[];
+  if (Array.isArray(children)) return children as ChannelNode[];
   if (
     children &&
     typeof children === "object" &&
     "type" in (children as object)
   ) {
-    return [children as BotNode];
+    return [children as ChannelNode];
   }
   return [];
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */
-function collectText(node: BotNode): string {
+function collectText(node: ChannelNode): string {
   if (typeof node.type === "string" && node.type === "text") {
     return String(node.props?.value ?? "");
   }
@@ -399,7 +399,7 @@ function collectText(node: BotNode): string {
  * Such replies are sent as a normal Teams text activity rather than wrapped in
  * an Adaptive Card. A bare `Echo: hi` shouldn't render as a card.
  */
-export function isPlainText(ir: BotNode[]): boolean {
+export function isPlainText(ir: ChannelNode[]): boolean {
   const RICH = new Set([
     "header",
     "fields",
@@ -416,7 +416,7 @@ export function isPlainText(ir: BotNode[]): boolean {
     "divider",
     "context",
   ]);
-  const visit = (node: BotNode): boolean => {
+  const visit = (node: ChannelNode): boolean => {
     if (typeof node.type === "string" && RICH.has(node.type)) return false;
     return childNodes(node).every(visit);
   };
@@ -424,7 +424,7 @@ export function isPlainText(ir: BotNode[]): boolean {
 }
 
 /** Plain-text projection of an IR tree (depth-first text, blocks joined). */
-export function collectPlainText(ir: BotNode[]): string {
+export function collectPlainText(ir: ChannelNode[]): string {
   return ir
     .map((n) => collectText(n))
     .filter((s) => s.length > 0)

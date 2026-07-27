@@ -109,6 +109,97 @@
       "response": {
         "content": "Theme toggled."
       }
+    },
+    {
+      "_comment": "beautiful-chat Search Flights (A2UI Fixed Schema) pill — leg 1: weatherAgent outer generate_a2ui call. Keyed on the pill's unique 'for next Tuesday' tail (mirrors gold langgraph-python) so it does NOT substring-collide with the tool-rendering-reasoning-chain pill 'Find flights from SFO to JFK and show me the weather there.', which loads later and would otherwise be hijacked by this earlier-loading fixture.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_bc_flights_gen_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"messages\":[{\"role\":\"user\",\"content\":\"Find flights from SFO to JFK for next Tuesday.\"}],\"contextEntries\":[]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Search Flights — leg 2: forced inner render_a2ui. Two FlightCard nodes in a Row, targeting the page's app-dashboard-catalog. Values match tests/e2e/beautiful-chat.spec.ts (United $349, Delta $289). Keyed on 'for next Tuesday' (see leg 1) to avoid colliding with the reasoning-chain flights pill.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "toolName": "render_a2ui",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_bc_flights_render_001",
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "bc-flights-surface",
+              "catalogId": "copilotkit://app-dashboard-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Row",
+                  "gap": 16,
+                  "children": [
+                    "f1",
+                    "f2"
+                  ]
+                },
+                {
+                  "id": "f1",
+                  "component": "FlightCard",
+                  "airline": "United Airlines",
+                  "airlineLogo": "https://www.google.com/s2/favicons?domain=united.com&sz=128",
+                  "flightNumber": "UA 512",
+                  "origin": "SFO",
+                  "destination": "JFK",
+                  "date": "Next Tuesday",
+                  "departureTime": "8:00 AM",
+                  "arrivalTime": "4:30 PM",
+                  "duration": "5h 30m",
+                  "status": "On Time",
+                  "price": "$349"
+                },
+                {
+                  "id": "f2",
+                  "component": "FlightCard",
+                  "airline": "Delta",
+                  "airlineLogo": "https://www.google.com/s2/favicons?domain=delta.com&sz=128",
+                  "flightNumber": "DL 288",
+                  "origin": "SFO",
+                  "destination": "JFK",
+                  "date": "Next Tuesday",
+                  "departureTime": "10:15 AM",
+                  "arrivalTime": "6:40 PM",
+                  "duration": "5h 25m",
+                  "status": "On Time",
+                  "price": "$289"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Search Flights — leg 3: narration after the flight cards render. Keyed on 'for next Tuesday' (see leg 1) to avoid colliding with the reasoning-chain flights pill.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "hasToolResult": true,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Here are two options SFO → JFK for next Tuesday: United Airlines at $349 and Delta at $289 — shown in the cards above."
+      }
     }
   ]
 }

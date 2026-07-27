@@ -39,6 +39,71 @@ describe("resolveDocsHref", () => {
     );
   });
 
+  it("keeps Angular links inside the active Angular surface", () => {
+    expect(
+      resolveDocsHref("/angular/guides/frontend-tools-generative-ui", {
+        slugHrefPrefix: "/angular",
+        frameworkOverride: "built-in-agent",
+      }),
+    ).toBe("/angular/guides/frontend-tools-generative-ui");
+
+    expect(
+      resolveDocsHref("/backend/copilot-runtime", {
+        slugHrefPrefix: "/angular",
+        frameworkOverride: "built-in-agent",
+      }),
+    ).toBe("/angular/backend/copilot-runtime");
+
+    expect(
+      resolveDocsHref("/angular/features", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/langgraph-python/features");
+
+    expect(
+      resolveDocsHref("/model-selection", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/model-selection");
+
+    expect(
+      resolveDocsHref("/deepagents/quickstart", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/deepagents/quickstart");
+
+    expect(
+      resolveDocsHref("/angular/langgraph-python/features", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/langgraph-python/features");
+
+    expect(
+      resolveDocsHref("/angular/deepagents/quickstart", {
+        slugHrefPrefix: "/angular/langgraph-python",
+        frameworkOverride: "langgraph-python",
+      }),
+    ).toBe("/angular/deepagents/quickstart");
+  });
+
+  it("collapses React-specific topic links to Angular-native guides", () => {
+    const options = {
+      slugHrefPrefix: "/angular",
+      frameworkOverride: "built-in-agent",
+    };
+
+    expect(resolveDocsHref("/generative-ui/tool-based", options)).toBe(
+      "/angular/guides/frontend-tools-generative-ui",
+    );
+    expect(resolveDocsHref("/a2a-protocol", options)).toBe(
+      "/angular/agentic-protocols/a2a",
+    );
+  });
+
   it("does not scope cross-framework or reserved-route links", () => {
     const options = {
       slugHrefPrefix: "/mastra",
@@ -96,6 +161,10 @@ describe("resolveDocsHref", () => {
     );
     expect(resolveDocsHref("/custom-look-and-feel/slots", options)).toBe(
       "/mastra/custom-look-and-feel/slots",
+    );
+    expect(resolveDocsHref("/threads", options)).toBe("/mastra/threads");
+    expect(resolveDocsHref("/headless-threads", options)).toBe(
+      "/mastra/headless-threads",
     );
   });
 

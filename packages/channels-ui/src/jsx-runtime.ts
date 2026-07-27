@@ -1,12 +1,13 @@
-import { Fragment, type BotNode } from "./ir.js";
+import { Fragment } from "./ir.js";
+import type { ChannelNode } from "./ir.js";
 export { Fragment };
 
 export function jsx(
   type: string | ((props: never) => unknown) | symbol,
   props: Record<string, unknown> | null,
   key?: string | number,
-): BotNode {
-  return { type: type as BotNode["type"], props: props ?? {}, key };
+): ChannelNode {
+  return { type: type as ChannelNode["type"], props: props ?? {}, key };
 }
 export const jsxs = jsx;
 
@@ -14,7 +15,7 @@ export const jsxs = jsx;
  * The JSX type contract for this runtime. Declaring it here (rather than
  * relying on a global `JSX` namespace) is what makes the compiler actually
  * check element props: unknown attributes and bad children are errors, and
- * every element returns an {@link BotNode}.
+ * every element returns an {@link ChannelNode}.
  *
  * Resolved by TypeScript because `jsxImportSource` points at this package, so
  * `<Section foo={1} />` is checked against `SectionProps` with excess-property
@@ -22,7 +23,7 @@ export const jsxs = jsx;
  */
 export namespace JSX {
   /** The result of evaluating a JSX expression. */
-  export type Element = BotNode;
+  export type Element = ChannelNode;
   /** Tells TypeScript which prop receives nested children. */
   export interface ElementChildrenAttribute {
     children: {};

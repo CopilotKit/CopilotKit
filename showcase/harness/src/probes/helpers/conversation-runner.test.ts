@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   runConversation,
   fillAndVerifySend,
@@ -473,6 +473,44 @@ function makePage(script: PageScript = {}): Page {
 }
 
 describe("runConversation", () => {
+  it("keeps prompts, assistant content, and assertion payloads out of CI logs", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const privatePrompt = "PRIVATE_PROMPT_DO_NOT_LOG";
+    const privateAssertion = "PRIVATE_ASSERTION_PAYLOAD_DO_NOT_LOG";
+    const privateAssistantText = "assistant-bubble-text-1";
+    const page = makePage({
+      evaluateValues: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    });
+
+    try {
+      const result = await runConversation(
+        page,
+        [
+          {
+            input: privatePrompt,
+            assertions: async () => {
+              throw new Error(privateAssertion);
+            },
+          },
+        ],
+        { assistantSettleMs: 50 },
+      );
+
+      // The in-memory result retains the original error so the bounded matrix
+      // classifier can identify the failure. Only operator-visible logs must
+      // omit content-bearing values.
+      expect(result.error).toBe(privateAssertion);
+      const emitted = JSON.stringify([...debug.mock.calls, ...warn.mock.calls]);
+      expect(emitted).not.toContain(privatePrompt);
+      expect(emitted).not.toContain(privateAssistantText);
+      expect(emitted).not.toContain(privateAssertion);
+    } finally {
+      debug.mockRestore();
+      warn.mockRestore();
+    }
+  }, 10_000);
+
   it("happy path: 3 turns succeed and run assertions in order", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
     // Each turn must see the assistant-message count grow then stabilise.

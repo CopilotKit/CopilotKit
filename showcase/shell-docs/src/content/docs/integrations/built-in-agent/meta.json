@@ -10,7 +10,17 @@
     "---Concepts---",
     "---Basics---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import"
+      ]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",

@@ -51,6 +51,7 @@ vi.mock("../../lib/react-core", () => {
     setDefaultThrottleMs() {}
     setRuntimeUrl() {}
     setRuntimeTransport() {}
+    connect() {}
     setHeaders() {}
     setCredentials() {}
     setProperties() {}

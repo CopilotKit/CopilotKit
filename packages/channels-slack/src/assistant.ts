@@ -21,7 +21,7 @@
  */
 import { Assistant } from "@slack/bolt";
 import type { App } from "@slack/bolt";
-import type { IngressSink, PlatformUser } from "@copilotkit/channels";
+import type { IngressSink, PlatformUser } from "@copilotkit/channels-core";
 import { conversationKeyOf } from "./interaction.js";
 import type { SlackAssistantOptions } from "./types.js";
 

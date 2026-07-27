@@ -14,7 +14,7 @@
   z-index: 2;
 }
 
-.copilotKitSidebar .copilotKitHeader {
+:where(.copilotKitSidebar) .copilotKitHeader {
   border-radius: 0;
 }
 
@@ -33,6 +33,10 @@
     padding-right: 24px;
     border-top-left-radius: 8px;
     border-top-right-radius: 8px;
+  }
+
+  :where(.copilotKitSidebar) .copilotKitHeader {
+    border-radius: 0;
   }
 }
 

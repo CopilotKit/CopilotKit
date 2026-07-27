@@ -8,6 +8,12 @@ streaming, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to Slack.
 
+The adapter keeps its own Slack credentials (`botToken` / `appToken`) — but the
+Channel itself only runs inside a CopilotKit Intelligence-configured
+`CopilotRuntime` (an API key; a free tier is available). There is no
+standalone / DIY runner and no `channel.start()`; the runtime starts and owns
+the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -17,14 +23,20 @@ pnpm add @copilotkit/channels-slack @copilotkit/channels @copilotkit/channels-ui
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels-slack";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
-const bot = createBot({
+const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!, // xoxb-…
@@ -38,7 +50,19 @@ const bot = createBot({
 
 bot.onMention(({ thread }) => thread.runAgent());
 
-await bot.start();
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    apiUrl: "https://api.copilotkit.ai",
+    wsUrl: "wss://api.copilotkit.ai",
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
 ```
 
 `slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
@@ -258,7 +282,7 @@ a tool can post a file back out via `thread.postFile(...)`.
 ## Tool context
 
 There is no Slack-specific tool context. Tools receive the single shared
-`BotToolContext` from `@copilotkit/channels` (`{ thread, message?, user?, signal?,
+`ChannelToolContext` from `@copilotkit/channels` (`{ thread, message?, user?, signal?,
 platform }`) and reach Slack power only through capability-gated `thread`
 methods, which this adapter backs:
 
@@ -269,7 +293,7 @@ isBot? }`).
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   back into the thread (`files.uploadV2`).
 
-This keeps tools portable: define them with `defineBotTool({...})` and they
+This keeps tools portable: define them with `defineChannelTool({...})` and they
 work against any adapter that advertises the same capabilities.
 
 ## Running the demo

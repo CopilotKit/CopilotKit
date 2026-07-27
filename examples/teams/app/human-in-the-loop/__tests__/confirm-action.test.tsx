@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import type { BotNode } from "@copilotkit/channels-ui";
-import { renderAdaptiveCard } from "@copilotkit/channels-teams";
+import { renderToIR } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
+import { renderAdaptiveCard } from "@copilotkit/channels/teams";
 import { confirmWriteTool } from "../index.js";
 
 /** A fake thread whose `awaitChoice` records the posted UI and returns a fixed choice. */
@@ -29,7 +29,7 @@ describe("confirm_write tool (Teams)", () => {
 
     // The posted UI renders to an Adaptive Card whose header carries the action.
     expect(awaited).toHaveLength(1);
-    const card = renderAdaptiveCard(renderToIR(awaited[0] as BotNode));
+    const card = renderAdaptiveCard(renderToIR(awaited[0] as ChannelNode));
     expect(card.type).toBe("AdaptiveCard");
     const header = card.body[0] as { type: string; text: string } | undefined;
     expect(header?.type).toBe("TextBlock");

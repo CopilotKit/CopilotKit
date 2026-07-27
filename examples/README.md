@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 48 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 50 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -14,7 +14,7 @@ cd examples/<category>/<name>
 
 ---
 
-## Integrations (17)
+## Integrations (19)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -37,6 +37,8 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [agno](./integrations/agno/)                                           | Starter template using Agno with an investment analyst agent                         |
 | [crewai-crews](./integrations/crewai-crews/)                           | Starter template for building AI agents using CrewAI Crews                           |
 | [a2a-middleware](./integrations/a2a-middleware/)                       | Multi-agent starter with A2A Protocol and AG-UI Protocol (LangGraph + ADK)           |
+| [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
+| [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 
 ## Canvas (7)
 
