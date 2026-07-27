@@ -62,12 +62,9 @@ function createAgent(
 }
 
 const agentNames = [
-  "agentic_chat",
   "human_in_the_loop",
-  "gen-ui-tool-based",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -137,6 +134,23 @@ agents["shared-state-read-write"] = createAgent("shared_state_read_write");
 // critique_agent (each a full create_agent under the hood). Every delegation
 // is appended to `state.delegations` for live UI rendering.
 agents["subagents"] = createAgent("subagents");
+
+// Agentic Chat — dedicated neutral-assistant graph (tools=[] +
+// CopilotKitMiddleware). Previously fell through to `sample_agent`. Mirrors
+// langgraph-python.
+agents["agentic_chat"] = createAgent("agentic_chat");
+// Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
+// The frontend registers render_bar_chart / render_pie_chart via useComponent;
+// CopilotKitMiddleware injects them into the model request. Mirrors
+// langgraph-python.
+agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
+// Shared State: Streaming — dedicated graph with the write_document tool +
+// StateStreamingMiddleware for per-token state-delta streaming. Mirrors
+// langgraph-python.
+agents["shared-state-streaming"] = createAgent("shared_state_streaming");
+// Thread-id frontend-tool round-trip — reuses the frontend_tools graph
+// (no dedicated graph needed). Mirrors langgraph-python.
+agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools");
 
 agents["default"] = createAgent();
 
