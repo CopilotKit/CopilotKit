@@ -44,6 +44,7 @@ class LangGraphEventTypes(Enum):
     """LangGraph event types"""
 
     OnChatModelStream = "on_chat_model_stream"
+    OnChatModelEnd = "on_chat_model_end"
     OnCustomEvent = "on_custom_event"
 
 
@@ -283,7 +284,9 @@ class LangGraphAGUIAgent(LangGraphAgent):
             for emitted_event in self._intercepted_frontend_tool_call_events(event):
                 yield self._dispatch_event(emitted_event)
 
-    def _intercepted_frontend_tool_call_events(self, event: Any) -> list[ToolCallEvents]:
+    def _intercepted_frontend_tool_call_events(
+        self, event: Any
+    ) -> list[ToolCallEvents]:
         frontend_tool_names = self._frontend_tool_names()
         if not frontend_tool_names:
             return []
