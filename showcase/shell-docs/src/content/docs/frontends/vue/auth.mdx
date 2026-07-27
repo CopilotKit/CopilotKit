@@ -58,8 +58,6 @@ const handler = createCopilotRuntimeHandler({
 
 The hook operates on the raw `Request` and runs before route dispatch. Apply the same validation to `/info`, `/run`, `/connect`, `/stop`, and transcription traffic as appropriate for your application.
 
-The legacy v1 Next.js endpoint factory does not forward these lifecycle hooks. Use `createCopilotRuntimeHandler` or a v2 adapter when authentication depends on `onRequest`.
-
 ## Forwarding identity to an agent
 
 After runtime validation, derive agent-visible identity from trusted server context. Runtime forwarding allows eligible `authorization` and application `x-*` headers to reach a self-hosted agent, while server-configured agent headers take precedence over browser input.
