@@ -199,7 +199,7 @@ For Intelligence mode, the response also includes:
 ```json
 {
   "intelligence": {
-    "wsUrl": "wss://api.copilotkit.ai/client"
+    "wsUrl": "wss://realtime.intelligence.copilotkit.ai/client"
   }
 }
 ```
