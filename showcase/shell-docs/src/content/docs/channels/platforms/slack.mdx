@@ -23,7 +23,9 @@ SLACK_APP_TOKEN=xapp-...   # App-level token, for Socket Mode
 
 # The runtime runs every channel, so a CopilotKit Intelligence key is required
 # even for a direct adapter (free tier available).
-COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
+COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai
+# A separate host from the API URL above, so it cannot be derived from it.
+COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai
 COPILOTKIT_API_KEY=cpk-...
 ```
 
@@ -61,12 +63,13 @@ channel.onMessage(async ({ thread, message }) => {
 // The runtime drives the channel — it starts the Slack adapter, you don't call
 // channel.start() yourself. A CopilotKit Intelligence key runs every channel,
 // direct adapters included (free tier available); `ready()` activates it.
-const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
 const runtime = new CopilotRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
-    apiUrl,
-    wsUrl: apiUrl.replace(/^http/, "ws"),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
+    // A separate host from apiUrl — the realtime plane is deployed apart, so
+    // this cannot be derived by swapping the API URL scheme.
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
     apiKey: process.env.COPILOTKIT_API_KEY!,
   }),
   identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
