@@ -267,7 +267,7 @@
     },
     {
       "match": {
-        "userMessage": "weather",
+        "userMessage": "weather in San Francisco",
         "hasToolResult": false,
         "context": "langgraph-fastapi"
       },
@@ -474,7 +474,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "Find flights from SFO to JFK.",
         "hasToolResult": false,
         "context": "langgraph-fastapi"
       },
