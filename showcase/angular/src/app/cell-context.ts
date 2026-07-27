@@ -80,9 +80,28 @@ const RUNTIME_PATHS: Readonly<Record<string, string>> = {
   voice: "/api/copilotkit-voice",
 };
 
+const INTEGRATION_RUNTIME_PATHS: Readonly<Record<string, string>> = {
+  // The in-process BuiltIn runtime intentionally serves these demos from
+  // different endpoints than the external-agent integrations.
+  "built-in-agent/beautiful-chat": "/api/copilotkit",
+  "built-in-agent/headless-complete": "/api/copilotkit",
+  "built-in-agent/reasoning-custom": "/api/copilotkit-reasoning",
+  "built-in-agent/reasoning-default": "/api/copilotkit-reasoning",
+  "built-in-agent/tool-rendering-reasoning-chain": "/api/copilotkit-reasoning",
+};
+
 /** Resolve the existing same-origin runtime route for one feature. */
-export function runtimePathForFeature(feature: string): string {
-  return RUNTIME_PATHS[feature] ?? "/api/copilotkit";
+export function runtimePathForFeature(
+  feature: string,
+  integration?: string,
+): string {
+  return (
+    (integration === undefined
+      ? undefined
+      : INTEGRATION_RUNTIME_PATHS[`${integration}/${feature}`]) ??
+    RUNTIME_PATHS[feature] ??
+    "/api/copilotkit"
+  );
 }
 
 /** Resolve a browser pathname without decoding or accepting extra segments. */
@@ -124,7 +143,7 @@ export function resolveBrowserCell(
     cellId,
     integration,
     feature,
-    runtimeUrl: runtimePathForFeature(feature),
+    runtimeUrl: runtimePathForFeature(feature, integration),
   };
 }
 

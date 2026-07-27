@@ -133,6 +133,21 @@ describe("Angular host browser cell context", () => {
       "/api/copilotkit-a2ui-recovery",
     );
     expect(runtimePathForFeature("open-gen-ui")).toBe("/api/copilotkit-ogui");
+    expect(runtimePathForFeature("beautiful-chat", "built-in-agent")).toBe(
+      "/api/copilotkit",
+    );
+    expect(runtimePathForFeature("headless-complete", "built-in-agent")).toBe(
+      "/api/copilotkit",
+    );
+    expect(runtimePathForFeature("reasoning-custom", "built-in-agent")).toBe(
+      "/api/copilotkit-reasoning",
+    );
+    expect(runtimePathForFeature("reasoning-default", "built-in-agent")).toBe(
+      "/api/copilotkit-reasoning",
+    );
+    expect(
+      runtimePathForFeature("tool-rendering-reasoning-chain", "built-in-agent"),
+    ).toBe("/api/copilotkit-reasoning");
     expect(runtimePathForFeature("javascript:alert(1)")).toBe(
       "/api/copilotkit",
     );
