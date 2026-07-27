@@ -1,7 +1,6 @@
 import type {
   TemplateRef,
   Type,
-  ChangeDetectorRef,
   OnInit,
   OnChanges,
   OnDestroy,
@@ -13,6 +12,7 @@ import {
   ViewChild,
   ElementRef,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   ViewEncapsulation,
   computed,
   signal,
@@ -430,11 +430,11 @@ export class CopilotChatView
   private resizeTimeoutRef?: number;
   private measurementRetryTimeoutRef?: number;
   private readonly ngZone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
   private destroyed = false;
 
   constructor(
     private resizeObserverService: ResizeObserverService,
-    private cdr: ChangeDetectorRef,
     private handlers: CopilotChatViewHandlers,
   ) {
     // Clear any pending resize timeout when toggling isResizing, without signal writes here
