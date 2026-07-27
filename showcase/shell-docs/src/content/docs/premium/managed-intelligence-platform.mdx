@@ -47,7 +47,11 @@ Inside a project, the web app shows the conversation history connected to that p
 
 ## API keys
 
-Project API keys connect your runtime to the cloud-hosted project. The CLI provisions a project-scoped key during `create` and `project select`, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`.
+Project API keys connect your runtime to the cloud-hosted project. During `init` or its `create` alias, and during `project select`, the CLI provisions a project-scoped key, writes it to `.env` as `INTELLIGENCE_API_KEY`, and records the selected project in `.copilotkit/project.json`.
+
+Every Threads-enabled starter created with `create` or `init` also receives `COPILOTKIT_LICENSE_TOKEN`. Current starter SDK pins use the token for legacy entitlement checks. The token does not replace the project API key, and both values must stay on the server.
+
+Most starters read the project key from `INTELLIGENCE_API_KEY`. The AgentCore AWS deployment path reads the same key from `CPK_INTELLIGENCE_API_KEY`. Before you deploy an AgentCore starter, copy the generated `INTELLIGENCE_API_KEY` value to `CPK_INTELLIGENCE_API_KEY`.
 
 ![The Cloud-Hosted Enterprise Intelligence API keys page.](/images/enterprise-intelligence/managed-api-keys.png)
 
