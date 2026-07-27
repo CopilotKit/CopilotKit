@@ -328,7 +328,7 @@ import {
 } from "@copilotkit/react-native/headless"; // [!code highlight]
 ```
 
-All three surfaces auto-install the polyfills, and the root barrel re-exports everything from `/headless`, so existing `@copilotkit/react-native` imports keep working unchanged.
+Importing the provider auto-installs the polyfills: `/headless` runs the polyfill barrel as its first statement, and the root barrel gets it through its `/headless` re-export. `/components` does **not** install them itself — it relies on the provider you import alongside it (from `/headless` or the root). And because the root barrel re-exports everything from `/headless`, existing `@copilotkit/react-native` imports keep working unchanged.
 
 ### Which hooks are shared, and which aren't
 
@@ -394,7 +394,7 @@ On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` blo
 
 Hermes lacks several Web APIs CopilotKit relies on: `ReadableStream` / `WritableStream` / `TransformStream`, `TextEncoder` / `TextDecoder`, `DOMException` and `Headers`, `crypto.getRandomValues`, and `window.location`. It also lacks streaming `fetch` bodies (`response.body.getReader()`), which AG-UI's SSE transport needs.
 
-Every entry point installs these automatically on import — the package runs its polyfill barrel as its first statement and installs an XHR-based streaming-fetch shim on load. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
+Importing the provider installs these automatically: `/headless` runs the polyfill barrel as its first statement (and the root barrel gets it through `/headless`), also installing an XHR-based streaming-fetch shim on load. The `/components` surface does **not** install them on its own, so it relies on the provider imported alongside it. Each polyfill is skipped if the global it defines already exists, so importing more than once is safe.
 
 Keep the explicit `import "@copilotkit/react-native/polyfills"` from the quickstart at the top of your entry point anyway. Because every polyfill is **first writer wins**, the entry point is the only place you control what gets installed before CopilotKit's own defaults do — which is what makes the secure-RNG ordering below work.
 
