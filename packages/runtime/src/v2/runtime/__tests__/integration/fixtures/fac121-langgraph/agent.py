@@ -105,10 +105,12 @@ async def run_stream(request: Request):
     configurable_headers.include: ["x-*"] is set in langgraph.json.
     """
     body = await request.json()
-    thread_id = (
-        body.get("config", {}).get("configurable", {}).get("thread_id", "default")
-    )
-    run_id = body.get("run_id", "run-1")
+    # HttpAgent sends threadId (camelCase) as a top-level field in the body.
+    # Fall back to the legacy configurable path for direct langgraph-api usage.
+    thread_id = body.get("threadId") or body.get(
+        "config", {}
+    ).get("configurable", {}).get("thread_id", "default")
+    run_id = body.get("runId") or body.get("run_id", "run-1")
 
     # Admission layer: copy x-* headers into configurable (langgraph-api behavior)
     configurable: dict[str, str] = {"thread_id": thread_id}
@@ -126,7 +128,10 @@ async def run_stream(request: Request):
 
     # Return AG-UI SSE events with safe proof output only
     async def generate():
-        yield _format_sse(json.dumps({"type": "RUN_STARTED", "runId": run_id}))
+        # RUN_STARTED and RUN_FINISHED require threadId per AG-UI EventSchemas.
+        yield _format_sse(
+            json.dumps({"type": "RUN_STARTED", "runId": run_id, "threadId": thread_id})
+        )
         yield _format_sse(
             json.dumps(
                 {
@@ -148,7 +153,9 @@ async def run_stream(request: Request):
             )
         )
         yield _format_sse(json.dumps({"type": "TEXT_MESSAGE_END", "messageId": "m1"}))
-        yield _format_sse(json.dumps({"type": "RUN_FINISHED", "runId": run_id}))
+        yield _format_sse(
+            json.dumps({"type": "RUN_FINISHED", "runId": run_id, "threadId": thread_id})
+        )
 
     return StreamingResponse(
         generate(),

@@ -98,11 +98,15 @@ async function startBackendFixture(): Promise<BackendHandle> {
         }
 
         let runId = `run-${Date.now()}`;
+        // threadId is required in RUN_STARTED / RUN_FINISHED by AG-UI EventSchemas.
+        // The HttpAgent sends it as a top-level camelCase field in the body.
+        let threadId = "default-thread";
         try {
           const body = JSON.parse(
             Buffer.concat(chunks).toString("utf-8"),
           ) as Record<string, unknown>;
           if (typeof body.runId === "string") runId = body.runId;
+          if (typeof body.threadId === "string") threadId = body.threadId;
         } catch {
           /* ignore body parse errors — we only care about headers */
         }
@@ -135,7 +139,10 @@ async function startBackendFixture(): Promise<BackendHandle> {
           "X-Accel-Buffering": "no",
         });
 
-        res.write(encoder.encode({ type: "RUN_STARTED", runId } as never));
+        // RUN_STARTED and RUN_FINISHED both require threadId per AG-UI EventSchemas.
+        res.write(
+          encoder.encode({ type: "RUN_STARTED", runId, threadId } as never),
+        );
         res.write(
           encoder.encode({
             type: "TEXT_MESSAGE_START",
@@ -158,7 +165,9 @@ async function startBackendFixture(): Promise<BackendHandle> {
             messageId: "m1",
           } as never),
         );
-        res.write(encoder.encode({ type: "RUN_FINISHED", runId } as never));
+        res.write(
+          encoder.encode({ type: "RUN_FINISHED", runId, threadId } as never),
+        );
         res.end();
       },
     );
@@ -373,10 +382,11 @@ describe("FAC-121: x-copilotkit-auth forwarding through CopilotKit runtime", () 
     expect(sseOutput).toContain("token_present:false");
     // Hash prefix must be empty (no token to hash).
     expect(sseOutput).toContain("token_hash_prefix:");
-    // The hash prefix must not contain any hex characters after the colon
-    // (i.e. it should be "token_hash_prefix:" with nothing following before
-    // the next space/newline).
-    expect(sseOutput).toMatch(/token_hash_prefix:\s/);
+    // The hash prefix must not contain any hex characters after the colon —
+    // it should be "token_hash_prefix:" followed immediately by a non-hex
+    // character (space, newline, quote, etc.).  When the prefix is empty,
+    // the value ends at the colon with no trailing hex digits.
+    expect(sseOutput).toMatch(/token_hash_prefix:[^0-9a-f]/);
     expect(sseOutput).not.toContain(TEST_TOKEN);
   });
 
