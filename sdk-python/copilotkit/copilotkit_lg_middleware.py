@@ -274,6 +274,58 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def name(self) -> str:
         return "CopilotKitMiddleware"
 
+    @staticmethod
+    def _has_copilotkit_payload(candidate: Any) -> bool:
+        return isinstance(candidate, dict) and (
+            bool(candidate.get("actions")) or bool(candidate.get("context"))
+        )
+
+    @staticmethod
+    def _copilotkit_from_runtime_context(runtime_context: Any) -> dict[str, Any]:
+        if not isinstance(runtime_context, dict):
+            return {}
+        nested = runtime_context.get("copilotkit")
+        if CopilotKitMiddleware._has_copilotkit_payload(nested):
+            return nested
+        if CopilotKitMiddleware._has_copilotkit_payload(runtime_context):
+            return runtime_context
+        return {}
+
+    @staticmethod
+    def _get_copilotkit_context(
+        state: dict,
+        runtime_context: Any = None,
+    ) -> dict:
+        """Read copilotkit context from state, runtime context, then config carriers.
+
+        When the agent runs as a subgraph, the parent may not propagate the
+        copilotkit state key onto child state, but it may still be present on
+        the model request/runtime context. Current LangGraph prefers
+        ``config["context"]`` for run-scoped context and older paths still rely on
+        ``config["configurable"]``, so we check both.
+        """
+        ck = state.get("copilotkit") or {}
+        if CopilotKitMiddleware._has_copilotkit_payload(ck):
+            return ck
+        runtime_ck = CopilotKitMiddleware._copilotkit_from_runtime_context(
+            runtime_context
+        )
+        if runtime_ck:
+            return runtime_ck
+        try:
+            from langgraph.config import get_config
+
+            cfg = get_config() or {}
+            for carrier in (cfg.get("context"), cfg.get("configurable")):
+                candidate = CopilotKitMiddleware._copilotkit_from_runtime_context(
+                    carrier or {}
+                )
+                if candidate:
+                    return candidate
+            return ck
+        except Exception:  # noqa: BLE001 - no active context / older langgraph
+            return ck
+
     # ------------------------------------------------------------------
     # State-to-prompt surfacing
     # ------------------------------------------------------------------
@@ -343,8 +395,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: dict[str, Any],
         runtime_context: Any = None,
     ) -> str | None:
-        copilotkit_state = state.get("copilotkit", {})
-        app_context = copilotkit_state.get("context") or runtime_context
+        copilotkit_state = self._get_copilotkit_context(state, runtime_context)
+        app_context = copilotkit_state.get("context")
+
+        if not app_context:
+            if isinstance(runtime_context, dict):
+                app_context = {
+                    k: v
+                    for k, v in runtime_context.items()
+                    if k != "copilotkit_forwarded_headers"
+                }
+            else:
+                app_context = runtime_context
 
         if isinstance(app_context, dict):
             # Strip transport-layer keys that must never be rendered into the
@@ -451,7 +513,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             return None, catalog_id
 
         # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
-        context = (state.get("copilotkit") or {}).get("context") or []
+        context = (
+            CopilotKitMiddleware._get_copilotkit_context(state).get("context") or []
+        )
         for entry in context:
             if not isinstance(entry, dict):
                 continue
@@ -554,7 +618,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(
+            request.state or {},
+            getattr(request.runtime, "context", None),
+        ).get("actions", [])
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
@@ -758,7 +825,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         request = self._apply_app_context_note(request)
 
         a2ui_tool = self._maybe_build_a2ui_tool(request)
-        frontend_tools = request.state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(
+            request.state or {},
+            getattr(request.runtime, "context", None),
+        ).get("actions", [])
         if a2ui_tool is not None:
             # Our generate_a2ui replaces the runtime's render tool — don't
             # advertise both. Drop the render tool the A2UI middleware injected.
@@ -838,7 +908,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         state: StateSchema,
         runtime: Runtime[Any],
     ) -> dict[str, Any] | None:
-        frontend_tools = state.get("copilotkit", {}).get("actions", [])
+        frontend_tools = self._get_copilotkit_context(
+            state,
+            getattr(runtime, "context", None),
+        ).get("actions", [])
         if not frontend_tools:
             return None
 
