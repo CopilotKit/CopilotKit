@@ -896,7 +896,7 @@ const handler = createCopilotRuntimeHandler({
   basePath: "/api/copilotkit",
   hooks: {
     // Before routing — auth, correlation IDs
-  onRequest: async ({ request }) => {
+    onRequest: async ({ request }) => {
       const token = request.headers.get("authorization");
       if (!token) {
         throw new Response("Unauthorized", { status: 401 });
@@ -904,13 +904,13 @@ const handler = createCopilotRuntimeHandler({
     },
 
     // After routing — route-specific authorization
-  onBeforeHandler: async ({ route }) => {
+    onBeforeHandler: async ({ route }) => {
       const agent = "agentId" in route ? ` for agent ${route.agentId}` : "";
       console.log(`Handling ${route.method}${agent}`);
     },
 
     // After handler — modify response headers
-  onResponse: async ({ response }) => {
+    onResponse: async ({ response }) => {
       const headers = new Headers(response.headers);
       headers.set("x-request-id", crypto.randomUUID());
       return new Response(response.body, {
@@ -920,7 +920,7 @@ const handler = createCopilotRuntimeHandler({
     },
 
     // On error — custom error responses
-  onError: async ({ error }) => {
+    onError: async ({ error }) => {
       console.error("Handler error:", error);
     },
   },

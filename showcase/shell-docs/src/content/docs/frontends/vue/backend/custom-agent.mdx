@@ -440,10 +440,14 @@ import {
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) => {
-    const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
+    const props = isRecord(input.forwardedProps) ? input.forwardedProps : {};
 
     const model =
       typeof props.model === "string"
@@ -470,16 +474,21 @@ import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { anthropicText } from "@tanstack/ai-anthropic";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const agent = new BuiltInAgent({
   type: "tanstack",
   factory: ({ input, abortController }) => {
-    const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
+    const props = isRecord(input.forwardedProps) ? input.forwardedProps : {};
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    const model = typeof props.model === "string" ? props.model : "gpt-4o";
 
     const adapter =
-      props.model === "anthropic/claude-sonnet-4"
+      model === "anthropic/claude-sonnet-4"
         ? anthropicText("claude-sonnet-4")
-        : openaiText((props.model as string) ?? "gpt-4o");
+        : openaiText(model);
 
     const modelOptions: Record<string, unknown> = {};
     if (typeof props.temperature === "number")
