@@ -1094,11 +1094,14 @@ jobs:
         if: steps.changed.outputs.images != ''
         env:
           IMAGES: ${{ steps.changed.outputs.images }}
-          # GITHUB_SHA / GITHUB_REPOSITORY are deliberately NOT re-declared
-          # here: the runner already exports both as default environment
-          # variables, and advance-latest-tag.ts reads them straight off
-          # process.env. Shadowing reserved GITHUB_* names just adds a second
-          # place for them to drift.
+          # Strictly speaking redundant — the runner already exports both as
+          # default environment variables and advance-latest-tag.ts reads them
+          # off process.env. Kept because the workflow-contract test
+          # (showcase/scripts/advance-latest-tag.test.ts) asserts these exact
+          # keys are declared here; dropping them reds "Validate Showcase".
+          # Remove the assertions and these together, not one without the other.
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Runs immediately BEFORE the Railway redeploy below, which is what
         # pulls `:latest`. Doing it here rather than per-build-slot keeps the
@@ -1362,8 +1365,9 @@ jobs:
         if: steps.changed.outputs.images != ''
         env:
           IMAGES: ${{ steps.changed.outputs.images }}
-          # GITHUB_SHA / GITHUB_REPOSITORY come from the runner's default
-          # environment; see the sibling job for why they are not shadowed.
+          # Redundant-but-asserted; see the sibling job's note.
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # Same placement rationale as the showcase redeploy job: advance the
         # mutable tag immediately before the pull that consumes it. tsx pinned
