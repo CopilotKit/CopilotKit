@@ -1,0 +1,25 @@
+---
+title: "Rich Threads"
+nav_title: Overview
+icon: "lucide/MessageSquareMore"
+description: "Build persistent agent conversations that restore history and stay synchronized across sessions."
+doc_type: explanation
+---
+
+Rich Threads persist a conversation independently of the page that renders it. When a user reopens a thread, CopilotKit restores its history and the chat reconnects to that conversation. A threads-enabled project also synchronizes thread changes for the signed-in user.
+
+## Get started
+
+For a ready-made conversation history UI, use the drawer and chat in one shared configuration scope:
+
+<VueDocExample file="threads/drawer.vue" region="threads-drawer" />
+
+The provider supplies the runtime connection; the configuration provider owns the selected thread and agent context shared by the drawer and chat.
+
+## Choose the right surface
+
+- Use [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) for a supplied switcher.
+- Use [Headless Threads](/vue/headless-threads) when you need your own list and controls.
+- See [Thread lifecycle](/vue/threads-lifecycle) for creation, restoration, and deletion semantics.
+
+Rich Threads require a configured Enterprise Intelligence project and its appropriate license/runtime settings. They are not a replacement for an agent framework's internal checkpointing; use them for the user-facing conversation lifecycle.

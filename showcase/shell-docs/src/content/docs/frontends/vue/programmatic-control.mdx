@@ -1,0 +1,13 @@
+---
+title: "Programmatic Control"
+icon: "lucide/SendHorizontal"
+description: "Inspect and control a Vue agent from your application UI."
+---
+
+`useAgent` gives a Vue component reactive access to the configured agent. Use it for product controls that are not themselves a chat message: clearing a conversation, reacting to run status, or presenting message counts.
+
+<VueDocExample file="programmatic/use-agent.vue" region="programmatic-agent-control" />
+
+Request the updates your UI needs, then read the returned agent ref in `script setup` or unwrap it in a template. Prefer the CopilotKit orchestration APIs for full runs because they coordinate frontend tools and follow-up behavior; reserve low-level agent control for cases that genuinely need it.
+
+See [useAgent](/reference/vue/hooks/useAgent) for the complete reactive state and methods.

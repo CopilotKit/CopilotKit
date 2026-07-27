@@ -1,0 +1,13 @@
+---
+title: "Agent Context"
+icon: "lucide/BookA"
+description: "Give a Vue agent context about the active application and user."
+---
+
+`useAgentContext` provides app-specific information that helps an agent respond to the current screen and user. Register context close to the reactive state it describes so it remains current as the application changes.
+
+<VueDocExample file="app-control/agent-context.vue" region="agent-context" />
+
+You can register context from multiple components. Each registration should describe what the value means and provide only the data the agent needs. A getter keeps this example's selected project current without adding backend wiring.
+
+Use [Shared State](/vue/shared-state) when the agent must update UI data; use context when the application is supplying background information for better responses.

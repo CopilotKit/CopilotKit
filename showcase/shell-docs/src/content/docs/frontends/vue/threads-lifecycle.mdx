@@ -1,0 +1,24 @@
+---
+title: "Thread & History Lifecycle"
+icon: "lucide/History"
+description: "Understand creation, restoration, switching, and deletion for Vue Rich Threads."
+doc_type: explanation
+---
+
+## Start and restore conversations
+
+A chat receives a thread context from `CopilotChatConfigurationProvider`. Starting a new conversation creates a fresh active thread; selecting an existing thread restores that thread's history into the chat.
+
+<VueDocExample file="threads/drawer.vue" region="threads-drawer" />
+
+The drawer can manage these transitions without callbacks because it shares that configuration with `CopilotChat`. When you build a custom thread UI, preserve the same relationship rather than treating the list and chat as unrelated state.
+
+## Scope Rich Threads to users
+
+Configure your runtime and identity flow so each signed-in user can access only their own threads. The frontend selects and displays threads; authorization belongs at the runtime and platform boundary.
+
+## Archive and delete deliberately
+
+Archive keeps a thread recoverable but excludes it from the default list. Delete removes it permanently. `useThreads` exposes both actions and returns promises, so custom interfaces should wait for confirmation and communicate failures.
+
+For custom data and actions, see [Headless Threads](/vue/headless-threads) and [useThreads](/reference/vue/hooks/useThreads).

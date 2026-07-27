@@ -1,0 +1,31 @@
+---
+title: "Threads Explained"
+icon: "lucide/MessageSquareMore"
+description: "Understand the lifecycle, persistence, and synchronization model behind Rich Threads."
+---
+
+## What are threads?
+
+A thread is a durable user-facing conversation. It groups runs, messages, and rendered conversation state under one identifier so a user can leave and later resume the same work.
+
+## Key concepts
+
+### Thread versus run
+
+A run is one execution of an agent. A thread outlives individual runs and contains the conversation a user returns to.
+
+### Persistence and replay
+
+When a thread is selected, CopilotKit restores its recorded conversation for the configured agent. This is why a drawer and chat must share one `CopilotChatConfigurationProvider`.
+
+### Naming, archive, and delete
+
+Threads can receive automatic names after their first run. Archiving hides a thread while preserving it; deleting is permanent. A custom UI should provide its own confirmation before either mutation.
+
+## Realtime and failures
+
+Thread mutations use server confirmation rather than optimistic local changes. Handle errors from rename, archive, and delete, and allow the realtime store to reconcile changes from another client.
+
+Threads are the right tool for persistent user conversations. They do not replace an agent framework's own execution checkpoints or persistence model.
+
+Continue with [Thread lifecycle](/vue/threads-lifecycle), [Headless Threads](/vue/headless-threads), or the [useThreads reference](/reference/vue/hooks/useThreads).

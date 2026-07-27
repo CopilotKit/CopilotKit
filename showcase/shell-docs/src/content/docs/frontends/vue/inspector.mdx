@@ -1,0 +1,13 @@
+---
+title: Inspector
+icon: "lucide/SearchCheck"
+description: "Inspect Vue agent events, state, tools, and runtime activity during development."
+---
+
+The Inspector and development console help diagnose a Vue application's connection to its agents. Enable them on `CopilotKitProvider` while developing; they expose event and lifecycle detail without changing your application flow.
+
+<VueDocExample file="inspector/provider.vue" region="inspector-debug-provider" />
+
+Use the Inspector to check the connected agents, emitted events, agent state, frontend tools, and context. Keep verbose diagnostics out of production configuration and remove development-only visibility when investigating is complete.
+
+See [CopilotKitProvider](/reference/vue/components/CopilotKitProvider) for the full inspector and debug configuration.

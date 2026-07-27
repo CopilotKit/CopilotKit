@@ -1,0 +1,20 @@
+---
+title: "Headless Threads"
+icon: "lucide/MessageSquareMore"
+description: "Build a custom Vue thread UI while CopilotKit manages persistence and synchronization."
+doc_type: how-to
+---
+
+Use `useThreads` when the supplied drawer does not match your product. The composable exposes reactive thread data plus actions for loading more, renaming, archiving, and permanently deleting threads; your Vue components own the visual treatment and confirmations.
+
+## Build your own thread surface
+
+Keep the chat and the list in the same configured agent context. Render the composable's reactive `threads` collection in your own component, select a thread through the chat configuration, and call the mutation methods only after the user confirms destructive actions.
+
+Thread lists are ordered by recent activity and can be paginated. Mutations are pessimistic: update your UI after the server confirms the operation, and handle rejected promises as user-visible failures.
+
+## What CopilotKit manages
+
+CopilotKit fetches the list after the runtime connects, keeps it synchronized, and cleans up subscriptions with the owning Vue scope. New conversations receive automatic names after their first run when thread naming is enabled by the runtime.
+
+See [useThreads](/reference/vue/hooks/useThreads) for the complete Vue input, reactive state, and action contract. If you do not need custom UI, use [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) instead.

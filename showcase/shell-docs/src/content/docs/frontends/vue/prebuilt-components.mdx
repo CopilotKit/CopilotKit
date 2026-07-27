@@ -1,0 +1,21 @@
+---
+title: "Prebuilt Components"
+icon: "lucide/SendHorizontal"
+description: "Drop-in Vue chat components for an agent-backed app."
+---
+
+CopilotKit provides three ready-made Vue chat layouts: `CopilotChat` for an embedded conversation, `CopilotSidebar` for a collapsible panel, and `CopilotPopup` for a floating entry point. They connect to the surrounding provider and agent configuration.
+
+## Choose a layout
+
+Use the component that fits the place where a conversation belongs in your product. Start with `CopilotChat` when the conversation is part of the page; use the sidebar or popup when it should stay available alongside the main workflow.
+
+<VueDocExample file="components/prebuilt.vue" region="prebuilt-chat-components" />
+
+Import `@copilotkit/vue/styles.css` once at the application entry point, as in the [quickstart](/vue). Configure the runtime on `CopilotKitProvider`, then customize the selected surface with its props and [slots](/vue/custom-look-and-feel/slots).
+
+## Next steps
+
+- [Threads](/vue/threads) adds persistent conversations.
+- [Slots](/vue/custom-look-and-feel/slots) customizes the prebuilt UI.
+- [Vue component reference](/reference/vue) lists the available component props.

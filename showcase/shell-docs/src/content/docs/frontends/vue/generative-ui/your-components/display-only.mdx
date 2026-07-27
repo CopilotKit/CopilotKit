@@ -1,0 +1,13 @@
+---
+title: "Display-only"
+icon: "lucide/Eye"
+description: "Render agent tool results as Vue UI in the chat."
+---
+
+Display-only generative UI turns an agent tool call into an inline Vue view. Use a tool-call slot when the UI only presents the tool's arguments, progress, and result; no user decision is required to continue the run.
+
+<VueDocExample file="generative-ui/display-only.vue" region="display-only-generative-ui" />
+
+The slot name includes the tool name, so `tool-call-getWeather` renders calls to that exact tool. It receives the arguments, status, and result. Render loading state until the status is complete, then display the returned data.
+
+Use [Interactive generative UI](/vue/generative-ui/your-components/interactive) when the agent must pause for a user decision, or [Tool Rendering](/vue/generative-ui/tool-rendering) for programmatic renderer registration.

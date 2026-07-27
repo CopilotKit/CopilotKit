@@ -1,0 +1,17 @@
+---
+title: "Tool Rendering"
+icon: "lucide/Server"
+description: "Register programmatic Vue renderers for agent tool calls."
+---
+
+Use `useRenderTool` when a tool renderer needs registration in component code rather than a named chat slot. The tool name must exactly match the name registered by the agent.
+
+<VueDocExample file="generative-ui/tool-rendering.vue" region="programmatic-tool-rendering" />
+
+The renderer receives tool parameters, status, and result. Handle in-progress and executing states before showing a completed result. The explicit schema and render-prop interface make the example's data contract clear.
+
+<Callout type="info">
+Current renderer/schema inference is permissive in some paths. Prefer an explicit schema and explicit render-prop type when your UI depends on a precise tool payload; positive compilation alone does not prove that a typo or incompatible renderer would be rejected.
+</Callout>
+
+For the slot-first approach, see [Display-only](/vue/generative-ui/your-components/display-only).

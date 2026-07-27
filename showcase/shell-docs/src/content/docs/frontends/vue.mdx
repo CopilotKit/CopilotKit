@@ -1,18 +1,18 @@
 ---
-title: Vue
-description: Connect a Vue app to Copilot Runtime with CopilotKit.
+title: Quickstart
+description: Connect a Vue 3 app to a local Copilot Runtime and start chatting.
 icon: "lucide/Component"
 hideTOC: true
 ---
 
-`@copilotkit/vue` provides Vue 3 components and composables for CopilotKit. This guide gets you to a working Vue app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`.
+`@copilotkit/vue` provides Vue 3 components and composables for CopilotKit. This guide creates a Vue app with a chat UI backed by a separate local Copilot Runtime and a `default` Built-in Agent.
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
 
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- Vue 3.3+
+- Vue 3
 - Node.js 20+
 
 ## Getting started
@@ -58,69 +58,23 @@ The runtime runs on your server, keeps model credentials out of the browser, and
     <Step>
         ### Create the Copilot Runtime
 
-        Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
+        Add a small Node server that registers a `default` agent and accepts requests at `http://localhost:4000/api/copilotkit`. CORS is enabled because the Vite or Nuxt app runs separately during local development.
 
-        ```ts title="server.ts"
-        import { createServer } from "node:http";
-        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
-        import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
-
-        const runtime = new CopilotRuntime({
-          agents: {
-            default: new BuiltInAgent({
-              model: "openai:gpt-5-mini",
-              prompt: "You are a helpful assistant for a Vue app.",
-            }),
-          },
-        });
-
-        const port = Number(process.env.PORT ?? 8200);
-
-        createServer(
-          createCopilotNodeListener({
-            runtime,
-            basePath: "/api/copilotkit",
-            cors: true,
-          }),
-        ).listen(port, () => {
-          console.log(
-            `Copilot Runtime listening at http://localhost:${port}/api/copilotkit`,
-          );
-        });
-        ```
+        <VueDocExample file="quickstart/server.ts" region="runtime-server" />
     </Step>
     <Step>
         ### Import the styles
 
         Import the package stylesheet once in your app entry. It's self-contained, so the chat renders without any other CSS.
 
-        ```ts title="src/main.ts"
-        import { createApp } from "vue";
-        import App from "./App.vue";
-        import "@copilotkit/vue/styles.css"; // [!code highlight]
-
-        createApp(App).mount("#app");
-        ```
+        <VueDocExample file="quickstart/main.ts" region="vite-entry-point" />
     </Step>
     <Step>
         ### Connect to Copilot Runtime
 
-        Point `CopilotKitProvider` at the runtime endpoint and drop in `CopilotChat`. Because the runtime registers an agent named `default`, the chat picks it up automatically.
+        Point `CopilotKitProvider` at the runtime endpoint and add `CopilotChat`. Because the runtime registers an agent named `default`, the chat selects it explicitly.
 
-        ```vue title="src/App.vue"
-        <script setup lang="ts">
-        import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue/v2"; // [!code highlight]
-        </script>
-
-        <template>
-          <!-- [!code highlight:5] -->
-          <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
-            <div style="height: 100vh">
-              <CopilotChat />
-            </div>
-          </CopilotKitProvider>
-        </template>
-        ```
+        <VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
 
         <Callout type="info" title="Pick your chat layout">
           `CopilotChat` is a full-height chat. Swap it for `CopilotSidebar` (a collapsible side panel) or `CopilotPopup` (a floating widget) for a different layout. They take the same props.
@@ -147,18 +101,26 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
-                - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Vue app's origin in production.
+                - **No response from the agent**: Confirm the runtime server is running and `http://localhost:4000/api/copilotkit/info` returns agent information.
+                - **CORS errors**: Keep `cors: true` in the local runtime server, or configure CORS to allow your Vue app's origin in production.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>
     </Step>
 </Steps>
 
+## Nuxt
+
+For Nuxt, add the stylesheet in `nuxt.config.ts` and use the same separate runtime endpoint in `app.vue`.
+
+<VueDocExample file="quickstart/nuxt/nuxt.config.ts" region="nuxt-configuration" />
+
+<VueDocExample file="quickstart/nuxt/app.vue" region="nuxt-provider-chat" />
+
 ## Where to go next
 
 - [Copilot Runtime](/backend/copilot-runtime): runtime setup, auth, middleware, and routing.
-- [Built-in Agent quickstart](/quickstart): configure the in-process agent used in this quickstart.
-- [Integrations](/integrations/langgraph): connect LangGraph, CrewAI, Mastra, and other agents through the runtime.
-
-The composables (`useAgent`, `useFrontendTool`, `useHumanInTheLoop`, and more) mirror the React SDK. See the [`@copilotkit/vue` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) for the full API, slot-based customization, and Nuxt SSR setup.
+- [Prebuilt Components](/vue/prebuilt-components): choose a chat layout.
+- [Frontend Tools](/vue/frontend-tools): let the agent act in the browser.
+- [Slots](/vue/custom-look-and-feel/slots): customize the chat with Vue slots.
+- [Vue API reference](/reference/vue): component and composable details.

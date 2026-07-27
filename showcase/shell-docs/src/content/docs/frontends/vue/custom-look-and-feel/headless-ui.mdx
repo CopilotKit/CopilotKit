@@ -1,0 +1,13 @@
+---
+title: "Fully Headless UI"
+icon: "lucide/Settings"
+description: "Build a custom Vue chat interface with CopilotKit headless primitives."
+---
+
+Use a headless view when your design needs full control of the message list, input, and surrounding layout. `CopilotChatView` accepts the conversation state while scoped slots let your application render the interactive pieces.
+
+<VueDocExample file="customization/headless.vue" region="headless-chat-view" />
+
+The input slot supplies its current value and actions for updates and submission. Keep the event wiring intact so the view remains connected to CopilotKit's chat lifecycle.
+
+Start with [Slots](/vue/custom-look-and-feel/slots) when only part of the supplied chat needs customization. Use the headless route when your application owns the full visual composition.

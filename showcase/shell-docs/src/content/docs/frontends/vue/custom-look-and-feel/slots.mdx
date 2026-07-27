@@ -1,0 +1,17 @@
+---
+title: "Slots"
+icon: "lucide/Puzzle"
+description: "Customize Vue chat surfaces with named and scoped slots."
+---
+
+Vue slots are the primary customization surface for CopilotKit UI. Use named slots for stable regions such as the welcome message, and scoped slots when CopilotKit supplies an action or state value.
+
+<VueDocExample file="customization/slots.vue" region="component-slots" />
+
+The slot receives the action needed for its region; for example, the scroll-to-bottom slot receives `onClick`. Keep your custom UI focused on presentation and call the supplied action rather than duplicating the chat's internal behavior.
+
+For a completely custom message and input surface, continue to [Fully Headless UI](/vue/custom-look-and-feel/headless-ui). Component-specific slot contracts are listed in the [Vue API reference](/reference/vue).
+
+<Callout type="info">
+Current positive typechecking does not reliably reject every misspelled slot name. Use the documented slot names from the component reference and verify the rendered surface while this typing limitation remains.
+</Callout>

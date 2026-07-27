@@ -1,0 +1,13 @@
+---
+title: "Shared State"
+icon: "lucide/Repeat"
+description: "Keep Vue application state and agent state synchronized."
+---
+
+Shared state lets an agent update application data and lets your Vue UI react to those updates. `useAgent` exposes the selected agent's state as a reactive ref; your application can also send an updated state snapshot.
+
+<VueDocExample file="app-control/shared-state.vue" region="shared-agent-state" />
+
+Read agent state defensively because the runtime controls its shape. When writing state, preserve existing fields that matter to the agent and send a complete next snapshot through `setState`.
+
+Use shared state for collaborative views, progress, and application data the agent is expected to read or update. Use [Agent Context](/vue/agent-app-context) for descriptive app information supplied with a run instead.

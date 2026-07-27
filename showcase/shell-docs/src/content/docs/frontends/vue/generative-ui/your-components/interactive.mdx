@@ -1,0 +1,17 @@
+---
+title: "Interactive"
+icon: "lucide/Wrench"
+description: "Pause an agent run and collect a user decision inside a Vue chat."
+---
+
+Interactive generative UI uses an AG-UI standard interrupt when an agent needs a human decision. `useInterrupt` subscribes to the selected agent; with `renderInChat: true`, the chat's interrupt slot places the approval UI in the conversation.
+
+<VueDocExample file="generative-ui/interactive.vue" region="interactive-generative-ui" />
+
+Read the primary `interrupt` and the full `interrupts` set, then call `resolve(payload, interrupt.id)` or `cancel(interrupt.id)` for the specific decision. When several interrupts are open, each must be addressed before CopilotKit resumes the run.
+
+<Callout type="info">
+The runtime forwards standard interrupt fields to the chat slot, but the current public chat-slot type still exposes only a legacy subset. The example therefore reads the correctly typed `useInterrupt().slotProps` inside `#interrupt`. This is a current typing limitation, not a different runtime contract.
+</Callout>
+
+For an approval surface outside the chat, use `useInterrupt` with `renderInChat: false` and render its slot props in your own component.
