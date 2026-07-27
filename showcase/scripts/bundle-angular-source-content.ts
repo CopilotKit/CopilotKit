@@ -5,13 +5,12 @@ import { fileURLToPath } from "node:url";
 import { buildAngularSourceContent } from "./lib/angular-source-content.js";
 
 const showcaseRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const output = resolve(
-  showcaseRoot,
+const content = `${JSON.stringify(buildAngularSourceContent(showcaseRoot))}\n`;
+for (const relativeOutput of [
   "shell/src/data/angular-source-content.json",
-);
-
-mkdirSync(dirname(output), { recursive: true });
-writeFileSync(
-  output,
-  `${JSON.stringify(buildAngularSourceContent(showcaseRoot))}\n`,
-);
+  "shell-docs/src/data/angular-source-content.json",
+]) {
+  const output = resolve(showcaseRoot, relativeOutput);
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, content);
+}

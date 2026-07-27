@@ -46,6 +46,7 @@ export function validateSampleBytes(
 }
 
 /** Build the canonical modern AG-UI content-parts message for a sample. */
+// @region[multimodal-message]
 export function createMultimodalMessage(
   spec: Pick<SampleSpec, "filename" | "mimeType" | "autoPrompt">,
   base64: string,
@@ -69,6 +70,7 @@ export function createMultimodalMessage(
     ],
   };
 }
+// @endregion[multimodal-message]
 
 /** Append legacy binary mirrors needed by the published LangGraph converter. */
 export function rewriteMessagesForLegacyConverter(

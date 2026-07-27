@@ -117,13 +117,23 @@ export function FrameworkSelector({
 
   function selectFrontend(id: FrontendId) {
     if (id !== effectiveFrontendId) {
-      router.replace(
-        frontendPathForCurrentPath(
-          id,
-          pathname,
-          options.map((option) => option.slug),
-        ),
+      const destinationPath = frontendPathForCurrentPath(
+        id,
+        pathname,
+        options.map((option) => option.slug),
       );
+      try {
+        posthog?.capture("docs.frontend_selected", {
+          frontend: id,
+          from_frontend: effectiveFrontendId,
+          backend: effectiveFramework,
+          from_path: pathname,
+          destination_path: destinationPath,
+        });
+      } catch {
+        // Swallow - analytics is fire-and-forget.
+      }
+      router.replace(destinationPath);
     }
     setOpenMenu(null);
   }

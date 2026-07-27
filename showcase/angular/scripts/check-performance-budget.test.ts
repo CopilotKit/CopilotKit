@@ -127,6 +127,6 @@ describe("Angular Showcase performance budget", () => {
     );
 
     expect(staging).toContain('pnpm --dir "$SHOWCASE_ROOT/angular" build');
-    expect(staging).toContain('rsync -a "$angular_target/" "$angular_link/"');
+    expect(staging).toContain('cp -R "$angular_source/." "$angular_link/"');
   });
 });
