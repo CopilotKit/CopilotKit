@@ -4,6 +4,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKit } from "../copilot-provider/copilotkit";
 import { CopilotChat } from "../../v2/components/chat/CopilotChat";
 
+// This suite covers listener agent selection, not the Inspector. Mock it so
+// its client-only dynamic import cannot outlive the test environment.
+vi.mock("../../v2/components/CopilotKitInspector", () => ({
+  CopilotKitInspector: () => null,
+}));
+
 /**
  * Integration regression for issue #5533.
  *

@@ -9,10 +9,9 @@
  *
  * If either regresses, this test fails.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
-import { telemetry } from "../telemetry";
 import { createCopilotHonoHandler } from "../endpoints/hono";
 import { CopilotRuntime } from "../core/runtime";
 
@@ -24,19 +23,24 @@ function makeAgent(): AbstractAgent {
   return a as AbstractAgent;
 }
 
-describe("Hono adapter — telemetry firing (integration)", () => {
-  let captureSpy: ReturnType<typeof vi.spyOn>;
+/** Creates an isolated runtime and a spy on its bound telemetry capture. */
+function setup() {
+  const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  const captureSpy = vi
+    .spyOn(runtime.telemetry, "capture")
+    .mockResolvedValue(undefined);
 
-  beforeEach(() => {
-    captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-  });
+  return {
+    runtime,
+    captureSpy,
+    teardown: () => captureSpy.mockRestore(),
+  };
+}
 
-  afterEach(() => {
-    captureSpy.mockRestore();
-  });
+test("Hono adapter fires instance_created on handler creation (multi-route)", async () => {
+  const { runtime, captureSpy, teardown } = setup();
 
-  it("fires instance_created on handler creation (multi-route)", async () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+  try {
     createCopilotHonoHandler({ runtime, basePath: "/" });
 
     await vi.waitFor(() => {
@@ -50,10 +54,15 @@ describe("Hono adapter — telemetry firing (integration)", () => {
         }),
       );
     });
-  });
+  } finally {
+    teardown();
+  }
+});
 
-  it("fires copilot_request_created when a real HTTP request hits the handler", async () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+test("Hono adapter fires copilot_request_created for a real HTTP request", async () => {
+  const { runtime, captureSpy, teardown } = setup();
+
+  try {
     const endpoint = createCopilotHonoHandler({ runtime, basePath: "/" });
 
     await endpoint.fetch(
@@ -71,10 +80,15 @@ describe("Hono adapter — telemetry firing (integration)", () => {
         "cloud.api_key_provided": false,
       }),
     );
-  });
+  } finally {
+    teardown();
+  }
+});
 
-  it("includes cloud.public_api_key on request when header is present", async () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
+test("Hono adapter includes cloud.public_api_key when the header is present", async () => {
+  const { runtime, captureSpy, teardown } = setup();
+
+  try {
     const endpoint = createCopilotHonoHandler({ runtime, basePath: "/" });
 
     await endpoint.fetch(
@@ -95,5 +109,7 @@ describe("Hono adapter — telemetry firing (integration)", () => {
         "cloud.public_api_key": "ck_pub_test_123",
       }),
     );
-  });
+  } finally {
+    teardown();
+  }
 });

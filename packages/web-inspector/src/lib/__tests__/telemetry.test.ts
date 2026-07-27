@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import {
   TELEMETRY_DOCS_URL,
@@ -37,9 +37,8 @@ import {
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
 const webInspectorPackage = JSON.parse(
-  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+  readFileSync(resolvePath(process.cwd(), "package.json"), "utf8"),
 ) as { version: string };
-
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
   // + disclosure-shown flags don't leak across cases.
@@ -75,12 +74,9 @@ describe("track()", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(TELEMETRY_INGEST_URL);
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
-      "application/json",
-    );
-    expect(
-      (init?.headers as Record<string, string>)["X-CopilotKit-Telemetry-Id"],
-    ).toMatch(/^[0-9a-f-]{36}$/);
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toMatch(/^[0-9a-f-]{36}$/);
 
     // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
     // package is a top-level object { name, version? }, NOT inside properties.
@@ -132,7 +128,7 @@ describe("track()", () => {
 
     expect(() => track(TELEMETRY_EVENTS.threadsTabClicked)).not.toThrow();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((done) => setTimeout(done, 0));
   });
 
   it("does not send when fetch is unavailable (SSR / pre-fetch environment)", async () => {
