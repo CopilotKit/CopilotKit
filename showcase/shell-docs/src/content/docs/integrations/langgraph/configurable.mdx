@@ -148,21 +148,6 @@ For a full working demonstration, see the [Agent Config demo](https://github.com
 - Agent behavior adaptation based on runtime configuration
 - Proper middleware setup
 
-## Verification
-
-**State structure verification:** [`sdk-python/tests/test_context_integration.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_context_integration.py) verifies the documented non-secret access pattern:
-
-- Context values are readable from `state["copilotkit"]["context"]`
-- Values persist across simulated agent turns
-- The pattern handles missing or empty context gracefully
-- Sensitive key names (tokens, passwords, secrets) must not appear in this channel
-
-**Auth credential verification:** [`sdk-python/tests/test_configurable_auth_header.py`](https://github.com/CopilotKit/CopilotKit/tree/main/sdk-python/tests/test_configurable_auth_header.py) verifies the `x-*` configurable-header auth path:
-
-- `x-copilotkit-auth` is accessible via `config["configurable"]` on repeated runs
-- The token does NOT appear in `state["copilotkit"]["context"]` (non-model-visible)
-- `config["configurable"]` values do not bleed into LangGraph state
-
 ## Legacy Pattern (LangGraph <0.6.0)
 
 <details>

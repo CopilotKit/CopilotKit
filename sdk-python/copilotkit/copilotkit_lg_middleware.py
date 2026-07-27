@@ -408,27 +408,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             else:
                 app_context = runtime_context
 
-        if isinstance(app_context, dict):
-            # Strip transport-layer keys that must never be rendered into the
-            # model-visible "App Context:" system message.
-            #
-            # ``copilotkit_forwarded_headers`` — the wrapper dict that the
-            # CopilotKit SDK bundles forwarded x-* headers into.
-            #
-            # ``x-*`` prefixed keys — raw forwarded HTTP headers (e.g.
-            # ``x-copilotkit-auth``) that langgraph-api copies from
-            # ``config.configurable`` into ``runtime.context`` because
-            # ``configurable_headers.include: ["x-*"]`` is set.  These are
-            # credentials or infra headers that must NEVER appear in the LLM
-            # prompt; they are consumed only via
-            # ``config["configurable"]["x-copilotkit-auth"]`` (the
-            # non-model-visible path).
-            app_context = {
-                k: v
-                for k, v in app_context.items()
-                if k != "copilotkit_forwarded_headers"
-                and not (isinstance(k, str) and k.lower().startswith("x-"))
-            }
+        app_context = self._sanitize_app_context_for_prompt(app_context)
 
         if not app_context:
             return None
@@ -440,16 +420,51 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if isinstance(app_context, str):
             context_content = app_context
         else:
-            if hasattr(app_context, "model_dump"):
-                app_context = app_context.model_dump()
-            elif isinstance(app_context, list):
-                app_context = [
-                    item.model_dump() if hasattr(item, "model_dump") else item
-                    for item in app_context
-                ]
             context_content = json.dumps(app_context, indent=2)
 
         return f"App Context:\n{context_content}"
+
+    @classmethod
+    def _sanitize_app_context_for_prompt(cls, app_context: Any) -> Any:
+        """Remove transport/header values before App Context reaches the model."""
+        if hasattr(app_context, "model_dump"):
+            app_context = app_context.model_dump()
+
+        if isinstance(app_context, dict):
+            sanitized = {
+                key: cls._sanitize_app_context_for_prompt(value)
+                for key, value in app_context.items()
+                if not cls._is_transport_context_key(key)
+            }
+            return sanitized
+
+        if isinstance(app_context, list):
+            sanitized_items = []
+            for item in app_context:
+                sanitized_item = cls._sanitize_app_context_for_prompt(item)
+                if cls._is_empty_context_entry(sanitized_item):
+                    continue
+                sanitized_items.append(sanitized_item)
+            return sanitized_items
+
+        return app_context
+
+    @staticmethod
+    def _is_transport_context_key(key: Any) -> bool:
+        if key == "copilotkit_forwarded_headers":
+            return True
+        return isinstance(key, str) and key.lower().startswith("x-")
+
+    @classmethod
+    def _is_empty_context_entry(cls, value: Any) -> bool:
+        if isinstance(value, dict):
+            entry_value = value.get("value")
+            if set(value).issubset({"description", "value"}) and cls._is_empty_context_entry(entry_value):
+                return True
+            return len(value) == 0
+        if isinstance(value, list):
+            return all(cls._is_empty_context_entry(item) for item in value)
+        return value is None or value == ""
 
     def _apply_app_context_note(self, request: ModelRequest) -> ModelRequest:
         note = self._build_app_context_note(
