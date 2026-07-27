@@ -1,6 +1,70 @@
 import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
 import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 5_000;
+const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
+const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
+
+interface RuntimeEntitlementCacheEntry {
+  readonly expiresAt: number;
+  readonly response: RuntimeEntitlementResponse;
+}
+
+interface RuntimeEntitlementFailureEntry {
+  readonly error: unknown;
+  readonly expiresAt: number;
+}
+
+/** Whether a response grants Runtime access and therefore cannot be served stale. */
+function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
+  return response.status === "ready" && response.entitlement.active;
+}
+
+/** Whether an HTTP status can recover without changing Runtime configuration. */
+function isRetryableRuntimeEntitlementStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+const runtimeEntitlementTransportSchema = z
+  .object({
+    organizationId: z.string(),
+    active: z.boolean(),
+    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    features: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number()),
+    planCode: z.string().optional(),
+    entitlementSource: z.string().optional(),
+  })
+  .strict();
+
+/** Validate and normalize the private App API transport into the public union. */
+function normalizeRuntimeEntitlementTransport(
+  value: unknown,
+): RuntimeEntitlementResponse | undefined {
+  const parsed = runtimeEntitlementTransportSchema.safeParse(value);
+  if (!parsed.success) {
+    return undefined;
+  }
+
+  const transport = parsed.data;
+  return {
+    status: "ready",
+    entitlement: {
+      active: transport.active,
+      source: transport.source,
+      features: transport.features,
+      limits: transport.limits,
+      ...(transport.planCode !== undefined
+        ? { planCode: transport.planCode }
+        : {}),
+      ...(transport.entitlementSource !== undefined
+        ? { entitlementSource: transport.entitlementSource }
+        : {}),
+    },
+  };
+}
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -71,10 +135,45 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /** Whether retrying may succeed without changing client configuration. */
+    public readonly retryable?: boolean,
   ) {
     super(message);
     this.name = "PlatformRequestError";
   }
+}
+
+/** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
+function cloneRuntimeEntitlementResponse(
+  response: RuntimeEntitlementResponse,
+): RuntimeEntitlementResponse {
+  if (response.status === "ready") {
+    return {
+      status: "ready",
+      entitlement: {
+        ...response.entitlement,
+        features: { ...response.entitlement.features },
+        limits: { ...response.entitlement.limits },
+      },
+    };
+  }
+
+  return {
+    status: response.status,
+    error: { ...response.error },
+  };
+}
+
+/** Copy a cached Error while preserving its concrete type and own fields. */
+function cloneRuntimeEntitlementError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return Object.create(
+    Object.getPrototypeOf(error),
+    Object.getOwnPropertyDescriptors(error),
+  ) as Error;
 }
 
 /** Payload passed to `onThreadDeleted` listeners. */
@@ -489,6 +588,9 @@ export class CopilotKitIntelligence {
   #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
+  #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
+  #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
