@@ -483,7 +483,9 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     def _is_empty_context_entry(cls, value: Any) -> bool:
         if isinstance(value, dict):
             entry_value = value.get("value")
-            if set(value).issubset({"description", "value"}) and cls._is_empty_context_entry(entry_value):
+            if set(value).issubset(
+                {"description", "value"}
+            ) and cls._is_empty_context_entry(entry_value):
                 return True
             return len(value) == 0
         if isinstance(value, list):
