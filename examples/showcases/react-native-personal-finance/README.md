@@ -64,6 +64,10 @@ On approval, the card resolves in place — _Add expense_, for instance, confirm
 
 **Quick-start chips & reset** — the empty chat surfaces tappable **starter prompts** (_"Where did my money go this month?"_, _"Show me my balances"_, …); **follow-up chips** (_"Break it down by category"_, _"What were my biggest expenses?"_, …) sit at the bottom of an active conversation; and a **New chat** button in the header clears the thread.
 
+<p align="center">
+  <img src="docs/screenshots/chat-empty.png" alt="Empty Assistant tab with tappable starter-prompt chips" width="280" />
+</p>
+
 ---
 
 ## The stack
@@ -85,14 +89,14 @@ The CopilotKit primitives wired up: `useFrontendTool` (5 read tools), `useHumanI
 
 ## Quickstart
 
-You need a Mac with Xcode, Node 22+, Ruby (for CocoaPods), an iOS simulator, and an OpenAI API key.
+You need Node 22+ and an OpenAI API key, plus a platform to run on: **iOS** (a Mac with Xcode, Ruby for CocoaPods, and a simulator) or **Android** (Android Studio with an emulator or a connected device).
 
 ```bash
 # 1. Clone and install
 git clone https://github.com/CopilotKit/CopilotKit.git
 cd CopilotKit/examples/showcases/react-native-personal-finance
 npm install
-cd ios && bundle install && bundle exec pod install && cd ..
+cd ios && bundle install && bundle exec pod install && cd ..   # iOS only
 
 # 2. Set up the runtime
 cd runtime
@@ -105,9 +109,17 @@ cd ..
 # 3. Run the app (separate terminal)
 npm start             # Metro bundler on :8081
 npm run ios           # builds + launches on the iOS simulator
+# — or —
+npm run android       # builds + launches on the Android emulator / device
 ```
 
-On a **physical device**, change `RUNTIME_BASE` in `App.tsx` to your machine's LAN IP (e.g. `http://192.168.1.42:3000`) so the device can reach the runtime.
+### Reaching the runtime
+
+`App.tsx` points the app at the runtime through `RUNTIME_BASE` (default `http://localhost:3000`):
+
+- **iOS simulator** — shares the host's network, so the `localhost` default works as-is.
+- **Android emulator** — `localhost` resolves to the emulator itself, not your machine. Set `RUNTIME_BASE` to the host alias **`http://10.0.2.2:3000`**.
+- **Physical device (iOS or Android)** — set `RUNTIME_BASE` to your machine's LAN IP, e.g. `http://192.168.1.42:3000`, so the device can reach the runtime.
 
 ---
 
