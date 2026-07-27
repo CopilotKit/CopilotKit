@@ -1,0 +1,65 @@
+---
+title: "Connect AG-UI agents"
+icon: "lucide/Zap"
+description: "How CopilotKit connects a Vue frontend to agents through AG-UI."
+---
+
+CopilotKit uses [AG-UI](https://ag-ui.com), an event-based protocol for communication between agents and user-facing applications. Messages, state, tool calls, reasoning, and run lifecycle updates arrive as AG-UI events over an agent transport such as SSE.
+
+This page explains CopilotKit’s frontend connection. The protocol specification remains owned by [AG-UI](https://docs.ag-ui.com).
+
+## Accessing your agent with `useAgent`
+
+`useAgent` returns a reactive `ShallowRef<AbstractAgent | null>`. It resolves the configured ID, follows provider configuration, and refreshes consumers when the selected agent changes.
+
+Use `agent.value` in script code and `agent` directly in templates. The selected agent exposes messages, state, run status, and the standard AG-UI methods.
+
+### Subscribing to AG-UI events
+
+Subscribe when you need protocol-level diagnostics or an integration outside the normal reactive UI:
+
+<VueDocExample file="backend/ag-ui-events.vue" region="ag-ui-agent-events" />
+
+The fixture watches the reactive agent ref, unsubscribes whenever the selected agent changes, and cleans up with the Vue scope. Common event callbacks include:
+
+| Event family | Callback examples |
+| --- | --- |
+| Run lifecycle | `onRunStartedEvent`, `onRunFinishedEvent`, `onRunErrorEvent` |
+| Steps | `onStepStartedEvent`, `onStepFinishedEvent` |
+| Text | `onTextMessageStartEvent`, `onTextMessageContentEvent`, `onTextMessageEndEvent` |
+| Tool calls | `onToolCallStartEvent`, `onToolCallArgsEvent`, `onToolCallEndEvent`, `onToolCallResultEvent` |
+| State | `onStateSnapshotEvent`, `onStateDeltaEvent` |
+| Messages | `onMessagesSnapshotEvent` |
+| Extensions | `onCustomEvent`, `onRawEvent` |
+| Aggregates | `onMessagesChanged`, `onStateChanged` |
+
+Prefer the reactive `useAgent` result, chat components, and focused composables for normal UI. Direct subscriptions are valuable when you need every low-level event.
+
+## The proxy pattern
+
+With Copilot Runtime, the browser does not call the real agent directly:
+
+1. `CopilotKitProvider` requests `{runtimeUrl}/info`.
+2. The client registry creates a `ProxiedCopilotRuntimeAgent` for each discovered agent.
+3. `useAgent` and chat components receive that proxy through the `AbstractAgent` interface.
+4. A run becomes an HTTP request to the runtime.
+5. The runtime routes it to the registered agent.
+6. AG-UI events stream back to the proxy and update Vue.
+
+This indirection lets the runtime enforce authentication, apply middleware, route multiple agents, and participate in platform-backed features without changing the frontend agent interface.
+
+## How BuiltInAgent slots into AG-UI
+
+`BuiltInAgent` is also an `AbstractAgent`. For each request, the runtime:
+
+1. resolves the requested agent ID;
+2. clones the agent for thread isolation;
+3. populates messages, state, context, thread ID, and run ID;
+4. executes it through `AgentRunner`;
+5. encodes its `BaseEvent` stream as SSE.
+
+The same plumbing works for a Built-in Agent, an `HttpAgent`, or a custom AG-UI implementation. The Vue frontend interacts with the common agent contract.
+
+## Direct connections
+
+Use [self-managed agents](/vue/backend/self-managed-agents) only when you deliberately own the browser-to-agent transport and security. The runtime-backed proxy remains the recommended production boundary.

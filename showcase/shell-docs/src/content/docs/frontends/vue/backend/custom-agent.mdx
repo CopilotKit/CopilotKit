@@ -1,0 +1,157 @@
+---
+title: "Use any model router"
+icon: "lucide/Blocks"
+description: "Use BuiltInAgent factory mode with AI SDK, TanStack AI, or a custom LLM backend."
+---
+
+`BuiltInAgent` factory mode gives you control over the model call while CopilotKit handles AG-UI lifecycle events, cancellation, and runtime integration.
+
+## When to use Simple Mode vs Factory Mode
+
+| | Simple mode | Factory mode |
+| --- | --- | --- |
+| Setup | Pass a model string | Own the model call and stream |
+| Model resolution | Built in | Configure it yourself |
+| Tools, MCP, state | Wired automatically | Wire them in the factory |
+| Backend support | AI SDK model path | AI SDK, TanStack AI, or custom |
+| Best for | Standard use cases | Custom routers and non-standard backends |
+
+Use simple mode unless you need the additional control.
+
+## Quick start
+
+### AI SDK
+
+```ts
+import {
+  BuiltInAgent,
+  CopilotRuntime,
+  InMemoryAgentRunner,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      abortSignal,
+    }),
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+### TanStack AI
+
+```ts
+import {
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai";
+
+const agent = new BuiltInAgent({
+  type: "tanstack",
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-4o"),
+      messages,
+      systemPrompts,
+      abortController,
+    });
+  },
+});
+```
+
+### Custom streams
+
+A custom factory can call any service and yield AG-UI events. It receives the current input and abort signal. Your generator emits text, tool, state, and other domain events; the runtime supplies `RUN_STARTED`, `RUN_FINISHED`, error handling, and cancellation.
+
+```ts
+import { EventType } from "@ag-ui/client";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  type: "custom",
+  factory: async function* ({ input, abortSignal }) {
+    const response = await fetch("https://llm.example.com/chat", {
+      method: "POST",
+      body: JSON.stringify({ messages: input.messages }),
+      signal: abortSignal,
+    });
+
+    yield {
+      type: EventType.TEXT_MESSAGE_CHUNK,
+      role: "assistant",
+      messageId: crypto.randomUUID(),
+      delta: await response.text(),
+    };
+  },
+});
+```
+
+The Vue frontend connection is unchanged:
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+## How factory mode works
+
+The factory receives:
+
+- `input`: messages, tools, state, context, thread/run IDs, and forwarded properties;
+- `abortController`: required by TanStack AI;
+- `abortSignal`: preferred by AI SDK, `fetch`, and custom backends.
+
+Factories may be asynchronous, which lets you resolve credentials or model configuration before starting the stream. `InMemoryAgentRunner` persists threads within the current process; replace it with a durable runner when conversations must survive restarts. See [AgentRunner and persistence](/vue/backend/agent-runner).
+
+## Tools
+
+For AI SDK factories, `convertToolsToVercelAITools(input.tools)` converts Vue frontend tools into an AI SDK tool set. TanStack AI factories can define server tools directly. Custom factories emit the AG-UI tool-call lifecycle:
+
+1. `TOOL_CALL_START`
+2. one or more `TOOL_CALL_ARGS`
+3. `TOOL_CALL_END`
+4. `TOOL_CALL_RESULT`
+
+See [Frontend Tools](/vue/frontend-tools) for browser-owned tools and [AG-UI](/vue/backend/ag-ui) for event behavior.
+
+## Reasoning models
+
+AI SDK factory streams can be converted into AG-UI reasoning events. The current TanStack AI converter does not surface `REASONING_START`, `REASONING_MESSAGE_CONTENT`, or `REASONING_END`; use the AI SDK path when the frontend must receive those events.
+
+## System prompts, context, and state
+
+Factory input contains the same context and state sent by the Vue application:
+
+- `input.context` contains entries registered with `useAgentContext`;
+- `input.state` contains shared agent state;
+- `input.messages` contains the current conversation.
+
+`convertInputToTanStackAI` incorporates system/developer messages, context, and state into `systemPrompts`. AI SDK factories can assemble an equivalent system message explicitly.
+
+## Forwarded properties
+
+Provider `properties` arrive as `input.forwardedProps`. Validate their shape before using them to select a model or sampling configuration:
+
+<VueDocExample file="auth/provider-headers.vue" region="provider-auth-headers" />
+
+The example sends both an authenticated header and non-secret request properties. Properties are application input, not trusted identity: enforce model access and tenant authorization on the server.
+
+## Helper utilities
+
+| Utility | Purpose |
+| --- | --- |
+| `convertInputToTanStackAI(input)` | Create TanStack AI messages and system prompts from AG-UI input. |
+| `convertMessagesToVercelAISDKMessages(messages)` | Convert AG-UI messages to AI SDK messages. |
+| `convertToolsToVercelAITools(tools)` | Convert incoming JSON Schema tools to an AI SDK tool set. |
+| `convertToolDefinitionsToVercelAITools(tools)` | Convert Standard Schema tool definitions. |
+| `resolveModel(spec)` | Resolve a provider/model string into an AI SDK model. |

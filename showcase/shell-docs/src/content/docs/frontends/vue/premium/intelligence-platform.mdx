@@ -1,0 +1,76 @@
+---
+title: "Enterprise Intelligence Architecture"
+description: "How runtimes connect to project-scoped durable threads, realtime sync, operational history, and hosted deployments."
+icon: "lucide/Server"
+doc_type: explanation
+premium: true
+---
+
+The Enterprise Intelligence Platform provides durable threads, realtime synchronization, project-scoped history, dashboard inspection, and operational visibility. The same application model applies to [cloud-hosted](/vue/premium/managed-intelligence-platform) and [self-hosted](/vue/premium/self-hosting) deployments.
+
+For a product-level comparison, see [Enterprise Intelligence Platform overview](/vue/premium/overview).
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Start with Cloud-Hosted Enterprise Intelligence"
+  body="Create a hosted project, obtain a project key, and inspect persistent threads before deciding whether self-hosting is required."
+  ctaLabel="Create a free account"
+  surface="docs_premium_intelligence_architecture_intro"
+/>
+
+## Runtime and platform roles
+
+- **Vue frontend:** renders chat, tools, generative UI, and thread controls with `@copilotkit/vue/v2`.
+- **Runtime:** authenticates requests, connects agents through AG-UI, and mediates platform-backed capabilities.
+- **Enterprise Intelligence Platform:** stores durable thread data, indexes events, serves project APIs, and powers dashboard operations.
+
+The runtime is the bridge. Vue uses the same provider and thread composables regardless of the selected hosting model.
+
+## Project boundaries
+
+- **Organization:** billing, workspace, or contract boundary.
+- **Project:** one application or environment, such as production or staging.
+- **User:** the authenticated end user supplied by your application.
+
+Project API keys belong in the runtime environment. Project isolation keeps production and staging history separate even when they share a platform deployment.
+
+## Threads and event history
+
+When Vue uses `useThreads`, the runtime asks the platform to list, create, rename, archive, delete, and resume project/user-scoped conversations. The platform records events so a thread can replay after reload and resume on another device.
+
+See [Threads and persistence architecture](/vue/premium/threads-explained) for replay and lifecycle details.
+
+## Realtime sync
+
+Realtime subscriptions align thread metadata and active conversation state across clients. Renames, archives, and active-run status can appear without a page reload. The Vue API remains the same while the runtime selects the platform deployment.
+
+## Inspection and operational history
+
+The platform dashboard exposes project history, thread details, event timelines, API key administration, and plan management. For the hosted workflow, see [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform).
+
+## Hosting model
+
+| Deployment | What changes | What stays the same |
+| --- | --- | --- |
+| Cloud-hosted | CopilotKit operates the platform, storage, dashboard, keys, and plan management. | Vue APIs, runtime APIs, AG-UI connection, and thread operations. |
+| Self-hosted | You operate the Kubernetes deployment and its infrastructure dependencies. | Vue APIs, runtime APIs, AG-UI connection, and thread operations. |
+
+Self-hosting changes operational ownership, not the Vue integration. Availability follows the applicable Team self-hosted or Enterprise plan.
+
+## Error handling model
+
+Platform features are networked and do not silently fall back to local state. When operations fail:
+
+- verify the platform URL selected by the runtime;
+- verify project credentials and licensing;
+- confirm the authenticated user/project match the expected thread history;
+- confirm realtime sync when cross-tab or cross-device updates are expected;
+- handle surfaced thread/runtime errors in the UI.
+
+## Next steps
+
+- [Platform overview](/vue/premium/overview)
+- [Cloud-hosted guide](/vue/premium/managed-intelligence-platform)
+- [Self-hosting guide](/vue/premium/self-hosting)
+- [Rich Threads](/vue/threads)
+- [Threads and persistence architecture](/vue/premium/threads-explained)

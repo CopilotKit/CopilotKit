@@ -1,0 +1,141 @@
+---
+title: "Copilot Runtime"
+description: "The backend that connects a Vue frontend to agents with authentication, middleware, routing, and streaming."
+icon: "lucide/Server"
+---
+
+The Copilot Runtime is the server-side bridge between your Vue application and its agents. It accepts frontend requests, discovers and routes agents, applies trusted middleware, and streams AG-UI events back to the browser.
+
+## Setting up the runtime
+
+The [Vue quickstart](/vue) uses a separate Node process so the browser and runtime boundary is explicit:
+
+<VueDocExample file="quickstart/server.ts" region="runtime-server" />
+
+Point the Vue provider at the same base URL:
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+The runtime handlers are framework-agnostic. See [Deploy to any runtime](/vue/runtime-server-adapter) for Fetch-native, Node, Express, Hono, and server-framework mounting patterns, and [Runtime HTTP endpoints](/vue/backend/runtime-endpoints) for the exact routes.
+
+## Agents
+
+`BuiltInAgent` is the primary in-process agent:
+
+- **Simple mode:** pass a model string and let CopilotKit perform the model call. This is the shortest setup.
+- **Factory mode:** own the AI SDK, TanStack AI, or custom stream while CopilotKit supplies the AG-UI lifecycle. See [Use any model router](/vue/backend/custom-agent).
+
+You can also register an `HttpAgent` or another AG-UI `AbstractAgent`. The runtime exposes all registered IDs through `/info` and routes each run to the requested agent.
+
+## The default agent
+
+Registering an agent under `"default"` lets `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` select it without an explicit `agent-id`:
+
+```ts
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+});
+```
+
+For multiple agents, pass `agent-id` to a chat component or `agentId` to `useAgent`.
+
+## What the runtime provides
+
+### Authentication and security
+
+The runtime is a trusted place to verify users, protect credentials, authorize routes, and reject requests before agent code runs. Browser tokens can be sent through provider headers, but validation must happen on the server. See [Authentication](/vue/auth).
+
+### AG-UI middleware
+
+Agents use AG-UI middleware for logging, guardrails, request transformation, and protocol integrations. Middleware runs server-side and cannot be replaced by browser code. See [Connect AG-UI agents](/vue/backend/ag-ui).
+
+### Agent discovery and routing
+
+The runtime `/info` endpoint publishes registered agents and metadata. The Vue client creates runtime proxy agents from that response, so components use the same `AbstractAgent` interface regardless of the agent’s actual location.
+
+### Enterprise Intelligence Platform
+
+[Threads](/vue/threads), operational history, and platform-backed inspection travel through the runtime. The runtime remains the application boundary whether the platform is cloud-hosted or self-hosted.
+
+## Built-in MCP Apps middleware
+
+The v2 runtime can apply MCP Apps middleware to registered agents from a server-owned configuration:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  mcpApps: {
+    servers: [
+      { type: "http", url: "http://localhost:3108/mcp" },
+    ],
+  },
+});
+```
+
+An optional `agentId` on a server entry scopes it to one agent. This is the runtime-side MCP Apps UI path. It is distinct from dynamically selecting ordinary MCP tool servers in the Vue frontend; repository evidence does not currently provide a verified Vue frontend configuration path for that flow. See [MCP](/vue/agentic-protocols/mcp).
+
+## Forwarding request headers to your agent
+
+Headers provided by `CopilotKitProvider` reach the runtime and can be forwarded to the outgoing agent request. By default the runtime forwards `authorization` and eligible `x-*` headers, minus a security denylist.
+
+The denylist removes:
+
+- proxy and topology headers such as `x-forwarded-*` and `x-real-ip`;
+- cloud/CDN tracing headers such as `x-amz-*`, `x-azure-*`, and `x-cloud-trace-context`;
+- platform-injected headers such as `x-vercel-*` and `x-middleware-*`;
+- CopilotKit platform headers such as `x-copilotcloud-*`.
+
+Application headers such as `x-tenant-id`, `x-api-key`, and `x-user-id` remain eligible. `x-request-id` is stripped by default because it is commonly proxy-assigned.
+
+### Server-configured headers win
+
+Headers configured on an agent take precedence over forwarded inbound headers with the same case-insensitive name. A browser cannot silently replace a service credential configured on the server.
+
+### Configuring the policy
+
+Use `forwardHeaders` to add denials, switch to an allowlist, or opt out of the default denylist:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  forwardHeaders: {
+    deny: ["x-internal-debug"],
+    denyPrefixes: ["x-acme-"],
+  },
+});
+```
+
+- `deny` and `denyPrefixes` always win.
+- `allow` switches to allowlist mode; only named headers forward, minus explicit denials.
+- `useDefaultDenylist: false` disables the built-in denylist.
+- Empty or whitespace-only entries are ignored.
+
+<Callout type="warning" title="Review allowlists carefully">
+  Allowlist mode does not apply the built-in denylist. Do not explicitly allow protected proxy or CopilotKit platform headers unless forwarding them is intentional.
+</Callout>
+
+## Connecting to an AG-UI agent directly
+
+For a secured, production connection that you manage, use `selfManagedAgents`:
+
+<VueDocExample file="backend/self-managed.vue" region="self-managed-agent-provider" />
+
+For local development only, Vue also exposes the deliberately named `agents__unsafe_dev_only` surface:
+
+<VueDocExample file="backend/unsafe-local.vue" region="unsafe-local-agent-provider" />
+
+Direct agents skip the runtime for those connections. Authentication, authorization, routing, and transport security become your responsibility, and runtime-backed middleware and platform features do not apply.
+
+| | Runtime-backed | Self-managed direct connection |
+| --- | --- | --- |
+| Authentication | Enforced at your runtime | You own it |
+| Middleware | Runs server-side | Runtime middleware is absent |
+| Discovery and routing | Automatic | Manual agent registry |
+| Platform features | Full runtime path | Limited by the missing runtime path |
+| Recommended use | Default production path | Secured, deliberately self-managed agents |
+
+See [Self-managed agents](/vue/backend/self-managed-agents) for the production and development distinction.

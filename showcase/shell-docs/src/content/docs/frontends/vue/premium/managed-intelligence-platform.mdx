@@ -1,0 +1,91 @@
+---
+title: Cloud-Hosted Enterprise Intelligence
+description: "Hosted projects, API keys, conversation history, thread inspection, and plan management."
+icon: "lucide/Cloud"
+doc_type: explanation
+premium: true
+---
+
+Cloud-Hosted Enterprise Intelligence is CopilotKit’s managed deployment of the Enterprise Intelligence Platform. It provides durable threads, project-scoped keys and history, a hosted operations application, and plan management without requiring you to operate the platform.
+
+![The Cloud-Hosted Enterprise Intelligence ready page with starter commands and project navigation.](/images/enterprise-intelligence/managed-ready.png)
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Create hosted projects and API keys"
+  body="Create a free Enterprise Intelligence account, then connect an application from the CLI or dashboard."
+  ctaLabel="Create a free account"
+  surface="docs_premium_managed_intelligence_platform_intro"
+/>
+
+## What the cloud-hosted version provides
+
+Your Vue application continues to use `@copilotkit/vue/v2`, while CopilotKit operates the platform service that stores project-scoped threads, events, runtime connection metadata, and API keys.
+
+The dashboard is for developers and administrators. End users remain authenticated by your application, and the runtime passes their identity to the project that owns the stored thread.
+
+Choose [self-hosting](/vue/premium/self-hosting) when residency, compliance, or network isolation requires the platform inside your infrastructure.
+
+## Login and workspace flow
+
+Sign in at [dashboard.operations.copilotkit.ai](https://dashboard.operations.copilotkit.ai), then select or create an organization workspace.
+
+- `npx copilotkit@latest create` starts a new application.
+- `npx copilotkit@latest skills onboard` helps add CopilotKit to an existing application.
+
+The [CopilotKit CLI](/vue/cli) uses the same browser sign-in and stores a local session for project selection.
+
+## Projects
+
+A project is an application/environment boundary. Separate production, staging, demos, and experiments so keys and conversation history do not overlap.
+
+![The Cloud-Hosted Enterprise Intelligence project list.](/images/enterprise-intelligence/managed-projects.png)
+
+Project history shows thread names, agents, and active or archived state.
+
+![A Cloud-Hosted Enterprise Intelligence project showing conversation history.](/images/enterprise-intelligence/managed-project-thread-list.png)
+
+## API keys
+
+Project keys connect the runtime—not Vue browser code—to the hosted project. The CLI writes the selected key as `INTELLIGENCE_API_KEY` and stores project selection in `.copilotkit/project.json`.
+
+The dashboard reveals a newly created plaintext key once. Store it in the runtime environment. Deleting the key invalidates applications that still use it.
+
+## Threads and conversation history
+
+The dashboard thread detail shows agent, application user, status, update time, and recorded events:
+
+![A Cloud-Hosted Enterprise Intelligence thread detail page with metadata and event history.](/images/enterprise-intelligence/managed-thread-detail.png)
+
+The actions correspond to Vue’s `useThreads` lifecycle:
+
+- rename changes the display name;
+- archive removes a thread from the active list without deleting history;
+- delete permanently removes it.
+
+Use the detail view to verify persistence and inspect the event sequence behind a conversation. In your application, [Headless Threads](/vue/headless-threads) exposes the corresponding Vue state and actions.
+
+## Plan management
+
+The pricing page shows the current plan, billing, tier comparisons, and limits such as retention, thread count, multimodal storage, cloud hosting, and self-hosting availability.
+
+![The Cloud-Hosted Enterprise Intelligence plan management page.](/images/enterprise-intelligence/managed-pricing.png)
+
+Early-access capabilities follow their own program and are not established as general platform contracts by this page.
+
+## Cloud-hosted vs. self-hosted
+
+| Choose | When |
+| --- | --- |
+| Cloud-hosted | You want managed projects, keys, history, inspection, and billing without operating infrastructure. |
+| Self-hosted | You need the platform in your Kubernetes cluster and data boundary. |
+
+The deployment changes the platform endpoint and runtime credentials, not how Vue renders chat or calls `useThreads`. Self-hosting availability depends on the applicable Team or Enterprise plan.
+
+## Next steps
+
+- [Rich Threads](/vue/threads)
+- [CopilotKit CLI](/vue/cli)
+- [Headless Threads](/vue/headless-threads)
+- [Threads and persistence architecture](/vue/premium/threads-explained)
+- [Self-hosting Enterprise Intelligence](/vue/premium/self-hosting)

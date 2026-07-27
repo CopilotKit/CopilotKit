@@ -1,0 +1,151 @@
+---
+title: "Deploy to any runtime"
+icon: "lucide/Server"
+description: "Deploy Copilot Runtime with Fetch-native platforms, Node.js, Express, Hono, and server frameworks."
+---
+
+Copilot Runtime is framework-agnostic. Its core handler accepts a standard `Request` and returns a `Response`; small adapters bridge Node.js, Express, and Hono.
+
+## Quick overview
+
+| Runtime | Import path | Primary function |
+| --- | --- | --- |
+| Fetch-native: Bun, Deno, Workers, server-framework routes | `@copilotkit/runtime/v2` | `createCopilotRuntimeHandler` |
+| Node.js HTTP | `@copilotkit/runtime/v2/node` | `createCopilotNodeHandler`, `createCopilotNodeListener` |
+| Express | `@copilotkit/runtime/v2/express` | `createCopilotExpressHandler` |
+| Hono | `@copilotkit/runtime/v2/hono` | `createCopilotHonoHandler` |
+
+## Multi-route vs. single-route
+
+Multi-route mode is the default. It exposes `/info`, `/agent/:agentId/run`, `/connect`, `/stop/:threadId`, and `/transcribe` beneath the configured base path.
+
+Single-route mode exposes one `POST` endpoint with a `{ method, params, body }` envelope. Use it when a gateway or serverless platform supports only one handler. The Vue provider must set `use-single-endpoint` for the matching transport:
+
+<VueDocExample file="backend/single-route.vue" region="single-route-provider" />
+
+See [Runtime HTTP endpoints](/vue/backend/runtime-endpoints) for the route contract.
+
+## Fetch-native runtimes
+
+The canonical runtime fixture is a Node server around the same Fetch handler:
+
+<VueDocExample file="quickstart/server.ts" region="runtime-server" />
+
+For Bun, use that handler as `Bun.serve({ fetch: handler })`. For Deno, pass it to `Deno.serve`. For a Cloudflare Worker, return `handler(request)` from the worker’s `fetch` method. In an existing Fetch-native server, route requests whose path starts with the configured `basePath` to the handler and leave other routes untouched.
+
+### Runtime-specific mounting
+
+| Platform | Multi-route mounting | Single-route mounting | Existing application |
+| --- | --- | --- | --- |
+| Bun | `Bun.serve({ fetch: handler })` | Same server with `mode: "single-route"` | Dispatch matching paths from the app’s `fetch` function |
+| Deno | `Deno.serve(handler)` | Same server with single-route mode | Dispatch matching paths from the request callback |
+| Cloudflare Workers | Worker `fetch()` returns the handler response | Same worker with single-route mode | Call the handler only for the CopilotKit prefix |
+| Next.js App Router | Catch-all route exports `GET` and `POST` | Non-catch-all route exports `POST` | Same-origin, so CORS is normally unnecessary |
+| React Router framework mode | Splat resource route delegates loader/action | Non-splat action route | Standard `Request`/`Response` handler |
+| TanStack Start | Splat API route delegates `GET` and `POST` | Non-splat `POST` API route | Standard `Request`/`Response` handler |
+| Elysia on Bun | Wildcard `.all()` route | Exact `.post()` route | Mount beside existing Elysia routes |
+
+The server framework used for the runtime does not constrain the Vue frontend. Only the reachable base URL and endpoint mode must match.
+
+## Node.js HTTP
+
+Use `createCopilotNodeListener` when CopilotKit owns the server listener. For an existing server, build the Fetch handler and wrap it with `createCopilotNodeHandler`, then dispatch matching paths from your request listener.
+
+Multi-route, single-route, and existing-server modes share the same runtime configuration. The difference is whether the adapter owns the listener and whether `mode: "single-route"` is set.
+
+## Express
+
+`createCopilotExpressHandler` returns a router mounted with `app.use()`:
+
+```ts
+import express from "express";
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+});
+
+const app = express();
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
+);
+app.listen(4000);
+```
+
+The adapter supports multi-route and single-route modes and can be mounted beside existing routes. It detects an already parsed `express.json()` body.
+
+| Option | Meaning |
+| --- | --- |
+| `runtime` | Required `CopilotRuntime` instance |
+| `basePath` | Required URL prefix |
+| `mode` | `"multi-route"` or `"single-route"` |
+| `cors` | Boolean or Express CORS options |
+| `hooks` | Runtime lifecycle hooks |
+
+## Hono
+
+`createCopilotHonoHandler` returns a Hono application. Serve its `fetch` function directly or mount it with `app.route()` beside existing routes. It supports the same endpoint modes, CORS options, and lifecycle hooks.
+
+## Lifecycle hooks
+
+All adapters expose hooks for cross-cutting server behavior:
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: ({ request }) => {
+      if (!request.headers.get("authorization")) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+    onBeforeHandler: ({ route }) => {
+      console.log(`Handling ${route.method}`);
+    },
+    onResponse: ({ response }) => {
+      const headers = new Headers(response.headers);
+      headers.set("x-runtime", "copilotkit");
+      return new Response(response.body, { status: response.status, headers });
+    },
+    onError: ({ error }) => {
+      console.error("Runtime handler failed", error);
+    },
+  },
+});
+```
+
+| Hook | Runs | Responsibility |
+| --- | --- | --- |
+| `onRequest` | Before routing | Authentication and early rejection |
+| `onBeforeHandler` | After route resolution | Route/agent authorization |
+| `onResponse` | After handler | Response/header transformation |
+| `onError` | On unhandled failure | Logging and error response policy |
+
+## CORS configuration
+
+For a separately hosted Vue application, specify its origin. Fetch-native, Express, and Hono adapters accept CORS configuration:
+
+```ts
+cors: {
+  origin: "https://app.example.com",
+  credentials: true,
+}
+```
+
+When `credentials` is true, the origin must be explicit; the CORS specification does not allow `*`.
+
+## Connecting your Vue frontend
+
+Use a full URL for the two-process local topology:
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+For a same-origin deployment, set `runtime-url="/api/copilotkit"` instead. The frontend URL must match `basePath`, and `use-single-endpoint` must match the runtime mode.

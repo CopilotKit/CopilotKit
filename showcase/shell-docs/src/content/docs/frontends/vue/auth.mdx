@@ -1,0 +1,90 @@
+---
+title: Authentication
+description: Pass user authentication from a Vue frontend to the runtime so agents can scope tools and data.
+icon: "lucide/Shield"
+---
+
+Authentication lets every run carry a verified application identity. The browser supplies a credential, the runtime validates it before dispatch, and agent/tool code uses the resolved user to authorize reads and writes.
+
+## When to use this
+
+- Multi-tenant data access
+- Role- or permission-gated tools
+- Audit and billing attribution
+- Session-aware agent behavior
+
+If the application does not need identity, the agent can run anonymously.
+
+## Vue frontend
+
+Use the provider’s `headers` binding for credentials. A function-valued binding reads the current token for each request. Non-secret request metadata can travel separately through `properties`:
+
+<VueDocExample file="auth/provider-headers.vue" region="provider-auth-headers" />
+
+The example uses `credentials="include"` for deployments that also rely on cookies. Configure CORS accordingly.
+
+<Callout type="warning">
+  Provider properties are untrusted application input, not verified identity. Never authorize a request because a browser property claims a tenant or role.
+</Callout>
+
+## Runtime authentication
+
+Use the v2 runtime’s `onRequest` hook to validate the header before an agent runs:
+
+```ts
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({ agents: { default: myAgent } });
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: ({ request }) => {
+      const authorization = request.headers.get("authorization");
+      if (!authorization?.startsWith("Bearer ")) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+
+      const user = verifyJwt(authorization.slice("Bearer ".length));
+      authorizeRuntimeRequest(user);
+    },
+  },
+});
+```
+
+The hook operates on the raw `Request` and runs before route dispatch. Apply the same validation to `/info`, `/run`, `/connect`, `/stop`, and transcription traffic as appropriate for your application.
+
+The legacy v1 Next.js endpoint factory does not forward these lifecycle hooks. Use `createCopilotRuntimeHandler` or a v2 adapter when authentication depends on `onRequest`.
+
+## Forwarding identity to an agent
+
+After runtime validation, derive agent-visible identity from trusted server context. Runtime forwarding allows eligible `authorization` and application `x-*` headers to reach a self-hosted agent, while server-configured agent headers take precedence over browser input.
+
+Use `forwardHeaders` when you need a stricter allowlist. See [Copilot Runtime](/vue/backend/copilot-runtime#forwarding-request-headers-to-your-agent).
+
+## Tool gating
+
+Authentication has value only when operations enforce it. Resolve the user first, then let each server-side tool verify the required permission before accessing data:
+
+```python
+def delete_record(record_id: str, *, user: User):
+    if "admin" not in user.permissions:
+        raise PermissionError("admin role required")
+    # delete only within the user's authorized scope
+```
+
+For sensitive actions, authenticate and authorize first, then use [Human in the loop](/vue/generative-ui/your-components/interactive) for user confirmation before execution.
+
+## Security checklist
+
+- Validate tokens on the server; never trust a browser claim.
+- Scope every read and write to the resolved user.
+- Keep raw tokens out of logs.
+- Use HTTPS in production.
+- Refresh expired tokens in the application; CopilotKit does not refresh them.
+- Keep service credentials on the server.
+- Reject unauthorized requests before agent or tool code executes.

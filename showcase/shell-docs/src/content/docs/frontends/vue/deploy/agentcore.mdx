@@ -1,0 +1,139 @@
+---
+title: AWS AgentCore
+icon: "lucide/Cloud"
+description: Connect a Vue CopilotKit frontend to an AG-UI agent deployed on AWS Bedrock AgentCore.
+---
+
+## CopilotKit and AWS AgentCore
+
+[AWS Bedrock AgentCore](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/what-is-bedrock-agentcore.html) provides a managed runtime for agents, including authentication, session isolation, and infrastructure. CopilotKit supplies the runtime bridge and Vue frontend.
+
+## How it works
+
+Browsers cannot call AgentCore directly with its SigV4/OAuth2 requirements. Keep that connection server-side:
+
+```text
+Vue browser → CopilotKit Runtime → AgentCore Runtime → agent
+```
+
+## What you get
+
+- Prebuilt or headless Vue chat
+- Shared agent state
+- Tool and generative UI rendering
+- Human approval flows
+- AgentCore-backed conversation memory
+
+## Quickstart
+
+<Callout type="info" title="AWS CLI required">
+  Configure local AWS credentials before deploying. Follow the [AWS CLI getting-started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
+</Callout>
+
+### Choose a starting point
+
+#### Start from the CopilotKit AgentCore template
+
+The repository’s AgentCore templates provision the agent, runtime bridge, Cognito, and AWS infrastructure:
+
+```bash
+npx copilotkit@latest create -f agentcore-langgraph
+# or
+npx copilotkit@latest create -f agentcore-strands
+```
+
+Configure the generated deployment:
+
+```yaml title="config.yaml"
+stack_name_base: my-agentcore-app
+admin_user_email: you@example.com
+```
+
+Then deploy the selected agent:
+
+```bash
+./deploy-langgraph.sh
+# or
+./deploy-strands.sh
+```
+
+The current template includes a React sample frontend. It remains useful as a complete infrastructure and agent reference, but the command does not scaffold a Vue application. To use Vue, deploy the backend/runtime path and connect a Vue client as shown below; deploy that client through your chosen static/Vite hosting workflow.
+
+For local infrastructure and agent development:
+
+```bash
+cd docker
+cp .env.example .env
+./up.sh --build
+```
+
+The template runs the agent on `8080`, the CopilotKit bridge on `3001`, and its sample frontend on `3000`. Tear down deployed CDK resources when finished:
+
+```bash
+cd infra-cdk
+npx cdk destroy --all
+```
+
+#### Connect an existing AgentCore agent
+
+First deploy an AG-UI-compatible agent using AWS’s [AgentCore AG-UI guide](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-agui.html).
+
+Create a server-side `HttpAgent` that points at the AgentCore `/invocations` URL. Credentials must stay in the runtime:
+
+```ts
+import { HttpAgent } from "@ag-ui/client";
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({
+      url: process.env.AGENTCORE_ENDPOINT_URL,
+      headers: {
+        Authorization: `Bearer ${process.env.AGENTCORE_ACCESS_TOKEN}`,
+      },
+    }),
+  },
+  runner: agentCoreRunner,
+});
+```
+
+`AGENTCORE_ENDPOINT_URL` has the form:
+
+```text
+https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations
+```
+
+Static access tokens are suitable only for a local example. In production, forward and validate the signed-in user’s Cognito/OIDC identity at the server boundary.
+
+### Handle AgentCore history
+
+AgentCore’s memory layer introduces two replay cases:
+
+1. CopilotKit may call `connect()` before any `run()` has established a new thread. The runner should return an empty run/messages snapshot lifecycle rather than fail.
+2. Replayed assistant tool calls may omit corresponding tool results. The runner must supply the results required for message reconciliation before the snapshot.
+
+The maintained AgentCore example implements this runner behavior. Keep it server-side; the Vue client consumes the resulting AG-UI history through the normal runtime protocol.
+
+### Add the Vue provider and chat
+
+<VueDocExample file="backend/agentcore.vue" region="agentcore-provider-chat" />
+
+The runtime URL is same-origin in this example. Set a full HTTPS URL and configure CORS when the Vue application and runtime use different origins.
+
+### Run the Vue application
+
+Provide the AgentCore values only to the runtime process:
+
+```bash
+AGENTCORE_ENDPOINT_URL=https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded-arn}/invocations
+AGENTCORE_ACCESS_TOKEN=<server-side-token>
+```
+
+Start the runtime and your normal Vite/Nuxt frontend. The browser calls `/api/copilotkit`; the runtime authenticates to AgentCore.
+
+## What’s next
+
+- [Generative UI](/vue/generative-ui/tool-rendering)
+- [Shared State](/vue/shared-state)
+- [Authentication](/vue/auth)
+- [Runtime adapters](/vue/runtime-server-adapter)

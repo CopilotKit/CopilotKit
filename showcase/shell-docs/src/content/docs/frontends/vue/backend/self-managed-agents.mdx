@@ -1,0 +1,47 @@
+---
+title: "Self-managed agents"
+icon: "lucide/PlugZap"
+description: "Connect AG-UI agents that you host and secure yourself."
+---
+
+The recommended path is a [Copilot Runtime](/vue/backend/copilot-runtime), where the Vue provider discovers agents from `/info` and sends runs through a server-side proxy. For deliberately self-managed connections, Vue also accepts AG-UI agent instances directly.
+
+## Production: self-managed agents
+
+`selfManagedAgents` is the supported provider surface for agents whose transport and security you own:
+
+<Callout type="info" title="Part of Enterprise Intelligence">
+  `selfManagedAgents` is an Enterprise Intelligence capability. [Talk to an engineer](https://copilotkit.ai/talk-to-an-engineer) about production licensing.
+</Callout>
+
+<VueDocExample file="backend/self-managed.vue" region="self-managed-agent-provider" />
+
+Each map key is the `agentId` used by chat components and `useAgent`. Because requests bypass Copilot Runtime, your endpoint must authenticate and authorize every request. Runtime-side middleware, discovery, and routing do not apply.
+
+You may combine `selfManagedAgents` with `runtime-url`; runtime-discovered and self-managed agents coexist and are selected by ID.
+
+## Development: unsafe local agents
+
+`agents__unsafe_dev_only` accepts the same `Record<string, AbstractAgent>` shape but is intended only for local development:
+
+<VueDocExample file="backend/unsafe-local.vue" region="unsafe-local-agent-provider" />
+
+Use it to prototype against a local AG-UI server. Before production, either move the agent behind a runtime or use `selfManagedAgents` with a transport you have secured.
+
+## How they relate
+
+Both props populate the client-side registry. When the same ID appears in both maps, `selfManagedAgents` wins. Supplying either map also satisfies the provider’s runtime configuration check.
+
+| | `selfManagedAgents` | `agents__unsafe_dev_only` |
+| --- | --- | --- |
+| Intended use | Secured production agents you manage | Local development |
+| Authentication | Your responsibility | Your responsibility |
+| Runtime middleware and routing | Not applied | Not applied |
+| Collision precedence | Wins | Overridden |
+
+## Related
+
+- [Copilot Runtime](/vue/backend/copilot-runtime)
+- [Connect AG-UI agents](/vue/backend/ag-ui)
+- [Authentication](/vue/auth)
+- [Error reference](/vue/troubleshooting/error-reference)

@@ -5,12 +5,18 @@ import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
 const getHeaders = () => ({
   Authorization: `Bearer ${sessionStorage.getItem("access_token") ?? ""}`,
 });
+
+const requestProperties = {
+  tenantId: "acme",
+  requestedRole: "support",
+};
 </script>
 
 <template>
   <CopilotKitProvider
     runtime-url="/api/copilotkit"
     :headers="getHeaders"
+    :properties="requestProperties"
     credentials="include"
   >
     <CopilotChat />

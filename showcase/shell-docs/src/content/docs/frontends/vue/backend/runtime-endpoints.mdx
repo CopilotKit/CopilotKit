@@ -1,0 +1,114 @@
+---
+title: "Runtime HTTP endpoints"
+icon: "lucide/Network"
+description: "The HTTP routes exposed by the CopilotKit runtime for self-hosting, proxying, and debugging."
+---
+
+Runtime adapters mount a small HTTP API beneath a base path such as `/api/copilotkit`. Vue normally calls it through the provider’s proxy agents; these routes matter when configuring a reverse proxy, enforcing authentication, or debugging with `curl`.
+
+## Multi-route mode (default)
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /api/copilotkit/info` | Discover registered agents and metadata when the frontend starts. |
+| `POST /api/copilotkit/agent/:agentId/run` | Start a run and return an SSE stream of AG-UI events. |
+| `POST /api/copilotkit/agent/:agentId/connect` | Reconnect to a thread after refresh or network interruption. |
+| `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop the active run for a thread. |
+| `POST /api/copilotkit/transcribe` | Submit audio to the configured transcription service. |
+
+The `agentId` is the key used in `new CopilotRuntime({ agents })`; `threadId` identifies the conversation.
+
+<Callout type="info">
+  The Vue frontend calls `/info` for agent discovery. An unreachable response surfaces as `runtime_info_fetch_failed`; an absent requested ID surfaces as agent discovery failure.
+</Callout>
+
+### Probing the runtime with curl
+
+```bash
+curl -s http://localhost:4000/api/copilotkit/info
+```
+
+A JSON response should list registered agents. A `404` means the handler or base path does not match. A connection error means the server is not listening at that host and port.
+
+## Single-route mode
+
+Set `mode: "single-route"` when an API gateway or serverless deployment needs one `POST` endpoint:
+
+```ts
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+});
+
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+  }),
+);
+```
+
+The route accepts an envelope containing `method`, `params`, and `body`. The Vue provider must use the matching transport:
+
+<VueDocExample file="backend/single-route.vue" region="single-route-provider" />
+
+<Callout type="warning">
+  Runtime and frontend modes must match. A single-route runtime paired with a multi-route frontend—or the reverse—returns `404` for every operation.
+</Callout>
+
+## CORS
+
+For a separately hosted Vue client, configure the runtime for the exact application origin. Express and Hono adapters can install CORS middleware; Fetch-native handlers accept equivalent `cors` options:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://app.example.com",
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+  },
+});
+```
+
+When credentials are enabled, the CORS origin cannot be `*`.
+
+## Authenticating requests
+
+All adapters support lifecycle hooks. `onRequest` runs before routing and can reject unauthorized traffic:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: ({ request }) => {
+      if (!request.headers.get("authorization")) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+  },
+});
+```
+
+See [Authentication](/vue/auth) for the complete frontend-to-runtime boundary.
+
+## Connect route 404 on a fresh thread
+
+Two causes dominate:
+
+1. The requested `agentId` is not registered. The chat components default to `"default"` unless configured otherwise.
+2. A persistence backend receives `connect()` before the first `run()` has created the auto-minted thread. Custom runners must handle this empty-thread bootstrap instead of treating it as a missing conversation.
+
+See [Common Issues](/vue/troubleshooting/common-issues#connect-route-returns-404-on-a-fresh-thread) and [AgentRunner](/vue/backend/agent-runner).
+
+## Related
+
+- [Copilot Runtime](/vue/backend/copilot-runtime)
+- [Deploy to any runtime](/vue/runtime-server-adapter)
+- [Connect AG-UI agents](/vue/backend/ag-ui)
+- [Error Debugging](/vue/troubleshooting/error-debugging)
