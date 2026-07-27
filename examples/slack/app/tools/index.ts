@@ -19,7 +19,7 @@ import {
 } from "./showcase-tools.js";
 import { confirmWriteTool } from "../human-in-the-loop/index.js";
 import { showcaseTools } from "../showcase/index.js";
-import { chartTool, diagramTool } from "@copilotkit/channels/charts";
+import { chartTool, diagramTool } from "./render-visuals.js";
 import type { ChannelTool } from "@copilotkit/channels";
 
 /**

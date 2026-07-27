@@ -1,12 +1,23 @@
+/**
+ * `render_chart` and `render_diagram` — let the agent turn structured data into
+ * a visual and post it to the thread as an image, with no bespoke rendering
+ * code per request.
+ *
+ * These are ordinary channel tools built on the presentational chart components
+ * from `@copilotkit/channels/charts`. They live in the example (not the SDK) on
+ * purpose: the tool schema and copy are app decisions, so this file doubles as a
+ * copy-paste template for exposing charts to your own agent.
+ */
 import { z } from "zod";
-import type { ReactElementLike } from "@copilotkit/channels-ui";
-import { defineChannelTool } from "../tools.js";
-import { BarChart } from "./bar-chart.js";
-import { LineChart } from "./line-chart.js";
-import { PieChart } from "./pie-chart.js";
-import { StackedBar } from "./stacked-bar.js";
-import { Scatter } from "./scatter.js";
-import { FlowDiagram } from "./diagram.js";
+import { defineChannelTool } from "@copilotkit/channels";
+import {
+  BarChart,
+  LineChart,
+  PieChart,
+  StackedBar,
+  Scatter,
+  FlowDiagram,
+} from "@copilotkit/channels/charts";
 
 const datum = z.object({ label: z.string(), value: z.number() });
 
@@ -34,67 +45,59 @@ const chartParams = z.object({
   filename: z.string().optional().describe("Uploaded image filename."),
 });
 
-/**
- * `render_chart` — turn structured data (e.g. a parsed CSV) into a bar, line,
- * pie, stacked-bar, or scatter chart and post it to the thread as an image.
- * A ready-made {@link import("../tools.js").ChannelTool} any bot can register:
- * `createChannel({ tools: [chartTool, ...] })`.
- */
 export const chartTool = defineChannelTool({
   name: "render_chart",
   description:
     "Render a chart from structured data and post it to the thread as an image. " +
     "Use this to visualize tabular/CSV-like data as a bar, line, pie, stacked bar, or scatter chart. " +
-    "Provide `data` ({label,value}[]) for bar/line/pie, `stacks`+`series` for stacked, or `points` for scatter.",
+    "Provide `data` ({label,value}[]) for bar/line/pie, `stacks` for stacked, or `points` for scatter.",
   parameters: chartParams,
   async handler(a, { thread }) {
     const { kind, title } = a;
-    const file = a.filename ?? "chart.png";
-    // Chart components return real React elements; cast to the post signature's
-    // structural `ReactElementLike` (detect classifies by the runtime value).
-    const post = (el: unknown, width: number, height: number) =>
-      thread.post(el as ReactElementLike, {
-        filename: file,
-        title,
-        width,
-        height,
-      });
+    const filename = a.filename ?? "chart.png";
     switch (kind) {
       case "bar":
         if (!a.data?.length)
           return "render_chart(bar) needs `data` as [{label, value}, …].";
-        await post(BarChart({ data: a.data, title }), 760, 440);
+        await thread.post(<BarChart data={a.data} title={title} />, {
+          filename,
+          title,
+          width: 760,
+          height: 440,
+        });
         break;
       case "line":
         if (!a.data?.length)
           return "render_chart(line) needs `data` as [{label, value}, …].";
-        await post(
-          LineChart({ data: a.data, title, width: 760, height: 440 }),
-          760,
-          440,
+        await thread.post(
+          <LineChart data={a.data} title={title} width={760} height={440} />,
+          { filename, title, width: 760, height: 440 },
         );
         break;
       case "pie":
         if (!a.data?.length)
           return "render_chart(pie) needs `data` as [{label, value}, …].";
-        await post(
-          PieChart({ data: a.data, title, width: 460, height: 460 }),
-          460,
-          460,
+        await thread.post(
+          <PieChart data={a.data} title={title} width={460} height={460} />,
+          { filename, title, width: 460, height: 460 },
         );
         break;
       case "stacked":
         if (!a.stacks?.length)
           return "render_chart(stacked) needs `stacks` as [{label, values:number[]}, …].";
-        await post(StackedBar({ data: a.stacks, title }), 760, 440);
+        await thread.post(<StackedBar data={a.stacks} title={title} />, {
+          filename,
+          title,
+          width: 760,
+          height: 440,
+        });
         break;
       case "scatter":
         if (!a.points?.length)
           return "render_chart(scatter) needs `points` as [{x, y}, …].";
-        await post(
-          Scatter({ points: a.points, title, width: 760, height: 440 }),
-          760,
-          440,
+        await thread.post(
+          <Scatter points={a.points} title={title} width={760} height={440} />,
+          { filename, title, width: 760, height: 440 },
         );
         break;
     }
@@ -102,12 +105,6 @@ export const chartTool = defineChannelTool({
   },
 });
 
-/**
- * `render_diagram` — turn a set of nodes and directed edges into a flow diagram
- * (layered boxes + arrows) and post it as an image. Good for processes,
- * pipelines, architectures, and decision flows. Not arbitrary graph
- * auto-layout — see {@link FlowDiagram}.
- */
 export const diagramTool = defineChannelTool({
   name: "render_diagram",
   description:
@@ -147,12 +144,12 @@ export const diagramTool = defineChannelTool({
     const width = right ? Math.max(760, span) : 620;
     const height = right ? 420 : Math.max(360, span);
     await thread.post(
-      FlowDiagram({
-        nodes: a.nodes,
-        edges: a.edges ?? [],
-        direction: a.direction,
-        title: a.title,
-      }) as ReactElementLike,
+      <FlowDiagram
+        nodes={a.nodes}
+        edges={a.edges ?? []}
+        direction={a.direction}
+        title={a.title}
+      />,
       { filename: a.filename ?? "diagram.png", title: a.title, width, height },
     );
     return `Rendered a flow diagram with ${a.nodes.length} node(s) to the thread as an image.`;
