@@ -20,7 +20,6 @@ import {
   Message,
   Section,
 } from "@copilotkit/channels";
-import type { ChannelNode } from "@copilotkit/channels";
 import { accentForIssue, priorityGlyph, stateGlyph } from "./_status.js";
 
 export const issueCardSchema = z.object({
@@ -51,7 +50,7 @@ export const issueCardSchema = z.object({
 export type IssueCardProps = z.infer<typeof issueCardSchema>;
 
 /** Render ONE Linear issue as a rich Block Kit card. */
-export function IssueCard(issue: IssueCardProps): ChannelNode {
+export function IssueCard(issue: IssueCardProps) {
   const titleText = issue.url
     ? `[**${issue.title}**](${issue.url})`
     : `**${issue.title}**`;
