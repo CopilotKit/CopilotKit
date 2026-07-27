@@ -5,16 +5,58 @@ description: "Build a custom Vue thread UI while CopilotKit manages persistence 
 doc_type: how-to
 ---
 
-Use `useThreads` when the supplied drawer does not match your product. The composable exposes reactive thread data plus actions for loading more, renaming, archiving, and permanently deleting threads; your Vue components own the visual treatment and confirmations.
+## What is this?
 
-## Build your own thread surface
+`useThreads` is the headless Vue data and action layer for Enterprise Intelligence threads. It lists and paginates conversations, exposes loading and failure state, performs lifecycle mutations, and keeps metadata synchronized in realtime. Your component owns layout, permissions, confirmation, and feedback.
 
-Keep the chat and the list in the same configured agent context. Render the composable's reactive `threads` collection in your own component, select a thread through the chat configuration, and call the mutation methods only after the user confirms destructive actions.
+Use it when users need saved conversations across sessions or devices but the supplied [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) does not fit your workflow.
 
-Thread lists are ordered by recent activity and can be paginated. Mutations are pessimistic: update your UI after the server confirms the operation, and handle rejected promises as user-visible failures.
+## Prerequisites
 
-## What CopilotKit manages
+- A Vue application connected to an Intelligence-enabled Copilot Runtime
+- A stable agent ID
+- A server-verified signed-in user in multi-user applications
 
-CopilotKit fetches the list after the runtime connects, keeps it synchronized, and cleans up subscriptions with the owning Vue scope. New conversations receive automatic names after their first run when thread naming is enabled by the runtime.
+If you are importing existing framework history, first read [Import & Synchronize Thread History](/vue/threads-import).
 
-See [useThreads](/reference/vue/hooks/useThreads) for the complete Vue input, reactive state, and action contract. If you do not need custom UI, use [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) instead.
+## Implementation
+
+### Compose the custom list with chat
+
+Keep the list and chat beneath one `CopilotChatConfigurationProvider` so they agree on the selected agent and thread:
+
+<VueDocExample file="threads/headless.vue" region="headless-threads-composition" />
+
+### List and manage threads
+
+The list component uses reactive state and every current action:
+
+<VueDocExample file="threads/HeadlessThreadList.vue" region="headless-thread-list" />
+
+The fixture demonstrates:
+
+- initial loading, list failure with retry, and a real empty state
+- selecting an existing thread through `setActiveThreadId(..., { explicit: true })`
+- starting a fresh conversation in both the thread store and shared chat configuration
+- pagination with separate progress and fetch-more failure feedback
+- deliberate rename, archive, and permanent delete controls
+- waiting for mutation confirmation and surfacing rejected promises
+
+Thread rows are ordered by recent activity and synchronized from other connected clients. Rename, archive, and delete are pessimistic: the visible list changes only after the server confirms the operation.
+
+<Callout type="warn" title="Archive and delete differ">
+Archive is recoverable and hidden from the default list; `includeArchived: true` can include archived rows and `unarchiveThread` restores them. Delete permanently removes the thread and history. `useThreads` does not provide confirmation dialogs, so your UI must ask before destructive actions.
+</Callout>
+
+## Switching and restoration
+
+Selecting an existing row marks its ID explicit. `CopilotChat` clears the previous view, connects that thread, replays stored events, and rejoins an active run when one exists. Starting a new conversation creates a non-explicit ID and skips replay because no history exists yet.
+
+Thread metadata belongs to Enterprise Intelligence. A native framework session or checkpoint store is separate unless your backend maps the shared `threadId`.
+
+## Next steps
+
+- [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) for prebuilt UI
+- [Threads Explained](/vue/premium/threads-explained) for persistence, realtime, and failure behavior
+- [Thread & History Lifecycle](/vue/threads-lifecycle) for ID and hydration semantics
+- [useThreads reference](/reference/vue/hooks/useThreads) for all inputs and returned refs

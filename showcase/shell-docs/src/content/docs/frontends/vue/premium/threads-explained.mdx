@@ -1,31 +1,94 @@
 ---
-title: "Threads Explained"
+title: "Threads & Persistence Architecture"
 icon: "lucide/MessageSquareMore"
 description: "Understand the lifecycle, persistence, and synchronization model behind Rich Threads."
 ---
 
+Start with the [Rich Threads overview](/vue/threads) to choose an interface. This page explains the persistence and replay architecture shared by the prebuilt drawer and headless Vue UI.
+
 ## What are threads?
 
-A thread is a durable user-facing conversation. It groups runs, messages, and rendered conversation state under one identifier so a user can leave and later resume the same work.
+A thread is a persistent, server-side container for a multi-turn conversation. It stores the complete AG-UI event history—messages, tool calls, state changes, and activity—so a conversation can pause, resume, and replay across sessions and devices. The model is independent of the agent framework behind your Runtime.
 
 ## Key concepts
 
 ### Thread versus run
 
-A run is one execution of an agent. A thread outlives individual runs and contains the conversation a user returns to.
+A **thread** is the durable container. A **run** is one execution within it. Each user turn can begin another run, while the same thread accumulates events across all of those runs.
+
+### How the pieces fit together
+
+| Surface | Responsibility |
+| --- | --- |
+| [`useThreads`](/reference/vue/hooks/useThreads) | Lists, paginates, renames, archives, unarchives, and deletes threads; receives realtime metadata updates. |
+| [`CopilotChat`](/reference/vue/components/CopilotChat) plus a thread configuration | Connects a stable `threadId`, replays its history, and streams new events. |
+| Copilot Runtime | Executes agents, sends events to Enterprise Intelligence, and relays history and live events to clients. |
+
+### Automatic naming
+
+After a new thread's first run completes, the Runtime can asynchronously generate a short name. The update arrives through the synchronized thread list. Naming is enabled by default, can be disabled with the Runtime's `generateThreadNames: false` option, and can later be replaced with `renameThread`.
+
+### Archive versus delete
+
+- **Archive** is recoverable. The thread remains stored and is excluded from the default list; request archived rows and call `unarchiveThread` to restore them.
+- **Delete** permanently removes the thread and its history.
+
+Neither operation asks the user for confirmation. Product UI should make the difference explicit.
+
+## How it works
 
 ### Persistence and replay
 
-When a thread is selected, CopilotKit restores its recorded conversation for the configured agent. This is why a drawer and chat must share one `CopilotChatConfigurationProvider`.
+As an agent runs, Copilot Runtime records raw events rather than only a final message snapshot. When an explicit existing thread opens:
 
-### Naming, archive, and delete
+- with no active run, stored events replay to reconstruct the conversation;
+- with an active run, stored events replay first and the client then receives live events.
 
-Threads can receive automatic names after their first run. Archiving hides a thread while preserving it; deleting is permanent. A custom UI should provide its own confirmation before either mutation.
+The replay-to-live transition is continuous. Output completing for a previously selected thread is not inserted into the newly selected conversation.
 
-## Realtime and failures
+### Realtime synchronization
 
-Thread mutations use server confirmation rather than optimistic local changes. Handle errors from rename, archive, and delete, and allow the realtime store to reconcile changes from another client.
+`useThreads` subscribes to thread metadata changes. Create, rename, archive, unarchive, and delete events from another connected client update the list without polling. During a disconnection, the current list may be stale until automatic reconnection succeeds.
 
-Threads are the right tool for persistent user conversations. They do not replace an agent framework's own execution checkpoints or persistence model.
+### Future runs and native persistence
 
-Continue with [Thread lifecycle](/vue/threads-lifecycle), [Headless Threads](/vue/headless-threads), or the [useThreads reference](/reference/vue/hooks/useThreads).
+Enterprise Intelligence stores the user-facing Rich Thread. A framework can separately keep its own durable checkpoints or sessions. Future CopilotKit-mediated runs can flow through both systems when the backend remains wired to its native store.
+
+This is coordinated persistence around a shared or mapped `threadId`, not general database replication. CopilotKit rename, archive, and delete actions do not mutate native framework records unless your backend explicitly adds that bridge.
+
+### Pessimistic updates
+
+Thread mutations wait for server confirmation before changing the list. Their promises resolve after confirmation and reject on failure. This avoids presenting a rename or removal that the server did not accept.
+
+## Error handling
+
+### Mutation and pagination failures
+
+Network, authorization, missing-thread, and timeout failures are exposed to the caller. The Vue `useThreads` surface separates initial/list errors from fetch-more errors so an already loaded list can remain visible while pagination offers a retry. Custom UIs should also catch rejected mutation promises and restore usable controls.
+
+### Disconnection
+
+If realtime transport disconnects, thread metadata stops updating until reconnection. If a conversation loses its live stream mid-run, reopening or reselecting the thread re-enters the replay-and-reconnect path and recovers stored events.
+
+### Thread locking
+
+Only one run may write a thread at a time. A competing run receives a conflict rather than interleaving events. Runtime locks are renewed during execution and released on completion; their TTL is a crash-recovery safety net. Runtime operators can tune lock TTL, heartbeat interval, and key prefix for their deployment.
+
+## Design decisions
+
+### Why event replay instead of message snapshots?
+
+Raw event history supports partial replay and faithfully reconstructs streaming, tool calls, state, activity, and generative UI. Replay is more involved than loading a message array, but the platform handles that complexity for the application.
+
+### When threads are the wrong tool
+
+- For a one-shot or disposable interaction, use chat without durable Rich Threads.
+- For purely local history, own it in client storage rather than introducing server persistence.
+- For framework-internal execution checkpoints with no user-facing conversation list, use the framework's native persistence.
+
+## Next steps
+
+- [Thread & History Lifecycle](/vue/threads-lifecycle) for client minting, hydration, and switching
+- [Headless Threads](/vue/headless-threads) for a custom list and controls
+- [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) for supplied UI
+- [useThreads reference](/reference/vue/hooks/useThreads) for the Vue API

@@ -4,10 +4,39 @@ icon: "lucide/Repeat"
 description: "Keep Vue application state and agent state synchronized."
 ---
 
-Shared state lets an agent update application data and lets your Vue UI react to those updates. `useAgent` exposes the selected agent's state as a reactive ref; your application can also send an updated state snapshot.
+Shared state lets the agent update application data and lets the Vue UI react to those updates. It is bidirectional: the agent's AG-UI state events update the client, and the client can publish a new state snapshot.
+
+## What is this?
+
+`useAgent` exposes the selected agent as a ref. Its `state` is reactive, so computed values and templates update when CopilotKit applies state snapshots or deltas from the run.
+
+## When should I use this?
+
+- the agent should modify visible application data or settings
+- the UI should show progress or intermediate state from a run
+- frontend controls must update data the agent will read on its next step
+
+Use [Agent Context](/vue/agent-app-context) instead when the app only supplies descriptive background information.
+
+## Read and write state
+
+The compiled example reads a defensive numeric value and publishes an updated state:
 
 <VueDocExample file="app-control/shared-state.vue" region="shared-agent-state" />
 
-Read agent state defensively because the runtime controls its shape. When writing state, preserve existing fields that matter to the agent and send a complete next snapshot through `setState`.
+The spread is important. `setState` publishes the complete next state snapshot, so preserve unrelated fields unless you intentionally mean to remove them. Treat values from the Runtime as untrusted shape at the UI boundary and normalize them before rendering.
 
-Use shared state for collaborative views, progress, and application data the agent is expected to read or update. Use [Agent Context](/vue/agent-app-context) for descriptive app information supplied with a run instead.
+## How propagation works
+
+1. The application or agent produces a state snapshot or delta.
+2. AG-UI carries the event between Runtime and client.
+3. CopilotKit updates the resolved agent state.
+4. Vue's computed values and templates react to the change.
+
+The Built-in Agent can use its AG-UI state tools without extra backend state-tool registration. Other agent implementations must emit the corresponding state events as part of their AG-UI behavior.
+
+## A realistic pattern
+
+For a collaborative task list, keep the whole list in agent state, derive a typed/normalized `todos` collection in Vue, and publish a complete next snapshot from frontend controls. The agent can then add or complete tasks while the list reacts in real time.
+
+See [`useAgent`](/reference/vue/hooks/useAgent) for updates and state methods, and [Agent Context](/vue/agent-app-context) for the read-only-context decision.

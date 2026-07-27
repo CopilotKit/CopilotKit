@@ -6,20 +6,65 @@ description: "Build persistent agent conversations that restore history and stay
 doc_type: explanation
 ---
 
-Rich Threads persist a conversation independently of the page that renders it. When a user reopens a thread, CopilotKit restores its history and the chat reconnects to that conversation. A threads-enabled project also synchronizes thread changes for the signed-in user.
+Rich Threads give users durable conversations rather than page-local chat sessions. A user can leave, return on another device, reopen a conversation, and continue from the same AG-UI event history. Messages, tool activity, state, generative UI, multimodal inputs, and an active run can all participate in that restored experience.
 
 ## Get started
 
-For a ready-made conversation history UI, use the drawer and chat in one shared configuration scope:
+Rich Threads run on CopilotKit Enterprise Intelligence. Create or select an Intelligence project through the CopilotKit CLI, keep its project credential on the Runtime, and verify persistence by creating a conversation, reloading, and reopening it. Threads-capable starters include the prebuilt drawer.
+
+For an existing Vue app, the essential client composition places the drawer and chat in one shared configuration scope:
 
 <VueDocExample file="threads/drawer.vue" region="threads-drawer" />
 
-The provider supplies the runtime connection; the configuration provider owns the selected thread and agent context shared by the drawer and chat.
+The outer provider connects to the Runtime. `CopilotChatConfigurationProvider` owns the agent and selected thread that both children use.
 
-## Choose the right surface
+### Production self-hosting
 
-- Use [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) for a supplied switcher.
-- Use [Headless Threads](/vue/headless-threads) when you need your own list and controls.
-- See [Thread lifecycle](/vue/threads-lifecycle) for creation, restoration, and deletion semantics.
+Cloud hosting is the shortest path for development. Organizations that need infrastructure and data-residency control can deploy Enterprise Intelligence in their own Kubernetes environment with CopilotKit Engineering. The Vue client API and thread model stay the same.
 
-Rich Threads require a configured Enterprise Intelligence project and its appropriate license/runtime settings. They are not a replacement for an agent framework's internal checkpointing; use them for the user-facing conversation lifecycle.
+## Why use CopilotKit Rich Threads?
+
+Without Rich Threads, an application must design storage, replay historical events and generative UI, retain multimodal inputs, reconnect live streams, synchronize conversation lists, coordinate concurrent runs, and implement lifecycle APIs.
+
+CopilotKit provides:
+
+- durable event history across reloads, sessions, and devices
+- replay followed by seamless reconnection to an active run
+- restored generative UI, tool activity, state, and multimodal inputs
+- realtime thread-list updates without polling
+- automatic names plus rename, archive, unarchive, delete, and pagination
+- thread-level locking so concurrent runs cannot interleave
+- one user-facing persistence model across agent frameworks
+
+## How Threads work
+
+A stable `threadId` connects the visible conversation, Copilot Runtime, and its durable event history:
+
+1. The Vue UI opens or starts a conversation under a `threadId`.
+2. Copilot Runtime executes the agent and records conversation events through Enterprise Intelligence.
+3. Returning clients replay stored events, reconnect an active stream, and receive synchronized thread metadata.
+
+Your application still owns agent behavior, which lifecycle controls users may access, authorization, and any mapping to a framework-native session or checkpoint.
+
+<Callout type="info" title="Headless means custom UI">
+Threads Drawer and Headless Threads use the same persistence, replay, realtime, and locking infrastructure. Choose headless threads to build your own interface, not to rebuild the backend.
+</Callout>
+
+## Choose how to build the UI
+
+| Goal | Choose |
+| --- | --- |
+| Ship a mobile-ready conversation sidebar with switching, new conversations, archive, delete, and pagination already wired | [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) |
+| Build a custom layout, permission model, or lifecycle UI while retaining CopilotKit infrastructure | [Headless Threads](/vue/headless-threads) |
+
+## Sync existing conversations
+
+Rich Threads capture new CopilotKit conversations after Intelligence is connected. If you already persist supported framework conversations, [Import & Synchronize Thread History](/vue/threads-import) explains how they relate to the same user-facing thread store. Keep native framework storage when you still need its checkpoints and analytics; the two layers are correlated by `threadId`, not automatically treated as one database.
+
+## Next steps
+
+- [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) for the supplied UI
+- [Headless Threads](/vue/headless-threads) for custom Vue controls
+- [Threads Explained](/vue/premium/threads-explained) for replay, synchronization, locking, and failures
+- [Thread & History Lifecycle](/vue/threads-lifecycle) for minting, hydration, switching, and persistence boundaries
+- [useThreads reference](/reference/vue/hooks/useThreads) for the composable contract

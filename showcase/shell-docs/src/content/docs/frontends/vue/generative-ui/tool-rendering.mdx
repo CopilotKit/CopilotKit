@@ -1,17 +1,31 @@
 ---
 title: "Tool Rendering"
 icon: "lucide/Server"
-description: "Register programmatic Vue renderers for agent tool calls."
+description: "Render agent tool calls with custom Vue UI."
 ---
 
-Use `useRenderTool` when a tool renderer needs registration in component code rather than a named chat slot. The tool name must exactly match the name registered by the agent.
+## What is this?
+
+Tools are named functions an agent can call. Tool rendering turns their arguments, execution state, and result into purposeful UI rather than a generic transcript entry.
+
+## When should I use this?
+
+Use a renderer when users should see what a backend tool is doing: a progress card, preview, structured result, or domain-specific explanation. The renderer observes a tool; it does not implement that tool's server-side behavior.
+
+## Render a named tool
+
+`useRenderTool` registers a Vue render function or component. Its `name` must exactly match the backend tool:
 
 <VueDocExample file="generative-ui/tool-rendering.vue" region="programmatic-tool-rendering" />
 
-The renderer receives tool parameters, status, and result. Handle in-progress and executing states before showing a completed result. The explicit schema and render-prop interface make the example's data contract clear.
+Handle partial parameters while arguments stream, an executing state while the tool runs, and the completed result. An explicit schema and render-prop type keep the intended payload visible.
 
 <Callout type="info">
-Current renderer/schema inference is permissive in some paths. Prefer an explicit schema and explicit render-prop type when your UI depends on a precise tool payload; positive compilation alone does not prove that a typo or incompatible renderer would be rejected.
+Current renderer/schema inference is permissive in some paths. Prefer an explicit schema and explicit render-prop type when the UI depends on a precise payload. Positive compilation alone does not prove every incompatible renderer or typo would be rejected.
 </Callout>
 
-For the slot-first approach, see [Display-only](/vue/generative-ui/your-components/display-only).
+## Default tool rendering
+
+Call [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) with no configuration to register CopilotKit's expandable default card for otherwise unhandled tools. Supply its `render` option for one wildcard fallback. A specifically named `useRenderTool` renderer takes precedence for that tool.
+
+For a component that itself becomes a frontend tool, use [Display-only](/vue/generative-ui/your-components/display-only). A `tool-call-{name}` chat slot is another Vue-specific option when customization belongs directly to one chat instance.

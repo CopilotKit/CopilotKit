@@ -4,18 +4,52 @@ icon: "lucide/PanelLeft"
 description: "Place a persistent conversation drawer beside a Vue chat."
 ---
 
-`CopilotThreadsDrawer` lists, switches, and manages conversations beside `CopilotChat`. It is the fastest way to add a conversation history UI when Rich Threads is configured for your project.
+## What is this?
 
-## Set up the drawer
+`CopilotThreadsDrawer` is a ready-made conversation sidebar. It lists, switches, starts, archives, unarchives, and deletes Rich Threads beside `CopilotChat` without requiring host-managed active-thread state.
 
-Place the drawer and chat beneath the same `CopilotChatConfigurationProvider`. That shared configuration lets a selected row change the chat's active thread and lets a new conversation reset the chat without host-managed active-thread state.
+Use it when you want a persistent, theme-aware, mobile-ready thread switcher. Rich Threads require Enterprise Intelligence; an unlicensed drawer displays its locked state instead of fetching the list.
+
+If your product needs rename controls, a different permission model, or a fully custom layout, build on [`useThreads`](/reference/vue/hooks/useThreads) through [Headless Threads](/vue/headless-threads).
+
+## Set up the Threads Drawer
+
+Place the drawer and chat beneath the same `CopilotChatConfigurationProvider`:
 
 <VueDocExample file="threads/drawer.vue" region="threads-drawer" />
 
-The drawer uses the configured agent and handles its own list UI. Use its callbacks only when your application needs to take over selection or creation behavior.
+That shared configuration is the connection between the two surfaces. Selecting a row marks its `threadId` explicit so the chat replays history. Starting a new conversation mints a fresh, non-explicit ID and returns the chat to its empty state. Do not wrap the drawer and chat in separate configuration providers.
+
+## Configuring the drawer
+
+The drawer works with no props. Current optional controls include:
+
+| Prop | Purpose |
+| --- | --- |
+| `agentId` | Choose the agent whose threads are listed; otherwise inherit the shared chat configuration. |
+| `label` | Set the accessible name for the drawer and list. |
+| `recentLabel` | Change the heading above recent conversations. |
+| `onThreadSelect` | Take over selection instead of shared configuration. |
+| `onNewThread` | Take over new-conversation behavior. |
+| `renderRow` | Supply custom row content while retaining drawer behavior. |
+| `limit` | Enable paginated loading at the requested page size. |
+
+Callbacks are escape hatches. Omit them when the standard shared-configuration behavior is correct.
+
+## Customization
+
+The underlying drawer uses self-contained styles that inherit the application theme. Customize it through its supported projected slots, row renderer, CSS parts, and `--cpk-drawer-*` variables. Keep archive and delete semantics visible when replacing row content, and add confirmations in your own flow when required by your product.
+
+For broader chat customization, see [Slots](/vue/custom-look-and-feel/slots). For complete list ownership, see [Headless Threads](/vue/headless-threads).
+
+## License
+
+The drawer is a client for Enterprise Intelligence thread endpoints. Configure the Runtime and a valid project license before treating it as an available thread list.
 
 ## Related
 
-- [Rich Threads](/vue/threads) explains persistence and synchronization.
-- [Headless Threads](/vue/headless-threads) is for a fully custom list.
-- [Vue API reference](/reference/vue) has the component and thread composable details.
+- [Rich Threads overview](/vue/threads)
+- [Headless Threads](/vue/headless-threads)
+- [Thread & History Lifecycle](/vue/threads-lifecycle)
+- [CopilotChat reference](/reference/vue/components/CopilotChat)
+- [useThreads reference](/reference/vue/hooks/useThreads)

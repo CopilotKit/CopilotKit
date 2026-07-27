@@ -4,10 +4,30 @@ icon: "lucide/SearchCheck"
 description: "Inspect Vue agent events, state, tools, and runtime activity during development."
 ---
 
-The Inspector and development console help diagnose a Vue application's connection to its agents. Enable them on `CopilotKitProvider` while developing; they expose event and lifecycle detail without changing your application flow.
+The Inspector is an in-app debugging surface for understanding what happens between the Vue client, Copilot Runtime, and connected agents.
+
+## What it shows
+
+| Area | What to inspect |
+| --- | --- |
+| AG-UI events | The event stream exchanged with the agent |
+| Available agents | Agents discovered from the configured Runtime |
+| Agent state | Current state as events update it |
+| Frontend tools | Registered browser tools and schemas |
+| Context | Values registered for the agent |
+
+The provider's separate `debug` option controls event-pipeline logging. Use `true` for the standard event and lifecycle channels or an object to select `events`, `lifecycle`, and `verbose`.
+
+## Enable it in Vue
+
+`showDevConsole` controls the visual Inspector. The compiled configuration below enables it, turns on focused event and lifecycle logs, and chooses its initial corner:
 
 <VueDocExample file="inspector/provider.vue" region="inspector-debug-provider" />
 
-Use the Inspector to check the connected agents, emitted events, agent state, frontend tools, and context. Keep verbose diagnostics out of production configuration and remove development-only visibility when investigating is complete.
+Set `showDevConsole="auto"` to render the Inspector only on `localhost` or `127.0.0.1`, or `false` to disable it. Setting it to `true` is unconditional in the Vue provider, so do not rely on a production build to hide it automatically.
 
-See [CopilotKitProvider](/reference/vue/components/CopilotKitProvider) for the full inspector and debug configuration.
+## Development and production guidance
+
+Use the Inspector and targeted debug channels while diagnosing connection, event, state, tool, or context behavior. Prefer `auto` for local development and disable verbose logging and unconditional Inspector visibility in production configuration.
+
+See [CopilotKitProvider](/reference/vue/components/CopilotKitProvider) for `showDevConsole`, `debug`, and Inspector anchoring.

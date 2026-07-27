@@ -4,14 +4,55 @@ icon: "lucide/Puzzle"
 description: "Customize Vue chat surfaces with named and scoped slots."
 ---
 
-Vue slots are the primary customization surface for CopilotKit UI. Use named slots for stable regions such as the welcome message, and scoped slots when CopilotKit supplies an action or state value.
+## What is this?
+
+Vue slots let you replace focused regions of CopilotKit's supplied chat surfaces while keeping message management, scrolling, input behavior, and agent orchestration intact. Named slots replace a region; scoped slots also pass the state and actions that region needs.
+
+Use slots when the structure remains recognizably a CopilotKit chat but the product needs different visuals or controls. Use [Fully Headless UI](/vue/custom-look-and-feel/headless-ui) when your application must own the complete layout and run flow.
+
+## Top-level slots
+
+This example replaces the welcome message and scroll-to-bottom control:
 
 <VueDocExample file="customization/slots.vue" region="component-slots" />
 
-The slot receives the action needed for its region; for example, the scroll-to-bottom slot receives `onClick`. Keep your custom UI focused on presentation and call the supplied action rather than duplicating the chat's internal behavior.
+The scoped `scroll-to-bottom-button` slot receives `onClick`. Call the supplied action rather than duplicating internal scrolling logic.
 
-For a completely custom message and input surface, continue to [Fully Headless UI](/vue/custom-look-and-feel/headless-ui). Component-specific slot contracts are listed in the [Vue API reference](/reference/vue).
+Common top-level `CopilotChat` regions include:
+
+| Slot | Purpose |
+| --- | --- |
+| `chat-view` | Replace the entire supplied view while receiving conversation state and actions. |
+| `message-view` | Replace message-list rendering. |
+| `input` | Replace input UI with supplied model value, update, submit, stop, attachment, and transcription actions. |
+| `suggestion-view` | Replace suggestions while retaining selection behavior. |
+| `welcome-screen` / `welcome-message` | Customize the empty conversation. |
+| `interrupt` | Render an in-chat interrupt. |
+
+`CopilotSidebar` and `CopilotPopup` add `header` and `toggle-button`.
+
+## Nested and forwarded slots
+
+Chat surfaces forward named slots down to their view and message components. This gives Vue an equivalent to React's recursive slot customization without passing component-valued prop trees:
+
+- view slots: `scroll-view`, `feather`, and `scroll-to-bottom-button`
+- message slots: `message-before`, `message-after`, `assistant-message`, `user-message`, `reasoning-message`, `activity-message`, and `cursor`
+- tool slots: `tool-call` for a default override or `tool-call-{toolName}` for one backend tool
+
+Slot props contain the current state and callbacks for that level. For example, input slots receive submit and stop actions; message slots receive the relevant message; suggestion slots receive choices and `onSelectSuggestion`.
+
+## Labels and styling
+
+Labels are a separate convenience prop on `CopilotChat`, `CopilotSidebar`, and `CopilotPopup`; use them for user-facing text such as welcome copy and input placeholders. Use normal Vue markup, classes, and application CSS inside a custom slot. The package stylesheet continues to style regions you do not replace.
+
+## Choose the right boundary
+
+- Change text with labels.
+- Replace one visual region with a named or scoped slot.
+- Replace the whole supplied chat with [Fully Headless UI](/vue/custom-look-and-feel/headless-ui) when slot forwarding no longer matches your layout.
+
+Exact contracts are documented for [CopilotChat](/reference/vue/components/CopilotChat), [CopilotChatView](/reference/vue/components/CopilotChatView), [CopilotChatMessageView](/reference/vue/components/CopilotChatMessageView), [CopilotChatInput](/reference/vue/components/CopilotChatInput), [CopilotSidebar](/reference/vue/components/CopilotSidebar), and [CopilotPopup](/reference/vue/components/CopilotPopup).
 
 <Callout type="info">
-Current positive typechecking does not reliably reject every misspelled slot name. Use the documented slot names from the component reference and verify the rendered surface while this typing limitation remains.
+Current positive typechecking does not reliably reject every misspelled or forwarded slot name. Use the documented names from the component reference and verify the rendered surface. This permissive typing is a current limitation, not a contract for arbitrary slots.
 </Callout>

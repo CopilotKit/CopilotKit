@@ -4,10 +4,27 @@ icon: "lucide/SendHorizontal"
 description: "Inspect and control a Vue agent from your application UI."
 ---
 
-`useAgent` gives a Vue component reactive access to the configured agent. Use it for product controls that are not themselves a chat message: clearing a conversation, reacting to run status, or presenting message counts.
+## Overview
+
+`useAgent` provides reactive access to an agent's messages, state, execution status, and events from any descendant of `CopilotKitProvider`. Use it for dashboards, workflow buttons, monitoring, and custom interfaces that act outside the prebuilt chat.
+
+Because the returned agent is a ref, handle the period before `agent.value` resolves and request only the updates your UI consumes.
+
+## Running the agent programmatically
+
+The canonical example adds a user message, starts an orchestrated run, reflects run status, and stops it:
 
 <VueDocExample file="programmatic/use-agent.vue" region="programmatic-agent-control" />
 
-Request the updates your UI needs, then read the returned agent ref in `script setup` or unwrap it in a template. Prefer the CopilotKit orchestration APIs for full runs because they coordinate frontend tools and follow-up behavior; reserve low-level agent control for cases that genuinely need it.
+Use the browser's `crypto.randomUUID()` for a message ID. After adding the message, `copilotkit.value.runAgent({ agent })` follows the same orchestration path as the supplied chat.
 
-See [useAgent](/reference/vue/hooks/useAgent) for the complete reactive state and methods.
+### `copilotkit.runAgent()` versus `agent.runAgent()`
+
+- **`copilotkit.value.runAgent({ agent })`** is the recommended application-level method. It coordinates frontend tools, follow-up runs, streaming, and subscriber-based error handling.
+- **`agent.runAgent()`** is lower level. It sends directly through the agent without CopilotKit's frontend-tool and follow-up orchestration. Reserve it for advanced flows that intentionally manage those responsibilities, such as a protocol-specific resume.
+
+## Stopping a run
+
+Call `copilotkit.value.stopAgent({ agent })` with the same resolved agent. Only offer the control while a run is active, and keep the null guard because the ref may not yet contain an agent.
+
+For a complete custom message and input experience, continue to [Fully Headless UI](/vue/custom-look-and-feel/headless-ui). See [useAgent](/reference/vue/hooks/useAgent) and [useCopilotKit](/reference/vue/hooks/useCopilotKit) for the public contracts.

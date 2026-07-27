@@ -4,10 +4,35 @@ icon: "lucide/Wrench"
 description: "Let an agent invoke safe Vue-side actions in the browser."
 ---
 
-Frontend tools are functions an agent can call in the user's browser. They are useful for updating UI state, using browser APIs, or completing an action that belongs to the active client session.
+## What is this?
+
+Frontend tools are named functions an agent can invoke in the user's browser. They can update reactive Vue state, use browser APIs, trigger product UI, or interact with a client-only library in the active session.
+
+## When should I use this?
+
+Use a frontend tool when the action truly belongs to the browser—for example:
+
+- read or update component state
+- use `localStorage`, clipboard, geolocation, or another browser API
+- open a panel, focus a control, or start an animation
+- call a client-side library that is already authorized for this session
+
+Do not expose secrets, privileged authorization, or server-only mutations through a frontend tool. Put those operations behind authenticated server APIs and backend tools.
+
+## Create a frontend tool
+
+Register a stable name, clear description, explicit schema, and async handler:
 
 <VueDocExample file="app-control/frontend-tools.vue" region="frontend-tool" />
 
-Give each tool a stable name, clear description, explicit parameter schema, and an async handler. The return value becomes the tool result available to the agent. Keep authorization-sensitive work on your server rather than exposing it as a browser tool.
+The agent receives the schema and decides when to call `addTodo`. The handler mutates a Vue ref in the current component scope and returns a result for the agent. `useFrontendTool` removes the registration when that scope is disposed.
 
-For user approval before continuing an agent run, use [Interactive generative UI](/vue/generative-ui/your-components/interactive).
+Use `agentId` when the tool should be available only to one configured agent. If reactive values affect registration, use the composable's dependency sources so CopilotKit refreshes it deliberately rather than capturing stale state.
+
+## Choose the related API
+
+- Use [`useComponent`](/reference/vue/hooks/useComponent) when the tool only renders a component.
+- Use [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) when the browser tool must wait for a person's response.
+- Use [`useRenderTool`](/reference/vue/hooks/useRenderTool) to render an existing backend tool without implementing it in the browser.
+
+Continue to [Interactive generative UI](/vue/generative-ui/your-components/interactive) for an approval journey.

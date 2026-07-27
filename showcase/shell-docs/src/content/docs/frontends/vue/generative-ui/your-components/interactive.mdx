@@ -1,17 +1,31 @@
 ---
 title: "Interactive"
 icon: "lucide/Wrench"
-description: "Pause an agent run and collect a user decision inside a Vue chat."
+description: "Register an interactive Vue tool that pauses for a human response."
 ---
 
-Interactive generative UI uses an AG-UI standard interrupt when an agent needs a human decision. `useInterrupt` subscribes to the selected agent; with `renderInChat: true`, the chat's interrupt slot places the approval UI in the conversation.
+## What is this?
 
-<VueDocExample file="generative-ui/interactive.vue" region="interactive-generative-ui" />
+`useHumanInTheLoop` registers a frontend tool whose handler waits for your rendered Vue UI. CopilotKit pauses the agent until the component calls `respond`, then sends that result back to the agent and continues the run.
 
-Read the primary `interrupt` and the full `interrupts` set, then call `resolve(payload, interrupt.id)` or `cancel(interrupt.id)` for the specific decision. When several interrupts are open, each must be addressed before CopilotKit resumes the run.
+## When should I use this?
 
-<Callout type="info">
-The runtime forwards standard interrupt fields to the chat slot, but the current public chat-slot type still exposes only a legacy subset. The example therefore reads the correctly typed `useInterrupt().slotProps` inside `#interrupt`. This is a current typing limitation, not a different runtime contract.
-</Callout>
+Use this journey for browser-owned approvals, confirmations, or form input that should appear as an interactive tool in chat. For a pause emitted by a backend agent through the standard AG-UI interrupt protocol, use [`useInterrupt`](/reference/vue/hooks/useInterrupt) instead.
 
-For an approval surface outside the chat, use `useInterrupt` with `renderInChat: false` and render its slot props in your own component.
+## Create a frontend human-in-the-loop tool
+
+The approval renderer uses the public status union:
+
+<VueDocExample file="generative-ui/CommandApprovalCard.ts" region="interactive-approval-card" />
+
+- `InProgress` can contain partial streamed arguments and has no response callback.
+- `Executing` has complete arguments and a `respond` callback; this is the phase where approval buttons act.
+- `Complete` exposes the serialized result and no longer accepts a response.
+
+Register the component with a stable name, an explicit schema, and an agent scope when appropriate:
+
+<VueDocExample file="generative-ui/interactive.vue" region="interactive-human-in-the-loop" />
+
+The tool has no application-provided handler. `useHumanInTheLoop` owns the pending promise and resolves it when the user responds. Return a concise result that tells the agent what the person chose.
+
+For a display that does not pause execution, use [Display-only](/vue/generative-ui/your-components/display-only). For backend tools, see [Tool Rendering](/vue/generative-ui/tool-rendering).

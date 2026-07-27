@@ -4,10 +4,44 @@ icon: "lucide/BookA"
 description: "Give a Vue agent context about the active application and user."
 ---
 
-`useAgentContext` provides app-specific information that helps an agent respond to the current screen and user. Register context close to the reactive state it describes so it remains current as the application changes.
+## What is this?
+
+`useAgentContext` registers JSON-serializable application information that helps an agent understand the current user, page, selection, cart, project, or product state. Context is included with agent runs; it does not give the agent a mutation API for that data.
+
+## When should I use this?
+
+- the agent should understand the current screen or selection
+- responses depend on user role, preferences, or application domain
+- component-local data should inform the agent without hardcoding it into a system prompt
+- multiple product areas should contribute their own descriptions
+
+Use [Shared State](/vue/shared-state) when the agent should also update the data.
+
+## Implementation
+
+Register context close to the reactive source it describes:
 
 <VueDocExample file="app-control/agent-context.vue" region="agent-context" />
 
-You can register context from multiple components. Each registration should describe what the value means and provide only the data the agent needs. A getter keeps this example's selected project current without adding backend wiring.
+The value getter tracks `selectedProject`, so changing the select refreshes the registered value. Give every entry a clear description—the description tells the agent what the serialized data means and when it matters.
 
-Use [Shared State](/vue/shared-state) when the agent must update UI data; use context when the application is supplying background information for better responses.
+## No backend setup needed
+
+The Built-in Agent receives registered context through CopilotKit automatically. Keep values serializable and limited to the data required for the task; do not put browser secrets or unrestricted sensitive records into prompt context.
+
+## Multiple contexts
+
+Call `useAgentContext` from multiple descendant components. CopilotKit combines the active entries, and each registration is removed when its Vue scope is disposed. This allows a user-profile component, page component, and selected-item component to contribute independently.
+
+## Dynamic and reactive context
+
+The description and value accept plain values, refs, computeds, or getters. Prefer a getter or computed when context depends on reactive state. CopilotKit refreshes the entry when its resolved value changes, so manual re-registration is unnecessary.
+
+## Context versus shared state
+
+| Need | Use |
+| --- | --- |
+| Give the agent read-only background about the app or user | `useAgentContext` |
+| Let the agent and Vue UI read and update the same application state | `useAgent` shared state |
+
+See [`useAgentContext`](/reference/vue/hooks/useAgentContext) for serialization, reactivity, and lifecycle details.

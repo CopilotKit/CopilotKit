@@ -1,24 +1,88 @@
 ---
 title: "Thread & History Lifecycle"
 icon: "lucide/History"
-description: "Understand creation, restoration, switching, and deletion for Vue Rich Threads."
+description: "Understand creation, restoration, switching, and persistence boundaries for Vue Rich Threads."
 doc_type: explanation
 ---
 
-## Start and restore conversations
+Every CopilotKit conversation runs under a `threadId`. This page follows its current v2 lifecycle: how Vue creates the ID, how stored history returns, how a user switches or starts conversations, and where Rich Threads end and framework-native persistence begins.
 
-A chat receives a thread context from `CopilotChatConfigurationProvider`. Starting a new conversation creates a fresh active thread; selecting an existing thread restores that thread's history into the chat.
+## The lifecycle at a glance
+
+1. **Mint.** A chat or configuration provider without an explicit ID creates a UUID on component setup.
+2. **Run.** Messages, tools, state, and activity stream under that ID. A configured server-side store records them.
+3. **Hydrate.** An explicit known ID connects and replays stored events into the UI.
+4. **Switch or start.** Selecting a known ID hydrates it; starting a conversation creates a fresh, non-explicit ID and clears the visible conversation.
+
+Without Enterprise Intelligence or another persisting runner, there is no server history to replay.
+
+## How the threadId is created
+
+The active ID is resolved in this order:
+
+1. an authoritative `threadId` supplied to `CopilotChat` or `CopilotChatConfigurationProvider`;
+2. an imperative selection or fresh ID from `setActiveThreadId` / `startNewThread`;
+3. a non-authoritative provider seed or parent configuration;
+4. a newly generated UUID.
+
+An automatically generated ID is stable for that Vue component instance but changes after it unmounts and mounts again. If conversation identity must survive a remount, your application should persist an ID and restore it explicitly.
+
+## How history is restored
+
+An explicit ID tells `CopilotChat` that the conversation already exists. The chat assigns the ID to the selected agent, connects, and replays the stored event stream. A freshly generated non-explicit ID skips connection because there is no history yet.
+
+The same shared configuration used by the drawer makes this visible:
 
 <VueDocExample file="threads/drawer.vue" region="threads-drawer" />
 
-The drawer can manage these transitions without callbacks because it shares that configuration with `CopilotChat`. When you build a custom thread UI, preserve the same relationship rather than treating the list and chat as unrelated state.
+For custom or non-platform storage, `useAgent` exposes reactive messages and `agent.setMessages(...)`. That is manual hydration; it is distinct from Rich Threads server replay.
 
-## Scope Rich Threads to users
+## Scope Rich Threads to the signed-in user
 
-Configure your runtime and identity flow so each signed-in user can access only their own threads. The frontend selects and displays threads; authorization belongs at the runtime and platform boundary.
+Application authentication belongs on the server. An Intelligence-enabled Runtime should resolve every request's verified session through `identifyUser(request)` and return a stable application user ID and name. Enterprise Intelligence combines that identity with the project when it scopes lists, subscriptions, replay, rename, archive, unarchive, and delete.
 
-## Archive and delete deliberately
+Keep the project Runtime credential server-side. A hard-coded identity is suitable only for a single-user demo; using one in a multi-user application makes those users share a thread scope. See [Authentication](/vue/auth) for the surrounding Runtime authentication flow.
 
-Archive keeps a thread recoverable but excludes it from the default list. Delete removes it permanently. `useThreads` exposes both actions and returns promises, so custom interfaces should wait for confirmation and communicate failures.
+## Switching threads and starting new ones
 
-For custom data and actions, see [Headless Threads](/vue/headless-threads) and [useThreads](/reference/vue/hooks/useThreads).
+The compiled headless fixture demonstrates both transitions:
+
+<VueDocExample file="threads/HeadlessThreadList.vue" region="headless-thread-list" />
+
+- `setActiveThreadId(id, { explicit: true })` opens a known conversation and enables replay.
+- `setActiveThreadId(id, { explicit: false })` treats an ID as fresh.
+- `startNewThread()` generates a new non-explicit ID. A thread-list UI also resets its `useThreads` store state.
+
+These imperative setters warn and do nothing when the provider's `threadId` prop is authoritative. Choose either a controlled prop or configuration actions as the source of truth.
+
+## Creating a thread with your own API on the first message
+
+The prebuilt `CopilotChat` owns its submit handler, so a passed submit listener is not an interception seam. The recommended path is to call your backend before rendering or opening the conversation, then supply the returned ID as an explicit controlled `threadId`.
+
+If your backend must mint the ID at the exact moment the user submits, use a fully [Headless UI](/vue/custom-look-and-feel/headless-ui). Your own submit handler can await the backend, assign the ID to the resolved agent, add the message, and run the agent. Set the agent ID before that imperative run; a reactive configuration update may not reach the agent until Vue processes the next update.
+
+## CopilotKit threads versus framework persistence
+
+| Layer | What it stores | Managed by |
+| --- | --- | --- |
+| Rich Threads | Conversation list and complete AG-UI event history with replay and realtime metadata | Enterprise Intelligence |
+| Framework-native persistence | Framework-internal sessions, checkpoints, and framework analytics | Your agent framework and backend |
+
+The layers are correlated by the AG-UI `threadId`, which the backend may use directly or map to a native identifier. CopilotKit lifecycle mutations do not automatically rename, archive, or delete framework-native records.
+
+### Future runs can remain durable in both places
+
+After importing history, later CopilotKit-mediated runs continue into Enterprise Intelligence. If the agent still uses a durable native checkpointer or session service, the same execution can remain durable there too. This preserves native analytics and state while the user gets Rich Thread replay and continuity.
+
+See [Import & Synchronize Thread History](/vue/threads-import) for the adoption path.
+
+## MCP Apps activity and history
+
+MCP Apps render as client-side activity messages. The visible app is derived again when stored conversation events replay; it is not a separate artifact that needs another persistence store. If the thread history includes the tool-call and activity events, the registered client renderer runs again during hydration.
+
+## See also
+
+- [Headless Threads](/vue/headless-threads)
+- [Threads Explained](/vue/premium/threads-explained)
+- [Rich Threads overview](/vue/threads)
+- [useThreads reference](/reference/vue/hooks/useThreads)

@@ -4,18 +4,44 @@ icon: "lucide/SendHorizontal"
 description: "Drop-in Vue chat components for an agent-backed app."
 ---
 
-CopilotKit provides three ready-made Vue chat layouts: `CopilotChat` for an embedded conversation, `CopilotSidebar` for a collapsible panel, and `CopilotPopup` for a floating entry point. They connect to the surrounding provider and agent configuration.
+CopilotKit ships three prebuilt Vue chat surfaces. Each uses the nearest `CopilotKitProvider` and the same agent connection; choose the layout that matches where a conversation belongs in your product.
 
-## Choose a layout
+<Callout type="info">
+If you completed the [Vue quickstart](/vue), `CopilotChat` and the package stylesheet are already configured.
+</Callout>
 
-Use the component that fits the place where a conversation belongs in your product. Start with `CopilotChat` when the conversation is part of the page; use the sidebar or popup when it should stay available alongside the main workflow.
+## Setup
+
+Import `@copilotkit/vue/styles.css` once in your application entry, put your chosen chat beneath `CopilotKitProvider`, and render **one** of these layouts in the location where users should reach the agent:
 
 <VueDocExample file="components/prebuilt.vue" region="prebuilt-chat-components" />
 
-Import `@copilotkit/vue/styles.css` once at the application entry point, as in the [quickstart](/vue). Configure the runtime on `CopilotKitProvider`, then customize the selected surface with its props and [slots](/vue/custom-look-and-feel/slots).
+The example presents all three supported components together as an API catalog. In an application, normally select one primary surface rather than mounting three chats.
+
+### CopilotChat
+
+`CopilotChat` is an embedded, flexible chat. Use it when the conversation is part of a page, dashboard panel, or dedicated assistant view and your layout should control its size.
+
+See the [CopilotChat reference](/reference/vue/components/CopilotChat) for its props and slots.
+
+### CopilotSidebar
+
+`CopilotSidebar` supplies a collapsible side panel beside your main workflow. Choose it when users should move between the product and the assistant without leaving the page.
+
+See the [CopilotSidebar reference](/reference/vue/components/CopilotSidebar).
+
+### CopilotPopup
+
+`CopilotPopup` is a floating launcher that opens a compact conversation. It fits assistance that should remain available across a page without occupying permanent layout space.
+
+See the [CopilotPopup reference](/reference/vue/components/CopilotPopup).
+
+## Customization
+
+All three surfaces support labels and Vue slots. Labels change user-facing strings; named and scoped slots replace visual regions while preserving the component's behavior. Start with [Slots](/vue/custom-look-and-feel/slots) for a targeted change. Use [Fully Headless UI](/vue/custom-look-and-feel/headless-ui) only when your product must own the entire message, input, run, and cancellation flow.
 
 ## Next steps
 
-- [Threads](/vue/threads) adds persistent conversations.
-- [Slots](/vue/custom-look-and-feel/slots) customizes the prebuilt UI.
-- [Vue component reference](/reference/vue) lists the available component props.
+- [Rich Threads](/vue/threads) adds persistent, resumable conversations.
+- [Slots](/vue/custom-look-and-feel/slots) customizes supplied UI.
+- [Vue component reference](/reference/vue) lists all component contracts.

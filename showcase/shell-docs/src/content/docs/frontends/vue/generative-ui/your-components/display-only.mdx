@@ -1,13 +1,39 @@
 ---
 title: "Display-only"
 icon: "lucide/Eye"
-description: "Render agent tool results as Vue UI in the chat."
+description: "Register Vue components that an agent can render in chat."
 ---
 
-Display-only generative UI turns an agent tool call into an inline Vue view. Use a tool-call slot when the UI only presents the tool's arguments, progress, and result; no user decision is required to continue the run.
+## What is this?
 
-<VueDocExample file="generative-ui/display-only.vue" region="display-only-generative-ui" />
+`useComponent` registers a Vue component as a display-only tool. When the agent calls it, CopilotKit renders that component in the conversation with the tool arguments as props. There is no handler and no user decision to unblock the run.
 
-The slot name includes the tool name, so `tool-call-getWeather` renders calls to that exact tool. It receives the arguments, status, and result. Render loading state until the status is complete, then display the returned data.
+## When should I use this?
 
-Use [Interactive generative UI](/vue/generative-ui/your-components/interactive) when the agent must pause for a user decision, or [Tool Rendering](/vue/generative-ui/tool-rendering) for programmatic renderer registration.
+Use display-only generative UI for cards, charts, tables, previews, status, or other structured information that communicates more clearly than plain text. Use [Interactive](/vue/generative-ui/your-components/interactive) when the component must collect a human response.
+
+## Register a component
+
+Define a real Vue render component with typed props:
+
+<VueDocExample file="generative-ui/WeatherCard.vue" region="display-only-weather-card" />
+
+Then register its stable tool name, description, schema, component, and—when needed—agent scope:
+
+<VueDocExample file="generative-ui/display-only.vue" region="display-only-component-registration" />
+
+The schema describes the payload to the agent and aligns it with the component props. `agentId` limits `showWeather` to `default`; omit it when every agent in the provider scope may use the component.
+
+## Without parameters
+
+Simple registrations may omit `parameters`. The component still declares the props it expects:
+
+<VueDocExample file="generative-ui/GreetingCard.vue" region="display-only-greeting-card" />
+
+The same registration fixture shows `showGreeting` without a schema. Prefer an explicit schema when the agent needs a structured contract or when the component depends on precise payload fields.
+
+## Other backend-tool rendering options
+
+`useComponent` creates a display-only frontend tool. To render an already defined backend tool, use [`useRenderTool`](/reference/vue/hooks/useRenderTool) or a `tool-call-{name}` slot instead; those observe an existing tool rather than registering a new display component.
+
+Continue to [Interactive](/vue/generative-ui/your-components/interactive) for approval flows or [Tool Rendering](/vue/generative-ui/tool-rendering) for backend calls.
