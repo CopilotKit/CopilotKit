@@ -422,9 +422,11 @@ describe("advanceLatestTag", () => {
 //
 // Both fixtures are verbatim stdout of
 //   docker buildx imagetools inspect <ref> --format '{{json .Image}}'
-// (buildx v0.35.0), captured 2026-07-26 and NOT reformatted — re-serialising
-// would sort the keys and destroy the very key-ordering the walker has to be
-// insensitive to:
+// (buildx v0.35.0), captured 2026-07-26 and deliberately NOT reformatted — a
+// re-serialising pass would reorder keys and destroy the very ordering the
+// walker has to be insensitive to. They are exempted from oxfmt in
+// `.oxfmtrc.json` for that reason; re-capture with the command above rather
+// than hand-editing, and do not "tidy" them:
 //
 //   multiarch-labelled.image.json
 //     ghcr.io/astral-sh/uv:latest  @sha256:df4cae8f3a96…
