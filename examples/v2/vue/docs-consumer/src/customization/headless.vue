@@ -1,34 +1,62 @@
-<!-- @region[headless-chat-view] -->
+<!-- @region[headless-agent-ui] -->
 <script setup lang="ts">
-import { ref } from "vue";
-import { CopilotChatView } from "@copilotkit/vue/v2";
+import { computed, ref } from "vue";
+import { useAgent, useCopilotKit, UseAgentUpdate } from "@copilotkit/vue/v2";
 
-const message = ref("");
+const input = ref("");
+const { copilotkit } = useCopilotKit();
+const { agent } = useAgent({
+  agentId: "default",
+  updates: [
+    UseAgentUpdate.OnMessagesChanged,
+    UseAgentUpdate.OnRunStatusChanged,
+  ],
+});
 
-function updateInput(event: Event, update: (value: string) => void) {
-  if (event.target instanceof HTMLInputElement) {
-    update(event.target.value);
+const messages = computed(() => agent.value?.messages ?? []);
+const isRunning = computed(() => agent.value?.isRunning ?? false);
+
+async function sendMessage() {
+  const currentAgent = agent.value;
+  const content = input.value.trim();
+  if (!currentAgent || !content || currentAgent.isRunning) return;
+
+  currentAgent.addMessage({
+    id: crypto.randomUUID(),
+    role: "user",
+    content,
+  });
+  input.value = "";
+
+  await copilotkit.value.runAgent({ agent: currentAgent });
+}
+
+function stop() {
+  const currentAgent = agent.value;
+  if (currentAgent) {
+    copilotkit.value.stopAgent({ agent: currentAgent });
   }
 }
 </script>
 
 <template>
-  <CopilotChatView
-    :messages="[]"
-    :is-running="false"
-    :welcome-screen="false"
-    :input-value="message"
-    @input-change="message = $event"
-  >
-    <template #input="{ modelValue, onUpdateModelValue, onSubmitMessage }">
-      <form @submit.prevent="onSubmitMessage(modelValue)">
-        <input
-          :value="modelValue"
-          @input="updateInput($event, onUpdateModelValue)"
-        />
-        <button type="submit">Send</button>
-      </form>
-    </template>
-  </CopilotChatView>
+  <section class="custom-agent-ui">
+    <ol aria-live="polite">
+      <li v-for="message in messages" :key="message.id">
+        <strong>{{ message.role }}:</strong> {{ message.content }}
+      </li>
+    </ol>
+
+    <p v-if="isRunning">Thinking…</p>
+
+    <form @submit.prevent="sendMessage">
+      <label>
+        Message
+        <input v-model="input" :disabled="!agent || isRunning" />
+      </label>
+      <button type="submit" :disabled="!agent || isRunning">Send</button>
+      <button v-if="isRunning" type="button" @click="stop">Stop</button>
+    </form>
+  </section>
 </template>
-<!-- @endregion[headless-chat-view] -->
+<!-- @endregion[headless-agent-ui] -->

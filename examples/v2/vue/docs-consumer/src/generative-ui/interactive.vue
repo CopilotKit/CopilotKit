@@ -1,34 +1,22 @@
-<!-- @region[interactive-generative-ui] -->
+<!-- @region[interactive-human-in-the-loop] -->
 <script setup lang="ts">
-import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import { z } from "zod";
+import CommandApprovalCard from "./CommandApprovalCard";
+import type { CommandApproval } from "./CommandApprovalCard";
 
-const { slotProps } = useInterrupt({
+useHumanInTheLoop<CommandApproval>({
+  name: "humanApprovedCommand",
+  description: "Ask the user for approval before running a command.",
+  parameters: z.object({
+    command: z.string().describe("The command that requires approval"),
+  }),
+  render: CommandApprovalCard,
   agentId: "default",
-  renderInChat: true,
 });
 </script>
 
 <template>
-  <CopilotChat agent-id="default">
-    <template #interrupt>
-      <section v-if="slotProps?.interrupt">
-        <p>
-          {{ slotProps.interrupt.message ?? slotProps.interrupt.reason }}
-        </p>
-        <p v-if="slotProps.interrupts.length > 1">
-          {{ slotProps.interrupts.length }} decisions require a response.
-        </p>
-        <button
-          type="button"
-          @click="slotProps.resolve({ approved: true }, slotProps.interrupt.id)"
-        >
-          Approve
-        </button>
-        <button type="button" @click="slotProps.cancel(slotProps.interrupt.id)">
-          Cancel
-        </button>
-      </section>
-    </template>
-  </CopilotChat>
+  <p>Ask the agent to propose a command that requires approval.</p>
 </template>
-<!-- @endregion[interactive-generative-ui] -->
+<!-- @endregion[interactive-human-in-the-loop] -->

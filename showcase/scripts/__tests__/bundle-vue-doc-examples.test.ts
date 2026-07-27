@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   assertSafeRelativePath,
   createVueDocExamplesBundle,
+  DEFAULT_VUE_DOC_SOURCE_ROOT,
 } from "../bundle-vue-doc-examples.js";
 
 const temporaryDirectories: string[] = [];
@@ -28,6 +29,32 @@ afterEach(() => {
 });
 
 describe("createVueDocExamplesBundle", () => {
+  it("bundles the corrected canonical Vue guide journeys", () => {
+    const bundle = createVueDocExamplesBundle(DEFAULT_VUE_DOC_SOURCE_ROOT);
+
+    expect(
+      bundle.files["generative-ui/display-only.vue"].regions,
+    ).toHaveProperty("display-only-component-registration");
+    expect(
+      bundle.files["generative-ui/interactive.vue"].regions,
+    ).toHaveProperty("interactive-human-in-the-loop");
+    expect(bundle.files["customization/headless.vue"].regions).toHaveProperty(
+      "headless-agent-ui",
+    );
+    expect(bundle.files["programmatic/use-agent.vue"].regions).toHaveProperty(
+      "programmatic-agent-control",
+    );
+    expect(bundle.files["threads/headless.vue"].regions).toHaveProperty(
+      "headless-threads-composition",
+    );
+    expect(
+      bundle.files["threads/HeadlessThreadList.vue"].regions,
+    ).toHaveProperty("headless-thread-list");
+    expect(bundle.files["hitl/in-chat-interrupt.vue"].regions).toHaveProperty(
+      "in-chat-standard-interrupt",
+    );
+  });
+
   it("sorts files and regions deterministically while stripping markers", () => {
     const root = fixture();
     write(
