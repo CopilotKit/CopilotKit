@@ -15,6 +15,7 @@ vi.mock("../../../telemetry", () => ({
 }));
 
 import { handleSseConnect } from "../connect";
+import type { AgentRunnerConnectRequest } from "../../../runner/agent-runner";
 import { DebugEventBus } from "../../../core/debug-event-bus";
 import { resolveForwardHeadersPolicy } from "../../header-utils";
 import type { ResolvedForwardHeadersPolicy } from "../../header-utils";
@@ -91,7 +92,7 @@ describe("handleSseConnect → agentId in runner.connect call", () => {
       runId: "r-1",
     } as BaseEvent;
 
-    const connectSpy = vi.fn(() => of(event));
+    const connectSpy = vi.fn((_req: AgentRunnerConnectRequest) => of(event));
     const fakeRuntime = {
       debugEventBus: new DebugEventBus(),
       forwardHeadersPolicy: defaultPolicy,
