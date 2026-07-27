@@ -12,7 +12,13 @@ export interface RealtimeGatewaySession {
 
 /** @internal Options for {@link connectRealtimeGateway}. */
 export interface ConnectRealtimeGatewayOptions {
-  /** Gateway socket URL, e.g. `wss://gateway.example/socket`. */
+  /**
+   * Fully-resolved gateway **runner** socket URL, e.g.
+   * `wss://gateway.example/runner`. This is not the public `wsUrl` a developer
+   * configures — the Intelligence client appends the `/runner` (or `/client`)
+   * suffix to that base before it reaches here, and Phoenix appends
+   * `/websocket` to this value on connect. `/socket` is not a mounted path.
+   */
   wsUrl: string;
   /** Runtime API key (`cpk-…`) authenticating the socket. */
   apiKey: string;

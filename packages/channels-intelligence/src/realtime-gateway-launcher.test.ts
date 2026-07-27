@@ -246,7 +246,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope: { ...scope, channelId: "bot_1" },
         runtimeInstanceId: "rti_1",
@@ -272,7 +272,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -298,7 +298,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -493,7 +493,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -515,7 +515,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -546,7 +546,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -571,7 +571,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       scope,
       runtimeInstanceId: "rti_1",
@@ -599,7 +599,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       scope,
       runtimeInstanceId: "rti_1",
