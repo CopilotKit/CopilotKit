@@ -82,30 +82,23 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     ### Use the generated environment
 
     `init` and its `create` alias write the hosted platform URLs, `SL_ENABLED`,
-    and project-scoped runtime API key to `.env`. Every Threads-enabled starter
-    also receives a compatibility token.
+    and project-scoped runtime API key to `.env`.
 
     ```bash title=".env"
     INTELLIGENCE_API_URL=https://...
     INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    INTELLIGENCE_API_KEY=cpk-...
-    SL_ENABLED=true
-    COPILOTKIT_LICENSE_TOKEN=...
-    ```
-
-    Keep `INTELLIGENCE_API_KEY` and `COPILOTKIT_LICENSE_TOKEN` on the server
-    side. The project key connects the Runtime to Intelligence. Current starter
-    SDK pins use the token for legacy entitlement checks; it does not replace
-    the project key.
-
-    Most starters read the project key from `INTELLIGENCE_API_KEY`. The
-    AgentCore AWS deployment path reads the same value from
-    `CPK_INTELLIGENCE_API_KEY`. Before you deploy an AgentCore starter, copy the
-    generated value to that variable:
-
-    ```bash title=".env"
     CPK_INTELLIGENCE_API_KEY=cpk-...
+    CPK_TELEMETRY_ID=...
+    SL_ENABLED=true
     ```
+
+    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. The project key connects
+    the Runtime to Intelligence. `CPK_TELEMETRY_ID` is an optional, non-secret
+    analytics identity.
+
+    Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token
+    is only for offline or self-hosted licensing and does not replace the
+    managed project API key.
   </Step>
 
   <Step>
