@@ -2081,6 +2081,43 @@ importers:
         specifier: ^10.4.0
         version: 10.4.0(eslint@9.39.2(jiti@2.6.1))
 
+  examples/v2/vue/docs-consumer:
+    dependencies:
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../../../packages/runtime
+      '@copilotkit/vue':
+        specifier: workspace:*
+        version: link:../../../../packages/vue
+      vue:
+        specifier: ^3.5.28
+        version: 3.5.34(typescript@5.8.2)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@copilotkit/typescript-config':
+        specifier: workspace:*
+        version: link:../../../../packages/typescript-config
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.19.11
+      '@vitejs/plugin-vue':
+        specifier: ^6.0.1
+        version: 6.0.7(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
+      nuxt:
+        specifier: 3.17.5
+        version: 3.17.5(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.6.1))(ioredis@5.10.1)(less@4.5.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rollup@4.60.2)(sass@1.97.3)(srvx@0.11.15)(terser@5.46.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
+      typescript:
+        specifier: 5.8.2
+        version: 5.8.2
+      vite:
+        specifier: ^7.3.2
+        version: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+      vue-tsc:
+        specifier: ^2.1.10
+        version: 2.2.12(typescript@5.8.2)
+
   examples/v2/vue/storybook:
     dependencies:
       '@storybook/vue3-vite':

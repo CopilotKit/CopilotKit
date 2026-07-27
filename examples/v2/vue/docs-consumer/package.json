@@ -1,0 +1,41 @@
+{
+  "name": "@copilotkit/vue-doc-examples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check-types": "vue-tsc --noEmit -p tsconfig.json",
+    "check-nuxt-types": "nuxt typecheck src/quickstart/nuxt"
+  },
+  "dependencies": {
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/vue": "workspace:*",
+    "vue": "^3.5.28",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "nuxt": "3.17.5",
+    "typescript": "5.8.2",
+    "vite": "^7.3.2",
+    "vue-tsc": "^2.1.10"
+  },
+  "nx": {
+    "targets": {
+      "check-types": {
+        "dependsOn": [
+          "^build",
+          "@copilotkit/vue:build"
+        ]
+      },
+      "check-nuxt-types": {
+        "dependsOn": [
+          "^build",
+          "@copilotkit/vue:build"
+        ]
+      }
+    }
+  }
+}
