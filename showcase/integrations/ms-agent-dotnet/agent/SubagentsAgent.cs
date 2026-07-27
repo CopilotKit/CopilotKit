@@ -249,7 +249,6 @@ internal sealed partial class SubagentsSerializerContext : JsonSerializerContext
 /// </summary>
 public sealed class SubagentsAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string SubAgentModel = "gpt-4o-mini";
 
     // Each sub-agent is a single-shot ChatClient call (built per-delegation
@@ -303,15 +302,11 @@ public sealed class SubagentsAgentFactory
         _logger = loggerFactory.CreateLogger<SubagentsAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
