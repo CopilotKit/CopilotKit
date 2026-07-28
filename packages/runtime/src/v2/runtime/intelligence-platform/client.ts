@@ -31,9 +31,8 @@ function isRetryableRuntimeEntitlementStatus(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
-const runtimeEntitlementTransportSchema = z
+const runtimeEntitlementSchema = z
   .object({
-    organizationId: z.string(),
     active: z.boolean(),
     source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
     features: z.record(z.string(), z.boolean()),
@@ -43,16 +42,60 @@ const runtimeEntitlementTransportSchema = z
   })
   .strict();
 
-/** Validate and normalize the private App API transport into the public union. */
+const runtimeEntitlementResponseSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("ready"),
+      entitlement: runtimeEntitlementSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.enum(["degraded", "misconfigured", "unavailable"]),
+      error: z
+        .object({
+          code: z.string(),
+          message: z.string(),
+          retryable: z.boolean(),
+          requestId: z.string().optional(),
+          traceId: z.string().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+const legacyRuntimeEntitlementTransportSchema = runtimeEntitlementSchema.extend(
+  {
+    organizationId: z.string(),
+  },
+);
+
+/** Check the published App API response union without widening its type. */
+function isPublishedRuntimeEntitlementResponse(
+  value: unknown,
+): value is RuntimeEntitlementResponse {
+  return runtimeEntitlementResponseSchema.safeParse(value).success;
+}
+
+/**
+ * Validate the published App API response union, with flat-response support
+ * during mixed-version rollouts.
+ */
 function normalizeRuntimeEntitlementTransport(
   value: unknown,
 ): RuntimeEntitlementResponse | undefined {
-  const parsed = runtimeEntitlementTransportSchema.safeParse(value);
-  if (!parsed.success) {
+  if (isPublishedRuntimeEntitlementResponse(value)) {
+    return value;
+  }
+
+  const legacyResponse =
+    legacyRuntimeEntitlementTransportSchema.safeParse(value);
+  if (!legacyResponse.success) {
     return undefined;
   }
 
-  const transport = parsed.data;
+  const transport = legacyResponse.data;
   return {
     status: "ready",
     entitlement: {
