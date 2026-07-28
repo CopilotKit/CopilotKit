@@ -1,15 +1,17 @@
-// Dedicated runtime for the byoc-hashbrown demo (Wave 4a).
+// Dedicated runtime for the declarative-hashbrown demo.
 //
-// The demo page (`src/app/demos/byoc-hashbrown/page.tsx`) wraps CopilotChat
-// in the HashBrownDashboard provider and overrides the assistant message
-// slot with a renderer that consumes hashbrown-shaped structured output via
-// `@hashbrownai/react`'s `useUiKit` + `useJsonParser`. The agent behind this
-// endpoint (`byoc_hashbrown_agent`) has a system prompt tuned to emit that
-// shape — see `src/agents/byoc_hashbrown_agent.py`.
+// The demo page (`src/app/demos/declarative-hashbrown/page.tsx`) wraps
+// CopilotChat in the HashBrownDashboard provider and overrides the assistant
+// message slot with a renderer that consumes hashbrown-shaped structured
+// output via `@hashbrownai/react`'s `useUiKit` + `useJsonParser`. The Python
+// module + langgraph graph ID retain the legacy `byoc_hashbrown` name (only
+// the user-facing slug, route, and frontend folder were renamed); the system
+// prompt that produces the hashbrown shape lives in
+// `src/agents/src/byoc_hashbrown_agent.py`. Mirrors langgraph-python.
 //
 // Reference:
 // - src/app/api/copilotkit-a2ui-fixed-schema/route.ts (topology this mirrors)
-// - src/agents/byoc_hashbrown_agent.py (the backend graph)
+// - src/agents/src/byoc_hashbrown_agent.py (the backend graph)
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -31,7 +33,7 @@ const byocHashbrownAgent = new LangGraphAgent({
 });
 
 const agents: Record<string, LangGraphAgent> = {
-  "byoc-hashbrown-demo": byocHashbrownAgent,
+  "declarative-hashbrown-demo": byocHashbrownAgent,
   // Internal components (headless-chat, example-canvas) call `useAgent()` with
   // no args, which defaults to agentId "default". Alias to the same graph so
   // those component hooks resolve instead of throwing "Agent 'default' not
@@ -47,7 +49,7 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-hashbrown",
+      endpoint: "/api/copilotkit-declarative-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });
