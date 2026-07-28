@@ -55,8 +55,8 @@ channel.onMessage(({ thread, message }) =>
 // The runtime owns the Channel's lifecycle — there is no `channel.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    apiUrl: "https://api.copilotkit.ai",
-    wsUrl: "wss://api.copilotkit.ai",
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
   identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),

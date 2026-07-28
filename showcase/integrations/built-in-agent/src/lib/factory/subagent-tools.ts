@@ -49,7 +49,19 @@ const subagentRoles = [
 // role's system prompt. The supervisor LLM "calls" these tools to
 // delegate work; each invocation runs the matching subagent and returns
 // its output for the supervisor's next step.
+// Cap the supervisor → critique sub-agent loop at a single iteration, matching
+// the reference's `_MAX_CRITIQUE_ITERATIONS`. Without it the supervisor LLM
+// occasionally re-calls `critique_agent` on the same draft, which shows up as
+// stacking 🧐 cards in the chat and duplicate rows in the delegation log. The
+// critic only adds value once per draft.
+const MAX_CRITIQUE_ITERATIONS = 1;
+
 export function buildSubagentTools(parentAbortController: AbortController) {
+  // Per-run counter. `buildSubagentTools` is already called once per run (so
+  // each run's nested chat() aborts with its parent), so a closure here is
+  // naturally run-scoped — module scope would leak the cap across requests.
+  let critiqueCalls = 0;
+
   return subagentRoles.map((role) =>
     toolDefinition({
       name: role.id,
@@ -60,6 +72,17 @@ export function buildSubagentTools(parentAbortController: AbortController) {
           .describe(`Task description for the ${role.id.replace(/_/g, " ")}`),
       }),
     }).server(async ({ task }) => {
+      if (role.id === "critique_agent") {
+        critiqueCalls += 1;
+        if (critiqueCalls > MAX_CRITIQUE_ITERATIONS) {
+          // Return a no-op result rather than throwing: a throw would surface
+          // as a failed tool call and derail the supervisor's final summary.
+          return {
+            role: role.id,
+            text: "Critique already provided for this draft; skipping further review.",
+          };
+        }
+      }
       const text = await chat({
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages: [{ role: "user", content: task }],

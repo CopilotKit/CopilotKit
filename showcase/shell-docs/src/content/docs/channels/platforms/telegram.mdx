@@ -22,7 +22,6 @@ TELEGRAM_BOT_TOKEN=...
 
 # The runtime runs every channel, so a CopilotKit Intelligence key is required
 # even for a direct adapter (free tier available).
-COPILOTKIT_INTELLIGENCE_URL=https://your-intelligence-url
 COPILOTKIT_API_KEY=cpk-...
 ```
 
@@ -49,12 +48,11 @@ channel.onMessage(async ({ thread, message }) => {
 
 // The runtime drives the channel — it starts the Telegram adapter, you don't
 // call channel.start() yourself. `ready()` activates it.
-const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
 const runtime = new CopilotRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
-    apiUrl,
-    wsUrl: apiUrl.replace(/^http/, "ws"),
+    // apiUrl and wsUrl default to the managed Intelligence platform. Override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_API_KEY!,
   }),
   identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
@@ -62,7 +60,7 @@ const runtime = new CopilotRuntime({
 });
 
 const listener = createCopilotNodeListener({ runtime });
-await listener.channels?.ready();
+await listener.channels.ready();
 ```
 
 That is the whole connection. Add [commands](/channels/commands-and-reactions),

@@ -34,6 +34,8 @@ SYSTEM_PROMPT = (
     "with the location.\n"
     "  - If the user asks about a stock or ticker (AAPL, TSLA, MSFT, ...), "
     "call `get_stock_price` with the ticker.\n"
+    "  - If the user asks for a chart, graph, or visualization of revenue, "
+    "sales, or other metrics over time, call `get_revenue_chart`.\n"
     "  - If the user asks you to highlight, flag, or mark a short note or "
     "phrase, call the frontend `highlight_note` tool with the text and a "
     "color (yellow, pink, green, or blue). Do NOT ask the user for the "
@@ -78,9 +80,31 @@ def get_stock_price(ticker: str) -> dict:
     }
 
 
+@tool
+def get_revenue_chart() -> dict:
+    """Get a mock six-month revenue series for a chart visualization.
+
+    Returns a title, subtitle, and an array of {label, value} points. Use
+    this whenever the user asks for a chart, graph, or visualization of
+    revenue, sales, or other quarterly/monthly metrics.
+    """
+    return {
+        "title": "Quarterly revenue",
+        "subtitle": "Last six months · USD thousands",
+        "data": [
+            {"label": "Jan", "value": 38},
+            {"label": "Feb", "value": 47},
+            {"label": "Mar", "value": 52},
+            {"label": "Apr", "value": 49},
+            {"label": "May", "value": 63},
+            {"label": "Jun", "value": 71},
+        ],
+    }
+
+
 graph = create_agent(
     model=ChatOpenAI(model="gpt-4o-mini"),
-    tools=[get_weather, get_stock_price],
+    tools=[get_weather, get_stock_price, get_revenue_chart],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

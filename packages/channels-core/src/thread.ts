@@ -292,11 +292,11 @@ export class Thread implements ThreadInterface {
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
-     * A user message to inject before running. Needed when the input isn't
-     * already in the conversation history the adapter reconstructs — e.g. a
-     * slash command, whose args are never posted to the channel. A
-     * `AgentContentPart[]` carries multimodal content (e.g. inbound image/file
-     * attachments) the model can read.
+     * A user message to inject before running. When the adapter's conversation
+     * store does not seed the in-flight turn, an omitted prompt defaults to
+     * non-empty inbound `message.contentParts` or `message.text`. Pass a prompt
+     * explicitly when input isn't in reconstructed history — e.g. slash-command
+     * args, which are never posted to the channel.
      */
     prompt?: string | AgentContentPart[];
     /**
@@ -313,7 +313,19 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
-    return this.run(undefined, input);
+    const message = this.deps.message;
+    const defaultPrompt =
+      message?.contentParts && message.contentParts.length > 0
+        ? message.contentParts
+        : message?.text;
+    return this.run(undefined, {
+      ...input,
+      prompt:
+        input?.prompt ??
+        (this.deps.adapter.conversationStore.seedsInboundTurn
+          ? undefined
+          : defaultPrompt),
+    });
   }
 
   async resume(value: unknown): Promise<MessageRef | undefined> {
