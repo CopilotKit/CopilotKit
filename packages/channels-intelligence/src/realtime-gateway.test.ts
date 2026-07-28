@@ -18,6 +18,9 @@ type JoinMode =
   // `channel_declaration_unavailable` with NO channels array — the defensive
   // fallback path (nothing to classify) degrades to setup_required.
   | "error-setup-required-no-channels"
+  // `channel_declaration_unavailable` where the declared channel does not exist
+  // in the project at all (OSS-622) → setup_required, not a hard failure.
+  | "error-channel-not-declared"
   // `channel_declaration_unavailable` where a non-live channel is a hard-error
   // state (`runtime_conflict`) → must NOT downgrade to setup_required.
   | "error-conflict"
@@ -62,6 +65,11 @@ function makeFakeWebSocket(mode: JoinMode) {
         };
       case "error-setup-required-no-channels":
         return { reason: "channel_declaration_unavailable" };
+      case "error-channel-not-declared":
+        return {
+          reason: "channel_declaration_unavailable",
+          channels: [{ state: "channel_not_declared" }],
+        };
       case "error-conflict":
         return {
           reason: "channel_declaration_unavailable",
@@ -491,6 +499,42 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     ]);
     // The socket-leak-teardown behavior is unchanged: a failed join still tears
     // the socket down rather than leaking it.
+    expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("classifies channel_not_declared as SETUP_REQUIRED (OSS-622)", async () => {
+    // app-api reports `channel_not_declared` when the declared channel name does
+    // not exist in the project. Creating the channel and attaching credentials is
+    // the setup step every new channel goes through, so this is the first-run
+    // path — it must resolve `ready()` as setup_required, not crash startup.
+    const { FakeWebSocket, instances } = makeFakeWebSocket(
+      "error-channel-not-declared",
+    );
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "never-created", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    expect((err as RealtimeGatewaySetupRequiredError).code).toBe(
+      "SETUP_REQUIRED",
+    );
+    // Preserved so an operator can tell this apart from the other ways a channel
+    // reaches setup_required.
+    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
+      "channel_not_declared",
+    ]);
     expect(instances[0]!.closed).toBe(true);
   });
 
