@@ -1613,6 +1613,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
       inspector,
+      harness,
       internals: inspector as unknown as OpenTelemetryInternals,
     };
   }
@@ -1715,15 +1716,75 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
   });
 
-  // The open is reported directly rather than held until the runtime handshake:
-  // a disconnected runtime should not silence a real user's open.
-  it("still records an open when the runtime is not connected", async () => {
+  // An open while disconnected is still a real open, so it is reported — but the
+  // /info-derived dimensions are omitted rather than guessed. Recording the
+  // `sse` default would permanently misattribute an Intelligence runtime.
+  it("omits license and runtime mode for an open before the handshake", async () => {
     const { inspector, internals } = mount(false, false);
 
     internals.openInspector("floating_button");
     await inspector.updateComplete;
 
-    expect(eventsNamed("oss.inspector.opened")).toHaveLength(1);
+    const opened = eventsNamed("oss.inspector.opened");
+    expect(opened).toHaveLength(1);
+    expect(opened[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      // Config-derived, so accurate immediately.
+      runtime_url_type: "localhost",
+    });
+    expect(opened[0]!.properties).not.toHaveProperty("runtime_mode");
+    expect(opened[0]!.properties).not.toHaveProperty("license_status");
+  });
+
+  it("records license and runtime mode for an open against a connected Intelligence runtime", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+    harness.completeHandshake({
+      telemetryDisabled: false,
+      runtimeMode: "intelligence",
+      licenseStatus: "valid",
+    });
+    await inspector.updateComplete;
+
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      runtime_mode: "intelligence",
+      license_status: "valid",
+    });
+  });
+
+  // The impression deferral predates the surface split and must survive it: the
+  // runtime's opt-out only arrives with /info.
+  it("holds a banner impression until the handshake, then drops it when telemetry is disabled", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+  });
+
+  it("releases a held banner impression once the runtime allows telemetry", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+
+    const viewed = eventsNamed("oss.inspector.banner_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
+      surface: "collapsed_preview",
+    });
   });
 
   it("emits nothing when the runtime has telemetry disabled", async () => {
@@ -1751,6 +1812,12 @@ type HeaderMockCore = {
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
   telemetryDisabled: boolean;
+  // Mirrors CopilotKitCore's pre-handshake state (`agent-registry.ts:77`):
+  // `runtimeMode` already reads its `sse` default and `licenseStatus` is absent,
+  // both of which only become real once /info answers. Without this, telemetry
+  // assertions about pre-handshake segmentation pass for the wrong reason.
+  runtimeMode: string;
+  licenseStatus?: string;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
@@ -1782,6 +1849,7 @@ function createHeaderMockCore(
     context: {},
     properties: {},
     telemetryDisabled,
+    runtimeMode: "sse",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
@@ -1821,6 +1889,29 @@ function createHeaderMockCore(
       core.headers = nextHeaders;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
+      );
+    },
+    /**
+     * Simulates the /info handshake landing: applies what the runtime reported,
+     * then transitions to `connected`. Lets a test observe what is sent after
+     * the handshake versus before it — the segmentation fields do not exist
+     * until this point.
+     */
+    completeHandshake(
+      reported: {
+        telemetryDisabled?: boolean;
+        licenseStatus?: string;
+        runtimeMode?: string;
+      } = {},
+    ) {
+      Object.assign(core, reported);
+      core.runtimeConnectionStatus =
+        CopilotKitCoreRuntimeConnectionStatus.Connected;
+      subscribers.forEach((s) =>
+        s.onRuntimeConnectionStatusChanged?.({
+          copilotkit: asCore(),
+          status: core.runtimeConnectionStatus,
+        }),
       );
     },
   };

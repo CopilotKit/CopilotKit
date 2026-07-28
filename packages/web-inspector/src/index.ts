@@ -121,6 +121,9 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
+// Cap on banner impressions held while waiting for the runtime handshake, so a
+// runtime that never connects can't accumulate an unbounded queue.
+const MAX_PENDING_BANNER_VIEWED = 20;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
@@ -4206,6 +4209,17 @@ export class WebInspectorElement extends LitElement {
   // the card inside the opened panel are separate impressions: a user can see
   // one without ever seeing the other.
   private viewedBannerSurfaces: Set<string> = new Set();
+  // Impressions wait for the runtime handshake before going out: the runtime's
+  // opt-out arrives in the /info response, and `telemetryDisabled` reads `false`
+  // until then, so sending directly would post on a placeholder. This deferral
+  // predates the surface split — preserved here, widened from a single slot to a
+  // queue because opening the panel reveals the second surface and can happen
+  // before the first impression has flushed.
+  private pendingBannerViewed: Array<{
+    banner_id: string;
+    surface: BannerSurface;
+    cta_label?: string;
+  }> = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -4546,6 +4560,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
+          this.flushPendingBannerViewed();
           if (this.areThreadEndpointsAvailable()) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
@@ -4612,6 +4627,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
+      this.flushPendingBannerViewed();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -7866,10 +7882,21 @@ ${argsString}</pre
     hadUnseenAnnouncement: boolean,
   ): void {
     if (this.core?.telemetryDisabled) return;
+    // `license_status` and `runtime_mode` come from /info. Before the handshake
+    // `licenseStatus` is undefined and `runtimeMode` reads its `sse` default, so
+    // recording them would permanently attribute an early open against an
+    // Intelligence runtime to SSE. Omitted rather than guessed — an absent
+    // dimension is honest, a wrong one is not. `runtime_url_type` is derived
+    // from configuration, so it is accurate immediately.
+    const handshakeComplete = this.runtimeStatus === "connected";
     trackInspectorOpened({
       open_source: source,
-      license_status: this.core?.licenseStatus ?? undefined,
-      runtime_mode: this.core?.runtimeMode ?? undefined,
+      ...(handshakeComplete
+        ? {
+            license_status: this.core?.licenseStatus ?? undefined,
+            runtime_mode: this.core?.runtimeMode ?? undefined,
+          }
+        : {}),
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
     });
@@ -10837,21 +10864,34 @@ ${prettyEvent}</pre
    * visible, once per announcement per surface.
    */
   private maybeTrackBannerViewed(): void {
-    // This check used to live in the flush step; it has to be here now that the
-    // impression is sent directly.
-    if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
     if (!surface) return;
     const key = `${id}:${surface}`;
     if (this.viewedBannerSurfaces.has(key)) return;
+    if (this.pendingBannerViewed.length >= MAX_PENDING_BANNER_VIEWED) return;
     this.viewedBannerSurfaces.add(key);
-    trackBannerViewed({
+    this.pendingBannerViewed.push({
       banner_id: id,
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
+    this.flushPendingBannerViewed();
+  }
+
+  // Releases held impressions once /info has answered, or discards them when it
+  // reports telemetry disabled.
+  private flushPendingBannerViewed(): void {
+    if (this.pendingBannerViewed.length === 0) return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
+      return;
+    }
+    if (this.runtimeStatus !== "connected") return;
+    const queued = this.pendingBannerViewed;
+    this.pendingBannerViewed = [];
+    for (const props of queued) trackBannerViewed(props);
   }
 
   private ensureAnnouncementLoading(): void {
