@@ -60,7 +60,7 @@ export function ApprovalCard({
     const updated = issues.map((i) =>
       i.id === issueId ? { ...i, ...finalChanges } : i,
     );
-    agent.setState({ issues: updated });
+    agent.setState({ ...agent.state, issues: updated });
   };
 
   const handleAccept = () => {

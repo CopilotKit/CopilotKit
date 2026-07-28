@@ -347,7 +347,7 @@ function ChatWired({
     () => [
       {
         label: "clear",
-        action: () => agent.setState({ issues: [] }),
+        action: () => agent.setState({ ...agent.state, issues: [] }),
       },
     ],
     [agent],

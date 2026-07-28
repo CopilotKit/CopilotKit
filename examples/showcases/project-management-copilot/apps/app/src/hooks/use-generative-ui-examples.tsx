@@ -37,6 +37,10 @@ import {
   AgentProgressProps,
 } from "@/components/generative-ui/agent-progress";
 import { ApprovalCard } from "@/components/generative-ui/approval-card";
+import {
+  AttachMeetingNotes,
+  AttachMeetingNotesProps,
+} from "@/components/generative-ui/attach-meeting-notes";
 import { ToolReasoning } from "@/components/tool-rendering";
 
 export const useGenerativeUIExamples = () => {
@@ -137,6 +141,14 @@ export const useGenerativeUIExamples = () => {
     render: IssueTable,
   });
 
+  useComponent({
+    name: "attachMeetingNotes",
+    description:
+      "Render an inline 'attached file' card for a meeting-notes image the user shared. The header animates from 'Attaching…' to 'Attached' and reveals the image inline. Pass filename, size, and imageUrl.",
+    parameters: AttachMeetingNotesProps,
+    render: AttachMeetingNotes,
+  });
+
   // Sprint-planning progress narration. Each call renders a single animated
   // step card (spinner -> green check) so the chain reads as "reading image ->
   // transcribing -> planning tickets -> writing tickets" before the actual
@@ -235,7 +247,7 @@ export const useGenerativeUIExamples = () => {
           const change = byId.get(issue.id);
           return change ? { ...issue, ...change } : issue;
         });
-        agent.setState({ issues: updated });
+        agent.setState({ ...agent.state, issues: updated });
       },
     },
     [agent],
