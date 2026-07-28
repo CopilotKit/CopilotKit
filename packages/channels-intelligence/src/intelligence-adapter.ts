@@ -42,6 +42,10 @@ import {
 import type { IntelligenceTransportConfig } from "./http-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import { buildContentParts } from "./content-parts.js";
+import {
+  createRenderTurnMetrics,
+  resolveRenderMetricsMode,
+} from "./render-metrics.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
@@ -299,13 +303,35 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.stateStore = opts.store ?? this.buildDefaultStore();
   }
 
+  /** Process environment, or an empty bag off-process (browser/edge). */
+  private readEnv(): Record<string, string | undefined> {
+    return typeof process !== "undefined"
+      ? process.env
+      : ({} as Record<string, string | undefined>);
+  }
+
+  /**
+   * Diagnostics sink for opt-in instrumentation: the configured transport
+   * logger when one was supplied, else the console. Only reached once
+   * instrumentation is explicitly switched on, so it never adds log volume to a
+   * default run.
+   *
+   * @param message - Log message.
+   * @param meta - Structured metadata.
+   */
+  private diagnosticLog(message: string, meta?: unknown): void {
+    const configured = this.opts.config?.log;
+    if (configured) {
+      configured(message, meta);
+      return;
+    }
+    console.info(`[channels-intelligence] ${message}`, meta);
+  }
+
   /** Build the default Intelligence-backed durable store, or undefined. */
   private buildDefaultStore(): StateStore | undefined {
     if (this.opts.source || this.opts.egress) return undefined;
-    const env =
-      typeof process !== "undefined"
-        ? process.env
-        : ({} as Record<string, string | undefined>);
+    const env = this.readEnv();
     const baseUrl = (
       this.opts.config?.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
     )?.replace(/\/+$/, "");
@@ -902,6 +928,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
     let chain: Promise<void> = Promise.resolve();
     let pushError: unknown;
+    // OSS-648: time each push so the per-frame round-trip cost of this serial
+    // chain is measurable. This is the one point every frame passes through, so
+    // it covers the HTTP render-accept and realtime-gateway transports alike.
+    // Off (and not allocated) unless COPILOTKIT_CHANNELS_RENDER_METRICS is set.
+    const metrics = createRenderTurnMetrics({
+      mode: resolveRenderMetricsMode(this.readEnv()),
+      turnId: t.turnId,
+      deliveryId: t.deliveryId,
+      log: (message, meta) => this.diagnosticLog(message, meta),
+    });
 
     const enqueue = (event: ChannelRenderEvent): void => {
       const frame: RenderFrame = {
@@ -913,17 +949,30 @@ export class IntelligenceAdapter implements PlatformAdapter {
       };
       chain = chain.then(async () => {
         if (pushError !== undefined) return;
+        const pushStartedAt = metrics ? Date.now() : 0;
         try {
           await sink.push(frame);
           this.recordAcceptedRenderEvent(t.turnId, event);
         } catch (err) {
           pushError = err;
+        } finally {
+          // Record failed pushes too: a push that blocked for seconds before
+          // throwing still spent that time on the wire, and hiding it would
+          // flatter the numbers this instrumentation exists to expose.
+          metrics?.recordPush(
+            event.kind,
+            pushStartedAt,
+            Date.now(),
+            event.kind === "text_delta" ? event.delta.length : 0,
+          );
         }
       });
     };
 
     const drain = async (): Promise<void> => {
       await chain;
+      // Summarize before rethrowing so a failed turn still reports its profile.
+      metrics?.finish();
       if (pushError !== undefined) {
         const err = pushError;
         throw err instanceof Error ? err : new Error(String(err));
