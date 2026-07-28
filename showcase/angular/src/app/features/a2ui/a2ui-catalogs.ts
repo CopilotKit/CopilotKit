@@ -10,15 +10,19 @@ const declarativeDefinitions = {
   Row: {
     props: z.object({
       gap: z.number().optional(),
-      align: z.string().optional(),
-      justify: z.string().optional(),
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
+      justify: z.enum(["start", "center", "end", "spaceBetween"]).optional(),
       children: z.array(z.string()),
     }),
   },
   Column: {
     props: z.object({
       gap: z.number().optional(),
-      align: z.string().optional(),
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
       children: z.array(z.string()),
     }),
   },

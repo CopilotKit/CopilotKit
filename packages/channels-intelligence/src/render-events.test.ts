@@ -807,3 +807,80 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(typeof withHttp.uploadFile).toBe("function");
   });
 });
+
+describe("run renderer — push instrumentation (OSS-648)", () => {
+  /** Drive a two-token reply through the renderer and return the log spy. */
+  const runInstrumentedTurn = async (
+    metricsEnv: string | undefined,
+  ): Promise<ReturnType<typeof vi.fn>> => {
+    const log = vi.fn();
+    if (metricsEnv === undefined) {
+      vi.stubEnv("COPILOTKIT_CHANNELS_RENDER_METRICS", "");
+    } else {
+      vi.stubEnv("COPILOTKIT_CHANNELS_RENDER_METRICS", metricsEnv);
+    }
+    try {
+      const adapter = intelligenceAdapter({
+        source: new InMemoryDeliverySource(),
+        egress: new InMemoryEgressSink(),
+        renderSink: new InMemoryRenderEventSink(),
+        config: { log },
+      });
+      const renderer = adapter.createRunRenderer(target);
+      const sub = renderer.subscriber as unknown as Sub;
+      sub.onTextMessageContentEvent?.({
+        event: { messageId: "m1", delta: "hel" },
+      });
+      sub.onTextMessageContentEvent?.({
+        event: { messageId: "m1", delta: "lo" },
+      });
+      await renderer.finish?.();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    return log;
+  };
+
+  it("stays silent unless COPILOTKIT_CHANNELS_RENDER_METRICS is set", async () => {
+    const log = await runInstrumentedTurn(undefined);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("summarizes frame count, text volume and blocked time for the turn", async () => {
+    const log = await runInstrumentedTurn("summary");
+
+    const summaries = log.mock.calls.filter(
+      (c) => c[0] === "channel render metrics",
+    );
+    expect(summaries).toHaveLength(1);
+    // run_started + 2 text_delta + finalize.
+    expect(summaries[0]?.[1]).toMatchObject({
+      turnId: "turn_t1",
+      deliveryId: "dlv_d1",
+      frames: 4,
+      textDeltaFrames: 2,
+      textDeltaChars: 5,
+      charsPerTextFrame: 2.5,
+      framesByKind: { run_started: 1, text_delta: 2, finalize: 1 },
+    });
+  });
+
+  it("logs one line per frame in frames mode, plus the summary", async () => {
+    const log = await runInstrumentedTurn("frames");
+
+    const perFrame = log.mock.calls.filter(
+      (c) => c[0] === "channel render frame pushed",
+    );
+    expect(perFrame).toHaveLength(4);
+    expect(perFrame.map((c) => (c[1] as { kind: string }).kind)).toEqual([
+      "run_started",
+      "text_delta",
+      "text_delta",
+      "finalize",
+    ]);
+    expect(perFrame[1]?.[1]).toMatchObject({ seq: 1, deltaChars: 3 });
+    expect(
+      log.mock.calls.filter((c) => c[0] === "channel render metrics"),
+    ).toHaveLength(1);
+  });
+});
