@@ -37,7 +37,7 @@ vi.mock("node:http", () => ({ createServer: fakes.createServer }));
 vi.mock("@copilotkit/channels", () => ({
   createChannel: vi.fn(() => fakes.bot),
 }));
-vi.mock("@copilotkit/channels-slack", () => ({
+vi.mock("@copilotkit/channels/slack", () => ({
   defaultSlackTools: [],
   defaultSlackContext: [],
   SanitizingHttpAgent: function SanitizingHttpAgent() {},
@@ -82,8 +82,11 @@ describe("managed channel entrypoint", () => {
   it("mounts the normal handler over a channels-carrying runtime and stops channels on shutdown", async () => {
     for (const key of envKeys) previousEnv.set(key, process.env[key]);
     process.env.AGENT_URL = "http://agent.test/run";
+    // Overrides the managed-platform defaults to point at a local stack. Both
+    // are set together, and deliberately at a different host+port: the realtime
+    // plane is deployed separately, so there is no derive from apiUrl.
     process.env.COPILOTKIT_INTELLIGENCE_URL = "http://localhost:4201";
-    delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
+    process.env.COPILOTKIT_INTELLIGENCE_WS_URL = "ws://localhost:4401";
     process.env.COPILOTKIT_API_KEY = "cpk-test";
 
     let sigterm: (() => void) | undefined;

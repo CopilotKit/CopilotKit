@@ -33,19 +33,18 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "What to release"
+        description: "What to release ('all' is prerelease-only: every scope under one shared canary id)"
         required: true
         type: choice
         options:
           - monorepo
           - angular
           - channels
-          - channels-discord
-          - channels-intelligence
-          - channels-slack
-          - channels-teams
-          - channels-telegram
-          - channels-whatsapp
+          # Sentinel, not a scope (see ALL_SCOPES in scripts/release/lib/config.ts).
+          # PRERELEASE ONLY — rejected for mode=stable by the "Determine scope and
+          # mode" guard below, since a stable release derives its tag, release
+          # branch, and Slack/npm links from a single scope name.
+          - all
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -119,6 +118,15 @@ jobs:
             SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
+          # `all` is a prerelease-only selector: it publishes every scope under one
+          # shared canary id so cross-scope `workspace:` deps resolve within the run.
+          # A stable release cannot be multi-scope — the tag (`<scope>/v<version>`),
+          # the release branch, and the notify job's npm URL each assume ONE scope,
+          # and the scopes carry independent version lines.
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary). Release each scope separately via the 'release / create-pr' workflow."
+            exit 1
+          fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
           echo "Detected scope: $SCOPE, mode: $MODE"
@@ -130,7 +138,7 @@ jobs:
       # (including .git/config) into an artifact — persisting credentials
       # here would leak a workflow-scoped token to anyone with actions:read.
       - name: Checkout Repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -227,6 +235,13 @@ jobs:
             exit 1
           fi
           MODE="${INPUT_MODE:-stable}"
+          # Same guard as the build job (this job re-derives scope/mode from the
+          # event rather than inheriting them). Defense in depth: nothing may reach
+          # the tag/GH-Release/notify path with the multi-scope sentinel.
+          if [ "$SCOPE" = "all" ] && [ "$MODE" != "prerelease" ]; then
+            echo "::error::scope=all is only valid with mode=prerelease (canary)."
+            exit 1
+          fi
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
           echo "mode=$MODE"   >> "$GITHUB_OUTPUT"
 
@@ -274,6 +289,21 @@ jobs:
             echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The family must exist on npm before the umbrella is allowed to ship:
+      # the registry verifier installs the packed umbrella against those exact
+      # published dependencies. Publish the foundation and adapters first, then
+      # verify, then let the final publish step release the umbrella.
+      - name: Publish Channels dependencies to npm
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        env:
+          NODE_AUTH_TOKEN: ""
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase dependencies
+
+      - name: Verify registry-backed Channels umbrella contract
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
+        run: pnpm run verify:channels-umbrella:registry
+
       - name: Publish to npm
         id: publish
         if: ${{ inputs.dry-run != true }}
@@ -282,7 +312,15 @@ jobs:
           NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
-        run: pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+        run: |
+          set -euo pipefail
+          if [ "$PUBLISH_SCRIPT" = "prerelease.ts" ]; then
+            pnpm tsx "scripts/release/$PUBLISH_SCRIPT" --scope "$SCOPE"
+          elif [ "$SCOPE" = "channels" ]; then
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE" --phase umbrella
+          else
+            pnpm tsx scripts/release/publish-release.ts --scope "$SCOPE"
+          fi
 
       - name: Verify publish step emitted version
         if: ${{ success() && inputs.dry-run != true }}
@@ -399,7 +437,9 @@ jobs:
             echo "## Prerelease Published"
             echo ""
             echo "**Scope:** ${{ steps.meta.outputs.scope }}"
-            echo "**Version:** ${{ steps.publish.outputs.version }}"
+            # `versions` lists every published scope (`<scope>@<version>`), which is
+            # the whole story for scope=all; `version` alone names only the first.
+            echo "**Versions:** ${{ steps.publish.outputs.versions || steps.publish.outputs.version }}"
             echo "**Tag:** (prerelease — no tag created)"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -455,7 +495,7 @@ jobs:
       pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
@@ -494,7 +534,7 @@ jobs:
 
       - name: Set up Python
         if: github.event_name == 'workflow_dispatch' || steps.changed.outputs.pyproject_changed == 'true'
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -551,14 +591,14 @@ jobs:
       id-token: write
     steps:
       - name: Checkout merged main
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
           persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           version: ">=0.8.0"
 
@@ -716,9 +756,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # npm intent: a manual dispatch, or a merged release/publish/* PR.
-          # Computed purely from event-context expressions (no API needed).
-          NPM_INTENDED="${{ (github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          # npm intent: a STABLE manual dispatch (mode != prerelease — the default
+          # and the retry escape hatch both publish to npm), or a merged
+          # release/publish/* PR. A prerelease dispatch is a canary: it never pushes
+          # a tag, cuts a GH Release, or posts to Slack (the builder returns
+          # should_post=false, mirroring the `mode != 'prerelease'` guards on the
+          # publish/tag steps), so it is NOT stable-release intent and must never
+          # self-page on failure. Computed purely from event-context expressions
+          # (no API needed). Guarding on mode here is what stops a failed canary
+          # build (e.g. a stale lockfile on a canary/* branch) from tripping the
+          # notifier self-watchdog's best-effort Slack post below.
+          NPM_INTENDED="${{ ((github.event_name == 'workflow_dispatch' && inputs.mode != 'prerelease') || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
           echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
 
           # Python intent: a python_publish dispatch, OR a merged PR that changed
@@ -742,7 +790,7 @@ jobs:
           echo "npm_intended=$NPM_INTENDED py_intended=$PY_INTENDED"
 
       - name: Checkout Repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -820,7 +868,7 @@ jobs:
 
       - name: Post to #engr
         if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook
@@ -863,7 +911,7 @@ jobs:
         # gate is correct and robust. (The ::error:: echo step above stays
         # unconditional — only the Slack POST needs these guards.)
         if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
           webhook-type: incoming-webhook

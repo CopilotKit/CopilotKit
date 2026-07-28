@@ -6,9 +6,9 @@
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
-import type { ContextEntry } from "@copilotkit/channels";
+import type { ContextEntry } from "@copilotkit/channels-core";
 
-/** Telegram context entry — alias of `@copilotkit/channels`'s {@link ContextEntry}. */
+/** Telegram context entry — alias of `@copilotkit/channels-core`'s {@link ContextEntry}. */
 export type TelegramContextEntry = ContextEntry;
 
 export const telegramTaggingContext: TelegramContextEntry = {

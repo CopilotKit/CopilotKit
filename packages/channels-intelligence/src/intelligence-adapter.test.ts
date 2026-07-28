@@ -1,12 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { createChannel, FakeAdapter, FakeAgent } from "@copilotkit/channels";
-import type { ReplyTarget } from "@copilotkit/channels";
+import {
+  createChannel,
+  FakeAdapter,
+  FakeAgent,
+} from "@copilotkit/channels-core";
+import type { ReplyTarget } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
+  InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
@@ -45,7 +50,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
       seen = message;
       await thread.post(Section({ children: "reply" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ turnId: "t1", eventId: "e1" }));
 
     expect(egress.ops).toHaveLength(1);
@@ -57,6 +62,29 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(seen?.platform).toBe("slack");
   });
 
+  it("maps the provider actor display name onto PlatformUser.name for handlers", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenUser: { id: string; name?: string } | undefined;
+    channel.onMessage(async ({ message }) => {
+      seenUser = message.user;
+    });
+    await channel.ɵruntime.start();
+    // The wire field is `displayName`; it must surface as PlatformUser.name so
+    // `message.user.name` is observable through the typed API (parity with the
+    // direct Slack adapter, which populates `name`).
+    await source.deliver(
+      envelope({ user: { id: "u1", displayName: "Ada Lovelace" } }),
+    );
+
+    expect(seenUser?.id).toBe("u1");
+    expect(seenUser?.name).toBe("Ada Lovelace");
+  });
+
   it("acks the delivery after the handler completes", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
@@ -65,7 +93,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
       agent: () => new FakeAgent(),
     });
     bot.onMessage(async () => {});
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ deliveryId: "d9" }));
     expect(source.acked).toEqual(["d9"]);
     expect(source.nacked).toEqual([]);
@@ -81,7 +109,7 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     bot.onMessage(async () => {
       throw new Error("boom");
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(envelope({ deliveryId: "d9" }));
     expect(source.acked).toEqual([]);
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
@@ -102,7 +130,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         text: "what is this?",
@@ -141,7 +169,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         text: "hi",
@@ -173,7 +201,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         files: [
@@ -206,7 +234,7 @@ describe("intelligenceAdapter — inbound file content parts", () => {
     bot.onMessage(async ({ message }) => {
       seen = message;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver(
       envelope({
         files: [
@@ -237,7 +265,7 @@ describe("intelligenceAdapter — deterministic egress ids", () => {
       await thread.post(Section({ children: "a" }));
       await thread.post(Section({ children: "b" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
 
     await source.deliver(envelope({ turnId: "t1", deliveryId: "d1" }));
     expect(egress.ops.map((o) => o.operationId)).toEqual(["t1:0", "t1:1"]);
@@ -271,12 +299,14 @@ describe("intelligenceAdapter — egress fail-loud", () => {
         postError = err;
       }
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     await source.deliver(envelope());
 
     // Before the fix, thread.post resolved with a synthetic ref and postError
-    // stayed undefined (the drop was acked as success). Now it throws so the
-    // failure propagates up the render path and the delivery is nacked.
+    // stayed undefined (the drop was acked as success). Now it throws. (This
+    // test asserts the throw at the post() boundary; the handler catches it
+    // here, so no nack is exercised — the run-loop's nack-on-throw is covered
+    // by the render-events dispatch tests.)
     expect(postError).toBeInstanceOf(Error);
     expect((postError as Error).message).toMatch(/egress post failed/i);
     expect((postError as Error).message).toContain("provider_rejected");
@@ -313,6 +343,188 @@ describe("intelligenceAdapter — run renderer", () => {
   });
 });
 
+describe("intelligenceAdapter — HTTP-fallback run_error (OSS-491)", () => {
+  const target = {
+    route: { r: 1 },
+    turnId: "t1",
+    deliveryId: "d1",
+  } as unknown as ReplyTarget;
+
+  type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
+
+  it("surfaces a text-less run_error as a user-visible error post and logs it (fallback path)", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    // Fallback path: no renderSink wired, so the ad-hoc plain-text sink runs and
+    // (before the fix) drops run_error — the run resolves and dispatch() acks a
+    // text-less turn as success (bot goes silent, nothing logged).
+    const adapter = intelligenceAdapter({
+      source,
+      egress,
+      config: { log: (msg, meta) => logs.push({ msg, meta }) },
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // An agent-side failure (model error / tool crash) with no accompanying text.
+    sub.onRunErrorEvent?.({ event: { message: "model exploded" } });
+    await renderer.finish?.();
+
+    // (b) A user-visible error post is emitted rather than the turn completing
+    // silently. We post + log + ack (not nack): a run_error is frequently a
+    // deterministic agent failure and the Channel path reprocesses redeliveries
+    // (skipIngressDedup), so nacking would livelock.
+    expect(egress.ops).toHaveLength(1);
+    expect(egress.ops[0]!.op.kind).toBe("post");
+    const op = egress.ops[0]!.op as unknown as {
+      kind: string;
+      ir: { props: { value: string } }[];
+    };
+    expect(op.ir[0]!.props.value).toMatch(/error/i);
+    // (a) And the underlying error is logged so a dropped error is never invisible.
+    expect(logs.some((l) => /run_error/i.test(l.msg))).toBe(true);
+    expect(logs.some((l) => l.meta === "model exploded")).toBe(true);
+  });
+
+  it("emits run_started before a run_error that precedes any text or tool event", async () => {
+    const source = new InMemoryDeliverySource();
+    const renderSink = new InMemoryRenderEventSink();
+    // Realtime path: render frames are observable directly on the sink.
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // Error before any text/tool event: it must still be preceded by run_started
+    // so the frame stream is a well-formed run lifecycle.
+    sub.onRunErrorEvent?.({ event: { message: "boom" } });
+    await renderer.finish?.();
+
+    const kinds = renderSink.frames.map((f) => f.event.kind);
+    expect(kinds[0]).toBe("run_started");
+    expect(kinds).toContain("run_error");
+    expect(kinds.indexOf("run_started")).toBeLessThan(
+      kinds.indexOf("run_error"),
+    );
+  });
+
+  it("renders run_error live on the realtime path (no user-visible error post) — unchanged", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({ source, egress, renderSink });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "partial" },
+    });
+    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    sub.onRunErrorEvent?.({ event: { message: "later boom" } });
+    await renderer.finish?.();
+
+    // The realtime path forwards run_error to the render sink (the Connector
+    // Outbox renders it live) — it is NOT converted into an egress error post…
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "text_delta",
+      "text_end",
+      "run_error",
+      "finalize",
+    ]);
+    // …and the fallback error-post path never runs on the realtime path.
+    expect(egress.ops).toEqual([]);
+  });
+
+  it("propagates a failure (drain rejects) when the fallback error post itself can't be emitted", async () => {
+    const source = new InMemoryDeliverySource();
+    // Egress that rejects every op — a transient/egress failure of the error
+    // post, distinct from the deterministic agent error that triggered it.
+    const failingEgress: EgressSink = {
+      emit: async () => ({ ok: false, code: "provider_rejected" }),
+    };
+    const adapter = intelligenceAdapter({ source, egress: failingEgress });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onRunErrorEvent?.({ event: { message: "boom" } });
+
+    // The error post can't be delivered → the push chain records the error and
+    // drain() rejects, so dispatch() nacks (redelivers/retries) rather than
+    // acking a dropped error as success. This is the transient-failure escape
+    // hatch that keeps post-on-run_error from masking a real egress outage.
+    await expect(renderer.finish?.()).rejects.toThrow(/egress post failed/i);
+  });
+
+  it("flushes buffered partial text before the error post on a fallback run_error", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const adapter = intelligenceAdapter({ source, egress });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // Partial text that never received a text_end, then an error mid-stream.
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "partial answer" },
+    });
+    sub.onRunErrorEvent?.({ event: { message: "died mid-stream" } });
+    await renderer.finish?.();
+
+    // Buffered partial output reaches the channel first, then the error post —
+    // natural reading order, no lost output, no duplicate.
+    const texts = egress.ops.map(
+      (o) =>
+        (o.op as unknown as { ir: { props: { value: string } }[] }).ir[0]!.props
+          .value,
+    );
+    expect(texts).toHaveLength(2);
+    expect(texts[0]).toBe("partial answer");
+    expect(texts[1]).toMatch(/error/i);
+  });
+});
+
+describe("intelligenceAdapter — ack failure isolation (OSS-491)", () => {
+  it("does not nack or rerun a completed turn when ack() throws; logs the ack failure", async () => {
+    // A source whose ack() network call fails but whose turn processed fine.
+    class AckFailingSource extends InMemoryDeliverySource {
+      override async ack(): Promise<void> {
+        throw new Error("ack network down");
+      }
+    }
+    const source = new AckFailingSource();
+    const egress = new InMemoryEgressSink();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress,
+          config: { log: (msg, meta) => logs.push({ msg, meta }) },
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    let dispatchCount = 0;
+    bot.onMessage(async () => {
+      dispatchCount++;
+    });
+    await bot.ɵruntime.start();
+    await source.deliver(envelope({ deliveryId: "d9" }));
+
+    // The turn processed exactly once…
+    expect(dispatchCount).toBe(1);
+    // …and a failed ack must NOT be conflated with a turn failure: no nack
+    // (which, with skipIngressDedup, would redeliver and rerun the whole turn).
+    expect(source.nacked).toEqual([]);
+    // The ack failure is logged, not silently swallowed.
+    expect(logs.some((l) => /ack/i.test(l.msg))).toBe(true);
+  });
+});
+
 describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   const base: ChannelIngressBase = {
     deliveryId: "d1",
@@ -336,7 +548,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       ran = text;
       await thread.post(Section({ children: "ok" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "command",
@@ -359,7 +571,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       seenValue = action.value;
       await thread.post(Section({ children: "clicked" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "interaction",
@@ -381,7 +593,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       // Flip the card that was clicked (posted in a PRIOR delivery) in place.
       await thread.update(message.ref, Section({ children: "approved" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       deliveryId: "d_click",
@@ -417,7 +629,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
       ran = true;
       await thread.post(Section({ children: "hi" }));
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({ ...base, kind: "thread_started" });
     expect(ran).toBe(true);
     expect(egress.ops).toHaveLength(1);
@@ -434,7 +646,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     bot.onReaction(async (evt) => {
       seenEmoji = evt.rawEmoji;
     });
-    await bot.start();
+    await bot.ɵruntime.start();
     await source.deliver({
       ...base,
       kind: "reaction",
@@ -467,7 +679,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
       adapters: [ia()],
       agent: () => new FakeAgent(),
     });
-    expect(() => bot.addAdapter(new FakeAdapter())).toThrow(
+    expect(() => bot.ɵruntime.addAdapter(new FakeAdapter())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
@@ -477,7 +689,7 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
-    expect(() => bot.addAdapter(ia())).toThrow(
+    expect(() => bot.ɵruntime.addAdapter(ia())).toThrow(
       /only adapter|alternative modes/i,
     );
   });
@@ -538,9 +750,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
       // string content → text; role 'user' → isBot false, user 'user'.
       { text: "hi there", isBot: false, user: { id: "user", name: "user" } },
       // content-part array → text parts joined; the non-text (image) part
-      // contributes an empty string (hence the double space); assistant → bot.
+      // contributes no text and is dropped before the join, so there is no
+      // stray doubled space; assistant → bot.
       {
-        text: "part one  part two",
+        text: "part one part two",
         isBot: true,
         user: { id: "bot", name: "bot" },
       },
@@ -549,7 +762,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("getMessages returns [] when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),
@@ -594,7 +810,10 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
 
   it("starts fresh (empty messages) when the transport has no getHistory", async () => {
     const source = new InMemoryDeliverySource();
-    delete (source as { getHistory?: unknown }).getHistory;
+    // Shadow the prototype method with an own `undefined` — `delete` wouldn't
+    // remove a prototype method, so the `source?.getHistory?.()` short-circuit
+    // (the branch under test) would never actually be exercised.
+    (source as { getHistory?: unknown }).getHistory = undefined;
     const adapter = intelligenceAdapter({
       source,
       egress: new InMemoryEgressSink(),

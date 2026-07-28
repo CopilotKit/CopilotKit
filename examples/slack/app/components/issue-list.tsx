@@ -16,8 +16,8 @@
  * Authored with the `@copilotkit/channels-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import { Context, Header, Message, Section } from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
+import { Context, Header, Message, Section } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { accentForIssues, stateGlyph } from "./_status.js";
 
 const issueSchema = z.object({

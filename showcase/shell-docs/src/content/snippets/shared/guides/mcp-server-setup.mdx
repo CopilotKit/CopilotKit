@@ -416,6 +416,39 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
+### Codex
+
+[Codex](https://developers.openai.com/codex) is OpenAI's coding agent. Its CLI reads MCP servers from `~/.codex/config.toml`, where each server is defined under an `[mcp_servers.<name>]` table.
+
+<Steps>
+  <Step>
+    ### Add MCP Server to Codex
+    Add CopilotKit MCP to `~/.codex/config.toml`. Codex launches command-based (stdio) servers, so bridge the remote server with `mcp-remote`:
+
+    ```toml title="~/.codex/config.toml"
+    [mcp_servers.copilotkit]
+    command = "npx"
+    args = ["mcp-remote", "https://mcp.copilotkit.ai"]
+    ```
+
+    Or add it from the terminal with the Codex CLI:
+
+    ```bash
+    codex mcp add copilotkit -- npx mcp-remote https://mcp.copilotkit.ai
+    ```
+  </Step>
+  <Step>
+    ### Verify Connection
+    List the configured MCP servers to confirm CopilotKit is registered:
+
+    ```bash
+    codex mcp list
+    ```
+
+    Once configured, the CopilotKit MCP tools are available to Codex and are used automatically when relevant to your CopilotKit development tasks.
+  </Step>
+</Steps>
+
 ### Other
 
 For MCP-compatible applications not listed above, use these universal integration patterns. MCP (Model Context Protocol) is an open standard that allows AI applications to connect with external tools and data sources.

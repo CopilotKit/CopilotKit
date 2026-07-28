@@ -7,13 +7,13 @@
  * updates the message in place with a green "Acknowledged" card.
  */
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
+import { renderToIR } from "@copilotkit/channels";
 import type {
   ChannelNode,
   InteractionContext,
   ClickHandler,
-} from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+} from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import {
   showIncidentTool,
   showStatusTool,

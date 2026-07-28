@@ -29,11 +29,8 @@
  * on this route.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /** Chip prompts MUST mirror `shared-state-read/page.tsx` lines 101-117
@@ -124,7 +121,6 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         const text = await readAssistantTranscript(page);
         console.debug(`[d5-shared-state-read] ${tag} text`, {
           length: text.length,
-          snippet: text.slice(0, 300),
         });
         if (text.trim().length === 0) {
           throw new Error(
@@ -142,7 +138,6 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         const text = await readAssistantTranscript(page);
         console.debug(`[d5-shared-state-read] ${tag} text`, {
           length: text.length,
-          snippet: text.slice(0, 300),
         });
         if (text.trim().length === 0) {
           throw new Error(

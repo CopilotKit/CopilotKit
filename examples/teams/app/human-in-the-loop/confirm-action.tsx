@@ -17,8 +17,8 @@ import {
   Context,
   Actions,
   Button,
-} from "@copilotkit/channels-ui";
-import type { InteractionContext } from "@copilotkit/channels-ui";
+} from "@copilotkit/channels";
+import type { InteractionContext } from "@copilotkit/channels";
 
 export interface ConfirmActionProps {
   /** Short imperative title of the action, e.g. 'Send announcement'. */

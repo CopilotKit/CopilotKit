@@ -7,9 +7,9 @@ description: "Angular function for registering a renderer component for a tool c
 
 `registerRenderToolCall` registers a renderer for a tool call. It does not run a handler. It tells CopilotKit which standalone Angular component to render whenever a tool call with a matching `name` appears in the conversation. Use it to visualize tool calls that execute somewhere other than the browser, for example a server-side tool or an agentic (long-running) tool, where you only want to show progress and results in the chat.
 
-You call `registerRenderToolCall` inside an Angular injection context (a component or service constructor, or a field initializer). The renderer registers immediately, and CopilotKit removes it automatically when the owning component or service is destroyed.
+You call `registerRenderToolCall` inside an Angular injection context (a component or service constructor, or a field initializer). The renderer registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
 
-This is the Angular equivalent of React's `useRenderTool()` / `useRenderToolCall()`. If you want to both run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead.
+If you want to run a browser handler and render UI, use [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool) with its `component` field instead.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -65,7 +65,7 @@ function registerRenderToolCall<Args extends Record<string, unknown>>(
 
 ## Return Value
 
-`registerRenderToolCall` returns `void`. It registers the renderer as a side effect and wires up automatic cleanup.
+`registerRenderToolCall` returns `void`. It registers the renderer as a side effect and wires up name-and-agent-id cleanup for the owning injector. Frontend tools, human-in-the-loop tools, and renderer registrations sharing that key are removed together.
 
 ## The renderer component
 

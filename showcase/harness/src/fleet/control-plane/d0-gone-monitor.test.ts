@@ -1088,42 +1088,108 @@ describe("D0-gone monitor — B-onset derived from the folded verdict", () => {
   });
 });
 
-describe("D0-gone monitor — C2 onset from the winning rung when no literal red row", () => {
-  it("gate fails via a non-`red` (degraded) D3 winner → onset is that row's timestamp, NOT re-stamped to now", async () => {
+describe("D0-gone monitor — C2 onset from a non-red (degraded) winner rung of a genuinely-gone cell", () => {
+  it("gone cell carries an EARLIER degraded winner rung → onset is that rung's timestamp, NOT re-stamped to now", async () => {
     const f = makeFakes();
     f.setSummary(f.liveProducer());
-    // alpha is red-D0/gone because its D3 (e2e) rung FAILS the ladder gate — but
-    // the winner row's literal `state` is "degraded", not "red" (a flaky/degraded
-    // rung still fails `status !== "green"` → chipColor red → cellGone). The OLD
-    // onset scan matched ONLY `row.state === "red"`, so it found no row → earliest
-    // stayed NaN → onset silently fell back to `nowMs` (re-stamped to the OPEN
-    // instant, losing the true onset). The fix derives onset from the gate-
-    // failing WINNER rungs regardless of literal state.
-    const onset = T0 - 90 * MIN;
-    const at = new Date(onset).toISOString();
-    const degradedD3: StatusRow = {
-      id: "id-e2e-alpha",
-      key: keyFor("e2e", "alpha", "agentic-chat"),
-      dimension: "e2e",
-      state: "degraded", // non-green, non-red → gate fails but not literal red
-      signal: null,
-      observed_at: at,
-      transitioned_at: at,
-      fail_count: 1,
-      first_failure_at: at,
-    };
-    // D4 (chat/tools) ABSENT so the ONLY gate-failing winner row is the degraded
-    // D3 — no literal `red` row exists anywhere, which is exactly the shape that
-    // stranded the old scan at NaN → nowMs. (d3 exists+non-green → gate fails →
-    // chipColor red → cellGone, achievedDepth 0.)
-    f.setStatusRows([degradedD3]);
+    // Unified-ladder semantics (§7 I2): a degraded rung is AMBER, not itself a
+    // red-D0 — so a degraded-ONLY column is NOT gone (see the "degraded/stale ≠
+    // gone" suite). But a GENUINELY-gone cell (its D3 e2e rung is fresh-RED →
+    // chipColor red, achievedDepth 0, cellGone) can still CARRY a degraded winner
+    // rung at another level (D4 chat/tools degraded here) whose failure instant
+    // PREDATES the red rung (T0-90m < T0). The onset must be derived from the
+    // EARLIEST non-green winner rung the fold used — the degraded D4 at T0-90m —
+    // not the red D3 at T0, and never re-stamped to `nowMs`. The OLD onset scan
+    // matched ONLY `row.state === "red"`, so it skipped the earlier degraded rung
+    // and mis-timed the onset to the red rung (or, absent any literal red, to
+    // nowMs). The fix considers any non-green (red OR degraded) winner rung.
+    const degradedOnset = T0 - 90 * MIN;
+    f.setStatusRows([
+      row("alpha", keyFor("e2e", "alpha", "agentic-chat"), "red", T0), // D3 red → gone
+      row("alpha", keyFor("chat", "alpha"), "degraded", degradedOnset), // earlier D4
+      row("alpha", keyFor("tools", "alpha"), "degraded", degradedOnset),
+    ]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    // GREEN (genuine gone still detected): the fresh-red D3 makes alpha gone.
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+    const map = JSON.parse(f.getState().hash!);
+    // GREEN: onset comes from the EARLIEST non-green winner rung (the degraded
+    // D4 at T0-90m), NOT the later red D3 and NOT re-stamped to nowMs (T0).
+    expect(map.alpha.sinceAt).toBe(new Date(degradedOnset).toISOString());
+    expect(map.alpha.sinceAt).not.toBe(new Date(T0).toISOString());
+  });
+});
+
+describe("D0-gone monitor — degraded/stale ≠ gone (unified ladder amber, §7 I2)", () => {
+  /** A single degraded D3 (e2e) rung, nothing else → chipColor AMBER (not red). */
+  function degradedOnlyRows(slug: string, atMs: number): StatusRow[] {
+    return [row(slug, keyFor("e2e", slug, "agentic-chat"), "degraded", atMs)];
+  }
+  /** A single wholly-stale (old) green D3 → folds to gray/amber, never red. */
+  function staleGreenRows(slug: string, atMs: number): StatusRow[] {
+    return [row(slug, keyFor("e2e", slug, "agentic-chat"), "green", atMs)];
+  }
+
+  it("a degraded-only column is NOT gone → no page, no outage opened", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // RED (pre-redesign): a degraded rung failed `status !== "green"` → chipColor
+    // red → cellGone → this column PAGED (posted 1). GREEN (unified ladder): a
+    // degraded rung is AMBER → classifyCell "unknown" → NOT gone → HOLD, no page.
+    f.setStatusRows(degradedOnlyRows("alpha", T0));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(0); // amber is degraded, NOT a "completely gone" outage
+    expect(JSON.parse(f.getState().hash ?? "{}").alpha).toBeUndefined();
+  });
+
+  it("a wholly-stale column is NOT gone → no page (inconclusive, held)", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // A stale-green D3 (age well past the staleness window) folds to gray/amber
+    // (isStaleCell) → "unknown", never red-D0. Staleness is the producer-liveness
+    // concern, never a per-column gone outage.
+    f.setStatusRows(staleGreenRows("alpha", T0 - 100 * HOUR));
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(0);
+    expect(JSON.parse(f.getState().hash ?? "{}").alpha).toBeUndefined();
+  });
+
+  it("distinguishes degraded (NOT gone) from genuinely-gone in the same tick → only the gone column pages", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // alpha is genuinely gone (fresh-red ladder); beta is only degraded (amber).
+    // The monitor must page alpha and MUST NOT page beta — degraded ≠ gone.
+    f.setStatusRows([
+      ...goneRows("alpha", T0),
+      ...degradedOnlyRows("beta", T0),
+    ]);
     const m = createD0GoneMonitor(f.deps);
     await m.tick();
     expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`"); // genuinely gone → detected
+    expect(f.posted[0]).not.toContain("`beta`"); // degraded/amber → NOT gone
     const map = JSON.parse(f.getState().hash!);
-    // GREEN: onset comes from the winner rung's timestamp (T0-90m), NOT nowMs.
-    expect(map.alpha.sinceAt).toBe(at);
-    expect(map.alpha.sinceAt).not.toBe(new Date(T0).toISOString());
+    expect(map.alpha).toBeDefined();
+    expect(map.beta).toBeUndefined(); // no outage opened for the degraded column
+  });
+
+  it("a GENUINE liveness-down (fresh-red health) is still detected as gone (§F)", async () => {
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // A fresh-red liveness (D1 health) signal gates the whole ladder → chipColor
+    // red, achievedDepth 0 → cellGone. This is the real "backend gone" class the
+    // unified ladder must STILL page (distinct from a degraded/amber cell). Proves
+    // the amber change did not hide the genuine-outage class.
+    f.setStatusRows([row("alpha", keyFor("health", "alpha"), "red", T0)]);
+    const m = createD0GoneMonitor(f.deps);
+    await m.tick();
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("`alpha`");
+    expect(JSON.parse(f.getState().hash!).alpha).toBeDefined();
   });
 });
 
@@ -1223,7 +1289,7 @@ describe("D0-gone monitor — A4 pagination bounded", () => {
 });
 
 describe("D0-gone monitor — C3 pagination short/inconsistent read is logged, not silently truncated", () => {
-  it("finite-but-too-low totalPages while returning a FULL page → logs a loud errorId", async () => {
+  it("authoritative totalItems reports MORE rows than returned → logs a loud errorId", async () => {
     const errs: Array<{ msg: string; meta: unknown }> = [];
     const logger = {
       info() {},
@@ -1236,13 +1302,11 @@ describe("D0-gone monitor — C3 pagination short/inconsistent read is logged, n
     const f = makeFakes();
     f.setSummary(f.liveProducer());
     const perPage = 500;
-    // PB reports `totalPages: 1` but returns a FULL page (== perPage). A4 only
-    // guarded the NaN/loop-forever direction; here `page >= totalPages` (1 >= 1)
-    // trips the break IMMEDIATELY after page 1 — so the read STOPS despite the
-    // full page strongly implying more rows exist. The OLD code truncated
-    // SILENTLY (a truncated status set can flip a gone verdict — missing rows for
-    // a slug look like no-data). The fix must detect the inconsistency (finite
-    // totalPages break WITH a full final page) and LOG a greppable errorId.
+    // With `skipTotal:false`, PB's `totalItems` is AUTHORITATIVE. Here it reports
+    // MORE rows (600) than were actually returned (500) — a genuine truncation.
+    // A truncated status set can flip a gone verdict (missing rows for a slug look
+    // like no-data), so the monitor must detect the inconsistency (accumulated
+    // rows < authoritative totalItems) and LOG a greppable errorId.
     const deps = {
       ...f.deps,
       logger,
@@ -1254,8 +1318,8 @@ describe("D0-gone monitor — C3 pagination short/inconsistent read is logged, n
           return {
             page: 1,
             perPage,
-            totalPages: 1, // finite but inconsistent with a full page
-            totalItems: perPage,
+            totalPages: 1, // claims done…
+            totalItems: perPage + 100, // …but authoritatively reports MORE rows
             items: full as unknown as T[],
           };
         },
@@ -1268,6 +1332,208 @@ describe("D0-gone monitor — C3 pagination short/inconsistent read is logged, n
     const short = errs.find((e) => e.msg.includes("status-short-read"));
     expect(short).toBeDefined();
     expect((short!.meta as { errorId?: string }).errorId).toBeTruthy();
+  });
+
+  it("exact-multiple-of-500 full final page → NO false short-read alert", async () => {
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    const perPage = 500;
+    // The collection holds exactly 500 rows: `totalItems=500`, `totalPages=1`,
+    // and the single page is completely full. This is the NORMAL exact-multiple
+    // terminal state, NOT a truncated read. The old heuristic fired a spurious
+    // `d0-monitor.status-short-read` ERROR here — alert noise that trains
+    // operators to ignore a signal meant to indicate real truncation. It must
+    // now trust the authoritative total and stay quiet.
+    const deps = {
+      ...f.deps,
+      logger,
+      pb: {
+        async list<T>() {
+          const full = Array.from({ length: perPage }, (_, i) =>
+            row("alpha", `e2e:pad-${i}`, "green", T0),
+          );
+          return {
+            page: 1,
+            perPage,
+            totalPages: 1,
+            totalItems: perPage, // authoritative: exactly 500 rows exist
+            items: full as unknown as T[],
+          };
+        },
+      },
+    };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    const short = errs.find((e) => e.msg.includes("status-short-read"));
+    expect(short).toBeUndefined();
+  });
+
+  it("empty FIRST page while authoritative totalItems > 0 → fails SAFE (short-read errorId, read treated inconclusive)", async () => {
+    // A transient/inconsistent read: page 1 comes back EMPTY while PB's
+    // authoritative `totalItems` still reports rows exist. The `items.length
+    // === 0` break must NOT short-circuit the authoritative short-read guard —
+    // `reportedTotal` has to be captured from the page BEFORE the break. If it
+    // were captured after (the bug), `reportedTotal` stays null, the guard is
+    // skipped, and the empty rows are silently folded into a "nothing gone"
+    // verdict: a real mass outage coinciding with the inconsistent read is
+    // MISSED (under-fires toward SILENCE). The monitor must instead treat the
+    // read as INCONCLUSIVE (log the short-read errorId + throw → HOLD).
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const warns: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn(msg: string, meta: unknown) {
+        warns.push({ msg, meta });
+      },
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    const deps = {
+      ...f.deps,
+      logger,
+      pb: {
+        async list<T>() {
+          return {
+            page: 1,
+            perPage: 500,
+            totalPages: 1,
+            totalItems: 5, // authoritative: rows exist…
+            items: [] as unknown as T[], // …but page 1 came back empty
+          };
+        },
+      },
+    };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    // GREEN: the authoritative short-read guard FIRES (errorId logged) despite
+    // the empty page, and the read is treated as inconclusive (read-failed) —
+    // not silently folded into a scan.
+    const short = errs.find(
+      (e) =>
+        (e.meta as { errorId?: string }).errorId === "d0-monitor-short-read",
+    );
+    expect(short).toBeDefined();
+    const readFailed = warns.find((w) => w.msg.includes("read-failed"));
+    expect(readFailed).toBeDefined();
+    // No false alert fired from the inconclusive read.
+    expect(f.posted).toHaveLength(0);
+  });
+
+  it("non-final SHORT page logs the short-read errorId exactly ONCE (no in-loop + post-loop double-log)", async () => {
+    // A genuine truncation across pages: page 1 full (500), page 2 short (200)
+    // while `totalPages` says 3 more follow. The OLD code logged
+    // `d0-monitor-short-read` in-loop (before the break) AND again in the
+    // post-loop authoritative guard (rows 700 < totalItems 1500) — the SAME
+    // event, same errorId, TWICE. De-duped: the in-loop guard now throws
+    // immediately, so exactly one short-read errorId is emitted.
+    const shortReads: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        if (
+          (meta as { errorId?: string }).errorId === "d0-monitor-short-read"
+        ) {
+          shortReads.push({ msg, meta });
+        }
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    const perPage = 500;
+    const deps = {
+      ...f.deps,
+      logger,
+      pb: {
+        async list<T>(_c: string, opts?: { page?: number }) {
+          const page = opts?.page ?? 1;
+          const count = page === 1 ? perPage : 200; // page 2 is SHORT
+          const items = Array.from({ length: count }, (_, i) =>
+            row("alpha", `e2e:p${page}-pad-${i}`, "green", T0),
+          );
+          return {
+            page,
+            perPage,
+            totalPages: 3, // claims 3 pages → page 2 is NON-final and short
+            totalItems: 1500,
+            items: items as unknown as T[],
+          };
+        },
+      },
+    };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    expect(shortReads).toHaveLength(1);
+  });
+});
+
+describe("D0-gone monitor — §E one malformed featureId degrades one cell, not the whole scan", () => {
+  it("a wired cell whose featureId makes keyFor throw does NOT suppress alerting for a genuinely-gone sibling column", async () => {
+    // §E: `buildCellModel` throws in `keyFor` for a featureId containing `:`/`/`.
+    // The scan maps `buildCellModel` over every wired cell with NO per-cell
+    // guard, so one throwing cell aborts the WHOLE scan → the tick's top-level
+    // catch swallows it → the entire outage monitor is suppressed (a genuinely
+    // gone sibling column is never paged). With the per-cell catch the bad cell
+    // degrades to gray (classifies "unknown" → its column is neither gone nor
+    // healthy — fail safe), and the gone sibling still pages.
+    const errs: Array<{ msg: string; meta: unknown }> = [];
+    const logger = {
+      info() {},
+      warn() {},
+      error(msg: string, meta: unknown) {
+        errs.push({ msg, meta });
+      },
+      debug() {},
+    };
+    const f = makeFakes();
+    f.setSummary(f.liveProducer());
+    // alpha is genuinely gone (red-D0); beta wires a MALFORMED feature id.
+    f.setStatusRows(goneRows("alpha", T0));
+    const badRegistry: RegistryDoc = {
+      feature_registry: {
+        features: [{ id: "agentic-chat" }, { id: "bad/feature" }],
+      },
+      integrations: [
+        {
+          slug: "alpha",
+          features: ["agentic-chat"],
+          demos: [{ id: "agentic-chat", route: "/demos/agentic-chat" }],
+        },
+        {
+          slug: "beta",
+          features: ["bad/feature"], // `/` → keyFor throws in buildCellModel
+          demos: [{ id: "bad/feature", route: "/demos/bad" }],
+        },
+      ],
+    };
+    const deps = { ...f.deps, logger, registry: badRegistry };
+    const m = createD0GoneMonitor(deps as never);
+    await m.tick();
+    // GREEN: alpha's real outage still pages; beta (bad cell) neither pages nor
+    // crashes the scan; and the malformed cell is logged loudly.
+    expect(f.posted).toHaveLength(1);
+    expect(f.posted[0]).toContain("alpha");
+    expect(f.posted[0]).not.toContain("beta");
+    const buildErr = errs.find(
+      (e) =>
+        (e.meta as { errorId?: string }).errorId ===
+        "d0-monitor-cell-build-failed",
+    );
+    expect(buildErr).toBeDefined();
   });
 });
 

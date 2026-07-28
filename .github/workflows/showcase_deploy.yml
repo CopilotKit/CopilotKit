@@ -1,10 +1,16 @@
 name: "Showcase: Verify Deploy"
 
-# Triggered after "Showcase: Build & Push" completes. Verifies that the
-# STAGING redeploy from the build workflow actually produced healthy
-# services. Push-to-main redeploys staging only. This workflow is the
-# staging gate; verify-deploy.ts is the parameterized probe driven off
-# showcase/scripts/railway-envs.ts (the SSOT).
+# Triggered after "Showcase: Build & Push" reaches a terminal conclusion.
+# Verifies that the STAGING redeploy from the build workflow actually
+# produced healthy services. Push-to-main redeploys staging only. This
+# workflow is the staging gate; verify-deploy.ts is the parameterized probe
+# driven off showcase/scripts/railway-envs.ts (the SSOT).
+#
+# Deliberately NOT gated on the build concluding `success`: a build with
+# some slots cancelled or failed still redeploys the slots that DID build,
+# and that partial deploy needs verifying just as much as a clean one.
+# What to verify is decided from the redeploy-summary artifact, not from
+# the build's rollup conclusion. See the `resolve-matrix` job's `if:`.
 
 on:
   workflow_run:
@@ -20,7 +26,22 @@ on:
         type: string
 
 concurrency:
-  group: showcase-verify-deploy
+  # Keyed PER TRIGGERING COMMIT, not globally. A global group meant any
+  # later-finishing build run preempted an earlier run's verification even
+  # though they verify DIFFERENT commits. Observed 2026-07-25: build #6168
+  # (7282ecddf) succeeded, its verify run 30163309977 started at 15:17:13 —
+  # and was cancelled 9 seconds later at 15:17:22 by run 30163312882, which
+  # was triggered by a DIFFERENT (partially-cancelled) build and then
+  # skipped every job anyway. The only legitimate verification of the day
+  # was destroyed by a run that did nothing.
+  #
+  # `github.event.workflow_run.head_sha` is the commit the upstream build
+  # built; it is null for `workflow_dispatch`, where `github.sha` (the ref
+  # the dispatch was made against) is the right key. Two dispatches against
+  # the same sha still supersede each other, which is intended — that is a
+  # genuine re-verification of the same commit, and it is strictly narrower
+  # than the previous global behaviour.
+  group: showcase-verify-deploy-${{ github.event.workflow_run.head_sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -33,9 +54,42 @@ jobs:
     permissions:
       contents: read
       actions: read
+    # Previously `conclusion == 'success'`. That gate silently threw away
+    # verification for every build that redeployed a PARTIAL fleet: a build
+    # with some slots cancelled rolls up to conclusion `cancelled`, and one
+    # with some slots failed rolls up to `failure`, yet BOTH still run
+    # `redeploy-staging` (it gates on the artifact-derived `any_success`, not
+    # on the matrix rollup) and BOTH really do push new images to staging.
+    # Observed on build run 30162773601: 23 services redeployed to staging,
+    # run concluded `cancelled`, this workflow never started, zero
+    # verification. An unverified real deploy is strictly worse than a
+    # verified partial one.
+    #
+    # So the trigger is now "the build reached a terminal state", and the
+    # question of WHAT to verify is answered downstream by evidence rather
+    # than by the rollup:
+    #   - `check-redeploy-summary` asks whether the build uploaded a
+    #     `redeploy-summary` artifact at all. No artifact → nothing was
+    #     redeployed → `has_services=false` → verify + notify-harness are
+    #     skipped. So a build that died before redeploying still costs one
+    #     no-op run, exactly as it did before.
+    #   - `redeploy-gate` then narrows to the per-service SUCCESS set. A slot
+    #     that was cancelled or failed never entered the redeploy CSV (the
+    #     `matrix ∩ build-success` intersection in showcase_build.yml), so it
+    #     cannot be probed against a stale `:latest` and reported healthy.
+    # The incompleteness itself is not this workflow's job to report — the
+    # build workflow reds its own run and alerts (`notify-cancelled-builds`).
+    # This workflow's job is to verify what actually shipped.
+    #
+    # Explicit allowlist rather than `!= 'skipped'`: `success`/`failure`/
+    # `cancelled`/`timed_out` are the terminal conclusions a build run can
+    # reach after doing real work. `skipped`, `neutral`, `stale` and
+    # `action_required` mean the build never ran, so there is nothing to
+    # verify and we do not want to burn a run.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      contains(fromJSON('["success","failure","cancelled","timed_out"]'),
+               github.event.workflow_run.conclusion)
     outputs:
       services_csv: ${{ steps.matrix.outputs.services_csv }}
       has_services: ${{ steps.matrix.outputs.has_services }}
@@ -45,7 +99,7 @@ jobs:
       ok_services: ${{ steps.redeploy-gate.outputs.ok_services }}
       failed_services: ${{ steps.redeploy-gate.outputs.failed_services }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -60,8 +114,13 @@ jobs:
         # — e.g. a push touching `showcase/**` that fires the build's
         # `paths:` filter, but `detect-changes` finds no buildable service
         # changed, so `redeploy-staging` is skipped and never uploads.
-        # The build still concludes `success`, so this workflow fires on
-        # `workflow_run` and `resolve-matrix` runs. Without this pre-check
+        # The build still reaches a terminal conclusion, so this workflow
+        # fires on `workflow_run` and `resolve-matrix` runs. Now that the
+        # job-level conclusion gate above accepts `failure`/`cancelled`/
+        # `timed_out` as well as `success`, this pre-check is ALSO the
+        # primary "did the build actually ship anything?" gate: a build that
+        # died before redeploying uploads no summary, so the gate no-ops and
+        # verify is skipped. Without this pre-check
         # the unguarded download would fail the job and (via
         # `enforce-redeploy-gate` tripping on `result == 'failure'`) flip
         # the whole deploy workflow RED — a false-red on a routine
@@ -230,7 +289,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

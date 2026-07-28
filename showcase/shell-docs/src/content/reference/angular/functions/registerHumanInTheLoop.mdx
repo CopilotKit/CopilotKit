@@ -5,11 +5,11 @@ description: "Angular function for registering a human-in-the-loop tool with Cop
 
 ## Overview
 
-`registerHumanInTheLoop` registers a tool that pauses the agent and waits for human input. When the agent calls the tool, CopilotKit renders the `component` you provide and suspends the agent run. The component collects a decision from the user (for example a confirm or reject choice) and calls `respond(result)`. That call resolves the tool, surfaces the result back to the agent, and lets the run continue.
+`registerHumanInTheLoop` registers a tool that pauses the agent and waits for human input. When the agent calls the tool, CopilotKit renders the `component` you provide and suspends the agent run. The component collects a decision from the user (for example a confirm or reject choice) and calls `respond(result)`. That call resolves the tool with the serialized result envelope described below and lets the run continue.
 
-You call `registerHumanInTheLoop` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately, and CopilotKit removes it automatically when the owning component or service is destroyed.
+You call `registerHumanInTheLoop` inside an Angular injection context (a component or service constructor, or a field initializer). The tool registers immediately. When the owning injector is destroyed, CopilotKit removes tool and renderer registrations with the same name and optional agent id.
 
-This is the Angular equivalent of React's `useHumanInTheLoop()`. Unlike [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), you do not write a `handler`. The handler is supplied internally and simply awaits the user's `respond` call, so the rendered component drives when the agent resumes.
+Unlike [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), you do not write a `handler`. CopilotKit supplies one that waits for the user's `respond` call, so the rendered component controls when the agent resumes.
 
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
@@ -45,9 +45,10 @@ function registerHumanInTheLoop<Args extends Record<string, unknown>>(
 
   <PropertyReference name="parameters" type="StandardSchemaV1<unknown, Args>" required>
     A [Standard Schema](https://standardschema.dev) (for example a Zod object)
-    that defines the tool's input parameters. The schema drives both validation
-    and the type inference of the `args` exposed to your component. For a tool
-    that takes no parameters, pass an empty object schema such as
+    that defines the advertised tool input schema and drives type inference for
+    the `args` exposed to your component. Runtime arguments are JSON-parsed and
+    cast to `Args`; this helper does not validate them against the schema. For a
+    tool that takes no parameters, pass an empty object schema such as
     `z.object({})`.
   </PropertyReference>
 
@@ -65,7 +66,7 @@ function registerHumanInTheLoop<Args extends Record<string, unknown>>(
 
 ## Return Value
 
-`registerHumanInTheLoop` returns `void`. It registers the tool as a side effect and wires up automatic cleanup.
+`registerHumanInTheLoop` returns `void`. It registers the tool as a side effect and wires up name-and-agent-id cleanup for the owning injector.
 
 ## The renderer component
 
@@ -103,18 +104,19 @@ type HumanInTheLoopToolCall<Args extends Record<string, unknown>> =
       name?: string;
       args: Args; // fully parsed
       status: "complete";
-      result: string; // the value you passed to respond
+      result: string; // stored tool-message content
       respond: (result: unknown) => void;
     };
 ```
 
-The `respond(result)` callback is how your component resumes the agent. Calling it resolves the underlying tool handler with the value you pass, and that value becomes the tool result the agent sees. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). After you call `respond`, the tool call resolves and `status` becomes `complete` with `result` set to the value you sent.
+The `respond(result)` callback is how your component resumes the agent. The current implementation resolves the internal handler with `{ toolCallId, toolName, result }`; core serializes that object to JSON for the tool result. While the agent waits, `status` is `executing` (or `in-progress` while the arguments are still streaming). Once the tool message arrives, `status` becomes `complete` and `result` contains the stored tool-message string.
 
 ## Usage
 
 ### A confirmation dialog
 
-This component renders a confirm and a reject button. Each calls `respond` with a different value, which resumes the agent with that decision.
+This component renders a confirm and a reject button. Each records a different
+decision and resumes the agent.
 
 ```ts title="src/app/confirm-dialog.component.ts"
 import { Component, computed, input } from "@angular/core";
@@ -128,7 +130,7 @@ type ConfirmArgs = { message: string };
   template: `
     @let call = toolCall();
     @if (call.status === "complete") {
-      <div class="text-sm opacity-70">You chose: {{ call.result }}</div>
+      <pre class="text-sm opacity-70">{{ call.result }}</pre>
     } @else {
       <div class="rounded border p-4">
         <p>{{ message() }}</p>
@@ -173,7 +175,11 @@ export class ChatComponent {
 }
 ```
 
-When the agent calls `confirmAction`, the dialog appears in the chat and the run pauses. As soon as the user clicks a button, `respond` resumes the agent with `"confirmed"` or `"rejected"`, and the tool call moves to `status: "complete"`.
+When the agent calls `confirmAction`, the dialog appears in the chat and the run pauses. A button click sends `"confirmed"` or `"rejected"` in the serialized result envelope described above. The completed tool call exposes that stored string.
+
+Cleanup uses the same shared name-and-agent-id removal path as the other tool
+registration helpers. Frontend tools, human-in-the-loop tools, and tool-call
+renderers that share that key are removed together.
 
 ## Related
 

@@ -1,4 +1,4 @@
-import type { ContextEntry } from "@copilotkit/channels";
+import type { ContextEntry } from "@copilotkit/channels-core";
 
 /** Tell the model it's on WhatsApp and which formatting actually renders. */
 export const whatsAppFormattingContext: ContextEntry = {

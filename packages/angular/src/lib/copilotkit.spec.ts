@@ -17,7 +17,10 @@ import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   RENDER_A2UI_TOOL_NAME,
 } from "./components/a2ui/a2ui-tool-types";
-import { A2UI_SCHEMA_CONTEXT_DESCRIPTION } from "@copilotkit/a2ui-renderer/web-components";
+import {
+  A2UI_SCHEMA_CONTEXT_DESCRIPTION,
+  minimalCatalog,
+} from "@copilotkit/a2ui-renderer/web-components";
 import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
@@ -115,6 +118,7 @@ describe("CopilotKit", () => {
           headers: { Authorization: "token" },
           properties: { region: "eu" },
           licenseKey,
+          defaultToolRendering: true,
           tools: [
             {
               name: "search",
@@ -138,6 +142,7 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
+    expect(copilotKit.defaultToolRenderingEnabled).toBe(true);
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
@@ -381,6 +386,67 @@ describe("CopilotKit", () => {
         value: A2UI_DEFAULT_DESIGN_GUIDELINES,
       }),
     );
+  });
+
+  it("enables built-in A2UI when the frontend provides a catalog", () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreInstance!.a2uiEnabled).toBe(false);
+    expect(copilotKit.activityMessageRenderConfigs()).toEqual([
+      expect.objectContaining({
+        activityType: "a2ui-surface",
+        component: CopilotA2UIActivityRenderer,
+      }),
+    ]);
+    expect(copilotKit.toolCallRenderConfigs()).toEqual([
+      expect.objectContaining({ name: RENDER_A2UI_TOOL_NAME }),
+      expect.objectContaining({ name: AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME }),
+    ]);
+    expect(mockAddContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "A2UI catalog capabilities: available catalog IDs and custom component definitions the client can render.",
+      }),
+    );
+  });
+
+  it("advertises a provided A2UI catalog in initial and updated runtime properties", () => {
+    const initialProperties = { region: "eu" };
+    const updatedProperties = { locale: "en" };
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          properties: initialProperties,
+          a2ui: { catalog: minimalCatalog },
+        }),
+      ],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+
+    expect(lastCoreConfig.properties).toEqual({
+      region: "eu",
+      a2uiCatalogAvailable: true,
+    });
+    expect(initialProperties).toEqual({ region: "eu" });
+
+    copilotKit.updateRuntime({ properties: updatedProperties });
+
+    expect(mockSetProperties).toHaveBeenCalledWith({
+      locale: "en",
+      a2uiCatalogAvailable: true,
+    });
+    expect(updatedProperties).toEqual({ locale: "en" });
   });
 
   it("removes tools and renderer configs", () => {

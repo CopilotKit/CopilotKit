@@ -1,0 +1,325 @@
+{
+  "version": "1.0.0",
+  "default_frontend": "react",
+  "frontends": [
+    {
+      "id": "react",
+      "name": "React",
+      "icon": "react",
+      "summary": "The complete CopilotKit docs experience.",
+      "runnable": true,
+      "feature_support_required": true
+    },
+    {
+      "id": "vue",
+      "name": "Vue",
+      "icon": "vue",
+      "summary": "Vue 3 provider, composables, and chat primitives.",
+      "runnable": false,
+      "feature_support_required": false
+    },
+    {
+      "id": "react-native",
+      "name": "React Native",
+      "icon": "react-native",
+      "summary": "Mobile bindings for React Native and Expo apps.",
+      "runnable": false,
+      "feature_support_required": false
+    },
+    {
+      "id": "angular",
+      "name": "Angular",
+      "icon": "angular",
+      "summary": "Angular components, directives, and services.",
+      "runnable": true,
+      "feature_support_required": true
+    },
+    {
+      "id": "slack",
+      "name": "Slack",
+      "icon": "slack",
+      "summary": "Slack bot quickstart with streaming agent replies.",
+      "runnable": false,
+      "feature_support_required": false
+    },
+    {
+      "id": "teams",
+      "name": "Teams",
+      "icon": "teams",
+      "summary": "Microsoft Teams bot quickstart with the M365 Agents Playground.",
+      "runnable": false,
+      "feature_support_required": false
+    }
+  ],
+  "feature_support": {
+    "cli-start": {
+      "react": { "state": "docs-only" },
+      "angular": {
+        "state": "not-applicable",
+        "reason": "Angular CLI scaffolding is outside this delivery and is not part of the Angular frontend feature count.",
+        "owner": "Angular SDK maintainers",
+        "review_date": "2027-01-21"
+      }
+    },
+    "beautiful-chat": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "agentic-chat": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt chat",
+          "description": "Add a full chat surface with the standalone CopilotChat component."
+        }
+      }
+    },
+    "prebuilt-sidebar": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt sidebar",
+          "description": "Add a responsive docked or overlay chat with CopilotSidebar."
+        }
+      }
+    },
+    "prebuilt-popup": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Prebuilt popup",
+          "description": "Add a floating, accessible chat dialog with CopilotPopup."
+        }
+      }
+    },
+    "chat-slots": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "chat-customization-css": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "headless-simple": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "headless-complete": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "gen-ui-tool-based": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Generative UI: component rendering",
+          "description": "Render typed tool results with registerFrontendTool and a standalone Angular component."
+        }
+      }
+    },
+    "hitl-in-chat": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: in chat",
+          "description": "Pause a tool call for user input with registerHumanInTheLoop and render the decision inside chat."
+        }
+      }
+    },
+    "gen-ui-interrupt": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: interrupts",
+          "description": "Handle an agent interrupt with injectInterrupt and render the response controls inside chat."
+        }
+      }
+    },
+    "interrupt-headless": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: headless interrupts",
+          "description": "Resolve an agent interrupt with injectInterrupt from application UI outside the chat."
+        }
+      }
+    },
+    "declarative-gen-ui": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "a2ui-fixed-schema": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "a2ui-recovery": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "mcp-apps": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "open-gen-ui": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "open-gen-ui-advanced": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "tool-rendering-default-catchall": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "tool-rendering-custom-catchall": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "tool-rendering": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "tool-rendering-reasoning-chain": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "reasoning-default": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "reasoning-custom": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Reasoning: custom",
+          "description": "Replace the reasoning-message slot with a standalone Angular component."
+        }
+      }
+    },
+    "gen-ui-agent": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Generative UI: agent state",
+          "description": "Read live agent state with injectAgentStore and render it in the chat transcript."
+        }
+      }
+    },
+    "frontend-tools": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "frontend-tools-async": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Frontend tools: async",
+          "description": "Register an async browser tool whose result returns to the agent."
+        }
+      }
+    },
+    "threadid-frontend-tool-roundtrip": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Thread ID: frontend tool round trip",
+          "description": "Keep an explicit thread ID across an async frontend-tool call and resumed agent run."
+        }
+      }
+    },
+    "hitl-in-app": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Human in the loop: in app",
+          "description": "Render approval UI outside chat and resolve the pending tool with the user's decision."
+        }
+      }
+    },
+    "shared-state-read-write": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "shared-state-read": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "shared-state-streaming": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "readonly-state-agent-context": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "supported",
+        "docs": {
+          "name": "Shared state: agent context",
+          "description": "Share read-only application state with the agent through connectAgentContext."
+        }
+      }
+    },
+    "subagents": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "background-agents": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "observational-memory": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "browser-use": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "auth": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "agent-config": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "voice": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "multimodal": {
+      "react": { "state": "supported" },
+      "angular": { "state": "supported" }
+    },
+    "declarative-hashbrown": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "not-supported",
+        "reason": "The stable Hashbrown Angular package does not support the complete Angular 20 through 22 policy.",
+        "owner": "Angular SDK maintainers",
+        "review_date": "2027-01-21"
+      }
+    },
+    "declarative-json-render": {
+      "react": { "state": "supported" },
+      "angular": {
+        "state": "not-applicable",
+        "reason": "JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.",
+        "owner": "Angular SDK maintainers",
+        "review_date": "2027-01-21"
+      }
+    }
+  }
+}

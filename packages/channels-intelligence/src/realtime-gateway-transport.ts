@@ -20,14 +20,22 @@
 // renderer and is a follow-up. This transport covers the agent-run render
 // stream + delivery lifecycle.
 
-import type { DeliverySource, RenderEventSink } from "./transports.js";
+import type {
+  DeliverySource,
+  RenderEventSink,
+  AgentMessage,
+} from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
+  EgressRoute,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
+import { mapDeliveryToEnvelope } from "./claim-mapping.js";
+import type { ClaimedDelivery } from "./claim-mapping.js";
+import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
 
 /** The org/project/channel scope every realtime envelope carries. */
 export interface ChannelRealtimeScope extends ChannelDeliveryScope {}
@@ -35,6 +43,31 @@ export interface ChannelRealtimeScope extends ChannelDeliveryScope {}
 const CHANNEL_ID_RE = /^channel_[A-Za-z0-9_-]+$/;
 const ORGANIZATION_ID_RE = /^org_[A-Za-z0-9_-]+$/;
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/**
+ * Coerce a wire `projectId` to a positive integer, or `undefined` when absent
+ * or unusable. The gateway `delivery.available` payload is untyped JSON, so a
+ * projectId can arrive as a number OR a numeric string (`"9"`). Both must be
+ * accepted: a strict `typeof === "number"` check would let a numeric-string
+ * projectId fall through to the transport-default scope, defeating the
+ * per-delivery scope authority (routing a render-accept under the wrong
+ * project). Non-safe-integer, non-positive, and non-numeric values return
+ * `undefined` so the caller can fall back to the transport default — including
+ * a numeric string beyond `MAX_SAFE_INTEGER`, whose `Number(...)` would be a
+ * lossy, wrong-but-plausible integer.
+ *
+ * @param value - The raw wire `projectId`.
+ * @returns A positive safe-integer projectId, or `undefined`.
+ */
+export function coerceWireProjectId(value: unknown): number | undefined {
+  const n =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d+$/.test(value)
+        ? Number(value)
+        : undefined;
+  return n !== undefined && Number.isSafeInteger(n) && n > 0 ? n : undefined;
+}
 
 /**
  * @internal Validate the product scope before a realtime connection is
@@ -80,6 +113,26 @@ export interface RealtimeGatewayTransportOptions {
   runtimeInstanceId: string;
   /** The joined Realtime Gateway session. */
   session: RealtimeGatewaySession;
+  /**
+   * Intelligence app-api HTTP base URL (e.g. `https://…/`). File bytes and
+   * thread history are HTTP-only — the gateway relays the render-event stream
+   * but never bytes/history — so the realtime path reaches these app-api REST
+   * endpoints directly. Provide it (with {@link apiKey}) to enable
+   * fetchFile/getHistory/uploadFile parity with the HTTP transport (OSS-476);
+   * omit it and those capabilities stay absent (each turn starts fresh, inbound
+   * files aren't fetched, outbound file posts are unavailable) exactly as before.
+   */
+  appApiBaseUrl?: string;
+  /** Project runtime API key (`cpk-…`) for the app-api file/history calls.
+   * Required alongside {@link appApiBaseUrl} to enable file/history. */
+  apiKey?: string;
+  /**
+   * Injectable binary-capable `fetch` forwarded to the file/history client's
+   * download/history/upload calls (needs `.body`/`.arrayBuffer()`/`.headers`/
+   * `.json()`). Defaults to the global `fetch`. Lets a consumer (or test) drive
+   * the binary paths through their own fetch, matching the HTTP transport.
+   */
+  fileFetch?: typeof fetch;
   /** ISO timestamp source; injectable for deterministic tests. */
   now?: () => string;
   /**
@@ -145,6 +198,28 @@ interface DeliveryState {
 }
 
 /**
+ * Thrown internally when a delivery has a valid lease + turn identity but its
+ * claim cannot be mapped to an ingress envelope (unmodeled reply-target adapter
+ * / unknown input kind). Carries the fencing fields so the delivery can be
+ * failed NON-retryably (dead-lettered) instead of dropped into an indefinite
+ * re-lease loop — the exact poison-payload failure mode the HTTP transport
+ * guards against with a non-retryable nack.
+ */
+class PoisonDeliveryError extends Error {
+  constructor(
+    readonly deliveryId: string,
+    readonly leaseToken: string,
+    readonly turnId: string,
+    readonly scope: ChannelDeliveryScope,
+    reason: string,
+    options?: { cause?: unknown },
+  ) {
+    super(reason, options);
+    this.name = "PoisonDeliveryError";
+  }
+}
+
+/**
  * Realtime Gateway transport implementing both the inbound {@link DeliverySource}
  * and the streaming {@link RenderEventSink}. `ack` maps to the completion
  * INTENT (`complete_requested`) and `nack` to `fail` — the SDK is never the
@@ -161,6 +236,36 @@ export class RealtimeGatewayTransport
   private readonly deliveryTimeoutMs: number;
   private readonly deliveries = new Map<string, DeliveryState>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
+  /** Tail of the serial delivery-processing chain — see {@link start}. */
+  private processing: Promise<void> = Promise.resolve();
+  /** Set by {@link stop}; gates {@link handleDeliveryAvailable} so no new
+   * delivery is processed after teardown (the session exposes no `off`, so the
+   * DELIVERY_AVAILABLE listener cannot be detached). */
+  private stopped = false;
+
+  /**
+   * File/history capabilities (OSS-476). Assigned only when the transport is
+   * configured with an app-api HTTP client (`appApiBaseUrl` + `apiKey`); left
+   * `undefined` otherwise so the adapter's optional-chaining degrades exactly
+   * as before (no history, no inbound file bytes, no outbound file post). These
+   * are HTTP-only — they never touch the gateway session.
+   */
+  readonly fetchFile?: (
+    handle: string,
+  ) => Promise<{ bytes: Uint8Array; mimeType?: string }>;
+  readonly getHistory?: (
+    replyTarget: EgressRoute,
+    limit: number,
+  ) => Promise<AgentMessage[]>;
+  readonly uploadFile?: (
+    deliveryId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ) => Promise<{ handle: string }>;
 
   constructor(config: RealtimeGatewayTransportOptions) {
     assertValidChannelRealtimeScope(config.scope);
@@ -171,6 +276,21 @@ export class RealtimeGatewayTransport
     this.log = config.log;
     this.deliveryTimeoutMs =
       config.deliveryTimeoutMs ?? DEFAULT_DELIVERY_TIMEOUT_MS;
+    // File/history parity is HTTP-only; wire the shared client (identical to
+    // the HTTP transport's) when app-api coordinates are supplied.
+    if (config.appApiBaseUrl && config.apiKey) {
+      const fileHistory = new IntelligenceFileHistoryClient({
+        baseUrl: config.appApiBaseUrl,
+        apiKey: config.apiKey,
+        log: config.log,
+        ...(config.fileFetch ? { fetch: config.fileFetch } : {}),
+      });
+      this.fetchFile = (handle) => fileHistory.fetchFile(handle);
+      this.getHistory = (replyTarget, limit) =>
+        fileHistory.getHistory(replyTarget, limit);
+      this.uploadFile = (deliveryId, args) =>
+        fileHistory.uploadFile(deliveryId, args);
+    }
   }
 
   async start(
@@ -178,22 +298,75 @@ export class RealtimeGatewayTransport
   ): Promise<void> {
     this.onDelivery = onDelivery;
     this.session.on(DELIVERY_AVAILABLE, (payload) => {
-      // Error-boundary the dispatch: without a `.catch` an onDelivery rejection
-      // (or a parse/setup throw before the delivery is registered) becomes an
-      // unhandled promise rejection and the delivery is silently dropped. The
-      // per-turn failure/timeout path inside handleDeliveryAvailable nacks;
-      // this outer catch is the safety net for anything it can't (parse/setup
-      // errors that happen before a delivery id exists to nack).
-      this.handleDeliveryAvailable(payload).catch((err: unknown) => {
-        this.log?.("realtime gateway delivery dispatch failed", {
-          error: err instanceof Error ? err.message : String(err),
+      // Process deliveries SERIALLY (one at a time), matching the HTTP
+      // transport's single-delivery runLoop. Concurrent handling would let an
+      // at-least-once redelivery of an in-flight turnId reset the shared
+      // per-turn `seq` counter mid-run — corrupting egress operation ids /
+      // render idempotency keys (`${turnId}:${slot}:${seq}`) — and run two turns
+      // of the same conversation against one agent/session simultaneously.
+      //
+      // Each link is error-boundaried so one failed delivery never poisons the
+      // chain (the `.catch` keeps `this.processing` resolved for the next
+      // delivery): without it, an onDelivery rejection or a pre-registration
+      // parse/setup throw would surface as an unhandled rejection and stall the
+      // queue. The per-turn failure/timeout and poison paths inside
+      // handleDeliveryAvailable nack; this outer catch is the last-resort net.
+      this.processing = this.processing
+        .then(() => this.handleDeliveryAvailable(payload))
+        .catch((err: unknown) => {
+          this.log?.("realtime gateway delivery dispatch failed", {
+            error: err instanceof Error ? err.message : String(err),
+          });
         });
-      });
     });
   }
 
   private async handleDeliveryAvailable(payload: unknown): Promise<void> {
-    const claimed = this.toIngressEnvelope(payload);
+    // Stop consuming once torn down. The DELIVERY_AVAILABLE listener can't be
+    // detached (the session has no `off`), so this guard is how stop() halts
+    // intake — otherwise a delivery arriving after stop() (the caller-owned
+    // session in `startChannelsWithGatewaySession` stays connected) would spin
+    // up a fresh turn on a dead adapter.
+    if (this.stopped) return;
+    let claimed:
+      | {
+          env: ChannelIngressEnvelope;
+          scope: ChannelDeliveryScope;
+          leaseToken: string;
+        }
+      | undefined;
+    try {
+      claimed = this.toIngressEnvelope(payload);
+    } catch (err) {
+      if (err instanceof PoisonDeliveryError) {
+        // Unmappable delivery with a valid lease: register minimal state and
+        // fail it NON-retryably so app-api dead-letters it instead of re-leasing
+        // the identical poison payload forever (parity with the HTTP path).
+        this.deliveries.set(err.deliveryId, {
+          turnId: err.turnId,
+          leaseToken: err.leaseToken,
+          scope: err.scope,
+          accepted: new Map(),
+        });
+        this.log?.(
+          "realtime gateway delivery unmappable; failing non-retryable (dead-letter)",
+          { deliveryId: err.deliveryId, error: err.message },
+        );
+        await this.nack(err.deliveryId, err.message, false).catch(
+          (nackErr: unknown) =>
+            this.log?.(
+              "realtime gateway nack after unmappable delivery failed",
+              {
+                deliveryId: err.deliveryId,
+                error:
+                  nackErr instanceof Error ? nackErr.message : String(nackErr),
+              },
+            ),
+        );
+        return;
+      }
+      throw err;
+    }
     if (!claimed) return;
     const { env, scope, leaseToken } = claimed;
     this.deliveries.set(env.deliveryId, {
@@ -235,11 +408,14 @@ export class RealtimeGatewayTransport
    * stashes for later complete/fail intents. Returns `undefined` (delivery
    * dropped, logged via {@link RealtimeGatewayTransportOptions.log}) when the turn
    * identity is missing/unmodeled or the delivery carries no `leaseToken` (a
-   * fenced intent can't be built without it). V1 assumes every leased delivery
-   * is a text turn and does not discriminate on `input.kind` — non-text kinds
-   * (command/interaction/reaction) are not yet modeled on the realtime path
-   * and will be mis-handled (coerced into a text turn) until they are
-   * (tracked for the event-parity follow-up).
+   * fenced intent can't be built without it). The envelope itself is built by
+   * the shared {@link mapDeliveryToEnvelope} — the SAME mapper the HTTP
+   * transport uses — so the realtime path has full parity (OSS-476): it
+   * discriminates on `input.kind` (turn/command/reaction/interaction), derives
+   * a thread-stable `conversationKey`, and threads the provider `actor` through
+   * as `env.user`. A malformed/unmodeled delivery (bad reply-target adapter,
+   * unknown input kind) throws in the mapper and is dropped+logged here rather
+   * than crashing the delivery handler (fail-closed).
    */
   private toIngressEnvelope(payload: unknown):
     | {
@@ -295,32 +471,53 @@ export class RealtimeGatewayTransport
         : this.scope.organizationId;
     const channelId =
       channel?.id !== undefined ? String(channel.id) : this.scope.channelId;
+    // Distinguish an ABSENT projectId (fall back to the transport scope quietly,
+    // the normal single-project case) from a PRESENT-but-unusable one (malformed
+    // or out-of-safe-range on the wire), which is a real routing-corruption /
+    // version-skew signal and must be logged — mirroring the loud drops above —
+    // rather than silently masked to the transport default.
+    const coercedProjectId = coerceWireProjectId(delivery.projectId);
+    if (coercedProjectId === undefined && delivery.projectId !== undefined) {
+      this.log?.(
+        "realtime gateway delivery: unusable projectId on the wire — falling back to the transport scope projectId",
+        { deliveryId: delivery.id, projectId: delivery.projectId },
+      );
+    }
     const scope: ChannelDeliveryScope = {
       ...(organizationId !== undefined ? { organizationId } : {}),
-      projectId:
-        typeof delivery.projectId === "number"
-          ? delivery.projectId
-          : this.scope.projectId,
+      projectId: coercedProjectId ?? this.scope.projectId,
       ...(channelId !== undefined ? { channelId } : {}),
       channelName: String(channel?.name ?? this.scope.channelName),
     };
-    return {
-      scope,
-      leaseToken,
-      env: {
-        kind: "turn",
-        deliveryId: String(delivery.id),
-        eventId: String(turn.eventId),
-        turnId: String(turn.id),
-        // This product-level field names the Channel; bot core attaches the
-        // adapter directly to the framework Channel named by `createChannel({ name })`.
-        channelName: scope.channelName,
-        platform: String(delivery.adapter ?? "slack"),
-        conversationKey: String(turn.id),
-        route: turn.replyTarget,
-        text: turn.input?.text ?? "",
-      },
-    };
+    // Build the ingress envelope via the shared claim mapper (parity with the
+    // HTTP transport). The scope's channel name/adapter fallbacks are folded in
+    // so the mapper sees a fully-resolved delivery; the mapper throws on an
+    // unmodeled reply-target adapter or input kind, so drop+log on failure.
+    try {
+      const claimed: ClaimedDelivery = {
+        id: String(delivery.id),
+        organizationId: organizationId ?? "",
+        projectId: scope.projectId,
+        channel: { id: channelId ?? "", name: scope.channelName },
+        adapter: String(delivery.adapter ?? "slack"),
+        leaseToken,
+        turn: delivery.turn as ClaimedDelivery["turn"],
+      };
+      return { scope, leaseToken, env: mapDeliveryToEnvelope(claimed) };
+    } catch (err) {
+      // A valid lease + turn identity but an unmappable claim (unmodeled
+      // reply-target adapter / unknown input kind) is a POISON payload: dropping
+      // it (return undefined) would leak the lease and re-lease the identical
+      // payload forever. Surface it so the caller fails it non-retryably.
+      throw new PoisonDeliveryError(
+        String(delivery.id),
+        leaseToken,
+        String(turn.id),
+        scope,
+        `could not map claim to ingress envelope (unmodeled reply-target adapter or input kind?): ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
+      );
+    }
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {
@@ -394,14 +591,31 @@ export class RealtimeGatewayTransport
   async ack(deliveryId: string): Promise<void> {
     const state = this.deliveries.get(deliveryId);
     if (!state) return;
+    // Claim the terminal signal BEFORE the wire call, mirroring the HTTP
+    // transport's delete-before-POST. A turn that times out (handleDeliveryAvailable
+    // nacks) while its dispatch keeps running in the background will call ack()
+    // here; deleting first guarantees whichever of ack/nack runs first wins and
+    // the loser no-ops on missing state — exactly one of complete_requested XOR
+    // fail reaches app-api for a given delivery.
     const acceptedThrough = Array.from(state.accepted.entries()).map(
       ([slot, seq]) => ({ turnId: state.turnId, slot, seq }),
     );
+    this.deliveries.delete(deliveryId);
     if (acceptedThrough.length === 0) {
       // Nothing was accepted (e.g. an empty turn). Without an accepted frame
       // there is nothing to complete; let the lease lapse / redeliver instead
       // of sending an invalid (empty acceptedThrough) intent.
-      this.deliveries.delete(deliveryId);
+      // NOTE (OSS-491): a legitimately empty turn (a reaction/command handler
+      // that posts nothing) has no valid completion signal under the frozen
+      // contract (acceptedThrough requires >=1), so it redelivers until
+      // max_attempts. A terminal "completed-empty" signal needs app-api
+      // coordination — tracked in OSS-491, not fixable SDK-side here. Log it so
+      // the resulting redelivery pile-up is diagnosable (every other drop path
+      // in this transport logs).
+      this.log?.(
+        "realtime gateway ack: empty turn (no accepted frames) — no completion sent; will redeliver until max_attempts (OSS-491)",
+        { deliveryId },
+      );
       return;
     }
     await this.session.push(COMPLETE_REQUESTED, {
@@ -419,10 +633,23 @@ export class RealtimeGatewayTransport
         requestedAt: this.now(),
       },
     });
-    this.deliveries.delete(deliveryId);
   }
 
-  async nack(deliveryId: string, reason: string): Promise<void> {
+  /**
+   * Send a `fail` intent for a delivery. `retryable` (default `true`) controls
+   * whether app-api re-leases: a transient turn failure is retryable; an
+   * unmappable/poison delivery is NOT (`retryable: false`) so app-api
+   * dead-letters it instead of redelivering the identical payload forever
+   * (mirrors {@link http-transports} `HttpDeliverySource.nack`). `error.retryable`
+   * is the authoritative signal (the HTTP path drives dead-lettering off it);
+   * the realtime-only `deliveryStatus: "retry_wait"` decoration is sent only on
+   * the retryable path so it never contradicts a non-retryable fail.
+   */
+  async nack(
+    deliveryId: string,
+    reason: string,
+    retryable = true,
+  ): Promise<void> {
     const state = this.deliveries.get(deliveryId);
     if (!state) {
       // No state → no leaseToken to build a fenced fail intent, so nothing can
@@ -443,6 +670,8 @@ export class RealtimeGatewayTransport
       }),
     );
     const lastAccepted = accepted[accepted.length - 1];
+    // Claim the terminal signal BEFORE the wire call (XOR with ack) — see ack().
+    this.deliveries.delete(deliveryId);
     await this.session.push(DELIVERY_FAIL, {
       type: DELIVERY_FAIL,
       occurredAt: this.now(),
@@ -452,16 +681,28 @@ export class RealtimeGatewayTransport
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
         leaseToken: state.leaseToken,
-        deliveryStatus: "retry_wait",
+        ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
         ...(lastAccepted ? { lastAccepted } : {}),
         failedAt: this.now(),
-        error: { code: "runtime_error", message: reason, retryable: true },
+        // Bound the reason (parity with HttpDeliverySource.nack) so a long
+        // error/stack isn't sent verbatim over the gateway socket.
+        error: {
+          code: "runtime_error",
+          message: (reason || "runtime error").slice(0, 500),
+          retryable,
+        },
       },
     });
-    this.deliveries.delete(deliveryId);
   }
 
   async stop(): Promise<void> {
+    // Halt new intake (the guard in handleDeliveryAvailable), then DRAIN the
+    // in-flight delivery before clearing state. Without the drain, a turn that
+    // settles after `deliveries.clear()` finds no DeliveryState and its
+    // ack/nack silently no-ops — the terminal signal is lost and the delivery
+    // redelivers. Mirrors HttpDeliverySource.stop() (running=false + await loop).
+    this.stopped = true;
+    await this.processing.catch(() => {});
     this.deliveries.clear();
   }
 }

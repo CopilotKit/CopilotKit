@@ -32,7 +32,7 @@ import {
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/channels-slack";
+} from "@copilotkit/channels/slack";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";
@@ -50,14 +50,6 @@ const required = (name: string): string => {
   }
   return v;
 };
-
-/**
- * Derive the Intelligence websocket base URL from the API base URL when it
- * isn't set explicitly: `http(s)://…` → `ws(s)://…`. The runner + client socket
- * URLs are derived from this by the client.
- */
-const deriveWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
 
 /**
  * The managed Channel `name` is chosen HERE, in code — it is the project-unique
@@ -133,10 +125,13 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  const apiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL ?? deriveWsUrl(apiUrl),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 

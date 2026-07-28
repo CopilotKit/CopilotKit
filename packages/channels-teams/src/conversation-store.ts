@@ -4,7 +4,7 @@ import type {
   ConversationStore,
   AgentSession,
   ReplyTarget,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { ThreadMessage, AgentContentPart } from "@copilotkit/channels-ui";
 
 interface StoredMessage {

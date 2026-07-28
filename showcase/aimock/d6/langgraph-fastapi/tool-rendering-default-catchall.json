@@ -74,7 +74,7 @@
     {
       "_comment": "default-catchall — Find flights pill. search_flights tool call.",
       "match": {
-        "userMessage": "Find flights",
+        "userMessage": "Find flights from SFO to JFK.",
         "hasToolResult": false,
         "context": "langgraph-fastapi"
       },
@@ -90,7 +90,7 @@
     },
     {
       "match": {
-        "userMessage": "Find flights",
+        "userMessage": "Find flights from SFO to JFK.",
         "toolCallId": "call_dc_flights_001",
         "context": "langgraph-fastapi"
       },

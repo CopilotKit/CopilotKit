@@ -28,6 +28,12 @@ describe("search href helpers", () => {
     expect(
       frameworkDocsHref("mastra", "concepts/architecture", "react-native"),
     ).toBe("/react-native/mastra/concepts/architecture");
+    expect(
+      frameworkDocsHref("built-in-agent", "backend/copilot-runtime", "angular"),
+    ).toBe("/angular/backend/copilot-runtime");
+    expect(frameworkDocsHref("langgraph-python", "auth", "angular")).toBe(
+      "/angular/langgraph-python/auth",
+    );
   });
 
   it("normalizes built-in-agent docs index hrefs to root URLs", () => {

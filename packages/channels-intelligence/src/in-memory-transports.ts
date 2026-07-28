@@ -83,7 +83,7 @@ export class InMemoryDeliverySource implements DeliverySource {
   async deliver(env: ChannelIngressEnvelope): Promise<void> {
     if (!this.onDelivery) {
       throw new Error(
-        "InMemoryDeliverySource: not started — call channel.start() first",
+        "InMemoryDeliverySource: not started — the runner must start the channel first",
       );
     }
     await this.onDelivery(env);
@@ -107,7 +107,9 @@ export class InMemoryDeliverySource implements DeliverySource {
     limit: number,
   ): Promise<AgentMessage[]> {
     this.historyRequests.push({ replyTarget, limit });
-    return this.history.slice(-limit);
+    // `limit <= 0` → no history (a raw `slice(-0)` returns the WHOLE array);
+    // mirrors IntelligenceFileHistoryClient.getHistory's guard.
+    return limit <= 0 ? [] : this.history.slice(-limit);
   }
   async stop(): Promise<void> {}
 }

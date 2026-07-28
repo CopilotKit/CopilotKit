@@ -41,6 +41,7 @@ export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 const ROOT_VERSION: ReferenceVersion = "v2";
 
 export const REFERENCE_CATEGORIES = [
+  "Guides",
   "Components",
   "Hooks",
   "Functions",
@@ -76,6 +77,12 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
   channels: ["components", "functions", "classes", "types", "slack", "discord"],
+};
+
+const VERSION_TOP_LEVEL_PAGES: Partial<
+  Record<ReferenceVersion, readonly string[]>
+> = {
+  angular: ["public-api", "production-lifecycle"],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
@@ -271,9 +278,45 @@ export function loadReferenceItems(
 export function loadReferenceVersionItems(
   version: ReferenceVersion,
 ): ReferenceItem[] {
-  return VERSION_SUBDIRS[version].flatMap((subdir) =>
-    loadReferenceItems(version, subdir),
+  const topLevelItems = (VERSION_TOP_LEVEL_PAGES[version] ?? []).flatMap(
+    (pageSlug): ReferenceItem[] => {
+      const resolved = resolveReferencePage([version, pageSlug]);
+      if (!resolved) return [];
+
+      let data: Record<string, unknown>;
+      try {
+        ({ data } = matter(resolved.raw));
+      } catch (err) {
+        console.error(
+          `[reference-items] Failed to parse frontmatter in ${resolved.filePath}:`,
+          err,
+        );
+        return [];
+      }
+
+      return [
+        {
+          slug: pageSlug,
+          title:
+            typeof data.title === "string" && data.title.length > 0
+              ? data.title
+              : fallbackTitle(pageSlug),
+          description:
+            typeof data.description === "string" ? data.description : undefined,
+          category: "Guides",
+          version,
+          url: referenceHref(version, pageSlug),
+        },
+      ];
+    },
   );
+
+  return [
+    ...topLevelItems,
+    ...VERSION_SUBDIRS[version].flatMap((subdir) =>
+      loadReferenceItems(version, subdir),
+    ),
+  ];
 }
 
 function itemToPage(item: ReferenceItem): PageTree.Item {

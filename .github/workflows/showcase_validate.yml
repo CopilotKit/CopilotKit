@@ -62,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -633,7 +633,7 @@ jobs:
 
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
@@ -671,7 +671,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -716,12 +716,40 @@ jobs:
         python-version: ["3.10", "3.12"]
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
+      # `showcase/integrations/*/public/demo-files/*` are Git LFS objects, and
+      # this checkout deliberately does NOT set `lfs: true` — a blanket LFS
+      # checkout would pull all ~248 tracked objects (~475 MB, including several
+      # 13-26 MB README gifs) into a job that runs in 2-4 minutes under a 10
+      # minute cap. Timeout starvation is a real failure mode here: jobs that hit
+      # `timeout-minutes` report `cancelled`, which is neither success nor
+      # failure and silently suppresses alerting.
+      #
+      # So pull only the demo-file assets: 40 objects, ~320 KB. Without them,
+      # pypdf reads the 129-byte LFS pointer text instead of a PDF and
+      # `ms-agent-python/tests/python/test_multimodal_pdf_prompt.py` fails with
+      # "real pypdf text extraction produced nothing". The repo is public, so
+      # LFS downloads resolve anonymously and this works with
+      # `persist-credentials: false`.
+      - name: Fetch demo-file LFS assets
+        run: |
+          set -euo pipefail
+          git lfs pull --include="showcase/integrations/*/public/demo-files/*"
+          # Fail here with a clear message rather than 3 minutes later inside
+          # pytest if the pull silently no-ops (missing git-lfs, LFS endpoint
+          # trouble, a pattern that stops matching after a directory move).
+          pdf="showcase/integrations/ms-agent-python/public/demo-files/sample.pdf"
+          if [ "$(head -c 5 "$pdf")" != "%PDF-" ]; then
+            echo "::error::$pdf is still a Git LFS pointer after 'git lfs pull' -- PDF-reading tests would fail misleadingly."
+            head -c 200 "$pdf"
+            exit 1
+          fi
+
       - name: Setup Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -873,7 +901,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@0d95c9a7becc1e6e297d76df9bc735c44f4cbcbc # v3.0.5
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook

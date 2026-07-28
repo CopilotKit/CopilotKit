@@ -71,8 +71,23 @@ import { CopilotKitIntelligence } from "@copilotkit/runtime";
 const intelligence = new CopilotKitIntelligence({
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
-  apiUrl: "https://your-intelligence-host/api",
-  wsUrl: "wss://your-intelligence-host/socket",
+});
+```
+
+`apiUrl` and `wsUrl` default to the managed platform
+(`https://api.intelligence.copilotkit.ai` and
+`wss://realtime.intelligence.copilotkit.ai`). To target a non-production or
+self-hosted deployment, override **both** — they are separate hosts, so neither
+derives from the other, and setting one alone leaves the other plane on the
+managed platform. Pass bare bases: the client appends `/api/...` and the socket
+layer appends `/runner` or `/client` itself.
+
+```typescript
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
+  apiUrl: "https://api.your-intelligence-host",
+  wsUrl: "wss://realtime.your-intelligence-host",
 });
 ```
 

@@ -10,10 +10,11 @@
     "shared-state",
     "---Intelligence Platform---",
     {
-      "title": "Threads",
+      "title": "Rich Threads",
       "defaultOpen": true,
       "pages": [
         "threads",
+        "headless-threads",
         "threads-import"
       ]
     }

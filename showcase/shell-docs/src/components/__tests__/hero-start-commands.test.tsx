@@ -42,4 +42,13 @@ describe("hero quickstart CTA styling", () => {
     expect(globalsCss).toContain(".reference-content a.shell-docs-primary-cta");
     expect(globalsCss).toContain("color: var(--primary-foreground);");
   });
+
+  it("tracks continuation into a backend-scoped quickstart", () => {
+    expect(heroStartCommandsSource).toContain('"docs.journey_continued"');
+    expect(heroStartCommandsSource).toContain('destination_type: "quickstart"');
+    expect(heroStartCommandsSource).toContain("destination_path: href");
+    expect(heroStartCommandsSource).toContain("frontend,");
+    expect(heroStartCommandsSource).toContain("backend,");
+    expect(heroStartCommandsSource).toContain("from_path: fromPath");
+  });
 });

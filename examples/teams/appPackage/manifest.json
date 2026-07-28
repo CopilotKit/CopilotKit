@@ -15,7 +15,7 @@
   },
   "description": {
     "short": "A CopilotKit assistant for Microsoft Teams.",
-    "full": "A Microsoft Teams bot powered by CopilotKit (@copilotkit/channels-teams)."
+    "full": "A Microsoft Teams bot powered by the CopilotKit Channels Teams integration."
   },
   "icons": {
     "color": "color.png",

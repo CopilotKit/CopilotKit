@@ -1,13 +1,11 @@
 # bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
 
-A runnable demo for [`@copilotkit/channels-slack`](../../packages/channels-slack),
-[`@copilotkit/channels-discord`](../../packages/channels-discord),
-[`@copilotkit/channels-telegram`](../../packages/channels-telegram), **and**
-[`@copilotkit/channels-whatsapp`](../../packages/channels-whatsapp): an on-call triage bot
-that turns incident chatter into tracked work. It's built with
-[`@copilotkit/channels`](../../packages/channels) (the platform-agnostic bot core), one or
-more platform adapters, and [`@copilotkit/channels-ui`](../../packages/channels-ui) (a
-cross-platform JSX vocabulary for rich messages).
+A runnable demo for [`@copilotkit/channels`](../../packages/channels): an on-call triage
+bot that turns incident chatter into tracked work. The umbrella supplies the
+platform-agnostic bot core and cross-platform JSX vocabulary; use its
+`@copilotkit/channels/slack`, `@copilotkit/channels/discord`,
+`@copilotkit/channels/telegram`, and `@copilotkit/channels/whatsapp` subpaths for
+the platform adapters.
 
 **One app, any platform — or all at once.** `createChannel` takes an array of
 adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
@@ -58,24 +56,32 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
 
 ### The bot (`app/index.ts`)
 
-The core shape is `createChannel` + one or more adapters, an `onMention` handler,
-and `start()`. The snippet below is an **abridged, single-platform sketch** —
-the real `app/index.ts` builds the adapter list from whichever secrets are
-present (Slack, Discord, and/or Telegram) and adds graceful shutdown; read the
-file for the full multi-platform wiring:
+The core shape is `createChannel` + one or more adapters + an `onMention`
+handler, then you **declare the Channel on the Intelligence runtime**, which owns
+its lifecycle. A Channel runs ONLY through the Intelligence runtime: the platform
+adapters stay direct (they keep their own credentials), but the runtime starts
+them — there is no `bot.start()`/`bot.stop()`. The snippet below is an
+**abridged, single-platform sketch** — the real `app/index.ts` builds the adapter
+list from whichever secrets are present (Slack, Discord, Telegram, and/or
+WhatsApp) and adds graceful shutdown; read the file for the full multi-platform
+wiring:
 
 ```ts
+import { createServer } from "node:http";
 import { createChannel } from "@copilotkit/channels";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/channels-slack";
+} from "@copilotkit/channels/slack";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 
 const bot = createChannel({
+  name: "triage", // every declared Channel needs a unique name
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -107,7 +113,27 @@ bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({ context: senderContext(message.user) });
 });
 
-await bot.start();
+// A Channel runs only through the Intelligence runtime, which OWNS its
+// lifecycle — it starts the direct Slack adapter for us.
+const intelligence = new CopilotKitIntelligence({
+  // apiUrl/wsUrl default to the managed Intelligence platform.
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+});
+const runtime = new CopilotRuntime({
+  agents: {}, // the Channel supplies its own agent
+  intelligence,
+  identifyUser: () => ({ id: "demo-user", name: "Demo User" }), // demo stub
+  channels: [bot],
+});
+
+// Mounting the listener activates the Channel (starting its adapters) and
+// exposes `.channels` for readiness + shutdown — no bot.start()/bot.stop().
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+createServer(listener).listen(8300, "127.0.0.1");
+await listener.channels?.ready();
 ```
 
 The runnable Slack example keeps DMs and the assistant pane conversational, but
@@ -136,7 +162,7 @@ adapter supplies at call time; tools reach platform power (post, postFile,
 
 ### UI as JSX components
 
-Rich messages are authored as JSX components over the `@copilotkit/channels-ui`
+Rich messages are authored as JSX components over the `@copilotkit/channels`
 vocabulary (`<Message>`, `<Header>`, `<Section>`, `<Context>`, `<Actions>`,
 `<Button>`, …). Each component (`IssueCard`, `IssueList`, `PageList`,
 `ConfirmWrite`) is a plain function whose zod prop schema doubles as a tool
@@ -246,12 +272,13 @@ the **bot** (`app/`). Set up whichever platform(s) you want — the bot starts a
 adapter for each one whose secrets are present (so you can run any one, or
 several from one process).
 
-> **This example runs from the monorepo.** The Telegram work ships an
-> unpublished package (`@copilotkit/channels-telegram`) and depends on a fix in the
-> core (`@copilotkit/channels`), so all `@copilotkit/*` deps are `workspace:*` and
-> the example runs against local source: `pnpm --filter slack-example <script>`.
-> Once those versions publish, switch the deps to published ranges for a
-> standalone build.
+> **This example runs from the monorepo.** Its application-level Channels
+> dependency is `@copilotkit/channels`; the root export and platform subpaths all
+> resolve from that umbrella. The Telegram adapter implementation is not published
+> separately yet, so all `@copilotkit/*` deps are `workspace:*` and the example runs
+> against local source: `pnpm --filter slack-example <script>`. Once the umbrella
+> version publishes, use its published range for a standalone build and keep the
+> platform imports on `@copilotkit/channels/<platform>`.
 
 ### 1a. Slack app (set `SLACK_*` to enable Slack)
 
@@ -294,6 +321,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
+#   COPILOTKIT_API_KEY                         (REQUIRED — owns the Channel; free tier)
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
 #   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
@@ -303,8 +331,11 @@ cp .env.example .env
 #   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-Linear and Notion are independent — set only the ones you want; the agent
-wires up whichever credentials are present.
+A Channel runs only through the Intelligence runtime, so `COPILOTKIT_API_KEY` is
+**required** (free tier). There are no URLs to set — the SDK defaults to the
+managed Intelligence platform. The platform adapters stay direct — the runtime that owns the Channel starts each
+of them for you. Linear and Notion are independent — set only the ones you want;
+the agent wires up whichever credentials are present.
 
 ### 3. Notion MCP sidecar (only if using Notion)
 
@@ -411,17 +442,20 @@ the workspace and `packages/**` are visible. On Railway (or any host), set:
 | **Start Command**  | `pnpm --filter slack-example start` (bot) — a second service runs the runtime: `pnpm --filter slack-example run runtime` |
 | **Watch Paths**    | `packages/**`, `examples/slack/**`, `pnpm-lock.yaml`, `package.json`                                                     |
 
-`pnpm --filter slack-example build` builds the workspace libs the example
-imports (`@copilotkit/channels-slack` / `-discord` / `-telegram` / `runtime`) and
-everything they depend on, via the Nx project graph — so `tsx` runs against
-fresh `dist`. The **Watch Paths** are what makes a `packages/**`-only change
-trigger a redeploy (the example's own files no longer need to change to provoke
-one).
+`pnpm --filter slack-example build` builds `@copilotkit/channels` and
+`@copilotkit/runtime`; Nx brings the platform adapters in transitively through
+the project graph, so `tsx` runs against fresh `dist`. The **Watch Paths** are
+what makes a `packages/**`-only change trigger a redeploy (the example's own
+files no longer need to change to provoke one).
 
-> **Copying this example out of the monorepo?** Replace the `workspace:*`
-> ranges in `package.json` with the published versions (e.g.
-> `@copilotkit/channels-slack: ^0.0.3`) — `workspace:*` only resolves inside this
-> monorepo.
+> **Copying this example out of the monorepo?** Replace the `workspace:*` ranges
+> for `@copilotkit/channels` once version `0.2.0` is published (for example,
+> `@copilotkit/channels: ^0.2.0`),
+> `@copilotkit/runtime`, and `@copilotkit/channels-intelligence` with appropriate
+> published versions. Keep importing platform APIs from the umbrella's subpaths.
+> The optional managed gateway entrypoint deliberately imports an internal helper
+> from `@copilotkit/channels-intelligence`; it is not part of the curated umbrella
+> API. If you do not use that entrypoint, remove it and its dependency instead.
 
 ### WhatsApp (inbound webhook, needs a public domain)
 

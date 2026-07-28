@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 import { defineChannelTool } from "@copilotkit/channels";
-import { Message, Chart } from "@copilotkit/channels-ui";
+import { Message, Chart } from "@copilotkit/channels";
 
 const schema = z.object({
   chartType: z

@@ -1,19 +1,30 @@
 # Teams example: demo bot
 
-A runnable demo of [`@copilotkit/channels-teams`](../../packages/channels-teams): a
-Microsoft Teams bot backed by a CopilotKit `BuiltInAgent` that shows
+A runnable demo of [`@copilotkit/channels`](../../packages/channels): a Microsoft
+Teams bot backed by a CopilotKit `BuiltInAgent` that shows
 **streamed-by-edit replies**, **agent-rendered Adaptive Cards**, and a
 **human-in-the-loop approval gate**, testable locally in the **Microsoft 365
 Agents Playground** with **no Microsoft credentials**. It needs an
-`OPENAI_API_KEY`.
+`OPENAI_API_KEY` and an **Intelligence key** (free tier). The application depends
+on the umbrella and imports the Teams integration from
+`@copilotkit/channels/teams`.
+
+A Channel runs **only** through the Intelligence runtime. The Teams adapter stays
+_direct_ (it keeps the Playground/Teams ingress), but the runtime owns the
+Channel's lifecycle: the bot is declared on
+`new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and started
+/ stopped via `listener.channels?.ready()` / `.stop()` — there is no
+`bot.start()`/`bot.stop()`. That's why an Intelligence key is required even
+though no Microsoft credentials are.
 
 ## Run it
 
 From this directory (after `pnpm install` at the repo root):
 
 ```sh
-export OPENAI_API_KEY=sk-...   # or add it to .env (see .env.example)
-pnpm start                     # starts the bot on http://localhost:3978/api/messages
+export OPENAI_API_KEY=sk-...              # or add it to .env (see .env.example)
+export COPILOTKIT_API_KEY=cpk-...          # Intelligence key (free tier)
+pnpm start                                 # starts the bot on http://localhost:3978/api/messages
 ```
 
 In a second terminal:
@@ -130,10 +141,11 @@ your Azure Bot resource's messaging endpoint at `https://<your-host>/api/message
 
 ### Deploy as a workspace member (built from source)
 
-This example consumes the `@copilotkit/*` packages via the **`workspace:*`**
-protocol, so it always builds from the in-repo source — **not** the npm
-registry. That decouples the deploy from publishing: a change to `packages/**`
-redeploys with the new code immediately.
+This example consumes `@copilotkit/channels` (and `@copilotkit/runtime`) via the
+**`workspace:*`** protocol, so it always builds from the in-repo source —
+**not** the npm registry. The Teams integration is imported from the umbrella's
+`@copilotkit/channels/teams` subpath. That decouples the deploy from publishing:
+a change to `packages/**` redeploys with the new code immediately.
 
 Because it's a workspace member, the deploy must run from the **repo root** so
 the workspace and `packages/**` are visible. The bot runs its `BuiltInAgent`
@@ -147,23 +159,37 @@ service** — no separate runtime process. On Railway (or any host), set:
 | **Start Command**  | `pnpm --filter teams-example start`                                  |
 | **Watch Paths**    | `packages/**`, `examples/teams/**`, `pnpm-lock.yaml`, `package.json` |
 
-`pnpm --filter teams-example build` builds the workspace libs the example
-imports (`@copilotkit/channels`, `bot-teams`, `bot-ui`, `runtime`) and everything
-they depend on, via the Nx project graph — so `tsx` runs against fresh `dist`. The **Watch Paths** are
-what make a `packages/**`-only change trigger a redeploy. On Railway, generate a
+`pnpm --filter teams-example build` builds `@copilotkit/channels` and
+`@copilotkit/runtime`; Nx brings the Teams adapter in transitively through the
+project graph, so `tsx` runs against fresh `dist`. The **Watch Paths** are what
+make a `packages/**`-only change trigger a redeploy. On Railway, generate a
 public domain on the service (Settings → Networking); it routes to `$PORT`,
 which the bot listens on for `/api/messages`.
 
-> **Copying this example out of the monorepo?** Replace the `workspace:*` ranges
-> in `package.json` with the published versions (e.g.
-> `@copilotkit/channels-teams: ^0.0.1`) — `workspace:*` only resolves inside this
-> monorepo.
+> **Copying this example out of the monorepo?** Replace the `workspace:*` range
+> for `@copilotkit/channels` with version `0.2.0` or later (for example,
+> `@copilotkit/channels: ^0.2.0`), retain the `@copilotkit/runtime` dependency,
+> and import the Teams APIs from `@copilotkit/channels/teams`.
 
 Set the environment for wherever you deploy:
 
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
 - `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
+- `COPILOTKIT_API_KEY` _(required)_: the Intelligence runtime that owns the
+  Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
+  at startup without it (free tier is enough). No URLs to configure — the SDK
+  defaults to the managed Intelligence platform.
+- `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
+  point the bot at a self-hosted or dev Intelligence deployment. Set **both or
+  neither**: the API and realtime planes are **separate hosts**
+  (`api.intelligence.copilotkit.ai` vs `realtime.intelligence.copilotkit.ai`), so
+  the websocket URL cannot be derived from the API URL by swapping the scheme, and
+  setting one alone leaves the other plane on the managed platform. Getting the
+  websocket host wrong does not produce an error; the Channel sits in `connecting`
+  until it times out.
+- `CHANNELS_PORT` _(optional)_: port for the Intelligence runtime that owns the
+  Channel (loopback-only, default 8300).
 - `clientId` / `clientSecret` / `tenantId`: needed to reach real Teams (see
   above). The in-process `BuiltInAgent` runtime stays on `RUNTIME_PORT`
   (localhost-only, default 8200).

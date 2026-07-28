@@ -4,6 +4,7 @@ import { CopilotKitIntelligence } from "../client";
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+const consoleWarnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
   return Promise.resolve({
@@ -31,6 +32,7 @@ describe("CopilotKitIntelligence", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     consoleErrorSpy.mockClear();
+    consoleWarnSpy.mockClear();
     client = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
@@ -60,6 +62,90 @@ describe("CopilotKitIntelligence", () => {
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
+  });
+
+  describe("managed platform URL defaults", () => {
+    it("defaults apiUrl to the managed Intelligence API host", async () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+    });
+
+    it("defaults the websocket URLs to the managed realtime host", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(c.ɵgetClientWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/client",
+      );
+    });
+
+    it("treats blank URLs as unset, so an empty env var still reaches the managed platform", async () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "",
+        wsUrl: "   ",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are omitted", () => {
+      const c = new CopilotKitIntelligence({ apiKey: "k" });
+      expect(c).toBeInstanceOf(CopilotKitIntelligence);
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("does not warn when both URLs are provided", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.internal/runner",
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    });
+
+    it("warns that wsUrl fell back to the managed host when only apiUrl is set", () => {
+      const c = new CopilotKitIntelligence({
+        apiUrl: "https://intelligence.internal",
+        apiKey: "k",
+      });
+      expect(c.ɵgetRunnerWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/runner",
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/wsUrl falls back to the managed default/),
+      );
+    });
+
+    it("warns that apiUrl fell back to the managed host when only wsUrl is set", async () => {
+      const c = new CopilotKitIntelligence({
+        wsUrl: "wss://realtime.intelligence.internal",
+        apiKey: "k",
+      });
+      fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
+      await c.listThreads({ userId: "u", agentId: "a" });
+      expect(fetchMock.mock.calls[0][0]).toMatch(
+        /^https:\/\/api\.intelligence\.copilotkit\.ai\/api/,
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringMatching(/apiUrl falls back to the managed default/),
+      );
+    });
   });
 
   it("sends Bearer authorization header", async () => {

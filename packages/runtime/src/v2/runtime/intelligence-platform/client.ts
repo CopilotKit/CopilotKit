@@ -14,6 +14,21 @@ import { randomUUID } from "crypto";
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
+ * REST base URL of CopilotKit's managed Intelligence platform — the default
+ * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
+ */
+const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
+
+/**
+ * Websocket base URL of CopilotKit's managed Intelligence platform — the
+ * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
+ *
+ * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
+ * realtime planes are deployed separately.
+ */
+const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
+
+/**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
@@ -41,28 +56,6 @@ export class PlatformRequestError extends Error {
   }
 }
 
-/**
- * Client for the CopilotKit Intelligence Platform REST API.
- *
- * Construct the client once and pass it to any consumers that need it
- * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
- *
- * ```ts
- * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
- *
- * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://api.copilotkit.ai",
- *   wsUrl: "wss://api.copilotkit.ai",
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
- * });
- *
- * const runtime = new CopilotRuntime({
- *   agents,
- *   intelligence,
- * });
- * ```
- */
-
 /** Payload passed to `onThreadDeleted` listeners. */
 export interface ThreadDeletedPayload {
   threadId: string;
@@ -71,10 +64,27 @@ export interface ThreadDeletedPayload {
 }
 
 export interface CopilotKitIntelligenceConfig {
-  /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
-  apiUrl: string;
-  /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
-  wsUrl: string;
+  /**
+   * Base URL of the intelligence platform API.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
+   * self-hosted or non-production deployment — and set {@link wsUrl} with it.
+   */
+  apiUrl?: string;
+  /**
+   * Intelligence websocket base URL. Runner and client socket URLs are derived
+   * from this by appending `/runner` or `/client`, so pass the bare base.
+   *
+   * Defaults to CopilotKit's managed platform,
+   * `wss://realtime.intelligence.copilotkit.ai`.
+   *
+   * This is a DIFFERENT host from {@link apiUrl} — the API and realtime planes are
+   * deployed separately — so it cannot be derived by scheme-swapping `apiUrl`.
+   * Overriding one without the other therefore points the two planes at
+   * different deployments, which logs a warning.
+   */
+  wsUrl?: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
   /**
@@ -410,6 +420,36 @@ interface ThreadEnvelope {
   thread: ThreadSummary;
 }
 
+/**
+ * Client for the CopilotKit Intelligence Platform REST API.
+ *
+ * Construct the client once and pass it to any consumers that need it
+ * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
+ *
+ * ```ts
+ * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
+ *
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ * });
+ *
+ * const runtime = new CopilotRuntime({
+ *   agents,
+ *   intelligence,
+ * });
+ * ```
+ *
+ * `apiUrl` and `wsUrl` default to CopilotKit's managed Intelligence platform.
+ * Override both together to target a self-hosted or non-production deployment:
+ *
+ * ```ts
+ * const intelligence = new CopilotKitIntelligence({
+ *   apiUrl: "https://intelligence.internal",
+ *   wsUrl: "wss://realtime.intelligence.internal",
+ *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ * });
+ * ```
+ */
 export class CopilotKitIntelligence {
   #apiUrl: string;
   #runnerWsUrl: string;
@@ -421,9 +461,18 @@ export class CopilotKitIntelligence {
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
-    const intelligenceWsUrl = normalizeIntelligenceWsUrl(config.wsUrl);
+    const configuredApiUrl = configuredUrl(config.apiUrl);
+    const configuredWsUrl = configuredUrl(config.wsUrl);
+    warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
 
-    this.#apiUrl = config.apiUrl.replace(/\/$/, "");
+    const intelligenceWsUrl = normalizeIntelligenceWsUrl(
+      configuredWsUrl ?? MANAGED_INTELLIGENCE_WS_URL,
+    );
+
+    this.#apiUrl = (configuredApiUrl ?? MANAGED_INTELLIGENCE_API_URL).replace(
+      /\/$/,
+      "",
+    );
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
@@ -1123,6 +1172,47 @@ export class CopilotKitIntelligence {
 
     // request() returns undefined for empty/204 responses
     return result ?? null;
+  }
+}
+
+/**
+ * Normalize a configured URL to "provided" or "not provided". A blank string
+ * counts as not provided: these URLs are typically wired from environment
+ * variables, and a declared-but-empty variable (`COPILOTKIT_INTELLIGENCE_URL=`,
+ * common in generated `.env` files and container configs) arrives as `""`. Left
+ * as-is it would produce host-relative requests instead of falling back to the
+ * managed platform.
+ */
+function configuredUrl(url: string | undefined): string | undefined {
+  const trimmed = url?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/**
+ * Warn when exactly one of `apiUrl`/`wsUrl` is configured. The API and realtime
+ * planes are separate hosts, so a lone override silently leaves the other plane
+ * on CopilotKit's managed platform — a self-hosted API paired with the managed
+ * gateway (or vice versa), which fails as a hang rather than an error.
+ */
+function warnOnPartialHostOverride(
+  apiUrl: string | undefined,
+  wsUrl: string | undefined,
+): void {
+  if (apiUrl && !wsUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: apiUrl is set to "${apiUrl}" but wsUrl is not, ` +
+        `so wsUrl falls back to the managed default "${MANAGED_INTELLIGENCE_WS_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
+    return;
+  }
+
+  if (wsUrl && !apiUrl) {
+    logger.warn(
+      `CopilotKitIntelligence: wsUrl is set to "${wsUrl}" but apiUrl is not, ` +
+        `so apiUrl falls back to the managed default "${MANAGED_INTELLIGENCE_API_URL}". ` +
+        `The API and realtime planes are separate hosts — set both when pointing at a self-hosted deployment.`,
+    );
   }
 }
 

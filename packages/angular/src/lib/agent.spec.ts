@@ -237,6 +237,29 @@ describe("injectAgentStore", () => {
     expect(store?.isRunning()).toBe(false);
   });
 
+  it("exposes messages and state restored before the store subscribes", () => {
+    const agent = new MockAgent("agent-1");
+    agent.messages = [userMsg("restored", "Welcome back")];
+    agent.state = { document: "Restored draft" };
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RestoredAgentHost {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(RestoredAgentHost);
+    fixture.detectChanges();
+
+    const store = fixture.componentInstance.store();
+    expect(store.messages()).toEqual([userMsg("restored", "Welcome back")]);
+    expect(store.messages()).not.toBe(agent.messages);
+    expect(store.state()).toEqual({ document: "Restored draft" });
+  });
+
   it("disposes previous store when agent id changes and cleans up on destroy", () => {
     const firstAgent = new MockAgent("agent-1");
     const secondAgent = new MockAgent("agent-2");
@@ -302,6 +325,225 @@ describe("injectAgentStore", () => {
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+  });
+
+  it("shares a provisional runtime agent across same-id consumers", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class ParallelConsumersHost {
+      firstStore = injectAgentStore("shared-agent");
+      secondStore = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(ParallelConsumersHost);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.firstStore().agent).toBe(
+      fixture.componentInstance.secondStore().agent,
+    );
+  });
+
+  it("preserves provisional run updates when runtime sync publishes the registered agent", async () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+
+    const provisionalStore = fixture.componentInstance.store();
+    const provisionalAgent = provisionalStore.agent;
+    provisionalAgent.isRunning = true;
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+    expect(fixture.componentInstance.store().isRunning()).toBe(true);
+
+    provisionalAgent.setState({
+      steps: [{ id: "launch", status: "completed" }],
+    });
+    await fixture.whenStable();
+
+    await vi.waitFor(() => {
+      expect(fixture.componentInstance.store().state()).toEqual({
+        steps: [{ id: "launch", status: "completed" }],
+      });
+    });
+  });
+
+  it("synchronizes registered session data without signal-write errors during handoff", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+    const provisionalStore = fixture.componentInstance.store();
+
+    const registeredAgent = new MockAgent("shared-agent");
+    registeredAgent.messages = [userMsg("restored", "Welcome back")];
+    registeredAgent.state = { document: "Restored draft" };
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+
+    expect(consoleError).not.toHaveBeenCalledWith(
+      expect.stringContaining("callback threw"),
+      expect.anything(),
+    );
+    expect(provisionalStore.messages()).toEqual([
+      userMsg("restored", "Welcome back"),
+    ]);
+    expect(provisionalStore.state()).toEqual({ document: "Restored draft" });
+    consoleError.mockRestore();
+  });
+
+  it("bridges events through the subscriber snapshot captured by an active run", async () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class RuntimeHandoffHost {
+      store = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(RuntimeHandoffHost);
+    fixture.detectChanges();
+
+    const provisionalAgent = fixture.componentInstance.store().agent;
+    provisionalAgent.isRunning = true;
+    const activeRunSubscribers = [
+      ...(
+        provisionalAgent as unknown as {
+          subscribers: AgentSubscriber[];
+        }
+      ).subscribers,
+    ];
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+    expect(fixture.componentInstance.store().agent).toBe(registeredAgent);
+
+    const finalState = {
+      steps: [{ id: "launch", status: "completed" }],
+    };
+    const finalMessages: Message[] = [
+      userMsg("user", "Plan a launch"),
+      { id: "assistant", role: "assistant", content: "Launch planned" },
+    ];
+    provisionalAgent.messages = finalMessages;
+    provisionalAgent.state = finalState;
+    for (const subscriber of activeRunSubscribers) {
+      subscriber.onMessagesChanged?.({
+        messages: finalMessages,
+        state: finalState,
+        agent: provisionalAgent,
+        input: DUMMY_RUN_INPUT,
+      });
+      subscriber.onStateChanged?.({
+        messages: finalMessages,
+        state: finalState,
+        agent: provisionalAgent,
+        input: DUMMY_RUN_INPUT,
+      });
+    }
+
+    await vi.waitFor(() => {
+      expect(fixture.componentInstance.store().state()).toEqual(finalState);
+      expect(fixture.componentInstance.store().messages()).toEqual(
+        finalMessages,
+      );
+    });
+  });
+
+  it("mirrors registered updates to consumers still bound to the provisional agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class ParallelHandoffHost {
+      firstStore = injectAgentStore("shared-agent");
+      secondStore = injectAgentStore("shared-agent");
+    }
+
+    const fixture = TestBed.createComponent(ParallelHandoffHost);
+    fixture.detectChanges();
+
+    const firstStore = fixture.componentInstance.firstStore();
+    const staleStore = fixture.componentInstance.secondStore();
+    expect(staleStore.agent).toBe(firstStore.agent);
+
+    const registeredAgent = new MockAgent("shared-agent");
+    copilotKitStub.setAgents({ "shared-agent": registeredAgent });
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    expect(fixture.componentInstance.firstStore().agent).toBe(registeredAgent);
+
+    registeredAgent.emitState({
+      steps: [{ id: "launch", status: "completed" }],
+    });
+
+    expect(staleStore.state()).toEqual({
+      steps: [{ id: "launch", status: "completed" }],
+    });
   });
 
   it("throws when agent cannot be resolved after runtime sync", () => {

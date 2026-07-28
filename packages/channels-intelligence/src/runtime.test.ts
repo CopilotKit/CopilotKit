@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createChannel, FakeAgent } from "@copilotkit/channels";
+import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
   InMemoryDeliverySource,
@@ -226,7 +226,7 @@ describe("startChannels", () => {
   it("rolls back already-started bots when a later bot fails to start", async () => {
     const a = createChannel({ name: "support", agent: () => new FakeAgent() });
     const b = createChannel({ name: "triage", agent: () => new FakeAgent() });
-    const stopA = vi.spyOn(a, "stop");
+    const stopA = vi.spyOn(a.ɵruntime, "stop");
     await expect(
       startChannels({
         channels: [a, b],

@@ -139,9 +139,18 @@ jobs:
             core.setOutput('ref', pr.head.sha);
             core.setOutput('pr_number', pr.number);
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ steps.pr-ref.outputs.ref || github.sha }}
+          # Fetch LFS objects. This job runs `next dev` against the integration
+          # package and drives it with Playwright, so it serves `public/` straight
+          # from the working tree. The demo assets are LFS-tracked via the
+          # repo-root .gitattributes; without this the multimodal spec clicks
+          # "Try with sample image" and gets a ~130-byte pointer stub served as
+          # `image/png`, which the magic-byte guard in
+          # `sample-attachment-buttons.tsx` rejects — a spec failure with nothing
+          # actually wrong with the code under test.
+          lfs: true
           # Do NOT leave the workflow's GITHUB_TOKEN in `.git/config` after
           # checkout. PR-HEAD code (pip build hooks, Next.js dev scripts,
           # Playwright fixtures) runs on this runner; a credential left in the
@@ -332,7 +341,7 @@ jobs:
 
       - name: Setup Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
           # Cache pip to avoid reinstalling CrewAI's heavy transitive dep

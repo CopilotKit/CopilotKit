@@ -57,6 +57,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           runtimeUrl,
           agentId,
           headers: { Authorization: "Bearer test-token" },
+          credentials: "include",
           transport,
         });
 
@@ -88,6 +89,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
         }
 
         expect(init.method).toBe("POST");
+        expect(init.credentials).toBe("include");
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("content-type")).toBe("application/json");
         expect(headers.get("accept")).toBe("text/event-stream");
@@ -99,6 +101,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           runtimeUrl,
           agentId,
           headers: { Authorization: "Bearer test-token" },
+          credentials: "include",
           transport,
         });
 
@@ -125,6 +128,7 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
           });
         }
         expect(init.method).toBe("POST");
+        expect(init.credentials).toBe("include");
         const headers = new Headers(init.headers as HeadersInit);
         expect(headers.get("accept")).toBe("text/event-stream");
       });
@@ -387,6 +391,113 @@ describe("Auto-detect transport from runtime info response", () => {
     } else {
       (globalThis as { window?: unknown }).window = originalWindow;
     }
+  });
+
+  it("resolves auto transport before an agent run starts", async () => {
+    const runtimeUrl = "https://runtime.example/early-run";
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (url === `${runtimeUrl}/info`) {
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        }
+        if (url !== runtimeUrl || init?.method !== "POST") {
+          return Promise.reject(new Error(`Unexpected fetch call: ${url}`));
+        }
+
+        const body = JSON.parse(init.body as string) as { method?: string };
+        if (body.method === "info") {
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        if (body.method === "agent/run") {
+          return Promise.resolve(createSseResponse());
+        }
+        return Promise.reject(
+          new Error(`Unexpected single-route method: ${body.method}`),
+        );
+      });
+    global.fetch = fetchMock;
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "remote",
+      transport: "auto",
+    });
+
+    await expect(agent.runAgent({})).resolves.toMatchObject({
+      newMessages: expect.any(Array),
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      `${runtimeUrl}/info`,
+      runtimeUrl,
+      runtimeUrl,
+    ]);
+    const runCall = fetchMock.mock.calls[2];
+    expect(runCall).toBeDefined();
+    expect(
+      JSON.parse((runCall![1] as RequestInit).body as string),
+    ).toMatchObject({
+      method: "agent/run",
+      params: { agentId: "remote" },
+    });
+  });
+
+  it("retries runtime info after a failed auto-detect attempt", async () => {
+    const runtimeUrl = "https://runtime.example/retry-info";
+    let singleInfoAttempts = 0;
+    const fetchMock = vi
+      .fn()
+      .mockImplementation((url: string, init?: RequestInit) => {
+        if (url === `${runtimeUrl}/info`) {
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        }
+        if (url !== runtimeUrl || init?.method !== "POST") {
+          return Promise.reject(new Error(`Unexpected fetch call: ${url}`));
+        }
+
+        const body = JSON.parse(init.body as string) as { method?: string };
+        if (body.method === "info") {
+          singleInfoAttempts += 1;
+          if (singleInfoAttempts === 1) {
+            return Promise.resolve(
+              new Response("Unavailable", { status: 503 }),
+            );
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify(infoResponse), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        }
+        if (body.method === "agent/run") {
+          return Promise.resolve(createSseResponse());
+        }
+        return Promise.reject(
+          new Error(`Unexpected single-route method: ${body.method}`),
+        );
+      });
+    global.fetch = fetchMock;
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "remote",
+      transport: "auto",
+    });
+
+    await expect(agent.runAgent({})).rejects.toThrow(
+      "Runtime info request failed with status 503",
+    );
+    await expect(agent.runAgent({})).resolves.toMatchObject({
+      newMessages: expect.any(Array),
+    });
+    expect(singleInfoAttempts).toBe(2);
   });
 
   it("auto-detects REST transport when GET /info succeeds", async () => {

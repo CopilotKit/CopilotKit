@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
+import { renderToIR } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { appCommands } from "../index.js";
 import type { CommandContext } from "@copilotkit/channels";
 

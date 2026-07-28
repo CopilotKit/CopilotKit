@@ -412,6 +412,19 @@ type ThreadDetailsInternals = {
   timelineItemsFromEvents: (
     events: Array<Record<string, unknown>>,
   ) => Array<Record<string, unknown>>;
+  mapMessages: (
+    messages: Array<{
+      id: string;
+      role: string;
+      content?: string | null;
+      toolCallId?: string | null;
+      toolCalls?: Array<{
+        id: string;
+        name: string;
+        args: string;
+      }>;
+    }>,
+  ) => Array<Record<string, unknown>>;
 };
 
 function createThreadDetails(): {
@@ -454,7 +467,6 @@ function createDeferred<T>(): {
   });
   return { promise, resolve, reject };
 }
-
 describe("ɵCpkThreadDetails caching", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -749,6 +761,57 @@ describe("ɵCpkThreadDetails caching", () => {
 
     expect(internals.renderState()).not.toBe(stateA);
     expect(internals.renderEvents()).not.toBe(eventsA);
+  });
+
+  it("maps empty tool arguments and results as empty objects", () => {
+    const { internals } = createThreadDetails();
+
+    const items = internals.mapMessages([
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call-empty",
+            name: "lookupUser",
+            args: "",
+          },
+          {
+            id: "call-whitespace",
+            name: "lookupOrder",
+            args: "   ",
+          },
+        ],
+      },
+      {
+        id: "tool-empty",
+        role: "tool",
+        toolCallId: "call-empty",
+        content: "",
+      },
+      {
+        id: "tool-whitespace",
+        role: "tool",
+        toolCallId: "call-whitespace",
+        content: "   ",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        type: "tool_call",
+        toolCallId: "call-empty",
+        arguments: {},
+        result: {},
+      },
+      {
+        type: "tool_call",
+        toolCallId: "call-whitespace",
+        arguments: {},
+        result: {},
+      },
+    ]);
   });
 });
 

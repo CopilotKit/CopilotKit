@@ -18,7 +18,7 @@ import type {
   ConversationStore,
   UserQuery,
   InteractionEvent,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
   DeliverySource,
   EgressSink,
@@ -80,6 +80,20 @@ const textNode = (value: string): ChannelNode[] => [
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
+/**
+ * User-visible reply posted when a run terminates with a `run_error` on the
+ * HTTP-fallback render path (no Connector Outbox). Intentionally generic: the
+ * raw error message may carry internal detail (stack fragments, upstream URLs),
+ * so it is logged via `config.log` for operators rather than shown to the end
+ * user in the channel.
+ */
+const RUN_ERROR_POST_TEXT =
+  "⚠️ The agent ran into an error and couldn't finish responding. Please try again.";
+
+/**
+ * Supported configuration for the Intelligence-delivered Channels adapter.
+ * Exposed to consumers through `@copilotkit/channels/intelligence`.
+ */
 export interface IntelligenceAdapterOptions {
   /**
    * Inbound transport. Omit to use the default {@link HttpDeliverySource}
@@ -197,10 +211,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * Backs `thread.getMessages()` — e.g. the `read_thread` tool — on the managed
    * path by reading the reconstructed thread history via the transport's
    * `getHistory` and mapping it to the {@link ThreadMessage} shape. Without it
-   * the base `Thread.getMessages()` returns `[]`, so tools that inspect the
-   * thread (summaries, "what was in the image") see no messages even though
-   * history exists. Mirrors {@link conversationStore}'s seeding read; the
-   * `route` is the opaque {@link EgressRoute} threaded through {@link ReplyTarget}.
+   * the base `Thread.getMessages()` returns `[]`, so text-inspecting tools
+   * (e.g. `read_thread` summarizing prior turns) see no messages even though
+   * history exists. The mapping is text-only: image/file parts contribute no
+   * text, so `read_thread` never sees image *content* — that reaches the model
+   * only through {@link conversationStore}'s seeding of `agent.messages`.
+   * Mirrors that seeding read; the `route` is the opaque {@link EgressRoute}
+   * threaded through {@link ReplyTarget}.
    * Best-effort: a `getHistory` failure degrades to `[]` (no thrown error).
    */
   getMessages = async (target: ReplyTarget): Promise<ThreadMessage[]> => {
@@ -235,6 +252,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
                     ? part
                     : ((part as { text?: string } | null)?.text ?? ""),
                 )
+                // Drop empty parts (non-text content contributes "") BEFORE
+                // joining, so a `read_thread` transcript isn't corrupted with
+                // doubled/leading/trailing spaces around image/file parts.
+                .filter(Boolean)
                 .join(" ")
             : "";
       const isBot = m.role !== "user";
@@ -255,9 +276,14 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn egress sequence; reset at the start of each turn's processing so
-   * a redelivered turn reproduces the same operation id sequence. */
-  private readonly seq = new Map<string, number>();
+  /** Per-turn render state; reset at the start of each turn's processing so a
+   * redelivery reproduces the same operation ids. A realtime turn starts
+   * non-terminal: even an output-free handler must durably accept `finalize`
+   * before its delivery may complete. */
+  private readonly renderState = new Map<
+    string,
+    { nextSeq: number; needsFinalize: boolean }
+  >();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -338,26 +364,53 @@ export class IntelligenceAdapter implements PlatformAdapter {
     await this.source?.stop();
   }
 
+  /**
+   * Process one inbound delivery: run the turn, then ack/nack it. The turn and
+   * the ack are two DISTINCT phases with distinct failure semantics — a failed
+   * turn nacks (so the transport redelivers), but a failed ack must NOT, because
+   * the Channel path reprocesses redeliveries (`skipIngressDedup = true`), so
+   * nacking an already-processed turn would rerun it end to end (duplicate agent
+   * run / duplicate posts). Conflating the two (ack inside the turn's `try`) is
+   * the OSS-491 Finding-2 bug this split fixes.
+   */
   private async dispatch(env: ChannelIngressEnvelope): Promise<void> {
     // Reset the per-turn sequence so egress ids are deterministic across
     // redelivery (same turn id -> same op id sequence). Assumes the
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
-    this.seq.set(env.turnId, 0);
+    this.renderState.set(env.turnId, {
+      nextSeq: 0,
+      needsFinalize: this.renderSink !== undefined,
+    });
+    let turnProcessed = false;
     try {
       await this.dispatchTo(env);
-      await this.requireSource().ack(env.deliveryId);
+      await this.finalizeRenderedTurn(env);
+      turnProcessed = true;
     } catch (err) {
       await this.requireSource().nack(
         env.deliveryId,
         err instanceof Error ? err.message : String(err),
       );
     } finally {
-      // Drop the per-turn counter once the turn is fully processed (renderer
+      // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
-      this.seq.delete(env.turnId);
+      this.renderState.delete(env.turnId);
+    }
+    if (!turnProcessed) return;
+    // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
+    // turn failure and must never nack (that would redeliver and rerun the whole
+    // turn). Log it and move on — the lease simply lapses and the transport may
+    // redeliver, but we never actively re-enqueue a completed turn.
+    try {
+      await this.requireSource().ack(env.deliveryId);
+    } catch (ackErr) {
+      this.opts.config?.log?.(
+        `intelligence ack failed for delivery ${env.deliveryId} after a successful turn; not nacking (turn already processed)`,
+        ackErr,
+      );
     }
   }
 
@@ -369,7 +422,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
       turnId: env.turnId,
       deliveryId: env.deliveryId,
     };
-    const user = env.user ? { id: env.user.id } : undefined;
+    // Forward the provider identity the claim mapper resolved (OSS-476), not
+    // just the id. The wire field is `displayName`; the public `PlatformUser`
+    // exposes it as `name` (the direct Slack adapter populates `name` too), so
+    // map onto `name` — otherwise `message.user.name` is undefined on managed
+    // turns and callers can't read the profile through the typed API.
+    const user = env.user
+      ? {
+          id: env.user.id,
+          ...(env.user.displayName !== undefined
+            ? { name: env.user.displayName }
+            : {}),
+        }
+      : undefined;
 
     switch (env.kind) {
       case "turn": {
@@ -420,7 +485,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
         //
         // CONTRACT (app-api side): the interaction delivery MUST carry a turnId
         // distinct from the turn that originally posted the card. Egress op ids
-        // are `${turnId}:${seq}` (see mintOp/postRenderFrame) and seq resets to
+        // are `${turnId}:${seq}` (see mintOp; the render path keys on the
+        // 3-part `${turnId}:${slot}:${seq}`) and seq resets to
         // 0 per delivery, so a reused turnId makes the update's op id collide
         // with the original post's — the Connector Outbox dedupes on op id and
         // SILENTLY DROPS the update, so the card never flips. This layer can't
@@ -461,6 +527,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
           rawEmoji: env.rawEmoji,
           added: env.added,
           user,
+          // Source provider (e.g. "teams"/"slack") so core normalizes by it —
+          // this adapter's own `platform` is "intelligence", not an emoji
+          // platform, so without this the managed path would never normalize.
+          platform: env.platform,
           conversationKey: env.conversationKey,
           replyTarget,
           messageId: env.messageId,
@@ -488,9 +558,67 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * renderer and discrete post/update so all of a turn's render frames land on
    * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
   private nextFrameSeq(turnId: string): number {
-    const seq = this.seq.get(turnId) ?? 0;
-    this.seq.set(turnId, seq + 1);
+    const state = this.renderState.get(turnId);
+    if (!state) {
+      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      return 0;
+    }
+    const seq = state.nextSeq;
+    state.nextSeq += 1;
     return seq;
+  }
+
+  /**
+   * Records the terminal state only after the render sink durably accepts a
+   * frame. A later post/update/file/delete after an agent-run finalize flips
+   * the turn back to non-terminal so dispatch emits one final finalize.
+   */
+  private recordAcceptedRenderEvent(
+    turnId: string,
+    event: ChannelRenderEvent,
+  ): void {
+    const state = this.renderState.get(turnId);
+    if (!state) return;
+    state.needsFinalize = event.kind !== "finalize";
+  }
+
+  /**
+   * Pushes one realtime frame immediately and records its accepted terminal
+   * state. Sequence allocation stays deterministic across delivery retries.
+   */
+  private async pushRenderFrame(
+    target: ChannelReplyTarget,
+    event: ChannelRenderEvent,
+  ): Promise<{ receipt: RenderAccepted; seq: number }> {
+    const seq = this.nextFrameSeq(target.turnId);
+    const receipt = await this.requireRenderSink().push({
+      deliveryId: target.deliveryId,
+      turnId: target.turnId,
+      slot: "main",
+      seq,
+      event,
+    });
+    this.recordAcceptedRenderEvent(target.turnId, event);
+    return { receipt, seq };
+  }
+
+  /**
+   * Closes a successfully handled delivery's realtime render lane when a
+   * discrete post/update/file/delete was its last accepted frame. Agent runs
+   * already finish themselves, so their terminal frame is not duplicated.
+   */
+  private async finalizeRenderedTurn(
+    env: ChannelIngressEnvelope,
+  ): Promise<void> {
+    if (!this.renderState.get(env.turnId)?.needsFinalize) return;
+    await this.pushRenderFrame(
+      {
+        route: env.route,
+        turnId: env.turnId,
+        deliveryId: env.deliveryId,
+      },
+      { kind: "finalize" },
+    );
   }
 
   private mintOp(target: ChannelReplyTarget, op: EgressOp): EgressOperation {
@@ -514,14 +642,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
-    const seq = this.nextFrameSeq(target.turnId);
-    const receipt = await this.requireRenderSink().push({
-      deliveryId: target.deliveryId,
-      turnId: target.turnId,
-      slot: "main",
-      seq,
-      event,
-    });
+    const { receipt, seq } = await this.pushRenderFrame(target, event);
     return {
       id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
       __route: target.route,
@@ -632,6 +753,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let acc = "";
     for await (const c of chunks) acc += c;
     const target = _target as ChannelReplyTarget;
+    if (acc.length === 0) {
+      // An empty stream (no chunks, or only empty strings) has nothing to post.
+      // Posting textNode("") violates the render contract's min-1-text
+      // constraint (the frame is rejected → the whole turn nacks), and the HTTP
+      // egress fallback guards the same case. Skip the post and return a
+      // synthetic ref keyed to the turn — there is nothing to update/delete.
+      return {
+        id: `${target.turnId}:empty`,
+        __route: target.route,
+        __turnId: target.turnId,
+        __deliveryId: target.deliveryId,
+      };
+    }
     if (this.renderSink) {
       return this.postRenderFrame(target, {
         kind: "post",
@@ -642,6 +776,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   async delete(ref: MessageRef): Promise<void> {
+    // Realtime path: stream a `delete` render frame so the Connector Outbox
+    // resolves the ref and calls chat.delete (OSS-420) — mirroring post/update.
+    // Fallback (no render sink — in-memory tests): the egress op path.
+    if (this.renderSink) {
+      await this.postRenderFrame(targetFromRef(ref), {
+        kind: "delete",
+        ref: ref.id,
+      });
+      return;
+    }
     await this.emit(targetFromRef(ref), { kind: "delete", ref: ref.id });
   }
 
@@ -669,6 +813,22 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const acc = new Map<string, string>();
     const order: string[] = [];
     let interrupted = false;
+    // Flush any message that never received a text_end (interrupt / run_error
+    // path) so buffered partial output still reaches the channel, then reset the
+    // buffers. Shared by `finalize` and `run_error`.
+    const flushPending = async (): Promise<void> => {
+      for (const id of order) {
+        const txt = acc.get(id) ?? "";
+        if (txt.length > 0) {
+          await emit({
+            kind: "post",
+            ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
+          });
+        }
+      }
+      acc.clear();
+      order.length = 0;
+    };
     return {
       push: async (frame: RenderFrame): Promise<RenderAccepted> => {
         const e = frame.event;
@@ -687,22 +847,34 @@ export class IntelligenceAdapter implements PlatformAdapter {
           await emit({ kind: "post", ir: e.content });
         } else if (e.kind === "update") {
           await emit({ kind: "update", ref: e.ref, ir: e.content });
+        } else if (e.kind === "run_error") {
+          // On the realtime path this branch never runs (renderSinkFor returns
+          // the injected renderSink, and the Connector Outbox renders run_error
+          // live). Here, on the HTTP-fallback path, there is no Outbox: without
+          // this branch the error would be dropped, the run would resolve, and
+          // dispatch() would ack a text-less turn as success — the bot goes
+          // silent on every error with nothing logged (OSS-491 Finding 1).
+          //
+          // Surface it loudly: log the raw error for operators, flush any
+          // buffered partial text, then post a generic user-visible error. We
+          // post + log + ack (NOT nack): a run_error is frequently a
+          // deterministic agent failure (model error, tool crash), and the
+          // Channel path reprocesses redeliveries (skipIngressDedup), so nacking
+          // would livelock (redeliver → same failure → nack, forever). A genuine
+          // transient failure of the error POST itself still nacks, because
+          // `emit` throws on egress failure → the push chain rejects → drain()
+          // rejects → the delivery is nacked and retried.
+          this.opts.config?.log?.(
+            "intelligence run_error on HTTP-fallback render path",
+            e.message,
+          );
+          await flushPending();
+          await emit({ kind: "post", ir: textNode(RUN_ERROR_POST_TEXT) });
         } else if (e.kind === "finalize") {
-          // Flush any message that never received a text_end (interrupt path).
-          for (const id of order) {
-            const txt = acc.get(id) ?? "";
-            if (txt.length > 0) {
-              await emit({
-                kind: "post",
-                ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
-              });
-            }
-          }
-          acc.clear();
-          order.length = 0;
+          await flushPending();
         }
-        // run_started / tool_start / tool_end / run_error: no provider-visible
-        // effect in the plain-text fallback (the Outbox renders those live).
+        // run_started / tool_start / tool_end: no provider-visible effect in the
+        // plain-text fallback (the realtime Outbox renders those live).
         return {
           idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
           acceptance: "accepted",
@@ -742,6 +914,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         if (pushError !== undefined) return;
         try {
           await sink.push(frame);
+          this.recordAcceptedRenderEvent(t.turnId, event);
         } catch (err) {
           pushError = err;
         }
@@ -829,6 +1002,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
       },
       onRunErrorEvent({ event }) {
         if (aborted) return;
+        // Ensure a run_started precedes the error frame even when the run fails
+        // before any text/tool event — parity with the text/tool handlers, so
+        // the frame stream is always a well-formed run lifecycle (OSS-491).
+        ensureRunStarted();
         enqueue({
           kind: "run_error",
           message: event.message ?? "unknown error",
@@ -874,9 +1051,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
 }
 
 /**
- * @internal Construct the Channel bridge adapter. Production callers (the
- * runtime) inject the Realtime Gateway + Connector Outbox transports; tests and
- * standalone runs inject in-memory ones. Must be the only adapter on a Channel (V1).
+ * Construct the Intelligence-delivered Channels adapter.
+ *
+ * Use this factory through `@copilotkit/channels/intelligence`, the supported
+ * consumer surface. Runtime, gateway, and bootstrap APIs in this implementation
+ * package remain internal integration APIs. Production callers inject the
+ * Realtime Gateway + Connector Outbox transports; tests and standalone runs
+ * inject in-memory ones. It must be the only adapter on a Channel (V1).
  */
 export function intelligenceAdapter(
   opts: IntelligenceAdapterOptions = {},

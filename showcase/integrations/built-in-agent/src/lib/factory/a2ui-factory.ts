@@ -27,6 +27,42 @@ revenue, headcount by team, signups per month). \`generate_a2ui\` takes a \
 single \`brief\` argument summarising what the UI should communicate. Keep \
 chat replies to one short sentence; let the UI do the talking.`;
 
+/**
+ * Extra instruction for the a2ui-recovery agent ONLY — declarative-gen-ui keeps
+ * the base prompt byte-for-byte.
+ *
+ * The recovery pills ask the assistant, in plain language, to "self-correct a
+ * malformed first attempt" and to build something that "fails every validation
+ * pass". Read literally by a real LLM, that is an invitation to keep retrying:
+ * the supervisor re-called `generate_a2ui` and the demo painted five identical
+ * cards. The retry loop lives INSIDE the tool (`buildGenerateA2uiTool`'s
+ * `maxAttempts`), which already returns on the first valid pass — so any
+ * supervisor-level retry is pure duplication.
+ *
+ * NOTE this makes the live demo honest rather than complete: against a real LLM
+ * the secondary designer succeeds on attempt 1, so the heal / exhaust branches
+ * are only ever exercised through the aimock fixtures. Making them reproducible
+ * live would require deliberate fault injection — a separate decision, recorded
+ * in PARITY_NOTES.md.
+ */
+const SINGLE_CALL_ADDENDUM = `Call \`generate_a2ui\` EXACTLY ONCE per user request. The tool runs its own \
+validate-and-retry loop internally and already returns the best surface it \
+could produce, so never call it a second time — not even if the user asks you \
+to self-correct, retry, or fix a malformed attempt, and not even if the result \
+looks wrong. After the single call, reply with one short sentence.`;
+
+/**
+ * Defensively unwrap a fenced code block (```json … ``` or ``` … ```) that the
+ * secondary LLM may wrap its JSON in, despite the system prompt asking for no
+ * fences. Returns the inner text trimmed; a non-fenced string is returned
+ * as-is (trimmed).
+ */
+function stripJsonFences(text: string): string {
+  const trimmed = text.trim();
+  const fence = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  return (fence ? fence[1] : trimmed).trim();
+}
+
 function createSurfaceOp(
   surfaceId: string,
   catalogId: string = BASIC_CATALOG_ID,
@@ -115,14 +151,181 @@ value — doing so crashes the render. Keep the top-level "data" field {}.
 match the declared "columns[].key".`;
 
 /**
+ * Result of a single secondary-LLM A2UI design pass: either a valid set of
+ * operations to render, or a human-readable rejection reason (the same
+ * fail-loud messages the original single-shot factory returned).
+ */
+type A2uiAttemptResult =
+  | { ok: true; ops: unknown[] }
+  | { ok: false; error: string };
+
+/**
+ * Opt-in recovery config. When present, `generate_a2ui` runs a validate→retry
+ * loop (mirroring LGP's `get_a2ui_tools({ recovery: { maxAttempts } })`); when
+ * absent, the tool keeps the original single-shot behaviour (used by
+ * declarative-gen-ui).
+ */
+interface A2uiRecoveryConfig {
+  maxAttempts: number;
+}
+
+/**
+ * Run ONE secondary-LLM design pass: prompt the JSON-mode model with the brief,
+ * parse its output, and run the cheap structural validation. Returns a typed
+ * result rather than a tool envelope so the caller can decide whether to retry
+ * (recovery path) or surface the error directly (single-shot path).
+ *
+ * A `chat()` throw (network / abort / mock miss) is intentionally NOT caught
+ * here — the single-shot path relies on it propagating unchanged; the recovery
+ * loop wraps the call and treats a throw as a failed attempt.
+ */
+async function runA2uiDesignAttempt(
+  brief: string,
+  systemPrompt: string,
+  parentAbortController: AbortController,
+): Promise<A2uiAttemptResult> {
+  // NOTE: no `response_format: { type: "json_object" }` here. TanStack AI's
+  // OpenAI adapter (`openaiText`) targets the *Responses* API
+  // (`client.responses.create()`), which does NOT accept the Chat-Completions
+  // `response_format` param — passing it makes the call return an EMPTY string
+  // (verified against real OpenAI), so the secondary LLM produced no schema and
+  // the surface never painted. JSON-only output is instead enforced by
+  // SECONDARY_LLM_INSTRUCTIONS ("Output ONLY a single JSON object … no code
+  // fences"), the same approach the byoc-hashbrown / byoc-json-render factories
+  // use. `stripJsonFences` below defensively unwraps a ```json … ``` block in
+  // case the model adds one anyway.
+  const text = await chat({
+    adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
+    messages: [{ role: "user", content: brief }],
+    systemPrompts: [systemPrompt],
+    stream: false,
+    abortController: parentAbortController,
+  });
+
+  // A non-string `chat()` return cannot be parsed and must not be
+  // blind-cast: doing so lets an unexpected envelope slip past the catch and
+  // get misreported downstream as "no components" instead of naming the real
+  // cause. Fail loud here.
+  if (typeof text !== "string") {
+    return {
+      ok: false,
+      error:
+        "Secondary LLM returned a non-string result (expected a JSON " +
+        "string) — cannot parse the A2UI schema.",
+    };
+  }
+
+  let parsed: {
+    surfaceId?: string;
+    catalogId?: string;
+    components?: unknown[];
+    data?: Record<string, unknown>;
+  };
+  try {
+    parsed = JSON.parse(stripJsonFences(text));
+  } catch {
+    return { ok: false, error: "Secondary LLM returned non-JSON output" };
+  }
+
+  const surfaceId = parsed.surfaceId ?? "dynamic-surface";
+  const catalogId = parsed.catalogId ?? CUSTOM_CATALOG_ID;
+  const components = Array.isArray(parsed.components) ? parsed.components : [];
+  const data = parsed.data ?? {};
+
+  // Output validation (fail loud, not silent-no-paint). What is validated
+  // here: (1) a non-empty `components` array, (2) presence of an `id:"root"`
+  // node (the renderer entry point is hardcoded to id "root" / base path
+  // "/", so a tree missing either genuinely renders nothing — the surface
+  // holds in its loading placeholder, the `surface-missing` failure), and
+  // (3) component ids are unique (a duplicate id makes the tree ambiguous to
+  // the renderer). Surface these as typed errors so the demo fails visibly
+  // rather than streaming an empty/ambiguous surface.
+  //
+  // NOT validated here: no-cycle and reachable-from-root. Those require graph
+  // traversal and are not enforced — a cyclic/orphan tree from the secondary
+  // LLM is not a realistic failure mode, and the tree is trusted from the
+  // renderer's perspective beyond the cheap structural checks above.
+  if (components.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Secondary LLM returned no components — nothing to render on the A2UI surface.",
+    };
+  }
+  const hasRoot = components.some(
+    (c) =>
+      typeof c === "object" &&
+      c !== null &&
+      (c as { id?: unknown }).id === "root",
+  );
+  if (!hasRoot) {
+    return {
+      ok: false,
+      error:
+        'Secondary LLM output has no component with id "root" — the A2UI ' +
+        "renderer begins at root, so the surface would render empty.",
+    };
+  }
+  // Cheap O(n) unique-id check (no traversal): a duplicate id makes the tree
+  // ambiguous for the renderer. Compare collected ids against their Set size.
+  const ids = components
+    .filter((c): c is { id?: unknown } => typeof c === "object" && c !== null)
+    .map((c) => c.id)
+    .filter((id): id is string => typeof id === "string");
+  if (ids.length !== new Set(ids).size) {
+    return {
+      ok: false,
+      error:
+        "Secondary LLM output has duplicate component ids — the A2UI " +
+        "renderer requires unique ids, so the tree is ambiguous to render.",
+    };
+  }
+
+  // `data` MUST be a plain object before it becomes an `updateDataModel`
+  // value. A non-object (string -> char-index keys, array -> numeric-index
+  // keys) still passes `Object.keys(...).length > 0`, so it would emit a
+  // malformed op. Fail loud rather than stream a broken data model.
+  const isPlainObject =
+    typeof data === "object" && data !== null && !Array.isArray(data);
+  if (!isPlainObject) {
+    return {
+      ok: false,
+      error:
+        'Secondary LLM "data" field is not a plain object — the A2UI data ' +
+        "model requires an object value, so this would emit a malformed " +
+        "updateDataModel op.",
+    };
+  }
+
+  const ops: unknown[] = [
+    createSurfaceOp(surfaceId, catalogId),
+    updateComponentsOp(surfaceId, components),
+  ];
+  if (Object.keys(data).length > 0) {
+    ops.push(updateDataModelOp(surfaceId, data));
+  }
+  return { ok: true, ops };
+}
+
+/**
  * Build a per-run `generate_a2ui` tool. Closure-captures `catalogContext` (the
  * registered client catalog schema serialised by the A2UI middleware) and
  * `parentAbortController` so the secondary LLM call aborts with the parent
  * run.
+ *
+ * `recovery` is OPT-IN: without it the tool keeps the original single-shot
+ * behaviour (declarative-gen-ui) — one design pass, and any validation failure
+ * is returned as a plain `{ error }`. With it, the tool runs a validate→retry
+ * loop; if every attempt is invalid it returns the
+ * `{ code: "a2ui_recovery_exhausted", error, attempts }` envelope that the
+ * `@ag-ui/a2ui-middleware` result parser recognises and paints as a graceful
+ * hard-failure card (parity with LGP's `recovery_agent` recovery-exhausted
+ * fallback). Both paths return `a2ui_operations` on success.
  */
 function buildGenerateA2uiTool(
   catalogContext: string,
   parentAbortController: AbortController,
+  recovery?: A2uiRecoveryConfig,
 ) {
   return toolDefinition({
     name: "generate_a2ui",
@@ -144,117 +347,60 @@ function buildGenerateA2uiTool(
       ? `${SECONDARY_LLM_INSTRUCTIONS}\n\nRegistered catalog:\n${catalogContext}`
       : SECONDARY_LLM_INSTRUCTIONS;
 
-    const text = await chat({
-      adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
-      messages: [{ role: "user", content: brief }],
-      systemPrompts: [systemPrompt],
-      stream: false,
-      abortController: parentAbortController,
-      modelOptions: {
-        response_format: { type: "json_object" },
-      },
-    });
-
-    // A non-string `chat()` return cannot be parsed and must not be
-    // blind-cast: doing so lets an unexpected envelope slip past the catch and
-    // get misreported downstream as "no components" instead of naming the real
-    // cause. Fail loud here.
-    if (typeof text !== "string") {
-      return {
-        error:
-          "Secondary LLM returned a non-string result (expected a JSON " +
-          "string) — cannot parse the A2UI schema.",
-      };
+    // Single-shot path (declarative-gen-ui): byte-identical to the original
+    // behaviour — one pass, validation failures surface as a plain error.
+    if (!recovery) {
+      const result = await runA2uiDesignAttempt(
+        brief,
+        systemPrompt,
+        parentAbortController,
+      );
+      return result.ok
+        ? renderA2uiOperations(result.ops)
+        : { error: result.error };
     }
 
-    let parsed: {
-      surfaceId?: string;
-      catalogId?: string;
-      components?: unknown[];
-      data?: Record<string, unknown>;
+    // Recovery path (a2ui-recovery): validate→retry up to `maxAttempts`. On the
+    // first valid pass we paint; if the cap is hit with only invalid passes we
+    // emit the `a2ui_recovery_exhausted` envelope. A thrown secondary call
+    // (e.g. the mock has no further staged response) counts as a failed attempt
+    // so the loop still exhausts gracefully rather than crashing the run —
+    // except a parent abort, which must propagate.
+    const maxAttempts = Math.max(1, recovery.maxAttempts);
+    const attempts: Array<{ attempt: number; ok: false; errors: string[] }> =
+      [];
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await runA2uiDesignAttempt(
+          brief,
+          systemPrompt,
+          parentAbortController,
+        );
+        if (result.ok) return renderA2uiOperations(result.ops);
+        attempts.push({ attempt, ok: false, errors: [result.error] });
+      } catch (err) {
+        if (parentAbortController.signal.aborted) throw err;
+        attempts.push({
+          attempt,
+          ok: false,
+          errors: [err instanceof Error ? err.message : String(err)],
+        });
+      }
+    }
+
+    const lastError =
+      attempts[attempts.length - 1]?.errors[0] ?? "A2UI generation failed";
+    // Shape recognised by the A2UI middleware's result parser: it keys off
+    // `code === "a2ui_recovery_exhausted"` and reads `error` (card copy) +
+    // `attempts` (retry count). Returned as a plain object; the runtime
+    // serialises it to the tool-result string the middleware parses.
+    return {
+      code: "a2ui_recovery_exhausted",
+      error: `Couldn't generate a valid A2UI surface after ${maxAttempts} attempt${
+        maxAttempts === 1 ? "" : "s"
+      }. ${lastError}`,
+      attempts,
     };
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      return { error: "Secondary LLM returned non-JSON output" };
-    }
-
-    const surfaceId = parsed.surfaceId ?? "dynamic-surface";
-    const catalogId = parsed.catalogId ?? CUSTOM_CATALOG_ID;
-    const components = Array.isArray(parsed.components)
-      ? parsed.components
-      : [];
-    const data = parsed.data ?? {};
-
-    // Output validation (fail loud, not silent-no-paint). What is validated
-    // here: (1) a non-empty `components` array, (2) presence of an `id:"root"`
-    // node (the renderer entry point is hardcoded to id "root" / base path
-    // "/", so a tree missing either genuinely renders nothing — the surface
-    // holds in its loading placeholder, the `surface-missing` failure), and
-    // (3) component ids are unique (a duplicate id makes the tree ambiguous to
-    // the renderer). Surface these as typed errors so the demo fails visibly
-    // rather than streaming an empty/ambiguous surface.
-    //
-    // NOT validated here: no-cycle and reachable-from-root. Those require graph
-    // traversal and are not enforced — a cyclic/orphan tree from the secondary
-    // LLM is not a realistic failure mode, and the tree is trusted from the
-    // renderer's perspective beyond the cheap structural checks above.
-    if (components.length === 0) {
-      return {
-        error:
-          "Secondary LLM returned no components — nothing to render on the A2UI surface.",
-      };
-    }
-    const hasRoot = components.some(
-      (c) =>
-        typeof c === "object" &&
-        c !== null &&
-        (c as { id?: unknown }).id === "root",
-    );
-    if (!hasRoot) {
-      return {
-        error:
-          'Secondary LLM output has no component with id "root" — the A2UI ' +
-          "renderer begins at root, so the surface would render empty.",
-      };
-    }
-    // Cheap O(n) unique-id check (no traversal): a duplicate id makes the tree
-    // ambiguous for the renderer. Compare collected ids against their Set size.
-    const ids = components
-      .filter((c): c is { id?: unknown } => typeof c === "object" && c !== null)
-      .map((c) => c.id)
-      .filter((id): id is string => typeof id === "string");
-    if (ids.length !== new Set(ids).size) {
-      return {
-        error:
-          "Secondary LLM output has duplicate component ids — the A2UI " +
-          "renderer requires unique ids, so the tree is ambiguous to render.",
-      };
-    }
-
-    // `data` MUST be a plain object before it becomes an `updateDataModel`
-    // value. A non-object (string -> char-index keys, array -> numeric-index
-    // keys) still passes `Object.keys(...).length > 0`, so it would emit a
-    // malformed op. Fail loud rather than stream a broken data model.
-    const isPlainObject =
-      typeof data === "object" && data !== null && !Array.isArray(data);
-    if (!isPlainObject) {
-      return {
-        error:
-          'Secondary LLM "data" field is not a plain object — the A2UI data ' +
-          "model requires an object value, so this would emit a malformed " +
-          "updateDataModel op.",
-      };
-    }
-
-    const ops: unknown[] = [
-      createSurfaceOp(surfaceId, catalogId),
-      updateComponentsOp(surfaceId, components),
-    ];
-    if (Object.keys(data).length > 0) {
-      ops.push(updateDataModelOp(surfaceId, data));
-    }
-    return renderA2uiOperations(ops);
   });
 }
 
@@ -270,7 +416,7 @@ function buildGenerateA2uiTool(
  * `convertInputToTanStackAI`'s `systemPrompts` aggregator and pass it to the
  * secondary LLM.
  */
-export function createDeclarativeGenUIAgent() {
+function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
   return new BuiltInAgent({
     type: "tanstack",
     factory: ({ input, abortController }) => {
@@ -290,15 +436,34 @@ export function createDeclarativeGenUIAgent() {
       const generateA2ui = buildGenerateA2uiTool(
         catalogContext,
         abortController,
+        recovery,
       );
 
       return chat({
-        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
-        systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+        systemPrompts: recovery
+          ? [SYSTEM_PROMPT, SINGLE_CALL_ADDENDUM, ...systemPrompts]
+          : [SYSTEM_PROMPT, ...systemPrompts],
         tools: [generateA2ui],
         abortController,
       });
     },
   });
+}
+
+export function createDeclarativeGenUIAgent() {
+  return createA2uiAgent();
+}
+
+/**
+ * A2UI agent for the Error Recovery demo. Identical to the declarative-gen-ui
+ * agent except its `generate_a2ui` runs the opt-in validate→retry recovery
+ * loop and, when every attempt is invalid, emits the `a2ui_recovery_exhausted`
+ * envelope the A2UI middleware paints as a graceful failure card. Wired into
+ * the `/api/copilotkit-a2ui-recovery` route ONLY — declarative-gen-ui keeps
+ * the single-shot behaviour. `maxAttempts: 3` mirrors LGP's `recovery_agent`.
+ */
+export function createA2UIRecoveryAgent() {
+  return createA2uiAgent({ maxAttempts: 3 });
 }

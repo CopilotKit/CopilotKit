@@ -1,0 +1,112 @@
+---
+title: "Production and lifecycle"
+description: "Cleanup, errors, SSR, hydration, and zoneless behavior for @copilotkit/angular."
+---
+
+`@copilotkit/angular` uses signals and standalone Angular APIs and is compatible
+with zoneless Angular. Most UI components use `OnPush`; `RenderToolCalls`
+currently uses Angular's default change-detection strategy. This page describes
+the environment and ownership rules that apply across the public API.
+
+## Minimal production setup
+
+```ts title="src/app/app.config.ts"
+import {
+  ApplicationConfig,
+  provideZonelessChangeDetection,
+} from "@angular/core";
+import { provideClientHydration } from "@angular/platform-browser";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideClientHydration(),
+    provideZonelessChangeDetection(),
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+  ],
+};
+```
+
+Use a same-origin runtime URL where possible. If server and browser origins
+differ, resolve an absolute URL independently in each environment while
+keeping the rendered component tree and initial input values identical.
+
+## Ownership and cleanup
+
+Call injectable helpers from a field initializer, constructor, or another
+Angular injection context. They use the owning `DestroyRef`:
+
+| API family                                                                                                  | Owned lifecycle work                                            | Cleanup behavior                                                               |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `injectAgentStore`                                                                                          | Agent subscription and signal projection                        | Replaces the subscription when `agentId` changes; unsubscribes on destroy      |
+| `connectAgentContext`                                                                                       | Reactive context registration                                   | Removes the context when the owning effect is destroyed                        |
+| `registerFrontendTool`, `registerRenderToolCall`, `registerHumanInTheLoop`                                  | Runtime renderer or tool registration                           | Removes registrations matching the same name and optional agent ID on destroy  |
+| `registerRenderActivityMessage`                                                                             | Activity renderer registration                                  | Removes the exact renderer object on destroy                                   |
+| `injectInterrupt`                                                                                           | Agent subscription, pending interrupt state, handler generation | Disconnects and invalidates pending asynchronous handler work on destroy       |
+| `injectThreads`                                                                                             | Store selectors, realtime lifecycle, runtime registration       | Unsubscribes, stops, and unregisters the store on destroy                      |
+| `injectMemories`                                                                                            | RxJS selectors converted to signals                             | Angular's signal interop owns the subscriptions                                |
+| Popup, sidebar, chat primitives                                                                             | Media listeners, observers, timers, focus and body layout       | Restore listeners, timers, observers, focus, and docked body layout on destroy |
+| MCP Apps and Open Generative UI                                                                             | Iframe listeners, queues, sandbox instances                     | Cancel renderer-owned work and destroy renderer-owned sandboxes only           |
+
+Application-owned work stays application-owned. For example, abort a fetch
+started by a frontend tool when the tool's host is destroyed. Do not retain an
+injected controller outside its injector. `AgentStore.teardown()` exists for
+manually constructed advanced stores; injected stores clean themselves up.
+
+## Error behavior
+
+- Agent lookup throws an error containing the requested agent, runtime URL,
+  and known agent IDs after runtime synchronization cannot resolve it.
+- Activity-renderer content must pass its Standard Schema before rendering.
+  Frontend-tool and tool-call-renderer schemas define advertised JSON Schema and
+  TypeScript types, but runtime arguments are only JSON-parsed. Unknown tools
+  remain hidden unless `defaultToolRendering` is explicitly enabled.
+- Interrupt predicate and preparation failures are exposed on the controller's
+  `error` signal. Expired interrupts produce `InterruptExpiredError`. Resume
+  failures are not retried automatically.
+- Thread and memory controllers expose errors as signals; mutation promises
+  reject so the application can announce or display the failure.
+- A2UI recovery visibility is controlled by `A2UIRecoveryOptions` and may be
+  overridden by authoritative server lifecycle content.
+- MCP Apps validates snapshot content, iframe sources, and JSON-RPC messages.
+  Queue timeout, thread replacement, resource, and protocol failures render as
+  owned error states rather than escaping into another renderer.
+
+## SSR and hydration
+
+Browser-only behavior is inert during server rendering and activates after
+hydration. Follow these rules:
+
+1. Provide the same CopilotKit configuration and initial component inputs on
+   the server and first browser render.
+2. Do not call `runAgent`, media capture, sandbox functions, or MCP iframe
+   operations during server rendering.
+3. Put application-owned `window`, `document`, observer, media-query, and media
+   API access behind `isPlatformBrowser` or `afterNextRender`.
+4. Allow A2UI custom elements, Open Generative UI sandboxes, audio recording,
+   and MCP Apps iframes to activate in the browser after hydration.
+5. Do not branch the pre-hydration template on browser globals. Change UI state
+   through signals after hydration instead.
+
+Keep popup and sidebar initial `open`, `mode`, and `position` inputs stable
+through hydration so the server and browser produce matching semantics. Treat
+their generated dialog IDs as implementation details rather than persisting or
+querying them from application code.
+
+## Zoneless behavior
+
+The package does not require Zone.js. Signals, signal inputs/models, Angular
+outputs, `afterNextRender`, and explicit observer callbacks drive updates.
+Custom renderer components should also be standalone and OnPush- or
+zoneless-compatible. When bridging a third-party callback, update an Angular
+signal or use Angular's supported scheduling APIs instead of relying on Zone.js
+to notice arbitrary mutation.
+
+## Security boundaries
+
+`headers`, `properties`, tool arguments, activity content, and MCP host context
+are browser-visible. Never put model-provider credentials or other secrets in
+them. Keep model credentials behind Copilot Runtime. Open Generative UI
+functions should expose narrow application capabilities, and MCP Apps runtime
+traffic should continue through the selected AG-UI agent rather than a
+browser-supplied server URL.

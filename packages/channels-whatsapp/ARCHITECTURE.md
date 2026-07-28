@@ -2,8 +2,11 @@
 
 How `@copilotkit/channels-whatsapp` is structured and **why** each boundary exists.
 
-This package is the WhatsApp `PlatformAdapter` for [`@copilotkit/channels`](../channels).
-The channel engine owns the platform-agnostic orchestration (handlers, the
+Application authors use this package with the product-facing
+[`@copilotkit/channels`](../channels) umbrella. `WhatsAppAdapter` imports and
+implements [`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core). The channel engine owns the
+platform-agnostic orchestration (handlers, the
 run/tool/interrupt loop, JSX action binding, the `ActionStore`); this package
 owns everything WhatsApp-specific: webhook ingress, Cloud API egress, buffered
 rendering, and opaque-id interactions.
@@ -27,7 +30,15 @@ rendering, and opaque-id interactions.
 ## The boundary: `PlatformAdapter`
 
 `WhatsAppAdapter` (constructed via `whatsapp(opts)`) implements
-`@copilotkit/channels`'s `PlatformAdapter`. The members it implements:
+[`PlatformAdapter`](../channels-core) from
+[`@copilotkit/channels-core`](../channels-core). The members it implements:
+
+```
+WhatsAppAdapter (`@copilotkit/channels-whatsapp`)
+  └── imports / implements ──► `@copilotkit/channels-core`: `PlatformAdapter`
+
+`@copilotkit/channels` is the product-facing umbrella, not an adapter dependency.
+```
 
 - `platform`, `capabilities` (`supportsStreaming: false`, modals/typing/
   reactions all `false`), `ackDeadlineMs` (5000)
@@ -70,7 +81,7 @@ WebhookServer
                                   text/media → sink.onTurn (with HistoryStore.append)
                          │
                          ▼
-               @copilotkit/channels: Thread
+          @copilotkit/channels-core: Thread
                          │  thread.runAgent()
                          ▼
                    runAgentLoop

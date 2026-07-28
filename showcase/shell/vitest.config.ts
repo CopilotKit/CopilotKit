@@ -5,6 +5,11 @@ import path from "node:path";
 const require = createRequire(import.meta.url);
 
 export default defineConfig({
+  oxc: false,
+  esbuild: {
+    // Next preserves JSX, while Vitest must lower TSX before import analysis.
+    jsx: "automatic",
+  },
   test: {
     environment: "jsdom",
     globals: true,

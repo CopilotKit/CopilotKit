@@ -2,13 +2,13 @@
   "name": "teams-example",
   "version": "0.0.1",
   "private": true,
-  "description": "Runnable demo for @copilotkit/channels-teams: streamed replies, Adaptive Cards, and a human-in-the-loop approval gate, testable in the Microsoft 365 Agents Playground with no Microsoft credentials.",
+  "description": "Runnable demo for @copilotkit/channels and its Teams adapter subpath: streamed replies, Adaptive Cards, and a human-in-the-loop approval gate, testable in the Microsoft 365 Agents Playground with no Microsoft credentials.",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tsx watch app/index.tsx",
     "start": "tsx app/index.tsx",
-    "build": "pnpm exec nx run-many -t build -p @copilotkit/channels @copilotkit/channels-teams @copilotkit/channels-ui @copilotkit/runtime",
+    "build": "pnpm exec nx run-many -t build -p @copilotkit/channels @copilotkit/runtime",
     "playground": "agentsplayground",
     "package": "node appPackage/package.mjs",
     "check-types": "tsc --noEmit -p tsconfig.json",
@@ -16,8 +16,6 @@
   },
   "dependencies": {
     "@copilotkit/channels": "workspace:*",
-    "@copilotkit/channels-teams": "workspace:*",
-    "@copilotkit/channels-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "zod": "^3.25.76"
   },

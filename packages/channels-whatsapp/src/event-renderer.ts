@@ -3,7 +3,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 

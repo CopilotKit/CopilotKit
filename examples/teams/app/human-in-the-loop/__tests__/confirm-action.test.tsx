@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
-import { renderAdaptiveCard } from "@copilotkit/channels-teams";
+import { renderToIR } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
+import { renderAdaptiveCard } from "@copilotkit/channels/teams";
 import { confirmWriteTool } from "../index.js";
 
 /** A fake thread whose `awaitChoice` records the posted UI and returns a fixed choice. */

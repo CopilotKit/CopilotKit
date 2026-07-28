@@ -8,8 +8,9 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call. The Mastra adapter translates this into a tool-call-suspended event, surfacing the time-picker UI inline via useInterrupt.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -37,10 +38,11 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied).",
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied). Cancel resumes with the SAME toolCallId as pick; only the tool-result payload differs, so gate on toolResultContains (aimock \u2265 1.37.0) and keep this leg BEFORE the confirmation leg (first match wins).",
       "match": {
-        "userMessage": "introductory sales team call",
-        "toolCallId": "call_d5_schedule_sales_001__cancelled",
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "toolResultContains": "cancelled",
         "context": "mastra"
       },
       "response": {
@@ -50,7 +52,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resume fires.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
         "context": "mastra"
       },
@@ -61,8 +63,9 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -90,10 +93,11 @@
       }
     },
     {
-      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg.",
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg. Same toolCallId as the pick path; discriminated by the tool-result payload via toolResultContains, ordered before the confirmation leg.",
       "match": {
-        "userMessage": "one-on-one with Alice",
-        "toolCallId": "call_d5_schedule_alice_001__cancelled",
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "toolResultContains": "cancelled",
         "context": "mastra"
       },
       "response": {
@@ -103,7 +107,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after slot picked.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
         "context": "mastra"
       },

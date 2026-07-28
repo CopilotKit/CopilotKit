@@ -179,11 +179,32 @@ export interface RunRedeployOpts {
   services?: string[];
 }
 
+/**
+ * A single per-service redeploy outcome. `status:"ok"` means Railway accepted
+ * the `serviceInstanceRedeploy` for that service; `status:"error"` carries the
+ * sanitized failure. Callers that must confirm a SPECIFIC service was actually
+ * redeployed (e.g. reconcile-staging's per-service remediation check) match on
+ * these records rather than the post-expansion `attempted` COUNT — imageOf
+ * expansion inflates `attempted` above the requested set, so a count alone can
+ * mask a dropped/failed service.
+ */
+export interface RedeployServiceRecord {
+  service: string;
+  status: "ok" | "error";
+  error?: string;
+}
+
 export interface RunRedeploySummary {
   exitCode: number;
   attempted: number;
   succeeded: number;
   failed: number;
+  /**
+   * Per-service outcomes for EVERY service the run attempted (post-expansion),
+   * in iteration order. Exposed so a caller can confirm remediation
+   * per-service instead of trusting the aggregate counts.
+   */
+  records: RedeployServiceRecord[];
 }
 
 /**
@@ -414,11 +435,7 @@ export async function runRedeploy(
   //   Array<{ service: string; status: "ok" | "error"; error?: string }>
   // Built in parallel with the existing `failures`/`succeeded` tallies so
   // PR #5093's exit-code computation below is untouched.
-  const records: Array<{
-    service: string;
-    status: "ok" | "error";
-    error?: string;
-  }> = [];
+  const records: RedeployServiceRecord[] = [];
   let succeeded = 0;
 
   appendSummary(`## Railway redeploy — env=${env}`);
@@ -532,7 +549,7 @@ export async function runRedeploy(
   // canary, …) inherits fatal semantics instead of silently swallowing
   // failures the way only staging is meant to.
   const exitCode = env !== "staging" && failed > 0 ? 1 : 0;
-  return { exitCode, attempted, succeeded, failed };
+  return { exitCode, attempted, succeeded, failed, records };
 }
 
 async function main(): Promise<void> {

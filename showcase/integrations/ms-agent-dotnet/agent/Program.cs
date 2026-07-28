@@ -84,6 +84,17 @@ app.MapPost("/multimodal", (HttpContext context) => MultimodalEndpoint.HandleAsy
     agentFactory.CreateMultimodalChatClient(),
     loggerFactory.CreateLogger("MultimodalEndpoint")));
 
+// A2UI Error Recovery demo. Backend-owned render->validate->retry loop with a
+// graceful a2ui_recovery_exhausted fallback. Mounted as a raw SSE endpoint (NOT
+// MapAGUI): the recovery-exhausted card only renders from an a2ui-surface
+// ACTIVITY_SNAPSHOT carrying status:"failed", which the MS Agent Framework AG-UI
+// adapter cannot emit — so this endpoint hand-writes the AG-UI SSE stream, the
+// same adapter-bypass pattern used by /multimodal. See agent/RecoveryAgent.cs.
+app.MapPost("/a2ui-recovery", (HttpContext context) => RecoveryAgent.HandleAsync(
+    context,
+    builder.Configuration,
+    loggerFactory.CreateLogger("RecoveryAgent")));
+
 // Beautiful Chat flagship demo.
 app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
 
@@ -394,8 +405,6 @@ public record FlightInfo
 // =================
 public class SalesAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly IConfiguration _configuration;
     private readonly SalesState _state;
     private readonly OpenAIClient _openAiClient;
@@ -411,30 +420,16 @@ public class SalesAgentFactory
         _logger = loggerFactory.CreateLogger<SalesAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        // Get the GitHub token from configuration
-        var githubToken = _configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(_configuration);
 
         // Log the resolved OpenAI endpoint at startup so operators can tell
         // whether we're hitting a custom OPENAI_BASE_URL or falling back to the
         // GitHub Models / Azure default. Previously the fallback was silent.
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
-        if (string.IsNullOrEmpty(endpointEnv))
-        {
-            _logger.LogInformation(
-                "OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
-        }
-        else
-        {
-            _logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
-        }
+        var endpoint = ApiKeyResolver.ResolveEndpoint(_configuration);
+        _logger.LogInformation("Using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

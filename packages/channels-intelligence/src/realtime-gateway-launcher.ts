@@ -1,4 +1,4 @@
-import type { Channel } from "@copilotkit/channels";
+import type { Channel } from "@copilotkit/channels-core";
 import {
   startChannels,
   assertValidChannelNames,
@@ -70,8 +70,17 @@ export interface StartChannelsWithGatewaySessionOptions {
   session: RealtimeGatewaySession;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
   scope: ChannelRealtimeScope;
-  /** Stable runtime instance id (`rti_…`), echoed on every envelope. */
+  /**
+   * One live Channel activation id (`rti_…`), echoed on every envelope.
+   * Unique across concurrent replicas, stable across reconnects for this
+   * activation, and re-minted on process/ChannelManager restart.
+   */
   runtimeInstanceId: string;
+  /** Intelligence app-api HTTP base URL — enables file/history parity on the
+   * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
+  appApiBaseUrl?: string;
+  /** Project runtime API key (`cpk-…`) for the app-api file/history calls. */
+  apiKey?: string;
   /** Activation env overrides forwarded to the runtime (so `handle.metadata`
    * matches what the caller declared on join); omitted fields are gathered from
    * the process. `runtimeInstanceId` is excluded — the required
@@ -103,6 +112,8 @@ export async function startChannelsWithGatewaySession(
     scope: opts.scope,
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
+    ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
+    ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
   const handle = await startChannels({
@@ -126,7 +137,7 @@ export async function startChannelsWithGatewaySession(
   const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
     onStateChange(
-      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
     ): void;
   }>;
   // Call the seams ON the session (not via detached references) so a
@@ -142,7 +153,9 @@ export async function startChannelsWithGatewaySession(
       ...(observableSession.onStateChange
         ? {
             onStateChange: (
-              cb: (state: "online" | "reconnecting" | "gave_up") => void,
+              cb: (
+                state: "online" | "reconnecting" | "gave_up" | "fenced",
+              ) => void,
             ) => observableSession.onStateChange!(cb),
           }
         : {}),
@@ -160,10 +173,18 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   apiKey: string;
   /** Authoritative org/project/channel scope echoed on every SDK→gateway envelope. */
   scope: ChannelRealtimeScope;
-  /** Stable runtime instance id (`rti_…`). */
+  /**
+   * One live Channel activation id (`rti_…`). Must be unique across concurrent
+   * replicas; reuse it only for transport reconnects of this activation.
+   */
   runtimeInstanceId: string;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
+  /** Intelligence app-api HTTP base URL. Enables file/history parity on the
+   * realtime path (OSS-476) — these are HTTP-only (the gateway relays the
+   * render-event stream, not bytes/history), reached with the {@link apiKey}
+   * above. Omit and file/history stay unavailable (graceful degradation). */
+  appApiBaseUrl?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process. Included in the join's `runtimeMetadata` and
    * in `handle.metadata`. `runtimeInstanceId` is intentionally excluded — the
@@ -172,6 +193,10 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Join timeout in ms. */
   timeoutMs?: number;
+  /** Initial-connect window in ms (default 10000). When the socket never opens
+   * within it, the connect rejects as unreachable instead of hanging on
+   * Phoenix's forever-retry — see `ConnectRealtimeGatewayOptions.connectTimeoutMs`. */
+  connectTimeoutMs?: number;
   /** Injectable `WebSocket` ctor (non-global hosts / tests). */
   webSocket?: unknown;
   /** Diagnostic sink for dropped deliveries / transport events. */
@@ -246,6 +271,9 @@ export async function startChannelsOverRealtimeGateway(
       observedAt: new Date().toISOString(),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
+    ...(config.connectTimeoutMs !== undefined
+      ? { connectTimeoutMs: config.connectTimeoutMs }
+      : {}),
     ...(config.webSocket !== undefined ? { webSocket: config.webSocket } : {}),
   });
   // The session is now joined. If starting the Channels throws (e.g. a Channel
@@ -257,6 +285,11 @@ export async function startChannelsOverRealtimeGateway(
       session,
       scope: config.scope,
       runtimeInstanceId: config.runtimeInstanceId,
+      // File/history parity is HTTP-only; forward the app-api coordinates (the
+      // apiKey is the same one used as the socket authToken) so the transport
+      // can reach the file/history REST endpoints directly.
+      ...(config.appApiBaseUrl ? { appApiBaseUrl: config.appApiBaseUrl } : {}),
+      apiKey: config.apiKey,
       // The session-start helper re-merges the authoritative runtimeInstanceId,
       // so forward only the caller's overrides here (they cannot carry the id).
       ...(config.env ? { env: config.env } : {}),
@@ -273,7 +306,7 @@ export async function startChannelsOverRealtimeGateway(
     // so they stay correct even if that helper's internals change.
     onClose: (cb: () => void) => session.onClose(cb),
     onStateChange: (
-      cb: (state: "online" | "reconnecting" | "gave_up") => void,
+      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
     ) => session.onStateChange(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the

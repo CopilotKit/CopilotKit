@@ -1,4 +1,4 @@
-import type { Channel, StateStore } from "@copilotkit/channels";
+import type { Channel, StateStore } from "@copilotkit/channels-core";
 import type {
   DeliverySource,
   EgressSink,
@@ -63,7 +63,8 @@ export interface ChannelActivationMetadata extends ChannelActivationEnv {
  * Gather the process-level runtime activation env — `COPILOTKIT_RUNTIME_ENV`
  * (override) → `NODE_ENV` → "development", and the Node version. Caller
  * `overrides` win and supply what only the runtime knows: package versions
- * (`runtimePackageVersion`/`channelsPackageVersion`) and a stable `runtimeInstanceId`.
+ * (`runtimePackageVersion`/`channelsPackageVersion`) and an activation-scoped
+ * `runtimeInstanceId` that is stable only across transport reconnects.
  */
 export function resolveChannelActivationEnv(
   overrides: Partial<ChannelActivationEnv> = {},
@@ -147,7 +148,7 @@ export interface ChannelsHandle {
    * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
    */
   onStateChange?(
-    cb: (state: "online" | "reconnecting" | "gave_up") => void,
+    cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
   ): void;
 }
 
@@ -184,20 +185,20 @@ export async function startChannels(
       const { source, egress, renderSink, store } = opts.resolveTransport(
         channel.name!,
       );
-      channel.addAdapter(
+      channel.ɵruntime.addAdapter(
         intelligenceAdapter({ source, egress, renderSink, store }),
       );
-      await channel.start();
+      await channel.ɵruntime.start();
       startedChannels.push(channel);
     }
   } catch (err) {
-    await Promise.allSettled(startedChannels.map((c) => c.stop()));
+    await Promise.allSettled(startedChannels.map((c) => c.ɵruntime.stop()));
     throw err;
   }
   return {
     metadata,
     async stop() {
-      await Promise.all(opts.channels.map((c) => c.stop()));
+      await Promise.all(opts.channels.map((c) => c.ɵruntime.stop()));
     },
   };
 }

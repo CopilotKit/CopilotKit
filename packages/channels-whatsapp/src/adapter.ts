@@ -6,7 +6,7 @@ import type {
   RunRenderer,
   ConversationStore,
   UserQuery,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type {
   ChannelNode,
   MessageRef,

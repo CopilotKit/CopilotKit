@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
+import { renderToIR } from "@copilotkit/channels";
 import type {
   ChannelNode,
   InteractionContext,
   ClickHandler,
-} from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+} from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { ConfirmWrite } from "../confirm-write.js";
 
 /** Children of an IR node as an array (empty if none). */

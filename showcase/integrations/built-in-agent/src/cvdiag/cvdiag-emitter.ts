@@ -32,7 +32,7 @@ export {
   isValidTestId,
   validateEnvelope,
   validateMetadata,
-} from "./schema.js";
+} from "./schema";
 
 export type {
   CvdiagLayer,
@@ -46,7 +46,7 @@ export type {
   CvdiagEnvelope,
   EnvelopeValidationResult,
   MetadataValidationResult,
-} from "./schema.js";
+} from "./schema";
 
 // ── Edge-header allow/deny filter + PII scrub ───────────────────────────────
 export {
@@ -58,7 +58,7 @@ export {
   SCRUB_REPLACEMENT,
   scrubSecrets,
   filterEdgeHeaders,
-} from "./edge-headers.js";
+} from "./edge-headers";
 
 // ── Emitter (tier resolution, fail-closed DEBUG, byte caps, span/id minters) ─
 export {
@@ -71,7 +71,7 @@ export {
   resolveEnvLabel,
   mintTestId,
   mintSpanId,
-} from "./emit.js";
+} from "./emit";
 
 export type {
   CvdiagTier,
@@ -79,15 +79,12 @@ export type {
   CvdiagEnv,
   CvdiagEmitterOptions,
   CvdiagEmitArgs,
-} from "./emit.js";
+} from "./emit";
 
 // ── Concrete writer-role PB writer (plain fetch; auth-with-password→Bearer) ──
 export {
   CvdiagFetchPbWriter,
   createCvdiagFetchPbWriterFromEnv,
-} from "./pb-writer-fetch.js";
+} from "./pb-writer-fetch";
 
-export type {
-  FetchLike,
-  CvdiagFetchPbWriterOptions,
-} from "./pb-writer-fetch.js";
+export type { FetchLike, CvdiagFetchPbWriterOptions } from "./pb-writer-fetch";

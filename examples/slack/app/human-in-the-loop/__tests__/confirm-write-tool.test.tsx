@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
-import type { ChannelNode } from "@copilotkit/channels-ui";
-import { renderSlackMessage } from "@copilotkit/channels-slack";
+import { renderToIR } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
+import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { confirmWriteTool } from "../confirm-write-tool.js";
 
 /** A fake thread whose `awaitChoice` records the posted UI and returns a fixed choice. */

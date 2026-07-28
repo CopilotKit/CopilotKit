@@ -7,7 +7,7 @@
  * (`<Context>`) so the tool doubles as a render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/channels-ui";
+import { Context } from "@copilotkit/channels";
 import { defineChannelTool } from "@copilotkit/channels";
 import { renderChart } from "../render/chart.js";
 

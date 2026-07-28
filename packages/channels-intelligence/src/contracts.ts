@@ -155,6 +155,16 @@ export type ChannelRenderEvent =
   | { kind: "update"; ref: string; content: ChannelNode[] }
   | {
       /**
+       * Delete a previously-posted message (`thread.delete`). Carries only the
+       * post ref; the gateway-side Connector Outbox resolves it to the provider
+       * message ts and calls `chat.delete`. Mirrors the frozen `delete` render
+       * kind on the Intelligence side (OSS-420).
+       */
+      kind: "delete";
+      ref: string;
+    }
+  | {
+      /**
        * Outbound file post (`thread.postFile`). Bytes were streamed to app-api
        * ahead of this frame and stored in object storage under `handle`; the
        * Connector Outbox fetches them and calls Slack `files.uploadV2`.

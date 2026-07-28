@@ -6,7 +6,7 @@
  *
  * Each entry is exported individually too so apps can cherry-pick.
  */
-import type { ContextEntry } from "@copilotkit/channels";
+import type { ContextEntry } from "@copilotkit/channels-core";
 
 export const discordTaggingContext: ContextEntry = {
   description: "How to tag/mention people in Discord",

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { SlackAdapter } from "./adapter.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
-import type { InteractionEvent, IngressSink } from "@copilotkit/channels";
+import type { InteractionEvent, IngressSink } from "@copilotkit/channels-core";
 
 /**
  * Build an adapter with a mock Slack client injected. Constructing the real

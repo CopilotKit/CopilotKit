@@ -9,10 +9,10 @@ description: "Angular function that subscribes to an AG-UI agent and returns a s
 
 Read the store by calling the outer signal, then read each member by calling its signal: `store().messages()`, `store().isRunning()`, `store().state()`. The `agent` member is the plain AG-UI instance (not a signal), so you read it directly: `store().agent`.
 
-This is the Angular equivalent of React's `useAgent()`. Call it from an injection context (a constructor or a field initializer). The subscription is torn down automatically when the owning component or service is destroyed.
+Call it from an injection context such as a constructor or field initializer. The subscription is torn down automatically when the owning component or service is destroyed.
 
 <Callout type="warn">
-  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or registered via `agents__unsafe_dev_only`), reading the store signal throws an error listing the known agents.
+  Resolution of the agent is lazy and reactive. If no agent can be resolved for the given `agentId` after the runtime has synced (for example, the id does not match any agent reported by your runtime `/info` or configured through `agents` or `selfManagedAgents`), reading the store signal throws an error listing the known agents.
 </Callout>
 
 ## Signature
@@ -48,7 +48,7 @@ function injectAgentStore(
   </PropertyReference>
 
   <PropertyReference name="state" type="Signal<unknown>">
-    A readonly signal of the agent's shared state object, synchronized between your app and the agent. Read it with `store().state()`. It is `undefined` until the agent reports state. Cast or type it as needed for your agent's state shape.
+    A readonly signal of the agent's shared state object, synchronized between your app and the agent. Read it with `store().state()`. The store seeds this signal synchronously from the agent's current `state`, including state restored before subscription. Cast or type it as needed for your agent's state shape.
   </PropertyReference>
 
   <PropertyReference name="isRunning" type="Signal<boolean>">

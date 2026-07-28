@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { runStateStoreConformance } from "@copilotkit/channels/testing";
+import { runStateStoreConformance } from "@copilotkit/channels-core/testing";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
 

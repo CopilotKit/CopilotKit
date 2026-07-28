@@ -22,7 +22,7 @@ import type {
   UserQuery,
   EphemeralResult,
   NativePayload,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
   ChannelNode,

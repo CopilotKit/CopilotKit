@@ -2,9 +2,9 @@
  * Resolve a stable end-user identity for Intelligence requests.
  *
  * Single source of truth shared by the CopilotKit runtime's `identifyUser`
- * (api/copilotkit route) AND the Memory-panel proxies (api/memories,
- * api/memories/recall), so the chat agent and the inspector always read/write
- * the same per-user memory scope.
+ * (api/copilotkit route) AND the presenter-reset memory helpers
+ * (forget-memories, seed-memories), so the chat agent, the inspector's Memory
+ * tab, and a booth reset all read/write the same per-user memory scope.
  *
  * Precedence: pinned env > mapped member id > role-derived > demo default.
  *  - Pinned `INTELLIGENCE_USER_ID` wins so CI (Playwright/aimock, smokes) stays
@@ -28,6 +28,12 @@ const MEMBER_IDENTITY: Record<string, { userId: string; userName: string }> = {
 export const SEEDED_USER_IDS: readonly string[] = Object.values(
   MEMBER_IDENTITY,
 ).map((m) => m.userId);
+
+/** The default/fallback identity used when no member is mapped and no role is
+ *  set (roleSlug with no role). A lot of demo memory lands here (e.g. facts
+ *  taught before a member is actively selected), and a full reset intentionally
+ *  does NOT clear it, so the inspector must include it to "show everything". */
+export const DEMO_DEFAULT_USER_ID = "northwind-demo-user";
 
 export type IdentityInput = { memberId?: string; role?: string };
 

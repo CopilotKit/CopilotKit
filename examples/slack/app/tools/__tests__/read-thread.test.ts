@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { readThreadTool } from "../read-thread.js";
-import type { ThreadMessage } from "@copilotkit/channels-ui";
+import type { ThreadMessage } from "@copilotkit/channels";
 
 /** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof readThreadTool.handler>[1];

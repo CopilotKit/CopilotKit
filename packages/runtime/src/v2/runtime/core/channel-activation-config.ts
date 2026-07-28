@@ -24,6 +24,11 @@ export interface ChannelActivationConfig {
   wsUrl: string;
   /** Intelligence API key used to authenticate the runner connection. */
   apiKey: string;
+  /** Intelligence app-api HTTP base URL (`intelligence.ɵgetApiUrl()`), forwarded
+   * to the transport so the managed realtime path enables file/history parity
+   * (those are HTTP-only). Without it, Channels started by the normal runtime
+   * handler run with no history and no file support (OSS-476). */
+  apiUrl: string;
   /** Project id parsed from {@link apiKey}. */
   projectId: number;
   /** The Channel's declared name (`createChannel({ name })`). */
@@ -138,6 +143,7 @@ export function deriveChannelActivationConfig(args: {
   const channelName = channel.name;
 
   const wsUrl = intelligence.ɵgetRunnerWsUrl();
+  const apiUrl = intelligence.ɵgetApiUrl();
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);
 
@@ -153,6 +159,7 @@ export function deriveChannelActivationConfig(args: {
 
   return {
     wsUrl,
+    apiUrl,
     apiKey,
     projectId,
     channelName,
