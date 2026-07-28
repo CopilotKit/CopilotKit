@@ -85,17 +85,16 @@ before exposing thread lists or lifecycle actions.
         ```
 
         CLI `init` and its `create` alias write the cloud-hosted platform URLs,
-        `SL_ENABLED`, and project-scoped `INTELLIGENCE_API_KEY` to `.env`. Every
-        Threads-enabled starter also receives `COPILOTKIT_LICENSE_TOKEN`.
+        `SL_ENABLED`, project-scoped `CPK_INTELLIGENCE_API_KEY`, and optional
+        `CPK_TELEMETRY_ID` to `.env`.
 
-        Keep both secrets server-side. The project key connects the Runtime to
-        Intelligence. Current starter SDK pins use the token for legacy
-        entitlement checks; it does not replace the project key.
+        Keep `CPK_INTELLIGENCE_API_KEY` on the server. The project key connects
+        the Runtime to Intelligence; the telemetry ID is a non-secret analytics
+        identity.
 
-        Most starters read the project key from `INTELLIGENCE_API_KEY`. The
-        AgentCore AWS deployment path reads the same value from
-        `CPK_INTELLIGENCE_API_KEY`; copy the generated project-key value to that
-        variable before deployment.
+        Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That
+        token is only for offline or self-hosted licensing and does not replace
+        the managed project API key.
 
         Existing Intelligence-enabled apps should keep their current server-side Runtime configuration.
 
