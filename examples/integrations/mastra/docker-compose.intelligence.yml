@@ -11,18 +11,18 @@
 # sibling layout three levels above this starter.
 #
 # Services:
-#   postgres  (pgvector/pgvector:0.8.2-pg16)    :5482
-#   redis     (redis:7-alpine)                   :6389
-#   intelligence (cpki/intelligence-composite)   :4201 (api), :4401 (gateway)
+#   postgres  (pgvector/pgvector:0.8.2-pg16)    :5485
+#   redis     (redis:7-alpine)                   :6392
+#   intelligence (cpki/intelligence-composite)   :4204 (api), :4404 (gateway)
 # ============================================================================
 
-name: copilotkit-intelligence-dev
+name: copilotkit-intelligence-dev-mastra
 
 services:
   postgres:
     image: pgvector/pgvector:0.8.2-pg16
     ports:
-      - "${POSTGRES_HOST_PORT:-5482}:5432"
+      - "${POSTGRES_HOST_PORT:-5485}:5432"
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
@@ -44,7 +44,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_HOST_PORT:-6389}:6379"
+      - "${REDIS_HOST_PORT:-6392}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -63,8 +63,8 @@ services:
       context: ${INTELLIGENCE_REPO:-../../../Intelligence}
       dockerfile: Dockerfile.composite
     ports:
-      - "${APP_API_HOST_PORT:-4201}:4201"
-      - "${GATEWAY_HOST_PORT:-4401}:4401"
+      - "${APP_API_HOST_PORT:-4204}:4201"
+      - "${GATEWAY_HOST_PORT:-4404}:4401"
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
       REDIS_URL: redis://redis:6379

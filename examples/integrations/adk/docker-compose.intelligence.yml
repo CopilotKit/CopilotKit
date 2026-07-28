@@ -16,7 +16,7 @@
 #   intelligence (cpki/intelligence-composite)   :4201 (api), :4401 (gateway)
 # ============================================================================
 
-name: copilotkit-intelligence-dev
+name: copilotkit-intelligence-dev-adk
 
 services:
   postgres:

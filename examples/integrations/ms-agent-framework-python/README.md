@@ -169,9 +169,8 @@ Add the following to your `.env` file:
 
 ```env
 COPILOTKIT_LICENSE_TOKEN=your-license-token-here
-# Optional overrides (defaults match the compose file):
-# INTELLIGENCE_API_URL=http://localhost:4201
-# INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
+INTELLIGENCE_API_URL=http://localhost:4205
+INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4405
 ```
 
 Then start the dev server as usual (`npm run dev`). Thread history and memory
@@ -186,4 +185,3 @@ docker compose -f docker-compose.intelligence.yml down
 # Full reset (removes postgres + redis volumes):
 docker compose -f docker-compose.intelligence.yml down -v
 ```
-

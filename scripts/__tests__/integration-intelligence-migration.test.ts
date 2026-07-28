@@ -1,4 +1,5 @@
 import { describe, expect, it, test } from "vitest";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -15,6 +16,73 @@ const migratedIntegrations = [
   "strands-python",
   "crewai-crews",
 ] as const;
+const intelligenceDevStacks = [
+  {
+    integration: "adk",
+    projectName: "copilotkit-intelligence-dev-adk",
+    postgresPort: "5482",
+    redisPort: "6389",
+    appApiPort: "4201",
+    gatewayPort: "4401",
+  },
+  {
+    integration: "agno",
+    projectName: "copilotkit-intelligence-dev-agno",
+    postgresPort: "5483",
+    redisPort: "6390",
+    appApiPort: "4202",
+    gatewayPort: "4402",
+  },
+  {
+    integration: "llamaindex",
+    projectName: "copilotkit-intelligence-dev-llamaindex",
+    postgresPort: "5484",
+    redisPort: "6391",
+    appApiPort: "4203",
+    gatewayPort: "4403",
+  },
+  {
+    integration: "mastra",
+    projectName: "copilotkit-intelligence-dev-mastra",
+    postgresPort: "5485",
+    redisPort: "6392",
+    appApiPort: "4204",
+    gatewayPort: "4404",
+  },
+  {
+    integration: "ms-agent-framework-python",
+    projectName: "copilotkit-intelligence-dev-ms-agent-framework-python",
+    postgresPort: "5486",
+    redisPort: "6393",
+    appApiPort: "4205",
+    gatewayPort: "4405",
+  },
+  {
+    integration: "pydantic-ai",
+    projectName: "copilotkit-intelligence-dev-pydantic-ai",
+    postgresPort: "5487",
+    redisPort: "6394",
+    appApiPort: "4206",
+    gatewayPort: "4406",
+  },
+  {
+    integration: "strands-python",
+    projectName: "copilotkit-intelligence-dev-strands-python",
+    postgresPort: "5488",
+    redisPort: "6395",
+    appApiPort: "4207",
+    gatewayPort: "4407",
+  },
+] as const;
+const expectedPostgresInitSql = [
+  "-- Runs once on the postgres container's first boot (docker-entrypoint-initdb.d).",
+  "-- The intelligence composite image's migrations oneshot + app-api connect to",
+  "-- intelligence_app; graphile-migrate uses intelligence_app_shadow for its shadow",
+  "-- database.",
+  "CREATE DATABASE intelligence_app;",
+  "CREATE DATABASE intelligence_app_shadow;",
+  "",
+].join("\n");
 const a2aMiddlewareRoot = path.join(integrationsDir, "a2a-middleware");
 
 const appRoots: Record<(typeof migratedIntegrations)[number], string> = {
@@ -49,6 +117,171 @@ function readOptionalIntegrationFile(
 function readA2AMiddlewareFile(pathFromRoot: string): string {
   return fs.readFileSync(path.join(a2aMiddlewareRoot, pathFromRoot), "utf8");
 }
+
+function normalizeIntelligenceComposeForDriftGuard(compose: string): string {
+  return compose
+    .replace(/^name: .+$/m, "name: <starter-project-name>")
+    .replace(
+      /\$\{POSTGRES_HOST_PORT:-\d+\}/g,
+      "${POSTGRES_HOST_PORT:-<postgres-host-port>}",
+    )
+    .replace(
+      /\$\{REDIS_HOST_PORT:-\d+\}/g,
+      "${REDIS_HOST_PORT:-<redis-host-port>}",
+    )
+    .replace(
+      /\$\{APP_API_HOST_PORT:-\d+\}/g,
+      "${APP_API_HOST_PORT:-<app-api-host-port>}",
+    )
+    .replace(
+      /\$\{GATEWAY_HOST_PORT:-\d+\}/g,
+      "${GATEWAY_HOST_PORT:-<gateway-host-port>}",
+    )
+    .replace(
+      /:[0-9]+ \(api\), :[0-9]+ \(gateway\)/g,
+      ":<app-api-host-port> (api), :<gateway-host-port> (gateway)",
+    )
+    .replace(
+      /:[0-9]+$/gm,
+      (match) =>
+        match === ":5432" || match === ":6379" || match === ":4201" || match === ":4401"
+          ? match
+          : ":<host-port>",
+    );
+}
+
+function assertDockerComposeConfigSucceeds(integration: string): void {
+  const composePath = path.join(
+    integrationsDir,
+    integration,
+    "docker-compose.intelligence.yml",
+  );
+  const result = spawnSync(
+    "docker",
+    ["compose", "-f", composePath, "config", "--quiet"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+
+  if (result.status !== 0) {
+    throw new Error(
+      [
+        `${integration} docker-compose.intelligence.yml failed docker compose config --quiet`,
+        result.error ? `error: ${result.error.message}` : undefined,
+        result.stdout ? `stdout: ${result.stdout}` : undefined,
+        result.stderr ? `stderr: ${result.stderr}` : undefined,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
+  }
+}
+
+describe("starter local Intelligence docker stacks", () => {
+  for (const stack of intelligenceDevStacks) {
+    it(`${stack.integration} has a valid local Intelligence compose stack`, () => {
+      const compose = readIntegrationFile(
+        stack.integration,
+        "docker-compose.intelligence.yml",
+      );
+      const postgresInit = readIntegrationFile(
+        stack.integration,
+        "docker/postgres-init/01-create-databases.sql",
+      );
+      const readme = readIntegrationFile(stack.integration, "README.md");
+      const envExample = readOptionalIntegrationFile(
+        stack.integration,
+        ".env.example",
+      );
+
+      assertDockerComposeConfigSucceeds(stack.integration);
+      expect(compose).toContain(`name: ${stack.projectName}`);
+      expect(compose).toContain(
+        `\${POSTGRES_HOST_PORT:-${stack.postgresPort}}:5432`,
+      );
+      expect(compose).toContain(
+        `\${REDIS_HOST_PORT:-${stack.redisPort}}:6379`,
+      );
+      expect(compose).toContain(
+        `\${APP_API_HOST_PORT:-${stack.appApiPort}}:4201`,
+      );
+      expect(compose).toContain(
+        `\${GATEWAY_HOST_PORT:-${stack.gatewayPort}}:4401`,
+      );
+      expect(compose).toContain(
+        "./docker/postgres-init:/docker-entrypoint-initdb.d:ro",
+      );
+      expect(compose).not.toContain("./docker:/docker-entrypoint-initdb.d");
+      expect(compose).toContain("pg_isready -U intelligence -d intelligence_app");
+      expect(postgresInit).toBe(expectedPostgresInitSql);
+      expect(readme).toContain("## CopilotKit Intelligence & Threads (Optional)");
+      expect(readme).toContain("docker-compose.intelligence.yml");
+      expect(readme).toContain(
+        `INTELLIGENCE_API_URL=http://localhost:${stack.appApiPort}`,
+      );
+      expect(readme).toContain(
+        `INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:${stack.gatewayPort}`,
+      );
+
+      if (envExample) {
+        expect(envExample).toContain(
+          `INTELLIGENCE_API_URL=http://localhost:${stack.appApiPort}`,
+        );
+        expect(envExample).toContain(
+          `INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:${stack.gatewayPort}`,
+        );
+      }
+    });
+  }
+
+  test("local Intelligence compose host defaults do not collide", () => {
+    const projectNames = new Set(
+      intelligenceDevStacks.map((stack) => stack.projectName),
+    );
+    const postgresPorts = new Set(
+      intelligenceDevStacks.map((stack) => stack.postgresPort),
+    );
+    const redisPorts = new Set(
+      intelligenceDevStacks.map((stack) => stack.redisPort),
+    );
+    const appApiPorts = new Set(
+      intelligenceDevStacks.map((stack) => stack.appApiPort),
+    );
+    const gatewayPorts = new Set(
+      intelligenceDevStacks.map((stack) => stack.gatewayPort),
+    );
+
+    expect(projectNames.size).toBe(intelligenceDevStacks.length);
+    expect(postgresPorts.size).toBe(intelligenceDevStacks.length);
+    expect(redisPorts.size).toBe(intelligenceDevStacks.length);
+    expect(appApiPorts.size).toBe(intelligenceDevStacks.length);
+    expect(gatewayPorts.size).toBe(intelligenceDevStacks.length);
+  });
+
+  test("local Intelligence compose files drift only by declared starter ports and project names", () => {
+    const referenceStack = intelligenceDevStacks[0];
+    const remainingStacks = intelligenceDevStacks.slice(1);
+    const referenceCompose = normalizeIntelligenceComposeForDriftGuard(
+      readIntegrationFile(
+        referenceStack.integration,
+        "docker-compose.intelligence.yml",
+      ),
+    );
+
+    for (const stack of remainingStacks) {
+      const compose = normalizeIntelligenceComposeForDriftGuard(
+        readIntegrationFile(
+          stack.integration,
+          "docker-compose.intelligence.yml",
+        ),
+      );
+
+      expect(compose).toBe(referenceCompose);
+    }
+  });
+});
 
 describe("batch-2 Intelligence integration migration", () => {
   for (const integration of migratedIntegrations) {
