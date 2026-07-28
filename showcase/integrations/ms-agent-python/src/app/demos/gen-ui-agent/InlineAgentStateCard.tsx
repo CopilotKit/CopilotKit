@@ -29,11 +29,23 @@ export function InlineAgentStateCard({
         ? `Step ${Math.min(done + 1, total)} of ${total}`
         : "Planning…";
 
+  // Stable per-plan marker so the D6 settle gate can detect pill swaps
+  // even when the assistant-bubble count does not increase (multi-step
+  // MAF turns can leave count already saturated by pill 3).
+  const planMarker = steps[0]?.id ?? "empty";
+
   return (
     <div
       data-testid="agent-state-card"
       className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
     >
+      <span
+        data-testid={`agent-plan-marker-${planMarker}`}
+        className="sr-only"
+        aria-hidden
+      >
+        {planMarker}
+      </span>
       <div className="flex items-center gap-2">
         {status === "inProgress" && done < total ? (
           <SpinnerIcon />

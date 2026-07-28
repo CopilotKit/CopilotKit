@@ -170,6 +170,10 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   const seenStepTextsRef = { values: [] as string[] };
   return GEN_UI_AGENT_PILLS.map(({ tag, prompt, expectedMarkers }) => ({
     input: prompt,
+    // Prefer text-stability settle. completeOnMount on agent-step fails for
+    // multi-pill MAF runs (steps update in place → surface-missing). Unique
+    // plan markers need a frontend rebuild; agent-side empty set_steps text
+    // + history drop keeps bubble growth at ~1 final content bubble/pill.
     assertions: buildAgentStateAssertion(
       tag,
       expectedMarkers,

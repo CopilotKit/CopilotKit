@@ -197,6 +197,10 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return TURN_EXPECTATIONS.map((exp, idx) => ({
     input: exp.prompt,
     responseTimeoutMs: exp.responseTimeoutMs,
+    // Text-stability settle (default). completeOnMount on custom-catchall-card
+    // failed surface-missing on turn 1 for MAF (cards mount inside tool UI
+    // after the text bubble has already settled, or share one testid across
+    // tools without per-tool mount growth). Assertions still wait for cards.
     assertions: async (page) => {
       const tag = `tool-rendering-reasoning-chain turn ${idx + 1}`;
       const pw = page as CountablePage;

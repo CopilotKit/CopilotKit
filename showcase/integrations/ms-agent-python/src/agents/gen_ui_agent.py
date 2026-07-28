@@ -17,10 +17,11 @@ State shape (mirrors LGP `GenUiAgentState.steps`):
 
 from __future__ import annotations
 
-import json
+from collections.abc import AsyncGenerator
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient, tool
 from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
@@ -78,8 +79,11 @@ def set_steps(
     `Command(update={"steps": [...]})`) so the frontend's progress card
     re-renders with the new statuses after every transition.
     """
+    # Empty tool-result text: non-empty "Published N step(s)." was
+    # rendering as extra chat bubbles and starving the harness
+    # 1-bubble-per-turn settle gate by pill 3.
     return state_update(
-        text=f"Published {len(steps)} step(s).",
+        text="",
         state={"steps": steps},
     )
 
@@ -107,6 +111,58 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+def _has_tool_calls(message: dict[str, Any]) -> bool:
+    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
+    return isinstance(tool_calls, list) and len(tool_calls) > 0
+
+
+def _last_user_message_index(messages: list[dict[str, Any]]) -> int:
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].get("role") == "user":
+            return index
+    return -1
+
+
+def _drop_historical_tool_messages(messages: Any) -> list[dict[str, Any]]:
+    """Drop completed tool-call history before the current user turn.
+
+    Same pattern as beautiful_chat: the D6 probe runs three pills in one
+    browser session. Without this, prior pills' set_steps toolCallIds
+    remain in the message list and aimock first-match can chain the wrong
+    fixture. Combined with unique call_d6_msap_* toolCallIds in the MS
+    fixtures, each pill's ReAct chain stays isolated.
+    """
+    if not isinstance(messages, list):
+        return []
+
+    typed = [m for m in messages if isinstance(m, dict)]
+    last_user = _last_user_message_index(typed)
+    clean: list[dict[str, Any]] = []
+    for index, message in enumerate(typed):
+        if index < last_user:
+            if message.get("role") == "tool":
+                continue
+            if message.get("role") == "assistant" and _has_tool_calls(message):
+                continue
+        clean.append(message)
+    return clean
+
+
+class GenUiFrameworkAgent(AgentFrameworkAgent):
+    """Scope tool-result history to the active pill turn."""
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        patched = dict(input_data)
+        patched["messages"] = _drop_historical_tool_messages(
+            input_data.get("messages")
+        )
+        async for event in super().run(patched):
+            yield event
+
+
 def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the gen-ui-agent MAF agent."""
     base_agent = Agent(
@@ -122,16 +178,10 @@ def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     # JSON Patch `op: "replace"` against `/<state_key>`. When the run starts
     # with `current_state = {}`, the very first StateDelta tries to replace
     # `/steps` — a path that doesn't exist — and the browser-side patch
-    # application throws `OPERATION_PATH_UNRESOLVABLE: Cannot perform the
-    # operation at a path that does not exist`. The run stream completes
-    # (RUN_FINISHED arrives), but the chat UI's run-state machine stays in
-    # "streaming" forever because the patch failure short-circuits the
-    # `complete` transition. `state_update()` inside `set_steps` already
-    # emits a full `StateSnapshotEvent` after every tool call, so the
-    # progress card still updates step-by-step; we just lose the
-    # mid-stream predictive flicker (matches beautiful_chat's manage_todos
-    # workaround for the same bug).
-    return AgentFrameworkAgent(
+    # application throws `OPERATION_PATH_UNRESOLVABLE`. `state_update()`
+    # inside `set_steps` already emits a full `StateSnapshotEvent` after
+    # every tool call.
+    return GenUiFrameworkAgent(
         agent=base_agent,
         name="GenUiAgent",
         description=(
@@ -139,5 +189,8 @@ def create_gen_ui_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
             "completed via set_steps. Drives the `gen-ui-agent` demo's "
             "live progress card."
         ),
+        # state_schema intentionally omitted: state_update() in set_steps
+        # emits full StateSnapshotEvents; an empty schema seed was not
+        # required for pills 1–2 and can interfere with multi-pill runs.
         require_confirmation=False,
     )

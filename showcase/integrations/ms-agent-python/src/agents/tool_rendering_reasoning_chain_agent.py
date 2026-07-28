@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import AsyncGenerator
 from random import choice, randint
 from textwrap import dedent
-from typing import Annotated
+from typing import Annotated, Any
 
+from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient, tool
 from agent_framework.openai import OpenAIChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
@@ -216,6 +218,56 @@ def _build_reasoning_chain_chat_client() -> BaseChatClient:
     )
 
 
+def _has_tool_calls(message: dict[str, Any]) -> bool:
+    tool_calls = message.get("tool_calls") or message.get("toolCalls") or []
+    return isinstance(tool_calls, list) and len(tool_calls) > 0
+
+
+def _last_user_message_index(messages: list[dict[str, Any]]) -> int:
+    for index in range(len(messages) - 1, -1, -1):
+        if messages[index].get("role") == "user":
+            return index
+    return -1
+
+
+def _drop_historical_tool_messages(messages: Any) -> list[dict[str, Any]]:
+    """Drop completed tool-call history before the current user turn.
+
+    Same pattern as gen_ui_agent: keep prior assistant *text* so multi-pill
+    sessions still have conversational context, but strip tool/tool_calls
+    messages so unique call_d6_msap_rc_* toolCallIds cannot collide with
+    stale prior-pill ids under aimock first-match-wins.
+    """
+    if not isinstance(messages, list):
+        return []
+    typed = [m for m in messages if isinstance(m, dict)]
+    last_user = _last_user_message_index(typed)
+    clean: list[dict[str, Any]] = []
+    for index, message in enumerate(typed):
+        if index < last_user:
+            if message.get("role") == "tool":
+                continue
+            if message.get("role") == "assistant" and _has_tool_calls(message):
+                continue
+        clean.append(message)
+    return clean
+
+
+class ReasoningChainFrameworkAgent(AgentFrameworkAgent):
+    """Scope tool-result history to the active pill turn."""
+
+    async def run(  # type: ignore[override]
+        self,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[BaseEvent, None]:
+        patched = dict(input_data)
+        patched["messages"] = _drop_historical_tool_messages(
+            input_data.get("messages")
+        )
+        async for event in super().run(patched):
+            yield event
+
+
 def create_tool_rendering_reasoning_chain_agent(
     _chat_client_ignored: BaseChatClient,
 ) -> AgentFrameworkAgent:
@@ -246,7 +298,7 @@ def create_tool_rendering_reasoning_chain_agent(
         default_options={"store": False},
     )
 
-    return AgentFrameworkAgent(
+    return ReasoningChainFrameworkAgent(
         agent=base_agent,
         name="ToolRenderingReasoningChainAgent",
         description=(

@@ -1,26 +1,47 @@
 {
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / multimodal",
-    "sourceFile": "harness/fixtures/d5/multimodal.json",
     "created": "2026-05-22",
-    "msAgentNote": "PDF fixture keys on the flattened document body (\"CopilotKit Quickstart\") because agent_framework_openai splits the multimodal turn into separate user messages; the trailing (last) user message is the pdf flattened to text, so the original prompt is not the match target. Image fixture matches the prompt via aimock getLastUserText skipping the text-less image message.",
     "updated": "2026-07-28",
-    "_systemMessageNote": "systemMessage='analyze the attachment carefully' discriminates MS from earlier frameworks (aimock strips context; first-match-wins)."
+    "msAgentNote": "Image turns: agent_framework may put a text-less image as the last user message, so userMessage matchers skip. Match image via systemMessage+turnIndex. PDF: flattened body contains CopilotKit Quickstart."
   },
   "fixtures": [
     {
+      "_comment": "image turn — prefer text match when last user text is the prompt",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
-        "systemMessage": "analyze the attachment carefully"
+        "context": "ms-agent-python"
       },
       "response": {
         "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
       }
     },
     {
+      "_comment": "image turn fallback — last user message is image-only (no text); key on system prompt + first turn",
+      "match": {
+        "systemMessage": "analyze the attachment carefully",
+        "turnIndex": 0,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "The image attachment shows a small abstract test pattern used by the multimodal demo to validate the image-upload pipeline. Successful render of this response confirms the binary attachment round-tripped through the runtime."
+      }
+    },
+    {
+      "_comment": "PDF turn — flattened pypdf body",
       "match": {
         "userMessage": "CopilotKit Quickstart",
-        "systemMessage": "analyze the attachment carefully"
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."
+      }
+    },
+    {
+      "_comment": "PDF turn — original prompt if flatten leaves text",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "ms-agent-python"
       },
       "response": {
         "content": "The PDF document contains a single test page used by the multimodal demo. Its text was flattened by pypdf on the Python side and forwarded as text content to the model. Receiving this response confirms the document upload path works."

@@ -102,7 +102,13 @@ services:
         "8",
         "--latency",
         "60",
-        # Directory-based fixture loading (one --fixtures per directory)
+        # Directory-based fixture loading (one --fixtures per directory).
+        # Load ms-agent-python FIRST: aimock first-match-wins and does NOT
+        # honor match.context (stripped/ignored). Shared userMessage prompts
+        # across the fleet otherwise steal MS chains. MS fixtures also gate
+        # on systemMessage so non-MS system prompts still fall through.
+        "--fixtures",
+        "/showcase-fixtures/d6/ms-agent-python",
         "--fixtures",
         "/showcase-fixtures/shared",
         "--fixtures",
@@ -592,7 +598,10 @@ services:
       - "3114:10000"
     profiles: ["ms-agent-python", "all"]
     volumes:
-      - ./integrations/ms-agent-python/src:/app/src
+      # Image layout: agents live at /app/agents (not /app/src/agents). Mount
+      # the host agents tree there so local WIP reloads without a rebuild.
+      - ./integrations/ms-agent-python/src/agents:/app/agents
+      - ./integrations/ms-agent-python/src/agent_server.py:/app/agent_server.py
 
   ms-agent-dotnet:
     <<: *integration-defaults
