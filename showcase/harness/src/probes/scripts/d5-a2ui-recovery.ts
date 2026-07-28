@@ -89,6 +89,11 @@ const RECOVERY_RESPONSE_TIMEOUT_MS = FIRST_SIGNAL_TIMEOUT_MS + 30_000;
  * byte-for-byte. Unique per slug on purpose (see the module docstring).
  */
 const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
+  "built-in-agent": {
+    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a report that fails every validation pass so I can preview the fallback.",
+  },
   "google-adk": {
     heal: "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     exhaust:

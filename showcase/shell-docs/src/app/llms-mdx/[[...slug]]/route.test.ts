@@ -12,6 +12,7 @@ vi.mock("@/lib/docs-render", () => ({
 
 vi.mock("@/lib/frontend-doc-policy", () => ({
   resolveFrontendDocPage: vi.fn(),
+  isFrontendFirstClassDoc: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/frontend-page-content", () => ({
@@ -26,12 +27,18 @@ vi.mock("@/lib/frontend-page-content", () => ({
 
 vi.mock("@/lib/frontend-options", () => ({
   isFrontendId: vi.fn((value: string | undefined) =>
-    ["react", "vue", "react-native", "slack", "teams"].includes(value ?? ""),
+    ["react", "vue", "react-native", "angular", "slack", "teams"].includes(
+      value ?? "",
+    ),
   ),
   parseFrontendRoutePath: vi.fn(
     (pathname: string, backendFrameworkSlugs: readonly string[] = []) => {
       const [first, ...rest] = pathname.split("/").filter(Boolean);
-      if (!["vue", "react-native", "slack", "teams"].includes(first ?? "")) {
+      if (
+        !["vue", "react-native", "angular", "slack", "teams"].includes(
+          first ?? "",
+        )
+      ) {
         return null;
       }
       const [maybeBackend, ...tail] = rest;
@@ -174,7 +181,7 @@ describe("llms-mdx route", () => {
         filePath: "frontends/slack.mdx",
         loadSlug: "frontends/slack",
       }),
-      { framework: undefined },
+      { framework: undefined, frontend: "slack" },
     );
   });
 
@@ -209,7 +216,7 @@ describe("llms-mdx route", () => {
         loadSlug: "frontends/vue",
         framework: "langgraph-python",
       }),
-      { framework: "langgraph-python" },
+      { framework: "langgraph-python", frontend: "vue" },
     );
   });
 
@@ -238,7 +245,7 @@ describe("llms-mdx route", () => {
         filePath: "frontends/using-these-docs.mdx",
         loadSlug: "frontends/using-these-docs",
       }),
-      { framework: undefined },
+      { framework: undefined, frontend: "slack" },
     );
   });
 
@@ -276,7 +283,7 @@ describe("llms-mdx route", () => {
         loadSlug: "frontends/docs-status",
         framework: "langgraph-typescript",
       }),
-      { framework: "langgraph-typescript" },
+      { framework: "langgraph-typescript", frontend: "react-native" },
     );
   });
 
@@ -320,7 +327,69 @@ describe("llms-mdx route", () => {
         filePath: "concepts/architecture.mdx",
         loadSlug: "concepts/architecture",
       }),
-      { framework: undefined },
+      { framework: undefined, frontend: "slack" },
+    );
+  });
+
+  it("serves shared Runtime markdown with Angular frontend substitutions", async () => {
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "backend/copilot-runtime"
+        ? {
+            source: "",
+            filePath: "backend/copilot-runtime.mdx",
+            fm: {
+              title: "Copilot Runtime",
+              description: "Shared runtime docs.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "angular",
+      "backend",
+      "copilot-runtime",
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "angular/backend/copilot-runtime",
+        loadSlug: "backend/copilot-runtime",
+        framework: "built-in-agent",
+      }),
+      { framework: "built-in-agent", frontend: "angular" },
+    );
+  });
+
+  it("serves Angular-native variants inside a selected backend route", async () => {
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "frontends/angular/auth"
+        ? {
+            source: "",
+            filePath: "frontends/angular/auth.mdx",
+            fm: {
+              title: "Authentication",
+              description: "Angular authentication.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "angular",
+      "langgraph-python",
+      "auth",
+    ]);
+
+    expect(response.status).toBe(200);
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "angular/langgraph-python/auth",
+        loadSlug: "frontends/angular/auth",
+        framework: "langgraph-python",
+      }),
+      { framework: "langgraph-python", frontend: "angular" },
     );
   });
 });

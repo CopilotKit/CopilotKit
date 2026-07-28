@@ -332,6 +332,16 @@ export const genUiAgent = new Agent({
   name: "Gen UI Agent",
   tools: { setStepsTool },
   model: openai("gpt-4o-mini"),
+  // The planner scripts 3 steps × 2 set_steps transitions (in_progress →
+  // completed) + 1 initial "all pending" call + 1 closing message = ~8 model
+  // turns. The AI SDK's default stop condition halts the agentic loop before
+  // the 3rd step reaches "completed" (only 2/3 land), so raise the step cap to
+  // run the full progression. LangGraph (gold) loops until the graph ends and
+  // needs no equivalent; this is the AI-SDK step-cap analogue (cf.
+  // toolRenderingAgent's d20 sequence).
+  defaultOptions: {
+    stopWhen: stepCountIs(12),
+  },
   instructions: `You are an agentic planner. For each user request, follow this exact sequence:
 1. Plan exactly 3 concrete steps and call \`set_steps\` ONCE with all three steps at status="pending".
 2. Step 1: call \`set_steps\` with step 1 at status="in_progress", then call \`set_steps\` again with step 1 at status="completed".

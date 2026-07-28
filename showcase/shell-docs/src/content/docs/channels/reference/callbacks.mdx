@@ -1,0 +1,142 @@
+---
+title: JSX Callbacks
+icon: "lucide/MousePointerClick"
+description: The handlers a component can carry, what they receive, and how the click resolves.
+---
+
+Interactive components carry a callback. When the user clicks a button, picks
+from a select, submits an input, or reacts to a message, your handler runs with
+the thread and the interaction in hand.
+
+This is the reference. For the walkthrough, see [the UI library](/channels/ui-library).
+
+## Which component takes which callback
+
+| Component | Prop | Handler type | Fires when |
+| --- | --- | --- | --- |
+| `Button` | `onClick` | `ClickHandler<TValue>` | the button is clicked |
+| `Select` | `onSelect` | `ClickHandler<string \| string[]>` | an option is chosen (`multi` gives an array) |
+| `Input` | `onSubmit` | `ClickHandler<string>` | the input is submitted |
+| `Message` | `onReaction` | `MessageReactionHandler` | a user reacts to the message |
+
+## ClickHandler
+
+`onClick`, `onSelect`, and `onSubmit` are all a `ClickHandler`. It receives one
+`InteractionContext`:
+
+```ts
+type ClickHandler<TValue = unknown> = (ctx: InteractionContext<TValue>) => void | Promise<void>;
+```
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `thread` | `Thread` | The conversation. Post, update, run the agent, block on a choice. See the [Thread API](/channels/reference/thread). |
+| `message` | `IncomingMessage` | The message the control lives on. `message.ref` updates that message in place. |
+| `action.id` | `string` | The control's opaque id. |
+| `action.value` | `TValue` | The `value` the control carried, typed by `TValue`. |
+| `values` | `Record<string, unknown>` | All input values submitted with this interaction. |
+| `user` | `PlatformUser` | Who interacted. |
+| `platform` | `string` | The platform the interaction came from. |
+| `openModal` | `(view: ModalView) => Promise<{ ok, error? }>` | Open a modal. Capability-gated. On Discord, call it before any long work (the trigger expires in ~3s). |
+
+### The value round-trip
+
+A control's `value` prop is echoed back on `action.value`, typed by `TValue`.
+That is how you tell clicks apart without separate ids:
+
+```tsx
+<Button
+  value={{ choice: "approve" }}
+  onClick={async ({ thread, message, action }) => {
+    action.value; // { choice: "approve" }
+    await thread.update(message.ref, "Approved.");
+  }}
+>
+  Approve
+</Button>
+```
+
+### Button, Select, Input
+
+```tsx
+import { Actions, Button, Select, Input } from "@copilotkit/channels/ui";
+
+<Actions>
+  <Button
+    value={{ id: 42 }}
+    style="primary"
+    onClick={async ({ thread, action }) => {
+      await thread.post(`Picked ${action.value.id}`);
+    }}
+  >
+    Choose
+  </Button>
+
+  <Select
+    placeholder="Priority"
+    options={[
+      { label: "High", value: "high" },
+      { label: "Low", value: "low" },
+    ]}
+    onSelect={async ({ thread, action }) => {
+      await thread.post(`Priority: ${action.value}`);
+    }}
+  />
+
+  <Input
+    placeholder="Add a note"
+    onSubmit={async ({ thread, action }) => {
+      await thread.post(`Note: ${action.value}`);
+    }}
+  />
+</Actions>;
+```
+
+`Button` also takes `url` (a link button, which ignores `onClick`/`value`) and
+`style: "primary" | "danger"`. `Select` takes `multi` for multi-select (where
+`action.value` is a `string[]`).
+
+## MessageReactionHandler
+
+`<Message onReaction>` is different: it takes the emoji first, then the full
+reaction.
+
+```ts
+type MessageReactionHandler = (emoji: EmojiValue, reaction: MessageReaction) => void | Promise<void>;
+```
+
+| `reaction` field | Type | Description |
+| --- | --- | --- |
+| `emoji` | `EmojiValue` | Canonical name when recognized, else the raw token. Same as the first argument. |
+| `rawEmoji` | `string` | Platform-native token. |
+| `added` | `boolean` | `true` = added, `false` = removed. |
+| `user` | `PlatformUser?` | The reacting user, when reported. |
+| `messageId` | `string` | Id of the reacted message. |
+| `thread` | `Thread` | Post back, run the agent, block on a choice, react. |
+| `messageRef` | `MessageRef` | Pass to `thread.update(messageRef, ui)` to redraw this message. |
+
+```tsx
+import { Message, Section } from "@copilotkit/channels/ui";
+
+<Message
+  onReaction={async (emoji, reaction) => {
+    if (!reaction.added || emoji !== "thumbs_up") return;
+    await reaction.thread.post(`Thanks, ${reaction.user?.name ?? "friend"}.`);
+  }}
+>
+  <Section>{"React with a thumbs up."}</Section>
+</Message>;
+```
+
+See [reactions](/channels/interactive/reactions) for more, and [global
+reactions](/channels/commands-and-reactions#global-reactions) for reacting to
+any message rather than a specific card.
+
+## Handlers must survive a restart
+
+<Callout type="warn">
+A click or reaction can arrive after your process restarts, when the in-memory
+handler is gone. Register every component that carries a callback in
+`createChannel({ components })` so the handler is rebuilt from the durable
+snapshot. See [the UI library](/channels/ui-library#register-components).
+</Callout>

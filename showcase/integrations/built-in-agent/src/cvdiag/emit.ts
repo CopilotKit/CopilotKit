@@ -14,14 +14,14 @@
 
 import crypto from "node:crypto";
 
-import { EDGE_HEADER_MAX_LEN } from "./edge-headers.js";
+import { EDGE_HEADER_MAX_LEN } from "./edge-headers";
 import {
   EDGE_HEADER_KEYS,
   SCHEMA_VERSION,
   isValidTestId,
   validateEnvelope,
   validateMetadata,
-} from "./schema.js";
+} from "./schema";
 import type {
   CvdiagBoundary,
   CvdiagDataPlaneBoundary,
@@ -29,7 +29,7 @@ import type {
   CvdiagLayer,
   CvdiagOutcome,
   EdgeHeaders,
-} from "./schema.js";
+} from "./schema";
 
 /** Resolved verbosity tier (cumulative). */
 export type CvdiagTier = "default" | "verbose" | "debug";

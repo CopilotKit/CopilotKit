@@ -7,7 +7,7 @@ description: "Angular standalone component that renders a list of chat messages,
 
 `CopilotChatMessageView` renders an array of messages and routes each one to the correct renderer based on its `role`: assistant messages go to [`CopilotChatAssistantMessage`](/reference/angular/components/CopilotChatAssistantMessage), user messages to [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage), reasoning messages to the reasoning renderer, and activity messages to any registered activity renderer. It optionally renders a typing cursor at the end of the list while the agent is streaming.
 
-This is the message-list layer used internally by [`CopilotChatView`](/reference/angular/components/CopilotChatView). It mirrors React's `CopilotChatMessageView`. Use it directly when you manage your own `messages` array and want only the list rendering without the surrounding scroll container and input.
+This is the message-list layer used by [`CopilotChatView`](/reference/angular/components/CopilotChatView). Use it directly when you manage your own `messages` array and want the list without the surrounding scroll container and input.
 
 The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
 
@@ -49,7 +49,11 @@ export class MessagesComponent {
 </PropertyReference>
 
 <PropertyReference name="isLoading" type="boolean" default="false">
-  Whether the agent is currently streaming. Forwarded to assistant, reasoning, and activity renderers so they can show in-progress state.
+  Whether the agent is currently streaming. Forwarded to assistant and reasoning renderers.
+</PropertyReference>
+
+<PropertyReference name="state" type="unknown" default="{}">
+  Current agent state passed to the content rendered after the message list.
 </PropertyReference>
 
 <PropertyReference name="inputClass" type="string">
@@ -80,6 +84,34 @@ export class MessagesComponent {
   A component class to render each user message in place of the default [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage).
 </PropertyReference>
 
+### Reasoning message slot inputs
+
+<PropertyReference name="reasoningMessageComponent" type="Type<any>">
+  Component class used for reasoning messages.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageTemplate" type="TemplateRef<any>">
+  Template used for reasoning messages. Takes precedence over `reasoningMessageComponent`.
+</PropertyReference>
+
+<PropertyReference name="reasoningMessageClass" type="string">
+  CSS classes forwarded to the reasoning-message slot.
+</PropertyReference>
+
+### Content after the message list
+
+<PropertyReference name="childrenComponent" type="Type<any>">
+  Component rendered after the messages and before the streaming cursor.
+</PropertyReference>
+
+<PropertyReference name="childrenTemplate" type="TemplateRef<any>">
+  Template rendered after the messages. Takes precedence over `childrenComponent`.
+</PropertyReference>
+
+<PropertyReference name="childrenClass" type="string">
+  CSS classes forwarded to the children slot.
+</PropertyReference>
+
 <PropertyReference name="userMessageTemplate" type="TemplateRef<any>">
   A template to render each user message. Takes precedence over `userMessageComponent` when both are set.
 </PropertyReference>
@@ -104,7 +136,7 @@ export class MessagesComponent {
 
 ## Outputs
 
-These bubble up from the per-message child components so you can observe toolbar interactions from the list level. Each payload is `{ message: Message }`.
+Assistant actions bubble up from the assistant-message child component. Each payload is `{ message: Message }`.
 
 <PropertyReference name="assistantMessageThumbsUp" type="{ message: Message }">
   Emitted when the thumbs-up action is triggered on an assistant message.
@@ -122,13 +154,9 @@ These bubble up from the per-message child components so you can observe toolbar
   Emitted when the regenerate action is triggered on an assistant message.
 </PropertyReference>
 
-<PropertyReference name="userMessageCopy" type="{ message: Message }">
-  Emitted when a user message is copied.
-</PropertyReference>
-
-<PropertyReference name="userMessageEdit" type="{ message: Message }">
-  Emitted when a user message edit action is triggered.
-</PropertyReference>
+<Callout type="warn">
+  The current release declares `userMessageCopy` and `userMessageEdit`, but the default user-message child does not forward those events. Listen on a custom user-message component when you need them.
+</Callout>
 
 ## Custom layout
 

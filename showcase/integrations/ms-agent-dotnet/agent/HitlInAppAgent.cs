@@ -19,7 +19,6 @@ using System.ClientModel;
 // showcase/integrations/langgraph-python/src/agents/hitl_in_app.py
 public sealed class HitlInAppAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
     private const string SystemPrompt =
         "You are a support operations copilot working alongside a human operator " +
         "inside an internal support console. The operator can see a list of open " +
@@ -59,17 +58,12 @@ public sealed class HitlInAppAgentFactory
 
         _logger = loggerFactory.CreateLogger<HitlInAppAgentFactory>();
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

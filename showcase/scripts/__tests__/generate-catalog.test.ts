@@ -254,7 +254,13 @@ describe("Catalog Generator", () => {
     // crewai-crews wired count moved with the blitz; assert the lower bound
     // (the partial tier requires intersection >= 3 with the reference's
     // wired set, which crewai-crews comfortably exceeds post-blitz).
-    expect(crewaiWired.length).toBeGreaterThanOrEqual(30);
+    // Was 30; now 29 because `multimodal` moved from `features` to
+    // `not_supported_features` in this integration's manifest (no `/multimodal`
+    // route exists on its agent server — see the note there), so that cell is
+    // `unsupported` rather than `wired`. This bound only guards against the
+    // wired set collapsing below what the partial tier needs, so tracking the
+    // manifest here is correct.
+    expect(crewaiWired.length).toBeGreaterThanOrEqual(29);
 
     const tier = crewaiCells[0].parity_tier;
     expect(["at_parity", "partial"]).toContain(tier);

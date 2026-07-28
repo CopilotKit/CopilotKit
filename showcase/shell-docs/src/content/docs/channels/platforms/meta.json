@@ -1,0 +1,5 @@
+{
+  "title": "Platforms",
+  "icon": "lucide/Plug",
+  "pages": ["index", "teams", "whatsapp", "slack", "telegram", "discord"]
+}

@@ -1,43 +1,56 @@
 "use client";
 
-/**
- * In-Chat HITL (book_call) demo.
- *
- * Mirrors the hitl-in-chat-booking page at `/demos/hitl-in-chat-booking`
- * but exposed at the canonical `/demos/hitl-in-chat` route that the D5
- * harness expects. The `book_call` tool presents a TimePickerCard with
- * fixed time slots; the user picks one, and the agent acknowledges.
- */
-
+// @region[hitl-hook]
+// @region[time-slots]
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
   useHumanInTheLoop,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import {
-  TimePickerCard,
-  TimeSlot,
-} from "../hitl-in-chat-booking/time-picker-card";
+import type { TimeSlot } from "./time-picker-card";
+import { TimePickerCard } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-30T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-30T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-05-04T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-05-04T15:30:00-07:00" },
+  { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
+  { label: "Tomorrow 2:00 PM", iso: "2026-04-19T14:00:00-07:00" },
+  { label: "Monday 9:00 AM", iso: "2026-04-21T09:00:00-07:00" },
+  { label: "Monday 3:30 PM", iso: "2026-04-21T15:30:00-07:00" },
 ];
+// @endregion[time-slots]
 
-export default function HitlInChat() {
+export default function HitlInChatDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
-      <Demo />
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
   );
 }
 
-function Demo() {
+function Chat() {
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Book a call with sales",
+        message:
+          "Please book an intro call with the sales team to discuss pricing.",
+      },
+      {
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+    ],
+    available: "always",
+  });
+
   useHumanInTheLoop({
-    agentId: "default",
+    agentId: "hitl-in-chat",
     name: "book_call",
     description:
       "Ask the user to pick a time slot for a call. The picker UI presents fixed candidate slots; the user's choice is returned to the agent.",
@@ -49,7 +62,6 @@ function Demo() {
         .string()
         .describe("Who the call is with (e.g. 'Alice from Sales')"),
     }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     render: ({ args, status, respond }: any) => (
       <TimePickerCard
         topic={args?.topic ?? "a call"}
@@ -60,15 +72,7 @@ function Demo() {
       />
     ),
   });
+  // @endregion[hitl-hook]
 
-  return (
-    <main className="p-8">
-      <h1 className="text-2xl font-semibold mb-4">In-Chat Booking (HITL)</h1>
-      <p className="text-sm opacity-70 mb-6">
-        Try: &ldquo;Book a 30-minute onboarding call for Alice.&rdquo; The agent
-        renders an inline time picker; pick a slot to confirm.
-      </p>
-      <CopilotChat agentId="default" />
-    </main>
-  );
+  return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;
 }
