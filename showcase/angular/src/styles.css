@@ -395,6 +395,7 @@ showcase-root {
   width: 100%;
 }
 
+/* @region[a2ui-styling] */
 .a2ui-row {
   display: flex;
   flex-wrap: wrap;
@@ -463,6 +464,7 @@ showcase-root {
   background: #fee2e2;
   color: #991b1b;
 }
+/* @endregion[a2ui-styling] */
 
 .a2ui-info-row {
   display: flex;

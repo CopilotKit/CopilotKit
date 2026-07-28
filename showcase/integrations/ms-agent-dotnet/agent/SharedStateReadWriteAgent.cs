@@ -556,8 +556,6 @@ internal sealed partial class SharedStateReadWriteSerializerContext : JsonSerial
 /// </summary>
 public sealed class SharedStateReadWriteAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly OpenAIClient _openAiClient;
     private readonly ILoggerFactory _loggerFactory;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -575,15 +573,11 @@ public sealed class SharedStateReadWriteAgentFactory
         _loggerFactory = loggerFactory;
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 

@@ -1,14 +1,13 @@
-import {
-  Middleware,
+import type {
   RunAgentInput,
   AbstractAgent,
   BaseEvent,
-  EventType,
   ToolCallStartEvent,
   ToolCallArgsEvent,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
 } from "@ag-ui/client";
+import { Middleware, EventType } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import clarinet from "clarinet";
 
@@ -183,7 +182,13 @@ export class ArgsParser {
       case "initialHeight":
         this.params.initialHeight =
           typeof value === "number" ? value : undefined;
-        this.emitSnapshot();
+        if (this.snapshotEmitted) {
+          // Snapshot already went out (another param parsed first) — deliver
+          // the height as a delta instead.
+          this.emitParamDelta("initialHeight", this.params.initialHeight);
+        } else {
+          this.emitSnapshot();
+        }
         break;
       case "css":
         this.params.css = value != null ? String(value) : undefined;
@@ -212,6 +217,11 @@ export class ArgsParser {
   }
 
   private emitParamDelta(key: string, value: unknown): void {
+    // The activity message must exist before any delta can be applied —
+    // the client silently drops ACTIVITY_DELTA events whose messageId has
+    // no prior ACTIVITY_SNAPSHOT. The LLM controls the key order of the
+    // streamed args, so the snapshot cannot wait for initialHeight.
+    this.emitSnapshot();
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,
@@ -222,6 +232,7 @@ export class ArgsParser {
   }
 
   private emitArrayItemDelta(arrayKey: string, value: string): void {
+    this.emitSnapshot();
     const event: ActivityDeltaEvent = {
       type: EventType.ACTIVITY_DELTA,
       messageId: this.messageId,

@@ -305,7 +305,7 @@ jobs:
           echo "LANGSMITH_API_KEY=${LANGSMITH_API_KEY}" >> typescript/examples/.env
 
       - name: Run dojo+agents
-        uses: JarvusInnovations/background-action@2428e7b970a846423095c79d43f759abf979a635 # v1
+        uses: JarvusInnovations/background-action@1f5e5fa2462e48a95f97b54b4842d076d1008e3b # v2
         env:
           NODE_OPTIONS: --max-old-space-size=8192
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

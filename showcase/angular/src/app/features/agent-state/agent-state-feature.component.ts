@@ -103,6 +103,7 @@ export class AgentStateFeatureComponent {
   private readonly agentId = agentIdForRoute(this.feature, this.route);
   protected readonly plannerTranscriptChildren =
     AgentStateTranscriptChildrenComponent;
+  // @region[subagent-delegation-state]
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly delegations = computed(() =>
     readDelegations(this.agentStore().state()),
@@ -119,4 +120,5 @@ export class AgentStateFeatureComponent {
   private registerSubAgent(name: SubAgentName): void {
     registerRenderToolCall(subAgentRendererConfig(name));
   }
+  // @endregion[subagent-delegation-state]
 }

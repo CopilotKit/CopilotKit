@@ -12,8 +12,6 @@ using OpenAI;
 
 public sealed class D5ParityAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly OpenAIClient _openAiClient;
     private readonly ILoggerFactory _loggerFactory;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -30,15 +28,11 @@ public sealed class D5ParityAgentFactory
         _loggerFactory = loggerFactory;
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -112,6 +106,17 @@ public sealed class D5ParityAgentFactory
             _loggerFactory.CreateLogger<SnapshotAfterRunAgent<PlanStep[]>>());
     }
 
+    // Shared State (Streaming). The `write_document` tool exposes a single
+    // `document` string argument. Because the OpenAI chat client streams
+    // tool-call arguments, the .NET AG-UI host emits that argument as
+    // TOOL_CALL_ARGS deltas token-by-token. The Next.js route shim
+    // (`createSharedStateStreamingAgent` in src/app/api/copilotkit/route.ts)
+    // buffers those deltas and forwards each into `state.document` as an
+    // incremental STATE_SNAPSHOT — the per-token equivalent of the Python
+    // agent's `predict_state_config` / `StateStreamingMiddleware`. The
+    // SnapshotAfterRunAgent below is retained only as the authoritative
+    // final commit after the tool finishes streaming; per-token emission no
+    // longer depends on it.
     public AIAgent CreateSharedStateStreamingAgent()
     {
         var store = new SnapshotStore<string>(() => "");
@@ -125,14 +130,18 @@ public sealed class D5ParityAgentFactory
             options: new()
             {
                 Name = "write_document",
-                Description = "Write the full document body. Always call this when the user asks you to draft, write, or revise text.",
+                Description =
+                    "Write the full document body as a single string in the `document` argument. " +
+                    "Always call this when the user asks you to draft, write, or revise text. " +
+                    "The `document` argument is streamed per-token into shared state under the " +
+                    "`document` key, so the UI renders the body live as it is generated.",
                 SerializerOptions = _jsonSerializerOptions,
             });
 
         var inner = new ChatClientAgent(
             _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient(),
             name: "SharedStateStreamingAgent",
-            description: "You are a collaborative writing assistant. Always call write_document with the full document instead of pasting it only into chat.",
+            description: "You are a collaborative writing assistant. Whenever the user asks you to write, draft, or revise text, ALWAYS call write_document with the full content as a single string in the `document` argument. Never paste the document into a chat message directly - the document belongs in shared state and the UI renders it live as you type.",
             tools: [writeDocument]);
 
         return new SnapshotAfterRunAgent<string>(

@@ -16,8 +16,8 @@ keeps flowing.
 
 `MastraAgent` (the AG-UI adapter) maps that lifecycle to an AG-UI **activity event** (activity
 type `mastra-background-task`) and **suppresses the normal tool pill** — so the work surfaces
-only as a live "working" card, never as an orphan tool call. CopilotKit's `renderActivityMessages`
-paints that card inline in the transcript.
+only as a live "working" card, never as an orphan tool call. A registered CopilotKit activity
+renderer paints that card inline in the transcript.
 
 ## When should I use this?
 
@@ -116,9 +116,11 @@ Background tasks fit any work that is too slow to hold the chat hostage:
 <Step>
   ### Render the activity card in your frontend
 
-  Write an activity renderer for the `mastra-background-task` activity type, then register it on
-  `<CopilotKit>` via `renderActivityMessages`. The standard `<CopilotChat />` renders activity
-  messages inline — no custom message list needed.
+  Write an activity renderer for the `mastra-background-task` activity type. The standard chat
+  surface renders registered activity messages inline, so no custom message list is needed.
+
+  <FrontendOnly frontend="react">
+  Register the renderer on `<CopilotKit>` via `renderActivityMessages`.
 
   ```tsx title="ui/app/activity-card.tsx"
   import { z } from "zod";
@@ -162,6 +164,29 @@ Background tasks fit any work that is too slow to hold the chat hostage:
     );
   }
   ```
+  </FrontendOnly>
+
+  <FrontendOnly frontend="angular">
+  Implement the card as an Angular component that satisfies `ActivityRenderer`, then pair its
+  content schema and component in a `RenderActivityMessageConfig`. The Angular Showcase exports
+  ready-to-register configs for both Mastra activity types:
+
+  <AngularSnippet
+    region="mastra-activity-renderer-configs"
+    title="showcase/angular/src/app/features/mastra/mastra-cards.ts"
+  />
+
+  Register the config in an injection context. The registration is removed automatically when
+  that injector is destroyed:
+
+  <AngularSnippet
+    region="mastra-activity-registration"
+    title="showcase/angular/src/app/features/mastra/mastra-feature.component.ts"
+  />
+
+  See the [activity renderer API](/reference/angular/functions/registerRenderActivityMessage)
+  for a compact component implementation and schema contract.
+  </FrontendOnly>
 </Step>
 
 <Step>
@@ -233,6 +258,7 @@ With both on, `MastraAgent` maps the OM lifecycle to AG-UI activity events under
 `mastra-observational-memory`. Render them exactly like the background-task card — register a
 renderer for that activity type:
 
+<FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 const observationalMemoryActivityRenderer = {
   activityType: "mastra-observational-memory", // [!code highlight]
@@ -244,6 +270,13 @@ const observationalMemoryActivityRenderer = {
   renderActivityMessages={[observationalMemoryActivityRenderer]} // [!code highlight]
 >
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Use the `observationalMemoryActivityRendererConfig` and registration shown in the Angular source
+regions above. Both background-task and observational-memory cards use the same
+`registerRenderActivityMessage` lifecycle.
+</FrontendOnly>
 
 The activity content carries the cycle (`cycleId`, `phase: "observation" | "buffering" | "activation"`,
 `status`, token counts) and advances in place as the cycle progresses, so one card tracks each OM

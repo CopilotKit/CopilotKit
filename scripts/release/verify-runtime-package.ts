@@ -10,26 +10,18 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createConsumerWorkspaceYaml } from "./lib/channels-umbrella.js";
+import {
+  CHANNELS_INTELLIGENCE,
+  createRuntimeConsumerManifest,
+  packPackage,
+  packWorkspaceClosure,
+  RUNTIME,
+} from "./lib/pack-workspace.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const RUNTIME_DIR = join(ROOT, "packages", "runtime");
-const CHANNELS_INTELLIGENCE = "@copilotkit/channels-intelligence";
 
-interface PackageManifest {
-  name: string;
-  version: string;
+interface RootManifest {
   packageManager?: string;
-  dependencies?: Record<string, string>;
-}
-
-function capture(command: string, args: string[], cwd = ROOT): string {
-  return execFileSync(command, args, {
-    cwd,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    maxBuffer: 10 * 1024 * 1024,
-    env: { ...process.env, CI: "true" },
-  });
 }
 
 function run(command: string, args: string[], cwd = ROOT): void {
@@ -44,16 +36,9 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
-function tarballName(manifest: PackageManifest): string {
-  return `${manifest.name.replace(/^@/, "").replace("/", "-")}-${manifest.version}.tgz`;
-}
-
 function main(): void {
-  const rootManifest = readJson<PackageManifest>(join(ROOT, "package.json"));
-  const runtimeManifest = readJson<PackageManifest>(
-    join(RUNTIME_DIR, "package.json"),
-  );
-  if (!rootManifest.packageManager) {
+  const { packageManager } = readJson<RootManifest>(join(ROOT, "package.json"));
+  if (!packageManager) {
     throw new Error("root package.json is missing packageManager");
   }
 
@@ -64,14 +49,23 @@ function main(): void {
   mkdirSync(consumerDir);
 
   try {
-    capture("pnpm", ["pack", "--pack-destination", tarballDir], RUNTIME_DIR);
-    const tarball = join(tarballDir, tarballName(runtimeManifest));
-    const packedManifest = JSON.parse(
-      capture("tar", ["-xOf", tarball, "package/package.json"]),
-    ) as PackageManifest;
+    const { manifest: packedManifest, tarball } = packPackage(
+      RUNTIME,
+      tarballDir,
+    );
     if (!packedManifest.dependencies?.[CHANNELS_INTELLIGENCE]) {
       throw new Error(
         `packed runtime must install ${CHANNELS_INTELLIGENCE} as a dependency`,
+      );
+    }
+
+    // Resolve every first-party `workspace:` dependency from a local tarball.
+    // On a release PR the packed ranges name freshly-bumped versions that this
+    // very release is about to publish, so the registry cannot serve them yet.
+    const overrides = packWorkspaceClosure([RUNTIME], tarballDir);
+    if (!overrides.has(CHANNELS_INTELLIGENCE)) {
+      throw new Error(
+        `${CHANNELS_INTELLIGENCE} must be a workspace dependency of the runtime so the packed consumer installs it locally instead of from the registry`,
       );
     }
 
@@ -82,16 +76,11 @@ function main(): void {
     writeFileSync(
       join(consumerDir, "package.json"),
       `${JSON.stringify(
-        {
-          name: "runtime-package-consumer",
-          version: "0.0.0",
-          private: true,
-          type: "module",
-          packageManager: rootManifest.packageManager,
-          dependencies: {
-            "@copilotkit/runtime": `file:${tarball}`,
-          },
-        },
+        createRuntimeConsumerManifest({
+          runtimeTarball: tarball,
+          packageManager,
+          overrides,
+        }),
         null,
         2,
       )}\n`,

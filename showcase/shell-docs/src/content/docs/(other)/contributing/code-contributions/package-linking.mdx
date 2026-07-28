@@ -31,10 +31,19 @@ pnpm i
 
 Next, link the desired package in your project:
 
+<FrontendOnly frontend="react">
 ```bash
 # For example, to link the @copilotkit/react-core package:
 pnpm link --global @copilotkit/react-core
 ```
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```bash
+# Link the Angular package:
+pnpm link --global @copilotkit/angular
+```
+</FrontendOnly>
 
 You can run this for all packages, or just the ones you need. Your changes will now be synced.
 

@@ -1,8 +1,9 @@
 "use client";
 
-import { MessagesSquare, SquarePen, X } from "lucide-react";
+import { MessagesSquare, Paperclip, SquarePen, X } from "lucide-react";
 import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
 
+import { stageInvoiceAttachment } from "./attach-invoice";
 import { cn } from "@/lib/utils";
 import { IDENTITY } from "@/lib/identity";
 import { useChatInbox } from "./chat-inbox-context";
@@ -29,39 +30,26 @@ export function ChatPanelHeader() {
   return (
     <header
       data-testid="chat-panel-header"
-      className="flex h-[68px] flex-shrink-0 items-center justify-between gap-2 border-b border-hairline bg-surface/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-surface/80"
+      // ChatGPT's top bar is nearly invisible: no border, no fill, no branded
+      // chip — just the model/assistant name at small weight on the same white
+      // as the conversation, with icon actions on the right. Kept borderless so
+      // the conversation reads as one continuous surface.
+      className="flex h-[52px] flex-shrink-0 items-center justify-between gap-2 bg-transparent px-3"
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="brand-gradient flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-surface shadow-[0_6px_16px_hsl(252_83%_60%/0.4)]">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            className="h-5 w-5"
-            aria-hidden="true"
-          >
-            <path
-              d="M4 13.5L9 7l4 4.5L20 4"
-              stroke="white"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="20" cy="4" r="2" fill="white" />
-          </svg>
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold leading-tight tracking-tight text-ink">
-            {title}
-          </p>
-          <p className="truncate text-xs leading-tight text-ink-muted">
-            {IDENTITY.brand}
-          </p>
-        </div>
-      </div>
+      <p className="min-w-0 truncate px-1 text-[0.9375rem] font-medium text-[#0d0d0d] dark:text-[#ececec]">
+        {title}
+      </p>
 
       <div className="flex flex-shrink-0 items-center gap-1">
         <HeaderIconButton
-          label={isInboxOpen ? "Back to chat" : "Conversations"}
+          label="Attach Q2 invoice"
+          onClick={() => void stageInvoiceAttachment()}
+          testId="chat-header-attach-invoice"
+        >
+          <Paperclip className="h-[18px] w-[18px]" />
+        </HeaderIconButton>
+        <HeaderIconButton
+          label={isInboxOpen ? "Hide conversations" : "Show conversations"}
           active={isInboxOpen}
           onClick={toggleInbox}
           testId="chat-inbox-toggle"
@@ -109,11 +97,12 @@ function HeaderIconButton({
       data-testid={testId}
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+        // Neutral greys, matching ChatGPT's header icon buttons.
+        "inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d0d0d] dark:focus-visible:ring-white",
         active
-          ? "bg-brand-soft text-brand-indigo dark:text-brand-violet"
-          : "text-ink-muted hover:bg-brand-soft hover:text-brand-indigo dark:hover:text-brand-violet",
+          ? "bg-[#ececec] text-[#0d0d0d] dark:bg-white/15 dark:text-[#ececec]"
+          : "text-[#5d5d5d] hover:bg-[#ececec] dark:text-[#b4b4b4] dark:hover:bg-white/10",
       )}
     >
       {children}
