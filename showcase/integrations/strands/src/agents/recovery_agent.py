@@ -13,6 +13,10 @@ ways:
     returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer
     surfaces as a tasteful `failed` state (no broken surface).
 
+LGP-aligned pill texts (frontend / aimock coordination):
+  - "Build my Q2 revenue summary and self-correct a malformed first attempt."
+  - "Build a report that fails every validation pass so I can preview the fallback."
+
 Wiring: unlike the langgraph/ADK siblings (which own `generate_a2ui` explicitly
 via `get_a2ui_tools` + `injectA2UITool: false`), the Strands adapter runs the
 recovery loop on its AUTO-INJECT path — when the runtime forwards
@@ -34,7 +38,23 @@ from strands import Agent
 from ag_ui_strands import StrandsAgent, StrandsAgentConfig
 
 from agents.agent import _build_model
-from agents.a2ui_dynamic import CATALOG_ID, COMPOSITION_GUIDE, SYSTEM_PROMPT
+from agents.a2ui_dynamic import CATALOG_ID, COMPOSITION_GUIDE, SYSTEM_PROMPT as DYNAMIC_SYSTEM_PROMPT
+
+# LGP-aligned recovery composition: same sales-analyst base as declarative
+# dynamic A2UI, plus explicit guidance so the LGP pill wordings
+# ("malformed first attempt", "fails every validation") still route through
+# `generate_a2ui` and the adapter's validate->retry / hard-fail path.
+SYSTEM_PROMPT = (
+    DYNAMIC_SYSTEM_PROMPT
+    + "\n\n"
+    + "Demo recovery intents: if the user asks to self-correct a malformed "
+    + "first attempt, recover from a bad render, or build a report / board "
+    + "that fails every validation pass so they can preview the fallback, "
+    + "still call `generate_a2ui` exactly once and keep the chat reply to one "
+    + "short sentence. Do not refuse, do not invent another tool, and do not "
+    + "try to validate or repair the surface yourself — `generate_a2ui` runs "
+    + "the toolkit recovery loop (heal or exhaust) for you."
+)
 
 
 def build_a2ui_recovery_agent() -> StrandsAgent:
@@ -48,6 +68,7 @@ def build_a2ui_recovery_agent() -> StrandsAgent:
     strands_agent = Agent(
         model=_build_model(),
         system_prompt=SYSTEM_PROMPT,
+        tools=[],
     )
 
     return StrandsAgent(
@@ -61,3 +82,6 @@ def build_a2ui_recovery_agent() -> StrandsAgent:
             }
         ),
     )
+
+
+__all__ = ["SYSTEM_PROMPT", "build_a2ui_recovery_agent"]
