@@ -1803,6 +1803,42 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     expect(eventsNamed("oss.inspector.banner_clicked")).toHaveLength(1);
   });
 
+  // Every inspector event — not just the ones this PR added — has to wait for
+  // the handshake, or the opt-out is only a partial guarantee. The threads tab
+  // is the representative existing path: it posted straight through on the
+  // `telemetryDisabled: false` placeholder.
+  it("holds an existing threads-tab event until the handshake, then drops it when the runtime reports disabled", async () => {
+    const { inspector, harness } = mount(false, false);
+    const menu = inspector as unknown as {
+      handleMenuSelect: (key: string) => void;
+    };
+
+    menu.handleMenuSelect("threads");
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+
+    expect(posts()).toEqual([]);
+  });
+
+  it("sends a held threads-tab event once the runtime allows telemetry", async () => {
+    const { inspector, harness } = mount(false, false);
+    const menu = inspector as unknown as {
+      handleMenuSelect: (key: string) => void;
+    };
+
+    menu.handleMenuSelect("threads");
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(1);
+  });
+
   // Before the handshake, `licenseStatus` is undefined and `runtimeMode` reads
   // its `sse` default. Snapshotting at queue time would permanently attribute
   // this open to SSE and lose license segmentation.

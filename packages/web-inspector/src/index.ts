@@ -60,6 +60,8 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
+  resetTelemetryGate,
+  resolveTelemetryGate,
   trackBannerClicked,
   trackBannerDismissed,
   trackBannerViewed,
@@ -4210,47 +4212,23 @@ export class WebInspectorElement extends LitElement {
   // the card inside the opened panel are separate impressions: a user can see
   // one without ever seeing the other.
   private viewedBannerSurfaces: Set<string> = new Set();
-  // Queue rather than a single slot: a user can open the panel (second
-  // surface) before the runtime handshake has flushed the first impression.
-  private pendingBannerViewed: Array<{
-    banner_id: string;
-    surface: BannerSurface;
-    cta_label?: string;
-  }> = [];
-  // Same deferral for `oss.inspector.opened` — the panel can be opened before
-  // /info returns, at which point `core.telemetryDisabled` is not yet known.
-  // Also a queue: open → close → open before the handshake is three real
-  // events, and dropping all but the last would undercount opens.
+  // Deferring events until the runtime's opt-out is known is handled centrally
+  // by the telemetry egress gate (`resolveTelemetryGate`), not here — every
+  // event, including the pre-existing threads/memories/CTA paths, is held there
+  // until /info answers.
   //
-  // Only the *intent* is queued. Runtime segmentation (`license_status`,
-  // `runtime_mode`, `runtime_url_type`) is deliberately NOT captured here:
-  // before the handshake, `licenseStatus` is undefined and `runtimeMode`
-  // reads its `sse` default, so snapshotting would permanently attribute an
-  // early open against an Intelligence runtime to SSE. Those fields are
-  // resolved at flush time, when /info has actually landed.
+  // This queue exists for a different reason: the `opened` payload carries
+  // runtime segmentation (`license_status`, `runtime_mode`,
+  // `runtime_url_type`), and before the handshake `licenseStatus` is undefined
+  // and `runtimeMode` reads its `sse` default. Building the payload early would
+  // permanently attribute an open against an Intelligence runtime to SSE, so
+  // only the open *intent* is queued and those fields are resolved at flush
+  // time. It is a queue rather than a single slot because open → close → open
+  // before the handshake is three real events.
   private pendingOpened: Array<{
     open_source: InspectorOpenSource;
     has_unseen_announcement: boolean;
   }> = [];
-  // Banner *interactions* (`banner_clicked` / `banner_dismissed`) defer behind
-  // the same handshake gate as impressions. A user can swat the preview bubble
-  // away before /info returns, and firing then would send an event for a
-  // runtime that turns out to have telemetry disabled. Dedup still happens at
-  // interaction time, so a double-click queues one event, not two.
-  private pendingBannerInteractions: Array<
-    | {
-        kind: "clicked";
-        banner_id: string;
-        cta: "body" | "dismiss";
-        cta_label?: string;
-      }
-    | {
-        kind: "dismissed";
-        banner_id: string;
-        surface: BannerSurface;
-        cta_label?: string;
-      }
-  > = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -4587,6 +4565,10 @@ export class WebInspectorElement extends LitElement {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
         if (status === "connected") {
+          // The handshake has landed, so `telemetryDisabled` is now a real
+          // answer rather than its pre-connect placeholder. Opening the egress
+          // gate first releases anything held meanwhile.
+          resolveTelemetryGate(core.telemetryDisabled ? "denied" : "allowed");
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
@@ -4654,6 +4636,7 @@ export class WebInspectorElement extends LitElement {
     this.processAgentsChanged(core.agents);
 
     if (core.runtimeConnectionStatus === "connected") {
+      resolveTelemetryGate(core.telemetryDisabled ? "denied" : "allowed");
       if (!core.telemetryDisabled) {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
@@ -4766,6 +4749,9 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    // A later core must start from "we do not know" rather than inheriting the
+    // previous runtime's telemetry decision.
+    resetTelemetryGate();
     this._memoryUnsub?.();
     this._memoryUnsub = null;
     this._memories = [];
@@ -7930,46 +7916,36 @@ ${argsString}</pre
   // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
   // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
   // replacing it, so dashboards reading the `cta` value keep working.
-  // Queued behind the runtime handshake — see `pendingBannerInteractions`.
+  // Held until the handshake by the central egress gate.
   private trackBannerDismissedOnce(surface: BannerSurface): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:dismissed:${surface}`;
     if (this.clickedBannerIds.has(key)) return;
-    if (this.pendingBannerInteractions.length >= MAX_PENDING_TELEMETRY_EVENTS) {
-      return;
-    }
     this.clickedBannerIds.add(key);
-    this.pendingBannerInteractions.push({
-      kind: "dismissed",
+    trackBannerDismissed({
       banner_id: id,
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerInteractions();
   }
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
   // copy-button retries and accidental multi-clicks don't inflate funnel counts.
-  // Queued behind the runtime handshake — see `pendingBannerInteractions`.
+  // Held until the handshake by the central egress gate.
   private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
-    if (this.pendingBannerInteractions.length >= MAX_PENDING_TELEMETRY_EVENTS) {
-      return;
-    }
     this.clickedBannerIds.add(key);
-    this.pendingBannerInteractions.push({
-      kind: "clicked",
+    trackBannerClicked({
       banner_id: id,
       cta: opts.cta,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerInteractions();
   }
 
   private handleTalkToEngineerClick = (): void => {
@@ -10880,47 +10856,7 @@ ${prettyEvent}</pre
   }
 
   private flushPendingTelemetry(): void {
-    this.flushPendingBannerViewed();
-    this.flushPendingBannerInteractions();
     this.flushPendingOpened();
-  }
-
-  private flushPendingBannerViewed(): void {
-    if (this.pendingBannerViewed.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = [];
-      return;
-    }
-    if (this.runtimeStatus !== "connected") return;
-    const queued = this.pendingBannerViewed;
-    this.pendingBannerViewed = [];
-    for (const props of queued) trackBannerViewed(props);
-  }
-
-  private flushPendingBannerInteractions(): void {
-    if (this.pendingBannerInteractions.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerInteractions = [];
-      return;
-    }
-    if (this.runtimeStatus !== "connected") return;
-    const queued = this.pendingBannerInteractions;
-    this.pendingBannerInteractions = [];
-    for (const interaction of queued) {
-      if (interaction.kind === "clicked") {
-        trackBannerClicked({
-          banner_id: interaction.banner_id,
-          cta: interaction.cta,
-          cta_label: interaction.cta_label,
-        });
-      } else {
-        trackBannerDismissed({
-          banner_id: interaction.banner_id,
-          surface: interaction.surface,
-          cta_label: interaction.cta_label,
-        });
-      }
-    }
   }
 
   // Runtime segmentation is resolved HERE, not when the open was queued: an
@@ -10965,8 +10901,8 @@ ${prettyEvent}</pre
 
   /**
    * Records a `banner_viewed` impression for whichever surface is currently
-   * visible, once per announcement per surface. Queued rather than sent
-   * directly because `telemetryDisabled` is unknown until /info returns.
+   * visible, once per announcement per surface. Deferral until the runtime's
+   * opt-out is known is the egress gate's job, so this sends directly.
    */
   private maybeTrackBannerViewed(): void {
     const id = this.announcementTimestamp;
@@ -10975,16 +10911,12 @@ ${prettyEvent}</pre
     if (!surface) return;
     const key = `${id}:${surface}`;
     if (this.viewedBannerSurfaces.has(key)) return;
-    // Naturally bounded (one entry per surface per announcement), but keep the
-    // same guard as `trackOpened` so neither queue can grow without a runtime.
-    if (this.pendingBannerViewed.length >= MAX_PENDING_TELEMETRY_EVENTS) return;
     this.viewedBannerSurfaces.add(key);
-    this.pendingBannerViewed.push({
+    trackBannerViewed({
       banner_id: id,
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerViewed();
   }
 
   private ensureAnnouncementLoading(): void {

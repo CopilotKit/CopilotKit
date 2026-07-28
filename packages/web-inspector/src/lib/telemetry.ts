@@ -137,20 +137,96 @@ export function getRuntimeUrlType(
   }
 }
 
+// --- Runtime egress gate ---
+//
+// The runtime's opt-out (`COPILOTKIT_TELEMETRY_DISABLED` / `DO_NOT_TRACK`,
+// OSS-565) is only KNOWN once the /info handshake lands. Until then
+// `CopilotKitCore.telemetryDisabled` reports `false` as a placeholder, so a
+// per-call-site `if (telemetryDisabled) return` check passes and the event
+// goes out — even when /info is about to report that telemetry is off.
+//
+// The gate lives here, at the single egress boundary, rather than at the 15+
+// call sites: nothing reaches the network until the host resolves it. Events
+// raised while the decision is unknown are held, then released or dropped.
+//
+// Consequence worth knowing: if a runtime never connects, inspector telemetry
+// stays silent for that session. That is the intended trade — we cannot
+// establish consent without the handshake.
+export type TelemetryGateDecision = "allowed" | "denied";
+
+let gateDecision: TelemetryGateDecision | null = null;
+
+type HeldEvent = {
+  event: TelemetryEvent;
+  properties: Record<string, unknown>;
+  // Stamped when the event happened, not when it is released — otherwise every
+  // held event would carry the handshake's completion time instead of the
+  // user's interaction time.
+  ts: number;
+};
+
+// Bounded: a host that never resolves the gate must not accumulate events
+// without limit. Overflow is dropped — these are signals, not a ledger.
+const MAX_HELD_EVENTS = 20;
+let heldEvents: HeldEvent[] = [];
+
+/**
+ * Records the runtime's telemetry decision and releases anything held while
+ * it was unknown. Call with `"denied"` when the runtime reports
+ * `telemetryDisabled`, `"allowed"` when it reports the opposite — only after
+ * the /info handshake has actually completed.
+ */
+export function resolveTelemetryGate(decision: TelemetryGateDecision): void {
+  gateDecision = decision;
+  const held = heldEvents;
+  heldEvents = [];
+  if (decision === "denied") return;
+  // Re-checked here, not just at hold time: the user may have opted out while
+  // the handshake was still outstanding.
+  if (isTelemetryOptedOut()) return;
+  for (const { event, properties, ts } of held) send(event, properties, ts);
+}
+
+/**
+ * Returns the gate to its unresolved state and discards anything held. Called
+ * when the inspector detaches from a core, so a later core starts from "we do
+ * not know" rather than inheriting the previous runtime's decision.
+ */
+export function resetTelemetryGate(): void {
+  gateDecision = null;
+  heldEvents = [];
+}
+
 /**
  * Fire-and-forget telemetry send. Returns synchronously; the network
  * call is dispatched in the background and any failure is swallowed.
  *
- * Short-circuits when the user has opted out. Does NOT itself trigger
- * the first-run disclosure — call `maybeShowDisclosure()` from the
- * inspector's mount lifecycle instead.
+ * Short-circuits when the user has opted out, and holds the event when the
+ * runtime's own opt-out is not yet known (see the egress gate above). Does
+ * NOT itself trigger the first-run disclosure — call `maybeShowDisclosure()`
+ * from the inspector's mount lifecycle instead.
  */
 export function track(
   event: TelemetryEvent,
   properties: Record<string, unknown> = {},
 ): void {
   if (isTelemetryOptedOut()) return;
+  if (gateDecision === "denied") return;
+  const ts = Math.floor(Date.now() / 1000);
+  if (gateDecision === null) {
+    if (heldEvents.length < MAX_HELD_EVENTS) {
+      heldEvents.push({ event, properties, ts });
+    }
+    return;
+  }
+  send(event, properties, ts);
+}
 
+function send(
+  event: TelemetryEvent,
+  properties: Record<string, unknown>,
+  ts: number,
+): void {
   const distinctId = getOrCreateTelemetryDistinctId();
   const enrichedProperties = isEnrichedTelemetryEvent(event)
     ? {
@@ -174,7 +250,7 @@ export function track(
           ? { version: PACKAGE_VERSION }
           : {}),
       },
-      ts: Math.floor(Date.now() / 1000),
+      ts,
     });
   } catch {
     return;
