@@ -143,6 +143,10 @@ function pathnameSegments(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
 }
 
+export function isChannelsOverviewPath(pathname: string): boolean {
+  return pathnameSegments(pathname).join("/") === "channels";
+}
+
 export function parseFrontendRoutePath(
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
@@ -186,6 +190,10 @@ export function frontendPathForCurrentPath(
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
 ): string {
+  if (isChannelsOverviewPath(pathname)) {
+    return frontendPathForBackend(id);
+  }
+
   const targetIsChannel = isChannelFrontend(id);
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {

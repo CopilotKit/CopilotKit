@@ -12,6 +12,7 @@ import {
   frontendPathForCurrentPath,
   getFrontendOption,
   isChannelFrontend,
+  isChannelsOverviewPath,
   isFrontendId,
   parseFrontendRoutePath,
 } from "../frontend-options";
@@ -115,6 +116,32 @@ test("maps picker selections across frontend URL shapes", () => {
       backendSlugs,
     ),
   ).toBe("/langgraph-python/concepts/architecture");
+});
+
+test("routes the global Channels overview to each surface quickstart", () => {
+  const backendSlugs = ["built-in-agent", "mastra"];
+
+  expect(isChannelsOverviewPath("/channels")).toBe(true);
+  expect(isChannelsOverviewPath("/channels/")).toBe(true);
+  expect(isChannelsOverviewPath("/channels/tools")).toBe(false);
+  expect(frontendPathForCurrentPath("react", "/channels", backendSlugs)).toBe(
+    "/",
+  );
+  expect(frontendPathForCurrentPath("vue", "/channels", backendSlugs)).toBe(
+    "/vue",
+  );
+  expect(
+    frontendPathForCurrentPath("react-native", "/channels", backendSlugs),
+  ).toBe("/react-native");
+  expect(frontendPathForCurrentPath("angular", "/channels", backendSlugs)).toBe(
+    "/angular",
+  );
+  expect(frontendPathForCurrentPath("slack", "/channels", backendSlugs)).toBe(
+    "/slack",
+  );
+  expect(frontendPathForCurrentPath("teams", "/channels", backendSlugs)).toBe(
+    "/teams",
+  );
 });
 
 test("keeps mapped channel guides when switching between Slack and Teams", () => {
