@@ -78,6 +78,11 @@ export type NodeCopilotListenerWithChannels = NodeFetchHandler & {
  * `.channels`) falls through to the optional-shape overload below rather than
  * dishonestly promising a control surface that will not exist. Mirrors the
  * `createCopilotRuntimeHandler` overload pair so the brand survives the wrapper.
+ *
+ * The brand comes from constructing the runtime with a literal non-empty
+ * `channels` list (`readonly [Channel, ...Channel[]]`). A runtime built from a
+ * dynamically-assembled `Channel[]` is not branded, so it falls to the
+ * optional-shape overload and its call sites still need `?.`.
  */
 export function createCopilotNodeListener(
   options: CopilotRuntimeHandlerOptions & {
