@@ -58,8 +58,8 @@ class PlatformLikeSink implements RenderEventSink {
   ) {}
 
   async push(frame: RenderFrame) {
-    // Optionally block the FIRST push so later frames pile up behind it, which
-    // is what makes the coalescer merge them.
+    // Optionally block the FIRST push so later frames pile up behind it. That
+    // backlog is what any future send-path change (batching, grouping) acts on.
     if (this.gate) {
       this.gate.pushes += 1;
       if (this.gate.pushes === 1) await this.gate.promise;
@@ -90,7 +90,7 @@ describe("render frame replay stability (OSS-648)", () => {
     const rows = new Map<string, string>();
 
     // ATTEMPT 1 — slow first push, so all four deltas arrive while it is in
-    // flight and coalesce into a single frame.
+    // flight and are sent as one backlog.
     const release = { resolve: (): void => {}, pushes: 0 };
     const gate = {
       promise: new Promise<void>((r) => {
@@ -115,7 +115,7 @@ describe("render frame replay stability (OSS-648)", () => {
 
     // ATTEMPT 2 — the same delivery redelivered to a fresh runtime instance, so
     // the seq counter restarts at 0 exactly as `dispatch()` resets it. This time
-    // each delta is pushed on its own, so the merge boundaries differ.
+    // each delta is pushed on its own, so the two attempts group differently.
     const fast = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
       egress: new InMemoryEgressSink(),
@@ -130,9 +130,9 @@ describe("render frame replay stability (OSS-648)", () => {
       await settle();
     }
 
-    // The replay must not collide with attempt 1's rows. Today the last delta
-    // lands on the seq that attempt 1 used for the merged frame, so the platform
-    // rejects it and the delivery nacks.
+    // Different grouping, same seq->payload mapping, so every re-pushed frame is
+    // byte-identical and the platform accepts the replay. A send-path change that
+    // makes a frame's payload depend on grouping fails here with a conflict.
     await expect(second.finish?.()).resolves.toBeUndefined();
   });
 });
