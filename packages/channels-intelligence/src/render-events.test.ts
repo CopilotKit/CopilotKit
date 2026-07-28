@@ -51,17 +51,22 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     await renderer.finish?.();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
+    // The two same-message deltas were buffered while the run_started push was
+    // in flight, so they travel as one frame (OSS-648 coalescing).
     expect(kinds).toEqual([
       "run_started",
-      "text_delta",
       "text_delta",
       "tool_start",
       "tool_end",
       "text_end",
       "finalize",
     ]);
-    // seq is monotonic and zero-based within (turn, slot).
-    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect((renderSink.frames[1]?.event as { delta: string }).delta).toBe(
+      "hello world",
+    );
+    // seq is still zero-based and ascending within (turn, slot); a merged frame
+    // carries the seq of the last delta it absorbed, so 1 is simply not pushed.
+    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 2, 3, 4, 5, 6]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
   });
@@ -808,6 +813,104 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
   });
 });
 
+describe("run renderer — frame coalescing (OSS-648)", () => {
+  /** A render sink whose pushes resolve only when released. */
+  class GatedRenderSink {
+    readonly frames: { seq: number; event: { kind: string } }[] = [];
+    private release: (() => void) | undefined;
+    private readonly gate: Promise<void>;
+    constructor() {
+      this.gate = new Promise<void>((r) => {
+        this.release = r;
+      });
+    }
+    open(): void {
+      this.release?.();
+    }
+    async push(frame: { seq: number; event: { kind: string } }) {
+      this.frames.push(frame);
+      // Only the first push blocks; later ones resolve immediately.
+      if (this.frames.length === 1) await this.gate;
+      return {
+        idempotencyKey: `k${frame.seq}`,
+        acceptance: "accepted" as const,
+      };
+    }
+  }
+
+  it("folds every delta that arrived during an in-flight push into one frame", async () => {
+    const renderSink = new GatedRenderSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink: renderSink as never,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    // The first delta's push (behind run_started) is gated, so these 20 deltas
+    // pile up in the buffer the way they would behind a slow network hop.
+    for (let i = 0; i < 20; i++) {
+      sub.onTextMessageContentEvent?.({
+        event: { messageId: "m1", delta: `t${i} ` },
+      });
+    }
+    renderSink.open();
+    await renderer.finish?.();
+
+    const textFrames = renderSink.frames.filter(
+      (f) => f.event.kind === "text_delta",
+    );
+    // 20 deltas, but far fewer round trips than one per token.
+    expect(textFrames.length).toBeLessThan(5);
+    // No text is lost or reordered.
+    const text = textFrames
+      .map((f) => (f.event as unknown as { delta: string }).delta)
+      .join("");
+    expect(text).toBe(Array.from({ length: 20 }, (_, i) => `t${i} `).join(""));
+    // seqs stay ascending and unique across the merged frames.
+    const seqs = renderSink.frames.map((f) => f.seq);
+    expect(seqs).toEqual([...seqs].sort((a, b) => a - b));
+    expect(new Set(seqs).size).toBe(seqs.length);
+  });
+
+  it("keeps a tool call between deltas from being merged across", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "before " },
+    });
+    sub.onToolCallStartEvent?.({
+      event: { toolCallId: "tc1", toolCallName: "search" },
+    });
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "after" },
+    });
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "text_delta",
+      "tool_start",
+      "text_delta",
+      "finalize",
+    ]);
+    expect((renderSink.frames[1]?.event as { delta: string }).delta).toBe(
+      "before ",
+    );
+    expect((renderSink.frames[3]?.event as { delta: string }).delta).toBe(
+      "after",
+    );
+  });
+});
+
 describe("run renderer — push instrumentation (OSS-648)", () => {
   /** Drive a two-token reply through the renderer and return the log spy. */
   const runInstrumentedTurn = async (
@@ -853,15 +956,19 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
       (c) => c[0] === "channel render metrics",
     );
     expect(summaries).toHaveLength(1);
-    // run_started + 2 text_delta + finalize.
+    // run_started, then the two deltas merged into one frame, then finalize.
+    // deltasPerTextFrame above 1 is the whole point: it is the compression the
+    // coalescing bought, and the number to watch when judging a change.
     expect(summaries[0]?.[1]).toMatchObject({
       turnId: "turn_t1",
       deliveryId: "dlv_d1",
-      frames: 4,
-      textDeltaFrames: 2,
+      frames: 3,
+      textDeltaFrames: 1,
+      textDeltaEvents: 2,
       textDeltaChars: 5,
-      charsPerTextFrame: 2.5,
-      framesByKind: { run_started: 1, text_delta: 2, finalize: 1 },
+      deltasPerTextFrame: 2,
+      charsPerTextFrame: 5,
+      framesByKind: { run_started: 1, text_delta: 1, finalize: 1 },
     });
   });
 
@@ -871,14 +978,18 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
     const perFrame = log.mock.calls.filter(
       (c) => c[0] === "channel render frame pushed",
     );
-    expect(perFrame).toHaveLength(4);
+    expect(perFrame).toHaveLength(3);
     expect(perFrame.map((c) => (c[1] as { kind: string }).kind)).toEqual([
       "run_started",
       "text_delta",
-      "text_delta",
       "finalize",
     ]);
-    expect(perFrame[1]?.[1]).toMatchObject({ seq: 1, deltaChars: 3 });
+    // The merged frame reports both its char count and how many deltas it folded.
+    expect(perFrame[1]?.[1]).toMatchObject({
+      pushIndex: 1,
+      deltaChars: 5,
+      sourceEvents: 2,
+    });
     expect(
       log.mock.calls.filter((c) => c[0] === "channel render metrics"),
     ).toHaveLength(1);

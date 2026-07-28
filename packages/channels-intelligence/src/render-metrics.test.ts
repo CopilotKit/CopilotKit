@@ -155,7 +155,7 @@ describe("createRenderTurnMetrics", () => {
     expect(framesLog).toHaveBeenCalledTimes(1);
     expect(framesLog.mock.calls[0]?.[1]).toMatchObject({
       kind: "text_delta",
-      seq: 0,
+      pushIndex: 0,
       pushMs: 5,
     });
   });
