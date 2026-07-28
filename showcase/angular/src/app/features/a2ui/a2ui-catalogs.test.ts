@@ -13,6 +13,34 @@ describe("a2uiConfigForFeature", () => {
     expect(declarative?.catalog?.components.has("DataTable")).toBe(true);
   });
 
+  it("matches the React layout alignment contract", () => {
+    const catalog = a2uiConfigForFeature("declarative-gen-ui")?.catalog;
+    const rowSchema = catalog?.components.get("Row")?.schema;
+    const columnSchema = catalog?.components.get("Column")?.schema;
+
+    expect(
+      rowSchema?.safeParse({
+        gap: 16,
+        align: "baseline",
+        justify: "spaceBetween",
+        children: [],
+      }).success,
+    ).toBe(true);
+    expect(
+      rowSchema?.safeParse({
+        align: "sideways",
+        justify: "around",
+        children: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      columnSchema?.safeParse({ align: "stretch", children: [] }).success,
+    ).toBe(true);
+    expect(
+      columnSchema?.safeParse({ align: "sideways", children: [] }).success,
+    ).toBe(false);
+  });
+
   it("provides the fixed flight schema only on its dedicated route", () => {
     const fixed = a2uiConfigForFeature("a2ui-fixed-schema");
 

@@ -9,10 +9,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  inject,
   signal,
 } from "@angular/core";
-import { ActivatedRoute } from "@angular/router";
 import {
   injectAgentStore,
   registerFrontendTool,
@@ -23,7 +21,7 @@ import {
 import { mcpAppsActivityRendererConfig } from "@copilotkit/angular/mcp-apps";
 import { z } from "zod";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { SHOWCASE_MCP_APPS_PROVIDER } from "../generated-ui/mcp-apps-provider";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
@@ -197,8 +195,7 @@ const chartParameters = z.object({
 export class BeautifulChatFeatureComponent {
   protected readonly mode = signal<"chat" | "app">("chat");
   protected readonly attachments = ATTACHMENTS;
-  private readonly route = inject(ActivatedRoute);
-  private readonly agentId = agentIdForRoute("beautiful-chat", this.route);
+  private readonly agentId = agentIdForCurrentIntegration("beautiful-chat");
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly todos = computed(() =>
     readBeautifulTodos(this.agentStore().state()),
