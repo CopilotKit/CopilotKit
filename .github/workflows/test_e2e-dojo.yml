@@ -157,6 +157,19 @@ jobs:
             needs_python: true
 
     steps:
+      - name: Block telemetry egress
+        # Job-wide backstop for the env-var and navigator.webdriver opt-outs
+        # (OSS-565): point the telemetry sink at loopback so nothing in this job
+        # can reach it, including processes that never inherit the workflow env.
+        #
+        # Inlined and placed first deliberately: it must not depend on a
+        # checkout. Some jobs check out conditionally, and the dojo job checks
+        # out into a subdirectory, so a repo-relative script is not reachable
+        # here.
+        run: |
+          printf '127.0.0.1 telemetry.copilotkit.ai\n::1 telemetry.copilotkit.ai\n' \
+            | sudo tee -a /etc/hosts > /dev/null
+
       - name: Check relevance
         id: should-run
         run: |
@@ -193,12 +206,6 @@ jobs:
           path: CopilotKit
           ref: ${{ github.event.inputs.branch || github.ref }}
           persist-credentials: false
-
-      - name: Block telemetry egress
-        # Backstop for the env-var and navigator.webdriver opt-outs (OSS-565):
-        # nothing in this job can reach the telemetry sink, including processes
-        # that never inherit the workflow env.
-        run: bash .github/scripts/block-telemetry-egress.sh
 
       - name: Checkout AGUI
         if: steps.should-run.outputs.skip != 'true'

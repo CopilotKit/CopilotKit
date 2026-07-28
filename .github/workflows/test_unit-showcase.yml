@@ -106,16 +106,23 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: Block telemetry egress
+        # Job-wide backstop for the env-var and navigator.webdriver opt-outs
+        # (OSS-565): point the telemetry sink at loopback so nothing in this job
+        # can reach it, including processes that never inherit the workflow env.
+        #
+        # Inlined and placed first deliberately: it must not depend on a
+        # checkout. Some jobs check out conditionally, and the dojo job checks
+        # out into a subdirectory, so a repo-relative script is not reachable
+        # here.
+        run: |
+          printf '127.0.0.1 telemetry.copilotkit.ai\n::1 telemetry.copilotkit.ai\n' \
+            | sudo tee -a /etc/hosts > /dev/null
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-
-      - name: Block telemetry egress
-        # Backstop for the env-var and navigator.webdriver opt-outs (OSS-565):
-        # nothing in this job can reach the telemetry sink, including processes
-        # that never inherit the workflow env.
-        run: bash .github/scripts/block-telemetry-egress.sh
 
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
