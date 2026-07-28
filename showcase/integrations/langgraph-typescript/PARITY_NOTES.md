@@ -33,6 +33,21 @@ the backend is a native TypeScript (`@langchain/langgraph`) port.
   langgraph-python still name the Python graph — cosmetic only.
 - `dedicated` API routes use a trailing-slash `deploymentUrl` (required for the
   langgraph-typescript adapter — see `showcase/GOTCHAS.md`).
+- **a2ui-recovery** (`recovery-agent.ts`) adds `wrapModelCall` / `wrapToolCall`
+  header-forwarding middleware (ALS + custom OpenAI `fetch`) that LGP does not
+  need. Reason: the TS `@ag-ui/langgraph` `getA2UITools` invokes its inner
+  `render_a2ui` sub-agent via a CONFIG-LESS `model.stream(...)`, so the usual
+  config-based `makeChatOpenAI` forwarding can't reach it; without forwarding
+  the inner render's aimock call carries no `x-test-id`, its `sequenceIndex`
+  state falls into the never-reset `DEFAULT_TEST_ID` bucket, and the heal
+  fixture's seq0->seq1 staging only works on the first run (flaky thereafter).
+  The middleware forwards the inbound `x-*` headers onto every outbound OpenAI
+  call — outer emit AND inner render — so each harness run gets its own
+  per-`x-test-id` sequence bucket. Also: the heal/exhaust pill prompts +
+  `aimock/d6/langgraph-typescript/a2ui-recovery.json` `userMessage` keys are
+  langgraph-typescript-UNIQUE (mirror `d5-a2ui-recovery.ts` PROMPTS) — the
+  recovery fixtures carry no `x-aimock-context`, so a per-slug-unique prompt is
+  load-bearing to avoid cross-framework fixture collisions.
 
 ## Not-supported (NSF) cells
 
