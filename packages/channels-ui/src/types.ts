@@ -15,10 +15,26 @@ export interface EphemeralResult {
   error?: string;
 }
 export interface PlatformUser {
+  /**
+   * The RAW provider id (Slack `U…`, Teams MRI, Discord snowflake). Mentions,
+   * `users.info`, and every other provider API call need this one.
+   */
   id: string;
   name?: string;
   handle?: string;
   email?: string;
+  /**
+   * Canonical Intelligence app-user id for this sender — e.g.
+   * `slack:${teamId}:${userId}` (OSS-643). Derived by Intelligence app-api,
+   * which is the authority; never derive it client-side or it will drift from
+   * the identity canonical threads were created with.
+   *
+   * Populated on managed Channel turns. Direct-adapter turns leave it undefined
+   * for now and will populate it as those adapters move to managed delivery, so
+   * treat it as the normal identity field rather than a managed-only special
+   * case.
+   */
+  appUserId?: string;
 }
 
 /** A base64 data source, shared by every binary media part. */

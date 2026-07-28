@@ -158,3 +158,59 @@ describe("mapDeliveryToEnvelope — kind discrimination (OSS-476)", () => {
     expect(env).toMatchObject({ text: "hello" });
   });
 });
+
+describe("mapDeliveryToEnvelope — canonical identity + scope (OSS-643)", () => {
+  it("carries the canonical appUserId without re-deriving it", () => {
+    const env = mapDeliveryToEnvelope(
+      baseDelivery({
+        actor: {
+          externalUserId: "U123",
+          appUserId: "slack:T1:U123",
+          displayName: "Ada",
+        },
+      }),
+    );
+    expect(env.user).toEqual({
+      id: "U123",
+      appUserId: "slack:T1:U123",
+      displayName: "Ada",
+    });
+  });
+
+  it("keeps user.id as the RAW provider id so provider APIs still work", () => {
+    // Mentions, users.info, and every other Slack/Teams call need the raw id.
+    // The canonical id rides alongside; it never replaces it.
+    const env = mapDeliveryToEnvelope(
+      baseDelivery({
+        actor: { externalUserId: "U123", appUserId: "slack:T1:U123" },
+      }),
+    );
+    expect(env.user?.id).toBe("U123");
+  });
+
+  it("omits appUserId when app-api could not scope the identity", () => {
+    // e.g. an adapter config with no provider_team_id — app-api declines to
+    // emit an id that would collide across workspaces rather than guessing.
+    const env = mapDeliveryToEnvelope(
+      baseDelivery({ actor: { externalUserId: "U123" } }),
+    );
+    expect(env.user).toEqual({ id: "U123" });
+    expect(env.user).not.toHaveProperty("appUserId");
+  });
+
+  it("passes an explicit direct scope through", () => {
+    const env = mapDeliveryToEnvelope(
+      baseDelivery({ conversationScope: "direct" }),
+    );
+    expect(env.conversationScope).toBe("direct");
+  });
+
+  it("coalesces a malformed claim with no scope to shared", () => {
+    // app-api owns the fail-closed default and always sends a scope; this
+    // guards the privacy gate against `undefined` reaching it regardless.
+    const env = mapDeliveryToEnvelope(
+      baseDelivery({ conversationScope: undefined }),
+    );
+    expect(env.conversationScope).toBe("shared");
+  });
+});

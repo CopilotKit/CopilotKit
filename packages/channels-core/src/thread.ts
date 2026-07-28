@@ -57,6 +57,12 @@ export interface ThreadDeps {
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
   /**
+   * Whether the provider conversation this turn arrived in is 1:1 with the
+   * sender (OSS-643). Per-turn, like `message` — forwarded to the conversation
+   * store so the managed path can gate user-private features on it.
+   */
+  conversationScope?: "direct" | "shared";
+  /**
    * Optional anonymous telemetry sink. Structural type (not the concrete
    * ChannelTelemetry) avoids an import cycle; the real ChannelTelemetry satisfies it.
    */
@@ -345,6 +351,12 @@ export class Thread implements ThreadInterface {
       this.deps.conversationKey,
       this.deps.replyTarget,
       this.deps.agentFactory,
+      // Per-turn sender + provider context (OSS-643). `deps.message` is built
+      // fresh for each event, so this can never leak across turns.
+      {
+        user: this.deps.message?.user,
+        conversationScope: this.deps.conversationScope,
+      },
     );
     // Inject an explicit user message when the input isn't in the adapter's
     // reconstructed history (e.g. a slash command's args, or inbound image/file

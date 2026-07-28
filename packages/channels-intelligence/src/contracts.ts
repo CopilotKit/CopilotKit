@@ -41,7 +41,18 @@ export interface ChannelIngressBase {
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;
   conversationKey: string;
-  user?: { id: string; displayName?: string };
+  /**
+   * The turn's sender. `id` is the RAW provider id (mentions and provider API
+   * calls need it); `appUserId` is the canonical Intelligence identity app-api
+   * derived for it (OSS-643), present on managed turns that could be scoped.
+   */
+  user?: { id: string; appUserId?: string; displayName?: string };
+  /**
+   * Whether this provider conversation is 1:1 with the sender (OSS-643).
+   * Always present — `mapDeliveryToEnvelope` resolves it, defaulting to
+   * `"shared"` so an unclassifiable conversation fails closed.
+   */
+  conversationScope: "direct" | "shared";
   /** Opaque egress route the sink needs to address the reply. No creds. */
   route: EgressRoute;
 }

@@ -79,6 +79,13 @@ export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
   user?: PlatformUser;
+  /**
+   * Whether the provider conversation is 1:1 with the sender (OSS-643). Set on
+   * the managed Intelligence path, where app-api classifies it; omitted by
+   * direct adapters, which have no classification rule yet. An absent value is
+   * treated as `"shared"` wherever it gates user-private behavior.
+   */
+  conversationScope?: "direct" | "shared";
 }
 
 /**
@@ -233,6 +240,23 @@ export interface AgentSession {
 }
 
 /** Adapter-owned conversation state; the adapter resolves (or creates) the agent session for a conversation. */
+/**
+ * Per-turn sender and provider context handed to {@link ConversationStore.getOrCreate}.
+ *
+ * Passed as an explicit ARGUMENT rather than stashed on the adapter: two turns
+ * from different senders can be in flight at once, and ambient state would let
+ * them read each other's identity (OSS-643).
+ *
+ * This is the general per-turn identity seam, not a managed-only add-on —
+ * direct adapters populate it as they move to managed delivery.
+ */
+export interface ChannelTurnContext {
+  /** The sender. `appUserId` is the canonical Intelligence identity when known. */
+  user?: PlatformUser;
+  /** Whether the provider conversation is 1:1 with the sender. */
+  conversationScope?: "direct" | "shared";
+}
+
 export interface ConversationStore {
   /**
    * Whether {@link getOrCreate} seeds the in-flight inbound turn into the
@@ -244,6 +268,11 @@ export interface ConversationStore {
     conversationKey: string,
     replyTarget: ReplyTarget,
     makeAgent: (threadId: string) => AbstractAgent,
+    /**
+     * Optional so today's three-argument stores (slack, discord, telegram,
+     * whatsapp) keep compiling untouched; they adopt it as they migrate.
+     */
+    turn?: ChannelTurnContext,
   ): Promise<AgentSession>;
 }
 

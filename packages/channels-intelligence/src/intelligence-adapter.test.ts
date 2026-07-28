@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   createChannel,
   FakeAdapter,
@@ -8,6 +8,7 @@ import type { ReplyTarget } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
+import type { IntelligenceAdapterOptions } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
@@ -27,6 +28,7 @@ function envelope(partial?: Partial<TurnEnvelope>): ChannelIngressEnvelope {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
+    conversationScope: "shared",
     channelName: "support",
     platform: "slack",
     conversationKey: "c1",
@@ -530,6 +532,7 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     deliveryId: "d1",
     eventId: "e1",
     turnId: "t1",
+    conversationScope: "shared",
     channelName: "support",
     platform: "slack",
     conversationKey: "c1",
@@ -873,5 +876,130 @@ describe("intelligenceAdapter — default store resolution", () => {
     });
 
     expect(adapter.stateStore).toBeUndefined();
+  });
+});
+
+describe("intelligenceAdapter — per-turn identity (OSS-643)", () => {
+  /** Drive one delivered turn and return the message handlers saw. */
+  const deliverTurn = async (
+    over: Partial<Parameters<typeof envelope>[0]>,
+  ): Promise<IncomingMessage | undefined> => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const channel = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seen: IncomingMessage | undefined;
+    channel.onMessage(async ({ message }) => {
+      seen = message;
+    });
+    await channel.ɵruntime.start();
+    await source.deliver(envelope(over));
+    return seen;
+  };
+
+  /** An adapter whose only job is to expose the conversation store hook. */
+  const storeAdapter = (
+    prepareAgentForTurn: IntelligenceAdapterOptions["prepareAgentForTurn"],
+  ) =>
+    intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      prepareAgentForTurn,
+    });
+
+  const replyTarget = (id: string) => ({
+    route: {},
+    turnId: id,
+    deliveryId: id,
+  });
+
+  it("forwards the canonical app user and display name to handlers", async () => {
+    const seen = await deliverTurn({
+      user: { id: "U9", appUserId: "slack:T1:U9", displayName: "Ada" },
+    });
+    expect(seen?.user).toEqual({
+      id: "U9",
+      appUserId: "slack:T1:U9",
+      name: "Ada",
+    });
+  });
+
+  it("keeps user.id as the raw provider id", async () => {
+    const seen = await deliverTurn({
+      user: { id: "U9", appUserId: "slack:T1:U9" },
+    });
+    expect(seen?.user?.id).toBe("U9");
+  });
+
+  it("invokes prepareAgentForTurn with this turn's user and scope", async () => {
+    const prepareAgentForTurn = vi.fn().mockResolvedValue(undefined);
+    const adapter = storeAdapter(prepareAgentForTurn);
+    const agent = new FakeAgent();
+    const session = await adapter.conversationStore.getOrCreate(
+      "slack:T1:C1:thread:root",
+      replyTarget("t1"),
+      () => agent as never,
+      {
+        user: { id: "U9", appUserId: "slack:T1:U9" },
+        conversationScope: "direct",
+      },
+    );
+    expect(prepareAgentForTurn).toHaveBeenCalledWith({
+      agent: session.agent,
+      user: { id: "U9", appUserId: "slack:T1:U9" },
+      conversationScope: "direct",
+    });
+  });
+
+  it("defaults an absent scope to shared so nothing private leaks in", async () => {
+    const prepareAgentForTurn = vi.fn().mockResolvedValue(undefined);
+    await storeAdapter(prepareAgentForTurn).conversationStore.getOrCreate(
+      "slack:T1:C1:thread:root",
+      replyTarget("t1"),
+      () => new FakeAgent() as never,
+      { user: { id: "U9" } },
+    );
+    expect(prepareAgentForTurn.mock.calls[0]?.[0].conversationScope).toBe(
+      "shared",
+    );
+  });
+
+  it("gives two concurrent senders two distinct agents", async () => {
+    // The managed store mints a FRESH agent per call, which is exactly what
+    // makes per-turn middleware attachment safe here.
+    const seen: Array<string | undefined> = [];
+    const adapter = storeAdapter(async ({ user }) => {
+      seen.push(user?.appUserId);
+    });
+    const call = (appUserId: string) =>
+      adapter.conversationStore.getOrCreate(
+        "slack:T1:C1:thread:root",
+        replyTarget(appUserId),
+        () => new FakeAgent() as never,
+        { user: { id: appUserId, appUserId }, conversationScope: "direct" },
+      );
+    const [a, b] = await Promise.all([
+      call("slack:T1:UA"),
+      call("slack:T1:UB"),
+    ]);
+    expect(a.agent).not.toBe(b.agent);
+    expect(seen.sort()).toEqual(["slack:T1:UA", "slack:T1:UB"]);
+  });
+
+  it("runs the turn anyway when preparation fails", async () => {
+    // A feature gap must never cost the reply.
+    const adapter = storeAdapter(async () => {
+      throw new Error("mcp listTools exploded");
+    });
+    await expect(
+      adapter.conversationStore.getOrCreate(
+        "slack:T1:C1:thread:root",
+        replyTarget("t1"),
+        () => new FakeAgent() as never,
+        { user: { id: "U9" }, conversationScope: "direct" },
+      ),
+    ).resolves.toBeDefined();
   });
 });

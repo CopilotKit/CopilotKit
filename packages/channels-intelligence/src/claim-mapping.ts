@@ -45,6 +45,18 @@ export type ReplyTarget = SlackReplyTarget | TeamsReplyTarget;
  */
 export interface ClaimedDeliveryActor {
   externalUserId: string;
+  /**
+   * Canonical bare app-user id derived by Intelligence app-api (OSS-643) — the
+   * SAME identity it wrote to `threads.end_user_id`. Carried, never recomputed:
+   * a second derivation here would drift from canonical threads, and Channel
+   * memory would attribute to a different user than the thread.
+   *
+   * Optional for ONE reason: app-api could not scope the identity to a
+   * workspace/tenant (e.g. an adapter config with no `provider_team_id`), so it
+   * declined to assert an id that would collide across workspaces. It is NOT
+   * optional to tolerate an out-of-date app-api.
+   */
+  appUserId?: string;
   displayName?: string;
 }
 
@@ -62,6 +74,12 @@ export interface ClaimedDelivery {
     replyTarget: ReplyTarget;
     /** Provider identity of the turn's author (OSS-476). */
     actor?: ClaimedDeliveryActor;
+    /**
+     * Whether this provider conversation is 1:1 with the sender (OSS-643).
+     * app-api always sends it and owns the fail-closed default, so the SDK never
+     * has to guess — it only coalesces defensively against a malformed claim.
+     */
+    conversationScope?: "direct" | "shared";
     // NB: there is intentionally no `thread_started` variant here — the claim
     // path only carries turn/command/reaction/interaction. Neither wire mapper
     // produces `kind:"thread_started"`: BOTH the HTTP and realtime transports
@@ -150,12 +168,22 @@ export function mapDeliveryToEnvelope(
     platform: d.adapter,
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
-    // Provider identity → opaque runtime app user (OSS-476). Omitted when the
-    // claim carries no actor (older gateway/app-api, or an actor-less event).
+    // Defence in depth, not a compatibility shim: app-api owns this default and
+    // always sends a scope. Coalescing here means a malformed claim degrades to
+    // the safe value instead of `undefined` reaching the privacy gate.
+    conversationScope: d.turn.conversationScope ?? "shared",
+    // Provider identity → opaque runtime app user (OSS-476), plus the canonical
+    // Intelligence app-user id app-api derived for it (OSS-643). `id` stays the
+    // RAW provider id — mentions and provider API calls need it — and the
+    // canonical id rides alongside rather than replacing it. Omitted entirely
+    // when the claim carries no actor (an actor-less event).
     ...(d.turn.actor
       ? {
           user: {
             id: d.turn.actor.externalUserId,
+            ...(d.turn.actor.appUserId
+              ? { appUserId: d.turn.actor.appUserId }
+              : {}),
             ...(d.turn.actor.displayName
               ? { displayName: d.turn.actor.displayName }
               : {}),

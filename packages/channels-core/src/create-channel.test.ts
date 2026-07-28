@@ -1230,3 +1230,70 @@ describe("createChannel slash commands", () => {
     expect(channel.adapters).toEqual([fake]);
   });
 });
+
+describe("per-turn identity context (OSS-643)", () => {
+  it("forwards the turn's user and scope to the conversation store", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const calls: unknown[][] = [];
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    fake.conversationStore.getOrCreate = async (...args) => {
+      calls.push(args);
+      return getOrCreate(...args);
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    await channel.ɵruntime.start();
+
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake",
+      user: { id: "U9", appUserId: "slack:T1:U9" },
+      conversationScope: "direct",
+    });
+
+    // Identity travels as an explicit ARGUMENT, never ambient state — two
+    // concurrent turns from different senders must not see each other's user.
+    expect(calls[0]?.[3]).toEqual({
+      user: { id: "U9", appUserId: "slack:T1:U9" },
+      conversationScope: "direct",
+    });
+  });
+
+  it("passes an undefined scope through for a direct adapter that does not classify", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const calls: unknown[][] = [];
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    fake.conversationStore.getOrCreate = async (...args) => {
+      calls.push(args);
+      return getOrCreate(...args);
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    await channel.ɵruntime.start();
+
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake",
+      user: { id: "U9" },
+    });
+
+    expect(calls[0]?.[3]).toEqual({
+      user: { id: "U9" },
+      conversationScope: undefined,
+    });
+  });
+});

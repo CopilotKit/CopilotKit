@@ -1,4 +1,4 @@
-import type { AgentSubscriber } from "@ag-ui/client";
+import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
   ChannelNode,
   MessageRef,
@@ -129,6 +129,24 @@ export interface IntelligenceAdapterOptions {
    * behavior). Default 20.
    */
   historyLimit?: number;
+  /**
+   * Prepare THIS turn's agent with THIS sender's identity, before the handler
+   * runs (OSS-643). Supplied by the runtime, which owns the Intelligence client
+   * and the memory policy; the adapter only knows when to call it.
+   *
+   * Safe to attach per-turn middleware from here because
+   * {@link IntelligenceAdapter.conversationStore} mints a FRESH agent on every
+   * call and re-seeds history from the platform — there is no cross-turn agent
+   * reuse on the managed path, so nothing leaks between senders.
+   *
+   * Best-effort: a rejection is logged and the turn continues without
+   * user-scoped features. A cosmetic gap beats a dropped reply.
+   */
+  prepareAgentForTurn?: (params: {
+    agent: AbstractAgent;
+    user?: PlatformUser;
+    conversationScope: "direct" | "shared";
+  }) => Promise<void>;
 }
 
 /**
@@ -178,7 +196,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
    */
   readonly conversationStore: ConversationStore = {
     seedsInboundTurn: false,
-    getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
+    getOrCreate: async (conversationKey, replyTarget, makeAgent, turn) => {
       const agent = makeAgent(conversationKey);
       const route = (replyTarget as ChannelReplyTarget).route;
       let history: AgentMessage[] = [];
@@ -204,6 +222,24 @@ export class IntelligenceAdapter implements PlatformAdapter {
       // union rather than narrow the type, same as bot-slack/bot-discord/
       // bot-whatsapp's conversation stores.
       (agent as unknown as { messages: AgentMessage[] }).messages = history;
+      // OSS-643: prepare THIS turn's agent with THIS sender's identity. Safe to
+      // attach per-turn middleware here because `makeAgent` above mints a fresh
+      // agent every call and history is re-seeded from the platform — there is
+      // no cross-turn agent reuse on the managed path, so nothing leaks between
+      // senders. An absent scope means `shared`: never admit user-private
+      // behavior into a conversation we could not classify.
+      try {
+        await this.opts.prepareAgentForTurn?.({
+          agent,
+          user: turn?.user,
+          conversationScope: turn?.conversationScope ?? "shared",
+        });
+      } catch (err) {
+        this.opts.config?.log?.(
+          "intelligence prepareAgentForTurn failed; running the turn without user-scoped Intelligence features",
+          err,
+        );
+      }
       return { agent };
     },
   };
@@ -431,11 +467,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const user = env.user
       ? {
           id: env.user.id,
+          // OSS-643: the canonical Intelligence identity, carried verbatim from
+          // app-api. `id` above stays the RAW provider id because mentions and
+          // provider API calls need it.
+          ...(env.user.appUserId !== undefined
+            ? { appUserId: env.user.appUserId }
+            : {}),
           ...(env.user.displayName !== undefined
             ? { name: env.user.displayName }
             : {}),
         }
       : undefined;
+    const conversationScope = env.conversationScope;
 
     switch (env.kind) {
       case "turn": {
@@ -452,6 +495,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           userText: env.text ?? "",
           ...(contentParts.length ? { contentParts } : {}),
           user,
+          conversationScope,
           eventId: env.eventId,
           turnId: env.turnId,
           deliveryId: env.deliveryId,
@@ -467,6 +511,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           conversationKey: env.conversationKey,
           replyTarget,
           user,
+          conversationScope,
           eventId: env.eventId,
           turnId: env.turnId,
           deliveryId: env.deliveryId,
@@ -507,6 +552,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           replyTarget,
           value: env.value,
           user,
+          conversationScope,
           eventId: env.eventId,
           turnId: env.turnId,
           deliveryId: env.deliveryId,
@@ -520,6 +566,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           conversationKey: env.conversationKey,
           replyTarget,
           user,
+          conversationScope,
           platform: env.platform,
         });
         return;
@@ -528,6 +575,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           rawEmoji: env.rawEmoji,
           added: env.added,
           user,
+          conversationScope,
           // Source provider (e.g. "teams"/"slack") so core normalizes by it —
           // this adapter's own `platform` is "intelligence", not an emoji
           // platform, so without this the managed path would never normalize.

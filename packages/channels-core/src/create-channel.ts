@@ -447,7 +447,11 @@ export function createChannel<
     adapter: PlatformAdapter,
     replyTarget: unknown,
     conversationKey: string,
-    extras?: { userKey?: string; message?: IncomingMessage },
+    extras?: {
+      userKey?: string;
+      message?: IncomingMessage;
+      conversationScope?: "direct" | "shared";
+    },
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
@@ -470,6 +474,7 @@ export function createChannel<
       transcripts,
       userKey: extras?.userKey,
       message: extras?.message,
+      conversationScope: extras?.conversationScope,
       telemetry,
     };
     return new Thread(deps);
@@ -559,7 +564,7 @@ export function createChannel<
             adapter,
             turn.replyTarget,
             turn.conversationKey,
-            { userKey, message },
+            { userKey, message, conversationScope: turn.conversationScope },
           );
           // v1 routing: there is no turn `kind`, so prefer mention handlers; if
           // none are registered, fall back to message handlers. (The reference
