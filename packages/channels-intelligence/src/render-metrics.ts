@@ -1,25 +1,22 @@
 /**
  * Render-frame push instrumentation (OSS-648).
  *
- * Channel egress pushes render frames to Intelligence and awaits each durable
- * acceptance receipt before sending the next. Until frames were coalesced that
- * meant one round trip per AG-UI token, so reply latency scaled with token count
- * rather than with reply size — and none of it showed up in logs, because
- * nothing recorded how many frames a turn sent, how long each push blocked, or
- * what share of the turn went to waiting on receipts.
+ * Channel egress pushes one render frame per AG-UI event and awaits its durable
+ * acceptance receipt before sending the next, so a streaming reply costs one
+ * round trip per token. That makes reply latency scale with token count rather
+ * than with reply size, which is invisible in logs today: nothing records how
+ * many frames a turn sent, how long each push blocked, or what share of the turn
+ * was spent waiting on receipts.
  *
- * This module measures that at the single point every frame passes through (the
- * run renderer's push pump), so one seam covers both the HTTP render-accept
- * transport and the realtime-gateway transport. It is off unless
- * `COPILOTKIT_CHANNELS_RENDER_METRICS` is set, and when off no collector is
- * built at all.
+ * This module measures exactly that at the single point every frame passes
+ * through (the run renderer's serial push chain), so one seam covers both the
+ * HTTP render-accept transport and the realtime-gateway transport. It is off
+ * unless `COPILOTKIT_CHANNELS_RENDER_METRICS` is set, and when off no collector
+ * is built at all.
  *
- * Three numbers judge a change to the egress path:
- *
- * - `deltasPerTextFrame` — AG-UI deltas folded into each pushed frame. 1 means
- *   one round trip per token.
- * - `charsPerTextFrame` — how much text each round trip carries.
- * - `pushBlockedPct` — how much of the turn was spent waiting on receipts.
+ * The two numbers that matter for judging a batching change are
+ * `charsPerTextFrame` (how much text each round trip carries) and
+ * `pushBlockedPct` (how much of the turn was spent waiting).
  */
 
 /** Verbosity for render-frame push instrumentation. */
@@ -56,23 +53,13 @@ export interface RenderTurnMetricsSummary {
   readonly frames: number;
   /** Frame count keyed by render-event kind. */
   readonly framesByKind: Record<string, number>;
-  /** `text_delta` frames actually pushed — the count coalescing reduces. */
+  /** `text_delta` frames only — the count batching should reduce. */
   readonly textDeltaFrames: number;
-  /**
-   * AG-UI text deltas those frames represent. Equals `textDeltaFrames` when
-   * nothing merged, and exceeds it once coalescing is doing work.
-   */
-  readonly textDeltaEvents: number;
   /** Total characters carried by those `text_delta` frames. */
   readonly textDeltaChars: number;
   /**
-   * Mean AG-UI deltas folded into each pushed frame, or null when the turn sent
-   * none. 1 means one round trip per token.
-   */
-  readonly deltasPerTextFrame: number | null;
-  /**
-   * Mean characters per pushed `text_delta` frame, or null when the turn sent
-   * none. One round trip per token shows up here as a single-digit value.
+   * Mean characters per `text_delta` frame, or null when the turn sent none.
+   * One round trip per token shows up here as a single-digit value.
    */
   readonly charsPerTextFrame: number | null;
   /** Wall-clock ms spent blocked awaiting acceptance receipts. */
@@ -99,14 +86,12 @@ export interface RenderTurnMetrics {
    * @param startedAt - Clock reading taken before the push.
    * @param endedAt - Clock reading taken after the receipt was awaited.
    * @param deltaChars - Characters carried, for `text_delta` frames (else 0).
-   * @param sourceEvents - Enqueued events this frame represents (1 unmerged).
    */
   recordPush(
     kind: string,
     startedAt: number,
     endedAt: number,
     deltaChars: number,
-    sourceEvents?: number,
   ): void;
   /**
    * Close the turn, log the summary once, and return it. Safe to call more than
@@ -155,29 +140,27 @@ export function createRenderTurnMetrics(
   const latencies: number[] = [];
   const framesByKind: Record<string, number> = {};
   let textDeltaFrames = 0;
-  let textDeltaEvents = 0;
   let textDeltaChars = 0;
   let summary: RenderTurnMetricsSummary | undefined;
 
   return {
-    recordPush(kind, pushStartedAt, endedAt, deltaChars, sourceEvents = 1) {
+    recordPush(kind, pushStartedAt, endedAt, deltaChars) {
       const pushMs = Math.max(0, endedAt - pushStartedAt);
-      const pushIndex = latencies.length;
+      const seq = latencies.length;
       latencies.push(pushMs);
       framesByKind[kind] = (framesByKind[kind] ?? 0) + 1;
       if (kind === "text_delta") {
         textDeltaFrames += 1;
-        textDeltaEvents += sourceEvents;
         textDeltaChars += deltaChars;
       }
       if (opts.mode === "frames") {
         opts.log("channel render frame pushed", {
           turnId: opts.turnId,
           deliveryId: opts.deliveryId,
-          pushIndex,
+          seq,
           kind,
           pushMs: round2(pushMs),
-          ...(kind === "text_delta" ? { deltaChars, sourceEvents } : {}),
+          ...(kind === "text_delta" ? { deltaChars } : {}),
         });
       }
     },
@@ -193,12 +176,7 @@ export function createRenderTurnMetrics(
         frames: latencies.length,
         framesByKind,
         textDeltaFrames,
-        textDeltaEvents,
         textDeltaChars,
-        deltasPerTextFrame:
-          textDeltaFrames === 0
-            ? null
-            : round2(textDeltaEvents / textDeltaFrames),
         charsPerTextFrame:
           textDeltaFrames === 0
             ? null

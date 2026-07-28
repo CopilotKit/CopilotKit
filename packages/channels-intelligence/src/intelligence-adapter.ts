@@ -46,11 +46,6 @@ import {
   createRenderTurnMetrics,
   resolveRenderMetricsMode,
 } from "./render-metrics.js";
-import { coalesceRenderFrames } from "./render-frame-coalesce.js";
-import type {
-  CoalescedRenderFrame,
-  PendingRenderFrame,
-} from "./render-frame-coalesce.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
@@ -924,32 +919,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let aborted = false;
     let runStarted = false;
 
-    // ponytail: coalescing push pump (OSS-648). AG-UI does not guarantee it
-    // awaits subscriber callbacks in order, so `seq` is still assigned
-    // synchronously at enqueue time — that keeps frame order, and keeps a
-    // discrete post/update interleaved mid-run correctly ordered against the
-    // run's own frames.
-    //
-    // Pushing, though, no longer happens one frame at a time. Frames land in a
-    // buffer and a single pump drains it, folding adjacent same-message text
-    // deltas into one frame (see coalesceRenderFrames). Previously a streaming
-    // reply cost one round trip per token, so latency scaled with token count.
-    //
-    // The buffer only ever holds what arrived while a push was already in
-    // flight — exactly the set the old serial chain kept queued — so this waits
-    // on no timer, adds no latency, and opens no new reordering window. Batch
-    // size self-tunes: the slower the round trip, the more deltas merge.
-    //
-    // A rejected push is recorded and surfaced at drain (so it nacks the
-    // delivery) without wedging the pump.
-    const pending: PendingRenderFrame[] = [];
-    let pumping = false;
-    let pumped: Promise<void> = Promise.resolve();
+    // ponytail: serial promise chain — AG-UI does not guarantee it awaits
+    // subscriber callbacks in order, so `seq` is assigned synchronously at
+    // enqueue time (preserving event order) and frames are pushed one at a
+    // time, awaiting each durable-acceptance receipt before the next. `finish`/
+    // `markInterrupted` await the drained chain. A rejected push is recorded
+    // and surfaced at drain (so it nacks the delivery) without wedging the
+    // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
+    let chain: Promise<void> = Promise.resolve();
     let pushError: unknown;
-    // Time each push so the round-trip cost is measurable. This is the one
-    // point every frame passes through, so it covers the HTTP render-accept and
-    // realtime-gateway transports alike. Off (and not allocated) unless
-    // COPILOTKIT_CHANNELS_RENDER_METRICS is set.
+    // OSS-648: time each push so the per-frame round-trip cost of this serial
+    // chain is measurable. This is the one point every frame passes through, so
+    // it covers the HTTP render-accept and realtime-gateway transports alike.
+    // Off (and not allocated) unless COPILOTKIT_CHANNELS_RENDER_METRICS is set.
     const metrics = createRenderTurnMetrics({
       mode: resolveRenderMetricsMode(this.readEnv()),
       turnId: t.turnId,
@@ -957,75 +939,38 @@ export class IntelligenceAdapter implements PlatformAdapter {
       log: (message, meta) => this.diagnosticLog(message, meta),
     });
 
-    const pushOne = async (frame: CoalescedRenderFrame): Promise<void> => {
-      const pushStartedAt = metrics ? Date.now() : 0;
-      try {
-        await sink.push({
-          deliveryId: t.deliveryId,
-          turnId: t.turnId,
-          slot: "main",
-          seq: frame.seq,
-          event: frame.event,
-        });
-        this.recordAcceptedRenderEvent(t.turnId, frame.event);
-      } catch (err) {
-        pushError = err;
-      } finally {
-        // Record failed pushes too: a push that blocked for seconds before
-        // throwing still spent that time on the wire, and hiding it would
-        // flatter the numbers this instrumentation exists to expose.
-        metrics?.recordPush(
-          frame.event.kind,
-          pushStartedAt,
-          Date.now(),
-          frame.event.kind === "text_delta" ? frame.event.delta.length : 0,
-          frame.sourceEvents,
-        );
-      }
-    };
-
-    const startPump = (): void => {
-      if (pumping) return;
-      pumping = true;
-      pumped = (async () => {
-        try {
-          while (pending.length > 0) {
-            if (pushError !== undefined) {
-              // Already failed: drop the backlog rather than pushing frames
-              // whose predecessors never landed.
-              pending.length = 0;
-              return;
-            }
-            // Take everything buffered so far; whatever arrives during the
-            // pushes below merges into the next lap.
-            const batch = pending.splice(0, pending.length);
-            for (const frame of coalesceRenderFrames(batch)) {
-              await pushOne(frame);
-              if (pushError !== undefined) break;
-            }
-          }
-        } finally {
-          pumping = false;
-        }
-      })();
-    };
-
     const enqueue = (event: ChannelRenderEvent): void => {
-      pending.push({ seq: this.nextFrameSeq(t.turnId), event });
-      startPump();
+      const frame: RenderFrame = {
+        deliveryId: t.deliveryId,
+        turnId: t.turnId,
+        slot: "main",
+        seq: this.nextFrameSeq(t.turnId),
+        event,
+      };
+      chain = chain.then(async () => {
+        if (pushError !== undefined) return;
+        const pushStartedAt = metrics ? Date.now() : 0;
+        try {
+          await sink.push(frame);
+          this.recordAcceptedRenderEvent(t.turnId, event);
+        } catch (err) {
+          pushError = err;
+        } finally {
+          // Record failed pushes too: a push that blocked for seconds before
+          // throwing still spent that time on the wire, and hiding it would
+          // flatter the numbers this instrumentation exists to expose.
+          metrics?.recordPush(
+            event.kind,
+            pushStartedAt,
+            Date.now(),
+            event.kind === "text_delta" ? event.delta.length : 0,
+          );
+        }
+      });
     };
 
     const drain = async (): Promise<void> => {
-      // The pump only exits once the buffer is empty, so awaiting the current
-      // lap drains whatever is queued. `finish`/`markInterrupted` enqueue their
-      // terminal frame before calling this, and enqueues are synchronous, so no
-      // frame can arrive once the buffer reads empty.
-      while (pending.length > 0) {
-        startPump();
-        await pumped;
-      }
-      // A pump may still be finishing its last push with the buffer empty.
-      await pumped;
+      await chain;
       // Summarize before rethrowing so a failed turn still reports its profile.
       metrics?.finish();
       if (pushError !== undefined) {
