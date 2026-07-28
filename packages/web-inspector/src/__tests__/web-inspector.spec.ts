@@ -1588,7 +1588,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
   });
 
   /** Mount an inspector attached to a connected core with telemetry on. */
-  function mount(telemetryDisabled = false) {
+  function mount(telemetryDisabled = false, connected = true) {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -1596,6 +1596,10 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
       {},
       telemetryDisabled,
     );
+    if (!connected) {
+      harness.core.runtimeConnectionStatus =
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+    }
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
@@ -1701,6 +1705,21 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     await inspector.updateComplete;
 
     expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
+  });
+
+  it("holds opens until the handshake and bounds the queue while disconnected", async () => {
+    const { inspector, internals } = mount(false, false);
+    const queue = inspector as unknown as { pendingOpened: unknown[] };
+
+    for (let i = 0; i < 25; i++) {
+      internals.openInspector("floating_button");
+      internals.isOpen = false; // simulate a close between opens
+    }
+    await inspector.updateComplete;
+
+    // Nothing leaves before the runtime reports whether telemetry is allowed.
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
+    expect(queue.pendingOpened.length).toBeLessThanOrEqual(20);
   });
 
   it("emits nothing when the runtime has telemetry disabled", async () => {

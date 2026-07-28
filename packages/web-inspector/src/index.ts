@@ -122,6 +122,9 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
+// Cap on telemetry events held while waiting for the runtime handshake, so a
+// runtime that never connects can't accumulate an unbounded queue.
+const MAX_PENDING_TELEMETRY_EVENTS = 20;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
@@ -7883,6 +7886,11 @@ ${argsString}</pre
     hadUnseenAnnouncement: boolean,
   ): void {
     if (this.core?.telemetryDisabled) return;
+    // Bounded: if the runtime never connects, an open/close loop would
+    // otherwise queue indefinitely and then burst on reconnect. Opens past
+    // the cap are dropped rather than buffered — this is a signal, not a
+    // ledger.
+    if (this.pendingOpened.length >= MAX_PENDING_TELEMETRY_EVENTS) return;
     this.pendingOpened.push({
       open_source: source,
       license_status: this.core?.licenseStatus ?? undefined,
@@ -10891,6 +10899,9 @@ ${prettyEvent}</pre
     if (!surface) return;
     const key = `${id}:${surface}`;
     if (this.viewedBannerSurfaces.has(key)) return;
+    // Naturally bounded (one entry per surface per announcement), but keep the
+    // same guard as `trackOpened` so neither queue can grow without a runtime.
+    if (this.pendingBannerViewed.length >= MAX_PENDING_TELEMETRY_EVENTS) return;
     this.viewedBannerSurfaces.add(key);
     this.pendingBannerViewed.push({
       banner_id: id,
