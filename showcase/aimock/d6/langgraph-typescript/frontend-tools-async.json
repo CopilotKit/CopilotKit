@@ -105,24 +105,6 @@
           }
         ]
       }
-    },
-    {
-      "match": {
-        "userMessage": "project planning",
-        "turnIndex": 0,
-        "context": "langgraph-typescript"
-      },
-      "response": {
-        "content": "I searched your notes and found a few results.",
-        "toolCalls": [
-          {
-            "name": "query_notes",
-            "arguments": {
-              "keyword": "project planning"
-            }
-          }
-        ]
-      }
     }
   ],
   "meta": {
