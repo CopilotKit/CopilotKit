@@ -1,4 +1,4 @@
-"""Reasoning agent — backs `reasoning-default` and `reasoning-custom` cells.
+﻿"""Reasoning agent ÔÇö backs `reasoning-default` and `reasoning-custom` cells.
 
 Why this agent uses OpenAIChatClient (Responses API) instead of the
 ChatCompletions client used by the other MAF agents in this showcase:
@@ -7,7 +7,7 @@ items only for native reasoning models (gpt-5, o3, o4-mini, etc.). The
 `agent_framework_openai` Responses client translates those into AG-UI
 `REASONING_MESSAGE_*` events with `role: "reasoning"`, which the frontend
 renders via the built-in `reasoningMessage` slot. Without the Responses
-API path, the reasoning slot never lights up — that's the bug the LGP
+API path, the reasoning slot never lights up ÔÇö that's the bug the LGP
 parity port closes.
 
 Mirrors LangGraph's `langgraph-python/src/agents/reasoning_agent.py`,
@@ -40,7 +40,7 @@ def _build_reasoning_chat_client() -> BaseChatClient:
     deployment can override via `OPENAI_REASONING_MODEL`.
     """
     return OpenAIChatClient(
-        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 
@@ -51,7 +51,7 @@ def create_reasoning_agent(
     """Instantiate the reasoning agent.
 
     The shared `chat_client` from `agent_server.py` is intentionally
-    ignored — this cell needs the Responses API specifically.
+    ignored ÔÇö this cell needs the Responses API specifically.
     """
     base_agent = Agent(
         client=_build_reasoning_chat_client(),
