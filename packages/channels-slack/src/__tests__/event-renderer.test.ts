@@ -55,6 +55,15 @@ describe("createRunRenderer", () => {
       event: { messageId: id, delta: "E" },
       textMessageBuffer: "",
     } as never);
+
+    await vi.waitFor(() => {
+      expect(fake.posts).toHaveLength(1);
+      expect(fake.posts[0]?.text).toBe("E");
+      expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(
+        true,
+      );
+    });
+
     sub.onTextMessageContentEvent!({
       event: { messageId: id, delta: "CHO" },
       textMessageBuffer: "E",
@@ -64,8 +73,6 @@ describe("createRunRenderer", () => {
     // (a) The first post contains the buffered response, then updates track
     // the fully accumulated text.
     expect(fake.posts).toHaveLength(1);
-    expect(fake.posts[0]?.text).toBe("ECHO");
-    expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(true);
     expect(fake.updates.length).toBeGreaterThan(0);
     expect(fake.updates.at(-1)?.text).toBe("ECHO");
   });
