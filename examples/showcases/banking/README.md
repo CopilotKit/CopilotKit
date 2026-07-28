@@ -3,23 +3,63 @@
 A customer-ready reference demo showing how to build a SaaS app with an embedded
 AI copilot on top of CopilotKit v2. The app — "Northwind Finance" — models a
 corporate banking dashboard where role-based users can view transactions,
-manage credit cards, and (for admins) manage team members. The copilot is
-wired into the same UI: it reads app context, calls typed tools to render
-generative UI, and asks the user to approve sensitive actions via
-human-in-the-loop.
+manage credit cards, browse charges, and (for admins) manage team members.
+
+The copilot is wired into the same UI: it reads app context, renders **React
+components** rather than walls of text, asks for approval on sensitive actions
+via human-in-the-loop, reads uploaded PDFs, and — in Intelligence mode — carries
+durable long-term memory that it both applies and extends.
+
+The chat is docked on the **left** as two columns (thread rail + conversation),
+deliberately close to ChatGPT's arrangement, with the app's own icon nav rail on
+the right.
+
+```
+[ threads 200px ][ conversation 480px ][ the banking app ][ nav rail ]
+```
 
 ## Screenshots
 
-|                                                             |                                                |
-| ----------------------------------------------------------- | ---------------------------------------------- |
-| ![Northwind Finance dashboard](assets/aurora-dashboard.png) | ![Copilot chat panel](assets/copilot-chat.png) |
+![Northwind Finance — a filed Q2 report rendered as a dashboard: KPI tiles, three charts, and over-limit charges as decision rows](assets/aurora-dashboard.png)
+
+A filed report is a dashboard, not a memo. Every figure is computed from the live
+ledger plus any attached invoice, so the agent supplies narrative only.
+
+![The copilot chat panel, docked left, answering with components and a tool-activity line](assets/copilot-chat.png)
+
+The conversation renders components and retuned markdown; each tool call leaves a
+muted activity line you can expand to see the real call.
 
 ![Learning mode — the recording vignette pulses while the copilot records a demonstrated officer action](assets/learning-mode-vignette.png)
 
-While the officer demonstrates an action the copilot should learn from
-(approving a transaction, filing a policy exception), a soft violet vignette
-pulses around the canvas — the visible signal that the action is being
-recorded for the self-learning loop.
+While you demonstrate an action the copilot should learn (filing a policy
+exception, approving an over-limit charge), a soft violet vignette pulses around
+the canvas and the recording card lists each step as you take it — the visible
+signal that the action is being captured for the self-learning loop.
+
+## The demo script
+
+The chat ships a fixed set of eight suggestion pills (`src/app/wrapper.tsx`),
+available on every route, ordered as a walkthrough. Everything is clickable —
+you can present the whole demo without typing.
+
+| #   | Pill                                  | What it demonstrates                                                                                                                           |
+| --- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Show the spending trend               | Generative UI — a chart renders in the chat                                                                                                    |
+| 2   | Change my card PIN                    | An interactive **component in the chat**: card picker + four masked digits. The agent never asks for or receives the digits                    |
+| 3   | What's on my screen?                  | Screen awareness — every route publishes what it actually renders                                                                              |
+| 4   | Show me the 10 most expensive charges | The agent navigates to `/charges` pre-filtered and stack-ranked                                                                                |
+| 5   | Prep the Q2 spend report              | **Multimodal** — one click attaches a real PDF invoice; the model reads it and folds its line items into the filed report's figures and charts |
+| 6   | Summarize our spend                   | Applies a **remembered preference** unasked (Intelligence mode)                                                                                |
+| 7   | I don't recognize the Delta charge    | Executes a **remembered procedure**: flag → alert → note (Intelligence mode)                                                                   |
+| 8   | Approve the $15,000 AWS charge        | **Learns a new procedure** by watching you clear an over-limit charge, then applies it on a fresh thread (Intelligence mode)                   |
+
+Beats 6–8 are sequenced on purpose: _already knows a preference_ → _already
+knows a procedure_ → _learns a new one_.
+
+> **Presenting tip:** navigate with the icon rail, not by typing a URL. A full
+> page load starts a new thread and will discard an in-progress recording;
+> in-app navigation is client-side and preserves the conversation.
 
 ## Running locally
 
@@ -34,6 +74,9 @@ Then open <http://localhost:3000>.
 The demo runs against the workspace versions of `@copilotkit/*` (see the root
 `pnpm-workspace.yaml`). The seed dataset lives in memory and resets every time
 the server restarts.
+
+Beats 1–5 work in this default OSS mode. Beats 6–8 need Intelligence mode below,
+because they depend on durable memory.
 
 ## Memory & durable self-learning (Intelligence mode)
 
@@ -55,21 +98,35 @@ is unset, the demo falls back to the exact OSS path above.
   conversation_. Start a **new** thread and the agent no longer knows the
   procedure; nothing persists across threads or restarts. (Expected — it's the
   signal that durable recall needs Intelligence mode.)
-- **Intelligence:** durable long-term memory across three flavours, all via
-  `save_memory` / `recall_memory`:
-  - **Demonstrated over-limit procedure** — saved as a `project`-scoped,
-    `procedural` memory and recalled at the start of any later over-limit
+- **Intelligence:** durable long-term memory, all via `save_memory` /
+  `recall_memory`:
+  - **The demonstrated over-limit procedure** — saved as a `project`-scoped,
+    `operational` memory and recalled at the start of any later over-limit
     request. A **brand-new thread — or a different user on the same team** —
-    recalls the procedure and completes the approval unaided. This is the
-    durable cross-thread + cross-user proof (FOR-149).
-  - **General facts / preferences (`user` scope)** — arbitrary personal facts
-    persist cross-thread but stay per-person. Try _"remember my favorite food
-    is sushi"_, then ask _"what's my favorite food?"_ in a **new** thread and
-    the copilot recalls it.
+    recalls the procedure and completes the approval unaided.
+  - **Facts and preferences (`user` scope)** — personal facts persist
+    cross-thread but stay per-person.
   - **Team-shared facts (`project` scope)** — facts flagged for the whole team
     persist cross-user, so a teammate recalls them in their own threads.
   - **Secrets are never stored.** Passwords, API keys, tokens, and full card or
-    SSN numbers are never written to memory.
+    SSN numbers are never written to memory. Card PINs never reach the agent at
+    all — they are typed into a component in the chat.
+
+### Seeded memory: what the demo starts out already knowing
+
+`src/lib/intelligence/seed-memories.ts` defines the memory the demo is expected
+to hold **before** you say a word, and `POST /api/v1/dev/reset` re-seeds it after
+clearing, so the "it already knows this" beats work on a cold reset:
+
+- Two `topical` / `user` preferences (how Alex likes spend summarized, and their
+  role) — drives pill 6. The recalled preference is passed into the component as
+  props, so memory changes the _structure_ of what renders, not just the wording.
+- One `operational` / `project` procedure for suspicious or unrecognized charges
+  — drives pill 7.
+
+The over-limit procedure is deliberately **not** seeded: that is what pill 8
+teaches live. Seeding it would mean the agent already knew the answer and would
+never offer to record, which removes the whole point of the beat.
 
 ### 1. Start the memory-enabled stack (one command)
 
@@ -149,14 +206,17 @@ the sidebar user switcher drives which backend identity (and therefore which mem
 scope) is active, so you can walk through cross-user isolation live. It is pinned to
 a single identity only for CI/e2e (see `playwright.config.ts`).
 
-### 3. The cross-thread payoff (FOR-149)
+### 3. The cross-thread payoff
 
-With the stack up and project memory empty:
+With the stack up and the over-limit procedure not yet learned:
 
-1. **Thread A — teach.** Ask to approve an over-limit charge. The agent calls
-   `recall_memory`, finds nothing, and offers to record. Demonstrate the policy
-   exception on the dashboard, then click **Save workflow** — the agent calls
-   `save_memory` (`scope:"project"`, `kind:"procedural"`).
+1. **Thread A — teach.** Click **Approve the $15,000 AWS charge**. The agent
+   calls `recall_memory`, finds nothing, and offers to record. Click **Start
+   recording**, then demonstrate on the dashboard (Transactions → Pending
+   approval → ⋯ → File policy exception → approve the charge); the recording
+   card lists each action as you take it. Click **I'm done**, then **Save
+   workflow** — the agent calls `save_memory` (`scope:"project"`,
+   `kind:"operational"`).
 2. **Thread B — recall.** Open a **new** thread and ask to approve a _different_
    over-limit charge. The agent calls `recall_memory`, gets the procedure, files
    the exception with the learned code, and approves — **with no recording offer.**
@@ -168,25 +228,33 @@ With the stack up and project memory empty:
 The team is exactly **Alex Morgan (Admin)** and **Maya Chen (Assistant)**, mapped
 1:1 to the seeded `jordan-beamson` / `morgan-fluxx` backend identities. With
 `INTELLIGENCE_USER_ID` unpinned, the sidebar user switcher (bottom-left avatar)
-selects which identity is live, so scope isolation is visible end-to-end:
+selects which identity is live, so scope isolation is visible end-to-end. Type
+these rather than using the pills:
 
-1. **Personal fact — save (as Alex).** Ask _"remember my favorite food is
-   sushi."_ The copilot confirms it saved (`user` scope).
+1. **Personal fact — save (as Alex).** _"Remember my favorite food is sushi."_
+   The copilot confirms it saved (`user` scope).
 2. **Personal fact — recall (as Alex, new thread).** Open a **new** thread and
    ask _"what's my favorite food?"_ — the copilot recalls **sushi** (cross-thread,
    same person).
 3. **Personal fact — isolated (switch to Maya, fresh thread).** Switch the sidebar
-   user to Maya, open a fresh thread, and ask _"what's my favorite food?"_ — the
-   copilot **does NOT know it.** `user`-scope memory is per-person.
+   user to Maya, open a fresh thread, and ask the same — the copilot **does NOT
+   know it.** `user`-scope memory is per-person.
 4. **Team fact — crosses users.** Back as Alex, say _"keep in mind, for the whole
    team: our fiscal year ends in March."_ Switch to Maya and ask _"when does our
    fiscal year end?"_ — the copilot recalls **March.** `project`-scope memory
    crosses users on the same team.
 
-To replay the "fails first" beat, forget the saved procedure between runs
-(`DELETE http://localhost:7050/api/memories/:id`, or via the agent's
-`forget_memory` tool). Per-run reset for a repeatable public demo is a separate
-follow-up (user-scope memory, periodic DB reset, or a dashboard control).
+### Presenter reset
+
+Set `PRESENTER_RESET_ENABLED=true` to expose a reset control (↺ in the icon rail,
+above the Glass Engine toggle) and enable `POST /api/v1/dev/reset`. Both are off
+by default, so a public deployment has neither.
+
+Reset restores the seeded transactions **and** rebuilds memory: it clears every
+seeded persona plus the default identity, then re-seeds the preferences and the
+suspicious-charge procedure — leaving the over-limit procedure unlearned so beat
+8 lands. It then navigates to the bare root, so you always start from the same
+screen rather than wherever you happened to be.
 
 ### Testing
 
@@ -212,7 +280,7 @@ Glass Engine is a docked inspector (desktop-only) that exposes the copilot's
 internals. It is gated twice:
 
 - **Availability (deployment):** set `GLASS_ENGINE_AVAILABLE=true` to expose the
-  left-rail telescope toggle. Leave it unset on public deployments — Glass Engine
+  rail's telescope toggle. Leave it unset on public deployments — Glass Engine
   is then absent entirely and the `/api/memories*` routes return 404. (FDE/sales/
   conference deployments set it; one image, per-deployment env.)
 - **Activation (presenter):** when available, the telescope toggles the pane on/off
@@ -222,8 +290,10 @@ internals. It is gated twice:
 Tabs:
 
 - **Timeline** — every AG-UI protocol event of each run, live (works in any mode).
-- **Memory** — durable memory recall + semantic search (Intelligence mode only).
-  The "Recalled memories" list is top-k semantic recall, not a full enumeration.
+- **Memory** — "Stored memories (N)": a complete enumeration of what is stored,
+  read from app-api's `GET /api/memories` and aggregated across the demo's
+  identities so nothing is hidden just because it landed in another scope bucket.
+  A separate search box below it does top-k semantic recall.
 - **Learning** — the over-limit teach→save→recall procedure and live recall
   activity (Intelligence mode only).
 
@@ -235,12 +305,19 @@ Intelligence mode" hint.
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Frontend (Next.js 16, React 19, Tailwind v4)                    │
-│  CopilotKitProvider + CopilotPopup  (@copilotkit/react-core/v2) │
-│  ├── useAgentContext       → share user / page state with agent │
-│  ├── useFrontendTool       → generative UI (showTransactions)   │
-│  └── useHumanInTheLoop     → approval flows (addNewCard, …)     │
+│  CopilotKitProvider + CopilotSidebar (position="left")          │
+│                              (@copilotkit/react-core/v2)        │
+│  ├── useAgentContext       → user, page, and ON-SCREEN figures  │
+│  ├── useComponent          → generative UI (charts, tables,     │
+│  │                           spend summary, approvals queue)    │
+│  ├── useFrontendTool        → side-effect tools (showCharges,    │
+│  │                           flagForReview, addNote…)           │
+│  ├── useHumanInTheLoop     → approvals (exceptions, PIN, cards) │
+│  ├── useConfigureSuggestions + a custom suggestionView slot     │
+│  │                         → the eight demo pills               │
+│  └── renderToolCalls "*"   → ChatGPT-style tool activity lines  │
 └─────────────────────────────┬───────────────────────────────────┘
-                              │  AG-UI over SSE
+                              │  AG-UI over SSE (OSS) / WS (Intelligence)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Runtime (Hono, same Next process)                               │
@@ -249,55 +326,93 @@ Intelligence mode" hint.
 │    (from @copilotkit/runtime/v2)                                │
 │    env-gated: OSS SSE + InMemoryAgentRunner by default;         │
 │    CopilotKitIntelligence when INTELLIGENCE_* env is set        │
-│    (see "Self-learning backend" below)                          │
+│    + render_report backend tool → A2UI canvas surface           │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ Data layer                                                      │
 │  src/data/seed.json          → seed cards, team, policies, txns │
+│  src/app/charges/charges-data.ts → ~45 seeded charges           │
 │  src/lib/store.ts            → typed, in-memory store (resets)  │
-│  src/app/api/v1/*            → REST surface                     │
-│                                (cards, transactions,            │
-│                                 users, policies)                │
+│  src/app/api/v1/*            → REST surface (cards, txns,       │
+│                                users, policies, reports, reset) │
+│  src/lib/intelligence/       → memory read/seed/forget helpers  │
 │  src/lib/identity.ts         → Northwind branding strings       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Key features and where to find them
 
-### App-wide context for the copilot
+### App-wide context, and per-page screen awareness
 
-`src/components/copilot-context.tsx` shares the current user and the current
-page with the agent via `useAgentContext`, so the LLM can adapt its responses
-to the logged-in role and the route the user is on. The Northwind brand and
-assistant greeting are centralized in `src/lib/identity.ts`.
+`src/components/copilot-context.tsx` shares the current user, the app's
+pages/operations, and the live cards/policies/transactions via `useAgentContext`.
 
-Switch between users from the bottom-left avatar in the sidebar to see how
-role (Admin vs Assistant) changes what the copilot will agree to do.
+On top of that, **each route publishes what it actually renders** — the Cards
+page its card faces (brand, last 4, credit limit, available), `/charges` its
+active filters and visible rows, `/dashboard` its KPIs, `/team` its member
+cards. That is what makes "What's on my screen?" answer truthfully instead of
+describing the underlying data with different labels.
 
-### Generative UI — `showTransactions`
+Switch between users from the bottom-left avatar to see how role (Admin vs
+Assistant) changes what the copilot will agree to do.
 
-The cards landing page at `src/app/page.tsx` registers
-`useFrontendTool({ name: "showTransactions", render })`. When you ask the
-copilot something like _"Show me transactions for my card ending 4242"_, the
-LLM calls the tool and the rendered list IS the answer — there is no
-follow-up paragraph restating the data.
+### Components, never walls of text
 
-### Human-in-the-loop — `addNewCard` and `navigateToPageAndPerform`
+The agent is instructed never to emit a markdown table; anything
+rows-and-columns goes through a component:
 
-- `useHumanInTheLoop({ name: "addNewCard", render })` in `src/app/page.tsx`
-  shows the "add card" confirmation card directly in chat; the user clicks
-  Approve / Cancel and the result is sent back to the agent. The team page
-  (`src/app/team/page.tsx`) uses the same pattern for removing a member and
-  changing a member's role or team (inviting a member is a UI-only dialog
-  flow, not an agent tool).
-- `useHumanInTheLoop({ name: "navigateToPageAndPerform" })` in
-  `src/components/copilot-context.tsx` is the cross-page fallback: if the user
-  asks for an operation that lives on another page (e.g. "change my Visa PIN"
-  from the team page), the copilot asks for permission to navigate, then
-  redirects with an `?operation=…` query param so the destination page can
-  open the right dialog.
+- `showTransactions`, `showPendingApprovals` — lists and the interactive
+  approvals queue (`useComponent`, so they persist in the transcript)
+- `showSpendingTrend`, `showBudgetUsage`, `showSpendBreakdown`,
+  `showIncomeVsExpenses` — hand-rolled SVG/CSS charts, no charting dependency
+- `showSpendSummary` — `src/components/wow/spend-summary-card.tsx`; the recalled
+  preference drives its props
+- `showTable` — `src/components/wow/data-table-chat.tsx`, the generic fallback.
+  It renders nothing below two rows: a one-row table is narration in table
+  clothing, so that is enforced in the component rather than merely requested
+- `render_report` (backend tool) — an A2UI surface on the canvas
+
+One colour per team is shared across every chart via `teamColor()` in
+`src/components/analytics-charts.tsx`, keyed to the team rather than its index,
+so a category looks the same in every chart on the page.
+
+### Human-in-the-loop, and what is deliberately _not_ gated
+
+`useHumanInTheLoop` drives the approvals that move money or change credentials:
+`addNewCard`, `openPolicyException`, `finalizePolicyException`,
+`approveTransaction`, and the teach-loop cards.
+
+`setCardPin` (in `copilot-context.tsx`) renders
+`src/components/wow/pin-change-card.tsx` — a card picker plus four masked,
+auto-advancing digit inputs. The agent opens the card but never asks for or sees
+the digits, so a PIN never reaches the transcript or the model's context.
+
+Annotations are **not** gated: `addNoteToTransaction` runs immediately. As an
+approval card it left an unresolved tool call whenever a presenter moved on
+without answering it, and the next message then failed the whole thread with
+`Tool result is missing for tool call …`.
+
+Anything a **recalled procedure** can call is registered globally in
+`copilot-context.tsx`, not on a route. A saved procedure has no idea which page
+the user is on when they invoke it, so a route-scoped tool silently turns a
+stored workflow into a one-page workflow.
+
+### Multimodality — the Q2 report
+
+`src/components/chat/attach-invoice.ts` stages the bundled
+`public/sample-invoice-q2.pdf` into the composer's attachment queue, so the Q2
+pill sends a real PDF attachment (it shows as a chip on the message). The model
+reads the invoice and passes its line items to `createReport`'s `additions`,
+which `src/components/wow/report-card.tsx` folds into the report's figures and
+charts on top of the live ledger.
+
+Filed reports render as a dashboard — KPI tiles, three charts, over-limit
+charges as scannable rows — with the agent's narrative capped to one sentence
+plus at most three short notes. Every figure is computed from the live ledger, so
+the agent supplies narrative only and cannot quote a number the app disagrees
+with.
 
 ### Role-based behaviour
 
@@ -313,14 +428,22 @@ user (or a hallucinating model) cannot bypass them.
   mutators like `findCard`, `updateCardPin`, `assignPolicyToCard`,
   `updateTransaction` — over an in-memory copy of `src/data/seed.json`.
 - The REST endpoints under `src/app/api/v1/*` (cards, transactions, users,
-  policies) are thin handlers around the store and are what the UI uses.
+  policies, reports, and the gated `dev/reset`) are thin handlers around the
+  store and are what the UI uses.
 - There is no database. State resets on every server restart — this keeps the
   demo deterministic for screenshots, e2e tests, and customer walkthroughs.
+- Two helper families live in `src/app/actions.ts` and they are **not**
+  interchangeable: `openPolicyException`, `finalizePolicyException` and
+  `changeTransactionStatus` return `{ ok, data | error }`, while `changePin` and
+  `addNoteToTransaction` resolve with the updated record and throw or return
+  undefined on failure. Destructuring `ok` off the second family silently
+  reports a success as a failure.
 
 ## Tests
 
-End-to-end Playwright smoke tests live under `e2e/` and can be run with:
-
 ```bash
-pnpm --filter demo-saas-copilot test:e2e
+pnpm --filter demo-saas-copilot test:unit           # vitest
+pnpm --filter demo-saas-copilot test:e2e            # playwright
+pnpm --filter demo-saas-copilot test:e2e:ogui       # open generative UI suite
+pnpm --filter demo-saas-copilot test:self-learning  # the memory CI gate
 ```

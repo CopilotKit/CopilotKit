@@ -13,8 +13,8 @@ import type {
  * Hono's app object is request-scoped routing config, not a long-running
  * process owner — Node (`createCopilotNodeListener`) is the lifecycle-owning
  * surface for `.channels`. It is attached here too, best-effort, for callers
- * that mount the Hono app directly and want to observe/stop managed Channel
- * activation without also standing up a Node listener.
+ * that mount the Hono app directly and want to start (`ready()`), observe, or
+ * stop managed Channel activation without also standing up a Node listener.
  */
 export type CopilotHonoApp = Hono & { channels?: ChannelsControl };
 
@@ -64,8 +64,9 @@ interface CopilotEndpointParams {
   hooks?: CopilotRuntimeHooks;
 
   /**
-   * Whether the underlying handler activates the runtime's declared managed
-   * Channels at creation time. Defaults to `true`. See
+   * Whether the underlying handler builds the control surface for the runtime's
+   * declared managed Channels. Defaults to `true`. Building it opens no
+   * connection — activation is deferred to the first `channels.ready()`. See
    * `CopilotRuntimeHandlerOptions.activateChannels`.
    */
   activateChannels?: boolean;

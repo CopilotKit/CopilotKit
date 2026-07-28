@@ -27,7 +27,7 @@
       }
     },
     {
-      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id. Comes BEFORE the tool-emitting fixture so iteration 2 (after the async handler returns) hits this branch instead of re-emitting query_notes. hasToolResult gates were dropped because they broke after the user clicked another tool-using pill earlier in the same thread.",
+      "_comment": "frontend-tools-async — project-planning pill, follow-up content keyed on the prior tool's id (last message is the query_notes tool result). The tool-emitting fixture below carries hasToolResult:false so it is excluded on this post-result turn; without that gate aimock's relaxed-turnIndex selection re-serves the turnIndex:0 emit (a behind-the-count scripted turn outranks this unpositioned narration) and query_notes re-fires instead of narrating (PNI-100). hasToolResult:false is multi-pill-safe: it is scoped to messages after the latest user message, so a prior pill's tool result never trips it.",
       "match": {
         "userMessage": "Find my notes about project planning",
         "toolCallId": "call_d5_query_notes_project_planning_001",
@@ -42,6 +42,7 @@
       "match": {
         "userMessage": "Find my notes about project planning",
         "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -70,6 +71,7 @@
       "match": {
         "userMessage": "Search my notes for anything related to auth",
         "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -98,6 +100,7 @@
       "match": {
         "userMessage": "Do I have any notes tagged reading",
         "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {
@@ -114,6 +117,7 @@
       "match": {
         "userMessage": "project planning",
         "turnIndex": 0,
+        "hasToolResult": false,
         "context": "mastra"
       },
       "response": {

@@ -12,7 +12,13 @@ export interface RealtimeGatewaySession {
 
 /** @internal Options for {@link connectRealtimeGateway}. */
 export interface ConnectRealtimeGatewayOptions {
-  /** Gateway socket URL, e.g. `wss://gateway.example/socket`. */
+  /**
+   * Fully-resolved gateway **runner** socket URL, e.g.
+   * `wss://gateway.example/runner`. This is not the public `wsUrl` a developer
+   * configures — the Intelligence client appends the `/runner` (or `/client`)
+   * suffix to that base before it reaches here, and Phoenix appends
+   * `/websocket` to this value on connect. `/socket` is not a mounted path.
+   */
   wsUrl: string;
   /** Runtime API key (`cpk-…`) authenticating the socket. */
   apiKey: string;
@@ -46,6 +52,35 @@ export interface ConnectRealtimeGatewayOptions {
    * cleared on the next successful (re)join.
    */
   reconnectGiveUpMs?: number;
+  /**
+   * Max time (ms) the INITIAL connect may spend without the socket ever opening
+   * before the connect is declared unreachable (default 30000) — the mirror of
+   * {@link reconnectGiveUpMs} for a socket that has never connected once.
+   *
+   * Phoenix retries a failed connect forever and surfaces transport errors as
+   * reconnect churn, so a wrong/unreachable `wsUrl` (DNS miss, refused TCP
+   * connect, a host serving HTTP with no socket mounted) would otherwise hang
+   * until a supervising manager's settle deadline and report only a timeout,
+   * with no indication that the HOST is the problem (OSS-623). When this window
+   * elapses with the socket still never opened, the connect rejects with a
+   * {@link RealtimeGatewayUnreachableError} naming the endpoint and the cause.
+   *
+   * The window exists rather than failing on the first transport error because
+   * a refused connect is often just a gateway that has not finished booting,
+   * and a supervising `ChannelManager` does NOT retry activation — a
+   * fail-on-first-error rule would turn a boot race into a permanently errored
+   * Channel. The default is deliberately long enough to outlast a rolling
+   * restart of the gateway. Causes that CANNOT resolve themselves (a host that
+   * does not exist) skip the window entirely; see {@link diagnoseEndpoint}.
+   */
+  connectTimeoutMs?: number;
+  /**
+   * @internal Test seam for the unreachable-host diagnosis (see
+   * {@link diagnoseEndpoint}); defaults to the global `fetch`. Production always
+   * uses the default — this exists so the diagnosis's REAL classification logic
+   * runs in tests against recorded transport failures instead of the network.
+   */
+  diagnosticFetch?: typeof globalThis.fetch;
 }
 
 /**
@@ -145,12 +180,205 @@ export class RealtimeGatewayChannelStateError extends Error {
 }
 
 /**
- * Per-channel `state` values (from the gateway's `CHANNEL_STATE_KINDS`) that
- * mean a declared channel is genuinely unconfigured or waiting — a degraded
- * `setup_required` condition, not a hard failure. Any other non-`channel_live`
- * state (`runtime_conflict`, `platform_setup_failed`, `delivery_failed`,
- * `egress_failed`, `runtime_offline`, `runtime_not_declared`) is treated as a
- * hard error; see {@link classifyJoinError}.
+ * Signals that the gateway socket NEVER opened — the configured `wsUrl` host is
+ * wrong or unreachable (DNS miss, refused/failed TCP or TLS connect, or a host
+ * that serves HTTP with no Phoenix socket mounted at the endpoint). Carries the
+ * endpoint that was tried and the underlying transport error so the message
+ * points at the misconfigured URL rather than at a stopwatch (OSS-623).
+ *
+ * Deliberately does NOT carry the `SETUP_REQUIRED` marker: an unreachable host
+ * is a caller configuration error that must reject `ready()`, not a
+ * setup-waiting condition a supervising `ChannelManager` would resolve to
+ * `setup_required` (coordinated with OSS-622's join-failure classification).
+ */
+export class RealtimeGatewayUnreachableError extends Error {
+  /** Cross-package marker, mirroring the `code` convention of its siblings. */
+  readonly code = "GATEWAY_UNREACHABLE";
+  /** The gateway endpoint that was tried, minus any query string. */
+  readonly endpoint: string;
+  /**
+   * The underlying transport failure (e.g. `getaddrinfo ENOTFOUND host`), or
+   * `undefined` when the connect hung without reporting one at all. Contains no
+   * secrets — the auth token travels as a WebSocket subprotocol, not in the URL.
+   */
+  readonly transportError: string | undefined;
+  /**
+   * @param endpoint - The gateway endpoint that was tried (no query string).
+   * @param transportError - Rendered transport failure, if one was reported.
+   * @param connectTimeoutMs - The elapsed connect window, named when no
+   *   transport error was reported (the only signal the caller has left).
+   * @param options - Standard error options; carries the raw transport error
+   *   as `cause`.
+   */
+  constructor(
+    endpoint: string,
+    transportError: string | undefined,
+    connectTimeoutMs: number,
+    options?: { cause?: unknown },
+  ) {
+    super(
+      `realtime gateway unreachable: the socket never connected to ${endpoint} ` +
+        (transportError !== undefined
+          ? `(${transportError})`
+          : `and reported no transport error within ${connectTimeoutMs}ms`) +
+        " — check that the Intelligence wsUrl points at the gateway host",
+      options,
+    );
+    this.name = "RealtimeGatewayUnreachableError";
+    this.endpoint = endpoint;
+    this.transportError = transportError;
+  }
+}
+
+/**
+ * Error codes that mean the configured host CANNOT come up on its own, so the
+ * initial connect fails immediately instead of waiting out
+ * {@link ConnectRealtimeGatewayOptions.connectTimeoutMs}.
+ *
+ * Deliberately limited to name-resolution failures that mean NXDOMAIN — the
+ * host does not exist, which is always a typo/misconfiguration (this is exactly
+ * the OSS-621 case: a `wsUrl` documented everywhere with no DNS record at all).
+ * Codes that CAN clear on their own are excluded on purpose and left to the
+ * connect window: `ECONNREFUSED` (gateway still booting), `EAI_AGAIN` (a
+ * transient resolver failure/timeout, NOT NXDOMAIN), `ETIMEDOUT`, `ECONNRESET`.
+ */
+const NON_RETRYABLE_TRANSPORT_CODES: ReadonlySet<string> = new Set([
+  "ENOTFOUND",
+  "EAI_NONAME",
+]);
+
+/** What {@link diagnoseEndpoint} learned about an endpoint that would not connect. */
+interface EndpointDiagnosis {
+  /** Human-readable cause, phrased for the person who set `wsUrl`. */
+  readonly text: string;
+  /** OS-level code behind the failure, when one was exposed. */
+  readonly code?: string;
+  /** Whether the cause cannot clear on its own (fail now, don't wait). */
+  readonly nonRetryable: boolean;
+  /** The raw failure, attached to the thrown error as `cause`. */
+  readonly cause?: unknown;
+}
+
+/**
+ * Probe the endpoint over HTTP to find out WHY the socket would not open.
+ *
+ * This exists because the WebSocket transport itself will not say. Node's global
+ * WebSocket (undici) dispatches the same information-free `ErrorEvent` —
+ * `"Received network error or non-101 status code."`, no `code`, an inner
+ * `Error` with no detail — whether the host does not resolve, refuses the
+ * connection, or answers HTTP with no socket mounted at the path. Browsers are
+ * deliberately worse. Only a non-WebSocket request to the same origin exposes
+ * the real cause, and `fetch` does: a nonexistent host surfaces
+ * `cause.code === "ENOTFOUND"`, a closed port `"ECONNREFUSED"`, and a host that
+ * is up answers with an HTTP status.
+ *
+ * Runs ONLY on the failure path (a socket that has never opened), so a healthy
+ * connect issues no extra request. Never throws and never rejects: a diagnosis
+ * is a nicety on top of the error being reported either way, so any failure to
+ * obtain one yields `undefined`.
+ *
+ * @param wsUrl - The configured gateway URL, mapped to its http(s) equivalent.
+ * @param timeoutMs - Probe budget; kept well under the connect window.
+ * @param fetchImpl - Injected `fetch` (test seam); defaults to the global.
+ * @returns The diagnosis, or `undefined` when none could be obtained.
+ */
+async function diagnoseEndpoint(
+  wsUrl: string,
+  timeoutMs: number,
+  fetchImpl: typeof globalThis.fetch | undefined = globalThis.fetch,
+): Promise<EndpointDiagnosis | undefined> {
+  const httpUrl = toHttpProbeUrl(wsUrl);
+  if (httpUrl === undefined || typeof fetchImpl !== "function") {
+    return undefined;
+  }
+  // `AbortSignal.timeout` is Node 17.3+/modern-browser; tolerate its absence
+  // rather than lose the whole diagnosis on an older host.
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(timeoutMs)
+      : undefined;
+  try {
+    // No auth header: this is a reachability probe, and the token belongs on the
+    // socket handshake only. `redirect: "manual"` keeps a redirect visible as a
+    // status rather than following the caller's URL somewhere else.
+    const response = await fetchImpl(httpUrl, {
+      method: "GET",
+      redirect: "manual",
+      ...(signal ? { signal } : {}),
+    });
+    return {
+      text:
+        `the host answered HTTP ${response.status} for ${httpUrl}, so it resolves and accepts ` +
+        "connections — only the WebSocket handshake failed, so the wsUrl path may not be the " +
+        "gateway's socket endpoint",
+      nonRetryable: false,
+    };
+  } catch (err) {
+    const { text, code } = describeTransportError(err);
+    if (code !== undefined && NON_RETRYABLE_TRANSPORT_CODES.has(code)) {
+      return {
+        text: `the host does not resolve (${text ?? code})`,
+        code,
+        nonRetryable: true,
+        cause: err,
+      };
+    }
+    if (code === "ECONNREFUSED") {
+      return {
+        text: `the host refused the connection (${text ?? code})`,
+        code,
+        nonRetryable: false,
+        cause: err,
+      };
+    }
+    return text !== undefined
+      ? {
+          text,
+          ...(code !== undefined ? { code } : {}),
+          nonRetryable: false,
+          cause: err,
+        }
+      : undefined;
+  }
+}
+
+/**
+ * Map a gateway `ws(s)://` URL to the `http(s)://` URL {@link diagnoseEndpoint}
+ * probes — same host, port, and PATH (the path is what distinguishes "no socket
+ * mounted here" from a wrong host), minus query and fragment. Returns
+ * `undefined` for a URL that cannot be parsed or is not a ws/http scheme.
+ */
+function toHttpProbeUrl(wsUrl: string): string | undefined {
+  try {
+    const url = new URL(wsUrl);
+    if (url.protocol === "ws:") {
+      url.protocol = "http:";
+    } else if (url.protocol === "wss:") {
+      url.protocol = "https:";
+    } else if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Per-channel `state` values that mean a declared channel is genuinely
+ * unconfigured or waiting — a degraded `setup_required` condition, not a hard
+ * failure. Any other non-`channel_live` state (`runtime_conflict`,
+ * `platform_setup_failed`, `delivery_failed`, `egress_failed`, `runtime_offline`,
+ * `runtime_not_declared`) is treated as a hard error; see
+ * {@link classifyJoinError}.
+ *
+ * Sourced from two Intelligence vocabularies, not one. Most are read-model
+ * `CHANNEL_STATE_KINDS` members. `channel_not_declared` is declaration-only
+ * (`CHANNEL_LISTENER_DECLARATION_STATES`) and has no read-model counterpart:
+ * only a join needs to name a channel the project does not have.
  *
  * Verified against Intelligence `sdk_channel.ex` +
  * `libs/app-api-contracts/src/channels.ts`: the gateway rejects a join with
@@ -161,6 +389,7 @@ export class RealtimeGatewayChannelStateError extends Error {
  */
 const SETUP_REQUIRED_CHANNEL_STATES: ReadonlySet<string> = new Set([
   "no_channels_yet",
+  "channel_not_declared",
   "adapter_setup_required",
   "slack_setup_complete_waiting_for_runtime",
   "channel_setup_complete_waiting_for_runtime",
@@ -241,6 +470,7 @@ export async function connectRealtimeGateway(
   }
   const timeout = config.timeoutMs ?? 10_000;
   const giveUpMs = config.reconnectGiveUpMs ?? 60_000;
+  const connectTimeoutMs = config.connectTimeoutMs ?? 30_000;
   const transport =
     config.webSocket ??
     (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
@@ -258,6 +488,137 @@ export async function connectRealtimeGateway(
       ? T
       : never,
   });
+
+  // --- Initial-connect watchdog (OSS-623) ----------------------------------
+  // Phoenix treats a failed FIRST connect exactly like a dropped one: it retries
+  // forever and reports transport errors as reconnect churn. Worse, the join
+  // push's own `timeout` never fires in that state — `Channel.onError` calls
+  // `joinPush.reset()` while the channel is joining, which detaches the reply
+  // binding the armed timeout would have triggered — so without this watchdog
+  // the await below hangs indefinitely and a wrong host surfaces only as a
+  // supervising manager's settle deadline, with no cause attached.
+  //
+  // Everything here keys off "has the socket EVER opened": a socket that never
+  // opened is an unreachable host (reject, naming it), while one that opened and
+  // later dropped is a reconnect episode owned by the health state machine
+  // below. Phoenix passes the same distinction to `onError` as its third
+  // argument (`establishedConnections`), so both signals are checked.
+  //
+  // WHY the cause comes from an HTTP probe and not from the socket: the
+  // WebSocket transport does not report one. Node's global WebSocket dispatches
+  // an identical, detail-free error for a host that does not resolve, a refused
+  // port, and a host answering HTTP with no socket mounted — so the transport
+  // error alone can neither name the cause nor tell a permanent
+  // misconfiguration from a gateway that is still booting. `diagnoseEndpoint`
+  // asks the same origin over HTTP, which does distinguish them. A transport
+  // that DOES expose an OS code (the `ws` package, custom transports) is still
+  // trusted directly and needs no probe.
+  const endpoint = describeEndpoint(config.wsUrl);
+  // Declared here (not in the health block below) because the connect watchdog
+  // tears the socket down on failure and must mark that teardown intentional.
+  let closingIntentionally = false;
+  let everConnected = false;
+  let initialJoinSettled = false;
+  let lastTransportError: string | undefined;
+  let lastTransportCode: string | undefined;
+  let lastTransportRaw: unknown;
+  let connectDeadline: ReturnType<typeof setTimeout> | undefined;
+  // The initial connect settles from several places (the join push's reply
+  // hooks, a non-retryable transport error, the connect deadline), so the
+  // resolvers are hoisted out of the promise rather than closed over by the
+  // join hooks alone. The executor runs synchronously, so both are assigned
+  // before `socket.connect()` can dispatch anything.
+  let settleConnect!: () => void;
+  let failConnect!: (err: Error) => void;
+  const initialConnect = new Promise<void>((resolve, reject) => {
+    settleConnect = resolve;
+    failConnect = reject;
+  });
+  const clearConnectDeadline = (): void => {
+    if (connectDeadline !== undefined) {
+      clearTimeout(connectDeadline);
+      connectDeadline = undefined;
+    }
+  };
+  // The HTTP diagnosis runs at most once per connect, and only after the socket
+  // has already failed to open. Its budget stays well under the connect window
+  // so a verdict is normally in hand by the time the window elapses.
+  const probeTimeoutMs = Math.min(3_000, connectTimeoutMs);
+  let diagnosis: Promise<EndpointDiagnosis | undefined> | undefined;
+  const startDiagnosis = (): Promise<EndpointDiagnosis | undefined> => {
+    if (diagnosis === undefined) {
+      diagnosis = diagnoseEndpoint(
+        config.wsUrl,
+        probeTimeoutMs,
+        config.diagnosticFetch,
+      );
+      // A verdict of "this can never work" short-circuits the connect window.
+      void diagnosis.then((result) => {
+        if (result?.nonRetryable) failUnreachable();
+      });
+    }
+    return diagnosis;
+  };
+  /** Reject the initial connect as unreachable and stop the retry loop. */
+  const failUnreachable = (): void => {
+    if (initialJoinSettled) return;
+    initialJoinSettled = true;
+    clearConnectDeadline();
+    // The caller never gets a session it could disconnect, so tear the socket
+    // down here rather than leave Phoenix retrying a host that will not answer.
+    // Done synchronously, before the (async) diagnosis is awaited below, so the
+    // retry loop stops at the moment the decision is made.
+    closingIntentionally = true;
+    socket.disconnect();
+    void (async () => {
+      // Prefer the probe's verdict — it is the only signal that names the cause.
+      // A transport that already exposed an OS code needs no probe, so only an
+      // ALREADY-started diagnosis is awaited in that case.
+      const probed =
+        lastTransportCode !== undefined
+          ? await diagnosis
+          : await startDiagnosis();
+      const cause = probed?.cause ?? lastTransportRaw;
+      failConnect(
+        new RealtimeGatewayUnreachableError(
+          endpoint,
+          probed?.text ?? lastTransportError,
+          connectTimeoutMs,
+          cause !== undefined ? { cause } : undefined,
+        ),
+      );
+    })();
+  };
+  socket.onOpen(() => {
+    everConnected = true;
+    clearConnectDeadline();
+  });
+  socket.onError((error, _transport, establishedConnections) => {
+    // A drop after a successful connect belongs to the reconnect path.
+    if (everConnected || establishedConnections > 0) return;
+    lastTransportRaw = error;
+    const detail = describeTransportError(error);
+    lastTransportError = detail.text ?? lastTransportError;
+    lastTransportCode = detail.code ?? lastTransportCode;
+    // A host that does not exist cannot start existing: fail now rather than
+    // burn the connect window on retries that are guaranteed to fail. Only a
+    // transport that exposes OS codes gets here directly; for everyone else the
+    // same determination comes from the HTTP diagnosis kicked off below.
+    if (
+      lastTransportCode !== undefined &&
+      NON_RETRYABLE_TRANSPORT_CODES.has(lastTransportCode)
+    ) {
+      failUnreachable();
+      return;
+    }
+    startDiagnosis();
+  });
+  connectDeadline = setTimeout(() => {
+    connectDeadline = undefined;
+    if (!everConnected) failUnreachable();
+  }, connectTimeoutMs);
+  (connectDeadline as unknown as { unref?: () => void }).unref?.();
+
   socket.connect();
 
   const channel = socket.channel(
@@ -276,7 +637,8 @@ export async function connectRealtimeGateway(
   // a genuinely fresh drop episode can enter `reconnecting` and give up again on
   // its own bounded schedule. Net: state agrees with the transport rather than
   // flapping `reconnecting`↔`gave_up` on every failed retry of a dead link.
-  let closingIntentionally = false;
+  // (`closingIntentionally` is declared with the connect watchdog above, which
+  // also tears the socket down and must mark that teardown intentional.)
   let connectionState: RealtimeGatewayConnectionState = "online";
   const stateCallbacks: Array<(s: RealtimeGatewayConnectionState) => void> = [];
   let giveUpTimer: ReturnType<typeof setTimeout> | undefined;
@@ -340,50 +702,55 @@ export async function connectRealtimeGateway(
   // Capture the join push so both the initial join AND every Phoenix auto-rejoin
   // are observed: `Push.resend` (used by `channel.rejoin`) resets the received
   // response but PRESERVES `recHooks`, so the `"ok"`/`"error"`/`"timeout"` hooks
-  // registered here re-fire on each rejoin reply. `initialJoinSettled` gates the
-  // one-shot connect promise vs. the ongoing health transitions.
-  let initialJoinSettled = false;
+  // registered here re-fire on each rejoin reply. `initialJoinSettled` (declared
+  // with the connect watchdog, which shares it) gates the one-shot connect
+  // promise vs. the ongoing health transitions.
   const joinPush = channel.join(timeout);
-  await new Promise<void>((resolve, reject) => {
-    joinPush
-      .receive("ok", () => {
-        if (!initialJoinSettled) {
-          initialJoinSettled = true;
-          resolve();
-        } else {
-          // A Phoenix auto-rejoin succeeded — the managed path can send again.
-          enterOnline();
-        }
-      })
-      .receive("error", (reason: unknown) => {
-        if (!initialJoinSettled) {
-          initialJoinSettled = true;
-          // The join failed, so the caller never gets a session it could
-          // disconnect — tear the socket down here rather than leak it. Mark
-          // the teardown intentional so it does not arm the give-up window.
-          closingIntentionally = true;
-          socket.disconnect();
-          // Classify per-channel state (setup-waiting vs hard error) rather than
-          // blanket-mapping the whole reject — a duplicate-listener conflict must
-          // NOT be downgraded to `setup_required`.
-          reject(classifyJoinError(reason));
-        } else {
-          // A rejoin failed (e.g. credentials revoked server-side). Phoenix
-          // keeps retrying; surface reconnecting and let the window bound it.
-          enterReconnecting();
-        }
-      })
-      .receive("timeout", () => {
-        if (!initialJoinSettled) {
-          initialJoinSettled = true;
-          closingIntentionally = true;
-          socket.disconnect();
-          reject(new Error("realtime gateway session join timed out"));
-        } else {
-          enterReconnecting();
-        }
-      });
-  });
+  joinPush
+    .receive("ok", () => {
+      if (!initialJoinSettled) {
+        initialJoinSettled = true;
+        clearConnectDeadline();
+        settleConnect();
+      } else {
+        // A Phoenix auto-rejoin succeeded — the managed path can send again.
+        enterOnline();
+      }
+    })
+    .receive("error", (reason: unknown) => {
+      if (!initialJoinSettled) {
+        initialJoinSettled = true;
+        clearConnectDeadline();
+        // The join failed, so the caller never gets a session it could
+        // disconnect — tear the socket down here rather than leak it. Mark
+        // the teardown intentional so it does not arm the give-up window.
+        closingIntentionally = true;
+        socket.disconnect();
+        // Classify per-channel state (setup-waiting vs hard error) rather than
+        // blanket-mapping the whole reject — a duplicate-listener conflict must
+        // NOT be downgraded to `setup_required`.
+        failConnect(classifyJoinError(reason));
+      } else {
+        // A rejoin failed (e.g. credentials revoked server-side). Phoenix
+        // keeps retrying; surface reconnecting and let the window bound it.
+        enterReconnecting();
+      }
+    })
+    .receive("timeout", () => {
+      if (!initialJoinSettled) {
+        initialJoinSettled = true;
+        clearConnectDeadline();
+        closingIntentionally = true;
+        socket.disconnect();
+        failConnect(new Error("realtime gateway session join timed out"));
+      } else {
+        enterReconnecting();
+      }
+    });
+
+  // Settles on the join reply, or — when the socket never opens at all — on the
+  // connect watchdog above.
+  await initialConnect;
 
   // Drop notification: Phoenix fires the socket's `onClose`/`onError` AND the
   // channel's `onError` for the same underlying drop (see `socket.js`'s
@@ -484,6 +851,77 @@ export async function connectRealtimeGateway(
 }
 
 /**
+ * Render the gateway endpoint for diagnostics: the configured URL without its
+ * query string or fragment. The socket's auth token travels as a WebSocket
+ * subprotocol rather than in the URL, but a caller-supplied query string is not
+ * ours to assume is safe to echo into an error message or log.
+ */
+function describeEndpoint(wsUrl: string): string {
+  try {
+    const parsed = new URL(wsUrl);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return wsUrl.split(/[?#]/)[0] ?? wsUrl;
+  }
+}
+
+/**
+ * Extract a human-readable cause and an OS-level error code from whatever a
+ * WebSocket implementation dispatches on `error`.
+ *
+ * The shape varies: Node's WebSocket wraps the real failure (an `Error` with a
+ * `code` such as `ENOTFOUND`) inside the dispatched `ErrorEvent`, `ws` dispatches
+ * that `Error` directly, and browsers dispatch a deliberately detail-free
+ * `Event`. So walk `.error`/`.cause` a few levels, keeping the FIRST code seen
+ * and the DEEPEST message (the outer one is typically a generic
+ * "connection error" wrapper).
+ */
+function describeTransportError(error: unknown): {
+  text?: string;
+  code?: string;
+} {
+  if (typeof error === "string") {
+    return error.length > 0 ? { text: error } : {};
+  }
+  let node: unknown = error;
+  let code: string | undefined;
+  let message: string | undefined;
+  for (
+    let depth = 0;
+    depth < 5 && typeof node === "object" && node !== null;
+    depth++
+  ) {
+    const nodeCode = (node as { code?: unknown }).code;
+    if (
+      code === undefined &&
+      typeof nodeCode === "string" &&
+      nodeCode.length > 0
+    ) {
+      code = nodeCode;
+    }
+    const nodeMessage = (node as { message?: unknown }).message;
+    if (typeof nodeMessage === "string" && nodeMessage.length > 0) {
+      message = nodeMessage;
+    }
+    node =
+      (node as { error?: unknown }).error ??
+      (node as { cause?: unknown }).cause;
+  }
+  // Prefer the message, but make sure the code is visible in it either way — the
+  // code is what a reader searches for.
+  const text =
+    message !== undefined
+      ? code !== undefined && !message.includes(code)
+        ? `${code}: ${message}`
+        : message
+      : code;
+  return {
+    ...(text !== undefined ? { text } : {}),
+    ...(code !== undefined ? { code } : {}),
+  };
+}
+
+/**
  * Classify a Phoenix join-error reject into the error the caller should see.
  *
  * The live gateway rejects with `{ reason: "channel_declaration_unavailable",
@@ -503,9 +941,16 @@ export async function connectRealtimeGateway(
  *
  * `runtime_not_declared` is treated as a HARD error here: during our own join
  * the runtime IS declaring itself, so the gateway reporting the channel as
- * runtime-not-declared is a server/runtime disagreement, not user setup. TODO
- * (gateway-owner): confirm this is never a benign join-vs-heartbeat race; if it
- * is, add it to {@link SETUP_REQUIRED_CHANNEL_STATES} and document why.
+ * runtime-not-declared is a server/runtime disagreement, not user setup.
+ *
+ * OSS-622 settled the open question this comment used to carry. app-api WAS
+ * sending `runtime_not_declared` on the join path for a benign condition — a
+ * declared channel the project does not have — because the declaration contract
+ * had no token for it. The token meant the inverse of its read-model sense, so
+ * reading it literally (correctly) turned every first run of a new channel into a
+ * crashed startup. app-api now sends `channel_not_declared` for that case, which
+ * is classified setup-required above. `runtime_not_declared` keeps its literal
+ * reading and stays a hard error.
  *
  * When a `channel_declaration_unavailable` reject carries no parseable
  * per-channel detail, we degrade to `setup_required` (the conservative

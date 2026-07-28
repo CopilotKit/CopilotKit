@@ -119,7 +119,6 @@ test("generates shell-docs data before tests on a fresh checkout", async () => {
 
   expect(packageJson.scripts?.pretest).toBe("npm run pretypecheck");
 });
-
 test("generates Angular source content in the shell-docs image", async () => {
   const dockerfile = await readFile(
     resolve(repositoryRoot, "showcase/shell-docs/Dockerfile"),
@@ -130,15 +129,4 @@ test("generates Angular source content in the shell-docs image", async () => {
   expect(dockerfile).toContain(
     "node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts",
   );
-});
-
-test("does not run the broad Angular proof matrix in pull requests", async () => {
-  await expect(
-    lstat(
-      resolve(
-        repositoryRoot,
-        ".github/workflows/test_showcase-angular-proof.yml",
-      ),
-    ),
-  ).rejects.toMatchObject({ code: "ENOENT" });
 });

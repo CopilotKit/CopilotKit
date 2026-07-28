@@ -9,7 +9,7 @@ import {
 import { ActivatedRoute } from "@angular/router";
 import { connectAgentContext, CopilotKit } from "@copilotkit/angular";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -107,7 +107,7 @@ export class AppSettingsFeatureComponent {
   // @region[agent-config-context]
   protected readonly config = signal<AgentConfig>({ ...DEFAULT_AGENT_CONFIG });
   protected readonly authHeaders = DEMO_AUTH_HEADERS;
-  protected readonly agentId = agentIdForRoute(this.feature, this.route);
+  protected readonly agentId = agentIdForCurrentIntegration(this.feature);
   private readonly configContext = computed(() => ({
     description:
       "Agent response preferences. Apply tone, expertise level, and response length to every reply.",

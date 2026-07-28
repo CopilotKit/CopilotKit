@@ -127,8 +127,7 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_API_URL!,
-  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+  // apiUrl / wsUrl default to the managed Intelligence platform — leave unset.
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_ORG_ID!,
 });

@@ -8,6 +8,15 @@ function fakeAgent() {
 }
 
 describe("DiscordConversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const store = new DiscordConversationStore({
+      fetchHistory: async () => [],
+      botUserId: () => "bot-1",
+    });
+
+    expect(store.seedsInboundTurn).toBe(true);
+  });
+
   it("reconstructs channel history into AG-UI messages each turn", async () => {
     const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
     // A stubbed fetch for buildFileContentParts so no real network happens.

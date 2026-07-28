@@ -25,19 +25,19 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { REGISTRY_TO_D5 } from "./d5-feature-mapping.js";
 
-const DASHBOARD_FILE = resolve(
+const LIVE_STATUS_FILE = resolve(
   __dirname,
-  "../../../../shell-dashboard/src/lib/live-status.ts",
+  "../../shared/cell-model/live-status.ts",
 );
 
-/** Parse `CATALOG_TO_D5_KEY` object literal out of the dashboard source. */
-function parseDashboardCatalogMap(): Record<string, string[]> {
-  const src = readFileSync(DASHBOARD_FILE, "utf8");
+/** Parse `CATALOG_TO_D5_KEY` from the canonical shared cell-model source. */
+function parseCatalogMap(): Record<string, string[]> {
+  const src = readFileSync(LIVE_STATUS_FILE, "utf8");
   const block = src.match(/CATALOG_TO_D5_KEY[^=]+=\s*\{([\s\S]+?)\n\};/);
   if (!block || !block[1]) {
     throw new Error(
-      "drift parser: could not locate CATALOG_TO_D5_KEY in dashboard source — " +
-        "if the dashboard file's shape changed, update the regex in this test.",
+      "drift parser: could not locate CATALOG_TO_D5_KEY in shared cell-model source — " +
+        "if the shared file's shape changed, update the regex in this test.",
     );
   }
   const out: Record<string, string[]> = {};
@@ -67,11 +67,11 @@ function normalizeMap(
 }
 
 describe("d5-mapping-drift", () => {
-  it("dashboard CATALOG_TO_D5_KEY structurally mirrors harness REGISTRY_TO_D5", () => {
+  it("shared CATALOG_TO_D5_KEY structurally mirrors harness REGISTRY_TO_D5", () => {
     const harnNorm = normalizeMap(
       REGISTRY_TO_D5 as Record<string, readonly string[]>,
     );
-    const dashNorm = normalizeMap(parseDashboardCatalogMap());
+    const dashNorm = normalizeMap(parseCatalogMap());
     expect(dashNorm).toEqual(harnNorm);
   });
 });

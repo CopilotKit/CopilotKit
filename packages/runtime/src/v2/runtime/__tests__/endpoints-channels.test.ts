@@ -80,11 +80,14 @@ describe("endpoint wrappers — managed channels propagation", () => {
     expect(state.calls).toBe(0);
     expect(listener.channels).toBeDefined();
 
-    // ready() activates exactly once.
-    await listener.channels!.ready({ timeoutMs: 1000 });
+    // ready() activates exactly once. Written without `!` on purpose: the
+    // branded overload makes `.channels` non-optional for a runtime with
+    // declared Channels (OSS-646), and the compile-time proof of that lives in
+    // `handler-channels-types.test.ts`.
+    await listener.channels.ready({ timeoutMs: 1000 });
     expect(state.calls).toBe(1);
-    expect(listener.channels!.status().overall).toBe("online");
-    await listener.channels!.stop();
+    expect(listener.channels.status().overall).toBe("online");
+    await listener.channels.stop();
   });
 
   it("Node listener has no .channels for a plain SSE runtime", () => {

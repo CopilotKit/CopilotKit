@@ -95,7 +95,11 @@ export class HeadlessRevenueCard {
   template: `
     <showcase-feature-header />
     <main class="headless-page" aria-label="Complete headless chat">
-      <section class="headless-panel">
+      <section
+        class="headless-panel"
+        data-testid="copilot-chat"
+        [attr.data-copilot-running]="isRunning()"
+      >
         <h2>Headless Chat (Complete)</h2>
         <div class="headless-messages" aria-live="polite">
           @for (message of messages(); track message.id) {
@@ -192,6 +196,7 @@ export class HeadlessCompleteFeatureComponent extends HeadlessChatController {
         text: z.string(),
         color: z.string().optional(),
       }),
+      followUp: false,
       handler: async ({ text, color }) => ({ text, color: color ?? "yellow" }),
     });
   }

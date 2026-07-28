@@ -25,6 +25,7 @@ type MultimodalPart =
       metadata?: { filename?: string; size?: number } & Record<string, unknown>;
     };
 
+// @region[custom-bubbles]
 export function UserBubble({
   content,
 }: {
@@ -100,3 +101,4 @@ function splitContent(content: string | MultimodalPart[]): {
   }
   return { text, attachments };
 }
+// @endregion[custom-bubbles]
