@@ -12,12 +12,14 @@ import type {
   IntelligenceTransportConfig,
 } from "./http-transports.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
+import { InMemoryEgressSink } from "./in-memory-transports.js";
 import type { EgressOperation } from "./contracts.js";
 
 interface Call {
   url: string;
   method: string;
   headers: Record<string, string>;
+  rawBody: string;
   body: Record<string, unknown>;
 }
 
@@ -30,6 +32,7 @@ function fakeFetch(
       url,
       method: init.method,
       headers: init.headers,
+      rawBody: init.body,
       body: JSON.parse(init.body) as Record<string, unknown>,
     };
     calls.push(call);
@@ -99,8 +102,23 @@ function cfg(
   });
 }
 
-const text = (value: string): ChannelNode =>
-  ({ type: "text", props: { value } }) as unknown as ChannelNode;
+const text = (value: string): ChannelNode => ({
+  type: "text",
+  props: { value },
+});
+
+function egressOperation(
+  overrides: Partial<EgressOperation> = {},
+): EgressOperation {
+  return {
+    operationId: "turn_9:0",
+    turnId: "turn_9",
+    deliveryId: "dlv_9",
+    route: { adapter: "slack", teamId: "T1", channel: "C1" },
+    op: { kind: "post", ir: [text("hi")] },
+    ...overrides,
+  };
+}
 
 const claimedDelivery = (over?: Record<string, unknown>) => ({
   id: "dlv_9",
@@ -110,7 +128,7 @@ const claimedDelivery = (over?: Record<string, unknown>) => ({
   channel: { id: "channel_1", name: "opentagbot" },
   adapter: "slack",
   leaseToken: "lease_z",
-  leaseExpiresAt: "2026-06-30T00:00:00.000Z",
+  leaseExpiresAt: "2099-06-30T00:00:00.000Z",
   turn: {
     id: "turn_9",
     eventId: "evt_9",
@@ -150,18 +168,158 @@ describe("resolveTransportConfig", () => {
 });
 
 describe("HttpEgressSink", () => {
+  it("posts the exact claiming source identity when the sink config has a different runtime instance", async () => {
+    const { fetch, calls } = fakeFetch((call) =>
+      call.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
+          },
+    );
+    const source = new HttpDeliverySource(
+      cfg({ fetch, runtimeInstanceId: "rti_claiming_source" }),
+    );
+    const claim = await source.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+    const sink = new HttpEgressSink(
+      cfg({ fetch, runtimeInstanceId: "rti_sink_config" }),
+      source,
+    );
+
+    const res = await sink.emit(
+      egressOperation({
+        deliveryAttempt: claim.env.deliveryAttempt,
+      }),
+    );
+
+    expect(res).toEqual({ ok: true, ref: "eop_1" });
+    const egress = calls.find((call) =>
+      call.url.endsWith("/api/channels/egress/messages"),
+    )!;
+    expect(egress.body).toMatchObject({
+      turnId: "turn_9",
+      runtimeInstanceId: "rti_claiming_source",
+      leaseToken: "lease_z",
+    });
+  });
+
+  it("does not resolve an old egress operation through a newer delivery attempt", async () => {
+    let claims = 0;
+    const { fetch, calls } = fakeFetch((call) => {
+      if (call.url.endsWith("/claim")) {
+        claims += 1;
+        return {
+          body: {
+            claimed: true,
+            delivery: claimedDelivery({
+              attempt: claims,
+              leaseToken: `lease_${claims}`,
+              leaseExpiresAt: `2099-06-30T00:0${claims}:00.000Z`,
+            }),
+          },
+        };
+      }
+      return {
+        body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
+      };
+    });
+    const conf = cfg({ fetch });
+    const source = new HttpDeliverySource(conf);
+    const first = await source.claimOnce();
+    const second = await source.claimOnce();
+    if (!("env" in first) || !("env" in second)) {
+      throw new Error("expected two claims");
+    }
+    const sink = new HttpEgressSink(conf, source);
+
+    await expect(
+      sink.emit(
+        egressOperation({
+          deliveryAttempt: first.env.deliveryAttempt,
+        }),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "delivery_attempt_unavailable",
+    });
+    expect(
+      calls.filter((call) =>
+        call.url.endsWith("/api/channels/egress/messages"),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("fails an attempt-scoped egress operation before POST when its lease state is missing", async () => {
+    const { fetch, calls } = fakeFetch(() => ({
+      body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
+    }));
+    const conf = cfg({ fetch });
+    const source = new HttpDeliverySource(conf);
+    const sink = new HttpEgressSink(conf, source);
+
+    await expect(
+      sink.emit(
+        egressOperation({
+          deliveryAttempt: {
+            deliveryId: "dlv_9",
+            attemptCount: 1,
+            leaseExpiresAt: "2099-06-30T00:00:00.000Z",
+          },
+        }),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "delivery_attempt_unavailable",
+    });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("fails an expired attempt-scoped egress operation before POST", async () => {
+    const { fetch, calls } = fakeFetch((call) =>
+      call.url.endsWith("/claim")
+        ? {
+            body: {
+              claimed: true,
+              delivery: claimedDelivery({
+                leaseExpiresAt: "2000-01-01T00:00:00.000Z",
+              }),
+            },
+          }
+        : {
+            body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
+          },
+    );
+    const conf = cfg({ fetch });
+    const source = new HttpDeliverySource(conf);
+    const claim = await source.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+    const sink = new HttpEgressSink(conf, source);
+
+    await expect(
+      sink.emit(
+        egressOperation({
+          deliveryAttempt: claim.env.deliveryAttempt,
+        }),
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      code: "delivery_attempt_unavailable",
+    });
+    expect(
+      calls.filter((call) =>
+        call.url.endsWith("/api/channels/egress/messages"),
+      ),
+    ).toHaveLength(0);
+  });
+
   it("posts flattened text with the op id as idempotency key", async () => {
     const { fetch, calls } = fakeFetch(() => ({
       body: { operationId: "eop_1", status: "sent", acceptedAt: "t" },
     }));
     const sink = new HttpEgressSink(cfg({ fetch }));
-    const op: EgressOperation = {
-      operationId: "turn_9:0",
-      turnId: "turn_9",
-      deliveryId: "dlv_9",
+    const op = egressOperation({
       route: { adapter: "slack", teamId: "T1", channel: "C1", threadTs: "1.2" },
-      op: { kind: "post", ir: [text("hi")] },
-    };
+    });
     const res = await sink.emit(op);
     expect(res).toEqual({ ok: true, ref: "eop_1" });
     expect(calls[0]!.url).toBe("http://x/api/channels/egress/messages");
@@ -186,13 +344,7 @@ describe("HttpEgressSink", () => {
       },
     }));
     const sink = new HttpEgressSink(cfg({ fetch }));
-    const res = await sink.emit({
-      operationId: "turn_9:0",
-      turnId: "turn_9",
-      deliveryId: "dlv_9",
-      route: { adapter: "slack", teamId: "T1", channel: "C1" },
-      op: { kind: "post", ir: [text("hi")] },
-    });
+    const res = await sink.emit(egressOperation());
     expect(res).toEqual({ ok: false, code: "provider_error" });
   });
 
@@ -200,22 +352,21 @@ describe("HttpEgressSink", () => {
     const { fetch, calls } = fakeFetch(() => ({ body: {} }));
     const sink = new HttpEgressSink(cfg({ fetch }));
     expect(
-      await sink.emit({
-        operationId: "turn_9:0",
-        turnId: "turn_9",
-        deliveryId: "dlv_9",
-        route: {},
-        op: { kind: "delete", ref: "r" },
-      }),
+      await sink.emit(
+        egressOperation({
+          route: {},
+          op: { kind: "delete", ref: "r" },
+        }),
+      ),
     ).toEqual({ ok: true, ref: "turn_9:0" });
     expect(
-      await sink.emit({
-        operationId: "turn_9:1",
-        turnId: "turn_9",
-        deliveryId: "dlv_9",
-        route: {},
-        op: { kind: "post", ir: [] },
-      }),
+      await sink.emit(
+        egressOperation({
+          operationId: "turn_9:1",
+          route: {},
+          op: { kind: "post", ir: [] },
+        }),
+      ),
     ).toEqual({ ok: true, ref: "turn_9:1" });
     expect(calls).toHaveLength(0);
   });
@@ -228,13 +379,13 @@ describe("HttpEgressSink", () => {
     const { fetch, calls } = fakeFetch(() => ({ body: {} }));
     const logs: string[] = [];
     const sink = new HttpEgressSink(cfg({ fetch, log: (m) => logs.push(m) }));
-    const res = await sink.emit({
-      operationId: "turn_9:2",
-      turnId: "turn_9",
-      deliveryId: "dlv_9",
-      route: {},
-      op: { kind: "update", ref: "r", ir: [] },
-    });
+    const res = await sink.emit(
+      egressOperation({
+        operationId: "turn_9:2",
+        route: {},
+        op: { kind: "update", ref: "r", ir: [] },
+      }),
+    );
     expect(res).toEqual({ ok: true, ref: "turn_9:2" });
     expect(calls).toHaveLength(0);
     expect(logs.some((m) => /empty-text update/u.test(m))).toBe(true);
@@ -249,17 +400,15 @@ describe("HttpEgressSink", () => {
       body: { operationId: "eop_t", status: "sent" },
     }));
     const sink = new HttpEgressSink(cfg({ fetch, adapter: "slack" }));
-    await sink.emit({
-      operationId: "turn_9:0",
-      turnId: "turn_9",
-      deliveryId: "dlv_9",
-      route: {
-        adapter: "teams",
-        tenantId: "tenant-1",
-        conversationId: "19:abc@thread.tacv2",
-      },
-      op: { kind: "post", ir: [text("hi")] },
-    });
+    await sink.emit(
+      egressOperation({
+        route: {
+          adapter: "teams",
+          tenantId: "tenant-1",
+          conversationId: "19:abc@thread.tacv2",
+        },
+      }),
+    );
     expect(calls[0]!.body).toMatchObject({ adapter: "teams" });
   });
 
@@ -268,13 +417,9 @@ describe("HttpEgressSink", () => {
       body: { operationId: "eop_f", status: "sent" },
     }));
     const sink = new HttpEgressSink(cfg({ fetch, adapter: "slack" }));
-    await sink.emit({
-      operationId: "turn_9:0",
-      turnId: "turn_9",
-      deliveryId: "dlv_9",
-      route: { teamId: "T1", channel: "C1" },
-      op: { kind: "post", ir: [text("hi")] },
-    });
+    await sink.emit(
+      egressOperation({ route: { teamId: "T1", channel: "C1" } }),
+    );
     expect(calls[0]!.body).toMatchObject({ adapter: "slack" });
   });
 });
@@ -313,6 +458,11 @@ describe("HttpDeliverySource", () => {
     expect(r.env).toMatchObject({
       kind: "turn",
       deliveryId: "dlv_9",
+      deliveryAttempt: {
+        deliveryId: "dlv_9",
+        attemptCount: 1,
+        leaseExpiresAt: "2099-06-30T00:00:00.000Z",
+      },
       turnId: "turn_9",
       eventId: "evt_9",
       channelName: "opentagbot",
@@ -549,6 +699,272 @@ describe("HttpDeliverySource", () => {
     });
   });
 
+  it("does not let an old handler ack with a newer attempt's lease token", async () => {
+    let claims = 0;
+    const { fetch, calls } = fakeFetch((c) => {
+      if (c.url.endsWith("/claim")) {
+        claims += 1;
+        return {
+          body: {
+            claimed: true,
+            delivery: claimedDelivery({
+              attempt: claims,
+              leaseToken: `lease_${claims}`,
+              leaseExpiresAt: `2099-06-30T00:0${claims}:00.000Z`,
+            }),
+          },
+        };
+      }
+      return { body: { acknowledged: true } };
+    });
+    const logs: string[] = [];
+    const src = new HttpDeliverySource(
+      cfg({ fetch, log: (message) => logs.push(message) }),
+    );
+    const first = await src.claimOnce();
+    const second = await src.claimOnce();
+    if (!("env" in first) || !("env" in second)) {
+      throw new Error("expected two claimed deliveries");
+    }
+
+    await src.ack(first.env.deliveryAttempt);
+    await src.ack(second.env.deliveryAttempt);
+
+    const acks = calls.filter((c) => c.url.endsWith("/ack"));
+    expect(acks).toHaveLength(1);
+    expect(acks[0]!.body).toMatchObject({ leaseToken: "lease_2" });
+    expect(logs.some((message) => message.includes("stale attempt"))).toBe(
+      true,
+    );
+  });
+
+  it("ignores late older and same-count changed-expiry claims", async () => {
+    const claims = [
+      {
+        attempt: 2,
+        leaseToken: "lease_2",
+        leaseExpiresAt: "2099-06-30T00:02:00.000Z",
+      },
+      {
+        attempt: 1,
+        leaseToken: "lease_1_late",
+        leaseExpiresAt: "2099-06-30T00:01:00.000Z",
+      },
+      {
+        attempt: 2,
+        leaseToken: "lease_2_changed",
+        leaseExpiresAt: "2099-06-30T00:01:30.000Z",
+      },
+    ];
+    let claimIndex = 0;
+    const { fetch, calls } = fakeFetch((call) => {
+      if (call.url.endsWith("/claim")) {
+        return {
+          body: {
+            claimed: true,
+            delivery: claimedDelivery(claims[claimIndex++]),
+          },
+        };
+      }
+      return { body: { acknowledged: true } };
+    });
+    const src = new HttpDeliverySource(cfg({ fetch }));
+
+    const active = await src.claimOnce();
+    if (!("env" in active)) throw new Error("expected active claim");
+    await expect(src.claimOnce()).resolves.toEqual({ pollAfterMs: 1000 });
+    await expect(src.claimOnce()).resolves.toEqual({ pollAfterMs: 1000 });
+    await src.ack(active.env.deliveryAttempt);
+
+    const acks = calls.filter((call) => call.url.endsWith("/ack"));
+    expect(acks).toHaveLength(1);
+    expect(acks[0]!.body).toMatchObject({ leaseToken: "lease_2" });
+  });
+
+  it("fails malformed attempt identity non-retryably with the real lease", async () => {
+    const { fetch, calls } = fakeFetch((call) =>
+      call.url.endsWith("/claim")
+        ? {
+            body: {
+              claimed: true,
+              delivery: claimedDelivery({
+                attempt: 0,
+                leaseExpiresAt: "not-a-date",
+              }),
+            },
+          }
+        : { body: { failed: true, status: "dead_letter" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+
+    await expect(src.claimOnce()).resolves.toEqual({ pollAfterMs: 1000 });
+
+    const fail = calls.find((call) => call.url.endsWith("/fail"))!;
+    expect(fail.url).toContain("/deliveries/dlv_9/fail");
+    expect(fail.body).toMatchObject({
+      turnId: "turn_9",
+      leaseToken: "lease_z",
+      error: { retryable: false },
+    });
+  });
+
+  it("evicts attempt state when the lease expires without another operation", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+    try {
+      const { fetch } = fakeFetch(() => ({
+        body: {
+          claimed: true,
+          delivery: claimedDelivery({
+            leaseExpiresAt: "2026-07-01T00:00:01.000Z",
+          }),
+        },
+      }));
+      const logs: string[] = [];
+      const src = new HttpDeliverySource(
+        cfg({ fetch, log: (message) => logs.push(message) }),
+      );
+
+      await src.claimOnce();
+      await vi.advanceTimersByTimeAsync(1_001);
+
+      expect(logs.some((message) => message.includes("attempt expired"))).toBe(
+        true,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries the first terminal payload byte-for-byte after a transient failure", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+    try {
+      let ackAttempts = 0;
+      const { fetch, calls } = fakeFetch((c) => {
+        if (c.url.endsWith("/claim")) {
+          return { body: { claimed: true, delivery: claimedDelivery() } };
+        }
+        if (c.url.endsWith("/fail")) {
+          return { body: { failed: true } };
+        }
+        ackAttempts += 1;
+        return ackAttempts === 1
+          ? {
+              ok: false,
+              status: 503,
+              body: {
+                error: {
+                  code: "INTERNAL_SERVER_ERROR",
+                  message: "try again",
+                  retryable: true,
+                },
+              },
+            }
+          : { body: { acknowledged: true } };
+      });
+      const src = new HttpDeliverySource(cfg({ fetch }));
+      const claim = await src.claimOnce();
+      if (!("env" in claim)) throw new Error("expected a claim");
+
+      await expect(src.ack(claim.env.deliveryAttempt)).rejects.toThrow(
+        /try again/,
+      );
+      // A duplicate available/claim for the exact same attempt must not reset
+      // the selected terminal kind or its frozen payload.
+      await expect(src.claimOnce()).resolves.toEqual({ pollAfterMs: 1000 });
+      vi.setSystemTime(new Date("2026-07-01T00:01:00.000Z"));
+      await expect(
+        src.nack(claim.env.deliveryAttempt, "late opposite"),
+      ).resolves.toBeUndefined();
+      expect(calls.filter((c) => c.url.endsWith("/fail"))).toHaveLength(0);
+      await expect(src.ack(claim.env.deliveryAttempt)).resolves.toBeUndefined();
+
+      const acks = calls.filter((c) => c.url.endsWith("/ack"));
+      expect(acks).toHaveLength(2);
+      expect(acks[1]!.rawBody).toBe(acks[0]!.rawBody);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cleans up terminal state after a definitive lease fence", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            ok: false,
+            status: 409,
+            body: {
+              error: {
+                code: "CHANNEL_DELIVERY_LEASE_INVALID",
+                message: "lease expired",
+                retryable: false,
+              },
+            },
+          },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const claim = await src.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+
+    await expect(src.ack(claim.env.deliveryAttempt)).rejects.toMatchObject({
+      code: "CHANNEL_DELIVERY_LEASE_INVALID",
+    });
+    await expect(src.ack(claim.env.deliveryAttempt)).resolves.toBeUndefined();
+
+    expect(calls.filter((c) => c.url.endsWith("/ack"))).toHaveLength(1);
+  });
+
+  it("coalesces concurrent terminal intents of the same kind", async () => {
+    let releaseAck: (() => void) | undefined;
+    const calls: Call[] = [];
+    const fetch: FetchLike = async (url, init) => {
+      calls.push({
+        url,
+        method: init.method,
+        headers: init.headers,
+        rawBody: init.body,
+        body: JSON.parse(init.body) as Record<string, unknown>,
+      });
+      if (url.endsWith("/claim")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              claimed: true,
+              delivery: claimedDelivery(),
+            }),
+        };
+      }
+      await new Promise<void>((resolve) => {
+        releaseAck = resolve;
+      });
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ acknowledged: true }),
+      };
+    };
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const claim = await src.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+
+    let secondSettled = false;
+    const first = src.ack(claim.env.deliveryAttempt);
+    const second = src.ack(claim.env.deliveryAttempt).then(() => {
+      secondSettled = true;
+    });
+    await Promise.resolve();
+
+    expect(calls.filter((c) => c.url.endsWith("/ack"))).toHaveLength(1);
+    expect(secondSettled).toBe(false);
+    releaseAck?.();
+    await Promise.all([first, second]);
+    expect(secondSettled).toBe(true);
+  });
+
   it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
@@ -608,6 +1024,44 @@ describe("HttpDeliverySource", () => {
     const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"));
     expect(fail).toBeDefined();
     expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
+  });
+
+  it("does not start a handler once its lease is inside the safety margin", async () => {
+    let claimCalls = 0;
+    const { fetch, calls } = fakeFetch((c) => {
+      if (c.url.endsWith("/claim")) {
+        claimCalls += 1;
+        return claimCalls === 1
+          ? {
+              body: {
+                claimed: true,
+                delivery: claimedDelivery({
+                  leaseExpiresAt: new Date(Date.now() + 5_000).toISOString(),
+                }),
+              },
+            }
+          : { body: { claimed: false, pollAfterMs: 60_000 } };
+      }
+      return { body: { failed: true, status: "retry_wait" } };
+    });
+    let handlerCalls = 0;
+    const src = new HttpDeliverySource(
+      cfg({
+        fetch,
+        turnTimeoutMs: 60_000,
+        sleep: () => new Promise<void>(() => {}),
+      }),
+    );
+
+    await src.start(async () => {
+      handlerCalls += 1;
+    });
+    await vi.waitFor(() =>
+      expect(calls.some((c) => c.url.endsWith("/fail"))).toBe(true),
+    );
+    await src.stop();
+
+    expect(handlerCalls).toBe(0);
   });
 
   it("keeps heartbeating while a long turn is in flight (no mid-turn starvation)", async () => {
@@ -1095,6 +1549,104 @@ describe("HttpRenderEventSink", () => {
       }),
     ).rejects.toThrow(/no leased scope/);
   });
+
+  it("rejects a stale attempt frame instead of fencing it with the active attempt's token", async () => {
+    let claims = 0;
+    const { fetch, calls } = fakeFetch((c) => {
+      if (c.url.endsWith("/claim")) {
+        claims += 1;
+        return {
+          body: {
+            claimed: true,
+            delivery: claimedDelivery({
+              attempt: claims,
+              leaseToken: `lease_${claims}`,
+              leaseExpiresAt: `2099-06-30T00:0${claims}:00.000Z`,
+            }),
+          },
+        };
+      }
+      return {
+        body: {
+          idempotencyKey: "turn_9:main:0",
+          acceptance: "accepted",
+        },
+      };
+    });
+    const conf = cfg({ fetch });
+    const src = new HttpDeliverySource(conf);
+    const first = await src.claimOnce();
+    const second = await src.claimOnce();
+    if (!("env" in first) || !("env" in second)) {
+      throw new Error("expected two claims");
+    }
+    const sink = new HttpRenderEventSink(conf, src);
+
+    await expect(
+      sink.push({
+        deliveryId: "dlv_9",
+        deliveryAttempt: first.env.deliveryAttempt,
+        turnId: "turn_9",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toThrow(/stale delivery attempt/);
+
+    expect(
+      calls.filter((c) => c.url.endsWith("/render-events/accept")),
+    ).toHaveLength(0);
+
+    await sink.push({
+      deliveryId: "dlv_9",
+      deliveryAttempt: second.env.deliveryAttempt,
+      turnId: "turn_9",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+    const accept = calls.find((c) => c.url.endsWith("/render-events/accept"))!;
+    expect(accept.body).toMatchObject({ leaseToken: "lease_2" });
+  });
+
+  it("preserves deterministic render-conflict error metadata", async () => {
+    const { fetch } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            ok: false,
+            status: 409,
+            body: {
+              error: {
+                code: "CHANNEL_RENDER_FRAME_CONFLICT",
+                message: "different frame already exists",
+                category: "conflict",
+                retryable: false,
+              },
+            },
+          },
+    );
+    const conf = cfg({ fetch });
+    const src = new HttpDeliverySource(conf);
+    const claim = await src.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+    const sink = new HttpRenderEventSink(conf, src);
+
+    await expect(
+      sink.push({
+        deliveryId: "dlv_9",
+        deliveryAttempt: claim.env.deliveryAttempt,
+        turnId: "turn_9",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toMatchObject({
+      code: "CHANNEL_RENDER_FRAME_CONFLICT",
+      status: 409,
+      retryable: false,
+    });
+  });
 });
 
 describe("intelligenceAdapter() — config-free default transports", () => {
@@ -1151,5 +1703,69 @@ describe("intelligenceAdapter() — config-free default transports", () => {
       declaredChannels: [{ channelName: "opentagbot", adapter: "slack" }],
     });
     expect(calls.some((c) => c.url.endsWith("/claim"))).toBe(true);
+  });
+
+  it("retries a lost completion response once with the exact first payload", async () => {
+    let claimCalls = 0;
+    let ackCalls = 0;
+    const { fetch, calls } = fakeFetch((call) => {
+      if (call.url.endsWith("/heartbeat")) return { body: {} };
+      if (call.url.endsWith("/claim")) {
+        claimCalls += 1;
+        return claimCalls === 1
+          ? { body: { claimed: true, delivery: claimedDelivery() } }
+          : { body: { claimed: false, pollAfterMs: 60_000 } };
+      }
+      if (call.url.endsWith("/ack")) {
+        ackCalls += 1;
+        return ackCalls === 1
+          ? {
+              ok: false,
+              status: 503,
+              body: {
+                error: {
+                  code: "INTERNAL_SERVER_ERROR",
+                  message: "response lost after commit",
+                  retryable: true,
+                },
+              },
+            }
+          : { body: { acknowledged: true } };
+      }
+      return { body: { failed: true } };
+    });
+    const source = new HttpDeliverySource(
+      cfg({
+        fetch,
+        sleep: () => new Promise<void>(() => {}),
+      }),
+    );
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress: new InMemoryEgressSink(),
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+
+    await bot.ɵruntime.start();
+    try {
+      await vi.waitFor(
+        () =>
+          expect(
+            calls.filter((call) => call.url.endsWith("/ack")),
+          ).toHaveLength(2),
+        { timeout: 500 },
+      );
+    } finally {
+      await bot.ɵruntime.stop();
+    }
+
+    const acks = calls.filter((call) => call.url.endsWith("/ack"));
+    expect(acks[1]!.rawBody).toBe(acks[0]!.rawBody);
+    expect(calls.filter((call) => call.url.endsWith("/fail"))).toHaveLength(0);
   });
 });

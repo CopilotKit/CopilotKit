@@ -13,11 +13,23 @@ import {
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { ChannelIngressEnvelope } from "./contracts.js";
 
+const targetAttempt = {
+  deliveryId: "dlv_d1",
+  attemptCount: 1,
+  leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+};
+
 const target = {
   route: { channel: "C1", threadTs: "100.0" },
   turnId: "turn_t1",
   deliveryId: "dlv_d1",
+  deliveryAttempt: targetAttempt,
 } as unknown as ReplyTarget;
+
+const validWireAttempt = {
+  attempt: 1,
+  leaseExpiresAt: "2026-07-01T00:02:30.000Z",
+};
 
 /** Drive a subscriber handler that may be sync or async. */
 type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
@@ -64,6 +76,9 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
+    expect(
+      renderSink.frames.every((f) => f.deliveryAttempt === targetAttempt),
+    ).toBe(true);
   });
 
   it("markInterrupted emits an interrupt frame then a finalize", async () => {
@@ -229,6 +244,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -307,6 +323,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -363,6 +380,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -406,6 +424,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -445,6 +464,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -469,6 +489,41 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(logs.some((m) => m.includes("turn failed/timed out"))).toBe(true);
   });
 
+  it("caps the handler deadline at lease expiry minus the safety margin", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      deliveryTimeoutMs: 60_000,
+    });
+    await t.start(() => new Promise<void>(() => {}));
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          attempt: 1,
+          leaseExpiresAt: "2026-07-01T00:00:10.010Z",
+          id: "dlv_deadline",
+          leaseToken: "lease_deadline",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_deadline",
+            eventId: "evt_deadline",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(
+      () =>
+        expect(fake.pushes.map((p) => p.event)).toContain(
+          "channel.delivery.fail.v1",
+        ),
+      { timeout: 1_000 },
+    );
+  });
+
   it("fails an UNMAPPABLE (poison) delivery non-retryable instead of dropping it into a re-lease loop", async () => {
     const fake = makeFakeSession();
     const logs: string[] = [];
@@ -486,6 +541,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_poison",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -516,7 +572,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(fail.payload.leaseToken).toBe("lease_l1");
   });
 
-  it("sends exactly one terminal signal per delivery (delete-before-push): a late ack after nack no-ops", async () => {
+  it("sends exactly one terminal signal per attempt: a late ack after nack no-ops", async () => {
     const fake = makeFakeSession();
     const t = new RealtimeGatewayTransport(cfg(fake.session));
     let delivered = false;
@@ -526,6 +582,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",
@@ -542,8 +599,8 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     await vi.waitFor(() => expect(delivered).toBe(true));
 
     // Simulate the timeout race: the per-turn timeout nacks while the still-
-    // running dispatch later acks. delete-before-push guarantees the first wins
-    // and the second no-ops — exactly one terminal signal reaches app-api.
+    // running dispatch later acks. The attempt terminal state guarantees the
+    // first kind wins and the second no-ops.
     await t.nack("dlv_d1", "timed out", true);
     await t.ack("dlv_d1"); // late ack — state already gone, must send nothing
 
@@ -555,6 +612,233 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
           e === "channel.delivery.complete_requested.v1",
       );
     expect(terminals).toEqual(["channel.delivery.fail.v1"]);
+  });
+
+  it("preserves terminal state and the first payload across an exact-attempt replay", async () => {
+    const fake = makeFakeSession();
+    let failPushes = 0;
+    const session: RealtimeGatewaySession = {
+      on: fake.session.on,
+      push: async (event, payload) => {
+        const reply = await fake.session.push(event, payload);
+        if (event === "channel.delivery.fail.v1" && failPushes++ === 0) {
+          throw new Error("response lost after accept");
+        }
+        return reply;
+      },
+    };
+    let now = "2026-07-01T00:00:00.000Z";
+    const logs: string[] = [];
+    const attempts: ChannelIngressEnvelope[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(session),
+      now: () => now,
+      log: (message) => logs.push(message),
+    });
+    await t.start(async (env) => {
+      attempts.push(env);
+    });
+    const available = {
+      payload: {
+        delivery: {
+          ...validWireAttempt,
+          id: "dlv_replayed",
+          leaseToken: "lease_replayed",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_replayed",
+            eventId: "evt_replayed",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    };
+    fake.handlers.get("channel.delivery.available.v1")?.(available);
+    await vi.waitFor(() => expect(attempts).toHaveLength(1));
+    const attempt = attempts[0]!.deliveryAttempt!;
+
+    await expect(t.nack(attempt, "first reason", false)).rejects.toThrow(
+      /response lost/,
+    );
+    now = "2026-07-01T00:01:00.000Z";
+    fake.handlers.get("channel.delivery.available.v1")?.(available);
+    await vi.waitFor(() =>
+      expect(
+        logs.some((message) => message.includes("duplicate delivery attempt")),
+      ).toBe(true),
+    );
+    expect(attempts).toHaveLength(1);
+
+    await expect(
+      t.nack(attempt, "different retry reason", true),
+    ).resolves.toBeUndefined();
+
+    const failures = fake.pushes.filter(
+      (push) => push.event === "channel.delivery.fail.v1",
+    );
+    expect(failures).toHaveLength(2);
+    expect(JSON.stringify(failures[1]!.payload)).toBe(
+      JSON.stringify(failures[0]!.payload),
+    );
+  });
+
+  it("does not let attempt 1 settle with attempt 2's lease token", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (message) => logs.push(message),
+    });
+    const attempts: ChannelIngressEnvelope[] = [];
+    await t.start(async (env) => {
+      attempts.push(env);
+    });
+    const fire = (attempt: number, leaseToken: string) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id: "dlv_same",
+            attempt,
+            leaseExpiresAt: `2026-07-01T00:0${attempt}:30.000Z`,
+            leaseToken,
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: "turn_same",
+              eventId: "evt_same",
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire(1, "lease_1");
+    fire(2, "lease_2");
+    await vi.waitFor(() => expect(attempts).toHaveLength(2));
+
+    await t.push({
+      deliveryId: "dlv_same",
+      deliveryAttempt: attempts[1]!.deliveryAttempt,
+      turnId: "turn_same",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+    await t.ack(attempts[0]!.deliveryAttempt!);
+    await t.ack(attempts[1]!.deliveryAttempt!);
+
+    const terminals = fake.pushes.filter(
+      (p) => p.event === "channel.delivery.complete_requested.v1",
+    );
+    expect(terminals).toHaveLength(1);
+    expect(
+      (terminals[0]!.payload as { payload: { leaseToken: string } }).payload
+        .leaseToken,
+    ).toBe("lease_2");
+    expect(logs.some((message) => message.includes("stale attempt"))).toBe(
+      true,
+    );
+  });
+
+  it("ignores late older and same-count changed-expiry gateway deliveries", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const attempts: ChannelIngressEnvelope[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (message) => logs.push(message),
+    });
+    await t.start(async (env) => {
+      attempts.push(env);
+    });
+    const fire = (
+      attempt: number,
+      leaseToken: string,
+      leaseExpiresAt: string,
+    ) =>
+      fake.handlers.get("channel.delivery.available.v1")?.({
+        payload: {
+          delivery: {
+            id: "dlv_ordered",
+            attempt,
+            leaseExpiresAt,
+            leaseToken,
+            adapter: "slack",
+            channel: { id: "channel_1", name: "support" },
+            turn: {
+              id: "turn_ordered",
+              eventId: "evt_ordered",
+              replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+              input: { kind: "text", text: "hi" },
+            },
+          },
+        },
+      });
+    fire(2, "lease_2", "2026-07-01T00:02:30.000Z");
+    fire(1, "lease_1_late", "2026-07-01T00:01:30.000Z");
+    fire(2, "lease_2_changed", "2026-07-01T00:02:00.000Z");
+
+    await vi.waitFor(() => expect(attempts).toHaveLength(1));
+    await vi.waitFor(() =>
+      expect(
+        logs.filter((message) => message.includes("attempt ignored")),
+      ).toHaveLength(2),
+    );
+    const active = attempts[0]!.deliveryAttempt!;
+    await t.push({
+      deliveryId: active.deliveryId,
+      deliveryAttempt: active,
+      turnId: "turn_ordered",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+    await t.ack(active);
+
+    const terminal = fake.pushes.find(
+      (push) => push.event === "channel.delivery.complete_requested.v1",
+    )!.payload as { payload: { leaseToken: string } };
+    expect(terminal.payload.leaseToken).toBe("lease_2");
+  });
+
+  it("rejects invalid attempt identity as a non-retryable poison delivery", async () => {
+    const fake = makeFakeSession();
+    const t = new RealtimeGatewayTransport(cfg(fake.session));
+    let delivered = false;
+    await t.start(async () => {
+      delivered = true;
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.({
+      payload: {
+        delivery: {
+          id: "dlv_invalid_attempt",
+          attempt: 0,
+          leaseExpiresAt: "not-a-date",
+          leaseToken: "lease_invalid_attempt",
+          adapter: "slack",
+          channel: { id: "channel_1", name: "support" },
+          turn: {
+            id: "turn_invalid_attempt",
+            eventId: "evt_invalid_attempt",
+            replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+            input: { kind: "text", text: "hi" },
+          },
+        },
+      },
+    });
+
+    await vi.waitFor(() =>
+      expect(fake.pushes.map((p) => p.event)).toContain(
+        "channel.delivery.fail.v1",
+      ),
+    );
+    expect(delivered).toBe(false);
+    const fail = fake.pushes.find(
+      (p) => p.event === "channel.delivery.fail.v1",
+    )!.payload as { payload: { error: { retryable: boolean } } };
+    expect(fail.payload.error.retryable).toBe(false);
   });
 
   it("processes deliveries serially — a second delivery waits for the first to finish", async () => {
@@ -574,6 +858,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       fake.handlers.get("channel.delivery.available.v1")?.({
         payload: {
           delivery: {
+            ...validWireAttempt,
             id,
             leaseToken: "l",
             adapter: "slack",
@@ -617,6 +902,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
       fake.handlers.get("channel.delivery.available.v1")?.({
         payload: {
           delivery: {
+            ...validWireAttempt,
             id,
             leaseToken: `lease_${id}`,
             adapter: "slack",
@@ -664,6 +950,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           // no leaseToken → the SDK can't build a fenced complete/fail intent
           adapter: "slack",
@@ -707,6 +994,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           organizationId: "org_OTHER",
@@ -760,6 +1048,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     fake.handlers.get("channel.delivery.available.v1")?.({
       payload: {
         delivery: {
+          ...validWireAttempt,
           id: "dlv_d1",
           leaseToken: "lease_l1",
           adapter: "slack",

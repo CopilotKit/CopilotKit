@@ -156,6 +156,11 @@ describe("startChannels", () => {
 
     await sources.get("support")!.deliver({
       deliveryId: "d1",
+      deliveryAttempt: {
+        deliveryId: "d1",
+        attemptCount: 1,
+        leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+      },
       eventId: "e1",
       turnId: "t1",
       channelName: "support",
@@ -193,6 +198,11 @@ describe("startChannels", () => {
 
     await source.deliver({
       deliveryId: "d1",
+      deliveryAttempt: {
+        deliveryId: "d1",
+        attemptCount: 1,
+        leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+      },
       eventId: "e1",
       turnId: "t1",
       channelName: "support",

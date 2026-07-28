@@ -14,6 +14,8 @@ const baseDelivery = (
   channel: { id: "channel_1", name: "support" },
   adapter: "slack",
   leaseToken: "lease_1",
+  attempt: 2,
+  leaseExpiresAt: "2099-07-01T00:02:30.000Z",
   turn: {
     id: "turn_1",
     eventId: "evt_1",
@@ -70,6 +72,25 @@ describe("conversationKeyFromReplyTarget", () => {
 });
 
 describe("mapDeliveryToEnvelope — identity (OSS-476)", () => {
+  it("maps the exact delivery attempt identity onto the envelope", () => {
+    const env = mapDeliveryToEnvelope(baseDelivery());
+
+    expect(env.deliveryAttempt).toEqual({
+      deliveryId: "dlv_1",
+      attemptCount: 2,
+      leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+    });
+  });
+
+  it("rejects a parseable non-ISO lease expiry", () => {
+    expect(() =>
+      mapDeliveryToEnvelope({
+        ...baseDelivery(),
+        leaseExpiresAt: "0",
+      }),
+    ).toThrow(/invalid delivery lease expiry/);
+  });
+
   it("maps the provider actor to env.user (id + displayName)", () => {
     const env = mapDeliveryToEnvelope(
       baseDelivery({

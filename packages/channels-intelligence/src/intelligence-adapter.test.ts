@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   createChannel,
   FakeAdapter,
@@ -15,7 +15,7 @@ import {
 } from "./in-memory-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import type { FetchLike } from "./http-transports.js";
-import type { EgressSink } from "./transports.js";
+import type { EgressSink, RenderEventSink } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelIngressBase,
@@ -25,6 +25,11 @@ type TurnEnvelope = Extract<ChannelIngressEnvelope, { kind: "turn" }>;
 function envelope(partial?: Partial<TurnEnvelope>): ChannelIngressEnvelope {
   return {
     deliveryId: "d1",
+    deliveryAttempt: {
+      deliveryId: "d1",
+      attemptCount: 1,
+      leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+    },
     eventId: "e1",
     turnId: "t1",
     channelName: "support",
@@ -56,6 +61,13 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(egress.ops).toHaveLength(1);
     expect(egress.ops[0]!.op.kind).toBe("post");
     expect(egress.ops[0]!.turnId).toBe("t1");
+    expect(egress.ops[0]).toMatchObject({
+      deliveryAttempt: {
+        deliveryId: "d1",
+        attemptCount: 1,
+        leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+      },
+    });
     expect(seen?.turnId).toBe("t1");
     expect(seen?.deliveryId).toBe("d1");
     expect(seen?.eventId).toBe("e1");
@@ -94,8 +106,55 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     });
     bot.onMessage(async () => {});
     await bot.ɵruntime.start();
-    await source.deliver(envelope({ deliveryId: "d9" }));
+    await source.deliver(
+      envelope({
+        deliveryId: "d9",
+        deliveryAttempt: {
+          deliveryId: "d9",
+          attemptCount: 4,
+          leaseExpiresAt: "2099-07-01T00:04:30.000Z",
+        },
+      }),
+    );
     expect(source.acked).toEqual(["d9"]);
+    expect(source.ackedAttempts).toEqual([
+      {
+        deliveryId: "d9",
+        attemptCount: 4,
+        leaseExpiresAt: "2099-07-01T00:04:30.000Z",
+      },
+    ]);
+    expect(source.nacked).toEqual([]);
+  });
+
+  it("keeps legacy injected envelopes working without attempt metadata", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(Section({ children: "legacy reply" }));
+    });
+    await bot.ɵruntime.start();
+    const legacyEnvelope: ChannelIngressEnvelope = {
+      deliveryId: "d_legacy",
+      eventId: "e_legacy",
+      turnId: "t_legacy",
+      channelName: "support",
+      platform: "slack",
+      conversationKey: "c_legacy",
+      kind: "turn",
+      text: "hello from an injected source",
+      route: { r: "legacy" },
+    };
+
+    await source.deliver(legacyEnvelope);
+
+    expect(egress.ops).toHaveLength(1);
+    expect(source.acked).toEqual(["d_legacy"]);
+    expect(source.ackedAttempts).toEqual([]);
     expect(source.nacked).toEqual([]);
   });
 
@@ -110,9 +169,175 @@ describe("intelligenceAdapter — ingress dispatch", () => {
       throw new Error("boom");
     });
     await bot.ɵruntime.start();
-    await source.deliver(envelope({ deliveryId: "d9" }));
+    await source.deliver(
+      envelope({
+        deliveryId: "d9",
+        deliveryAttempt: {
+          deliveryId: "d9",
+          attemptCount: 4,
+          leaseExpiresAt: "2099-07-01T00:04:30.000Z",
+        },
+      }),
+    );
     expect(source.acked).toEqual([]);
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
+  });
+
+  it("marks deterministic render conflicts non-retryable even when metadata says retryable", async () => {
+    const source = new InMemoryDeliverySource();
+    const renderSink: RenderEventSink = {
+      push: async () => {
+        throw Object.assign(new Error("different frame already exists"), {
+          code: "CHANNEL_RENDER_FRAME_CONFLICT",
+          retryable: true,
+        });
+      },
+    };
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress: new InMemoryEgressSink(),
+          renderSink,
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(Section({ children: "reply" }));
+    });
+    await bot.ɵruntime.start();
+
+    await source.deliver(envelope());
+
+    expect(source.nacked).toHaveLength(1);
+    expect(source.nacked[0]).toMatchObject({
+      deliveryId: "d1",
+      retryable: false,
+    });
+  });
+
+  it("logs a non-retryable completion failure without nacking or retrying", async () => {
+    const source = new InMemoryDeliverySource();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    const ack = vi
+      .spyOn(source, "ack")
+      .mockRejectedValueOnce(
+        Object.assign(new Error("lease fenced"), {
+          code: "CHANNEL_DELIVERY_LEASE_INVALID",
+        }),
+      )
+      // Mirrors a real source after a definitive fence cleans its local state:
+      // an incorrect retry would no-op and swallow the original error.
+      .mockResolvedValueOnce();
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress: new InMemoryEgressSink(),
+          config: { log: (msg, meta) => logs.push({ msg, meta }) },
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+    await bot.ɵruntime.start();
+
+    await expect(source.deliver(envelope())).resolves.toBeUndefined();
+    expect(ack).toHaveBeenCalledTimes(1);
+    expect(source.nacked).toEqual([]);
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        msg: expect.stringMatching(/ack failed.*not nacking/i),
+        meta: expect.objectContaining({ message: "lease fenced" }),
+      }),
+    );
+  });
+
+  it("logs after one retryable completion retry without nacking", async () => {
+    const source = new InMemoryDeliverySource();
+    const logs: { msg: string; meta?: unknown }[] = [];
+    const ack = vi
+      .spyOn(source, "ack")
+      .mockRejectedValue(
+        Object.assign(new Error("gateway unavailable"), { retryable: true }),
+      );
+    const bot = createChannel({
+      adapters: [
+        intelligenceAdapter({
+          source,
+          egress: new InMemoryEgressSink(),
+          config: { log: (msg, meta) => logs.push({ msg, meta }) },
+        }),
+      ],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+    await bot.ɵruntime.start();
+
+    await expect(source.deliver(envelope())).resolves.toBeUndefined();
+    expect(ack).toHaveBeenCalledTimes(2);
+    expect(source.nacked).toEqual([]);
+    expect(logs.some((entry) => /retrying once/i.test(entry.msg))).toBe(true);
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        msg: expect.stringMatching(/ack failed.*not nacking/i),
+        meta: expect.objectContaining({ message: "gateway unavailable" }),
+      }),
+    );
+  });
+
+  it("evicts attempt render state at lease expiry while its handler is still hung", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+    try {
+      const source = new InMemoryDeliverySource();
+      const adapter = intelligenceAdapter({
+        source,
+        egress: new InMemoryEgressSink(),
+      });
+      const bot = createChannel({
+        adapters: [adapter],
+        agent: () => new FakeAgent(),
+      });
+      let releaseHandler!: () => void;
+      const handlerGate = new Promise<void>((resolve) => {
+        releaseHandler = resolve;
+      });
+      let markStarted!: () => void;
+      const handlerStarted = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      bot.onMessage(async () => {
+        markStarted();
+        await handlerGate;
+      });
+      await bot.ɵruntime.start();
+
+      const pending = source.deliver(
+        envelope({
+          deliveryId: "d_expiring",
+          deliveryAttempt: {
+            deliveryId: "d_expiring",
+            attemptCount: 1,
+            leaseExpiresAt: "2026-07-01T00:00:01.000Z",
+          },
+        }),
+      );
+      await handlerStarted;
+      const renderState = (
+        adapter as unknown as { renderState: Map<string, unknown> }
+      ).renderState;
+      expect(renderState.size).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(1_001);
+      expect(renderState.size).toBe(0);
+
+      releaseHandler();
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -528,6 +753,11 @@ describe("intelligenceAdapter — ack failure isolation (OSS-491)", () => {
 describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
   const base: ChannelIngressBase = {
     deliveryId: "d1",
+    deliveryAttempt: {
+      deliveryId: "d1",
+      attemptCount: 1,
+      leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+    },
     eventId: "e1",
     turnId: "t1",
     channelName: "support",
@@ -597,6 +827,11 @@ describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
     await source.deliver({
       ...base,
       deliveryId: "d_click",
+      deliveryAttempt: {
+        deliveryId: "d_click",
+        attemptCount: 1,
+        leaseExpiresAt: "2099-07-01T00:02:30.000Z",
+      },
       turnId: "t_click",
       kind: "interaction",
       actionId: "ck:approve",

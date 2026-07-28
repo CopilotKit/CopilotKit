@@ -1,5 +1,12 @@
 import type { MessageRef } from "@copilotkit/channels-ui";
 import type { ChannelFileRef, ChannelIngressEnvelope } from "./contracts.js";
+import { deliveryAttemptFromClaim } from "./delivery-attempt.js";
+import type { DeliveryAttemptRef } from "./delivery-attempt.js";
+
+/** A live claimed envelope always carries validated attempt identity. */
+export type ClaimedChannelIngressEnvelope = ChannelIngressEnvelope & {
+  deliveryAttempt: DeliveryAttemptRef;
+};
 
 /**
  * Shared claim → ingress-envelope mapping used by BOTH transports (the HTTP
@@ -51,11 +58,13 @@ export interface ClaimedDeliveryActor {
 /** Successful `claim` delivery envelope (the subset the bridge reads). */
 export interface ClaimedDelivery {
   id: string;
+  attempt: number;
   organizationId: string;
   projectId: number;
   channel: { id: string; name: string };
   adapter: string;
   leaseToken: string;
+  leaseExpiresAt: string;
   turn: {
     id: string;
     eventId: string;
@@ -139,9 +148,10 @@ export function conversationKeyFromReplyTarget(rt: ReplyTarget): string {
  */
 export function mapDeliveryToEnvelope(
   d: ClaimedDelivery,
-): ChannelIngressEnvelope {
+): ClaimedChannelIngressEnvelope {
   const base = {
     deliveryId: d.id,
+    deliveryAttempt: deliveryAttemptFromClaim(d),
     eventId: d.turn.eventId,
     turnId: d.turn.id,
     // `ChannelIngressEnvelope` remains aligned with the channels framework's

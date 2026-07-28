@@ -1,4 +1,5 @@
 import { Socket } from "phoenix";
+import { channelTransportError } from "./delivery-attempt.js";
 
 /**
  * Minimal Realtime Gateway session surface used by the delivery/render
@@ -822,8 +823,9 @@ export async function connectRealtimeGateway(
           .receive("ok", (reply: unknown) => resolve(reply))
           .receive("error", (reason: unknown) =>
             reject(
-              new Error(
-                `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
+              channelTransportError(
+                `realtime gateway session push ${event} failed`,
+                reason,
               ),
             ),
           )

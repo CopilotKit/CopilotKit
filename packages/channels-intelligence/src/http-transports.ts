@@ -16,8 +16,27 @@ import type {
 } from "./contracts.js";
 import { irToText } from "./ir-to-text.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
-import type { ClaimedDelivery } from "./claim-mapping.js";
+import type {
+  ClaimedChannelIngressEnvelope,
+  ClaimedDelivery,
+} from "./claim-mapping.js";
 import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
+import {
+  channelTransportError,
+  deliveryAttemptFromClaim,
+  deliveryAttemptKey,
+  effectiveDeliveryTimeoutMs,
+  isDeliveryAttemptExpired,
+  isRetryableDeliveryError,
+  isStrictlyNewerDeliveryAttempt,
+  runAttemptTerminalIntent,
+  scheduleDeliveryAttemptExpiry,
+} from "./delivery-attempt.js";
+import type {
+  AttemptTerminalState,
+  DeliveryAttemptInput,
+  DeliveryAttemptRef,
+} from "./delivery-attempt.js";
 
 /**
  * @internal Default HTTP transports for {@link intelligenceAdapter}.
@@ -206,18 +225,40 @@ class IntelligenceHttp {
     });
     const raw = await res.text();
     if (!res.ok) {
-      throw new Error(
-        `intelligence ${path} -> ${res.status}: ${raw.slice(0, 300)}`,
+      let reason: unknown = raw.slice(0, 300);
+      try {
+        reason = raw ? (JSON.parse(raw) as unknown) : reason;
+      } catch {
+        // Preserve the bounded raw response in the fallback error message.
+      }
+      throw channelTransportError(
+        `intelligence ${path} -> ${res.status}`,
+        reason,
+        res.status,
       );
     }
     return raw ? (JSON.parse(raw) as T) : ({} as T);
   }
 }
 
-interface LeaseRecord {
+interface LeaseRecord extends AttemptTerminalState {
+  attempt: DeliveryAttemptRef;
+  cancelExpiry?: () => void;
   turnId: string;
   leaseToken: string;
   scope: ChannelDeliveryScope;
+}
+
+interface DeliveryLeaseIdentity {
+  turnId: string;
+  runtimeInstanceId: string;
+  leaseToken: string;
+}
+
+interface DeliveryLeaseIdentitySource {
+  leaseIdentityFor(
+    attempt: DeliveryAttemptRef,
+  ): DeliveryLeaseIdentity | undefined;
 }
 
 /**
@@ -229,7 +270,10 @@ interface LeaseRecord {
 export class HttpDeliverySource implements DeliverySource {
   private readonly http: IntelligenceHttp;
   private readonly fileHistory: IntelligenceFileHistoryClient;
+  /** Attempt-keyed so a late handler can never resolve through newer state. */
   private readonly leases = new Map<string, LeaseRecord>();
+  /** Compatibility/current-attempt index for legacy string callers. */
+  private readonly activeAttempts = new Map<string, string>();
   private running = false;
   private loop?: Promise<void>;
   /** Standalone recurring heartbeat timer, independent of the claim loop. */
@@ -260,6 +304,109 @@ export class HttpDeliverySource implements DeliverySource {
     });
   }
 
+  private registerLease(record: LeaseRecord): boolean {
+    const key = deliveryAttemptKey(record.attempt);
+    if (this.leases.has(key)) {
+      this.cfg.log?.("intelligence duplicate delivery attempt ignored", {
+        deliveryId: record.attempt.deliveryId,
+        attemptCount: record.attempt.attemptCount,
+      });
+      return false;
+    }
+    const previousKey = this.activeAttempts.get(record.attempt.deliveryId);
+    if (previousKey) {
+      const previous = this.leases.get(previousKey);
+      if (previous) {
+        if (!isStrictlyNewerDeliveryAttempt(record.attempt, previous.attempt)) {
+          this.cfg.log?.(
+            "intelligence stale/conflicting delivery attempt ignored",
+            {
+              deliveryId: record.attempt.deliveryId,
+              incomingAttemptCount: record.attempt.attemptCount,
+              activeAttemptCount: previous.attempt.attemptCount,
+            },
+          );
+          return false;
+        }
+        this.cleanupLease(previous);
+        this.cfg.log?.("intelligence delivery attempt superseded", {
+          deliveryId: record.attempt.deliveryId,
+          previousAttemptKey: previousKey,
+          activeAttemptKey: key,
+        });
+      }
+    }
+    this.leases.set(key, record);
+    this.activeAttempts.set(record.attempt.deliveryId, key);
+    record.cancelExpiry = scheduleDeliveryAttemptExpiry(
+      record.attempt,
+      () => Date.now(),
+      () => {
+        if (this.leases.get(key) !== record) return;
+        this.cleanupLease(record);
+        this.cfg.log?.("intelligence delivery attempt expired", {
+          deliveryId: record.attempt.deliveryId,
+          attemptCount: record.attempt.attemptCount,
+        });
+      },
+    );
+    return true;
+  }
+
+  private cleanupLease(record: LeaseRecord): void {
+    record.cancelExpiry?.();
+    delete record.cancelExpiry;
+    const key = deliveryAttemptKey(record.attempt);
+    const ownsAttempt = this.leases.get(key) === record;
+    if (ownsAttempt) this.leases.delete(key);
+    if (
+      ownsAttempt &&
+      this.activeAttempts.get(record.attempt.deliveryId) === key
+    ) {
+      this.activeAttempts.delete(record.attempt.deliveryId);
+    }
+  }
+
+  private resolveLease(
+    input: DeliveryAttemptInput,
+    operation: string,
+  ): LeaseRecord | undefined {
+    const deliveryId = typeof input === "string" ? input : input.deliveryId;
+    const activeKey = this.activeAttempts.get(deliveryId);
+    const requestedKey =
+      typeof input === "string" ? activeKey : deliveryAttemptKey(input);
+    if (!activeKey) {
+      this.cfg.log?.(
+        `intelligence ${operation}: no lease for delivery ${deliveryId}`,
+      );
+      return undefined;
+    }
+    if (requestedKey !== activeKey) {
+      this.cfg.log?.(`intelligence ${operation}: stale attempt ignored`, {
+        deliveryId,
+        requestedAttemptKey: requestedKey,
+        activeAttemptKey: activeKey,
+      });
+      return undefined;
+    }
+    const lease = this.leases.get(requestedKey);
+    if (!lease) {
+      this.cfg.log?.(
+        `intelligence ${operation}: no lease for delivery ${deliveryId}`,
+      );
+      return undefined;
+    }
+    if (isDeliveryAttemptExpired(lease.attempt, Date.now())) {
+      this.cleanupLease(lease);
+      this.cfg.log?.(`intelligence ${operation}: expired attempt ignored`, {
+        deliveryId,
+        attemptCount: lease.attempt.attemptCount,
+      });
+      return undefined;
+    }
+    return lease;
+  }
+
   private sleep(ms: number): Promise<void> {
     const base = (this.cfg.sleep ?? defaultSleep)(ms);
     // Interruptible: stop() resolves stopWait so an in-flight poll-sleep ends at
@@ -280,7 +427,7 @@ export class HttpDeliverySource implements DeliverySource {
 
   /** Claim a single delivery; returns the mapped envelope, or the idle backoff. */
   async claimOnce(): Promise<
-    { env: ChannelIngressEnvelope } | { pollAfterMs: number }
+    { env: ClaimedChannelIngressEnvelope } | { pollAfterMs: number }
   > {
     const res = await this.http.post<ClaimResponse>(
       "/api/channels/listener/claim",
@@ -295,7 +442,25 @@ export class HttpDeliverySource implements DeliverySource {
       },
     );
     if (!res.claimed) return { pollAfterMs: res.pollAfterMs ?? 1000 };
-    this.leases.set(res.delivery.id, {
+    let attempt: DeliveryAttemptRef;
+    try {
+      attempt = deliveryAttemptFromClaim(res.delivery);
+    } catch (attemptErr) {
+      this.cfg.log?.(
+        "intelligence claim: invalid attempt identity; failing non-retryable",
+        attemptErr,
+      );
+      await this.failClaimWithoutAttempt(res.delivery, attemptErr).catch(
+        (failErr) =>
+          this.cfg.log?.(
+            "intelligence fail after invalid attempt identity failed",
+            failErr,
+          ),
+      );
+      return { pollAfterMs: 1000 };
+    }
+    const registered = this.registerLease({
+      attempt,
       turnId: res.delivery.turn.id,
       leaseToken: res.delivery.leaseToken,
       scope: {
@@ -305,6 +470,7 @@ export class HttpDeliverySource implements DeliverySource {
         channelName: res.delivery.channel.name,
       },
     });
+    if (!registered) return { pollAfterMs: 1000 };
     try {
       return { env: mapDeliveryToEnvelope(res.delivery) };
     } catch (mapErr) {
@@ -314,7 +480,7 @@ export class HttpDeliverySource implements DeliverySource {
       // let app-api dead-letter it rather than burn retries) and fall through to
       // an idle poll so the loop keeps draining the queue. Without this the
       // throw escapes to runLoop's catch, which only logs+sleeps, leaking the
-      // lease until the 120s expiry redelivers the same poison payload forever.
+      // lease until expiry redelivers the same poison payload forever.
       this.cfg.log?.("intelligence claim: unmappable delivery", mapErr);
       await this.nack(
         res.delivery.id,
@@ -330,15 +496,52 @@ export class HttpDeliverySource implements DeliverySource {
     }
   }
 
+  private async failClaimWithoutAttempt(
+    delivery: ClaimedDelivery,
+    reason: unknown,
+  ): Promise<void> {
+    await this.http.post(
+      `/api/channels/deliveries/${encodeURIComponent(delivery.id)}/fail`,
+      {
+        turnId: delivery.turn.id,
+        runtimeInstanceId: this.cfg.runtimeInstanceId,
+        leaseToken: delivery.leaseToken,
+        failedAt: new Date().toISOString(),
+        error: {
+          code: "runtime_error",
+          message: (reason instanceof Error
+            ? reason.message
+            : String(reason)
+          ).slice(0, 500),
+          retryable: false,
+        },
+      },
+    );
+  }
+
   /** The org/project/channel scope for a leased delivery, for render-frame egress. */
-  scopeFor(deliveryId: string): ChannelDeliveryScope | undefined {
-    return this.leases.get(deliveryId)?.scope;
+  scopeFor(attempt: DeliveryAttemptInput): ChannelDeliveryScope | undefined {
+    return this.resolveLease(attempt, "render")?.scope;
   }
 
   /** The lease token for a leased delivery, so a render frame can fence its
    * accept against `lease_token_hash` the same way ack/fail already do. */
-  leaseTokenFor(deliveryId: string): string | undefined {
-    return this.leases.get(deliveryId)?.leaseToken;
+  leaseTokenFor(attempt: DeliveryAttemptInput): string | undefined {
+    return this.resolveLease(attempt, "render")?.leaseToken;
+  }
+
+  /** Exact live lease identity for attempt-fenced direct HTTP egress. */
+  leaseIdentityFor(
+    attempt: DeliveryAttemptRef,
+  ): DeliveryLeaseIdentity | undefined {
+    const lease = this.resolveLease(attempt, "egress");
+    return lease
+      ? {
+          turnId: lease.turnId,
+          runtimeInstanceId: this.cfg.runtimeInstanceId,
+          leaseToken: lease.leaseToken,
+        }
+      : undefined;
   }
 
   async start(
@@ -398,7 +601,30 @@ export class HttpDeliverySource implements DeliverySource {
           // we time it out, `nack` to release the lease immediately (app-api
           // then retries / dead-letters at max_attempts), and keep polling.
           const env = r.env;
-          const timeoutMs = this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
+          const configuredTimeoutMs =
+            this.cfg.turnTimeoutMs ?? DEFAULT_TURN_TIMEOUT_MS;
+          const timeoutMs = effectiveDeliveryTimeoutMs(
+            configuredTimeoutMs,
+            env.deliveryAttempt,
+            Date.now(),
+          );
+          if (timeoutMs <= 0) {
+            const reason =
+              `turn ${env.turnId} cannot start inside the delivery lease ` +
+              "safety margin";
+            this.cfg.log?.("intelligence turn skipped near lease expiry", {
+              deliveryId: env.deliveryId,
+              attemptCount: env.deliveryAttempt.attemptCount,
+              leaseExpiresAt: env.deliveryAttempt.leaseExpiresAt,
+            });
+            await this.nack(env.deliveryAttempt, reason).catch((nackErr) =>
+              this.cfg.log?.(
+                "intelligence nack after lease-margin skip failed",
+                nackErr,
+              ),
+            );
+            continue;
+          }
           // Always attach a terminal handler so a turn that rejects AFTER we've
           // stopped (below) never surfaces as an unhandled rejection.
           const settled = withTimeout(
@@ -425,10 +651,11 @@ export class HttpDeliverySource implements DeliverySource {
           if (!outcome.ok) {
             this.cfg.log?.("intelligence turn failed/timed out", outcome.err);
             await this.nack(
-              env.deliveryId,
+              env.deliveryAttempt,
               outcome.err instanceof Error
                 ? outcome.err.message
                 : String(outcome.err),
+              isRetryableDeliveryError(outcome.err),
             ).catch((nackErr) =>
               this.cfg.log?.(
                 "intelligence nack after turn failure failed",
@@ -446,53 +673,56 @@ export class HttpDeliverySource implements DeliverySource {
     }
   }
 
-  async ack(deliveryId: string): Promise<void> {
-    const lease = this.leases.get(deliveryId);
-    if (!lease) {
-      this.cfg.log?.(`intelligence ack: no lease for delivery ${deliveryId}`);
-      return;
-    }
-    // Claim the terminal signal BEFORE the wire call. A turn that completes in
-    // the background after a timeout-`nack` (both close over this lease) must
-    // not also ack: whichever of ack/nack runs first deletes the lease, so the
-    // other sees none and no-ops — exactly one of ack XOR fail reaches app-api.
-    this.leases.delete(deliveryId);
-    await this.http.post(
-      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/ack`,
-      {
-        turnId: lease.turnId,
-        runtimeInstanceId: this.cfg.runtimeInstanceId,
-        leaseToken: lease.leaseToken,
-        acknowledgedAt: new Date().toISOString(),
-      },
+  async ack(attempt: DeliveryAttemptInput): Promise<void> {
+    const lease = this.resolveLease(attempt, "ack");
+    if (!lease) return;
+    const payload = {
+      turnId: lease.turnId,
+      runtimeInstanceId: this.cfg.runtimeInstanceId,
+      leaseToken: lease.leaseToken,
+      acknowledgedAt: new Date().toISOString(),
+    };
+    await runAttemptTerminalIntent(
+      lease,
+      "complete",
+      () =>
+        this.http.post(
+          `/api/channels/deliveries/${encodeURIComponent(lease.attempt.deliveryId)}/ack`,
+          payload,
+        ),
+      () => this.cleanupLease(lease),
+      this.cfg.log,
     );
   }
 
   async nack(
-    deliveryId: string,
+    attempt: DeliveryAttemptInput,
     reason: string,
     retryable = true,
   ): Promise<void> {
-    const lease = this.leases.get(deliveryId);
-    if (!lease) {
-      this.cfg.log?.(`intelligence nack: no lease for delivery ${deliveryId}`);
-      return;
-    }
-    // Delete-before-POST for the same reason as `ack`: single terminal signal.
-    this.leases.delete(deliveryId);
-    await this.http.post(
-      `/api/channels/deliveries/${encodeURIComponent(deliveryId)}/fail`,
-      {
-        turnId: lease.turnId,
-        runtimeInstanceId: this.cfg.runtimeInstanceId,
-        leaseToken: lease.leaseToken,
-        failedAt: new Date().toISOString(),
-        error: {
-          code: "runtime_error",
-          message: (reason || "runtime error").slice(0, 500),
-          retryable,
-        },
+    const lease = this.resolveLease(attempt, "nack");
+    if (!lease) return;
+    const payload = {
+      turnId: lease.turnId,
+      runtimeInstanceId: this.cfg.runtimeInstanceId,
+      leaseToken: lease.leaseToken,
+      failedAt: new Date().toISOString(),
+      error: {
+        code: "runtime_error",
+        message: (reason || "runtime error").slice(0, 500),
+        retryable,
       },
+    };
+    await runAttemptTerminalIntent(
+      lease,
+      "fail",
+      () =>
+        this.http.post(
+          `/api/channels/deliveries/${encodeURIComponent(lease.attempt.deliveryId)}/fail`,
+          payload,
+        ),
+      () => this.cleanupLease(lease),
+      this.cfg.log,
     );
   }
 
@@ -531,6 +761,9 @@ export class HttpDeliverySource implements DeliverySource {
       this.heartbeatTimer = undefined;
     }
     await this.loop?.catch(() => {});
+    for (const lease of this.leases.values()) lease.cancelExpiry?.();
+    this.leases.clear();
+    this.activeAttempts.clear();
   }
 }
 
@@ -543,7 +776,10 @@ export class HttpDeliverySource implements DeliverySource {
 export class HttpEgressSink implements EgressSink {
   private readonly http: IntelligenceHttp;
 
-  constructor(private readonly cfg: IntelligenceTransportConfig) {
+  constructor(
+    private readonly cfg: IntelligenceTransportConfig,
+    private readonly leaseSource?: DeliveryLeaseIdentitySource,
+  ) {
     this.http = new IntelligenceHttp(cfg);
   }
 
@@ -578,6 +814,34 @@ export class HttpEgressSink implements EgressSink {
     // to the config adapter when the route carries none.
     const routeAdapter = (op.route as { adapter?: string } | null | undefined)
       ?.adapter;
+    let attemptCredentials:
+      | {
+          turnId: string;
+          runtimeInstanceId: string;
+          leaseToken: string;
+        }
+      | undefined;
+    if (op.deliveryAttempt) {
+      const lease =
+        op.deliveryAttempt.deliveryId === op.deliveryId
+          ? this.leaseSource?.leaseIdentityFor(op.deliveryAttempt)
+          : undefined;
+      if (!lease || lease.turnId !== op.turnId) {
+        this.cfg.log?.(
+          "intelligence egress: exact delivery attempt unavailable",
+          {
+            deliveryId: op.deliveryId,
+            attemptCount: op.deliveryAttempt.attemptCount,
+          },
+        );
+        return { ok: false, code: "delivery_attempt_unavailable" };
+      }
+      attemptCredentials = {
+        turnId: op.turnId,
+        runtimeInstanceId: lease.runtimeInstanceId,
+        leaseToken: lease.leaseToken,
+      };
+    }
     try {
       const res = await this.http.post<EgressResponse>(
         "/api/channels/egress/messages",
@@ -588,6 +852,7 @@ export class HttpEgressSink implements EgressSink {
           idempotencyKey: op.operationId,
           replyTarget: op.route,
           text,
+          ...attemptCredentials,
         },
       );
       if (res.status === "failed") {
@@ -629,25 +894,28 @@ export class HttpRenderEventSink implements RenderEventSink {
   constructor(
     private readonly cfg: IntelligenceTransportConfig,
     private readonly scopeSource: {
-      scopeFor(deliveryId: string): ChannelDeliveryScope | undefined;
-      leaseTokenFor(deliveryId: string): string | undefined;
+      scopeFor(attempt: DeliveryAttemptInput): ChannelDeliveryScope | undefined;
+      leaseTokenFor(attempt: DeliveryAttemptInput): string | undefined;
     },
   ) {
     this.http = new IntelligenceHttp(cfg);
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const scope = this.scopeSource.scopeFor(frame.deliveryId);
+    const attempt = frame.deliveryAttempt ?? frame.deliveryId;
+    const scope = this.scopeSource.scopeFor(attempt);
     if (!scope) {
       throw new Error(
-        `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
+        frame.deliveryAttempt
+          ? `intelligenceAdapter: stale delivery attempt cannot render for ${frame.deliveryId}`
+          : `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
       );
     }
     // Fence the render-accept on the delivery's lease token (OSS-446), the same
     // way ack/fail already do. Optional: app-api falls back to instance-id +
     // expiry when it's absent, so an older lease record without a token still
     // renders — but supplying it lets app-api reject a stale/rotated lease.
-    const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
+    const leaseToken = this.scopeSource.leaseTokenFor(attempt);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
       `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,

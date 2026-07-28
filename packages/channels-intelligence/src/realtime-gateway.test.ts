@@ -9,6 +9,9 @@ import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
 type JoinMode =
   | "ok"
+  | "ok-push-error"
+  | "ok-push-validation-error"
+  | "ok-push-scope-error"
   | "error"
   | "never"
   | "error-undefined-reason"
@@ -129,7 +132,39 @@ function makeFakeWebSocket(mode: JoinMode) {
         string,
         string,
       ];
-      if (event !== "phx_join") return;
+      if (event !== "phx_join") {
+        if (
+          mode === "ok-push-error" ||
+          mode === "ok-push-validation-error" ||
+          mode === "ok-push-scope-error"
+        ) {
+          const response =
+            mode === "ok-push-validation-error"
+              ? { reason: "invalid_render_event" }
+              : mode === "ok-push-scope-error"
+                ? { reason: "organization_scope_mismatch" }
+                : {
+                    reason: "app_api_error",
+                    status: 409,
+                    code: "CHANNEL_RENDER_FRAME_CONFLICT",
+                  };
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify([
+                joinRef,
+                ref,
+                topic,
+                "phx_reply",
+                {
+                  status: "error",
+                  response,
+                },
+              ]),
+            }),
+          );
+        }
+        return;
+      }
       this.lastJoinRef = joinRef;
       this.lastTopic = topic;
       joinCount += 1;
@@ -145,6 +180,9 @@ function makeFakeWebSocket(mode: JoinMode) {
       }
       const isOkMode =
         mode === "ok" ||
+        mode === "ok-push-error" ||
+        mode === "ok-push-validation-error" ||
+        mode === "ok-push-scope-error" ||
         mode === "ok-then-silent" ||
         mode === "give-up-then-recover";
       const status = isOkMode ? "ok" : "error";
@@ -268,6 +306,77 @@ describe("connectRealtimeGateway", () => {
 
     session.disconnect();
     expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("preserves structured server error metadata on a failed push", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok-push-error");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    await expect(
+      session.push("channel.render_event.v1", {}),
+    ).rejects.toMatchObject({
+      code: "CHANNEL_RENDER_FRAME_CONFLICT",
+      message: expect.stringContaining("CHANNEL_RENDER_FRAME_CONFLICT"),
+      retryable: false,
+      status: 409,
+    });
+    session.disconnect();
+  });
+
+  it("classifies a deterministic gateway validation rejection as non-retryable", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok-push-validation-error");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    await expect(
+      session.push("channel.render_event.v1", {}),
+    ).rejects.toMatchObject({
+      reason: "invalid_render_event",
+      retryable: false,
+    });
+    session.disconnect();
+  });
+
+  it("classifies an organization scope mismatch as non-retryable", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok-push-scope-error");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    await expect(
+      session.push("channel.render_event.v1", {}),
+    ).rejects.toMatchObject({
+      reason: "organization_scope_mismatch",
+      retryable: false,
+    });
+    session.disconnect();
   });
 });
 
