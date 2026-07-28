@@ -81,7 +81,10 @@ function randomUUID(): string {
  * results — we suppress the duplicate START/ARGS but keep the END and
  * RESULT events.
  */
-async function* convertStream(
+// Exported for unit tests (tanstack-factory.test.ts) — the state-emission
+// branches below are the only place a demo's left-hand panel gets its data, and
+// they are easy to break silently.
+export async function* convertStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
 ): AsyncGenerator<BaseEvent> {
@@ -92,6 +95,13 @@ async function* convertStream(
   const completedToolCalls = new Set<string>();
   // Map toolCallId → toolName for state-tool detection on TOOL_CALL_RESULT.
   const toolNamesById = new Map<string, string>();
+  // Accumulate streamed TOOL_CALL_ARGS per call so TOOL_CALL_RESULT can read
+  // the call's `task` back out — the subagents delegation log needs the task
+  // text, which only ever appears in the args, never in the result.
+  const toolArgsById = new Map<string, string>();
+  // Running `delegations` list for the subagents demo. Emitted whole on each
+  // append (see the STATE_DELTA below for why it is not an RFC-6902 append).
+  const delegations: Delegation[] = [];
 
   for await (const chunk of stream) {
     if (abortSignal.aborted) break;
@@ -127,6 +137,10 @@ async function* convertStream(
     } else if (type === "TOOL_CALL_ARGS") {
       const toolCallId = raw.toolCallId as string;
       if (completedToolCalls.has(toolCallId)) continue;
+      toolArgsById.set(
+        toolCallId,
+        (toolArgsById.get(toolCallId) ?? "") + ((raw.delta as string) ?? ""),
+      );
       yield {
         type: EventType.TOOL_CALL_ARGS,
         toolCallId,
@@ -232,6 +246,38 @@ async function* convertStream(
         };
       }
 
+      // Sub-agent delegation results (subagents demo). `buildSubagentTools`
+      // exposes `research_agent` / `writing_agent` / `critique_agent`, each
+      // returning `{ role, text }`. The frontend
+      // (`demos/subagents/page.tsx`) renders `agent.state.delegations` in the
+      // left-hand log — but nothing here used to emit that slot, so the tools
+      // ran, the chat filled in, and the panel stayed empty forever. The
+      // reference declares `delegations` on its agent state with an
+      // `operator.add` reducer (`langgraph-python/src/agents/subagents.py`);
+      // this is the equivalent for a runtime with no per-agent state schema.
+      //
+      // Emitted as a whole-array `add` rather than an RFC-6902 `/-` append for
+      // the same reason `set_steps` below uses `add`: the agent's initial
+      // state is `{}`, so an append into a not-yet-existent `/delegations`
+      // array is an unresolvable path. `fast-json-patch` strict mode rejects
+      // it and `@ag-ui/client` swallows the throw with a console.warn, which
+      // would leave the panel in its placeholder — exactly the bug being
+      // fixed. `add` creates the array on the first result and overwrites it
+      // with the grown list on each subsequent one.
+      if (toolName && SUBAGENT_TOOL_NAMES.has(toolName)) {
+        delegations.push({
+          id: toolCallId,
+          sub_agent: toolName,
+          task: extractTask(toolArgsById.get(toolCallId)),
+          status: "completed",
+          result: extractResultText(parsedContent),
+        });
+        yield {
+          type: EventType.STATE_DELTA,
+          delta: [{ op: "add", path: "/delegations", value: [...delegations] }],
+        };
+      }
+
       let serializedContent: string;
       if (typeof rawPayload === "string") {
         serializedContent = rawPayload;
@@ -265,6 +311,51 @@ function safeParseJSON(value: string): unknown {
 }
 
 /**
+ * Delegation-log entry shape. Mirrors `Delegation` in
+ * `demos/subagents/delegation-log.tsx` (and the reference's `Delegation`
+ * TypedDict) — the frontend reads `sub_agent`, `task`, `status`, `result`.
+ */
+type Delegation = {
+  id: string;
+  sub_agent: string;
+  task: string;
+  status: "completed";
+  result: string;
+};
+
+/** Tool names `buildSubagentTools` exposes; kept in sync with `subagentRoles`. */
+const SUBAGENT_TOOL_NAMES = new Set([
+  "research_agent",
+  "writing_agent",
+  "critique_agent",
+]);
+
+/**
+ * Pull `task` out of the accumulated TOOL_CALL_ARGS JSON. Args stream in as
+ * deltas and a run can be cut short mid-call, so a partial/unparseable buffer
+ * is expected rather than exceptional — fall back to an empty task and let the
+ * log render the entry without it.
+ */
+function extractTask(argsJson: string | undefined): string {
+  if (!argsJson) return "";
+  const parsed = safeParseJSON(argsJson);
+  if (parsed && typeof parsed === "object" && "task" in parsed) {
+    const task = (parsed as { task: unknown }).task;
+    if (typeof task === "string") return task;
+  }
+  return "";
+}
+
+/** Read the sub-agent's prose out of its `{ role, text }` result. */
+function extractResultText(parsedContent: unknown): string {
+  if (parsedContent && typeof parsedContent === "object") {
+    const text = (parsedContent as { text?: unknown }).text;
+    if (typeof text === "string") return text;
+  }
+  return typeof parsedContent === "string" ? parsedContent : "";
+}
+
+/**
  * Options for {@link createBuiltInAgent}. All fields are OPT-IN — omitting them
  * (the default for every demo except multimodal) preserves the base agent's
  * behaviour byte-for-byte.
@@ -279,6 +370,24 @@ export interface BuiltInAgentOptions {
   preprocessMessages?: (
     messages: TanStackChatMessage[],
   ) => TanStackChatMessage[] | Promise<TanStackChatMessage[]>;
+  /**
+   * Per-demo system prompt, prepended ahead of the frontend-supplied
+   * `systemPrompts`.
+   *
+   * The north-star reference wires each demo to its own graph with its own
+   * prompt (28 graphs in `langgraph-python/langgraph.json`). This integration
+   * shares ONE agent across ~20 demos, so without this option a demo whose
+   * behaviour depends on being *told* what to do has nothing driving it. The
+   * aimock fixtures hide that — they replay a scripted tool-call sequence
+   * keyed on `userMessage` + `context`, so D6 goes green whether or not the
+   * model could have reasoned its way there (showcase/GOTCHAS.md #8).
+   *
+   * Live symptoms this exists to prevent: `gen-ui-tool-based` answering
+   * "I used placeholder values since no sales figures were provided" and
+   * plotting zeros; `gen-ui-agent` publishing its plan once and then
+   * narrating instead of walking the steps.
+   */
+  systemPrompt?: string;
 }
 
 export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
@@ -328,7 +437,9 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
         // miss every fixture (404) and the D6 subset goes 0/6.
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
-        systemPrompts,
+        systemPrompts: options.systemPrompt
+          ? [options.systemPrompt, ...systemPrompts]
+          : systemPrompts,
         tools: [...serverTools, ...frontendTools],
         abortController,
       });
