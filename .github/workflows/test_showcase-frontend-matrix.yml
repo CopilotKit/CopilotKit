@@ -46,9 +46,14 @@ concurrency:
 env:
   # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
   # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
-  # from user activity in PostHog. The runtime reads these at startup and
-  # reports `telemetryDisabled` on /info, which is how the browser-side
-  # Inspector in a CI-booted app learns to stay quiet too.
+  # from user activity in PostHog. These cover everything that reads the
+  # environment, i.e. the runtime and its `oss.runtime.*` events.
+  #
+  # Browser-side Inspector events are NOT covered by these vars: they would only
+  # reach the browser through the async /info handshake, which an early
+  # interaction can beat. The Inspector suppresses itself on
+  # `navigator.webdriver` instead, and the "Block telemetry egress" step below
+  # is the job-wide backstop.
   COPILOTKIT_TELEMETRY_DISABLED: "true"
   DO_NOT_TRACK: "1"
   CI: "true"
@@ -74,6 +79,12 @@ jobs:
           path: pr
           persist-credentials: false
           lfs: true
+
+      - name: Block telemetry egress
+        # Backstop for the env-var and navigator.webdriver opt-outs (OSS-565):
+        # nothing in this job can reach the telemetry sink, including processes
+        # that never inherit the workflow env.
+        run: bash .github/scripts/block-telemetry-egress.sh
 
       - name: Check out frozen base
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -159,13 +170,14 @@ jobs:
           BASE_COMMIT: ${{ inputs.base_commit }}
           INTEGRATION: ${{ matrix.integration }}
         run: |
-          # The workflow-level COPILOTKIT_TELEMETRY_DISABLED / DO_NOT_TRACK do
-          # not cross the container boundary, so they are passed explicitly
-          # below (OSS-565) — otherwise this container's runtime reports
-          # telemetry as enabled and the Playwright-driven Inspector emits.
+          # Neither the workflow-level COPILOTKIT_TELEMETRY_DISABLED /
+          # DO_NOT_TRACK nor the runner's hosts block crosses the container
+          # boundary (OSS-565), so both are reapplied here: the vars via --env,
+          # and the sink via --add-host pointing at loopback.
           docker run --detach \
             --name frontend-matrix-integration \
             --add-host host.docker.internal:host-gateway \
+            --add-host telemetry.copilotkit.ai:127.0.0.1 \
             --publish 10000:10000 \
             --env OPENAI_API_KEY=sk-mock \
             --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
@@ -250,6 +262,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Block telemetry egress
+        # Backstop for the env-var and navigator.webdriver opt-outs (OSS-565):
+        # nothing in this job can reach the telemetry sink, including processes
+        # that never inherit the workflow env.
+        run: bash .github/scripts/block-telemetry-egress.sh
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9

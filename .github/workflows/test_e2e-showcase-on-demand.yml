@@ -76,9 +76,14 @@ on:
 env:
   # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
   # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
-  # from user activity in PostHog. The runtime reads these at startup and
-  # reports `telemetryDisabled` on /info, which is how the browser-side
-  # Inspector in a CI-booted app learns to stay quiet too.
+  # from user activity in PostHog. These cover everything that reads the
+  # environment, i.e. the runtime and its `oss.runtime.*` events.
+  #
+  # Browser-side Inspector events are NOT covered by these vars: they would only
+  # reach the browser through the async /info handshake, which an early
+  # interaction can beat. The Inspector suppresses itself on
+  # `navigator.webdriver` instead, and the "Block telemetry egress" step below
+  # is the job-wide backstop.
   COPILOTKIT_TELEMETRY_DISABLED: "true"
   DO_NOT_TRACK: "1"
 
@@ -167,6 +172,12 @@ jobs:
           # `permissions: contents: read` limits blast radius, but defense-in-
           # depth cheap — disable credential persistence.
           persist-credentials: false
+
+      - name: Block telemetry egress
+        # Backstop for the env-var and navigator.webdriver opt-outs (OSS-565):
+        # nothing in this job can reach the telemetry sink, including processes
+        # that never inherit the workflow env.
+        run: bash .github/scripts/block-telemetry-egress.sh
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

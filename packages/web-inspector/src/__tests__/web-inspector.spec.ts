@@ -1180,6 +1180,14 @@ describe("CpkThreadInspector provider contract", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { el, internals } = createThreadInspector();
 
+    // Count only thread-inspection requests. This stub replaces the global
+    // fetch, so a fire-and-forget telemetry POST from an earlier case can land
+    // here too; the assertion is about refetches, not total network calls.
+    const threadFetches = () =>
+      fetchMock.mock.calls.filter((call) =>
+        String(call[0]).startsWith("http://runtime"),
+      );
+
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
     internals.headers = { Authorization: "Bearer first" };
@@ -1187,7 +1195,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(threadFetches()).toHaveLength(1);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer first",
       });
@@ -1197,12 +1205,12 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(threadFetches()).toHaveLength(2);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer second",
       });
     });
-    expect(headersOf(fetchMock.mock.calls.at(-1)!)).toMatchObject({
+    expect(headersOf(threadFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
   });
@@ -1605,7 +1613,6 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
     return {
       inspector,
-      harness,
       internals: inspector as unknown as OpenTelemetryInternals,
     };
   }
@@ -1708,19 +1715,16 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
   });
 
-  it("holds opens until the handshake and bounds the queue while disconnected", async () => {
+  // Inspector telemetry no longer waits on /info: a disconnected runtime must
+  // not silence a real user, and CI suppression comes from `navigator.webdriver`
+  // plus the runners' egress block instead.
+  it("still records an open when the runtime is not connected", async () => {
     const { inspector, internals } = mount(false, false);
-    const queue = inspector as unknown as { pendingOpened: unknown[] };
 
-    for (let i = 0; i < 25; i++) {
-      internals.openInspector("floating_button");
-      internals.isOpen = false; // simulate a close between opens
-    }
+    internals.openInspector("floating_button");
     await inspector.updateComplete;
 
-    // Nothing leaves before the runtime reports whether telemetry is allowed.
-    expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
-    expect(queue.pendingOpened.length).toBeLessThanOrEqual(20);
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(1);
   });
 
   it("emits nothing when the runtime has telemetry disabled", async () => {
@@ -1733,136 +1737,6 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     await inspector.updateComplete;
 
     expect(posts()).toEqual([]);
-  });
-
-  // `telemetryDisabled` reads `false` until /info answers, so a dismissal
-  // handled before the handshake must not post on that placeholder — the
-  // runtime may be about to report the opt-out.
-  it("drops a pre-handshake dismissal when the runtime then reports telemetry disabled", async () => {
-    const { inspector, harness, internals } = mount(false, false);
-
-    await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-
-    // Held, not sent: nothing is known about the runtime's opt-out yet.
-    expect(posts()).toEqual([]);
-
-    harness.completeHandshake({ telemetryDisabled: true });
-    await inspector.updateComplete;
-
-    expect(posts()).toEqual([]);
-  });
-
-  it("sends a pre-handshake dismissal once the runtime allows telemetry", async () => {
-    const { inspector, harness, internals } = mount(false, false);
-
-    await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-    expect(posts()).toEqual([]);
-
-    harness.completeHandshake({ telemetryDisabled: false });
-    await inspector.updateComplete;
-
-    expect(eventsNamed("oss.inspector.banner_dismissed")).toHaveLength(1);
-    expect(
-      eventsNamed("oss.inspector.banner_dismissed")[0]!.properties,
-    ).toMatchObject({ banner_id: timestamp, surface: "collapsed_preview" });
-    // banner_clicked { cta: "dismiss" } still rides alongside it.
-    expect(
-      eventsNamed("oss.inspector.banner_clicked")[0]!.properties,
-    ).toMatchObject({ cta: "dismiss" });
-  });
-
-  it("dedups a pre-handshake dismissal clicked twice into one queued event", async () => {
-    const { inspector, harness, internals } = mount(false, false);
-
-    await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-
-    const dismiss = inspector.shadowRoot?.querySelector<HTMLElement>(
-      ".announcement-preview__dismiss",
-    );
-    dismiss?.click();
-    dismiss?.click();
-    await inspector.updateComplete;
-
-    harness.completeHandshake({ telemetryDisabled: false });
-    await inspector.updateComplete;
-
-    expect(eventsNamed("oss.inspector.banner_dismissed")).toHaveLength(1);
-    expect(eventsNamed("oss.inspector.banner_clicked")).toHaveLength(1);
-  });
-
-  // Every inspector event — not just the ones this PR added — has to wait for
-  // the handshake, or the opt-out is only a partial guarantee. The threads tab
-  // is the representative existing path: it posted straight through on the
-  // `telemetryDisabled: false` placeholder.
-  it("holds an existing threads-tab event until the handshake, then drops it when the runtime reports disabled", async () => {
-    const { inspector, harness } = mount(false, false);
-    const menu = inspector as unknown as {
-      handleMenuSelect: (key: string) => void;
-    };
-
-    menu.handleMenuSelect("threads");
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(0);
-
-    harness.completeHandshake({ telemetryDisabled: true });
-    await inspector.updateComplete;
-
-    expect(posts()).toEqual([]);
-  });
-
-  it("sends a held threads-tab event once the runtime allows telemetry", async () => {
-    const { inspector, harness } = mount(false, false);
-    const menu = inspector as unknown as {
-      handleMenuSelect: (key: string) => void;
-    };
-
-    menu.handleMenuSelect("threads");
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(0);
-
-    harness.completeHandshake({ telemetryDisabled: false });
-    await inspector.updateComplete;
-
-    expect(eventsNamed("oss.inspector.threads_tab_clicked")).toHaveLength(1);
-  });
-
-  // Before the handshake, `licenseStatus` is undefined and `runtimeMode` reads
-  // its `sse` default. Snapshotting at queue time would permanently attribute
-  // this open to SSE and lose license segmentation.
-  it("stamps a queued open with the runtime segmentation known at flush time", async () => {
-    const { inspector, harness, internals } = mount(false, false);
-
-    internals.openInspector("floating_button");
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
-
-    harness.completeHandshake({
-      telemetryDisabled: false,
-      runtimeMode: "intelligence",
-      licenseStatus: "valid",
-    });
-    await inspector.updateComplete;
-
-    const opened = eventsNamed("oss.inspector.opened");
-    expect(opened).toHaveLength(1);
-    expect(opened[0]!.properties).toMatchObject({
-      open_source: "floating_button",
-      runtime_mode: "intelligence",
-      license_status: "valid",
-    });
   });
 });
 
@@ -1948,30 +1822,6 @@ function createHeaderMockCore(
       core.headers = nextHeaders;
       subscribers.forEach((s) =>
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
-      );
-    },
-    /**
-     * Simulates the /info handshake landing: applies the values the runtime
-     * reported, then transitions to `connected`. Lets a test queue telemetry
-     * against a disconnected core and assert what the flush actually sends —
-     * the segmentation fields do not exist before this point.
-     */
-    completeHandshake(
-      reported: {
-        telemetryDisabled?: boolean;
-        licenseStatus?: string;
-        runtimeMode?: string;
-        runtimeUrl?: string;
-      } = {},
-    ) {
-      Object.assign(core, reported);
-      core.runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Connected;
-      subscribers.forEach((s) =>
-        s.onRuntimeConnectionStatusChanged?.({
-          copilotkit: asCore(),
-          status: core.runtimeConnectionStatus,
-        }),
       );
     },
   };

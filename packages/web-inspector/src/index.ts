@@ -60,8 +60,6 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
-  resetTelemetryGate,
-  resolveTelemetryGate,
   trackBannerClicked,
   trackBannerDismissed,
   trackBannerViewed,
@@ -86,7 +84,6 @@ import type {
   BannerSurface,
   InspectorMemoryTelemetryProps,
   InspectorOpenSource,
-  InspectorOpenedTelemetryProps,
   InspectorThreadTelemetryProps,
 } from "./lib/telemetry.js";
 
@@ -124,9 +121,6 @@ const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
-// Cap on telemetry events held while waiting for the runtime handshake, so a
-// runtime that never connects can't accumulate an unbounded queue.
-const MAX_PENDING_TELEMETRY_EVENTS = 20;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
 const THREADS_INTELLIGENCE_SIGNIN_URL =
@@ -4212,23 +4206,6 @@ export class WebInspectorElement extends LitElement {
   // the card inside the opened panel are separate impressions: a user can see
   // one without ever seeing the other.
   private viewedBannerSurfaces: Set<string> = new Set();
-  // Deferring events until the runtime's opt-out is known is handled centrally
-  // by the telemetry egress gate (`resolveTelemetryGate`), not here — every
-  // event, including the pre-existing threads/memories/CTA paths, is held there
-  // until /info answers.
-  //
-  // This queue exists for a different reason: the `opened` payload carries
-  // runtime segmentation (`license_status`, `runtime_mode`,
-  // `runtime_url_type`), and before the handshake `licenseStatus` is undefined
-  // and `runtimeMode` reads its `sse` default. Building the payload early would
-  // permanently attribute an open against an Intelligence runtime to SSE, so
-  // only the open *intent* is queued and those fields are resolved at flush
-  // time. It is a queue rather than a single slot because open → close → open
-  // before the handshake is three real events.
-  private pendingOpened: Array<{
-    open_source: InspectorOpenSource;
-    has_unseen_announcement: boolean;
-  }> = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -4565,15 +4542,10 @@ export class WebInspectorElement extends LitElement {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
         if (status === "connected") {
-          // The handshake has landed, so `telemetryDisabled` is now a real
-          // answer rather than its pre-connect placeholder. Opening the egress
-          // gate first releases anything held meanwhile.
-          resolveTelemetryGate(core.telemetryDisabled ? "denied" : "allowed");
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingTelemetry();
           if (this.areThreadEndpointsAvailable()) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
@@ -4636,12 +4608,10 @@ export class WebInspectorElement extends LitElement {
     this.processAgentsChanged(core.agents);
 
     if (core.runtimeConnectionStatus === "connected") {
-      resolveTelemetryGate(core.telemetryDisabled ? "denied" : "allowed");
       if (!core.telemetryDisabled) {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -4749,9 +4719,6 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
-    // A later core must start from "we do not know" rather than inheriting the
-    // previous runtime's telemetry decision.
-    resetTelemetryGate();
     this._memoryUnsub?.();
     this._memoryUnsub = null;
     this._memories = [];
@@ -7890,33 +7857,27 @@ ${argsString}</pre
     `;
   }
 
-  // Fires `oss.inspector.opened` for a user-initiated open (OSS-566). Queued
-  // until the runtime handshake completes so an open is never reported for a
-  // runtime that has telemetry disabled. Restoring a persisted-open panel on
-  // mount assigns `isOpen` directly instead of routing through
-  // `openInspector`, so page reloads and dev-server hot reloads are not
-  // counted as opens.
+  // Fires `oss.inspector.opened` for a user-initiated open (OSS-566).
+  // Restoring a persisted-open panel on mount assigns `isOpen` directly
+  // instead of routing through `openInspector`, so page reloads and dev-server
+  // hot reloads are not counted as opens.
   private trackOpened(
     source: InspectorOpenSource,
     hadUnseenAnnouncement: boolean,
   ): void {
     if (this.core?.telemetryDisabled) return;
-    // Bounded: if the runtime never connects, an open/close loop would
-    // otherwise queue indefinitely and then burst on reconnect. Opens past
-    // the cap are dropped rather than buffered — this is a signal, not a
-    // ledger.
-    if (this.pendingOpened.length >= MAX_PENDING_TELEMETRY_EVENTS) return;
-    this.pendingOpened.push({
+    trackInspectorOpened({
       open_source: source,
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
     });
-    this.flushPendingOpened();
   }
 
   // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
   // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
   // replacing it, so dashboards reading the `cta` value keep working.
-  // Held until the handshake by the central egress gate.
   private trackBannerDismissedOnce(surface: BannerSurface): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
@@ -7933,7 +7894,6 @@ ${argsString}</pre
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
   // copy-button retries and accidental multi-clicks don't inflate funnel counts.
-  // Held until the handshake by the central egress gate.
   private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
@@ -10855,33 +10815,6 @@ ${prettyEvent}</pre
     </div>`;
   }
 
-  private flushPendingTelemetry(): void {
-    this.flushPendingOpened();
-  }
-
-  // Runtime segmentation is resolved HERE, not when the open was queued: an
-  // open recorded before /info landed would otherwise carry `licenseStatus:
-  // undefined` and the `sse` default forever, misattributing early opens
-  // against an Intelligence runtime.
-  private flushPendingOpened(): void {
-    if (this.pendingOpened.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingOpened = [];
-      return;
-    }
-    if (this.runtimeStatus !== "connected") return;
-    const queued = this.pendingOpened;
-    this.pendingOpened = [];
-    const runtimeProps = {
-      license_status: this.core?.licenseStatus ?? undefined,
-      runtime_mode: this.core?.runtimeMode ?? undefined,
-      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
-    } satisfies Partial<InspectorOpenedTelemetryProps>;
-    for (const intent of queued) {
-      trackInspectorOpened({ ...intent, ...runtimeProps });
-    }
-  }
-
   /**
    * Which announcement surface is on screen right now, or null when the
    * announcement isn't visible. Mirrors the render gates in
@@ -10901,10 +10834,12 @@ ${prettyEvent}</pre
 
   /**
    * Records a `banner_viewed` impression for whichever surface is currently
-   * visible, once per announcement per surface. Deferral until the runtime's
-   * opt-out is known is the egress gate's job, so this sends directly.
+   * visible, once per announcement per surface.
    */
   private maybeTrackBannerViewed(): void {
+    // This check used to live in the flush step; it has to be here now that the
+    // impression is sent directly.
+    if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
@@ -11028,10 +10963,7 @@ ${prettyEvent}</pre
       this.announcementLoaded = true;
 
       // banner_viewed: gate on actual visibility and per-mount dedup, and
-      // stamp the surface the announcement is showing on right now. The
-      // event is queued rather than fired immediately — telemetryDisabled
-      // may not be known yet if /info hasn't returned. Flushed in
-      // onRuntimeConnectionStatusChanged once the handshake completes.
+      // stamp the surface the announcement is showing on right now.
       this.maybeTrackBannerViewed();
 
       this.requestUpdate();

@@ -11,8 +11,6 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
-  resetTelemetryGate,
-  resolveTelemetryGate,
   track,
   trackBannerClicked,
   trackBannerDismissed,
@@ -58,17 +56,11 @@ beforeEach(() => {
     .mockResolvedValue(new Response(null, { status: 204 }));
 
   consoleInfoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
-
-  // These cases exercise the SEND path. The runtime egress gate starts
-  // unresolved (nothing leaves before the /info handshake answers), so open it
-  // explicitly here; the gate's own behavior is covered in its describe below.
-  resolveTelemetryGate("allowed");
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  resetTelemetryGate();
 });
 
 // ─── Wire body shape ────────────────────────────────────────────────────────
@@ -415,117 +407,47 @@ describe("typed helpers", () => {
   });
 });
 
-// ─── Runtime egress gate ─────────────────────────────────────────────────────
+// ─── Browser-automation suppression ──────────────────────────────────────────
 //
-// The runtime opt-out is only knowable after the /info handshake. These cases
-// own the unresolved state, so they reset the gate the outer beforeEach opened.
+// The browser-side half of the CI opt-out (OSS-565). Verified against the repo's
+// Playwright: `navigator.webdriver` is true in both headless and headed launches.
 
-describe("runtime egress gate", () => {
-  beforeEach(() => {
-    resetTelemetryGate();
+function stubWebdriver(value: unknown) {
+  Object.defineProperty(navigator, "webdriver", {
+    value,
+    configurable: true,
+  });
+}
+
+describe("browser automation suppression", () => {
+  afterEach(() => {
+    stubWebdriver(false);
   });
 
-  it("sends nothing while the runtime decision is unknown", async () => {
+  it("sends nothing when navigator.webdriver is true", async () => {
+    stubWebdriver(true);
+
     track(TELEMETRY_EVENTS.threadsTabClicked, {});
+    trackInspectorOpened({ open_source: "floating_button" });
     await Promise.resolve();
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("releases held events when the runtime allows telemetry", async () => {
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    track(TELEMETRY_EVENTS.memoriesTabClicked, {});
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    resolveTelemetryGate("allowed");
-    await Promise.resolve();
-
-    const events = fetchMock.mock.calls.map(
-      (call) =>
-        JSON.parse(String((call[1] as RequestInit).body)).event as string,
-    );
-    expect(events).toEqual([
-      TELEMETRY_EVENTS.threadsTabClicked,
-      TELEMETRY_EVENTS.memoriesTabClicked,
-    ]);
-  });
-
-  it("discards held events when the runtime reports telemetry disabled", async () => {
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    resolveTelemetryGate("denied");
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("keeps dropping events after a denied decision", async () => {
-    resolveTelemetryGate("denied");
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("bounds the hold queue so an unresolved gate cannot grow without limit", async () => {
-    for (let i = 0; i < 50; i++) {
-      track(TELEMETRY_EVENTS.threadsTabClicked, { i });
-    }
-    resolveTelemetryGate("allowed");
-    await Promise.resolve();
-
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(20);
-  });
-
-  it("resets to unknown so a later runtime does not inherit the decision", async () => {
-    resolveTelemetryGate("allowed");
-    resetTelemetryGate();
+  // Only an explicit `true` suppresses — absence means "not automation", never
+  // "unknown, so stay quiet". A real user must not be silenced by what we
+  // failed to learn.
+  it.each([
+    ["false", false],
+    ["undefined", undefined],
+    ["empty string", ""],
+  ])("still sends when navigator.webdriver is %s", async (_label, value) => {
+    stubWebdriver(value);
 
     track(TELEMETRY_EVENTS.threadsTabClicked, {});
     await Promise.resolve();
 
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("keeps the event's own timestamp rather than the release time", async () => {
-    vi.useFakeTimers();
-    try {
-      vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
-      track(TELEMETRY_EVENTS.threadsTabClicked, {});
-
-      // A slow handshake must not rewrite when the interaction happened.
-      vi.setSystemTime(new Date("2026-07-01T00:05:00.000Z"));
-      resolveTelemetryGate("allowed");
-      await Promise.resolve();
-
-      const body = JSON.parse(
-        String((fetchMock.mock.calls[0]![1] as RequestInit).body),
-      ) as { ts: number };
-      expect(body.ts).toBe(
-        Math.floor(Date.parse("2026-07-01T00:00:00Z") / 1000),
-      );
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("drops held events when the user opts out while the handshake is outstanding", async () => {
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    setTelemetryOptOut(true);
-
-    resolveTelemetryGate("allowed");
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("still honors the localStorage opt-out ahead of an allowed gate", async () => {
-    setTelemetryOptOut(true);
-    resolveTelemetryGate("allowed");
-
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
