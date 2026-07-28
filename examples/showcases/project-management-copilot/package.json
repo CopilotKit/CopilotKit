@@ -18,10 +18,12 @@
     "dev:mock": "concurrently -k -n mock,app,bff,agent,adk -c auto \"npm run aimock:up\" \"USE_MOCK=1 npm run dev:app\" \"USE_MOCK=1 npm run dev:bff\" \"USE_MOCK=1 npm run dev:agent\" \"USE_MOCK=1 npm run dev:agent-adk\"",
     "seed:threads": "node scripts/seed-threads.mjs",
     "build": "npm run build --workspace @repo/bff && npm run build --workspace @repo/app",
-    "clean": "rm -rf apps/app/dist apps/bff/dist"
+    "clean": "rm -rf apps/app/dist apps/bff/dist",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@copilotkit/aimock": "^1.26.1",
+    "@playwright/test": "^1.62.0",
     "concurrently": "^9.1.2"
   },
   "overrides": {
