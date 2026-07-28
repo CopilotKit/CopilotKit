@@ -64,9 +64,13 @@ export const POST = async (req: NextRequest) => {
     });
     const response = await handleRequest(req);
     if (!response.ok) {
-      console.log(`[copilotkit-ogui/route] Response status: ${response.status}`);
+      console.log(
+        `[copilotkit-ogui/route] Response status: ${response.status}`,
+      );
     } else if (ROUTE_DEBUG) {
-      console.log(`[copilotkit-ogui/route] Response status: ${response.status}`);
+      console.log(
+        `[copilotkit-ogui/route] Response status: ${response.status}`,
+      );
     }
     return response;
   } catch (error: unknown) {

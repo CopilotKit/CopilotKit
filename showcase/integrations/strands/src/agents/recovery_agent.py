@@ -38,7 +38,11 @@ from strands import Agent
 from ag_ui_strands import StrandsAgent, StrandsAgentConfig
 
 from agents.agent import _build_model
-from agents.a2ui_dynamic import CATALOG_ID, COMPOSITION_GUIDE, SYSTEM_PROMPT as DYNAMIC_SYSTEM_PROMPT
+from agents.a2ui_dynamic import (
+    CATALOG_ID,
+    COMPOSITION_GUIDE,
+    SYSTEM_PROMPT as DYNAMIC_SYSTEM_PROMPT,
+)
 
 # LGP-aligned recovery composition: same sales-analyst base as declarative
 # dynamic A2UI, plus explicit guidance so the LGP pill wordings

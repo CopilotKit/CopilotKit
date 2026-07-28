@@ -67,9 +67,7 @@ def _build_reasoning_model() -> OpenAIModel:
     """
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY must be set for the strands reasoning agent"
-        )
+        raise RuntimeError("OPENAI_API_KEY must be set for the strands reasoning agent")
     return OpenAIModel(
         client_args={"api_key": api_key},
         model_id=REASONING_MODEL,

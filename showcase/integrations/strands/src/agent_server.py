@@ -207,18 +207,14 @@ reasoning_app = create_strands_app(reasoning_agui_agent, "/")
 
 # Tool-rendering + reasoning chain: sequential tools interleaved with
 # reasoning tokens (dedicated model/prompt).
-tool_rendering_reasoning_chain_agui_agent = (
-    build_tool_rendering_reasoning_chain_agent()
-)
+tool_rendering_reasoning_chain_agui_agent = build_tool_rendering_reasoning_chain_agent()
 tool_rendering_reasoning_chain_app = create_strands_app(
     tool_rendering_reasoning_chain_agui_agent, "/"
 )
 
 # Shared-state streaming: per-token state delta streaming from agent → UI.
 shared_state_streaming_agui_agent = build_shared_state_streaming_agent()
-shared_state_streaming_app = create_strands_app(
-    shared_state_streaming_agui_agent, "/"
-)
+shared_state_streaming_app = create_strands_app(shared_state_streaming_agui_agent, "/")
 
 # HITL in-chat: tools=[] + booking prompt; frontend owns useHumanInTheLoop.
 hitl_in_chat_agui_agent = build_hitl_in_chat_agent()
@@ -229,9 +225,7 @@ hitl_in_chat_app = create_strands_app(hitl_in_chat_agui_agent, "/")
 open_gen_ui_agui_agent = build_open_gen_ui_agent()
 open_gen_ui_app = create_strands_app(open_gen_ui_agui_agent, "/")
 open_gen_ui_advanced_agui_agent = build_open_gen_ui_advanced_agent()
-open_gen_ui_advanced_app = create_strands_app(
-    open_gen_ui_advanced_agui_agent, "/"
-)
+open_gen_ui_advanced_app = create_strands_app(open_gen_ui_advanced_agui_agent, "/")
 
 # Alias mounts of the shared showcase agent for dedicated Next.js runtimes
 # that expect a specialized path (beautiful-chat / mcp-apps). Runtime flags
@@ -274,9 +268,7 @@ app.mount("/a2ui-recovery", a2ui_recovery_app)
 # target them. Trailing slash on the client URL is required so the
 # sub-application root resolves.
 app.mount("/reasoning", reasoning_app)
-app.mount(
-    "/tool-rendering-reasoning-chain", tool_rendering_reasoning_chain_app
-)
+app.mount("/tool-rendering-reasoning-chain", tool_rendering_reasoning_chain_app)
 app.mount("/shared-state-streaming", shared_state_streaming_app)
 app.mount("/hitl-in-chat", hitl_in_chat_app)
 app.mount("/open-gen-ui", open_gen_ui_app)

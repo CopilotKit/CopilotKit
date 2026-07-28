@@ -31,7 +31,10 @@ from random import choice, randint
 from strands import Agent, tool
 from ag_ui_strands import StrandsAgent
 
-from agents.reasoning_agent import SYSTEM_PROMPT as _REASONING_STYLE, _build_reasoning_model
+from agents.reasoning_agent import (
+    SYSTEM_PROMPT as _REASONING_STYLE,
+    _build_reasoning_model,
+)
 from tools import get_weather_impl, roll_dice_impl
 
 

@@ -20,24 +20,24 @@ D6 wire-server pass:
 
 ### Mount map (`agent_server.py`)
 
-| Mount path | Factory / agent | Used by |
-|---|---|---|
-| `/` | `build_showcase_agent` | default + neutral cells |
-| `/reasoning` | `build_reasoning_agent` | `reasoning-default`, `reasoning-custom` |
-| `/tool-rendering-reasoning-chain` | `build_tool_rendering_reasoning_chain_agent` | `tool-rendering-reasoning-chain` |
-| `/shared-state-streaming` | `build_shared_state_streaming_agent` | `shared-state-streaming` |
-| `/hitl-in-chat` | `build_hitl_in_chat_agent` | `hitl-in-chat` |
-| `/open-gen-ui` | `build_open_gen_ui_agent` | `open-gen-ui` (via `/api/copilotkit-ogui`) |
-| `/open-gen-ui-advanced` | `build_open_gen_ui_advanced_agent` | `open-gen-ui-advanced` |
-| `/beautiful-chat` | showcase agent alias | `/api/copilotkit-beautiful-chat` |
-| `/mcp-apps` | showcase agent alias | `/api/copilotkit-mcp-apps` |
-| `/headless-complete` | showcase agent alias | headless-complete on mcp-apps runtime |
-| `/a2ui-recovery` | `build_a2ui_recovery_agent` | a2ui-recovery |
-| `/declarative-gen-ui` | `build_a2ui_dynamic_agent` | declarative-gen-ui |
-| `/a2ui-fixed-schema` | `build_a2ui_fixed_schema_agent` | a2ui-fixed-schema |
-| `/byoc-hashbrown` | `build_byoc_hashbrown_agent` | declarative-hashbrown |
-| `/byoc-json-render` | `build_byoc_json_render_agent` | declarative-json-render |
-| `/voice` | `build_voice_agent` | voice |
+| Mount path                        | Factory / agent                              | Used by                                    |
+| --------------------------------- | -------------------------------------------- | ------------------------------------------ |
+| `/`                               | `build_showcase_agent`                       | default + neutral cells                    |
+| `/reasoning`                      | `build_reasoning_agent`                      | `reasoning-default`, `reasoning-custom`    |
+| `/tool-rendering-reasoning-chain` | `build_tool_rendering_reasoning_chain_agent` | `tool-rendering-reasoning-chain`           |
+| `/shared-state-streaming`         | `build_shared_state_streaming_agent`         | `shared-state-streaming`                   |
+| `/hitl-in-chat`                   | `build_hitl_in_chat_agent`                   | `hitl-in-chat`                             |
+| `/open-gen-ui`                    | `build_open_gen_ui_agent`                    | `open-gen-ui` (via `/api/copilotkit-ogui`) |
+| `/open-gen-ui-advanced`           | `build_open_gen_ui_advanced_agent`           | `open-gen-ui-advanced`                     |
+| `/beautiful-chat`                 | showcase agent alias                         | `/api/copilotkit-beautiful-chat`           |
+| `/mcp-apps`                       | showcase agent alias                         | `/api/copilotkit-mcp-apps`                 |
+| `/headless-complete`              | showcase agent alias                         | headless-complete on mcp-apps runtime      |
+| `/a2ui-recovery`                  | `build_a2ui_recovery_agent`                  | a2ui-recovery                              |
+| `/declarative-gen-ui`             | `build_a2ui_dynamic_agent`                   | declarative-gen-ui                         |
+| `/a2ui-fixed-schema`              | `build_a2ui_fixed_schema_agent`              | a2ui-fixed-schema                          |
+| `/byoc-hashbrown`                 | `build_byoc_hashbrown_agent`                 | declarative-hashbrown                      |
+| `/byoc-json-render`               | `build_byoc_json_render_agent`               | declarative-json-render                    |
+| `/voice`                          | `build_voice_agent`                          | voice                                      |
 
 ## Skipped demos (matches LGP)
 
@@ -56,14 +56,14 @@ No other features are listed in `not_supported_features`. In particular
 
 ## Feature name alignment with LGP
 
-| LGP id | Strands status |
-|---|---|
-| `reasoning-default` | Supported (was previously missing / misnamed) |
-| `reasoning-custom` | Supported (was `agentic-chat-reasoning`) |
-| `tool-rendering-reasoning-chain` | Supported (was not_supported) |
-| `shared-state-streaming` | Supported (was not_supported) |
-| `hitl-in-chat` | Supported (dedicated agent mount) |
-| `hitl-in-chat-booking` | Removed — LGP has no separate booking feature id; the booking flow is `hitl-in-chat` |
+| LGP id                           | Strands status                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `reasoning-default`              | Supported (was previously missing / misnamed)                                        |
+| `reasoning-custom`               | Supported (was `agentic-chat-reasoning`)                                             |
+| `tool-rendering-reasoning-chain` | Supported (was not_supported)                                                        |
+| `shared-state-streaming`         | Supported (was not_supported)                                                        |
+| `hitl-in-chat`                   | Supported (dedicated agent mount)                                                    |
+| `hitl-in-chat-booking`           | Removed — LGP has no separate booking feature id; the booking flow is `hitl-in-chat` |
 
 Legacy Strands ids `reasoning-default-render` and `agentic-chat-reasoning` are
 gone; demos live under `/demos/reasoning-default` and `/demos/reasoning-custom`.
