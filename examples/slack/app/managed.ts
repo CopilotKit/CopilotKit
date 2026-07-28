@@ -159,11 +159,6 @@ async function main() {
     console.log(`[channel] listener on :${port}`);
   });
 
-  // Required: this is the call that connects the managed Channel to the Realtime
-  // Gateway. Bound it so a wedged connect can't hang startup forever.
-  await listener.channels.ready({ timeoutMs: 30_000 });
-  console.log(`[channel] started managed Channel "${channelName}"`);
-
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
     let exitCode = 0;
@@ -190,8 +185,16 @@ async function main() {
       process.exit(1);
     });
   };
+  // Registered BEFORE activation on purpose: `ready()` below can take up to its
+  // timeout, and a Ctrl-C inside that window must still tear the Channel down
+  // rather than hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
+
+  // Required: this is the call that connects the managed Channel to the Realtime
+  // Gateway. Bound it so a wedged connect can't hang startup forever.
+  await listener.channels.ready({ timeoutMs: 30_000 });
+  console.log(`[channel] started managed Channel "${channelName}"`);
 }
 
 // Fail loud, not silent: surface any stray async error instead of letting it
