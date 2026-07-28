@@ -1,4 +1,4 @@
-﻿"""Tool Rendering agent ÔÇö backs the three tool-rendering cells.
+"""Tool Rendering agent ÔÇö backs the three tool-rendering cells.
 
 Mirrors LangGraph's `langgraph-python/src/agents/tool_rendering_agent.py`:
 this agent serves

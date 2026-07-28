@@ -1,4 +1,4 @@
-﻿"""
+"""
 Multimodal MS Agent Framework agent -- accepts image + document (PDF)
 attachments.
 

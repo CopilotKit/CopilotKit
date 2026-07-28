@@ -1,4 +1,4 @@
-﻿"""Reasoning agent ÔÇö backs `reasoning-default` and `reasoning-custom` cells.
+"""Reasoning agent ÔÇö backs `reasoning-default` and `reasoning-custom` cells.
 
 Why this agent uses OpenAIChatClient (Responses API) instead of the
 ChatCompletions client used by the other MAF agents in this showcase:

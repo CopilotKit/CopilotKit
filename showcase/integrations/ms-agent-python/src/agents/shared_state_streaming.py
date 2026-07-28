@@ -1,4 +1,4 @@
-﻿"""shared-state-streaming ÔÇö MAF agent that streams `document` per token.
+"""shared-state-streaming ÔÇö MAF agent that streams `document` per token.
 
 Mirrors LangGraph's `langgraph-python/src/agents/shared_state_streaming.py`.
 The frontend (`src/app/demos/shared-state-streaming/page.tsx`) subscribes
