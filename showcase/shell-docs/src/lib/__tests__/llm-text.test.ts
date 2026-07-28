@@ -1,7 +1,17 @@
 import { expect, test } from "vitest";
 
+import {
+  CHANNEL_FRONTENDS,
+  CHANNEL_GUIDE_ROUTES,
+  channelGuideHref,
+} from "../channel-guide-routes";
 import { loadDoc } from "../docs-render";
-import { getAllLlmPages, renderPageToLlmText } from "../llm-text";
+import {
+  getAllLlmPages,
+  renderPageToLlmText,
+  rewriteScopedDocsLinks,
+} from "../llm-text";
+import { getDocsMode, getIntegrations, ROOT_FRAMEWORK } from "../registry";
 
 test("publishes canonical Angular URLs instead of source-tree URLs", () => {
   const urls = getAllLlmPages().map((page) => page.url);
@@ -22,6 +32,236 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
     ]),
   );
   expect(urls.some((url) => url.startsWith("frontends/angular"))).toBe(false);
+});
+
+test("publishes channel quickstarts at canonical URLs with the default agent", () => {
+  const pages = getAllLlmPages({ channelGuideVariants: "all" });
+
+  expect(pages).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        url: "slack",
+        loadSlug: "frontends/slack",
+        framework: "built-in-agent",
+      }),
+      expect.objectContaining({
+        url: "teams",
+        loadSlug: "frontends/teams",
+        framework: "built-in-agent",
+      }),
+    ]),
+  );
+  expect(
+    pages.some(
+      (page) =>
+        page.url === "frontends/slack" || page.url === "frontends/teams",
+    ),
+  ).toBe(false);
+});
+
+test.each(["all", "content-unique"] as const)(
+  "publishes the exact visible framework root set in %s mode",
+  (channelGuideVariants) => {
+    const pages = getAllLlmPages({ channelGuideVariants });
+    const visibleFrameworkRoots = getIntegrations()
+      .filter(
+        (integration) =>
+          integration.slug !== ROOT_FRAMEWORK &&
+          getDocsMode(integration.slug) !== "hidden",
+      )
+      .map((integration) => integration.slug)
+      .sort();
+    const integrationSlugs = new Set(
+      getIntegrations().map((integration) => integration.slug),
+    );
+    const actualRoots = pages
+      .filter((page) => integrationSlugs.has(page.url))
+      .map((page) => page.url)
+      .sort();
+
+    expect(actualRoots).toEqual(visibleFrameworkRoots);
+    for (const slug of [
+      "google-adk",
+      "claude-sdk-python",
+      "claude-sdk-typescript",
+    ]) {
+      expect(pages).toContainEqual(
+        expect.objectContaining({
+          url: slug,
+          loadSlug: expect.stringMatching(/^integrations\/[^/]+\/quickstart$/),
+          framework: slug,
+        }),
+      );
+    }
+  },
+);
+
+test("publishes the complete canonical channel discovery matrix", () => {
+  const pages = getAllLlmPages({ channelGuideVariants: "all" });
+  const urls = pages.map((page) => page.url);
+  const visibleFrameworks = getIntegrations().filter(
+    (integration) => getDocsMode(integration.slug) !== "hidden",
+  );
+
+  expect(urls).toEqual(
+    expect.arrayContaining([
+      "slack/tools",
+      "slack/mastra/tools",
+      "teams/langgraph-fastapi/interactive",
+    ]),
+  );
+  expect(new Set(urls).size).toBe(urls.length);
+  expect(urls.filter((url) => url.startsWith("channels/"))).toEqual([]);
+  expect(urls.filter((url) => url === "channels")).toHaveLength(1);
+
+  for (const frontend of CHANNEL_FRONTENDS) {
+    for (const integration of visibleFrameworks) {
+      const quickstartUrl = channelGuideHref(
+        frontend,
+        integration.slug,
+        "",
+      ).slice(1);
+      expect(urls).toContain(quickstartUrl);
+
+      for (const guide of CHANNEL_GUIDE_ROUTES) {
+        const guideUrl = channelGuideHref(
+          frontend,
+          integration.slug,
+          guide.slug,
+        ).slice(1);
+        const page = pages.find((candidate) => candidate.url === guideUrl);
+        expect(page).toEqual(
+          expect.objectContaining({
+            frontend,
+            framework: integration.slug,
+            loadSlug: guide.sourceSlug,
+          }),
+        );
+      }
+    }
+  }
+
+  for (const page of pages.filter(
+    (candidate) =>
+      candidate.url === "slack" ||
+      candidate.url.startsWith("slack/") ||
+      candidate.url === "teams" ||
+      candidate.url.startsWith("teams/"),
+  )) {
+    expect(page.frontend).toMatch(/^(slack|teams)$/);
+    expect(page.framework).toBeTruthy();
+  }
+});
+
+test("keeps only content-unique channel guide bodies in the compact corpus", () => {
+  const pages = getAllLlmPages({ channelGuideVariants: "content-unique" });
+  const visibleFrameworks = getIntegrations().filter(
+    (integration) => getDocsMode(integration.slug) !== "hidden",
+  );
+
+  for (const frontend of CHANNEL_FRONTENDS) {
+    const scopedPages = pages.filter(
+      (page) => page.url === frontend || page.url.startsWith(`${frontend}/`),
+    );
+    const quickstarts = scopedPages.filter((page) =>
+      visibleFrameworks.some(
+        (integration) =>
+          page.url ===
+          channelGuideHref(frontend, integration.slug, "").slice(1),
+      ),
+    );
+    const guides = scopedPages.filter((page) =>
+      CHANNEL_GUIDE_ROUTES.some((guide) => page.loadSlug === guide.sourceSlug),
+    );
+
+    expect(quickstarts).toHaveLength(visibleFrameworks.length);
+    expect(guides).toHaveLength(CHANNEL_GUIDE_ROUTES.length);
+    expect(guides.every((page) => page.framework === "built-in-agent")).toBe(
+      true,
+    );
+  }
+});
+
+test("renders selected channel guide axes and scopes prose links", () => {
+  const doc = loadDoc("channels/tools");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText({
+    url: "teams/mastra/tools",
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: "channels/tools",
+    frontend: "teams",
+    framework: "mastra",
+  });
+
+  expect(output).toContain("](/teams/mastra/interactive)");
+  expect(output).toContain("](/teams/mastra/reference/channel)");
+  expect(output).toContain('provider: "teams"');
+  expect(output).not.toContain('provider: "slack"');
+});
+
+test("rewrites scoped prose links without changing backtick or tilde fences", () => {
+  const tripleFence = [
+    '```ts title="triple"',
+    'const href = "/channels/tools";',
+    "```",
+  ].join("\n");
+  const longFence = [
+    '````md title="long"',
+    "[leave this](/channels/tools)",
+    "````",
+  ].join("\n");
+  const tildeFence = [
+    '~~~tsx title="tilde"',
+    '<a href="/channels/tools">leave this</a>',
+    "~~~",
+  ].join("\n");
+  const body = [
+    "[rewrite this](/channels/tools)",
+    tripleFence,
+    longFence,
+    tildeFence,
+    '<a href="/channels/reference/thread">rewrite this too</a>',
+  ].join("\n");
+
+  const output = rewriteScopedDocsLinks(body, {
+    url: "slack/mastra/tools",
+    title: "Tools",
+    filePath: "/tmp/tools.mdx",
+    loadSlug: "channels/tools",
+    frontend: "slack",
+    framework: "mastra",
+  });
+
+  expect(output).toContain("[rewrite this](/slack/mastra/tools)");
+  expect(output).toContain(
+    '<a href="/slack/mastra/reference/thread">rewrite this too</a>',
+  );
+  expect(output).toContain(tripleFence);
+  expect(output).toContain(longFence);
+  expect(output).toContain(tildeFence);
+});
+
+test("expands the selected agent setup in channel Markdown output", () => {
+  const doc = loadDoc("frontends/slack");
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "slack/mastra",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug: "frontends/slack",
+      framework: "mastra",
+    },
+    { frontend: "slack", framework: "mastra" },
+  );
+
+  expect(output).toContain("/api/copilotkit/agent/myAgent/run");
+  expect(output).not.toContain("<FrameworkSetup");
 });
 
 test("swaps only frontend-specific Runtime code in LLM output", () => {
@@ -114,7 +354,8 @@ test("keeps only the Angular quickstart branch for the selected backend", () => 
 
   expect(standalone).toContain("new BuiltInAgent");
   expect(standalone).not.toContain("<FrameworkSetup");
-  expect(langGraph).toContain('<FrameworkSetup concept="agent-setup" />');
+  expect(langGraph).toContain("CopilotKitMiddleware");
+  expect(langGraph).not.toContain("<FrameworkSetup");
   expect(langGraph).not.toContain("new BuiltInAgent");
   expect(`${standalone}\n${langGraph}`).not.toContain("<WhenAngularBackend");
 });
@@ -207,7 +448,7 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
   expect(angularAgentConfig).toContain(
     "The backend half is also a single node.",
   );
-  expect(angularAgentConfig).not.toContain("useAgentContext");
+  expect(angularAgentConfig).not.toContain("useAgentContext({");
   expect(angularSubagents).toContain(
     "readDelegations(this.agentStore().state())",
   );

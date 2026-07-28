@@ -1,5 +1,7 @@
-import { FRONTEND_OPTIONS, isFrontendEarlyAccess } from "./frontend-options";
+import { FRONTEND_OPTIONS, isChannelFrontend } from "./frontend-options";
 import type { FrontendId } from "./frontend-options";
+import { CHANNEL_GUIDE_ROUTES } from "./channel-guide-routes";
+import type { ChannelGuideSection } from "./channel-guide-routes";
 import type { NavNode } from "./docs-render";
 
 export type FrontendPageId = Exclude<FrontendId, "react">;
@@ -138,18 +140,15 @@ export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
 
-export const FRONTEND_GUIDANCE_CONTENT_SLUG = "frontends/using-these-docs";
 export const FRONTEND_DOCS_STATUS_CONTENT_SLUG = "frontends/docs-status";
 
 export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
   if (id === "angular") return "frontends/angular/docs-status";
-  return isFrontendEarlyAccess(id)
-    ? FRONTEND_GUIDANCE_CONTENT_SLUG
-    : FRONTEND_DOCS_STATUS_CONTENT_SLUG;
+  return FRONTEND_DOCS_STATUS_CONTENT_SLUG;
 }
 
-export function getFrontendGuidanceTitle(id: FrontendPageId): string {
-  return isFrontendEarlyAccess(id) ? "About early access" : "Docs status";
+export function getFrontendGuidanceTitle(_id: FrontendPageId): string {
+  return "Docs status";
 }
 
 export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
@@ -177,15 +176,43 @@ const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
   angular: "reference/angular",
-  slack: "reference/channels",
-  teams: "reference",
+  slack: "reference/channel",
+  teams: "reference/channel",
 } satisfies Record<FrontendPageId, string>;
 
 export function getFrontendReferenceSlug(id: FrontendPageId): string {
   return FRONTEND_REFERENCE_SLUGS[id];
 }
 
+function getChannelGuidePages(section: ChannelGuideSection): NavNode[] {
+  return CHANNEL_GUIDE_ROUTES.filter((route) => route.section === section).map(
+    (route) => ({
+      type: "page",
+      title: route.navTitle,
+      slug: route.slug,
+    }),
+  );
+}
+
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
+  if (isChannelFrontend(id)) {
+    return [
+      { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
+      { type: "page", title: "Quickstart", slug: "" },
+      ...getChannelGuidePages("getting-started"),
+      { type: "section", title: "Build", icon: "lucide/Wand2" },
+      ...getChannelGuidePages("build"),
+      { type: "section", title: "Reference", icon: "lucide/BookOpen" },
+      {
+        type: "group",
+        title: "API reference",
+        slug: "reference",
+        defaultOpen: true,
+        children: getChannelGuidePages("reference"),
+      },
+    ];
+  }
+
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
@@ -214,9 +241,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
             variant: "frontend-docs-upcoming",
             quickstartHref: `/${id}`,
             referenceHref: `/${getFrontendReferenceSlug(id)}`,
-            frontendDocsStatus: isFrontendEarlyAccess(id)
-              ? "early-access"
-              : "feature-complete",
+            frontendDocsStatus: "feature-complete",
           },
         ];
 

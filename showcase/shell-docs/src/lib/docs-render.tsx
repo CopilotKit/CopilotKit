@@ -84,6 +84,7 @@ const SECTION_ICONS: Record<string, string> = {
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
   "intelligence platform": "custom/copilotkit-kite",
+  channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
@@ -685,6 +686,7 @@ const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
   "Intelligence Platform",
+  "Channels",
   "Deploy",
   "Platforms",
   "Other",

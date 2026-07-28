@@ -1,180 +1,111 @@
 ---
 title: Thread API
+nav_title: Thread
 icon: "lucide/MessageSquareText"
-description: Every method on the thread your handlers receive: reply, run the agent, files, reactions, state.
+description: Reference for replying, running and resuming agents, reading managed history, and storing per-conversation state.
+doc_type: reference
 ---
 
-Every handler (`onMessage`, `onReaction`, a tool, a JSX `onClick`) gets a
-`thread`. It is the conversation: post to it, run the agent, read history,
-persist state.
-
-```ts
-channel.onMessage(async ({ thread, message }) => {
-  await thread.post("hi");
-  await thread.runAgent({ prompt: message.text });
-});
-```
-
-<Callout type="info" title="Capability-gated methods">
-Not every platform supports every method (reactions, ephemeral messages,
-titles, reading history). Those methods return `{ ok: false }` or `undefined`
-on a surface that does not support them, rather than throwing. Check the
-result when it matters.
-</Callout>
+A Channels `Thread` is the SDK handle for one native conversation. Handlers,
+tools, and JSX callbacks receive it.
 
 ## Properties
 
-| Property | Type | Description |
-| --- | --- | --- |
-| `platform` | `string` | The platform this thread is on: `"slack"`, `"teams"`, and so on. |
-| `conversationKey` | `string` | Stable key identifying this conversation. |
-| `supportsBlockingChoice` | `boolean?` | `true`/`undefined`: `awaitChoice` can block for a click. `false`: use post-and-resume (the managed path). |
+| Property                 | Type                   | Description                                                                                                                  |
+| ------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `conversationKey`        | `string`               | Stable managed conversation key. Also passed to the `agent(threadId)` factory.                                               |
+| `platform`               | `string`               | Delivery adapter id. Managed Channels report `"intelligence"`; use the inbound `message.platform` for Slack/Teams branching. |
+| `supportsBlockingChoice` | `boolean \| undefined` | `false` on the managed path. Use post-and-resume instead of `awaitChoice`.                                                   |
 
-```ts
-if (thread.platform === "teams") {
-  // teams-specific formatting
-}
-if (thread.supportsBlockingChoice === false) {
-  // managed surface: post and resume instead of awaitChoice
-}
+## Post and update
+
+| Method                                      | Returns                            | Description                                                                                                     |
+| ------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `post(ui)`                                  | `Promise<MessageRef>`              | Send text or portable JSX.                                                                                      |
+| `update(ref, ui)`                           | `Promise<MessageRef>`              | Replace a prior message.                                                                                        |
+| `delete(ref)`                               | `Promise<void>`                    | Remove a prior message when supported.                                                                          |
+| `stream(source)`                            | `Promise<MessageRef>`              | Stream text where the adapter supports streaming.                                                               |
+| `postFile(args)`                            | `Promise<{ ok, fileId?, error? }>` | Upload bytes with a filename when supported.                                                                    |
+| `postEphemeral(user, ui, { fallbackToDM })` | `Promise<EphemeralResult \| null>` | Provider-capability-gated private reply. The required boolean chooses whether to fall back to a direct message. |
+
+```tsx title="handler.tsx"
+const ref = await thread.post("Working…");
+await thread.update(ref, "Done.");
 ```
 
-## Reply
+The `MessageRef` returned by `thread.post()` is updateable or deletable only
+during the current managed delivery. Do not persist arbitrary refs and reuse
+them to update or delete messages across deliveries.
 
-| Method | Signature | Description |
-| --- | --- | --- |
-| `post` | `post(ui: Renderable): Promise<MessageRef>` | Send a message. `ui` is a string or a JSX component. Returns a ref you can update. |
-| `update` | `update(ref: MessageRef, ui: Renderable): Promise<MessageRef>` | Replace a message you posted, in place. |
-| `delete` | `delete(ref: MessageRef): Promise<void>` | Remove a message you posted. |
-| `stream` | `stream(src: string \| AsyncIterable<string>): Promise<MessageRef>` | Post a message that fills in as the source yields. |
-| `postEphemeral` | `postEphemeral(user, ui, { fallbackToDM }): Promise<EphemeralResult \| null>` | Post a message only `user` sees. `fallbackToDM: true` DMs the user where ephemeral is unsupported; `false` resolves `null`. |
+In a later interaction, use the interaction-provided `message.ref`, which
+Intelligence stamps for that delivery. Only attempt an update when
+`message.ref.id` is non-empty, and treat that update as best-effort.
 
-```ts
-const ref = await thread.post("working on it...");
-await thread.update(ref, "done.");
-await thread.delete(ref);
+Methods that are not available on a surface return a failed result or neutral
+fallback. Check the return value when the capability is required.
 
-// stream text in as it is produced
-await thread.stream(tokenStream);
+## Run and resume the agent
 
-// a reply only the caller sees
-await thread.postEphemeral(message.user, "psst, only you see this", {
-  fallbackToDM: true,
+| Method             | Returns                            | Description                                                  |
+| ------------------ | ---------------------------------- | ------------------------------------------------------------ |
+| `runAgent(input?)` | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                |
+| `resume(value)`    | `Promise<MessageRef \| undefined>` | Re-enter an interrupted run with a human or external result. |
+
+`runAgent` accepts:
+
+| Field        | Type                            | Description                                                                                    |
+| ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. Pass the inbound managed message because it is not in fetched history yet. |
+| `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
+| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
+| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.               |
+
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  await thread.runAgent({
+    prompt: message.contentParts?.length
+      ? [
+          ...(message.text
+            ? [{ type: "text" as const, text: message.text }]
+            : []),
+          ...message.contentParts,
+        ]
+      : message.text,
+    context: [{ description: "Originating platform", value: message.platform }],
+  });
 });
-
-// escape hatch: a raw, platform-native payload (e.g. Slack Block Kit)
-await thread.post({ raw: [{ type: "divider" }] });
 ```
 
-`post` and `update` accept a raw payload as an escape hatch when a component
-does not cover what a platform can do. See [the UI
-library](/channels/ui-library#escape-hatch-raw-payloads).
+For managed approvals, post a registered component, return from the interrupt
+handler, and call `resume(value)` when a later click arrives. Do not call
+`awaitChoice`; see [interactive messages](/channels/interactive).
 
-## Run the agent
+## Conversation history and users
 
-| Method | Signature | Description |
-| --- | --- | --- |
-| `runAgent` | `runAgent(input?): Promise<MessageRef \| undefined>` | Run the agent and stream its reply into the thread. |
-| `resume` | `resume(value: unknown): Promise<MessageRef \| undefined>` | Resume a run waiting on a value (HITL). |
+| Method              | Returns                              | Description                                                          |
+| ------------------- | ------------------------------------ | -------------------------------------------------------------------- |
+| `getMessages()`     | `Promise<ThreadMessage[]>`           | Managed history in chronological order; returns `[]` if unavailable. |
+| `lookupUser(query)` | `Promise<PlatformUser \| undefined>` | Provider lookup where supported.                                     |
 
-`runAgent` input:
+## Per-conversation state
 
-| Field | Type | Description |
-| --- | --- | --- |
-| `prompt` | `string \| AgentContentPart[]` | A user message to inject. Use the array form for [files and images](/channels/files-and-multimodality). |
-| `context` | `ContextEntry[]` | Extra context for this run. |
-| `tools` | `ChannelTool[]` | Extra tools for this run. |
-| `transcript` | `boolean \| { limit?: number }` | Bridge cross-platform history for this run. See [Transcripts](/channels/transcripts). |
+| Method               | Returns                   | Description                                                                |
+| -------------------- | ------------------------- | -------------------------------------------------------------------------- |
+| `state<T>()`         | `Promise<T \| undefined>` | Read the value stored for this conversation.                               |
+| `setState<T>(value)` | `Promise<void>`           | Replace the full stored value. Validated when `store.state` is configured. |
 
-```ts
-// inject a prompt plus per-turn context
-await thread.runAgent({
-  prompt: message.text,
-  context: [{ description: "Requesting user", value: message.user.name ?? "" }],
-});
+State uses the Channel's `StateStore`. Without a durable `store.adapter`, the
+default MemoryStore keeps it only in the current process. See
+[Threads and state](/channels/threads-and-state).
 
-// resume a run that paused for a human answer
-await thread.resume({ approved: true });
-```
+## Provider-capability methods
 
-## Files
+| Method                                             | Purpose                                                                         |
+| -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `react(ref, emoji)` / `unreact(ref, emoji)`        | Add or remove the bot's reaction.                                               |
+| `setSuggestedPrompts(prompts, options?)`           | Set prompts on surfaces such as an assistant pane.                              |
+| `setTitle(title)`                                  | Name the conversation.                                                          |
+| `subscribe()` / `unsubscribe()` / `isSubscribed()` | Store a subscription flag. Proactive routing from that flag is not implemented. |
 
-| Method | Signature | Description |
-| --- | --- | --- |
-| `postFile` | `postFile({ bytes, filename, title?, altText? }): Promise<{ ok, fileId?, error? }>` | Send a file. `bytes` is a `Uint8Array`. |
-
-```ts
-await thread.postFile({ bytes: png, filename: "chart.png", title: "Revenue" });
-```
-
-## Human-in-the-loop
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `awaitChoice` | `awaitChoice<T>(ui: Renderable): Promise<T>` | Post a picker and block until a click resolves to the button's `value`. Only on surfaces where `supportsBlockingChoice` is not `false`. |
-
-```ts
-const { confirmed } = await thread.awaitChoice<{ confirmed: boolean }>(
-  <ConfirmCard />,
-);
-if (confirmed) await doTheWrite();
-```
-
-See [human-in-the-loop](/channels/interactive/human-in-the-loop) for the
-managed post-and-resume pattern.
-
-## Reactions
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `react` | `react(ref: MessageRef, emoji: EmojiValue): Promise<{ ok, error? }>` | Add an emoji reaction to a message. |
-| `unreact` | `unreact(ref: MessageRef, emoji: EmojiValue): Promise<{ ok, error? }>` | Remove the bot's reaction. |
-
-```ts
-await thread.react(message.ref, "eyes"); // 👀 acknowledge
-// ...work...
-await thread.unreact(message.ref, "eyes");
-await thread.react(message.ref, "white_check_mark"); // ✅ done
-```
-
-## Read the conversation
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `getMessages` | `getMessages(): Promise<ThreadMessage[]>` | The conversation's messages. `[]` when the adapter can't read history. |
-| `lookupUser` | `lookupUser(query: string): Promise<PlatformUser \| undefined>` | Resolve a user by free-form query. `undefined` when unsupported. |
-
-```ts
-const history = await thread.getMessages();
-const user = await thread.lookupUser("alex@acme.com");
-```
-
-## Per-thread state
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `setState` | `setState<T>(v: T): Promise<void>` | Persist arbitrary per-thread state (e.g. a workflow step). Typed and validated when `store.state` is set. |
-| `state` | `state<T>(): Promise<T \| undefined>` | Read back what `setState` wrote. |
-
-```ts
-await thread.setState({ step: "awaiting_approval" });
-const { step } = (await thread.state<{ step: string }>()) ?? {};
-```
-
-## Conversation surface
-
-| Method | Signature | Description |
-| --- | --- | --- |
-| `setSuggestedPrompts` | `setSuggestedPrompts(prompts, opts?): Promise<{ ok, error? }>` | Pin suggested prompts (e.g. the Slack assistant pane). |
-| `setTitle` | `setTitle(title: string): Promise<{ ok, error? }>` | Name the conversation. |
-| `subscribe` / `unsubscribe` | `(): Promise<void>` | Record or drop a subscription for this conversation. |
-| `isSubscribed` | `(): Promise<boolean>` | Whether this conversation is subscribed. |
-
-```ts
-await thread.setTitle("Incident #4213");
-await thread.setSuggestedPrompts([
-  { title: "Summarize", message: "Summarize this thread" },
-  { title: "File it", message: "File a Linear issue for this" },
-]);
-await thread.subscribe();
-```
+These methods are not guaranteed on managed Slack and Teams. Check `{ ok }`
+when the method returns a capability result.

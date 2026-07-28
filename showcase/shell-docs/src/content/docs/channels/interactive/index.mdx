@@ -1,18 +1,257 @@
 ---
-title: Interactive flows
+title: Interactive messages and approvals
+nav_title: Interactive messages and approvals
 icon: "lucide/MousePointerClick"
-description: Flows where a component drives the conversation, built on the UI library.
+description: Render portable Slack and Teams UI, handle actions, and resume interrupted agent runs without blocking a managed delivery.
+doc_type: how-to
 ---
 
-These build on [the UI library](/channels/ui-library). Set up
-JSX and know how `thread.post(<Card/>)`, callbacks, and component registration
-work first, then come back here for the flows where a component drives the
-conversation.
+Channels JSX renders portable components as native channel UI. Use it for
+buttons, summaries, and human approval without maintaining provider payloads
+by hand.
 
-Two patterns:
+<FrontendOnly frontend="slack">
 
-<Cards>
-  <Card title="Human-in-the-loop" href="/channels/interactive/human-in-the-loop" description="The agent posts an approve or cancel card and waits for the click before continuing." />
-  <Card title="Reactions" href="/channels/interactive/reactions" description="Run code when a user reacts to a specific card you posted." />
-  <Card title="Modals" href="/channels/interactive/modals" description="Open a form dialog, collect fields, and handle the submission." />
-</Cards>
+On Slack, Channels JSX renders as Block Kit. Button clicks return as
+`block_actions` events through the managed Socket Mode connection.
+
+<Callout type="warn" title="Enable Slack Interactivity before testing buttons">
+  Slack interactions require **Interactivity** to be enabled in the Slack app
+  configuration. The generated manifest currently may leave Interactivity
+  disabled, so verify that setting before expecting button callbacks.
+</Callout>
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+On Microsoft Teams, Channels JSX renders as Adaptive Cards. Buttons render with
+`Action.Submit`, and clicks return to the managed connection as message
+activities. A Teams `Action.Submit` activity can arrive without a source
+message ref; in that case, `message.ref.id` is empty.
+
+</FrontendOnly>
+
+## Enable Channels JSX
+
+The package is ESM-only. Keep `"type": "module"` in `package.json` and add:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels",
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["*.ts", "*.tsx"]
+}
+```
+
+## Post a native action
+
+Define a named component and register it on the Channel:
+
+```tsx title="approval-card.tsx"
+import {
+  Actions,
+  Button,
+  Header,
+  Message,
+  Section,
+} from "@copilotkit/channels/ui";
+
+export function ApprovalCard({ summary }: { summary: string }) {
+  return (
+    <Message>
+      <Header>Approval required</Header>
+      <Section>{summary}</Section>
+      <Actions>
+        <Button
+          style="primary"
+          value={{ approved: true }}
+          onClick={async ({ thread, message, action }) => {
+            const value = action.value;
+            if (value === undefined) return;
+
+            if (message.ref.id) {
+              try {
+                await thread.update(
+                  message.ref,
+                  <Message>
+                    <Header>Approved</Header>
+                    <Section>{summary}</Section>
+                  </Message>,
+                );
+              } catch {
+                // Updating the card is best-effort; always resume the agent.
+              }
+            }
+            await thread.resume(value);
+          }}
+        >
+          Approve
+        </Button>
+        <Button
+          style="danger"
+          value={{ approved: false }}
+          onClick={async ({ thread, message, action }) => {
+            const value = action.value;
+            if (value === undefined) return;
+
+            if (message.ref.id) {
+              try {
+                await thread.update(
+                  message.ref,
+                  <Message>
+                    <Header>Rejected</Header>
+                    <Section>{summary}</Section>
+                  </Message>,
+                );
+              } catch {
+                // Updating the card is best-effort; always resume the agent.
+              }
+            }
+            await thread.resume(value);
+          }}
+        >
+          Reject
+        </Button>
+      </Actions>
+    </Message>
+  );
+}
+```
+
+<FrontendOnly frontend="slack">
+
+```tsx title="channel.tsx"
+import { createChannel } from "@copilotkit/channels";
+import { ApprovalCard } from "./approval-card.js";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  components: [ApprovalCard],
+});
+
+channel.onInterrupt<{ summary: string }>(
+  "on_interrupt",
+  async ({ payload, thread }) => {
+    await thread.post(<ApprovalCard summary={payload.summary} />);
+  },
+);
+```
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+```tsx title="channel.tsx"
+import { createChannel } from "@copilotkit/channels";
+import { ApprovalCard } from "./approval-card.js";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  components: [ApprovalCard],
+});
+
+channel.onInterrupt<{ summary: string }>(
+  "on_interrupt",
+  async ({ payload, thread }) => {
+    await thread.post(<ApprovalCard summary={payload.summary} />);
+  },
+);
+```
+
+</FrontendOnly>
+
+Registration lets the action registry rebuild a named component when a later
+click arrives. Keep component props JSON-serializable.
+
+Treat an interaction message as updateable only when `message.ref.id` is
+non-empty. The card update in this example is best-effort: a missing ref or a
+failed update must not prevent `thread.resume(value)` from continuing the
+approval.
+
+## Use post-and-resume for managed approvals
+
+Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
+as a separate leased delivery, so blocking the first delivery would prevent the
+approval from being processed.
+
+The safe flow is:
+
+1. The agent emits an `on_interrupt` event.
+2. `channel.onInterrupt` posts the registered component and returns.
+3. Intelligence acknowledges the original turn.
+4. A later click updates the card when possible and calls
+   `thread.resume(value)`.
+5. The SDK re-enters the agent with the approval result.
+
+The selected agent framework decides how it emits and consumes the interrupt.
+Follow its [human-in-the-loop guide](/human-in-the-loop) for the agent-side
+interrupt; keep the Channel handler limited to portable presentation and
+`resume`.
+
+<Callout type="warn" title="Restart durability needs a StateStore">
+  The managed realtime connection does not automatically persist SDK action
+  snapshots. The default MemoryStore keeps them only in the current process.
+  Registered components make recovery possible, but clicks on pre-restart
+  cards still require a durable
+  `createChannel({ store: { adapter } })` backend. See
+  [Threads and state](/channels/threads-and-state).
+</Callout>
+
+## Capability differences
+
+Text and sections are the portable baseline. Interactive behavior also depends
+on the selected provider's app configuration:
+
+<FrontendOnly frontend="slack">
+
+- Slack can deliver buttons, selects, and inputs through Block Kit once
+  Interactivity is enabled for the app.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+- Teams can deliver `Action.Submit` buttons in Adaptive Cards as message
+  activities.
+
+</FrontendOnly>
+
+Other provider-specific features remain capability-gated:
+
+- Incoming reactions can be handled when Intelligence delivers them, but
+  adding or removing reactions from the SDK is not part of the managed
+  baseline.
+- Modal open/submit callbacks are direct-adapter capabilities, not part of the
+  managed Slack or Teams realtime path.
+- Ephemeral messages, conversation titles, and suggested prompts may return
+  `{ ok: false }`; check the result when your workflow depends on them.
+
+Use the [JSX callback reference](/channels/reference/callbacks) for handler
+arguments and the [Thread API](/channels/reference/thread) for post, update, and
+resume signatures.

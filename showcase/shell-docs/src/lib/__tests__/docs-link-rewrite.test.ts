@@ -1,8 +1,10 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import setupContentData from "@/data/setup-content.json";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import { matchesSeoRedirectSource } from "../seo-redirects";
+import type { SetupContentBundle } from "../setup-content";
 
 function listMdxFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -88,6 +90,13 @@ describe("resolveDocsHref", () => {
         frameworkOverride: "langgraph-python",
       }),
     ).toBe("/angular/deepagents/quickstart");
+
+    expect(
+      resolveDocsHref("/agentic-protocols/ag-ui", {
+        slugHrefPrefix: "/angular",
+        frameworkOverride: "built-in-agent",
+      }),
+    ).toBe("/angular/agentic-protocols/ag-ui");
   });
 
   it("collapses React-specific topic links to Angular-native guides", () => {
@@ -114,6 +123,232 @@ describe("resolveDocsHref", () => {
       "/langgraph-python/quickstart",
     );
     expect(resolveDocsHref("/reference/v2", options)).toBe("/reference/v2");
+    expect(resolveDocsHref("/channels/intelligence", options)).toBe(
+      "/channels/intelligence",
+    );
+  });
+
+  it("scopes shared Channels guides to the selected Slack or Teams journey", () => {
+    const mastraSlack = {
+      slugHrefPrefix: "/slack/mastra",
+      frameworkOverride: "mastra",
+      frontendOverride: "slack" as const,
+    };
+
+    expect(resolveDocsHref("/channels/interactive", mastraSlack)).toBe(
+      "/slack/mastra/interactive",
+    );
+    expect(
+      resolveDocsHref("/channels/reference/thread#state", {
+        ...mastraSlack,
+        slugHrefPrefix: "/teams/mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe("/teams/mastra/reference/thread#state");
+    expect(
+      resolveDocsHref("/channels/tools?view=compact#context", mastraSlack),
+    ).toBe("/slack/mastra/tools?view=compact#context");
+  });
+
+  it("preserves the active backend for same-channel quickstart links", () => {
+    expect(
+      resolveDocsHref("/slack", {
+        slugHrefPrefix: "/slack/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "slack",
+      }),
+    ).toBe("/slack/mastra");
+    expect(
+      resolveDocsHref("/teams#verify", {
+        slugHrefPrefix: "/teams/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe("/teams/mastra#verify");
+  });
+
+  it("keeps explicit cross-channel quickstart links unchanged", () => {
+    expect(
+      resolveDocsHref("/teams", {
+        slugHrefPrefix: "/slack/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "slack",
+      }),
+    ).toBe("/teams");
+    expect(
+      resolveDocsHref("/slack", {
+        slugHrefPrefix: "/teams/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe("/slack");
+  });
+
+  it("collapses explicit Built-in Agent paths on the active channel", () => {
+    const builtInSlack = {
+      slugHrefPrefix: "/slack",
+      frameworkOverride: "built-in-agent",
+      frontendOverride: "slack" as const,
+    };
+
+    expect(resolveDocsHref("/slack", builtInSlack)).toBe("/slack");
+    expect(resolveDocsHref("/slack/built-in-agent", builtInSlack)).toBe(
+      "/slack",
+    );
+    expect(
+      resolveDocsHref("/slack/built-in-agent/tools#context", builtInSlack),
+    ).toBe("/slack/tools#context");
+  });
+
+  it("keeps ordinary Built-in Agent docs links on the root surface for channel guides", () => {
+    const builtInSlack = {
+      slugHrefPrefix: "/slack",
+      frameworkOverride: "built-in-agent",
+      frontendOverride: "slack" as const,
+    };
+    const builtInTeams = {
+      slugHrefPrefix: "/teams",
+      frameworkOverride: "built-in-agent",
+      frontendOverride: "teams" as const,
+    };
+
+    expect(resolveDocsHref("/human-in-the-loop", builtInSlack)).toBe(
+      "/human-in-the-loop",
+    );
+    expect(resolveDocsHref("/threads", builtInSlack)).toBe("/threads");
+    expect(resolveDocsHref("/human-in-the-loop#approval", builtInTeams)).toBe(
+      "/human-in-the-loop#approval",
+    );
+    expect(resolveDocsHref("/threads", builtInTeams)).toBe("/threads");
+
+    expect(resolveDocsHref("/slack", builtInSlack)).toBe("/slack");
+    expect(resolveDocsHref("/channels/interactive", builtInSlack)).toBe(
+      "/slack/interactive",
+    );
+    expect(resolveDocsHref("/teams", builtInTeams)).toBe("/teams");
+    expect(resolveDocsHref("/channels/interactive", builtInTeams)).toBe(
+      "/teams/interactive",
+    );
+  });
+
+  it("keeps ordinary docs links scoped for explicit channel frameworks", () => {
+    expect(
+      resolveDocsHref("/human-in-the-loop", {
+        slugHrefPrefix: "/slack/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "slack",
+      }),
+    ).toBe("/slack/mastra/human-in-the-loop");
+    expect(
+      resolveDocsHref("/threads", {
+        slugHrefPrefix: "/slack/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "slack",
+      }),
+    ).toBe("/slack/mastra/threads");
+    expect(
+      resolveDocsHref("/human-in-the-loop#approval", {
+        slugHrefPrefix: "/teams/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe("/teams/mastra/human-in-the-loop#approval");
+    expect(
+      resolveDocsHref("/threads", {
+        slugHrefPrefix: "/teams/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe("/teams/mastra/threads");
+  });
+
+  it("keeps universal protocol links unscoped in channel guides", () => {
+    const href = "/agentic-protocols/ag-ui";
+
+    expect(
+      resolveDocsHref(href, {
+        slugHrefPrefix: "/slack",
+        frameworkOverride: "built-in-agent",
+        frontendOverride: "slack",
+      }),
+    ).toBe(href);
+    expect(
+      resolveDocsHref(href, {
+        slugHrefPrefix: "/teams/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "teams",
+      }),
+    ).toBe(href);
+  });
+
+  it("keeps bundled framework quickstart handoffs global in channel guides", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const channelSetups = Object.values(setupContent.concepts).filter(
+      (entry) => entry.concept === "channels-agent-setup",
+    );
+    const quickstartLinks: Array<{ framework: string; href: string }> = [];
+
+    expect(channelSetups).toHaveLength(19);
+    for (const { framework, source } of channelSetups) {
+      for (const match of source.matchAll(/\]\((\/[^)\s]*\/?quickstart)\)/g)) {
+        quickstartLinks.push({ framework, href: match[1] });
+      }
+    }
+
+    // CrewAI links to its showcase source instead of an internal quickstart.
+    expect(quickstartLinks).toHaveLength(18);
+    for (const { framework, href } of quickstartLinks) {
+      expect(
+        resolveDocsHref(href, {
+          slugHrefPrefix:
+            framework === "built-in-agent" ? "/slack" : `/slack/${framework}`,
+          frameworkOverride: framework,
+          frontendOverride: "slack",
+        }),
+        `Slack ${framework}`,
+      ).toBe(href);
+      expect(
+        resolveDocsHref(href, {
+          slugHrefPrefix:
+            framework === "built-in-agent" ? "/teams" : `/teams/${framework}`,
+          frameworkOverride: framework,
+          frontendOverride: "teams",
+        }),
+        `Teams ${framework}`,
+      ).toBe(href);
+    }
+  });
+
+  it("keeps the Channels overview and non-channel surfaces global", () => {
+    const mastraSlack = {
+      slugHrefPrefix: "/slack/mastra",
+      frameworkOverride: "mastra",
+      frontendOverride: "slack" as const,
+    };
+
+    expect(resolveDocsHref("/channels", mastraSlack)).toBe("/channels");
+    expect(resolveDocsHref("/channels#architecture", mastraSlack)).toBe(
+      "/channels#architecture",
+    );
+    expect(resolveDocsHref("/channels?source=slack", mastraSlack)).toBe(
+      "/channels?source=slack",
+    );
+    expect(resolveDocsHref("/channels/not-a-guide", mastraSlack)).toBe(
+      "/channels/not-a-guide",
+    );
+    expect(
+      resolveDocsHref("/channels/tools", {
+        ...mastraSlack,
+        slugHrefPrefix: "/vue/mastra",
+        frontendOverride: "vue",
+      }),
+    ).toBe("/channels/tools");
+    expect(resolveDocsHref("/teams/mastra/tools", mastraSlack)).toBe(
+      "/teams/mastra/tools",
+    );
+    expect(resolveDocsHref("`/channels/tools`", mastraSlack)).toBe(
+      "`/channels/tools`",
+    );
   });
 
   it("does not scope SEO redirect source aliases", () => {

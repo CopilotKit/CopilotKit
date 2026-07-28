@@ -11,13 +11,12 @@ import {
   frontendPathForBackend,
   frontendPathForCurrentPath,
   getFrontendOption,
-  isFrontendEarlyAccess,
+  isChannelFrontend,
   isFrontendId,
   parseFrontendRoutePath,
 } from "../frontend-options";
 import {
   FRONTEND_DOCS_STATUS_CONTENT_SLUG,
-  FRONTEND_GUIDANCE_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
   getFrontendCanonicalSlug,
@@ -34,6 +33,7 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "../angular-doc-navigation";
+import { CHANNEL_GUIDE_ROUTES } from "../channel-guide-routes";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import type * as PageTree from "fumadocs-core/page-tree";
 
@@ -98,9 +98,6 @@ test("maps picker selections across frontend URL shapes", () => {
   const backendSlugs = ["built-in-agent", "langgraph-python", "mastra"];
 
   expect(
-    frontendPathForCurrentPath("slack", "/vue/concepts/architecture"),
-  ).toBe("/slack/concepts/architecture");
-  expect(
     frontendPathForCurrentPath("react", "/slack/concepts/architecture"),
   ).toBe("/concepts/architecture");
   expect(frontendPathForCurrentPath("teams", "/quickstart")).toBe("/teams");
@@ -113,18 +110,150 @@ test("maps picker selections across frontend URL shapes", () => {
   ).toBe("/slack/langgraph-python");
   expect(
     frontendPathForCurrentPath(
-      "slack",
-      "/vue/langgraph-python/concepts/architecture",
-      backendSlugs,
-    ),
-  ).toBe("/slack/langgraph-python/concepts/architecture");
-  expect(
-    frontendPathForCurrentPath(
       "react",
       "/vue/langgraph-python/concepts/architecture",
       backendSlugs,
     ),
   ).toBe("/langgraph-python/concepts/architecture");
+});
+
+test("keeps mapped channel guides when switching between Slack and Teams", () => {
+  const backendSlugs = ["built-in-agent", "langgraph-fastapi", "mastra"];
+
+  expect(
+    frontendPathForCurrentPath("teams", "/slack/mastra/tools", backendSlugs),
+  ).toBe("/teams/mastra/tools");
+  expect(
+    frontendPathForCurrentPath(
+      "slack",
+      "/teams/langgraph-fastapi/reference/thread",
+      backendSlugs,
+    ),
+  ).toBe("/slack/langgraph-fastapi/reference/thread");
+});
+
+test("drops channel guides at each in-app frontend quickstart", () => {
+  const backendSlugs = ["built-in-agent", "mastra"];
+
+  expect(
+    frontendPathForCurrentPath("react", "/slack/mastra/tools", backendSlugs),
+  ).toBe("/mastra");
+  expect(
+    frontendPathForCurrentPath("vue", "/slack/mastra/tools", backendSlugs),
+  ).toBe("/vue/mastra");
+  expect(
+    frontendPathForCurrentPath("angular", "/slack/mastra/tools", backendSlugs),
+  ).toBe("/angular/mastra/quickstart");
+  expect(
+    frontendPathForCurrentPath("angular", "/slack/tools", backendSlugs),
+  ).toBe("/angular");
+  expect(
+    frontendPathForCurrentPath(
+      "react-native",
+      "/slack/mastra/tools",
+      backendSlugs,
+    ),
+  ).toBe("/react-native/mastra");
+});
+
+test("drops in-app topics when switching to a channel frontend", () => {
+  const backendSlugs = ["built-in-agent", "mastra"];
+
+  expect(
+    frontendPathForCurrentPath(
+      "slack",
+      "/vue/mastra/concepts/architecture",
+      backendSlugs,
+    ),
+  ).toBe("/slack/mastra");
+  expect(
+    frontendPathForCurrentPath(
+      "teams",
+      "/vue/mastra/concepts/architecture",
+      backendSlugs,
+    ),
+  ).toBe("/teams/mastra");
+  expect(
+    frontendPathForCurrentPath("teams", "/concepts/architecture", backendSlugs),
+  ).toBe("/teams");
+});
+
+test("keeps channel quickstarts and in-app topic transitions coherent", () => {
+  const backendSlugs = ["built-in-agent", "mastra"];
+
+  expect(frontendPathForCurrentPath("vue", "/slack/mastra", backendSlugs)).toBe(
+    "/vue/mastra",
+  );
+  expect(
+    frontendPathForCurrentPath("teams", "/slack/mastra", backendSlugs),
+  ).toBe("/teams/mastra");
+  expect(
+    frontendPathForCurrentPath(
+      "react",
+      "/vue/mastra/concepts/architecture",
+      backendSlugs,
+    ),
+  ).toBe("/mastra/concepts/architecture");
+  expect(
+    frontendPathForCurrentPath(
+      "vue",
+      "/mastra/concepts/architecture",
+      backendSlugs,
+    ),
+  ).toBe("/vue/mastra/concepts/architecture");
+});
+
+test("routes channel roots to Angular's canonical quickstart", () => {
+  const backendSlugs = ["built-in-agent", "mastra"];
+
+  expect(
+    frontendPathForCurrentPath("angular", "/slack/mastra", backendSlugs),
+  ).toBe("/angular/mastra/quickstart");
+  expect(frontendPathForCurrentPath("angular", "/slack", backendSlugs)).toBe(
+    "/angular",
+  );
+});
+
+test("keeps Angular on its frontend quickstart when switching backends", () => {
+  const backendSlugs = ["built-in-agent", "langgraph-python", "mastra"];
+
+  expect(
+    backendPathForCurrentPath(
+      "mastra",
+      "/angular",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/angular/mastra/quickstart");
+  expect(
+    backendPathForCurrentPath(
+      "langgraph-python",
+      "/angular/mastra/quickstart",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/angular/langgraph-python/quickstart");
+  expect(
+    backendPathForCurrentPath(
+      "built-in-agent",
+      "/angular/mastra/quickstart",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/angular");
+});
+
+test("preserves an Angular backend overview when switching backends", () => {
+  const backendSlugs = ["built-in-agent", "langgraph-python", "mastra"];
+
+  expect(
+    backendPathForCurrentPath(
+      "langgraph-python",
+      "/angular/mastra",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/angular/langgraph-python");
 });
 
 test("parses and builds two-axis frontend/backend routes", () => {
@@ -177,6 +306,22 @@ test("parses and builds two-axis frontend/backend routes", () => {
       "built-in-agent",
     ),
   ).toBe("/vue");
+  expect(
+    backendPathForCurrentPath(
+      "mastra",
+      "/slack/tools",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/slack/mastra/tools");
+  expect(
+    backendPathForCurrentPath(
+      "built-in-agent",
+      "/teams/mastra/reference/thread",
+      backendSlugs,
+      "built-in-agent",
+    ),
+  ).toBe("/teams/reference/thread");
 });
 
 test("maps every non-React frontend to an MDX guide page", () => {
@@ -192,13 +337,10 @@ test("maps every non-React frontend to an MDX guide page", () => {
     expect(getFrontendUsingTheseDocsPath(id)).toBe(`/${id}/using-these-docs`);
     expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
   }
-  expect(isFrontendEarlyAccess("vue")).toBe(false);
-  expect(isFrontendEarlyAccess("react-native")).toBe(false);
-  expect(isFrontendEarlyAccess("slack")).toBe(true);
-  expect(isFrontendEarlyAccess("teams")).toBe(true);
-  expect(loadDoc(FRONTEND_GUIDANCE_CONTENT_SLUG)?.fm.title).toBe(
-    "About early access",
-  );
+  expect(isChannelFrontend("vue")).toBe(false);
+  expect(isChannelFrontend("react-native")).toBe(false);
+  expect(isChannelFrontend("slack")).toBe(true);
+  expect(isChannelFrontend("teams")).toBe(true);
   expect(loadDoc(FRONTEND_DOCS_STATUS_CONTENT_SLUG)?.fm.title).toBe(
     "Docs status",
   );
@@ -209,11 +351,11 @@ test("maps every non-React frontend to an MDX guide page", () => {
     "frontends/angular/docs-status",
   );
   expect(getFrontendGuidanceContentSlug("slack")).toBe(
-    FRONTEND_GUIDANCE_CONTENT_SLUG,
+    FRONTEND_DOCS_STATUS_CONTENT_SLUG,
   );
   expect(getFrontendGuidanceTitle("vue")).toBe("Docs status");
-  expect(getFrontendGuidanceTitle("slack")).toBe("About early access");
-  expect(isFrontendEarlyAccess("react")).toBe(false);
+  expect(getFrontendGuidanceTitle("slack")).toBe("Docs status");
+  expect(isChannelFrontend("react")).toBe(false);
 });
 
 test("gives Angular native guides plus shared product documentation", () => {
@@ -363,20 +505,55 @@ test("routes frontend sidebars to the most specific reference docs available", (
   expect(getFrontendReferenceSlug("react-native")).toBe(
     "reference/react-native",
   );
-  expect(getFrontendReferenceSlug("slack")).toBe("reference/channels");
+  expect(getFrontendReferenceSlug("slack")).toBe("reference/channel");
   expect(getFrontendReferenceSlug("vue")).toBe("reference");
-  expect(getFrontendReferenceSlug("teams")).toBe("reference");
+  expect(getFrontendReferenceSlug("teams")).toBe("reference/channel");
 });
 
-test("keeps the early-access guidance link iconless", () => {
-  const guidanceLink = getFrontendQuickstartNavTree("slack").find(
-    (node) => node.type === "page" && node.title === "About early access",
-  );
+test("gives Slack and Teams the maintained Channels journey", () => {
+  const slackNav = getFrontendQuickstartNavTree("slack");
+  const teamsNav = getFrontendQuickstartNavTree("teams");
+  const gettingStartedPages = CHANNEL_GUIDE_ROUTES.filter(
+    (route) => route.section === "getting-started",
+  ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
+  const buildPages = CHANNEL_GUIDE_ROUTES.filter(
+    (route) => route.section === "build",
+  ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
+  const referencePages = CHANNEL_GUIDE_ROUTES.filter(
+    (route) => route.section === "reference",
+  ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
+  const expectedNav = [
+    { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
+    { type: "page", title: "Quickstart", slug: "" },
+    ...gettingStartedPages,
+    { type: "section", title: "Build", icon: "lucide/Wand2" },
+    ...buildPages,
+    { type: "section", title: "Reference", icon: "lucide/BookOpen" },
+    {
+      type: "group",
+      title: "API reference",
+      slug: "reference",
+      defaultOpen: true,
+      children: referencePages,
+    },
+  ];
 
-  expect(guidanceLink).not.toHaveProperty("icon");
+  for (const nav of [slackNav, teamsNav]) {
+    expect(nav).toEqual(expectedNav);
+    expect(nav).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ variant: "frontend-docs-upcoming" }),
+      ]),
+    );
+    expect(flattenNavTree(nav)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ href: expect.stringMatching(/^\/channels/) }),
+      ]),
+    );
+  }
 });
 
-test("keeps non-React frontend sidebars limited to quickstart and reference links", () => {
+test("builds the exact channel journey beneath every active prefix", () => {
   const navTree = getFrontendQuickstartNavTree("slack");
   const flattenedNavTree = flattenNavTree(navTree);
 
@@ -404,8 +581,39 @@ test("keeps non-React frontend sidebars limited to quickstart and reference link
   const pageUrls = collectPageUrls(navTreeToPageTree(navTree, "/slack"));
   expect(pageUrls).toEqual([
     "/slack",
-    "/slack/using-these-docs",
-    "/reference/channels",
+    "/slack/intelligence",
+    "/slack/tools",
+    "/slack/interactive",
+    "/slack/threads-and-state",
+    "/slack/reference/channel",
+    "/slack/reference/thread",
+    "/slack/reference/callbacks",
+  ]);
+  expect(
+    collectPageUrls(navTreeToPageTree(navTree, "/slack/langgraph-fastapi")),
+  ).toEqual([
+    "/slack/langgraph-fastapi",
+    "/slack/langgraph-fastapi/intelligence",
+    "/slack/langgraph-fastapi/tools",
+    "/slack/langgraph-fastapi/interactive",
+    "/slack/langgraph-fastapi/threads-and-state",
+    "/slack/langgraph-fastapi/reference/channel",
+    "/slack/langgraph-fastapi/reference/thread",
+    "/slack/langgraph-fastapi/reference/callbacks",
+  ]);
+  expect(
+    collectPageUrls(
+      navTreeToPageTree(getFrontendQuickstartNavTree("teams"), "/teams/mastra"),
+    ),
+  ).toEqual([
+    "/teams/mastra",
+    "/teams/mastra/intelligence",
+    "/teams/mastra/tools",
+    "/teams/mastra/interactive",
+    "/teams/mastra/threads-and-state",
+    "/teams/mastra/reference/channel",
+    "/teams/mastra/reference/thread",
+    "/teams/mastra/reference/callbacks",
   ]);
   expect(pageUrls).not.toEqual(
     expect.arrayContaining([
@@ -426,16 +634,6 @@ test("keeps non-React frontend sidebars limited to quickstart and reference link
       }),
     ]),
   );
-  expect(getFrontendQuickstartNavTree("slack")).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        type: "section",
-        variant: "frontend-docs-upcoming",
-        frontendDocsStatus: "early-access",
-      }),
-    ]),
-  );
-
   expect(resolveFrontendDocPage("slack", "agentic-protocols")).toEqual(
     expect.objectContaining({
       status: "found",
@@ -446,7 +644,7 @@ test("keeps non-React frontend sidebars limited to quickstart and reference link
   );
 });
 
-test("renders frontend docs status copy by frontend availability", () => {
+test("renders docs-catch-up copy only for frontends that still use it", () => {
   const vueTree = navTreeToPageTree(
     getFrontendQuickstartNavTree("vue"),
     "/vue",
@@ -473,10 +671,5 @@ test("renders frontend docs status copy by frontend availability", () => {
   expect(renderNavNameToMarkup(vueUpcoming?.name)).toContain(
     " guides are ready with more guides on the way.",
   );
-  expect(renderNavNameToMarkup(slackUpcoming?.name)).toContain(
-    "Slack is currently in early access. The ",
-  );
-  expect(renderNavNameToMarkup(slackUpcoming?.name)).toContain(
-    " guides are ready; more are on the way after early access.",
-  );
+  expect(slackUpcoming).toBeUndefined();
 });

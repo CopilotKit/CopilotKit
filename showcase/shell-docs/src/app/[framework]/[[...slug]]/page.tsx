@@ -56,6 +56,8 @@ import {
   isFrontendId,
   parseFrontendRoutePath,
 } from "@/lib/frontend-options";
+import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
+import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   CONTENT_DIR,
@@ -296,6 +298,13 @@ export async function generateMetadata({
         ? null
         : (frontendRoute?.backend ?? null);
     const activeFrontendSlugPath = frontendRoute?.slugPath ?? slugPath;
+    if (
+      activeBackendFramework &&
+      getDocsMode(activeBackendFramework) === "hidden"
+    ) {
+      notFound();
+    }
+
     if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
       return frontendMetadata(
         framework,
@@ -304,16 +313,51 @@ export async function generateMetadata({
       );
     }
 
-    if (!activeBackendFramework && isFrontendRootSlug(activeFrontendSlugPath)) {
-      return frontendMetadata(framework, "", activeBackendFramework);
-    }
-
-    if (framework === "angular" && activeFrontendSlugPath === "quickstart") {
+    if (
+      isFrontendRootSlug(activeFrontendSlugPath) &&
+      !(
+        framework === "angular" &&
+        activeBackendFramework &&
+        !activeFrontendSlugPath
+      )
+    ) {
       return frontendMetadata(
         framework,
         activeFrontendSlugPath,
         activeBackendFramework,
       );
+    }
+
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      const doc = loadDoc(channelGuideRoute.sourceSlug);
+      const frontendName =
+        channelGuideRoute.frontend === "teams"
+          ? "Microsoft Teams"
+          : getFrontendOption(channelGuideRoute.frontend).name;
+      const backendName =
+        channelGuideRoute.framework !== ROOT_FRAMEWORK
+          ? (getIntegration(channelGuideRoute.framework)?.name ??
+            humanizeSlug(channelGuideRoute.framework))
+          : null;
+      const metadataTitlePrefix = backendName
+        ? `${frontendName} + ${backendName}`
+        : frontendName;
+      const canonicalPath = channelGuideRoute.canonicalPath;
+
+      return buildDocMetadata({
+        title: `${metadataTitlePrefix}: ${
+          doc?.fm.title ?? humanizeSlug(channelGuideRoute.slugPath)
+        }`,
+        description: doc?.fm.description,
+        canonicalPath,
+        ogPath: `/og${canonicalPath}/og.png`,
+      });
     }
 
     if (framework === "angular" && activeFrontendSlugPath) {
@@ -523,6 +567,27 @@ export default async function FrameworkScopedDocsPage({
               ? getAngularDocsNavTree(activeBackendFramework)
               : undefined
           }
+        />
+      );
+    }
+
+    const channelGuideRoute = resolveChannelGuideRoute({
+      frontend: framework,
+      framework: activeBackendFramework,
+      slugPath: activeFrontendSlugPath,
+      frameworkDocsMode: getDocsMode(activeBackendFramework ?? ROOT_FRAMEWORK),
+    });
+    if (channelGuideRoute) {
+      return (
+        <ChannelGuideDocsPage
+          frontend={channelGuideRoute.frontend}
+          activeBackendFramework={
+            channelGuideRoute.framework === ROOT_FRAMEWORK
+              ? null
+              : channelGuideRoute.framework
+          }
+          slugPath={channelGuideRoute.slugPath}
+          contentSlugPath={channelGuideRoute.sourceSlug}
         />
       );
     }
@@ -831,6 +896,32 @@ export default async function FrameworkScopedDocsPage({
   );
 }
 
+function ChannelGuideDocsPage({
+  frontend,
+  activeBackendFramework,
+  slugPath,
+  contentSlugPath,
+}: {
+  frontend: ChannelFrontend;
+  activeBackendFramework: string | null;
+  slugPath: string;
+  contentSlugPath: string;
+}) {
+  if (!loadDoc(contentSlugPath)) notFound();
+
+  return (
+    <DocsPageView
+      slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
+      slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
+      frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      frontendOverride={frontend}
+      navTree={getFrontendQuickstartNavTree(frontend)}
+      sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
+    />
+  );
+}
+
 function FrontendQuickstartDocsPage({
   frontend,
   activeBackendFramework,
@@ -850,7 +941,10 @@ function FrontendQuickstartDocsPage({
       slugPath={routeSlugPath}
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
-      frameworkOverride={activeBackendFramework}
+      frameworkOverride={
+        activeBackendFramework ??
+        (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
+      }
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}

@@ -16,7 +16,7 @@ import {
   backendPathForCurrentPath,
   frontendFromPathname,
   frontendPathForCurrentPath,
-  isFrontendEarlyAccess,
+  isChannelFrontend,
 } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 
@@ -60,10 +60,10 @@ function SelectorAffordance({ active }: { active: boolean }) {
   );
 }
 
-function FrontendEarlyAccessBadge() {
+function FrontendProductionReadyBadge() {
   return (
     <span className="shell-docs-radius-control inline-flex shrink-0 self-center border border-[var(--border)] bg-[var(--bg-elevated)] px-1 py-0 text-[8px] font-semibold leading-[10px] text-[var(--text-muted)]">
-      Early access
+      Production ready
     </span>
   );
 }
@@ -268,8 +268,8 @@ export function FrameworkSelector({
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-semibold leading-tight text-[var(--text)]">
                   <span className="truncate">{selectedFrontend.name}</span>
-                  {isFrontendEarlyAccess(selectedFrontend.id) && (
-                    <FrontendEarlyAccessBadge />
+                  {isChannelFrontend(selectedFrontend.id) && (
+                    <FrontendProductionReadyBadge />
                   )}
                 </span>
               </span>
@@ -325,34 +325,46 @@ export function FrameworkSelector({
               aria-label="Choose frontend"
               className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
-              {FRONTEND_OPTIONS.map((option) => {
+              {FRONTEND_OPTIONS.map((option, index) => {
                 const isActive = option.id === selectedFrontend.id;
                 return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    role="option"
-                    aria-selected={isActive}
-                    onClick={() => selectFrontend(option.id)}
-                    className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                      isActive
-                        ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                        : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-                    }`}
-                  >
-                    <span
-                      className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
-                      aria-hidden="true"
-                    >
-                      <FrontendLogo icon={option.icon} size={17} />
-                    </span>
-                    <span className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
-                      <span className="truncate">{option.name}</span>
-                      {isFrontendEarlyAccess(option.id) && (
-                        <FrontendEarlyAccessBadge />
+                  <React.Fragment key={option.id}>
+                    {isChannelFrontend(option.id) &&
+                      !FRONTEND_OPTIONS.slice(0, index).some((candidate) =>
+                        isChannelFrontend(candidate.id),
+                      ) && (
+                        <div
+                          role="separator"
+                          className="mx-2 mb-1 mt-2 border-t border-[var(--border)] pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]"
+                        >
+                          Channels SDK
+                        </div>
                       )}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => selectFrontend(option.id)}
+                      className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                        isActive
+                          ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                      }`}
+                    >
+                      <span
+                        className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
+                        aria-hidden="true"
+                      >
+                        <FrontendLogo icon={option.icon} size={17} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
+                        <span className="truncate">{option.name}</span>
+                        {isChannelFrontend(option.id) && (
+                          <FrontendProductionReadyBadge />
+                        )}
+                      </span>
+                    </button>
+                  </React.Fragment>
                 );
               })}
             </div>
