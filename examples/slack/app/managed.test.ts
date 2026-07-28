@@ -4,10 +4,12 @@ const fakes = vi.hoisted(() => {
   const stop = vi.fn(async () => {
     throw new Error("stop failed");
   });
-  // The Node listener is a callable object carrying `.channels` (the shutdown
-  // surface), mirroring the real `createCopilotNodeListener` return.
-  const listener = Object.assign(vi.fn(), { channels: { stop } });
+  const ready = vi.fn(async () => {});
+  // The Node listener is a callable object carrying `.channels` (the activation
+  // + shutdown surface), mirroring the real `createCopilotNodeListener` return.
+  const listener = Object.assign(vi.fn(), { channels: { ready, stop } });
   return {
+    ready,
     stop,
     listener,
     closeBrowser: vi.fn(async () => {}),
@@ -113,6 +115,12 @@ describe("managed channel entrypoint", () => {
     expect(fakes.runtimeOptions).toEqual(
       expect.objectContaining({ channels: [fakes.bot] }),
     );
+
+    // Activation is what connects the Channel to the Realtime Gateway, and
+    // mounting the listener does not do it. Regression guard: this example
+    // shipped without the call and so connected nothing (OSS-646).
+    expect(fakes.ready).toHaveBeenCalledOnce();
+    expect(fakes.ready).toHaveBeenCalledWith({ timeoutMs: 30_000 });
 
     // Shutdown stops the managed Channel via listener.channels.stop().
     sigterm!();

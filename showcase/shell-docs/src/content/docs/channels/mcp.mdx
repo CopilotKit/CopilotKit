@@ -90,7 +90,7 @@ const runtime = new CopilotRuntime({
 });
 
 const listener = createCopilotNodeListener({ runtime });
-await listener.channels?.ready();
+await listener.channels.ready();
 // Mount the listener on an HTTP server to keep the process running (see the Quickstart).
 ```
 

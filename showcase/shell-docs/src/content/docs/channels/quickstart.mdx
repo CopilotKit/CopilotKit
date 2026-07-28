@@ -141,7 +141,7 @@ const runtime = new CopilotRuntime({
 });
 
 const listener = createCopilotNodeListener({ runtime });
-await listener.channels?.ready();
+await listener.channels.ready();
 console.log("bot listening");
 ```
 </Step>
@@ -167,7 +167,7 @@ import { createServer } from "node:http";
 createServer(listener).listen(3000);
 
 const shutdown = async () => {
-  await listener.channels?.stop();
+  await listener.channels.stop();
   process.exit(0);
 };
 process.on("SIGINT", shutdown);
