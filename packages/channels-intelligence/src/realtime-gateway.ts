@@ -48,7 +48,7 @@ export interface ConnectRealtimeGatewayOptions {
   reconnectGiveUpMs?: number;
   /**
    * Max time (ms) the INITIAL connect may spend without the socket ever opening
-   * before the connect is declared unreachable (default 10000) — the mirror of
+   * before the connect is declared unreachable (default 30000) — the mirror of
    * {@link reconnectGiveUpMs} for a socket that has never connected once.
    *
    * Phoenix retries a failed connect forever and surfaces transport errors as
@@ -57,17 +57,24 @@ export interface ConnectRealtimeGatewayOptions {
    * until a supervising manager's settle deadline and report only a timeout,
    * with no indication that the HOST is the problem (OSS-623). When this window
    * elapses with the socket still never opened, the connect rejects with a
-   * {@link RealtimeGatewayUnreachableError} naming the endpoint and the last
-   * transport error.
+   * {@link RealtimeGatewayUnreachableError} naming the endpoint and the cause.
    *
    * The window exists rather than failing on the first transport error because
    * a refused connect is often just a gateway that has not finished booting,
    * and a supervising `ChannelManager` does NOT retry activation — a
    * fail-on-first-error rule would turn a boot race into a permanently errored
-   * Channel. Causes that CANNOT resolve themselves (NXDOMAIN) skip the window;
-   * see {@link NON_RETRYABLE_TRANSPORT_CODES}.
+   * Channel. The default is deliberately long enough to outlast a rolling
+   * restart of the gateway. Causes that CANNOT resolve themselves (a host that
+   * does not exist) skip the window entirely; see {@link diagnoseEndpoint}.
    */
   connectTimeoutMs?: number;
+  /**
+   * @internal Test seam for the unreachable-host diagnosis (see
+   * {@link diagnoseEndpoint}); defaults to the global `fetch`. Production always
+   * uses the default — this exists so the diagnosis's REAL classification logic
+   * runs in tests against recorded transport failures instead of the network.
+   */
+  diagnosticFetch?: typeof globalThis.fetch;
 }
 
 /**
@@ -218,8 +225,8 @@ export class RealtimeGatewayUnreachableError extends Error {
 }
 
 /**
- * Transport error codes that mean the configured host CANNOT come up on its own,
- * so the initial connect fails immediately instead of waiting out
+ * Error codes that mean the configured host CANNOT come up on its own, so the
+ * initial connect fails immediately instead of waiting out
  * {@link ConnectRealtimeGatewayOptions.connectTimeoutMs}.
  *
  * Deliberately limited to name-resolution failures that mean NXDOMAIN — the
@@ -233,6 +240,126 @@ const NON_RETRYABLE_TRANSPORT_CODES: ReadonlySet<string> = new Set([
   "ENOTFOUND",
   "EAI_NONAME",
 ]);
+
+/** What {@link diagnoseEndpoint} learned about an endpoint that would not connect. */
+interface EndpointDiagnosis {
+  /** Human-readable cause, phrased for the person who set `wsUrl`. */
+  readonly text: string;
+  /** OS-level code behind the failure, when one was exposed. */
+  readonly code?: string;
+  /** Whether the cause cannot clear on its own (fail now, don't wait). */
+  readonly nonRetryable: boolean;
+  /** The raw failure, attached to the thrown error as `cause`. */
+  readonly cause?: unknown;
+}
+
+/**
+ * Probe the endpoint over HTTP to find out WHY the socket would not open.
+ *
+ * This exists because the WebSocket transport itself will not say. Node's global
+ * WebSocket (undici) dispatches the same information-free `ErrorEvent` —
+ * `"Received network error or non-101 status code."`, no `code`, an inner
+ * `Error` with no detail — whether the host does not resolve, refuses the
+ * connection, or answers HTTP with no socket mounted at the path. Browsers are
+ * deliberately worse. Only a non-WebSocket request to the same origin exposes
+ * the real cause, and `fetch` does: a nonexistent host surfaces
+ * `cause.code === "ENOTFOUND"`, a closed port `"ECONNREFUSED"`, and a host that
+ * is up answers with an HTTP status.
+ *
+ * Runs ONLY on the failure path (a socket that has never opened), so a healthy
+ * connect issues no extra request. Never throws and never rejects: a diagnosis
+ * is a nicety on top of the error being reported either way, so any failure to
+ * obtain one yields `undefined`.
+ *
+ * @param wsUrl - The configured gateway URL, mapped to its http(s) equivalent.
+ * @param timeoutMs - Probe budget; kept well under the connect window.
+ * @param fetchImpl - Injected `fetch` (test seam); defaults to the global.
+ * @returns The diagnosis, or `undefined` when none could be obtained.
+ */
+async function diagnoseEndpoint(
+  wsUrl: string,
+  timeoutMs: number,
+  fetchImpl: typeof globalThis.fetch | undefined = globalThis.fetch,
+): Promise<EndpointDiagnosis | undefined> {
+  const httpUrl = toHttpProbeUrl(wsUrl);
+  if (httpUrl === undefined || typeof fetchImpl !== "function") {
+    return undefined;
+  }
+  // `AbortSignal.timeout` is Node 17.3+/modern-browser; tolerate its absence
+  // rather than lose the whole diagnosis on an older host.
+  const signal =
+    typeof AbortSignal !== "undefined" &&
+    typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(timeoutMs)
+      : undefined;
+  try {
+    // No auth header: this is a reachability probe, and the token belongs on the
+    // socket handshake only. `redirect: "manual"` keeps a redirect visible as a
+    // status rather than following the caller's URL somewhere else.
+    const response = await fetchImpl(httpUrl, {
+      method: "GET",
+      redirect: "manual",
+      ...(signal ? { signal } : {}),
+    });
+    return {
+      text:
+        `the host answered HTTP ${response.status} for ${httpUrl}, so it resolves and accepts ` +
+        "connections — only the WebSocket handshake failed, so the wsUrl path may not be the " +
+        "gateway's socket endpoint",
+      nonRetryable: false,
+    };
+  } catch (err) {
+    const { text, code } = describeTransportError(err);
+    if (code !== undefined && NON_RETRYABLE_TRANSPORT_CODES.has(code)) {
+      return {
+        text: `the host does not resolve (${text ?? code})`,
+        code,
+        nonRetryable: true,
+        cause: err,
+      };
+    }
+    if (code === "ECONNREFUSED") {
+      return {
+        text: `the host refused the connection (${text ?? code})`,
+        code,
+        nonRetryable: false,
+        cause: err,
+      };
+    }
+    return text !== undefined
+      ? {
+          text,
+          ...(code !== undefined ? { code } : {}),
+          nonRetryable: false,
+          cause: err,
+        }
+      : undefined;
+  }
+}
+
+/**
+ * Map a gateway `ws(s)://` URL to the `http(s)://` URL {@link diagnoseEndpoint}
+ * probes — same host, port, and PATH (the path is what distinguishes "no socket
+ * mounted here" from a wrong host), minus query and fragment. Returns
+ * `undefined` for a URL that cannot be parsed or is not a ws/http scheme.
+ */
+function toHttpProbeUrl(wsUrl: string): string | undefined {
+  try {
+    const url = new URL(wsUrl);
+    if (url.protocol === "ws:") {
+      url.protocol = "http:";
+    } else if (url.protocol === "wss:") {
+      url.protocol = "https:";
+    } else if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return undefined;
+    }
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Per-channel `state` values (from the gateway's `CHANNEL_STATE_KINDS`) that
@@ -331,7 +458,7 @@ export async function connectRealtimeGateway(
   }
   const timeout = config.timeoutMs ?? 10_000;
   const giveUpMs = config.reconnectGiveUpMs ?? 60_000;
-  const connectTimeoutMs = config.connectTimeoutMs ?? 10_000;
+  const connectTimeoutMs = config.connectTimeoutMs ?? 30_000;
   const transport =
     config.webSocket ??
     (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
@@ -364,6 +491,16 @@ export async function connectRealtimeGateway(
   // later dropped is a reconnect episode owned by the health state machine
   // below. Phoenix passes the same distinction to `onError` as its third
   // argument (`establishedConnections`), so both signals are checked.
+  //
+  // WHY the cause comes from an HTTP probe and not from the socket: the
+  // WebSocket transport does not report one. Node's global WebSocket dispatches
+  // an identical, detail-free error for a host that does not resolve, a refused
+  // port, and a host answering HTTP with no socket mounted — so the transport
+  // error alone can neither name the cause nor tell a permanent
+  // misconfiguration from a gateway that is still booting. `diagnoseEndpoint`
+  // asks the same origin over HTTP, which does distinguish them. A transport
+  // that DOES expose an OS code (the `ws` package, custom transports) is still
+  // trusted directly and needs no probe.
   const endpoint = describeEndpoint(config.wsUrl);
   // Declared here (not in the health block below) because the connect watchdog
   // tears the socket down on failure and must mark that teardown intentional.
@@ -391,6 +528,25 @@ export async function connectRealtimeGateway(
       connectDeadline = undefined;
     }
   };
+  // The HTTP diagnosis runs at most once per connect, and only after the socket
+  // has already failed to open. Its budget stays well under the connect window
+  // so a verdict is normally in hand by the time the window elapses.
+  const probeTimeoutMs = Math.min(3_000, connectTimeoutMs);
+  let diagnosis: Promise<EndpointDiagnosis | undefined> | undefined;
+  const startDiagnosis = (): Promise<EndpointDiagnosis | undefined> => {
+    if (diagnosis === undefined) {
+      diagnosis = diagnoseEndpoint(
+        config.wsUrl,
+        probeTimeoutMs,
+        config.diagnosticFetch,
+      );
+      // A verdict of "this can never work" short-circuits the connect window.
+      void diagnosis.then((result) => {
+        if (result?.nonRetryable) failUnreachable();
+      });
+    }
+    return diagnosis;
+  };
   /** Reject the initial connect as unreachable and stop the retry loop. */
   const failUnreachable = (): void => {
     if (initialJoinSettled) return;
@@ -398,18 +554,28 @@ export async function connectRealtimeGateway(
     clearConnectDeadline();
     // The caller never gets a session it could disconnect, so tear the socket
     // down here rather than leave Phoenix retrying a host that will not answer.
+    // Done synchronously, before the (async) diagnosis is awaited below, so the
+    // retry loop stops at the moment the decision is made.
     closingIntentionally = true;
     socket.disconnect();
-    failConnect(
-      new RealtimeGatewayUnreachableError(
-        endpoint,
-        lastTransportError,
-        connectTimeoutMs,
-        lastTransportRaw !== undefined
-          ? { cause: lastTransportRaw }
-          : undefined,
-      ),
-    );
+    void (async () => {
+      // Prefer the probe's verdict — it is the only signal that names the cause.
+      // A transport that already exposed an OS code needs no probe, so only an
+      // ALREADY-started diagnosis is awaited in that case.
+      const probed =
+        lastTransportCode !== undefined
+          ? await diagnosis
+          : await startDiagnosis();
+      const cause = probed?.cause ?? lastTransportRaw;
+      failConnect(
+        new RealtimeGatewayUnreachableError(
+          endpoint,
+          probed?.text ?? lastTransportError,
+          connectTimeoutMs,
+          cause !== undefined ? { cause } : undefined,
+        ),
+      );
+    })();
   };
   socket.onOpen(() => {
     everConnected = true;
@@ -423,13 +589,17 @@ export async function connectRealtimeGateway(
     lastTransportError = detail.text ?? lastTransportError;
     lastTransportCode = detail.code ?? lastTransportCode;
     // A host that does not exist cannot start existing: fail now rather than
-    // burn the connect window on retries that are guaranteed to fail.
+    // burn the connect window on retries that are guaranteed to fail. Only a
+    // transport that exposes OS codes gets here directly; for everyone else the
+    // same determination comes from the HTTP diagnosis kicked off below.
     if (
       lastTransportCode !== undefined &&
       NON_RETRYABLE_TRANSPORT_CODES.has(lastTransportCode)
     ) {
       failUnreachable();
+      return;
     }
+    startDiagnosis();
   });
   connectDeadline = setTimeout(() => {
     connectDeadline = undefined;
