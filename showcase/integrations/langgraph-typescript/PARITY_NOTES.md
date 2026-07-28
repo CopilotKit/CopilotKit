@@ -8,6 +8,7 @@ the backend is a native TypeScript (`@langchain/langgraph`) port.
 ## Sanctioned divergences from langgraph-python
 
 ### Identity (expected for every non-reference integration)
+
 - `manifest.yaml` header: `name`, `slug`, `language: typescript`, `logo`,
   `description`, `repo`, `sort_order: 11`.
 - `manifest.yaml` `demos[].highlight` **backend** paths point at the TypeScript
@@ -19,6 +20,7 @@ the backend is a native TypeScript (`@langchain/langgraph`) port.
   "(Python)". Everything else in those files is byte-identical.
 
 ### Backend is TypeScript (language port, not a behavior change)
+
 - Every graph is a TS port under `src/agent/*.ts` registered in
   `src/agent/langgraph.json`; the CopilotKit runtime routes are TS
   (`src/app/api/**/route.ts`). Agent **names** the frontend passes
