@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTelemetryEgressGuard } from "../../vitest.setup.js";
+import { createTelemetryEgressGuard } from "../lib/testing/telemetry-egress-guard.js";
 
 // The inspector's telemetry is browser-side, so a CI env var can't silence it
 // (OSS-565). The setup-file guard is what keeps unit runs from POSTing real
