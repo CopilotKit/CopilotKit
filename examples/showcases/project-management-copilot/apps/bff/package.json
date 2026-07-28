@@ -12,7 +12,6 @@
     "@ag-ui/client": "^0.0.52",
     "@copilotkit/runtime": "1.57.0",
     "@hono/node-server": "^1.13.6",
-    "express": "5.2.1",
     "hono": "^4.7.11",
     "openai": "^4.69.0",
     "reflect-metadata": "0.2.2",

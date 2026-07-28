@@ -1,5 +1,5 @@
 {
-  "name": "copilotkit-langgraph-template",
+  "name": "project-management-copilot",
   "private": true,
   "workspaces": [
     "apps/*"
