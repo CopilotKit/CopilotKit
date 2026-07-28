@@ -2,8 +2,7 @@
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / gen-ui-agent",
     "sourceFile": "frontend-tools-async.json (extracted)",
-    "created": "2026-05-29",
-    "copiedFrom": "langgraph-python"
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
