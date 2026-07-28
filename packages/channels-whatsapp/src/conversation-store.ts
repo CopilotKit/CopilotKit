@@ -23,6 +23,7 @@ interface AgentMessage {
  * as `bot-slack`.
  */
 export class WhatsAppConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly historyStore: HistoryStore;
 
   constructor(args: { historyStore: HistoryStore }) {

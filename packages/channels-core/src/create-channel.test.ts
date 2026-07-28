@@ -56,6 +56,17 @@ function collectText(nodes: ChannelNode[]): string {
   return out;
 }
 
+/** Capture user messages injected into a fake agent without changing its behavior. */
+function captureAddedMessages(agent: FakeAgent): unknown[] {
+  const added: unknown[] = [];
+  const addMessage = agent.addMessage.bind(agent);
+  agent.addMessage = (message) => {
+    added.push(message);
+    return addMessage(message);
+  };
+  return added;
+}
+
 describe("createChannel", () => {
   it("routes a mention to a handler that posts UI", async () => {
     const fake = new FakeAdapter();
@@ -98,12 +109,7 @@ describe("createChannel", () => {
   it("defaults runAgent prompt to the inbound message text", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    const added: unknown[] = [];
-    const origAddMessage = agent.addMessage.bind(agent);
-    agent.addMessage = (message) => {
-      added.push(message);
-      return origAddMessage(message);
-    };
+    const added = captureAddedMessages(agent);
     const channel = createChannel({ adapters: [fake], agent: () => agent });
 
     channel.onMention(async ({ thread }) => {
@@ -125,18 +131,52 @@ describe("createChannel", () => {
     });
   });
 
-  it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
+  it("does not duplicate an inbound message seeded by the conversation store", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
-    // Capture what the framework injects as the user message.
-    const added: unknown[] = [];
-    const origAddMessage = agent.addMessage.bind(agent);
-    agent.addMessage = (m) => {
-      added.push(m);
-      return origAddMessage(m);
+    const added = captureAddedMessages(agent);
+    const getOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    Object.defineProperty(fake.conversationStore, "seedsInboundTurn", {
+      value: true,
+    });
+    fake.conversationStore.getOrCreate = async (...args) => {
+      const session = await getOrCreate(...args);
+      session.agent.addMessage({
+        id: "inbound",
+        role: "user",
+        content: "Say my name",
+      });
+      return session;
     };
     const channel = createChannel({ adapters: [fake], agent: () => agent });
 
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      id: "inbound",
+      role: "user",
+      content: "Say my name",
+    });
+  });
+
+  it("defaults runAgent prompt to inbound multimodal content parts", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
     const parts = [
       { type: "text" as const, text: "look" },
       {
@@ -144,29 +184,59 @@ describe("createChannel", () => {
         source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
       },
     ];
-    channel.onMention(async ({ thread, message }) => {
-      // The example mirrors this: prefer multimodal parts over plain text.
-      await thread.runAgent({
-        prompt:
-          message.contentParts && message.contentParts.length > 0
-            ? message.contentParts
-            : message.text,
-      });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
     });
 
     await channel.ɵruntime.start();
-    fake.emitTurn({
-      userText: "look",
+    await fake.getSink().onTurn({
       conversationKey: "c1",
+      replyTarget: {},
+      userText: "look",
       contentParts: parts,
+      platform: "fake",
     });
-    await tick();
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      role: "user",
+      content: parts,
+    });
+  });
+
+  it("prefers an explicit multimodal prompt over inbound content parts", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    const explicitParts = [
+      { type: "text" as const, text: "use this instead" },
+      {
+        type: "image" as const,
+        source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
+      },
+    ];
+    const inboundParts = [{ type: "text" as const, text: "inbound" }];
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: explicitParts });
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      userText: "inbound",
+      conversationKey: "c1",
+      replyTarget: {},
+      contentParts: inboundParts,
+      platform: "fake",
+    });
 
     expect(added).toHaveLength(1);
     const msg = added[0] as { role: string; content: unknown };
     expect(msg.role).toBe("user");
     // The multimodal parts array survives the string-typed `content` cast.
-    expect(msg.content).toEqual(parts);
+    expect(msg.content).toEqual(explicitParts);
   });
 
   it("dispatches a bound onClick handler on interaction", async () => {

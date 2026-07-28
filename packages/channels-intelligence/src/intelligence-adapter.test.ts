@@ -519,6 +519,15 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     deliveryId: "d1",
   };
 
+  it("declares that history excludes the inbound turn", () => {
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+    });
+
+    expect(adapter.conversationStore.seedsInboundTurn).toBe(false);
+  });
+
   it("seeds agent.messages from the source's getHistory", async () => {
     const source = new InMemoryDeliverySource();
     source.history = [

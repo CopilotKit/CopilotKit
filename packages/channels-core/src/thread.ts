@@ -292,10 +292,11 @@ export class Thread implements ThreadInterface {
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
-     * The user message to inject before running. Defaults to the inbound
-     * `message.text` for message and mention handlers. Pass an explicit string
-     * to override that text, or `AgentContentPart[]` to preserve multimodal
-     * input.
+     * A user message to inject before running. When the adapter's conversation
+     * store does not seed the in-flight turn, an omitted prompt defaults to
+     * non-empty inbound `message.contentParts` or `message.text`. Pass a prompt
+     * explicitly when input isn't in reconstructed history — e.g. slash-command
+     * args, which are never posted to the channel.
      */
     prompt?: string | AgentContentPart[];
     /**
@@ -312,9 +313,18 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
+    const message = this.deps.message;
+    const defaultPrompt =
+      message?.contentParts && message.contentParts.length > 0
+        ? message.contentParts
+        : message?.text;
     return this.run(undefined, {
       ...input,
-      prompt: input?.prompt ?? this.deps.message?.text,
+      prompt:
+        input?.prompt ??
+        (this.deps.adapter.conversationStore.seedsInboundTurn
+          ? undefined
+          : defaultPrompt),
     });
   }
 
