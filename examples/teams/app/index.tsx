@@ -276,23 +276,32 @@ createServer(listener).listen(channelPort, "127.0.0.1", () => {
 });
 
 // Stop the bot cleanly on exit — through the runtime's Channel control, which
-// tears down the direct Teams adapter it started. Teardown is best-effort, but a
-// failure is logged rather than swallowed, and `process.exit` always runs so
-// Ctrl-C can't hang.
+// tears down the direct Teams adapter it started. A teardown failure is logged
+// and reported as a nonzero exit rather than swallowed.
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
-  await listener.channels
-    .stop()
-    .catch((err: unknown) =>
-      console.error("Error stopping Channel (continuing shutdown)", err),
-    );
-  process.exit(0);
+  let exitCode = 0;
+  try {
+    await listener.channels.stop();
+  } catch (err) {
+    console.error("Error stopping Channel", err);
+    exitCode = 1;
+  }
+  process.exit(exitCode);
+};
+// A failed shutdown must not vanish, and must not leave the process alive: a
+// rejection here would otherwise skip `process.exit` entirely and hang Ctrl-C.
+const runShutdown = (signal: string): void => {
+  shutdown(signal).catch((err: unknown) => {
+    console.error(`Fatal during ${signal} shutdown`, err);
+    process.exit(1);
+  });
 };
 // Registered BEFORE activation on purpose: `ready()` below can take up to its
 // timeout, and a Ctrl-C inside that window must still tear the Channel down
 // rather than hit Node's default handler and skip teardown.
-process.on("SIGINT", () => void shutdown("SIGINT"));
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => runShutdown("SIGINT"));
+process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
 // Activate through the runtime's Channel control instead of a (now-removed)
 // bot.start(): this is what connects the Channel, and it resolves once the
