@@ -1715,9 +1715,8 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
   });
 
-  // Inspector telemetry no longer waits on /info: a disconnected runtime must
-  // not silence a real user, and CI suppression comes from `navigator.webdriver`
-  // plus the runners' egress block instead.
+  // The open is reported directly rather than held until the runtime handshake:
+  // a disconnected runtime should not silence a real user's open.
   it("still records an open when the runtime is not connected", async () => {
     const { inspector, internals } = mount(false, false);
 

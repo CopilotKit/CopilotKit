@@ -11,16 +11,7 @@
  * nothing. Per-file isolation makes this construction the ONLY thing that
  * could set the token — a faithful guard.
  */
-import {
-  describe,
-  it,
-  expect,
-  vi,
-  beforeEach,
-  afterEach,
-  afterAll,
-} from "vitest";
-import { restoreTelemetryOptOutEnv } from "./telemetry-opt-out-env";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
@@ -52,36 +43,6 @@ function makeSseRunner() {
     isRunning: async () => false,
   } as unknown as AgentRunner;
 }
-
-// This suite asserts that events REACH the sink, so it needs telemetry ON.
-// CI sets the opt-out vars job-wide (OSS-565) and a developer may export
-// DO_NOT_TRACK; either would make every send assertion fail on the
-// environment rather than on the code.
-//
-// It has to be `vi.hoisted`, not a `beforeEach`: the telemetry singleton
-// (`const telemetry = new TelemetryClient()` in telemetry-client.ts) latches
-// `telemetryDisabled` from the environment at module-import time, which
-// happens before any hook runs. Hoisted callbacks run before the imports.
-//
-// Clearing them is only safe if it is undone, so the hoisted callback also
-// snapshots the originals and `afterAll` puts them back — the job-wide
-// opt-out is a safety property, and this suite must not hand a weaker
-// environment to whatever runs next in the same process. The capture is
-// inline rather than a helper call because hoisted callbacks run before the
-// imports they would need.
-const originalOptOut = vi.hoisted(() => {
-  const snapshot = {
-    COPILOTKIT_TELEMETRY_DISABLED: process.env.COPILOTKIT_TELEMETRY_DISABLED,
-    DO_NOT_TRACK: process.env.DO_NOT_TRACK,
-  };
-  delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
-  delete process.env.DO_NOT_TRACK;
-  return snapshot;
-});
-
-afterAll(() => {
-  restoreTelemetryOptOutEnv(originalOptOut);
-});
 
 describe("SSE license env fallback → telemetry sink (integration)", () => {
   let lambdaSpy: ReturnType<typeof vi.spyOn>;

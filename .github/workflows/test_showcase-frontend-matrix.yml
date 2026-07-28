@@ -44,18 +44,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
-  # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
-  # from user activity in PostHog. These cover everything that reads the
-  # environment, i.e. the runtime and its `oss.runtime.*` events.
-  #
-  # Browser-side Inspector events are NOT covered by these vars: they would only
-  # reach the browser through the async /info handshake, which an early
-  # interaction can beat. The Inspector suppresses itself on
-  # `navigator.webdriver` instead, and the "Block telemetry egress" step below
-  # is the job-wide backstop.
-  COPILOTKIT_TELEMETRY_DISABLED: "true"
-  DO_NOT_TRACK: "1"
   CI: "true"
   NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
   NX_NO_CLOUD: "true"
@@ -73,19 +61,6 @@ jobs:
         integration: ${{ fromJSON(inputs.integration == 'all' && '["ag2","agno","built-in-agent","claude-sdk-python","claude-sdk-typescript","crewai-crews","google-adk","langgraph-fastapi","langgraph-python","langgraph-typescript","langroid","llamaindex","mastra","ms-agent-dotnet","ms-agent-harness-dotnet","ms-agent-python","pydantic-ai","spring-ai","strands","strands-typescript"]' || format('["{0}"]', inputs.integration)) }}
 
     steps:
-      - name: Block telemetry egress
-        # Job-wide backstop for the env-var and navigator.webdriver opt-outs
-        # (OSS-565): point the telemetry sink at loopback so nothing in this job
-        # can reach it, including processes that never inherit the workflow env.
-        #
-        # Inlined and placed first deliberately: it must not depend on a
-        # checkout. Some jobs check out conditionally, and the dojo job checks
-        # out into a subdirectory, so a repo-relative script is not reachable
-        # here.
-        run: |
-          printf '127.0.0.1 telemetry.copilotkit.ai\n::1 telemetry.copilotkit.ai\n' \
-            | sudo tee -a /etc/hosts > /dev/null
-
       - name: Check out probe contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -177,14 +152,9 @@ jobs:
           BASE_COMMIT: ${{ inputs.base_commit }}
           INTEGRATION: ${{ matrix.integration }}
         run: |
-          # Neither the workflow-level COPILOTKIT_TELEMETRY_DISABLED /
-          # DO_NOT_TRACK nor the runner's hosts block crosses the container
-          # boundary (OSS-565), so both are reapplied here: the vars via --env,
-          # and the sink via --add-host pointing at loopback.
           docker run --detach \
             --name frontend-matrix-integration \
             --add-host host.docker.internal:host-gateway \
-            --add-host telemetry.copilotkit.ai:127.0.0.1 \
             --publish 10000:10000 \
             --env OPENAI_API_KEY=sk-mock \
             --env OPENAI_BASE_URL=http://host.docker.internal:4010/v1 \
@@ -196,8 +166,6 @@ jobs:
             --env AIMOCK_URL=http://host.docker.internal:4010 \
             --env GitHubToken=gh-mock-ci \
             --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
-            --env COPILOTKIT_TELEMETRY_DISABLED=true \
-            --env DO_NOT_TRACK=1 \
             "frontend-matrix-$INTEGRATION:$BASE_COMMIT"
           for _ in $(seq 1 90); do
             if curl --fail --silent --max-time 2 http://127.0.0.1:10000/api/health > /dev/null; then
@@ -265,19 +233,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - name: Block telemetry egress
-        # Job-wide backstop for the env-var and navigator.webdriver opt-outs
-        # (OSS-565): point the telemetry sink at loopback so nothing in this job
-        # can reach it, including processes that never inherit the workflow env.
-        #
-        # Inlined and placed first deliberately: it must not depend on a
-        # checkout. Some jobs check out conditionally, and the dojo job checks
-        # out into a subdirectory, so a repo-relative script is not reachable
-        # here.
-        run: |
-          printf '127.0.0.1 telemetry.copilotkit.ai\n::1 telemetry.copilotkit.ai\n' \
-            | sudo tee -a /etc/hosts > /dev/null
-
       - name: Check out probe contract
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

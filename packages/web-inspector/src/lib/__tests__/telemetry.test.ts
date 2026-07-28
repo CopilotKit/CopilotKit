@@ -407,50 +407,6 @@ describe("typed helpers", () => {
   });
 });
 
-// ─── Browser-automation suppression ──────────────────────────────────────────
-//
-// The browser-side half of the CI opt-out (OSS-565). Verified against the repo's
-// Playwright: `navigator.webdriver` is true in both headless and headed launches.
-
-function stubWebdriver(value: unknown) {
-  Object.defineProperty(navigator, "webdriver", {
-    value,
-    configurable: true,
-  });
-}
-
-describe("browser automation suppression", () => {
-  afterEach(() => {
-    stubWebdriver(false);
-  });
-
-  it("sends nothing when navigator.webdriver is true", async () => {
-    stubWebdriver(true);
-
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    trackInspectorOpened({ open_source: "floating_button" });
-    await Promise.resolve();
-
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  // Only an explicit `true` suppresses — absence means "not automation", never
-  // "unknown, so stay quiet". A real user must not be silenced by what we
-  // failed to learn.
-  it.each([
-    ["false", false],
-    ["undefined", undefined],
-    ["empty string", ""],
-  ])("still sends when navigator.webdriver is %s", async (_label, value) => {
-    stubWebdriver(value);
-
-    track(TELEMETRY_EVENTS.threadsTabClicked, {});
-    await Promise.resolve();
-
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-});
-
 // ─── Safe URL classification ────────────────────────────────────────────────
 
 describe("getRuntimeUrlType()", () => {

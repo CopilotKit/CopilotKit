@@ -32,13 +32,6 @@ export default defineConfig({
       ...process.env,
       PORT: String(PORT),
       NEXT_TELEMETRY_DISABLED: "1",
-      // Automated runs must not emit CopilotKit telemetry (OSS-565). CI sets
-      // these at the workflow level; defaulting them here keeps local e2e
-      // runs — which boot the same real app — out of PostHog too. An explicit
-      // opt-in still wins, since process.env is spread in above.
-      COPILOTKIT_TELEMETRY_DISABLED:
-        process.env.COPILOTKIT_TELEMETRY_DISABLED ?? "true",
-      DO_NOT_TRACK: process.env.DO_NOT_TRACK ?? "1",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "test",
       NEXT_PUBLIC_CPK_PUBLIC_API_KEY:
         process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY ?? "",

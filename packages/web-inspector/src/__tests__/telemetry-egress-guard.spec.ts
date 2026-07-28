@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createTelemetryEgressGuard } from "../lib/testing/telemetry-egress-guard.js";
 
-// The inspector's telemetry is browser-side, so a CI env var can't silence it
-// (OSS-565). The setup-file guard is what keeps unit runs from POSTing real
-// `oss.inspector.*` events to the live sink.
+// The inspector's telemetry is browser-side and fire-and-forget, and jsdom has a
+// real `fetch`. The setup-file guard is what keeps unit runs — local and CI —
+// from POSTing real `oss.inspector.*` events to the live sink.
 
 describe("telemetry egress guard", () => {
   it("swallows requests to the telemetry sink without touching the network", async () => {

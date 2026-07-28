@@ -138,40 +138,18 @@ export function getRuntimeUrlType(
 }
 
 /**
- * True when the page is being driven by browser automation (Playwright,
- * Selenium, Puppeteer), which is how CI runs real CopilotKit apps.
- *
- * This is the browser-side half of the CI opt-out (OSS-565). The runtime's
- * `COPILOTKIT_TELEMETRY_DISABLED` / `DO_NOT_TRACK` env only reaches the browser
- * through the `/info` handshake, which is asynchronous — so an interaction
- * early in a page's life can beat it. `navigator.webdriver` is spec'd,
- * synchronous, and available on the first line of script, so it needs no
- * handshake and no per-app env plumbing. It also covers pages served by
- * deployed environments, where no CI-side env var could reach.
- *
- * Deliberately only suppresses on an explicit `true`: an absent or falsy value
- * means "not automation", never "unknown, so stay quiet". Real users are not
- * penalized for what we failed to learn.
- */
-function isAutomatedBrowser(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return navigator.webdriver === true;
-}
-
-/**
  * Fire-and-forget telemetry send. Returns synchronously; the network
  * call is dispatched in the background and any failure is swallowed.
  *
- * Short-circuits when the user has opted out or the page is under browser
- * automation. Does NOT itself trigger the first-run disclosure — call
- * `maybeShowDisclosure()` from the inspector's mount lifecycle instead.
+ * Short-circuits when the user has opted out. Does NOT itself trigger
+ * the first-run disclosure — call `maybeShowDisclosure()` from the
+ * inspector's mount lifecycle instead.
  */
 export function track(
   event: TelemetryEvent,
   properties: Record<string, unknown> = {},
 ): void {
   if (isTelemetryOptedOut()) return;
-  if (isAutomatedBrowser()) return;
 
   const distinctId = getOrCreateTelemetryDistinctId();
   const enrichedProperties = isEnrichedTelemetryEvent(event)

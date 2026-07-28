@@ -16,37 +16,16 @@ vi.mock("@segment/analytics-node", () => ({
   },
 }));
 
-function restoreEnv(key: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
-}
-
 describe("v1 TelemetryClient", () => {
   let lambdaSpy: MockInstance<typeof lambdaClient.send>;
-  const originalOptOut = {
-    disabled: process.env.COPILOTKIT_TELEMETRY_DISABLED,
-    dnt: process.env.DO_NOT_TRACK,
-  };
 
   beforeEach(() => {
     lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
     segmentTrackMock.mockReset();
-    // This suite asserts the client DOES send. CI sets the opt-out vars
-    // job-wide (OSS-565) and a developer may export DO_NOT_TRACK — with
-    // either set, capture() short-circuits and every send assertion fails on
-    // the environment rather than on the code. `isTelemetryDisabled` has its
-    // own describe below that sets them deliberately.
-    delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
-    delete process.env.DO_NOT_TRACK;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    restoreEnv("COPILOTKIT_TELEMETRY_DISABLED", originalOptOut.disabled);
-    restoreEnv("DO_NOT_TRACK", originalOptOut.dnt);
   });
 
   function makeClient(

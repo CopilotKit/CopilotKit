@@ -43,20 +43,6 @@ concurrency:
   group: showcase-eval-${{ github.event.inputs.pr_number || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
-env:
-  # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
-  # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
-  # from user activity in PostHog. These cover everything that reads the
-  # environment, i.e. the runtime and its `oss.runtime.*` events.
-  #
-  # Browser-side Inspector events are NOT covered by these vars: they would only
-  # reach the browser through the async /info handshake, which an early
-  # interaction can beat. The Inspector suppresses itself on
-  # `navigator.webdriver` instead, and the "Block telemetry egress" step below
-  # is the job-wide backstop.
-  COPILOTKIT_TELEMETRY_DISABLED: "true"
-  DO_NOT_TRACK: "1"
-
 permissions:
   contents: read
 
@@ -281,19 +267,6 @@ jobs:
       stderr_excerpt: ${{ steps.run-eval.outputs.stderr_excerpt }}
 
     steps:
-      - name: Block telemetry egress
-        # Job-wide backstop for the env-var and navigator.webdriver opt-outs
-        # (OSS-565): point the telemetry sink at loopback so nothing in this job
-        # can reach it, including processes that never inherit the workflow env.
-        #
-        # Inlined and placed first deliberately: it must not depend on a
-        # checkout. Some jobs check out conditionally, and the dojo job checks
-        # out into a subdirectory, so a repo-relative script is not reachable
-        # here.
-        run: |
-          printf '127.0.0.1 telemetry.copilotkit.ai\n::1 telemetry.copilotkit.ai\n' \
-            | sudo tee -a /etc/hosts > /dev/null
-
       - name: Checkout PR HEAD
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
