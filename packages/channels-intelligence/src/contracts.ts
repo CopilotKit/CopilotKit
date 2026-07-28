@@ -144,7 +144,7 @@ export type EgressResult =
 
 /** One semantic render frame the agent run emits. Matches the frozen kinds. */
 export type ChannelRenderEvent =
-  | { kind: "run_started" }
+  | { kind: "run_started"; showToolStatus?: boolean }
   | { kind: "text_delta"; messageId: string; delta: string }
   | { kind: "text_end"; messageId: string }
   | { kind: "tool_start"; toolCallId: string; toolName: string }

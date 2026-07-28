@@ -79,13 +79,6 @@ interface ChannelReplyTarget {
   deliveryId: string;
 }
 
-function adapterFromRoute(route: unknown): string | undefined {
-  if (typeof route !== "object" || route === null || !("adapter" in route)) {
-    return undefined;
-  }
-  return typeof route.adapter === "string" ? route.adapter : undefined;
-}
-
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
 function targetFromRef(ref: MessageRef): ChannelReplyTarget {
   if (ref.__deliveryId === undefined || ref.__turnId === undefined) {
@@ -181,9 +174,8 @@ export interface IntelligenceAdapterOptions {
    */
   historyLimit?: number;
   /**
-   * Emit visible tool-call lifecycle frames. When omitted, Slack routes default
-   * to false and other routes retain the existing visible default. Tool calls
-   * are always captured for execution regardless of this display-only option.
+   * Provider presentation preference attached to the run-started frame. Tool
+   * calls are always captured and emitted for execution and canonical history.
    */
   showToolStatus?: boolean;
 }
@@ -1008,8 +1000,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const sink = this.renderSinkFor(t);
     const interruptEventNames = new Set<string>(["on_interrupt"]);
     const capturedToolCalls: CapturedToolCall[] = [];
-    const showToolStatus =
-      this.opts.showToolStatus ?? adapterFromRoute(t.route) !== "slack";
     let pendingInterrupt: CapturedInterrupt | undefined;
     let aborted = false;
     let runStarted = false;
@@ -1238,7 +1228,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const ensureRunStarted = (): void => {
       if (runStarted) return;
       runStarted = true;
-      enqueue({ kind: "run_started" });
+      enqueue({
+        kind: "run_started",
+        ...(this.opts.showToolStatus !== undefined
+          ? { showToolStatus: this.opts.showToolStatus }
+          : {}),
+      });
     };
 
     const captureToolCall = (
@@ -1279,7 +1274,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
       onToolCallStartEvent({ event }) {
         if (aborted) return;
         ensureRunStarted();
-        if (!showToolStatus) return;
         enqueue({
           kind: "tool_start",
           toolCallId: event.toolCallId,
@@ -1301,7 +1295,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
           toolCallName,
           (toolCallArgs ?? {}) as Record<string, unknown>,
         );
-        if (!showToolStatus) return;
         enqueue({
           kind: "tool_end",
           toolCallId: event.toolCallId,
@@ -1344,11 +1337,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
       },
       async finish() {
         if (aborted) return;
+        // A run that completes without text, tools, or an error still needs a
+        // lifecycle start so the gateway can retain the presentation setting.
+        ensureRunStarted();
         enqueue({ kind: "finalize" });
         await drain();
       },
       async markInterrupted() {
         if (aborted) return;
+        ensureRunStarted();
         aborted = true;
         enqueue({ kind: "interrupt" });
         enqueue({ kind: "finalize" });

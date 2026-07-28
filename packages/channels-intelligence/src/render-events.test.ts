@@ -26,21 +26,21 @@ const target = {
   deliveryId: "dlv_d1",
 };
 
-const subscriberAgent = new FakeAgent();
-const subscriberInput: RunAgentInput = {
-  threadId: "thread_test",
-  runId: "run_test",
-  state: {},
-  messages: [],
-  tools: [],
-  context: [],
-};
-const subscriberContext = {
-  messages: [],
-  state: {},
-  agent: subscriberAgent,
-  input: subscriberInput,
-};
+function makeSubscriberContext() {
+  return {
+    messages: [],
+    state: {},
+    agent: new FakeAgent(),
+    input: {
+      threadId: "thread_test",
+      runId: "run_test",
+      state: {},
+      messages: [],
+      tools: [],
+      context: [],
+    } satisfies RunAgentInput,
+  };
+}
 
 function emitTextContent(
   subscriber: AgentSubscriber,
@@ -48,7 +48,7 @@ function emitTextContent(
   delta: string,
 ) {
   return subscriber.onTextMessageContentEvent?.({
-    ...subscriberContext,
+    ...makeSubscriberContext(),
     event: { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta },
     textMessageBuffer: "",
   });
@@ -56,7 +56,7 @@ function emitTextContent(
 
 function emitTextEnd(subscriber: AgentSubscriber, messageId: string) {
   return subscriber.onTextMessageEndEvent?.({
-    ...subscriberContext,
+    ...makeSubscriberContext(),
     event: { type: EventType.TEXT_MESSAGE_END, messageId },
     textMessageBuffer: "",
   });
@@ -64,7 +64,7 @@ function emitTextEnd(subscriber: AgentSubscriber, messageId: string) {
 
 async function emitToolCall(subscriber: AgentSubscriber) {
   await subscriber.onToolCallStartEvent?.({
-    ...subscriberContext,
+    ...makeSubscriberContext(),
     event: {
       type: EventType.TOOL_CALL_START,
       toolCallId: "tc1",
@@ -72,7 +72,7 @@ async function emitToolCall(subscriber: AgentSubscriber) {
     },
   });
   await subscriber.onToolCallEndEvent?.({
-    ...subscriberContext,
+    ...makeSubscriberContext(),
     event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
     toolCallName: "search",
     toolCallArgs: {},
@@ -80,7 +80,7 @@ async function emitToolCall(subscriber: AgentSubscriber) {
 }
 
 describe("run renderer — render-event streaming (OSS-402)", () => {
-  it("hides tool status frames by default while preserving ordered text frames", async () => {
+  it("always emits ordered tool frames while leaving the display preference omitted", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
@@ -101,16 +101,19 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "run_started",
       "text_delta",
       "text_delta",
+      "tool_start",
+      "tool_end",
       "text_end",
       "finalize",
     ]);
+    expect(renderSink.frames[0]?.event).toEqual({ kind: "run_started" });
     // seq is monotonic and zero-based within (turn, slot).
-    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4]);
+    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
   });
 
-  it("emits tool status frames when showToolStatus is enabled", async () => {
+  it("attaches an explicit tool-status opt-in to run_started", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
@@ -130,18 +133,23 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "tool_end",
       "finalize",
     ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: true,
+    });
   });
 
-  it("preserves visible tool status by default for non-Slack routes", async () => {
+  it("attaches an explicit hidden preference without filtering tool frames", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
       egress: new InMemoryEgressSink(),
       renderSink,
+      showToolStatus: false,
     });
     const renderer = adapter.createRunRenderer({
       ...target,
-      route: { adapter: "teams", conversationId: "conversation_1" },
+      route: { opaque: "route" },
     });
 
     await emitToolCall(renderer.subscriber);
@@ -153,6 +161,10 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "tool_end",
       "finalize",
     ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: false,
+    });
   });
 
   it("markInterrupted emits an interrupt frame then a finalize", async () => {
@@ -173,6 +185,23 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "text_delta",
       "interrupt",
       "finalize",
+    ]);
+  });
+
+  it("emits run_started before finalize for a terminal-only run", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: false,
+    });
+
+    await adapter.createRunRenderer(target).finish?.();
+
+    expect(renderSink.frames.map((f) => f.event)).toEqual([
+      { kind: "run_started", showToolStatus: false },
+      { kind: "finalize" },
     ]);
   });
 
@@ -959,13 +988,8 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
         config: { log },
       });
       const renderer = adapter.createRunRenderer(target);
-      const sub = renderer.subscriber as unknown as Sub;
-      sub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta: "hel" },
-      });
-      sub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta: "lo" },
-      });
+      await emitTextContent(renderer.subscriber, "m1", "hel");
+      await emitTextContent(renderer.subscriber, "m1", "lo");
       await renderer.finish?.();
     } finally {
       vi.unstubAllEnvs();

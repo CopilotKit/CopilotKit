@@ -79,16 +79,20 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
 
 /** Read the semantic render kind from a recorded gateway push. */
 function renderKind(push: { event: string; payload: unknown }) {
-  if (push.event !== "channel.render_batch.v1") return undefined;
+  const event = renderEvents(push)[0];
+  return event && typeof event.kind === "string" ? event.kind : undefined;
+}
+
+function renderEvents(push: { event: string; payload: unknown }) {
+  if (push.event !== "channel.render_batch.v1") return [];
   if (!isObject(push.payload) || !isObject(push.payload.payload)) {
-    return undefined;
+    return [];
   }
   const frames = push.payload.payload.frames;
-  const event =
-    Array.isArray(frames) && isObject(frames[0]) ? frames[0].event : undefined;
-  return isObject(event) && typeof event.kind === "string"
-    ? event.kind
-    : undefined;
+  if (!Array.isArray(frames)) return [];
+  return frames.flatMap((frame) =>
+    isObject(frame) && isObject(frame.event) ? [frame.event] : [],
+  );
 }
 
 function isObject(value: unknown): value is {
@@ -134,11 +138,20 @@ function createToolCallAgent() {
   return agent;
 }
 
-async function renderToolCallKinds(showToolStatus?: boolean) {
+async function renderToolCallEvents({
+  channelShowToolStatus,
+  launcherShowToolStatus,
+}: {
+  channelShowToolStatus?: boolean;
+  launcherShowToolStatus?: boolean;
+} = {}) {
   const fake = makeFakeSession();
   const bot = createChannel({
     name: "opentag",
     agent: createToolCallAgent,
+    ...(channelShowToolStatus === undefined
+      ? {}
+      : { showToolStatus: channelShowToolStatus }),
   });
   bot.onMessage(async ({ thread }) => {
     await thread.runAgent();
@@ -148,7 +161,9 @@ async function renderToolCallKinds(showToolStatus?: boolean) {
     session: fake.session,
     scope,
     runtimeInstanceId: "rti_1",
-    ...(showToolStatus === undefined ? {} : { showToolStatus }),
+    ...(launcherShowToolStatus === undefined
+      ? {}
+      : { showToolStatus: launcherShowToolStatus }),
   });
 
   try {
@@ -158,24 +173,37 @@ async function renderToolCallKinds(showToolStatus?: boolean) {
         (p) => p.event === "channel.delivery.complete_requested.v1",
       ),
     );
-    return fake.pushes.map(renderKind).filter(Boolean);
+    return fake.pushes.flatMap(renderEvents);
   } finally {
     await handle.stop();
   }
 }
 
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
-  it("hides tool status frames by default", async () => {
-    expect(await renderToolCallKinds()).toEqual(["run_started", "finalize"]);
-  });
-
-  it("forwards the showToolStatus opt-in to the managed renderer", async () => {
-    expect(await renderToolCallKinds(true)).toEqual([
+  it("always forwards tool lifecycle frames when the display preference is omitted", async () => {
+    const events = await renderToolCallEvents();
+    expect(events.map((event) => event.kind)).toEqual([
       "run_started",
       "tool_start",
       "tool_end",
       "finalize",
     ]);
+    expect(events[0]).toEqual({ kind: "run_started" });
+  });
+
+  it("forwards createChannel({ showToolStatus: true }) through the managed launcher", async () => {
+    const events = await renderToolCallEvents({
+      channelShowToolStatus: true,
+    });
+    expect(events[0]).toEqual({ kind: "run_started", showToolStatus: true });
+  });
+
+  it("gives a launcher override precedence over the Channel preference", async () => {
+    const events = await renderToolCallEvents({
+      channelShowToolStatus: true,
+      launcherShowToolStatus: false,
+    });
+    expect(events[0]).toEqual({ kind: "run_started", showToolStatus: false });
   });
 
   it("finalizes a direct post before requesting completion and never self-acks", async () => {
@@ -273,6 +301,7 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     );
 
     expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual([
+      "run_started",
       "finalize",
       "post",
       "finalize",

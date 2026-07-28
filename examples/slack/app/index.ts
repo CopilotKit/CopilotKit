@@ -97,10 +97,6 @@ async function main() {
       slack({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
-        // Don't surface tool-call progress in the UI (no task_update timeline,
-        // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
-        // only the display is hidden.
-        showToolStatus: false,
         // Kite keeps DMs conversational and responds to explicit app mentions
         // in channels/threads. Plain channel thread replies stay quiet unless
         // they mention Kite again.

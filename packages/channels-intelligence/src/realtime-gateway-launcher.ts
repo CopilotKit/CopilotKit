@@ -91,7 +91,7 @@ export interface StartChannelsWithGatewaySessionOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
-  /** Override tool-call visibility. Slack defaults false; other routes default true. */
+  /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
 }
 
@@ -205,7 +205,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   webSocket?: unknown;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
-  /** Override tool-call visibility. Slack defaults false; other routes default true. */
+  /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
 }
 

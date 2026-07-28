@@ -421,6 +421,10 @@ export function createRunRenderer(args: {
       // still gates panes; every other surface shows it when tool status is on.
       if (statusMode && showToolStatus && (isPane ? paneToolStatus : true)) {
         await setStatus(`is using \`${event.toolCallName}\`…`);
+      } else if (statusMode && !showToolStatus) {
+        // Keep Slack's generic status alive during long tool calls without
+        // revealing tool names or adding visible tool-progress rows.
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
       }
       // Panes surface tool activity ONLY as composer status — no in-thread rows.
       if (isPane) return;
@@ -461,6 +465,9 @@ export function createRunRenderer(args: {
         toolCallName,
         (toolCallArgs ?? {}) as Record<string, unknown>,
       );
+      if (statusMode && !showToolStatus) {
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
+      }
       // Pane threads use live status (set on START); no per-call rows to edit.
       if (isPane) return;
       // Native path: complete the in-message `task_update`.

@@ -126,7 +126,7 @@ export interface StartChannelsOptions {
   resolveTransport: (channelName: string) => ChannelTransport;
   /** Activation env overrides; omitted fields are gathered from the process. */
   env?: Partial<ChannelActivationEnv>;
-  /** Override tool-call visibility. Slack defaults false; other routes default true. */
+  /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
 }
 
@@ -193,7 +193,7 @@ export async function startChannels(
           egress,
           renderSink,
           store,
-          showToolStatus: opts.showToolStatus,
+          showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
         }),
       );
       await channel.ɵruntime.start();
