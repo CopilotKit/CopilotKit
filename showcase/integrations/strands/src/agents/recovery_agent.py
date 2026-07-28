@@ -13,9 +13,11 @@ ways:
     returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer
     surfaces as a tasteful `failed` state (no broken surface).
 
-LGP-aligned pill texts (frontend / aimock coordination):
-  - "Build my Q2 revenue summary and self-correct a malformed first attempt."
-  - "Build a report that fails every validation pass so I can preview the fallback."
+Strands-unique pill texts (frontend / aimock coordination — must NOT share
+wording with langgraph-python a2ui-recovery; inner render_a2ui has no
+x-aimock-context so userMessage alone disambiguates across frameworks):
+  - "Assemble a quarterly performance board and recover from a malformed first draft."
+  - "Assemble a board that always fails validation so I can see the fallback."
 
 Wiring: unlike the langgraph/ADK siblings (which own `generate_a2ui` explicitly
 via `get_a2ui_tools` + `injectA2UITool: false`), the Strands adapter runs the
@@ -44,16 +46,16 @@ from agents.a2ui_dynamic import (
     SYSTEM_PROMPT as DYNAMIC_SYSTEM_PROMPT,
 )
 
-# LGP-aligned recovery composition: same sales-analyst base as declarative
-# dynamic A2UI, plus explicit guidance so the LGP pill wordings
-# ("malformed first attempt", "fails every validation") still route through
+# Recovery composition: same sales-analyst base as declarative dynamic A2UI,
+# plus explicit guidance so the strands-unique pill wordings
+# ("malformed first draft", "always fails validation") still route through
 # `generate_a2ui` and the adapter's validate->retry / hard-fail path.
 SYSTEM_PROMPT = (
     DYNAMIC_SYSTEM_PROMPT
     + "\n\n"
-    + "Demo recovery intents: if the user asks to self-correct a malformed "
-    + "first attempt, recover from a bad render, or build a report / board "
-    + "that fails every validation pass so they can preview the fallback, "
+    + "Demo recovery intents: if the user asks to recover from a malformed "
+    + "first draft, recover from a bad render, or assemble a board that "
+    + "always fails validation so they can see the fallback, "
     + "still call `generate_a2ui` exactly once and keep the chat reply to one "
     + "short sentence. Do not refuse, do not invent another tool, and do not "
     + "try to validate or repair the surface yourself — `generate_a2ui` runs "

@@ -43,10 +43,7 @@ as every other dedicated Strands agent; nothing extra is needed here.
 from __future__ import annotations
 
 import os
-
-from strands import Agent
-from strands.models.openai import OpenAIModel
-from ag_ui_strands import StrandsAgent
+from typing import Any
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant. For each user question, first think "
@@ -59,12 +56,21 @@ SYSTEM_PROMPT = (
 REASONING_MODEL = os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.5")
 
 
-def _build_reasoning_model() -> OpenAIModel:
+def _build_reasoning_model() -> Any:
     """Build an OpenAI model configured for reasoning-token streaming.
 
     Uses Chat Completions (the only path Strands OpenAIModel supports).
     See module docstring for the Responses API gap vs LGP.
+
+    ``OpenAIModel`` is imported here (not at module top-level) so this
+    module stays importable under the instrumentor-patch test's lazy
+    ``strands`` stub (a non-package ``ModuleType`` without ``__path__``).
+    Mirrors the byoc_hashbrown / voice_agent deferred-import pattern.
     """
+    # Deferred: top-level ``from strands.models.openai import OpenAIModel``
+    # breaks when ``strands`` is a non-package ModuleType stub.
+    from strands.models.openai import OpenAIModel
+
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY must be set for the strands reasoning agent")
@@ -78,14 +84,21 @@ def _build_reasoning_model() -> OpenAIModel:
     )
 
 
-def build_reasoning_agent() -> StrandsAgent:
+def build_reasoning_agent():
     """Construct a pure-reasoning StrandsAgent (no backend tools).
 
     Backs:
       * reasoning-default  — built-in CopilotChatReasoningMessage slot
       * reasoning-custom   — custom amber ReasoningBlock slot
       * agentic-chat-reasoning (same pure-reasoning surface)
+
+    Deferred imports keep this module importable even when the
+    agent_server import-order patches (see agent_server.py) haven't been
+    applied yet — same pattern as ``build_byoc_hashbrown_agent``.
     """
+    from strands import Agent
+    from ag_ui_strands import StrandsAgent
+
     strands_agent = Agent(
         model=_build_reasoning_model(),
         system_prompt=SYSTEM_PROMPT,

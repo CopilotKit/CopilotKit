@@ -28,8 +28,10 @@ from __future__ import annotations
 import json
 from random import choice, randint
 
-from strands import Agent, tool
-from ag_ui_strands import StrandsAgent
+# Root-package ``tool`` is fine under the instrumentor-patch stub (which
+# exposes ``tool`` on the ``strands`` ModuleType). Submodule imports like
+# ``strands.models.openai`` must stay deferred — see reasoning_agent.py.
+from strands import tool
 
 from agents.reasoning_agent import (
     SYSTEM_PROMPT as _REASONING_STYLE,
@@ -175,13 +177,20 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_tool_rendering_reasoning_chain_agent() -> StrandsAgent:
+def build_tool_rendering_reasoning_chain_agent():
     """Construct the tool-rendering reasoning-chain StrandsAgent.
 
     Same reasoning-model path as ``build_reasoning_agent``, plus the four
     backend tools the frontend renderers expect. Mounting lands in the
     wire-server (B6) slot.
+
+    Deferred ``Agent`` / ``StrandsAgent`` imports match byoc_hashbrown /
+    reasoning_agent so module import stays stub-safe under the
+    instrumentor-patch test.
     """
+    from strands import Agent
+    from ag_ui_strands import StrandsAgent
+
     strands_agent = Agent(
         model=_build_reasoning_model(),
         system_prompt=SYSTEM_PROMPT,

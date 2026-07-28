@@ -168,10 +168,18 @@ def test_agent_server_module_installs_patch():
     fake_ag_ui_strands.StrandsAgent = _AcceptsAnything  # type: ignore[attr-defined]
     fake_ag_ui_strands.StrandsAgentConfig = _AcceptsAnything  # type: ignore[attr-defined]
     fake_ag_ui_strands.ToolBehavior = _AcceptsAnything  # type: ignore[attr-defined]
+    # shared_state_streaming imports PredictStateMapping at build time.
+    fake_ag_ui_strands.PredictStateMapping = _AcceptsAnything  # type: ignore[attr-defined]
 
     fake_strands = types.ModuleType("strands")
     fake_strands.Agent = _AcceptsAnything  # type: ignore[attr-defined]
     fake_strands.tool = lambda f=None, **_: f if callable(f) else (lambda g: g)  # type: ignore[attr-defined]
+    # Mark as a package so deferred submodule imports
+    # (``from strands.models.openai import OpenAIModel`` inside build_*)
+    # can resolve via the lazy stub finder. Without ``__path__``, Python
+    # raises ``'strands' is not a package`` before the finder can serve
+    # ``strands.models.*``.
+    fake_strands.__path__ = []  # type: ignore[attr-defined]
 
     fake_hooks = types.ModuleType("strands.hooks")
     for name in (
@@ -192,6 +200,7 @@ def test_agent_server_module_installs_patch():
 
     fake_openai_mod.OpenAIModel = _FakeOpenAIModel  # type: ignore[attr-defined]
     fake_models = types.ModuleType("strands.models")
+    fake_models.__path__ = []  # type: ignore[attr-defined]
 
     # uvicorn is imported at module level but only invoked from ``main()``.
     if "uvicorn" not in sys.modules:
