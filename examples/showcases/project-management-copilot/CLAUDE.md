@@ -1,299 +1,166 @@
-# CopilotKit + LangGraph Todo Demo
+# CopilotKit PM Copilot — `project-management-copilot`
 
 ## Purpose
 
-This repository serves as both a **showcase** and **template** for building AI agents with CopilotKit and LangGraph. It demonstrates how CopilotKit can drive interactive UI beyond just chat, using a **collaborative todo list** as the primary example.
+A polished, on-brand **showcase** (and fork-and-extend template) for building
+agent-driven applications with CopilotKit v2. The app is a mini **Linear /
+Notion**: a kanban project-management board that a copilot can drive, observe,
+and reason about — well beyond a chat box.
 
-**Target audience:** Developers evaluating CopilotKit or starting new projects with AI agents.
+**Target audience:** developers evaluating CopilotKit, or starting a new project
+with AI agents that manipulate real application state and render generative UI.
 
-## Core Concept
+## Core concept
 
-The todo list demonstrates **agent-driven UI** where:
+A **kanban PM board** demonstrates agent-driven UI where state lives in the
+agent and syncs bidirectionally with the frontend (the CopilotKit v2 agent-state
+pattern):
 
-- The agent can manipulate application state (adding todos, updating status, organizing tasks)
-- Users can interact with the same state (editing titles, checking off tasks, deleting todos)
-- Both agent and user changes update the same shared state
-- The UI reactively updates based on agent state changes
+- **5 statuses:** Backlog / Todo / In Progress / In Review / Done
+- **4 priorities:** Urgent / High / Med / Low
+- The agent mutates the board (create / move / reassign issues) via tools; the
+  user edits the same board directly; both write the same `agent.state.issues`.
+- The UI reactively re-renders whenever agent state changes.
 
-This uses CopilotKit's **v2 agent state pattern** where state lives in the agent and syncs to the frontend.
+Two agents drive the same board, swappable from an **in-chat agent selector**:
+
+- **LangGraph kanban copilot** (`apps/agent`, port 8123) — the primary agent.
+  Owns the board, HITL approvals, backlog analysis, and generative-UI cards.
+- **Google ADK "Dashboard Designer"** (`apps/agent-adk`, port 8124) — a second
+  agent that filters / focuses a stats dashboard over the same issues. It proves
+  the AG-UI protocol is agent-framework-agnostic: both agents emit identical
+  AG-UI events, visible side-by-side in the event inspector.
 
 ## Architecture
 
-This is a small **npm workspaces monorepo** with three apps:
+Standalone **npm-workspaces monorepo** — it keeps its own `package-lock.json`
+and is intentionally *not* wired into the CopilotKit root workspace or CI. It
+consumes published `@copilotkit/*` packages (the v2 surface:
+`@copilotkit/react-core/v2` on the frontend, `@copilotkit/runtime` on the BFF),
+pinned.
 
-### Repository Structure
+| Service | Port | Description |
+| --- | --- | --- |
+| Frontend (`apps/app`) | 3000 (Vite picks 3000+) | Vite 7 + React 19 + Tailwind 4, CopilotKit v2 |
+| BFF (`apps/bff`) | 4000 | Hono + CopilotRuntime; registers `default` / `langgraph` / `adk` agents; forwards Whisper transcription; hosts the MCP App tile |
+| LangGraph agent (`apps/agent`) | 8123 | Python, openai:gpt-4.1 |
+| Google ADK agent (`apps/agent-adk`) | 8124 | Python, LiteLLM → openai/gpt-4.1 |
+| Docker infra (Postgres / Redis / Intelligence) | 5432 / 6379 / 4201 / 4401 | Threads persistence + realtime |
+| aimock (optional) | 4010 | OpenAI-shaped mock for deterministic demos |
+
+The frontend talks **only** to the BFF. The BFF fronts the CopilotRuntime and
+routes to whichever Python backend the agent selector picks.
+
+### Repository structure
 
 ```
 apps/
-├── app/                         # Vite + React frontend
-│   ├── src/
-│   │   ├── App.tsx             # Main app shell - wires up all components
-│   │   ├── main.tsx            # Vite entrypoint
-│   │   └── app/
-│   │       ├── globals.css     # Global styles
-│   │   ├── components/
-│   │   │   ├── canvas/         # Todo list UI
-│   │   │   │   ├── index.tsx   # Canvas container
-│   │   │   │   ├── todo-list.tsx    # Todo list with columns
-│   │   │   │   ├── todo-column.tsx  # Column (pending/completed)
-│   │   │   │   └── todo-card.tsx    # Individual todo card
-│   │   │   ├── example-layout/ # Layout: chat + canvas side-by-side
-│   │   │   └── generative-ui/  # Example generative UI components
-│   │   └── hooks/
-│   │       ├── use-generative-ui-examples.tsx  # Example CopilotKit patterns
-│   │       └── use-example-suggestions.tsx     # Chat suggestions
-├── agent/                       # LangGraph Python agent
-│   ├── main.py                  # Agent entry point
+├── app/                      # Vite + React frontend
+│   ├── server.mjs            # prod static server (Hono); proxies /api/copilotkit → BFF
+│   ├── public/               # brand SVGs, sprint-52.png (git-LFS)
 │   └── src/
-│       ├── todos.py             # Todo tools and state schema
-│       └── query.py             # Example data query tool
+│       ├── App.tsx           # app shell — wires chat, board, agents, tools menu, voice
+│       ├── components/
+│       │   ├── pm-board/     # kanban board, issue types, analysis-timeline
+│       │   ├── dashboard/    # ADK Dashboard Designer surface
+│       │   ├── generative-ui/# chat cards: issue-card/list/table, charts, approval-card, attach-meeting-notes
+│       │   ├── agent-selector/  threads-drawer/  event-inspector/  theme-shell/  paint/  ui/
+│       │   └── tool-rendering.tsx
+│       └── hooks/
+│           ├── use-generative-ui-examples.tsx  # useComponent / useFrontendTool / useHumanInTheLoop registrations
+│           └── use-example-suggestions.tsx     # suggestion chips (LangGraph + ADK)
+├── bff/                      # Hono + CopilotRuntime
+│   └── src/server.ts         # runtime, agent registration, WhisperTranscriptionService, mcpApps
+├── agent/                    # LangGraph Python agent
+│   ├── main.py               # create_agent + tool/state wiring + system prompt
+│   └── src/                  # issues.py (board state + tools), analysis.py, query.py, a2ui_* (A2UI demo)
+└── agent-adk/                # Google ADK Python agent
+    ├── main.py               # ADK app + ag_ui_adk bridge
+    └── src/                  # tools.py, issues_data.py
 ```
 
-## Key Pattern: Agent State with CopilotKit v2
+## Key pattern: agent state with CopilotKit v2
 
-The todo list uses **CopilotKit v2's agent state pattern** where state lives in the agent backend and syncs bidirectionally with the frontend.
+State lives in the agent backend and syncs bidirectionally with the frontend.
 
-### How It Works
+- Frontend **reads** via `useAgent().state.issues`. Bind to the per-thread agent
+  clone with `agentId` from `useCopilotChatConfiguration()` — otherwise
+  `useAgent()` resolves a different default clone the board never sees.
+- Frontend **writes** via `agent.setState({ ...agent.state, issues })`. Always
+  spread the current state first: `setState` replaces the whole object, so a
+  bare `setState({ issues })` would clobber sibling keys (`analysis`,
+  `dashboard`).
+- Agent **mutates** state via tools (`manage_issues`, `propose_issue_change`,
+  `analyze_backlog`, …), returning `Command(update={...})`.
 
-1. **Agent defines state schema and tools** (Python)
+## Features
 
-   ```python
-   # apps/agent/src/todos.py
-   class Todo(TypedDict):
-       id: str
-       title: str
-       description: str
-       emoji: str
-       status: Literal["pending", "completed"]
-
-   class AgentState(TypedDict):
-       todos: list[Todo]
-
-   @tool
-   def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
-       """Manage the current todos."""
-       return Command(update={"todos": todos, ...})
-   ```
-
-2. **Frontend reads from agent state**
-
-   ```typescript
-   // apps/app/src/components/canvas/index.tsx
-   const { agent } = useAgent();
-
-   return (
-     <TodoList
-       todos={agent.state?.todos || []}
-       onUpdate={(updatedTodos) => agent.setState({ todos: updatedTodos })}
-       isAgentRunning={agent.isRunning}
-     />
-   );
-   ```
-
-3. **User interactions update agent state**
-
-   ```typescript
-   // User clicks checkbox → frontend calls agent.setState()
-   const toggleStatus = (todo) => {
-     const updated = todos.map((t) =>
-       t.id === todo.id
-         ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
-         : t,
-     );
-     agent.setState({ todos: updated });
-   };
-   ```
-
-4. **Agent can manipulate state via tools**
-   - The agent calls `manage_todos` tool to update the todo list
-   - Both user and agent changes update the same `agent.state.todos`
-   - Frontend automatically re-renders when state changes
-
-### Why This Pattern?
-
-- **Single source of truth**: State lives in the agent, not duplicated in frontend
-- **Bidirectional sync**: User changes → agent state, Agent changes → UI update
-- **Simple**: No need for separate frontend state management
-- **Observable**: Agent has full visibility into state changes
-
-## Implementation Details
-
-### Agent Backend
-
-**Agent Definition** (`apps/agent/main.py`):
-
-```python
-from langchain.agents import create_agent
-from copilotkit import CopilotKitMiddleware
-from src.todos import todo_tools, AgentState
-
-agent = create_agent(
-    model="gpt-5.2",
-    tools=[*todo_tools, ...],  # manage_todos, get_todos
-    middleware=[CopilotKitMiddleware()],
-    state_schema=AgentState,  # Defines state shape
-    system_prompt="You are a helpful assistant..."
-)
-```
-
-**Todo Tools** (`apps/agent/src/todos.py`):
-
-```python
-@tool
-def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
-    """Manage the current todos."""
-    # Ensure todos have unique IDs
-    for todo in todos:
-        if "id" not in todo or not todo["id"]:
-            todo["id"] = str(uuid.uuid4())
-
-    # Update agent state
-    return Command(update={
-        "todos": todos,
-        "messages": [ToolMessage(...)]
-    })
-
-@tool
-def get_todos(runtime: ToolRuntime):
-    """Get the current todos."""
-    return runtime.state.get("todos", [])
-```
-
-### Frontend
-
-**Canvas Component** (`apps/app/src/components/canvas/index.tsx`):
-
-```typescript
-export function Canvas() {
-  const { agent } = useAgent();  // CopilotKit v2 hook
-
-  return (
-    <div className="h-full p-8 bg-gray-50">
-      <TodoList
-        // Read state from agent
-        todos={agent.state?.todos || []}
-        // Update state in agent
-        onUpdate={(updatedTodos) => agent.setState({ todos: updatedTodos })}
-        // React to agent execution
-        isAgentRunning={agent.isRunning}
-      />
-    </div>
-  );
-}
-```
-
-**Todo List** (`apps/app/src/components/canvas/todo-list.tsx`):
-
-```typescript
-export function TodoList({ todos, onUpdate, isAgentRunning }: TodoListProps) {
-  const toggleStatus = (todo: Todo) => {
-    const updated = todos.map((t) =>
-      t.id === todo.id
-        ? { ...t, status: t.status === "completed" ? "pending" : "completed" }
-        : t
-    );
-    onUpdate(updated);  // Calls agent.setState()
-  };
-
-  const addTodo = () => {
-    const newTodo = { id: crypto.randomUUID(), ... };
-    onUpdate([...todos, newTodo]);
-  };
-
-  return (
-    <div className="flex gap-8">
-      <TodoColumn title="To Do" todos={pendingTodos} onAddTodo={addTodo} ... />
-      <TodoColumn title="Done" todos={completedTodos} ... />
-    </div>
-  );
-}
-```
-
-### How State Flows
-
-1. **User adds/edits todo** → Frontend calls `agent.setState({ todos: [...] })`
-2. **Agent state updates** → CopilotKit syncs to backend
-3. **Agent observes change** → Can respond via `manage_todos` tool
-4. **Agent modifies todos** → Calls `manage_todos` tool
-5. **State syncs to frontend** → `agent.state.todos` updates
-6. **UI re-renders** → React sees new state and updates display
-
-**Key insight**: State lives in the agent, frontend just reads/writes to it via CopilotKit hooks.
-
-## Tech Stack
-
-- **Frontend**: Vite 7, React 19, TailwindCSS 4
-- **Agent**: LangGraph (Python), OpenAI GPT-5.2
-- **CopilotKit**: React hooks for agent integration (v2)
-- **Monorepo**: npm workspaces + concurrently
-- **Other**: Recharts for generative UI examples
+- **Kanban board** — 5 columns, drag-and-drop, click-to-edit (`components/pm-board/`).
+- **Generative-UI chat cards** — inline issue cards / lists / tables and pie/bar
+  charts registered via `useComponent` (`components/generative-ui/`).
+- **HITL approval card** — accept / reject / inline-edit a proposed single-issue
+  change, via `useHumanInTheLoop` paired with the agent's `propose_issue_change`
+  (`generative-ui/approval-card.tsx`).
+- **Shared-state analysis timeline** — a live "thinking" panel that fills from
+  `copilotkit_emit_state` during `analyze_backlog` (`pm-board/analysis-timeline.tsx`).
+- **Threads drawer** — search / rename / archive prior threads persisted to
+  Postgres (`components/threads-drawer/`; seed with `npm run seed:threads`).
+- **PTT voice** — push-to-talk mic transcribed by OpenAI Whisper
+  (`WhisperTranscriptionService` on the BFF).
+- **MCP App tile** — Excalidraw surfaced as an MCP app (`apps/bff/src/server.ts` mcpApps).
+- **AG-UI event inspector** — right-panel stream of raw AG-UI events for whichever
+  agent is active (`components/event-inspector/`).
+- **Second agent (Google ADK)** — the Dashboard Designer, selectable from the chat header.
 
 ## Development
 
-This is an npm workspaces monorepo.
-
 ```bash
-# Install dependencies (all apps)
-npm install
+npm install            # install all workspaces (uv + Docker required — the preinstall/predev gate enforces this)
 
-# Start all apps (app, bff, agent)
-npm run dev
+npm run dev            # docker infra + app + bff + both agents
+npm run dev:mock       # deterministic demo: aimock (4010) replays fixtures/*.json, no API key needed
 
-# Start individually
-npm run dev:app    # Vite frontend on port 3000
-npm run dev:bff    # CopilotKit runtime BFF on port 4000
-npm run dev:agent  # LangGraph agent on port 8123
+# individual services
+npm run dev:app        # Vite frontend
+npm run dev:bff        # CopilotKit runtime BFF
+npm run dev:agent      # LangGraph agent
+npm run dev:agent-adk  # Google ADK agent
 
-# Build all apps
-npm run build
-
-# Lint all apps
-npm run lint
+npm run build          # build bff (tsc) + app (vite)
+npm run seed:threads   # populate the threads drawer for the demo
+npm run aimock:record  # record new fixtures against the real OpenAI API
 ```
 
-### Environment Setup
+### Environment
 
 ```bash
-# Set OpenAI API key for the agent
-echo 'OPENAI_API_KEY=your-key-here' > apps/agent/.env
+cp .env.example .env               # set OPENAI_API_KEY
+copilotkit license -n my-project   # one-time
 ```
 
-## Design Principles
+## Deterministic demo mode (aimock)
 
-1. **Simple over complex** - The todo list is intentionally simple and focused
-2. **CopilotKit v2 patterns** - Uses modern agent state management
-3. **Template-first** - Code is meant to be forked and extended
-4. **Showcasing agent-driven UI** - Demonstrates AI manipulating application state beyond chat
+Real-LLM demos are flaky. `npm run dev:mock` boots aimock on port 4010 and runs
+every service with `USE_MOCK=1`, flipping `OPENAI_BASE_URL` to the local mock.
+All chat completions **and** Whisper transcripts replay from `fixtures/*.json`,
+so the walkthrough is repeatable without an API key.
 
-## Future Enhancements
+## Tech stack
 
-Possible extensions to demonstrate more CopilotKit capabilities:
+- **Frontend:** Vite 7, React 19, TailwindCSS 4, CopilotKit v2, Recharts (charts)
+- **BFF:** Hono, `@copilotkit/runtime`, `@ag-ui/client`
+- **Agents:** LangGraph (Python) + Google ADK + `ag_ui_adk` + LiteLLM (Python), openai gpt-4.1
+- **Infra:** Postgres + Redis (threads persistence), Docker Compose
+- **Monorepo:** npm workspaces + concurrently; aimock for deterministic replay
 
-- Todo categories/tags/priorities
-- Agent-driven task organization (auto-categorize, suggest priorities)
-- Due dates and reminders
-- Subtasks and dependencies
-- Export/import todo lists
-- Undo/redo with state history
-- Real-time collaboration
+## Design principles
 
----
-
-## Key Takeaways for Developers
-
-**State Management Pattern**: This app uses CopilotKit v2's agent state pattern where:
-
-- State is defined in the agent backend (Python TypedDict)
-- Frontend reads via `agent.state.todos`
-- Frontend writes via `agent.setState({ todos: ... })`
-- Agent can modify state via tools (`manage_todos`)
-- Changes sync bidirectionally automatically
-
-**When extending this template**:
-
-- Define state schema in the agent (`AgentState`)
-- Create tools that manipulate state via `Command(update={...})`
-- Use `useAgent()` hook in frontend to read/write state
-- Let CopilotKit handle the sync - no manual state management needed
-
-This pattern works great for **agent-driven applications** where the AI needs to manipulate structured application state, not just chat.
+1. **Agent-owned state** — the board is a projection of `agent.state.issues`, not
+   a separate frontend store. Read via `useAgent()`, write via `agent.setState`.
+2. **Generative UI over chat** — the copilot renders real components (cards,
+   charts, approval flows), not just text.
+3. **Protocol, not framework** — LangGraph and Google ADK are interchangeable
+   behind AG-UI; the selector swaps the backend with no UI changes.
+4. **Deterministic by default for demos** — aimock replays fixtures so a live
+   walkthrough never depends on a flaky model call.
+5. **Fork-and-extend** — a standalone monorepo meant to be copied and adapted.

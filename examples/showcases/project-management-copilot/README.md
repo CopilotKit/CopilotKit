@@ -2,8 +2,6 @@
 
 A polished, on-brand showcase of CopilotKit running a real workflow app — a mini Linear / Notion that the copilot can drive, observe, and reason about. Built on top of the CopilotKit + LangGraph template, plus a second agent on Google ADK, deterministic demo via aimock, and PTT voice via OpenAI Whisper.
 
-Branch: `demo/pm-copilot`.
-
 https://github.com/user-attachments/assets/66a86d92-4565-4b9c-96b3-cdda0e780b93
 
 ## What's in it
@@ -44,43 +42,29 @@ This is what to walk through in front of an audience. Each act is short (15-45 s
 
 `npm run dev` brings up everything. The page paints lavender with the six signature CopilotKit blur circles, a glass chat panel on the left, the kanban on the right. The threads drawer shows previous conversations (run `npm run seed:threads` once to populate it).
 
-<!-- screenshot: act-1.png -->
-
 ### Act 2 — Pick a thread
 
 Click "Sprint planning — May 12" in the drawer. The chat hydrates from postgres; the kanban hydrates from the agent's per-thread state. Hover any thread for the rename / archive / delete actions. The search box at the top filters as you type.
-
-<!-- screenshot: act-2.png -->
 
 ### Act 3 — Talk to the copilot
 
 Type "plan next sprint" (or click the suggestion pill). The agent reads the backlog and proposes pulling three urgent issues into Todo. Each proposal renders as an approval card with accept / reject / **edit** — clicking edit lets you change the assignee or priority inline before approving.
 
-<!-- screenshot: act-3.png -->
-
 ### Act 4 — Upload a PDF
 
 Drag a PRD PDF onto the chat. The agent (which is vision-capable) reads it directly and calls `manage_issues` with the extracted findings. Three new issues appear on the Backlog column in real time — same `agent.state.issues` the frontend reads, no extra wiring.
-
-<!-- screenshot: act-4.png -->
 
 ### Act 5 — Inline issue cards
 
 Ask "show me all urgent issues." The agent calls `render_issue_list` which surfaces glass cards inline in chat — each with a **View on board** button that scrolls and flashes the matching kanban card. This is the `useComponent` generative UI pattern.
 
-<!-- screenshot: act-5.png -->
-
 ### Act 6 — Watch the agent think
 
 Click "Analyze backlog." The agent calls `analyze_backlog`, which streams progress via `copilotkit_emit_state`. A glass timeline panel slides up in the bottom-right of the kanban: **Reading issues → Categorizing → Identifying blockers → Drafting recommendation → Done**. Step pills fill with mint check marks; live stat chips update as the data flows.
 
-<!-- screenshot: act-6.png -->
-
 ### Act 7 — Swap agents
 
 Open the agent selector in the chat header (top right of the chat panel). Switch from **LangGraph** to **Google ADK**. The chat reloads, the same tool surface is available, the same issues appear. Open the AG-UI event inspector (chevron tab on the far right of the viewport) — both agents emit the same `TEXT_MESSAGE_CONTENT` / `TOOL_CALL_START` / `STATE_DELTA` events. That's the AG-UI protocol working.
-
-<!-- screenshot: act-7.png -->
 
 ### Bonus — PTT voice
 
@@ -130,10 +114,6 @@ Six pre-built scenario fixtures cover the demo flows:
 | `voice-status-update.json` | Whisper transcript + render_issue_list           |
 | `mcp-sketch.json`          | Open Excalidraw via MCP                          |
 | `default.json`             | Catch-all greetings + fallback                   |
-
-## Removing pieces
-
-To slim back to a generic CopilotKit + LangGraph starter, see the prior `Removing Threads` section preserved in the git history at `8614a75`.
 
 ## Documentation
 
