@@ -3,7 +3,10 @@ import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
-import type { CopilotRuntimeLike } from "../../core/runtime";
+import type {
+  CopilotRuntimeLike,
+  CopilotRuntimeUser,
+} from "../../core/runtime";
 import {
   isA2UIEnabled,
   isIntelligenceRuntime,
@@ -15,7 +18,7 @@ import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
-import { resolveIntelligenceUser } from "./resolve-intelligence-user";
+import { isValidAppUserId } from "./intelligence-utils";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -168,13 +171,16 @@ export function configureAgentForRequest(params: {
  * tools are available uniformly across agent frameworks (not just
  * `BuiltInAgent`).
  *
- * The middleware sits on a per-request agent clone, so the per-request
- * auth (Bearer apiKey + resolved user-id) is baked into the transport
- * headers at attach time. If user resolution fails, attachment is
- * skipped silently — the intelligence run handler will reject the
- * request with the same error. Note this means `identifyUser` is
- * resolved twice per learning-enabled run (here and in the run handler);
- * the callback is expected to be idempotent and side-effect-free.
+ * Takes an ALREADY-RESOLVED user (OSS-643). This function used to re-run
+ * `identifyUser(request)` itself — a second resolution per run, and
+ * structurally unusable from a managed Channel turn, which has no HTTP
+ * request to resolve from. The caller now resolves once and passes the
+ * user down, so an HTTP run and a Channel turn share this one path.
+ *
+ * The middleware sits on a per-run agent, so the per-run auth (Bearer
+ * apiKey + the resolved user id) is baked into the transport headers at
+ * attach time — `MCPMiddleware` headers are static per instance. Never
+ * attach this to an agent shared across users.
  *
  * Intentionally split out from `configureAgentForRequest`: this is only
  * relevant to actual agent runs, not auxiliary flows like thread-name
@@ -183,10 +189,10 @@ export function configureAgentForRequest(params: {
  */
 export async function attachIntelligenceEnterpriseLearning(params: {
   runtime: CopilotRuntimeLike;
-  request: Request;
   agent: AbstractAgent;
+  user: CopilotRuntimeUser;
 }): Promise<void> {
-  const { runtime, request } = params;
+  const { runtime, user } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
   if (
@@ -208,8 +214,15 @@ export async function attachIntelligenceEnterpriseLearning(params: {
     return;
   }
 
-  const userResult = await resolveIntelligenceUser({ runtime, request });
-  if (userResult instanceof Response) return;
+  // Defence in depth. The HTTP path already validated via
+  // `resolveIntelligenceUser`, but a Channel-sourced user reaches here from the
+  // delivery actor — never stamp an unvalidated id into an outbound header.
+  if (!isValidAppUserId(user?.id)) {
+    logger.warn(
+      "Intelligence enterprise learning was not attached: the resolved user id is not a valid app-user id.",
+    );
+    return;
+  }
 
   agent.use(
     new MCPMiddleware([
@@ -219,7 +232,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         serverId: "intelligence",
         headers: {
           Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
-          [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+          [INTELLIGENCE_USER_ID_HEADER]: user.id,
         },
       },
     ]),

@@ -7,6 +7,8 @@ import {
   configureAgentForRequest,
   parseRunRequest,
 } from "./shared/agent-utils";
+import { resolveIntelligenceUser } from "./shared/resolve-intelligence-user";
+import { isHandlerResponse } from "./shared/json-response";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
 
@@ -63,7 +65,23 @@ export async function handleRunAgent({
       agent,
       providerA2UIHasCatalog,
     });
-    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
+    // Resolve the user HERE and pass it down (OSS-643): the attach no longer
+    // resolves its own identity, which is what makes it reusable from a managed
+    // Channel turn that has no HTTP request.
+    //
+    // Gated on enterprise learning being ON so this costs nothing when the
+    // attach would no-op — resolving unconditionally would add a second
+    // `identifyUser` call to every Intelligence run.
+    if (
+      isIntelligenceRuntime(runtime) &&
+      runtime.intelligence?.ɵisEnterpriseLearningEnabled?.()
+    ) {
+      const user = await resolveIntelligenceUser({ runtime, request });
+      if (isHandlerResponse(user)) {
+        return user;
+      }
+      await attachIntelligenceEnterpriseLearning({ runtime, agent, user });
+    }
 
     agent.setMessages(input.messages);
     agent.setState(input.state);

@@ -66,8 +66,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     const agent = makeAgent();
     await attachIntelligenceEnterpriseLearning({
       runtime: makeRuntime({}),
-      request: request(),
       agent,
+      user: { id: "user-42", name: "Forty Two" },
     });
     expect(agent.use).not.toHaveBeenCalled();
     expect(mcpMiddlewareCalls).toHaveLength(0);
@@ -82,8 +82,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         }),
         identifyUser: async () => ({ id: "u1", name: "User" }),
       }),
-      request: request(),
       agent,
+      user: { id: "user-42", name: "Forty Two" },
     });
     expect(agent.use).not.toHaveBeenCalled();
   });
@@ -95,8 +95,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         intelligence: makeIntelligenceStub(),
         identifyUser: async () => ({ id: "user-42", name: "Forty Two" }),
       }),
-      request: request(),
       agent,
+      user: { id: "user-42", name: "Forty Two" },
     });
 
     expect(agent.use).toHaveBeenCalledTimes(1);
@@ -115,18 +115,81 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     ]);
   });
 
-  it("skips silently when identifyUser returns an invalid user", async () => {
+  it("does not attach when the supplied user id is invalid", async () => {
+    // Same intent as before OSS-643 (an unusable identity must not be stamped
+    // into the MCP header), but the identity now arrives as an argument rather
+    // than being resolved in here. The HTTP path validates upstream; this is the
+    // defence-in-depth guard for the Channel path.
+    const agent = makeAgent();
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({ intelligence: makeIntelligenceStub() }),
+      agent,
+      user: { id: "", name: "x" },
+    });
+    expect(agent.use).not.toHaveBeenCalled();
+  });
+
+  it("does not attach when the supplied user id could forge a header", async () => {
+    const agent = makeAgent();
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({ intelligence: makeIntelligenceStub() }),
+      agent,
+      user: { id: "slack:T1:U9\r\nx-injected: 1", name: "Ada" },
+    });
+    expect(agent.use).not.toHaveBeenCalled();
+  });
+
+  it("never calls identifyUser — the caller resolves the user once", async () => {
+    const identifyUser = vi.fn(async () => ({ id: "u1", name: "User" }));
     const agent = makeAgent();
     await attachIntelligenceEnterpriseLearning({
       runtime: makeRuntime({
         intelligence: makeIntelligenceStub(),
-        // Empty id triggers the validation Response inside resolveIntelligenceUser.
-        identifyUser: async () => ({ id: "", name: "x" }),
+        identifyUser,
       }),
-      request: request(),
       agent,
+      user: { id: "slack:T1:U9", name: "Ada" },
     });
-    expect(agent.use).not.toHaveBeenCalled();
+    expect(identifyUser).not.toHaveBeenCalled();
+    expect(agent.use).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a long opaque Teams app-user id", async () => {
+    const agent = makeAgent();
+    const id = `teams:tenant1:29:1${"a".repeat(200)}`;
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({ intelligence: makeIntelligenceStub() }),
+      agent,
+      user: { id, name: "Sam" },
+    });
+    const [servers] = mcpMiddlewareCalls[0] as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(servers[0]?.headers["x-cpki-user-id"]).toBe(id);
+  });
+
+  it("keeps two concurrent attachments isolated", async () => {
+    const a = makeAgent();
+    const b = makeAgent();
+    await Promise.all([
+      attachIntelligenceEnterpriseLearning({
+        runtime: makeRuntime({ intelligence: makeIntelligenceStub() }),
+        agent: a,
+        user: { id: "slack:T1:UA", name: "A" },
+      }),
+      attachIntelligenceEnterpriseLearning({
+        runtime: makeRuntime({ intelligence: makeIntelligenceStub() }),
+        agent: b,
+        user: { id: "slack:T1:UB", name: "B" },
+      }),
+    ]);
+    const ids = mcpMiddlewareCalls.map(
+      ([servers]) =>
+        (servers as Array<{ headers: Record<string, string> }>)[0]?.headers[
+          "x-cpki-user-id"
+        ],
+    );
+    expect(ids.sort()).toEqual(["slack:T1:UA", "slack:T1:UB"]);
   });
 
   it("warns and does not attach when the agent does not expose a use() method", async () => {
@@ -137,8 +200,8 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         intelligence: makeIntelligenceStub(),
         identifyUser: async () => ({ id: "u1", name: "User" }),
       }),
-      request: request(),
       agent,
+      user: { id: "user-42", name: "Forty Two" },
     });
     expect(mcpMiddlewareCalls).toHaveLength(0);
     // The operator opted into the feature, so the no-op must be surfaced.
