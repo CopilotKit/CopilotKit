@@ -27,6 +27,7 @@ test("documents the managed CLI credential without an offline license token", ()
   const sources = [
     "docs/premium/managed-intelligence-platform.mdx",
     "snippets/shared/cli/cli.mdx",
+    "snippets/shared/threads/headless-threads.mdx",
   ].map((relativePath) =>
     fs
       .readFileSync(path.join(CONTENT_DIR, relativePath), "utf8")
