@@ -1,62 +1,53 @@
 {
   "_meta": {
-    "description": "D6 fixtures for ms-agent-python / byoc",
-    "sourceFile": "harness/fixtures/d5/feature-parity.json",
-    "created": "2026-05-22"
+    "description": "D6 fixtures for ms-agent-python / byoc (hashbrown + json-render)",
+    "created": "2026-05-22",
+    "updated": "2026-07-28",
+    "_note": "Both BYOC agents are tools=[] and emit structured JSON as assistant content (not render_dashboard tool calls)."
   },
   "fixtures": [
     {
-      "_comment": "byoc-hashbrown pill: Sales dashboard with metric card + pie chart + bar chart. The BYOC renderer materializes the structured JSON as DOM components.",
+      "_comment": "declarative-hashbrown — HASHBROWN_PILL. Content is the hashbrown wire format consumed by useJsonParser.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "systemMessage": "sales analytics assistant",
+        "hasToolResult": false
+      },
+      "response": {
+        "content": "{\"ui\":[{\"Markdown\":{\"props\":{\"children\":\"## Q4 Sales Summary\"}}},{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\"}}},{\"metric\":{\"props\":{\"label\":\"New Customers\",\"value\":\"1,847\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":1200000},{\\\"label\\\":\\\"Mid-Market\\\",\\\"value\\\":720000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":480000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":780000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":810000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":810000}]\"}}}]}"
+      }
+    },
+    {
+      "_comment": "declarative-hashbrown — shorter Q4 substring (legacy MS fixture prompt).",
       "match": {
         "userMessage": "Q4 sales dashboard",
-        "hasToolResult": false,
-        "context": "ms-agent-python"
+        "systemMessage": "sales analytics assistant",
+        "hasToolResult": false
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_byoc_sales_dashboard_001",
-            "name": "render_dashboard",
-            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\"},{\"label\":\"New Customers\",\"value\":\"1,247\",\"trend\":\"up\"},{\"label\":\"Churn Rate\",\"value\":\"1.8%\",\"trend\":\"down\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":2100},{\"label\":\"SMB\",\"value\":1400},{\"label\":\"Startup\",\"value\":700}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":1200},{\"label\":\"Nov\",\"value\":1400},{\"label\":\"Dec\",\"value\":1600}]}]}"
-          }
-        ]
+        "content": "{\"ui\":[{\"Markdown\":{\"props\":{\"children\":\"## Q4 Sales Summary\"}}},{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\"}}},{\"metric\":{\"props\":{\"label\":\"New Customers\",\"value\":\"1,847\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":1200000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":800000},{\\\"label\\\":\\\"Consumer\\\",\\\"value\\\":400000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":750000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":800000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":850000}]\"}}}]}"
       }
     },
     {
-      "match": {
-        "userMessage": "Q4 sales dashboard",
-        "hasToolResult": true,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "Here is the Q4 sales dashboard with total revenue at $4.2M, a pie chart showing revenue by segment, and a bar chart of monthly revenue."
-      }
-    },
-    {
-      "_comment": "byoc-json-render pill: shorter prompt variant.",
+      "_comment": "declarative-json-render — JSON_RENDER_PILL / sales dashboard with metrics. Flat {root,elements} for @json-render/react.",
       "match": {
         "userMessage": "sales dashboard with metrics",
-        "hasToolResult": false,
-        "context": "ms-agent-python"
+        "systemMessage": "sales-dashboard UI generator",
+        "hasToolResult": false
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_byoc_json_render_001",
-            "name": "render_dashboard",
-            "arguments": "{\"metrics\":[{\"label\":\"Revenue\",\"value\":\"$3.8M\",\"trend\":\"up\"},{\"label\":\"Active Users\",\"value\":\"12,430\",\"trend\":\"up\"}],\"charts\":[{\"type\":\"bar\",\"title\":\"Revenue Trend\",\"data\":[{\"label\":\"Q1\",\"value\":820},{\"label\":\"Q2\",\"value\":940},{\"label\":\"Q3\",\"value\":1080},{\"label\":\"Q4\",\"value\":960}]}]}"
-          }
-        ]
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":\"+12% vs last quarter\"},\"children\":[\"segment-pie\",\"monthly-bar\"]},\"segment-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by Segment\",\"description\":\"Share of Q4 revenue\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]}},\"monthly-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly Revenue\",\"description\":\"Oct-Dec trend\",\"data\":[{\"label\":\"Oct\",\"value\":780000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":810000}]}}}}"
       }
     },
     {
+      "_comment": "declarative-json-render — full HASHBROWN_PILL when navigated to json-render route with longer prompt.",
       "match": {
-        "userMessage": "sales dashboard with metrics",
-        "hasToolResult": true,
-        "context": "ms-agent-python"
+        "userMessage": "total-revenue metric card",
+        "systemMessage": "sales-dashboard UI generator",
+        "hasToolResult": false
       },
       "response": {
-        "content": "The sales dashboard is rendered above with revenue metrics and a revenue trend chart."
+        "content": "{\"root\":\"revenue-metric\",\"elements\":{\"revenue-metric\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\",\"trend\":\"+12% vs last quarter\"},\"children\":[\"segment-pie\",\"monthly-bar\"]},\"segment-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by Segment\",\"description\":\"Share of Q4 revenue\",\"data\":[{\"label\":\"Enterprise\",\"value\":1200000},{\"label\":\"Mid-Market\",\"value\":720000},{\"label\":\"SMB\",\"value\":480000}]}},\"monthly-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly Revenue\",\"description\":\"Oct-Dec trend\",\"data\":[{\"label\":\"Oct\",\"value\":780000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":810000}]}}}}"
       }
     }
   ]
