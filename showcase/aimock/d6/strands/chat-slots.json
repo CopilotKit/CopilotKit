@@ -3,7 +3,8 @@
     "description": "D6 fixtures for strands / chat-slots",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "updated": "2026-07-28"
   },
   "fixtures": [
     {
@@ -14,6 +15,17 @@
       },
       "response": {
         "content": "Confirmed — the chat-slots demo is rendering through the custom slot wrappers. The CustomAssistantMessage component should be visible as a tinted card with a 'slot' badge in the corner."
+      }
+    },
+    {
+      "_comment": "chat-slots e2e — turn 2 prompt after first turn. turnIndex:1 required so it does not steal headless-simple's turn-0 fun-fact prompt.",
+      "match": {
+        "userMessage": "Give me a fun fact",
+        "turnIndex": 1,
+        "context": "strands"
+      },
+      "response": {
+        "content": "Sure — sea otters hold hands while they sleep so they don't drift apart on the current."
       }
     }
   ]

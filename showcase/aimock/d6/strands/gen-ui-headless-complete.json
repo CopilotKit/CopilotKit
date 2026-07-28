@@ -1,15 +1,14 @@
 {
   "_meta": {
     "description": "D6 fixtures for strands / gen-ui-headless-complete",
-    "sourceFile": "headless-complete.json",
-    "copiedFrom": "langgraph-python",
-    "_note": "The 4 gen-UI pills (weather/stock/highlight/revenue) run as 4 sequential turns in ONE headless chat thread. Strands mints UUID tool_call_ids, so the langgraph-python toolCallId-keyed narration follow-ups never match here and the tool legs loop (turn 3+ went text-unstable). Each pill is sequenced with a per-userMessage sequenceIndex counter: seq0 -> tool call, bare userMessage -> narration. Invariant to UUID rewrite and to the thread-global hasToolResult flag."
+    "note": "sequenceIndex legs — never combine content+toolCalls; never rely on toolCallId (UUID rewrite). Strands headless-complete agent implements get_weather/get_stock_price/get_revenue_chart backends.",
+    "created": "2026-07-28"
   },
   "fixtures": [
     {
-      "_comment": "weather pill — leg 1 (seq 0): emit get_weather(Tokyo).",
+      "_comment": "weather — leg 0 tool call",
       "match": {
-        "userMessage": "What's the weather in Tokyo",
+        "userMessage": "weather in Tokyo",
         "sequenceIndex": 0,
         "context": "strands"
       },
@@ -24,19 +23,19 @@
       }
     },
     {
-      "_comment": "weather pill — leg 2 (narration). textToken 'tokyo' satisfied by the city name.",
+      "_comment": "weather — narration",
       "match": {
-        "userMessage": "What's the weather in Tokyo",
+        "userMessage": "weather in Tokyo",
         "context": "strands"
       },
       "response": {
-        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the sunny snapshot from the tool."
+        "content": "Tokyo is sunny at 68°F right now."
       }
     },
     {
-      "_comment": "stock pill — leg 1 (seq 0): emit get_stock_price(AAPL).",
+      "_comment": "stock — leg 0 tool call",
       "match": {
-        "userMessage": "price of AAPL right now",
+        "userMessage": "price of AAPL",
         "sequenceIndex": 0,
         "context": "strands"
       },
@@ -51,17 +50,17 @@
       }
     },
     {
-      "_comment": "stock pill — leg 2 (narration). textToken 'aapl' satisfied by ticker mention.",
+      "_comment": "stock — narration",
       "match": {
-        "userMessage": "price of AAPL right now",
+        "userMessage": "price of AAPL",
         "context": "strands"
       },
       "response": {
-        "content": "AAPL is at $189.42, up 1.27% on the day."
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
       }
     },
     {
-      "_comment": "highlight pill — leg 1 (seq 0): emit highlight_note.",
+      "_comment": "highlight — leg 0 frontend tool",
       "match": {
         "userMessage": "ship the demo on Friday",
         "sequenceIndex": 0,
@@ -78,7 +77,7 @@
       }
     },
     {
-      "_comment": "highlight pill — leg 2 (narration).",
+      "_comment": "highlight — narration",
       "match": {
         "userMessage": "ship the demo on Friday",
         "context": "strands"
@@ -88,14 +87,13 @@
       }
     },
     {
-      "_comment": "revenue chart pill — leg 1 (seq 0): emit get_revenue_chart. Leading content lands 'revenue' in the bubble synchronously with the tool-call emission (see prior note on the executing-render-phase title fallback).",
+      "_comment": "revenue — leg 0 tool call ONLY (no content; content+toolCalls confuses strands)",
       "match": {
         "userMessage": "chart of revenue over the last six months",
         "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
-        "content": "Pulling the revenue chart for the last six months...",
         "toolCalls": [
           {
             "id": "call_d5_headless_revenue_chart_001",
@@ -106,7 +104,7 @@
       }
     },
     {
-      "_comment": "revenue chart pill — leg 2 (narration).",
+      "_comment": "revenue — narration with 'revenue' for settle text",
       "match": {
         "userMessage": "chart of revenue over the last six months",
         "context": "strands"
