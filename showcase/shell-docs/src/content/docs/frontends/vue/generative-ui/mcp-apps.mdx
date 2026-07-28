@@ -1,0 +1,91 @@
+---
+title: "MCP Apps"
+icon: "lucide/Monitor"
+description: "Render interactive UI components from MCP servers directly in a Vue chat interface."
+snippet_cell: mcp-apps
+---
+
+## What is this?
+
+MCP Apps are MCP servers that expose tools with associated UI resources. When
+an agent calls one of these tools, the CopilotKit runtime fetches the resource
+and emits an activity event. Vue's built-in `MCPAppsActivityRenderer` renders
+that activity inline in chat as a sandboxed iframe.
+
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course covering controlled, declarative, and open-ended Generative UI.
+</Callout>
+
+Key benefits:
+
+- **No app-specific renderer** — the Vue provider registers the MCP Apps activity renderer
+- **Full interactivity** — MCP resources can use HTML, CSS, and JavaScript
+- **Secure sandboxing** — content runs in isolated iframes
+- **Thread persistence** — activity messages can be restored with conversation history
+
+## Wire the runtime to your MCP server
+
+Configure `mcpApps.servers` on the runtime. The middleware exposes the remote
+MCP tools to the agent, fetches UI resources after tool calls, and emits the
+activity events consumed by the frontend renderer.
+
+<Snippet region="runtime-mcpapps-config" />
+
+<Callout type="info" title="Always pin a serverId">
+  In production, provide a stable `serverId`. Without one, CopilotKit derives
+  the ID from the server URL; changing that URL can prevent persisted MCP Apps
+  from restoring under their original server identity.
+</Callout>
+
+## No Vue renderer registration needed
+
+`CopilotKitProvider` registers `MCPAppsActivityRenderer` for the `mcp-apps`
+activity type. A normal Vue provider and chat component are enough; do not add
+a custom activity slot or renderer merely to enable MCP Apps.
+
+<VueDocExample file="quickstart/App.vue" region="provider-chat-app" />
+
+Point the provider's `runtime-url` at the runtime route that contains the
+`mcpApps.servers` configuration, and select the agent exposed by that runtime.
+The Vue MCP Apps demo and the provider/renderer tests verify the same automatic
+registration path.
+
+## Transport types
+
+### HTTP
+
+Use Streamable HTTP for MCP servers that accept standard HTTP requests:
+
+```typescript
+{
+  type: "http",
+  url: "http://localhost:3101/mcp",
+  serverId: "my-http-server"
+}
+```
+
+### SSE
+
+Use SSE for servers that stream over a persistent connection:
+
+```typescript
+{
+  type: "sse",
+  url: "https://mcp.example.com/sse",
+  headers: {
+    "Authorization": "Bearer token"
+  },
+  serverId: "my-sse-server"
+}
+```
+
+Keep server credentials in the runtime configuration rather than in the Vue
+bundle.
+
+## Example MCP servers
+
+- [Excalidraw](https://mcp.excalidraw.com) — collaborative whiteboard rendered in chat
+- [modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps) — reference implementations
+
+For the protocol and current Vue integration boundary, see
+[Model Context Protocol](/vue/agentic-protocols/mcp).

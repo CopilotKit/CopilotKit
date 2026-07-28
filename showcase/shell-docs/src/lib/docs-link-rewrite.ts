@@ -16,6 +16,15 @@ const RESERVED_ROUTE_SLUG_SET: ReadonlySet<string> = new Set<string>(
 export interface ResolveDocsHrefOptions {
   slugHrefPrefix: string;
   frameworkOverride?: string | null;
+  /**
+   * Optional documentation namespace used only for authored links.
+   *
+   * This is intentionally separate from `frameworkOverride`, which selects
+   * the real showcase/backend integration used by snippets, demos, tabs, and
+   * feature-gated content. Vue's projected surface needs Vue-scoped links
+   * while continuing to resolve examples against a real backend integration.
+   */
+  linkNamespaceFramework?: string | null;
 }
 
 function stripPathPrefix(href: string, prefix: string): string | null {
@@ -48,23 +57,38 @@ function joinPrefixedPath(prefix: string, suffix: string): string {
  */
 export function resolveDocsHref(
   href: string | undefined,
-  { slugHrefPrefix, frameworkOverride }: ResolveDocsHrefOptions,
+  {
+    slugHrefPrefix,
+    frameworkOverride,
+    linkNamespaceFramework,
+  }: ResolveDocsHrefOptions,
 ): string | undefined {
   if (!href) return href;
   if (!href.startsWith("/") || href.startsWith("//")) return href;
 
+  const hasExplicitLinkNamespace = linkNamespaceFramework !== undefined;
+  const linkRewriteFramework = hasExplicitLinkNamespace
+    ? linkNamespaceFramework
+    : (frameworkOverride ?? (slugHrefPrefix === "" ? ROOT_FRAMEWORK : null));
+
   const rootFrameworkPath = stripPathPrefix(href, `/${ROOT_FRAMEWORK}`);
-  if (rootFrameworkPath !== null) return rootFrameworkPath;
+  if (rootFrameworkPath !== null) {
+    return hasExplicitLinkNamespace && slugHrefPrefix
+      ? joinPrefixedPath(slugHrefPrefix, rootFrameworkPath)
+      : rootFrameworkPath;
+  }
 
   const legacyIntegrationPath = stripPathPrefix(
     href,
     `/integrations/${ROOT_FRAMEWORK}`,
   );
-  if (legacyIntegrationPath !== null) return legacyIntegrationPath;
+  if (legacyIntegrationPath !== null) {
+    return hasExplicitLinkNamespace && slugHrefPrefix
+      ? joinPrefixedPath(slugHrefPrefix, legacyIntegrationPath)
+      : legacyIntegrationPath;
+  }
 
   const firstSegment = href.slice(1).split(/[/?#]/, 1)[0];
-  const linkRewriteFramework =
-    frameworkOverride ?? (slugHrefPrefix === "" ? ROOT_FRAMEWORK : null);
   if (!linkRewriteFramework) return href;
 
   const frameworkPath = `/${linkRewriteFramework}`;

@@ -1,0 +1,175 @@
+---
+title: Import & Synchronize Thread History
+nav_title: Synchronize Thread History
+description: "Import historical conversations into Enterprise Intelligence, then keep future Vue application runs synchronized with Rich Threads."
+icon: "lucide/Repeat"
+doc_type: how-to
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## What is this?
+
+Import and synchronization bring existing conversations into Enterprise
+Intelligence as Rich Threads without replacing the native storage or analytics
+you already use. Import supported history once, then continue running those
+conversations through CopilotKit so users can resume them through the same
+Vue thread UI as new conversations.
+
+Built-in import currently supports Google ADK and LangGraph. You can keep
+LangSmith, LangGraph, or ADK storage and analytics in place. For future
+CopilotKit-mediated runs, Enterprise Intelligence persists the Rich Thread
+event history. When the agent remains connected to a durable native persistence
+service with appropriate retention, those runs continue through that native
+path as well.
+
+Read the [Rich Threads overview](/vue/threads) first if you still need to choose
+between the prebuilt drawer and a custom headless UI.
+
+## Supported sources
+
+| Source | Import guide | Supported history |
+|---|---|---|
+| Google ADK | [Synchronize ADK threads](/google-adk/threads-import) | Persisted ADK sessions from a database session service or Vertex/Agent Engine session service. |
+| LangGraph | [Synchronize LangGraph threads](/langgraph-python/threads-import) | LangGraph Server, LangGraph Platform, or LangSmith Deployment threads exposed through the LangGraph SDK thread/run APIs. |
+
+## What gets imported?
+
+The importer preserves conversation content that can render in CopilotKit chat
+or help downstream learning systems:
+
+- user, assistant, tool, system, and developer messages
+- tool calls and tool results
+- reasoning traces when the source exposes them
+- media that can be resolved during extraction
+- original timestamps
+- import provenance and per-conversation import outcomes
+
+It does not import agent state snapshots, framework transport noise, LangSmith
+traces, or unsupported source stores.
+
+## Import flow
+
+<Steps>
+  <Step>
+    ### Confirm the target project
+
+    A manually created Vue app does not come with a CLI-selected project. From
+    the app directory, sign in and select or create the destination:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    npx copilotkit@latest project select
+    ```
+
+    Project selection writes `.copilotkit/project.json` and provisions hosted
+    values in `.env`. Keep the project-scoped runtime key on the server.
+  </Step>
+
+  <Step>
+    ### Run a dry run
+
+    A dry run discovers source agent keys, counts conversations, reports skips,
+    and estimates upload size without opening an import batch. It does not need
+    an Enterprise Intelligence URL or API key.
+
+    <Tabs groupId="vue_thread_import_source" items={["ADK", "LangGraph"]}>
+      <Tab value="ADK">
+
+        ```bash
+        npx copilotkit@latest import --source adk --dry-run
+        ```
+
+      </Tab>
+      <Tab value="LangGraph">
+
+        ```bash
+        npx copilotkit@latest import --source langgraph --dry-run
+        ```
+
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step>
+    ### Map source agents
+
+    Map each source agent key to the `agentId` exposed by your live CopilotKit
+    runtime. Keeping those labels aligned prevents imported history and future
+    traffic from splitting across different agent IDs.
+
+    ```json title="agent-map.json"
+    {
+      "support-agent": "support-agent",
+      "sales-agent": "sales-agent"
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Prepare the destination
+
+    A real import needs the destination app-api URL and project-scoped runtime
+    key. The importer reads flags or the current process environment; it does
+    not load `.env` or `.copilotkit/project.json` automatically.
+
+    ```bash title="Terminal"
+    export INTELLIGENCE_API_URL="https://..."
+    export INTELLIGENCE_API_KEY="cpk_..."
+    ```
+
+    `COPILOTKIT_API_KEY` is also accepted. You can pass the same destination
+    with `--api-url` and `--api-key`.
+  </Step>
+
+  <Step>
+    ### Run the import
+
+    Continue with the source-specific guide after the dry run looks right:
+
+    - [Synchronize ADK threads](/google-adk/threads-import)
+    - [Synchronize LangGraph threads](/langgraph-python/threads-import)
+
+    Re-running the same import skips conversations already imported. Use
+    `--replace` only when you intentionally want to refresh them.
+  </Step>
+
+  <Step>
+    ### Verify the imported conversations
+
+    Open the Vue Threads Drawer, select an imported conversation, and confirm
+    its history appears in chat. If you use a custom thread UI, verify the same
+    thread through the state and actions described in
+    [Headless Threads](/vue/headless-threads).
+  </Step>
+
+  <Step>
+    ### Keep future conversations synchronized
+
+    Configure the Vue app and runtime for Enterprise Intelligence, then reopen
+    a conversation with the same CopilotKit `threadId`. Its Rich Thread history
+    remains continuous. If the agent is still connected to its durable native
+    persistence mechanism, the future run continues there too.
+
+    - **Threads Drawer:** share one `CopilotChatConfigurationProvider` between
+      the drawer and chat. See the
+      [Threads Drawer guide](/vue/prebuilt-components/copilot-threads-drawer).
+    - **Headless Threads:** select a thread with `useThreads`, retain its
+      `thread.id`, and use the shared chat configuration shown in
+      [Headless Threads](/vue/headless-threads).
+
+    Create one new conversation through CopilotKit, then confirm that it
+    appears in Enterprise Intelligence and in the connected native store.
+    [Threads & Persistence Architecture](/vue/premium/threads-explained)
+    explains the replay model.
+  </Step>
+</Steps>
+
+## Deployment notes
+
+- **Cloud hosted:** export the selected project's destination values or pass
+  them with `--api-url` and `--api-key`. See
+  [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform).
+- **Self hosted:** pass the deployment's app-api URL and project-scoped `cpk`
+  runtime key. See
+  [Self-Hosting Enterprise Intelligence](/vue/premium/self-hosting).

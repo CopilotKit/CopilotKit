@@ -39,6 +39,7 @@ import type { MdxFrameworkOverviewProps } from "@/components/content/landing-pag
 import { FrameworkSetup } from "@/lib/setup-concept";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveDocsHref } from "@/lib/docs-link-rewrite";
+import { resolveDocsPageContext } from "@/lib/docs-page-context";
 import { transformerMeta } from "@/lib/rehype-code-meta";
 import { getIntegration, getTabDefault } from "@/lib/registry";
 import type { NavNode } from "@/lib/docs-render";
@@ -77,6 +78,11 @@ export interface DocsPageViewProps {
   slugHrefPrefix: string;
   /** Optional framework slug to thread into <Snippet> as a default. */
   frameworkOverride?: string | null;
+  /**
+   * Optional documentation-only framework namespace for authored links.
+   * This does not affect snippet, demo, tab, or feature-gate resolution.
+   */
+  linkNamespaceFramework?: string | null;
   /** Pre-built nav tree. When omitted, defaults to the full docs tree. */
   navTree?: NavNode[];
   /** Banner slot rendered above the main content column. */
@@ -120,6 +126,7 @@ export async function DocsPageView({
   contentSlugPath,
   slugHrefPrefix,
   frameworkOverride,
+  linkNamespaceFramework,
   navTree,
   bannerSlot,
   sidebarBannerSlot,
@@ -145,7 +152,12 @@ export async function DocsPageView({
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
 
-  const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
+  const pageContext = resolveDocsPageContext({
+    frameworkOverride,
+    frontmatterDefaultFramework: doc.fm.defaultFramework,
+    linkNamespaceFramework,
+  });
+  const defaultFramework = pageContext.backendFramework;
   const defaultCell = doc.fm.defaultCell;
 
   // Extract H2/H3 headings for the right-rail TOC. Run on the final
@@ -468,6 +480,8 @@ export async function DocsPageView({
                               resolveDocsHref(href, {
                                 slugHrefPrefix,
                                 frameworkOverride,
+                                linkNamespaceFramework:
+                                  pageContext.linkNamespaceFramework,
                               }) ?? "#"
                             }
                             {...rest}

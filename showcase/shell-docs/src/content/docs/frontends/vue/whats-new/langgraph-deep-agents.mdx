@@ -1,0 +1,44 @@
+---
+title: "LangGraph Deep Agents in CopilotKit"
+icon: "lucide/Rocket"
+description: "Connect LangGraph Deep Agents to a Vue application through CopilotKit."
+hideTOC: true
+---
+
+## What are Deep Agents?
+
+Deep Agents can plan multi-step workflows, manage file systems for context,
+spawn subagents for specialized tasks, and maintain long-term memory across
+sessions.
+
+## Deep Agents in Your Vue App Through CopilotKit
+
+<div className="flex flex-col md:flex-row gap-6 items-start">
+<div className="flex-1">
+<Image
+  src="/images/deep-agents.jpeg"
+  alt="Deep Agents"
+  width={400}
+  height={300}
+  className="rounded-lg shadow-lg"
+/>
+</div>
+<div className="flex-1">
+
+CopilotKit connects a Deep Agents backend to the frontend through AG-UI. A Vue
+application can present the streamed conversation, reasoning, tool activity,
+and shared state using the current Vue chat and composable surfaces.
+
+<Callout type="info">
+  Current Vue source and tests do not provide a dedicated UI for interacting
+  with individual subagents as they spawn, so this Vue announcement does not
+  promise that interaction.
+</Callout>
+
+### Get Started
+
+- [Deep Agents Guide](/deepagents)
+- [Vue AG-UI guide](/vue/agentic-protocols/ag-ui)
+
+</div>
+</div>

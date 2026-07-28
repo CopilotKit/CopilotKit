@@ -1,0 +1,145 @@
+---
+title: "CopilotKit CLI"
+icon: "lucide/Terminal"
+description: "Use supported CopilotKit CLI operations alongside a manually created Vue application."
+---
+
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+## What is this?
+
+The CopilotKit CLI handles browser sign-in, Enterprise Intelligence project
+selection, project-scoped runtime API keys, historical thread import, license
+management, and installation of CopilotKit skills for coding agents.
+
+For Vue, use the CLI for those project and operations workflows after creating
+your application manually. The current published `copilotkit@4.4.0` scaffolder
+does not include a Vue template, so `copilotkit create` is not a supported way
+to start a Vue app.
+
+<Callout type="warning" title="Create Vue applications manually">
+  Do not select a different scaffold and convert it to Vue. Follow the
+  [Vue Quickstart](/vue) to create and connect the frontend and runtime, then
+  use the applicable CLI commands below.
+</Callout>
+
+## Prerequisites
+
+- Node.js 20+
+- A Vue application connected to a CopilotKit runtime
+- A CopilotKit account when using Cloud-Hosted Enterprise Intelligence
+
+## Connect a manually created Vue app to a project
+
+<Steps>
+  <Step>
+    ### Sign in
+
+    ```bash title="Terminal"
+    npx copilotkit@latest login
+    ```
+
+    The CLI opens a browser login flow. If the browser cannot open, it prints a
+    URL and supports a manual paste fallback.
+  </Step>
+
+  <Step>
+    ### Select a project
+
+    Run this from the Vue project directory:
+
+    ```bash title="Terminal"
+    npx copilotkit@latest project select
+    ```
+
+    Choose or create a cloud-hosted Enterprise Intelligence project. The CLI
+    records the selection in `.copilotkit/project.json` and writes hosted
+    platform values and a project-scoped runtime key to `.env`.
+  </Step>
+
+  <Step>
+    ### Keep the runtime key on the server
+
+    The generated environment includes values shaped like:
+
+    ```bash title=".env"
+    INTELLIGENCE_API_URL=https://...
+    INTELLIGENCE_GATEWAY_WS_URL=wss://...
+    INTELLIGENCE_API_KEY=cpk_...
+    ```
+
+    `INTELLIGENCE_API_KEY` belongs in the runtime environment, never in
+    browser-delivered Vue code. Continue with
+    [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform)
+    to connect the runtime.
+  </Step>
+</Steps>
+
+## Import and synchronize historical conversations
+
+The importer supports Google ADK and LangGraph conversation history. Start with
+a dry run; it discovers source agent keys, counts conversations, reports skips,
+and estimates upload size without opening an import batch.
+
+<Tabs groupId="vue-cli-import-source" items={["ADK", "LangGraph"]}>
+  <Tab value="ADK">
+
+    ```bash
+    npx copilotkit@latest import --source adk --dry-run
+    ```
+
+  </Tab>
+  <Tab value="LangGraph">
+
+    ```bash
+    npx copilotkit@latest import --source langgraph --dry-run
+    ```
+
+  </Tab>
+</Tabs>
+
+For a real import, pass `--api-url` and `--api-key` or export
+`INTELLIGENCE_API_URL` and `INTELLIGENCE_API_KEY` in the current shell. The
+importer does not load `.env` or `.copilotkit/project.json` automatically.
+
+See [Import & Synchronize Thread History](/vue/threads-import) for the complete
+workflow. Source-specific extraction remains part of the
+[Google ADK](/google-adk/threads-import) and
+[LangGraph](/langgraph-python/threads-import) integrations.
+
+## Auth commands
+
+| Command | What it does |
+|---|---|
+| `npx copilotkit@latest login` | Opens browser sign-in and stores a local CLI session. |
+| `npx copilotkit@latest whoami` | Shows the signed-in user and active organization. |
+| `npx copilotkit@latest logout` | Clears the local CLI session. |
+
+## Project and license commands
+
+| Command | What it does |
+|---|---|
+| `npx copilotkit@latest project select` | Selects or creates a hosted Intelligence project for the current directory. |
+| `npx copilotkit@latest import --source adk --dry-run` | Previews Google ADK conversations before import. |
+| `npx copilotkit@latest import --source langgraph --dry-run` | Previews LangGraph conversations before import. |
+| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
+| `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
+
+## Skills commands
+
+| Command | What it does |
+|---|---|
+| `npx copilotkit@latest skills install` | Installs CopilotKit agent skills for supported coding agents. |
+| `npx copilotkit@latest skills onboard` | Installs skills and starts agent-assisted onboarding. |
+
+The installed skill collection currently contains React-specific frontend
+setup and development instructions. Read [Build with agents](/vue/build-with-agents)
+before asking a coding agent to modify a Vue frontend.
+
+## Next steps
+
+- **Set up Vue manually:** [Vue Quickstart](/vue)
+- **Use hosted projects and keys:** [Cloud-Hosted Enterprise Intelligence](/vue/premium/managed-intelligence-platform)
+- **Add a thread UI:** [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) or [Headless Threads](/vue/headless-threads)
+- **Synchronize existing history:** [Import & Synchronize Thread History](/vue/threads-import)
+- **Self-host the platform:** [Self-Hosting Enterprise Intelligence](/vue/premium/self-hosting)

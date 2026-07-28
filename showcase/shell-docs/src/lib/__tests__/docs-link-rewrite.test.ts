@@ -39,6 +39,27 @@ describe("resolveDocsHref", () => {
     );
   });
 
+  it("scopes Vue documentation links without selecting Vue as the backend", () => {
+    const options = {
+      slugHrefPrefix: "/vue",
+      frameworkOverride: "built-in-agent",
+      linkNamespaceFramework: "vue",
+    };
+
+    expect(resolveDocsHref("/threads", options)).toBe("/vue/threads");
+    expect(resolveDocsHref("/built-in-agent/server-tools", options)).toBe(
+      "/vue/server-tools",
+    );
+    expect(
+      resolveDocsHref("/integrations/built-in-agent/model-selection", options),
+    ).toBe("/vue/model-selection");
+    expect(resolveDocsHref("/deepagents", options)).toBe("/deepagents");
+    expect(resolveDocsHref("/ag-ui-protocol", options)).toBe("/ag-ui-protocol");
+    expect(resolveDocsHref("/generative-ui/display", options)).toBe(
+      "/generative-ui/display",
+    );
+  });
+
   it("does not scope cross-framework or reserved-route links", () => {
     const options = {
       slugHrefPrefix: "/mastra",

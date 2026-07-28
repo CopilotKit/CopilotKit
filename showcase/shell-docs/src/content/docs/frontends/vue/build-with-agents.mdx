@@ -1,0 +1,75 @@
+---
+title: "Build with agents"
+icon: "lucide/BrainCircuit"
+description: "Give your coding agent current CopilotKit knowledge while keeping Vue frontend work grounded in the Vue docs and source."
+---
+
+AI coding agents may not have current knowledge of CopilotKit's APIs, patterns,
+and best practices. Skills and the CopilotKit docs MCP server can put
+repository-backed guidance directly in their context.
+
+## CopilotKit Skills
+
+Skills are folders of instructions, references, and scripts that coding agents
+can discover. They work with Claude Code, Cursor, Codex, Gemini CLI, and tools
+that support the [Agent Skills specification](https://agentskills.io).
+
+<Callout type="warning" title="Vue frontend coverage is not complete">
+  The current `copilotkit-setup` and `copilotkit-develop` skills teach React
+  frontend packages, components, and hooks; they do not support Vue setup or
+  Vue feature development. Do not ask an agent to apply those frontend
+  instructions to a Vue app. Use the [Vue Quickstart](/vue), the Vue guides,
+  and current `@copilotkit/vue/v2` source examples instead.
+</Callout>
+
+The collection still contains useful framework-neutral and backend material:
+
+| Skill | Safe use in a Vue project |
+|---|---|
+| `runtime` | CopilotKit runtime handlers, agents, runners, middleware, and server adapters. |
+| `copilotkit-agui` | AG-UI events, transport, and custom agent backend work. |
+| `copilotkit-debug` | Runtime connectivity, SSE, CORS, agent, and event-stream diagnosis. For frontend diagnosis, use the [Vue troubleshooting guides](/vue/troubleshooting/common-issues) instead of its React package checks. |
+| `copilotkit-integrations` | Agent-framework and runtime integration material. Its frontend examples are React-specific and must not be used as Vue code. |
+| `copilotkit-contribute` | Working on the CopilotKit repository itself rather than building an application. |
+
+<Steps>
+  <Step>
+    ### Install the skills
+
+    Run this from the project root:
+
+    ```bash
+    npx skills add CopilotKit/CopilotKit/skills -y
+    ```
+
+    Omit `-y` to choose skills and target agents interactively, or add `-g` to
+    install globally.
+  </Step>
+
+  <Step>
+    ### Give the agent an evidence boundary
+
+    Name the backend task and require the agent to use the Vue documentation
+    for any frontend changes:
+
+    ```text
+    Configure the CopilotKit runtime for this Vue application.
+    Use the runtime skill for server setup. For frontend work, follow
+    /vue and current @copilotkit/vue/v2 source examples; do not translate
+    React skill examples by analogy.
+    ```
+
+    This lets an agent use the framework-neutral runtime guidance without
+    silently generating React frontend code.
+  </Step>
+
+  <Step>
+    ### Verify the generated change
+
+    Check that Vue code imports from `@copilotkit/vue/v2`, follows the relevant
+    [Vue guide](/vue), and uses the runtime URL and agent IDs configured by the
+    backend. Reject React imports or React-only hooks and render props.
+  </Step>
+</Steps>
+
+<MCPSetup />
