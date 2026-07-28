@@ -193,6 +193,10 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Join timeout in ms. */
   timeoutMs?: number;
+  /** Initial-connect window in ms (default 10000). When the socket never opens
+   * within it, the connect rejects as unreachable instead of hanging on
+   * Phoenix's forever-retry — see `ConnectRealtimeGatewayOptions.connectTimeoutMs`. */
+  connectTimeoutMs?: number;
   /** Injectable `WebSocket` ctor (non-global hosts / tests). */
   webSocket?: unknown;
   /** Diagnostic sink for dropped deliveries / transport events. */
@@ -267,6 +271,9 @@ export async function startChannelsOverRealtimeGateway(
       observedAt: new Date().toISOString(),
     },
     ...(config.timeoutMs !== undefined ? { timeoutMs: config.timeoutMs } : {}),
+    ...(config.connectTimeoutMs !== undefined
+      ? { connectTimeoutMs: config.connectTimeoutMs }
+      : {}),
     ...(config.webSocket !== undefined ? { webSocket: config.webSocket } : {}),
   });
   // The session is now joined. If starting the Channels throws (e.g. a Channel
