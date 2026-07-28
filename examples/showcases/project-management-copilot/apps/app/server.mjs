@@ -5,7 +5,7 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const distRoot = path.join("apps", "app", "dist");
+const distRoot = path.join(__dirname, "dist");
 const port = Number(process.env.PORT) || 3000;
 const runtimeUrl =
   process.env.COPILOTKIT_RUNTIME_URL ?? "http://localhost:4000/api/copilotkit";
