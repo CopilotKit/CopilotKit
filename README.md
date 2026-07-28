@@ -98,13 +98,13 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
 One agent backend. Every frontend.
 
-| Platform                                    | Status       | Get Started                                                                                                 |
-| ------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| ⚛️ React / Next.js                          | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                          |
-| 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
-| 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
-| 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
-| 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                        |
+| Platform                                    | Status       | Get Started                                                                                             |
+| ------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------- |
+| ⚛️ React / Next.js                          | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                      |
+| 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular)         |
+| 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
+| 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                   |
+| 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                    |
 
 Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 
