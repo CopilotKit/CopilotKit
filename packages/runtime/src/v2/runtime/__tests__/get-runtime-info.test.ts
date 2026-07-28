@@ -19,6 +19,20 @@ class MockTranscriptionService extends TranscriptionService {
 }
 
 describe("handleGetRuntimeInfo", () => {
+  // /info reports `telemetryDisabled` straight from the environment, so these
+  // assertions are only meaningful against a known env. CI now sets the
+  // opt-out vars for the whole job (OSS-565), and a developer may have
+  // DO_NOT_TRACK exported globally — clear them so each test controls its own.
+  beforeEach(() => {
+    delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+    delete process.env.DO_NOT_TRACK;
+  });
+
+  afterEach(() => {
+    delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+    delete process.env.DO_NOT_TRACK;
+  });
+
   const mockRequest = new Request("https://example.com/info");
   const inMemoryThreadEndpoints = {
     list: true,
@@ -501,15 +515,7 @@ describe("handleGetRuntimeInfo", () => {
   });
 
   describe("telemetryDisabled", () => {
-    beforeEach(() => {
-      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
-      delete process.env.DO_NOT_TRACK;
-    });
-
-    afterEach(() => {
-      delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
-      delete process.env.DO_NOT_TRACK;
-    });
+    // Env cleanup is handled by the outer describe's hooks.
 
     it("returns telemetryDisabled: false when env var is not set", async () => {
       const runtime = new CopilotRuntime({ agents: {} });

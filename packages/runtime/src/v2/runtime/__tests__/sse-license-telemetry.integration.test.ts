@@ -54,6 +54,20 @@ function makeSseRuntimeWithLicense() {
   });
 }
 
+// This suite asserts that events REACH the sink, so it needs telemetry ON.
+// CI sets the opt-out vars job-wide (OSS-565) and a developer may export
+// DO_NOT_TRACK; either would make every send assertion fail on the
+// environment rather than on the code.
+//
+// It has to be `vi.hoisted`, not a `beforeEach`: the telemetry singleton
+// (`const telemetry = new TelemetryClient()` in telemetry-client.ts) latches
+// `telemetryDisabled` from the environment at module-import time, which
+// happens before any hook runs. Hoisted callbacks run before the imports.
+vi.hoisted(() => {
+  delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
+  delete process.env.DO_NOT_TRACK;
+});
+
 describe("SSE runtime license token → telemetry sink (integration)", () => {
   let lambdaSpy: ReturnType<typeof vi.spyOn>;
 
