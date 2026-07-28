@@ -12,6 +12,10 @@ import type {
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+import type {
+  DeliveryAttemptInput,
+  DeliveryAttemptRef,
+} from "./delivery-attempt.js";
 
 /**
  * In-memory {@link EgressSink} that records every emitted operation and acks it
@@ -54,7 +58,13 @@ export class InMemoryRenderEventSink implements RenderEventSink {
  */
 export class InMemoryDeliverySource implements DeliverySource {
   readonly acked: string[] = [];
-  readonly nacked: { deliveryId: string; reason: string }[] = [];
+  readonly ackedAttempts: DeliveryAttemptRef[] = [];
+  readonly nacked: {
+    deliveryId: string;
+    reason: string;
+    retryable: boolean;
+    deliveryAttempt?: DeliveryAttemptRef;
+  }[] = [];
   /** Seed by handle so a turn's file refs hydrate into content parts. */
   readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
   /**
@@ -89,11 +99,25 @@ export class InMemoryDeliverySource implements DeliverySource {
     await this.onDelivery(env);
   }
 
-  async ack(deliveryId: string): Promise<void> {
+  async ack(attempt: DeliveryAttemptInput): Promise<void> {
+    const deliveryId =
+      typeof attempt === "string" ? attempt : attempt.deliveryId;
     this.acked.push(deliveryId);
+    if (typeof attempt !== "string") this.ackedAttempts.push(attempt);
   }
-  async nack(deliveryId: string, reason: string): Promise<void> {
-    this.nacked.push({ deliveryId, reason });
+  async nack(
+    attempt: DeliveryAttemptInput,
+    reason: string,
+    retryable = true,
+  ): Promise<void> {
+    const deliveryId =
+      typeof attempt === "string" ? attempt : attempt.deliveryId;
+    this.nacked.push({
+      deliveryId,
+      reason,
+      retryable,
+      ...(typeof attempt === "string" ? {} : { deliveryAttempt: attempt }),
+    });
   }
   async fetchFile(
     handle: string,

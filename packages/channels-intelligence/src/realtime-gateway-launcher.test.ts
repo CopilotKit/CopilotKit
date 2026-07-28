@@ -52,7 +52,9 @@ function deliverText(handlers: Map<string, (p: unknown) => void>) {
     payload: {
       delivery: {
         id: "dlv_1",
+        attempt: 1,
         leaseToken: "lease_1",
+        leaseExpiresAt: "2099-07-01T00:02:30.000Z",
         adapter: "slack",
         channel: { id: "channel_1", name: "opentag" },
         turn: {

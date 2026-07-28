@@ -6,6 +6,7 @@
 // left out and noted inline so the swap later is a pure import change.
 
 import type { ChannelNode, MessageRef } from "@copilotkit/channels-ui";
+import type { DeliveryAttemptRef } from "./delivery-attempt.js";
 
 /**
  * Opaque return address minted by Intelligence and echoed back on egress. The
@@ -30,8 +31,13 @@ export interface ChannelDeliveryScope {
 
 /** Fields common to every Intelligence Channel ingress envelope. */
 export interface ChannelIngressBase {
-  /** Unique per delivery attempt (lease). At-least-once: may be redelivered. */
+  /** Stable delivery id; redelivery increments `deliveryAttempt.attemptCount`. */
   deliveryId: string;
+  /**
+   * Exact leased attempt. Live HTTP/realtime transports always populate this;
+   * optional only for compatibility with legacy injected DeliverySources.
+   */
+  deliveryAttempt?: DeliveryAttemptRef;
   /** Stable platform event id (idempotency / dedup). */
   eventId: string;
   /** Stable per-logical-turn id. Egress operation ids derive from it. */
@@ -124,6 +130,12 @@ export interface EgressOperation {
   operationId: string;
   turnId: string;
   deliveryId: string;
+  /**
+   * Exact leased attempt that minted this operation. Live HTTP deliveries
+   * always populate this; optional only for compatibility with injected legacy
+   * operations.
+   */
+  deliveryAttempt?: DeliveryAttemptRef;
   route: EgressRoute;
   op: EgressOp;
 }
@@ -189,6 +201,11 @@ export type ChannelRenderEventKind = ChannelRenderEvent["kind"];
  */
 export interface RenderFrame {
   deliveryId: string;
+  /**
+   * Exact attempt that minted this frame. Optional only for compatibility with
+   * injected legacy sinks; live mapped deliveries always provide it.
+   */
+  deliveryAttempt?: DeliveryAttemptRef;
   turnId: string;
   /** Render lane; a single turn uses `"main"` for V1. */
   slot: string;

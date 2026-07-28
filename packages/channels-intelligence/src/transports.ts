@@ -7,6 +7,7 @@ import type {
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+import type { DeliveryAttemptInput } from "./delivery-attempt.js";
 
 /**
  * A conversation-history message the adapter seeds onto a fresh agent's
@@ -36,9 +37,13 @@ export interface DeliverySource {
     onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void>;
   /** Acknowledge successful processing of a delivery (lease release). */
-  ack(deliveryId: string): Promise<void>;
+  ack(attempt: DeliveryAttemptInput): Promise<void>;
   /** Negatively acknowledge — the work will be redelivered (at-least-once). */
-  nack(deliveryId: string, reason: string): Promise<void>;
+  nack(
+    attempt: DeliveryAttemptInput,
+    reason: string,
+    retryable?: boolean,
+  ): Promise<void>;
   /**
    * Fetch an inbound file's bytes by handle (Channel multimodal content).
    * Optional: sources without a file-serve backing omit it and the adapter

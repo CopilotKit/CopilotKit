@@ -42,12 +42,30 @@ import {
 import type { IntelligenceTransportConfig } from "./http-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import { buildContentParts } from "./content-parts.js";
+import {
+  deliveryAttemptKey,
+  isDeliveryAttemptExpired,
+  isRetryableDeliveryError,
+  scheduleDeliveryAttemptExpiry,
+} from "./delivery-attempt.js";
+import type {
+  DeliveryAttemptInput,
+  DeliveryAttemptRef,
+} from "./delivery-attempt.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
   route: unknown;
   turnId: string;
   deliveryId: string;
+  /** Present for every live claimed delivery; optional for legacy injected targets. */
+  deliveryAttempt?: DeliveryAttemptRef;
+}
+
+interface AdapterRenderState {
+  nextSeq: number;
+  needsFinalize: boolean;
+  cancelExpiry?: () => void;
 }
 
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
@@ -71,6 +89,9 @@ function targetFromRef(ref: MessageRef): ChannelReplyTarget {
     route: ref.__route,
     turnId: String(ref.__turnId),
     deliveryId: String(ref.__deliveryId),
+    ...(ref.__deliveryAttempt
+      ? { deliveryAttempt: ref.__deliveryAttempt as DeliveryAttemptRef }
+      : {}),
   };
 }
 
@@ -276,14 +297,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn render state; reset at the start of each turn's processing so a
+  /** Per-attempt render state; reset at the start of each attempt so a
    * redelivery reproduces the same operation ids. A realtime turn starts
    * non-terminal: even an output-free handler must durably accept `finalize`
    * before its delivery may complete. */
-  private readonly renderState = new Map<
-    string,
-    { nextSeq: number; needsFinalize: boolean }
-  >();
+  private readonly renderState = new Map<string, AdapterRenderState>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -348,7 +366,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
         channelName: this.opts.config?.channelName ?? ctx?.channelName,
       });
       const source = (this.source ??= new HttpDeliverySource(cfg));
-      this.egress ??= new HttpEgressSink(cfg);
+      this.egress ??= new HttpEgressSink(
+        cfg,
+        source instanceof HttpDeliverySource ? source : undefined,
+      );
       // Default the realtime render path to the HTTP render-accept route,
       // sharing the HttpDeliverySource's per-delivery scope. Only when we built
       // (or were given) an HttpDeliverySource — injected in-memory sources fall
@@ -379,37 +400,88 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
-    this.renderState.set(env.turnId, {
+    const attemptKey = env.deliveryAttempt
+      ? deliveryAttemptKey(env.deliveryAttempt)
+      : `legacy:${env.deliveryId}:${env.turnId}`;
+    const attempt = env.deliveryAttempt ?? env.deliveryId;
+    const renderState: AdapterRenderState = {
       nextSeq: 0,
       needsFinalize: this.renderSink !== undefined,
-    });
-    let turnProcessed = false;
-    try {
-      await this.dispatchTo(env);
-      await this.finalizeRenderedTurn(env);
-      turnProcessed = true;
-    } catch (err) {
-      await this.requireSource().nack(
-        env.deliveryId,
-        err instanceof Error ? err.message : String(err),
+    };
+    this.renderState.set(attemptKey, renderState);
+    if (env.deliveryAttempt) {
+      renderState.cancelExpiry = scheduleDeliveryAttemptExpiry(
+        env.deliveryAttempt,
+        () => Date.now(),
+        () => {
+          if (this.renderState.get(attemptKey) !== renderState) return;
+          this.renderState.delete(attemptKey);
+          this.opts.config?.log?.("intelligence adapter render state expired", {
+            deliveryId: env.deliveryId,
+            attemptCount: env.deliveryAttempt?.attemptCount,
+          });
+        },
       );
+    }
+    try {
+      try {
+        await this.dispatchTo(env);
+        await this.finalizeRenderedTurn(env);
+      } catch (err) {
+        await this.requireSource().nack(
+          attempt,
+          err instanceof Error ? err.message : String(err),
+          isRetryableDeliveryError(err),
+        );
+        return;
+      }
+      await this.completeDelivery(attempt, env.deliveryId);
     } finally {
       // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
-      this.renderState.delete(env.turnId);
+      renderState.cancelExpiry?.();
+      if (this.renderState.get(attemptKey) === renderState) {
+        this.renderState.delete(attemptKey);
+      }
     }
-    if (!turnProcessed) return;
-    // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
-    // turn failure and must never nack (that would redeliver and rerun the whole
-    // turn). Log it and move on — the lease simply lapses and the transport may
-    // redeliver, but we never actively re-enqueue a completed turn.
+  }
+
+  /**
+   * Completion is distinct from handler/render failure: once complete wins,
+   * an opposite nack cannot recover a lost response. Retry one retryable
+   * completion immediately with the transport's exact frozen payload. If the
+   * completion still fails, log and leave the lease to lapse; throwing would
+   * make the delivery loop treat a successfully processed turn as failed.
+   */
+  private async completeDelivery(
+    attempt: DeliveryAttemptInput,
+    deliveryId: string,
+  ): Promise<void> {
+    const source = this.requireSource();
     try {
-      await this.requireSource().ack(env.deliveryId);
-    } catch (ackErr) {
+      await source.ack(attempt);
+      return;
+    } catch (err) {
+      let finalError = err;
+      if (isRetryableDeliveryError(err)) {
+        this.opts.config?.log?.(
+          "intelligence completion failed; retrying once",
+          err,
+        );
+        try {
+          await source.ack(attempt);
+          return;
+        } catch (retryErr) {
+          finalError = retryErr;
+        }
+      }
+      // Ack is its own phase: the turn already succeeded, so a failed ack must
+      // never nack (that would redeliver and rerun the whole turn). Log it and
+      // leave the lease to lapse instead of actively re-enqueueing the turn.
       this.opts.config?.log?.(
-        `intelligence ack failed for delivery ${env.deliveryId} after a successful turn; not nacking (turn already processed)`,
-        ackErr,
+        `intelligence ack failed for delivery ${deliveryId} after a successful turn; not nacking (turn already processed)`,
+        finalError,
       );
     }
   }
@@ -421,6 +493,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       route: env.route,
       turnId: env.turnId,
       deliveryId: env.deliveryId,
+      ...(env.deliveryAttempt ? { deliveryAttempt: env.deliveryAttempt } : {}),
     };
     // Forward the provider identity the claim mapper resolved (OSS-476), not
     // just the id. The wire field is `displayName`; the public `PlatformUser`
@@ -498,6 +571,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
               __route: replyTarget.route,
               __turnId: replyTarget.turnId,
               __deliveryId: replyTarget.deliveryId,
+              __deliveryAttempt: replyTarget.deliveryAttempt,
             }
           : undefined;
         await sink.onInteraction({
@@ -557,10 +631,25 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Allocate the next monotonic frame/op seq for a turn. Shared by the run
    * renderer and discrete post/update so all of a turn's render frames land on
    * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
-  private nextFrameSeq(turnId: string): number {
-    const state = this.renderState.get(turnId);
+  private renderStateKey(target: ChannelReplyTarget): string {
+    return target.deliveryAttempt
+      ? deliveryAttemptKey(target.deliveryAttempt)
+      : `legacy:${target.deliveryId}:${target.turnId}`;
+  }
+
+  private nextFrameSeq(target: ChannelReplyTarget): number {
+    const stateKey = this.renderStateKey(target);
+    const state = this.renderState.get(stateKey);
     if (!state) {
-      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      if (
+        target.deliveryAttempt &&
+        isDeliveryAttemptExpired(target.deliveryAttempt, Date.now())
+      ) {
+        throw new Error(
+          `IntelligenceAdapter: delivery attempt expired for ${target.deliveryId}`,
+        );
+      }
+      this.renderState.set(stateKey, { nextSeq: 1, needsFinalize: false });
       return 0;
     }
     const seq = state.nextSeq;
@@ -574,10 +663,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * the turn back to non-terminal so dispatch emits one final finalize.
    */
   private recordAcceptedRenderEvent(
-    turnId: string,
+    target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): void {
-    const state = this.renderState.get(turnId);
+    const state = this.renderState.get(this.renderStateKey(target));
     if (!state) return;
     state.needsFinalize = event.kind !== "finalize";
   }
@@ -590,15 +679,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<{ receipt: RenderAccepted; seq: number }> {
-    const seq = this.nextFrameSeq(target.turnId);
+    const seq = this.nextFrameSeq(target);
     const receipt = await this.requireRenderSink().push({
       deliveryId: target.deliveryId,
+      ...(target.deliveryAttempt
+        ? { deliveryAttempt: target.deliveryAttempt }
+        : {}),
       turnId: target.turnId,
       slot: "main",
       seq,
       event,
     });
-    this.recordAcceptedRenderEvent(target.turnId, event);
+    this.recordAcceptedRenderEvent(target, event);
     return { receipt, seq };
   }
 
@@ -610,23 +702,27 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private async finalizeRenderedTurn(
     env: ChannelIngressEnvelope,
   ): Promise<void> {
-    if (!this.renderState.get(env.turnId)?.needsFinalize) return;
-    await this.pushRenderFrame(
-      {
-        route: env.route,
-        turnId: env.turnId,
-        deliveryId: env.deliveryId,
-      },
-      { kind: "finalize" },
-    );
+    const target: ChannelReplyTarget = {
+      route: env.route,
+      turnId: env.turnId,
+      deliveryId: env.deliveryId,
+      ...(env.deliveryAttempt ? { deliveryAttempt: env.deliveryAttempt } : {}),
+    };
+    if (!this.renderState.get(this.renderStateKey(target))?.needsFinalize) {
+      return;
+    }
+    await this.pushRenderFrame(target, { kind: "finalize" });
   }
 
   private mintOp(target: ChannelReplyTarget, op: EgressOp): EgressOperation {
-    const seq = this.nextFrameSeq(target.turnId);
+    const seq = this.nextFrameSeq(target);
     return {
       operationId: `${target.turnId}:${seq}`,
       turnId: target.turnId,
       deliveryId: target.deliveryId,
+      ...(target.deliveryAttempt
+        ? { deliveryAttempt: target.deliveryAttempt }
+        : {}),
       route: target.route,
       op,
     };
@@ -648,6 +744,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
+      __deliveryAttempt: target.deliveryAttempt,
     };
   }
 
@@ -674,6 +771,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
+      __deliveryAttempt: target.deliveryAttempt,
     };
   }
 
@@ -764,6 +862,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         __route: target.route,
         __turnId: target.turnId,
         __deliveryId: target.deliveryId,
+        __deliveryAttempt: target.deliveryAttempt,
       };
     }
     if (this.renderSink) {
@@ -905,16 +1004,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const enqueue = (event: ChannelRenderEvent): void => {
       const frame: RenderFrame = {
         deliveryId: t.deliveryId,
+        ...(t.deliveryAttempt ? { deliveryAttempt: t.deliveryAttempt } : {}),
         turnId: t.turnId,
         slot: "main",
-        seq: this.nextFrameSeq(t.turnId),
+        seq: this.nextFrameSeq(t),
         event,
       };
       chain = chain.then(async () => {
         if (pushError !== undefined) return;
         try {
           await sink.push(frame);
-          this.recordAcceptedRenderEvent(t.turnId, event);
+          this.recordAcceptedRenderEvent(t, event);
         } catch (err) {
           pushError = err;
         }

@@ -34,8 +34,25 @@ import type {
 } from "./contracts.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
-import type { ClaimedDelivery } from "./claim-mapping.js";
+import type {
+  ClaimedChannelIngressEnvelope,
+  ClaimedDelivery,
+} from "./claim-mapping.js";
 import { IntelligenceFileHistoryClient } from "./intelligence-file-history.js";
+import {
+  deliveryAttemptKey,
+  effectiveDeliveryTimeoutMs,
+  isDeliveryAttemptExpired,
+  isRetryableDeliveryError,
+  isStrictlyNewerDeliveryAttempt,
+  runAttemptTerminalIntent,
+  scheduleDeliveryAttemptExpiry,
+} from "./delivery-attempt.js";
+import type {
+  AttemptTerminalState,
+  DeliveryAttemptInput,
+  DeliveryAttemptRef,
+} from "./delivery-attempt.js";
 
 /** The org/project/channel scope every realtime envelope carries. */
 export interface ChannelRealtimeScope extends ChannelDeliveryScope {}
@@ -187,7 +204,9 @@ const COMPLETE_REQUESTED = "channel.delivery.complete_requested.v1";
 const DELIVERY_FAIL = "channel.delivery.fail.v1";
 
 /** Per-delivery state the transport needs to build completion/fail intents. */
-interface DeliveryState {
+interface DeliveryState extends AttemptTerminalState {
+  attempt: DeliveryAttemptRef;
+  cancelExpiry?: () => void;
   turnId: string;
   /** app-api's per-delivery lease token, fences the complete/fail intent. */
   leaseToken: string;
@@ -234,7 +253,10 @@ export class RealtimeGatewayTransport
   private readonly now: () => string;
   private readonly log?: (message: string, meta?: unknown) => void;
   private readonly deliveryTimeoutMs: number;
+  /** Exact-attempt state; never indexed directly by delivery id. */
   private readonly deliveries = new Map<string, DeliveryState>();
+  /** Current-attempt index for legacy string callers. */
+  private readonly activeAttempts = new Map<string, string>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
   /** Tail of the serial delivery-processing chain — see {@link start}. */
   private processing: Promise<void> = Promise.resolve();
@@ -293,6 +315,114 @@ export class RealtimeGatewayTransport
     }
   }
 
+  private nowMs(): number {
+    const parsed = Date.parse(this.now());
+    return Number.isFinite(parsed) ? parsed : Date.now();
+  }
+
+  private registerDelivery(state: DeliveryState): boolean {
+    const key = deliveryAttemptKey(state.attempt);
+    if (this.deliveries.has(key)) {
+      this.log?.("realtime gateway duplicate delivery attempt ignored", {
+        deliveryId: state.attempt.deliveryId,
+        attemptCount: state.attempt.attemptCount,
+      });
+      return false;
+    }
+    const previousKey = this.activeAttempts.get(state.attempt.deliveryId);
+    if (previousKey) {
+      const previous = this.deliveries.get(previousKey);
+      if (previous) {
+        if (!isStrictlyNewerDeliveryAttempt(state.attempt, previous.attempt)) {
+          this.log?.(
+            "realtime gateway stale/conflicting delivery attempt ignored",
+            {
+              deliveryId: state.attempt.deliveryId,
+              incomingAttemptCount: state.attempt.attemptCount,
+              activeAttemptCount: previous.attempt.attemptCount,
+            },
+          );
+          return false;
+        }
+        this.cleanupDelivery(previous);
+        this.log?.("realtime gateway delivery attempt superseded", {
+          deliveryId: state.attempt.deliveryId,
+          previousAttemptKey: previousKey,
+          activeAttemptKey: key,
+        });
+      }
+    }
+    this.deliveries.set(key, state);
+    this.activeAttempts.set(state.attempt.deliveryId, key);
+    state.cancelExpiry = scheduleDeliveryAttemptExpiry(
+      state.attempt,
+      () => this.nowMs(),
+      () => {
+        if (this.deliveries.get(key) !== state) return;
+        this.cleanupDelivery(state);
+        this.log?.("realtime gateway delivery attempt expired", {
+          deliveryId: state.attempt.deliveryId,
+          attemptCount: state.attempt.attemptCount,
+        });
+      },
+    );
+    return true;
+  }
+
+  private cleanupDelivery(state: DeliveryState): void {
+    state.cancelExpiry?.();
+    delete state.cancelExpiry;
+    const key = deliveryAttemptKey(state.attempt);
+    const ownsAttempt = this.deliveries.get(key) === state;
+    if (ownsAttempt) this.deliveries.delete(key);
+    if (
+      ownsAttempt &&
+      this.activeAttempts.get(state.attempt.deliveryId) === key
+    ) {
+      this.activeAttempts.delete(state.attempt.deliveryId);
+    }
+  }
+
+  private resolveDelivery(
+    input: DeliveryAttemptInput,
+    operation: string,
+  ): DeliveryState | undefined {
+    const deliveryId = typeof input === "string" ? input : input.deliveryId;
+    const activeKey = this.activeAttempts.get(deliveryId);
+    const requestedKey =
+      typeof input === "string" ? activeKey : deliveryAttemptKey(input);
+    if (!activeKey) {
+      this.log?.(`realtime gateway ${operation}: no delivery state`, {
+        deliveryId,
+      });
+      return undefined;
+    }
+    if (requestedKey !== activeKey) {
+      this.log?.(`realtime gateway ${operation}: stale attempt ignored`, {
+        deliveryId,
+        requestedAttemptKey: requestedKey,
+        activeAttemptKey: activeKey,
+      });
+      return undefined;
+    }
+    const state = this.deliveries.get(requestedKey);
+    if (!state) {
+      this.log?.(`realtime gateway ${operation}: no delivery state`, {
+        deliveryId,
+      });
+      return undefined;
+    }
+    if (isDeliveryAttemptExpired(state.attempt, this.nowMs())) {
+      this.cleanupDelivery(state);
+      this.log?.(`realtime gateway ${operation}: expired attempt ignored`, {
+        deliveryId,
+        attemptCount: state.attempt.attemptCount,
+      });
+      return undefined;
+    }
+    return state;
+  }
+
   async start(
     onDelivery: (env: ChannelIngressEnvelope) => Promise<void>,
   ): Promise<void> {
@@ -330,7 +460,7 @@ export class RealtimeGatewayTransport
     if (this.stopped) return;
     let claimed:
       | {
-          env: ChannelIngressEnvelope;
+          env: ClaimedChannelIngressEnvelope;
           scope: ChannelDeliveryScope;
           leaseToken: string;
         }
@@ -339,29 +469,30 @@ export class RealtimeGatewayTransport
       claimed = this.toIngressEnvelope(payload);
     } catch (err) {
       if (err instanceof PoisonDeliveryError) {
-        // Unmappable delivery with a valid lease: register minimal state and
-        // fail it NON-retryably so app-api dead-letters it instead of re-leasing
-        // the identical poison payload forever (parity with the HTTP path).
-        this.deliveries.set(err.deliveryId, {
-          turnId: err.turnId,
-          leaseToken: err.leaseToken,
-          scope: err.scope,
-          accepted: new Map(),
-        });
+        // The lease itself is valid, but an invalid attempt identity must not
+        // be fabricated just to enter the normal attempt registry. Send the
+        // non-retryable poison failure directly with the claim's real lease.
         this.log?.(
           "realtime gateway delivery unmappable; failing non-retryable (dead-letter)",
           { deliveryId: err.deliveryId, error: err.message },
         );
-        await this.nack(err.deliveryId, err.message, false).catch(
-          (nackErr: unknown) =>
-            this.log?.(
-              "realtime gateway nack after unmappable delivery failed",
-              {
-                deliveryId: err.deliveryId,
-                error:
-                  nackErr instanceof Error ? nackErr.message : String(nackErr),
-              },
-            ),
+        await this.sendFailureIntent(
+          this.buildFailureIntent(
+            {
+              deliveryId: err.deliveryId,
+              turnId: err.turnId,
+              leaseToken: err.leaseToken,
+              scope: err.scope,
+              accepted: new Map(),
+            },
+            err.message,
+            false,
+          ),
+        ).catch((nackErr: unknown) =>
+          this.log?.("realtime gateway nack after unmappable delivery failed", {
+            deliveryId: err.deliveryId,
+            error: nackErr instanceof Error ? nackErr.message : String(nackErr),
+          }),
         );
         return;
       }
@@ -369,21 +500,45 @@ export class RealtimeGatewayTransport
     }
     if (!claimed) return;
     const { env, scope, leaseToken } = claimed;
-    this.deliveries.set(env.deliveryId, {
+    const registered = this.registerDelivery({
+      attempt: env.deliveryAttempt,
       turnId: env.turnId,
       leaseToken,
       scope,
       accepted: new Map(),
     });
+    if (!registered) return;
     // Bound the turn (parity with the HTTP runLoop): a handler that throws or
     // hangs past deliveryTimeoutMs must not wedge the delivery or leave the
     // render stream half-open. On failure, nack so app-api releases the lease
     // and redelivers rather than the turn silently pinning the delivery.
+    const timeoutMs = effectiveDeliveryTimeoutMs(
+      this.deliveryTimeoutMs,
+      env.deliveryAttempt,
+      this.nowMs(),
+    );
+    if (timeoutMs <= 0) {
+      const reason =
+        `realtime gateway turn ${env.turnId} cannot start inside the ` +
+        "delivery lease safety margin";
+      this.log?.("realtime gateway turn skipped near lease expiry", {
+        deliveryId: env.deliveryId,
+        attemptCount: env.deliveryAttempt.attemptCount,
+        leaseExpiresAt: env.deliveryAttempt.leaseExpiresAt,
+      });
+      await this.nack(env.deliveryAttempt, reason).catch((nackErr: unknown) =>
+        this.log?.("realtime gateway nack after lease-margin skip failed", {
+          deliveryId: env.deliveryId,
+          error: nackErr instanceof Error ? nackErr.message : String(nackErr),
+        }),
+      );
+      return;
+    }
     try {
       await withDeliveryTimeout(
         Promise.resolve(this.onDelivery?.(env)),
-        this.deliveryTimeoutMs,
-        `realtime gateway turn ${env.turnId} exceeded ${this.deliveryTimeoutMs}ms`,
+        timeoutMs,
+        `realtime gateway turn ${env.turnId} exceeded ${timeoutMs}ms`,
       );
     } catch (err) {
       this.log?.("realtime gateway turn failed/timed out; nacking", {
@@ -391,8 +546,9 @@ export class RealtimeGatewayTransport
         error: err instanceof Error ? err.message : String(err),
       });
       await this.nack(
-        env.deliveryId,
+        env.deliveryAttempt,
         err instanceof Error ? err.message : String(err),
+        isRetryableDeliveryError(err),
       ).catch((nackErr: unknown) =>
         this.log?.("realtime gateway nack after turn failure failed", {
           deliveryId: env.deliveryId,
@@ -419,7 +575,7 @@ export class RealtimeGatewayTransport
    */
   private toIngressEnvelope(payload: unknown):
     | {
-        env: ChannelIngressEnvelope;
+        env: ClaimedChannelIngressEnvelope;
         scope: ChannelDeliveryScope;
         leaseToken: string;
       }
@@ -496,11 +652,13 @@ export class RealtimeGatewayTransport
     try {
       const claimed: ClaimedDelivery = {
         id: String(delivery.id),
+        attempt: delivery.attempt as number,
         organizationId: organizationId ?? "",
         projectId: scope.projectId,
         channel: { id: channelId ?? "", name: scope.channelName },
         adapter: String(delivery.adapter ?? "slack"),
         leaseToken,
+        leaseExpiresAt: delivery.leaseExpiresAt as string,
         turn: delivery.turn as ClaimedDelivery["turn"],
       };
       return { scope, leaseToken, env: mapDeliveryToEnvelope(claimed) };
@@ -521,7 +679,15 @@ export class RealtimeGatewayTransport
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const state = this.deliveries.get(frame.deliveryId);
+    const state = this.resolveDelivery(
+      frame.deliveryAttempt ?? frame.deliveryId,
+      "render",
+    );
+    if (frame.deliveryAttempt && !state) {
+      throw new Error(
+        `RealtimeGatewayTransport: stale delivery attempt cannot render for ${frame.deliveryId}`,
+      );
+    }
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const envelope = {
       type: RENDER_EVENT,
@@ -588,19 +754,12 @@ export class RealtimeGatewayTransport
    * delivery ack. `acceptedThrough` carries the completion high-water pointer
    * per slot (the frozen contract requires at least one).
    */
-  async ack(deliveryId: string): Promise<void> {
-    const state = this.deliveries.get(deliveryId);
+  async ack(attempt: DeliveryAttemptInput): Promise<void> {
+    const state = this.resolveDelivery(attempt, "ack");
     if (!state) return;
-    // Claim the terminal signal BEFORE the wire call, mirroring the HTTP
-    // transport's delete-before-POST. A turn that times out (handleDeliveryAvailable
-    // nacks) while its dispatch keeps running in the background will call ack()
-    // here; deleting first guarantees whichever of ack/nack runs first wins and
-    // the loser no-ops on missing state — exactly one of complete_requested XOR
-    // fail reaches app-api for a given delivery.
     const acceptedThrough = Array.from(state.accepted.entries()).map(
       ([slot, seq]) => ({ turnId: state.turnId, slot, seq }),
     );
-    this.deliveries.delete(deliveryId);
     if (acceptedThrough.length === 0) {
       // Nothing was accepted (e.g. an empty turn). Without an accepted frame
       // there is nothing to complete; let the lease lapse / redeliver instead
@@ -614,25 +773,34 @@ export class RealtimeGatewayTransport
       // in this transport logs).
       this.log?.(
         "realtime gateway ack: empty turn (no accepted frames) — no completion sent; will redeliver until max_attempts (OSS-491)",
-        { deliveryId },
+        { deliveryId: state.attempt.deliveryId },
       );
       return;
     }
-    await this.session.push(COMPLETE_REQUESTED, {
+    const intent = {
       type: COMPLETE_REQUESTED,
       occurredAt: this.now(),
       payload: {
         ...state.scope,
-        deliveryId,
+        deliveryId: state.attempt.deliveryId,
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
-        // Fence the completion intent on the lease token (OSS-446), matching
-        // the fail path; app-api fences when present, falls back otherwise.
+        // The attempt ref remains SDK-internal: app-api derives the attempt
+        // atomically from this fenced lease token.
         leaseToken: state.leaseToken,
         acceptedThrough,
         requestedAt: this.now(),
       },
-    });
+    };
+    await runAttemptTerminalIntent(
+      state,
+      "complete",
+      async () => {
+        await this.session.push(COMPLETE_REQUESTED, intent);
+      },
+      () => this.cleanupDelivery(state),
+      this.log,
+    );
   }
 
   /**
@@ -646,21 +814,41 @@ export class RealtimeGatewayTransport
    * the retryable path so it never contradicts a non-retryable fail.
    */
   async nack(
-    deliveryId: string,
+    attempt: DeliveryAttemptInput,
     reason: string,
     retryable = true,
   ): Promise<void> {
-    const state = this.deliveries.get(deliveryId);
+    const state = this.resolveDelivery(attempt, "nack");
     if (!state) {
-      // No state → no leaseToken to build a fenced fail intent, so nothing can
-      // be sent; app-api releases the delivery on lease lapse. Reachable only
-      // for an already-terminal/evicted delivery today; log rather than drop
-      // silently so an unexpected hit is diagnosable.
-      this.log?.("realtime gateway nack: no delivery state; dropping fail", {
-        deliveryId,
-        reason,
-      });
       return;
+    }
+    const intent = this.buildFailureIntent(state, reason, retryable);
+    await runAttemptTerminalIntent(
+      state,
+      "fail",
+      () => this.sendFailureIntent(intent),
+      () => this.cleanupDelivery(state),
+      this.log,
+    );
+  }
+
+  private buildFailureIntent(
+    state: {
+      turnId: string;
+      leaseToken: string;
+      scope: ChannelDeliveryScope;
+      accepted: Map<string, number>;
+      deliveryId?: string;
+      attempt?: DeliveryAttemptRef;
+    },
+    reason: string,
+    retryable: boolean,
+  ): unknown {
+    const deliveryId = state.attempt?.deliveryId ?? state.deliveryId;
+    if (!deliveryId) {
+      throw new Error(
+        "RealtimeGatewayTransport: failure intent has no delivery id",
+      );
     }
     const accepted = Array.from(state.accepted.entries()).map(
       ([slot, seq]) => ({
@@ -670,9 +858,7 @@ export class RealtimeGatewayTransport
       }),
     );
     const lastAccepted = accepted[accepted.length - 1];
-    // Claim the terminal signal BEFORE the wire call (XOR with ack) — see ack().
-    this.deliveries.delete(deliveryId);
-    await this.session.push(DELIVERY_FAIL, {
+    return {
       type: DELIVERY_FAIL,
       occurredAt: this.now(),
       payload: {
@@ -692,7 +878,11 @@ export class RealtimeGatewayTransport
           retryable,
         },
       },
-    });
+    };
+  }
+
+  private async sendFailureIntent(intent: unknown): Promise<void> {
+    await this.session.push(DELIVERY_FAIL, intent);
   }
 
   async stop(): Promise<void> {
@@ -703,6 +893,8 @@ export class RealtimeGatewayTransport
     // redelivers. Mirrors HttpDeliverySource.stop() (running=false + await loop).
     this.stopped = true;
     await this.processing.catch(() => {});
+    for (const state of this.deliveries.values()) state.cancelExpiry?.();
     this.deliveries.clear();
+    this.activeAttempts.clear();
   }
 }
