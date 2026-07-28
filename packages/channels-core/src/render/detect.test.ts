@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { createElement } from "react";
 import { Message, Button } from "@copilotkit/channels-ui";
 import { isReactElement, resolveArbitraryElement } from "./detect.js";
@@ -59,6 +59,33 @@ describe("resolveArbitraryElement", () => {
     expect(resolveArbitraryElement({ type: HooksComponent, props: {} })).toBe(
       null,
     );
+  });
+
+  it("invokes a component at most once, however often the node is classified", () => {
+    // `awaitChoice`/`post` each classify before acting; a component with a side
+    // effect (a fetch, a counter) must not run twice for one node.
+    const calls = vi.fn(() => createElement("div", null));
+    const node = { type: calls, props: {} };
+    expect(resolveArbitraryElement(node)).toBeTruthy();
+    expect(resolveArbitraryElement(node)).toBeTruthy();
+    expect(resolveArbitraryElement(node)).toBeTruthy();
+    expect(calls).toHaveBeenCalledTimes(1);
+  });
+
+  it("memoizes the native verdict too (a throwing or channel-node component)", () => {
+    const native = vi.fn(() => ({ type: "message", props: {} }));
+    const nativeNode = { type: native, props: {} };
+    expect(resolveArbitraryElement(nativeNode)).toBe(null);
+    expect(resolveArbitraryElement(nativeNode)).toBe(null);
+    expect(native).toHaveBeenCalledTimes(1);
+
+    const throwing = vi.fn(() => {
+      throw new Error("hooks");
+    });
+    const throwingNode = { type: throwing, props: {} };
+    expect(resolveArbitraryElement(throwingNode)).toBe(null);
+    expect(resolveArbitraryElement(throwingNode)).toBe(null);
+    expect(throwing).toHaveBeenCalledTimes(1);
   });
 
   it("returns null for string-type / string / array / raw / null / number", () => {

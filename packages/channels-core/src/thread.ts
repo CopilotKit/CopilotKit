@@ -16,6 +16,7 @@ import type {
   EmojiValue,
   EphemeralResult,
   ReactElementLike,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { RunLoopArgs } from "./run-loop.js";
@@ -39,6 +40,23 @@ import type { ChannelComponentRenderContext } from "./channel-component.js";
 import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
 import type { PostImageOptions } from "@copilotkit/channels-ui";
 import { resolveArbitraryElement } from "./render/detect.js";
+import { defaultAllowImageUrl } from "./render/url-policy.js";
+
+/**
+ * Warn once per platform that an image post produced no addressable message id.
+ * Once per platform, not per post: on a surface that structurally never reports
+ * one (the managed transport hands uploads to an async outbox) this would
+ * otherwise fire on every single image.
+ */
+const warnedNoMessageId = new Set<string>();
+function warnNoMessageId(platform: string): void {
+  if (warnedNoMessageId.has(platform)) return;
+  warnedNoMessageId.add(platform);
+  console.warn(
+    `[channel] post(image): the upload reported no message id on ${platform}; ` +
+      "the returned ref cannot be used for delete/react/update (the upload itself succeeded)",
+  );
+}
 
 async function defaultRenderImage(
   node: unknown,
@@ -298,6 +316,10 @@ export class Thread implements ThreadInterface {
       stylesheets: opts?.stylesheets ?? g.stylesheets ?? [],
       width: opts?.width ?? g.width ?? 720,
       height: opts?.height ?? g.height ?? 480,
+      // Channel-wide only (not per-post): a fetch policy is a security boundary,
+      // and a per-call override is exactly the knob an injected tool argument
+      // would reach for.
+      allowImageUrl: g.allowImageUrl ?? defaultAllowImageUrl,
     };
     const renderFn = this.deps.renderImage ?? defaultRenderImage;
     const bytes = await renderFn(node, cfg);
@@ -312,12 +334,12 @@ export class Thread implements ThreadInterface {
         `post(image): upload failed — ${res.error ?? "unknown error"}`,
       );
     }
-    if (!res.fileId) {
-      console.warn(
-        "[channel] postFile succeeded without a fileId; returning an empty message ref",
-      );
-    }
-    return { id: res.fileId ?? "" };
+    // Only a *message* id is a usable MessageRef. Platforms that upload media
+    // separately from posting it (Slack, Telegram, WhatsApp) also return a
+    // media id in `fileId`, which their delete/react/update APIs reject — so
+    // never pass that off as a message id.
+    if (!res.messageId) warnNoMessageId(this.platform);
+    return { id: res.messageId ?? "" };
   }
 
   /** @internal Post a registered component through the normal bind and adapter path. */
@@ -375,12 +397,7 @@ export class Thread implements ThreadInterface {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{
-    ok: boolean;
-    fileId?: string;
-    assetId?: string;
-    error?: string;
-  }> {
+  }): Promise<PostFileResult> {
     return this.trackOperation(async () => {
       const adapter = this.deps.adapter;
       if (!adapter.postFile) {

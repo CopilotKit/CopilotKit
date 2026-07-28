@@ -6,7 +6,13 @@ import { resolveArbitraryElement } from "./detect.js";
 import { BarChart } from "../charts/bar-chart.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
-const cfg = { fonts: [], stylesheets: [], width: 320, height: 200 };
+const cfg = {
+  fonts: [],
+  stylesheets: [],
+  allowImageUrl: () => false,
+  width: 320,
+  height: 200,
+};
 const data = [
   { label: "a", value: 1 },
   { label: "b", value: 3 },

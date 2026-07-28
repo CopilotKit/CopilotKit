@@ -118,6 +118,10 @@ export async function renderJsxToPng(
     height: cfg.height,
     fonts: cfg.fonts as never,
     stylesheets: cfg.stylesheets,
+    // Gate every remote fetch the rasterizer makes (`<img src>`, CSS `url()`,
+    // emoji sheets). Channel JSX is often built from model/user data, so an
+    // ungated fetcher inside your infra is an SSRF sink — see render/url-policy.
+    images: { allowUrl: cfg.allowImageUrl },
   });
   return png as Uint8Array;
 }

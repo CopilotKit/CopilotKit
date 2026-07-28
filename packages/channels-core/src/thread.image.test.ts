@@ -45,14 +45,14 @@ describe("Thread.post image routing", () => {
     const filePosts: unknown[] = [];
     adapter.postFile = async (_t, args) => {
       filePosts.push(args);
-      return { ok: true, fileId: "F1" };
+      return { ok: true, messageId: "M1", fileId: "F1" };
     };
     const renderImage = vi.fn(
       async (_node: unknown, _cfg: unknown) => new Uint8Array([1, 2, 3]),
     );
     const thread = makeThread(adapter, renderImage);
 
-    const ref = await thread.post(createElement("div", null, "hi") as never, {
+    const ref = await thread.post(createElement("div", null, "hi"), {
       filename: "card.png",
       width: 800,
     });
@@ -71,7 +71,7 @@ describe("Thread.post image routing", () => {
     expect(filePosts).toHaveLength(1);
     expect(filePosts[0]).toMatchObject({ filename: "card.png" });
     expect(adapter.posted).toHaveLength(0); // did NOT go through the native IR path
-    expect(ref.id).toBe("F1");
+    expect(ref.id).toBe("M1");
   });
 
   it("keeps a branded channel component on the native path", async () => {
@@ -92,9 +92,9 @@ describe("Thread.post image routing", () => {
       adapter,
       vi.fn(async () => new Uint8Array([1])),
     );
-    await expect(
-      thread.post(createElement("div", null) as never),
-    ).rejects.toThrow(/nope/);
+    await expect(thread.post(createElement("div", null))).rejects.toThrow(
+      /nope/,
+    );
   });
 
   it("throws on arbitrary JSX passed to update()", async () => {
@@ -137,7 +137,7 @@ describe("Thread.post image routing", () => {
     const filePosts: unknown[] = [];
     adapter.postFile = async (_t, args) => {
       filePosts.push(args);
-      return { ok: true, fileId: "F2" };
+      return { ok: true, messageId: "M2", fileId: "F2" };
     };
     const renderImage = vi.fn(
       async (_node: unknown, _cfg: unknown) => new Uint8Array([1, 2, 3]),
@@ -146,7 +146,7 @@ describe("Thread.post image routing", () => {
     // defaults (width 720 / height 480) rather than a thread-wide override.
     const thread = makeThread(adapter, renderImage, {});
 
-    const ref = await thread.post(createElement("div", null, "hi") as never);
+    const ref = await thread.post(createElement("div", null, "hi"));
 
     expect(renderImage).toHaveBeenCalledTimes(1);
     expect(renderImage.mock.calls[0]![1]).toMatchObject({
@@ -155,6 +155,6 @@ describe("Thread.post image routing", () => {
     });
     expect(filePosts).toHaveLength(1);
     expect(filePosts[0]).toMatchObject({ filename: "image.png" });
-    expect(ref.id).toBe("F2");
+    expect(ref.id).toBe("M2");
   });
 });
