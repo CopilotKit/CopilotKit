@@ -141,12 +141,13 @@ function normalizeIntelligenceComposeForDriftGuard(compose: string): string {
       /:[0-9]+ \(api\), :[0-9]+ \(gateway\)/g,
       ":<app-api-host-port> (api), :<gateway-host-port> (gateway)",
     )
-    .replace(
-      /:[0-9]+$/gm,
-      (match) =>
-        match === ":5432" || match === ":6379" || match === ":4201" || match === ":4401"
-          ? match
-          : ":<host-port>",
+    .replace(/:[0-9]+$/gm, (match) =>
+      match === ":5432" ||
+      match === ":6379" ||
+      match === ":4201" ||
+      match === ":4401"
+        ? match
+        : ":<host-port>",
     );
 }
 
@@ -201,9 +202,7 @@ describe("starter local Intelligence docker stacks", () => {
       expect(compose).toContain(
         `\${POSTGRES_HOST_PORT:-${stack.postgresPort}}:5432`,
       );
-      expect(compose).toContain(
-        `\${REDIS_HOST_PORT:-${stack.redisPort}}:6379`,
-      );
+      expect(compose).toContain(`\${REDIS_HOST_PORT:-${stack.redisPort}}:6379`);
       expect(compose).toContain(
         `\${APP_API_HOST_PORT:-${stack.appApiPort}}:4201`,
       );
@@ -214,9 +213,13 @@ describe("starter local Intelligence docker stacks", () => {
         "./docker/postgres-init:/docker-entrypoint-initdb.d:ro",
       );
       expect(compose).not.toContain("./docker:/docker-entrypoint-initdb.d");
-      expect(compose).toContain("pg_isready -U intelligence -d intelligence_app");
+      expect(compose).toContain(
+        "pg_isready -U intelligence -d intelligence_app",
+      );
       expect(postgresInit).toBe(expectedPostgresInitSql);
-      expect(readme).toContain("## CopilotKit Intelligence & Threads (Optional)");
+      expect(readme).toContain(
+        "## CopilotKit Intelligence & Threads (Optional)",
+      );
       expect(readme).toContain("docker-compose.intelligence.yml");
       expect(readme).toContain(
         `INTELLIGENCE_API_URL=http://localhost:${stack.appApiPort}`,
