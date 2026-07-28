@@ -1,10 +1,8 @@
-// Dedicated runtime for the Multimodal Attachments demo.
+// Dedicated runtime for the Multimodal Attachments demo (Strands).
 //
 // Mirrors the LangGraph-Python shape: the multimodal cell gets its own
 // runtime so vision-capable model settings stay scoped to that one cell.
-// In the Strands showcase the backend is a single shared Strands agent
-// (served by agent_server.py on port 8000); this route just registers the
-// demo's slug against the same HttpAgent proxy as the main route.
+// Strands shares the root agent until B6 adds a dedicated /multimodal/ mount.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -16,17 +14,22 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
-}
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
-const multimodalAgent = createAgent();
+const multimodalAgent = new HttpAgent({ url: `${AGENT_URL}/` });
 const agents = {
   "multimodal-demo": multimodalAgent,
   default: multimodalAgent,
 };
 
 export const POST = async (req: NextRequest) => {
+  if (ROUTE_DEBUG) {
+    console.log(`[copilotkit-multimodal/route] POST ${req.url}`);
+  }
+
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-multimodal",
@@ -36,7 +39,17 @@ export const POST = async (req: NextRequest) => {
         agents,
       }),
     });
-    return await handleRequest(req);
+    const response = await handleRequest(req);
+    if (!response.ok) {
+      console.log(
+        `[copilotkit-multimodal/route] Response status: ${response.status}`,
+      );
+    } else if (ROUTE_DEBUG) {
+      console.log(
+        `[copilotkit-multimodal/route] Response status: ${response.status}`,
+      );
+    }
+    return response;
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(
