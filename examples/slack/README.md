@@ -12,7 +12,7 @@ adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
 present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
 when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
 are present. Everything else in `app/` (tools,
-components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
+components, the `confirm_write` HITL gate, table rendering) is
 platform-agnostic and shared verbatim — set the secrets for whichever
 platform(s) you want and run the same process. It connects to **Linear** and
 **Notion** over MCP and can:
@@ -42,7 +42,7 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
 
 - **`app/`** — the platform-agnostic bot: `createChannel` + whichever of the
   `slack()` / `discord()` / `telegram()` adapters have secrets, the
-  `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
+  `read_thread` / `render_table` tools,
   the `issue_card` / `issue_list` / `page_list` render-tools, the
   `confirm_write` HITL gate, and the bot's context. The components emit a
   cross-platform JSX IR that each adapter renders natively. This is the
@@ -153,11 +153,6 @@ adapter supplies at call time; tools reach platform power (post, postFile,
 - **`read_thread`** — fetches the messages in the current conversation thread
   so the agent can summarize/act on a real conversation (e.g. "write this
   thread up as a postmortem") instead of inventing content.
-- **`render_chart`** — the agent emits a Chart.js config; rendered to a PNG
-  **locally** in a headless browser (reusing the Playwright dep) and posted
-  inline.
-- **`render_diagram`** — the agent emits Mermaid; rendered to a PNG the same
-  way.
 - **`render_table`** — the agent emits columns + rows; rendered natively per
   platform (a Slack Table block, otherwise a monospace fallback).
 
@@ -191,6 +186,105 @@ you just created with `justCreated: true`), **`issue_list`** (several Linear
 issues), and **`page_list`** (Notion pages). The system prompt steers the
 agent to present results with these instead of prose.
 
+### Images from JSX — `render_mrr`
+
+Not every visualization fits the channel-UI vocabulary. **`render_mrr`**
+demonstrates posting **arbitrary app JSX as an image**: `<MrrCard/>` (a plain
+`react` component, not a `@copilotkit/channels` component) and an optional
+signups `<BarChart>` from `@copilotkit/channels/charts` are posted straight
+to `thread.post` — no wrapper, no explicit "render to image" call.
+
+```tsx
+export const renderMrrTool: ChannelTool<typeof schema> = {
+  name: "render_mrr",
+  description:
+    "Render an MRR summary card (and optional signups bar chart) as images and post them to the thread.",
+  parameters: schema,
+  async handler({ value, delta, series }, { thread }) {
+    await thread.post(<MrrCard value={value} delta={delta} />, {
+      filename: "mrr.png",
+      title: "MRR",
+    });
+    if (series?.length) {
+      await thread.post(<BarChart title="Signups / day" data={series} />, {
+        filename: "signups.png",
+      });
+    }
+    return (
+      "Posted the MRR card" + (series?.length ? " and signups chart." : ".")
+    );
+  },
+};
+```
+
+`thread.post` detects that `<MrrCard/>` and `<BarChart/>` return plain React
+elements (not the channels-ui vocabulary) and routes them through
+[Takumi](https://github.com/takumi-rs/takumi) — a static, in-process
+rasterizer — to a PNG, then uploads it through the same `postFile` path used
+everywhere else in this bot.
+
+**Source:** `app/tools/render-mrr.tsx`, `app/components/mrr-card.ts`.
+
+> `react` and `takumi-js` are dependencies of this example for that reason —
+> there is no headless browser (the old Playwright-based `render_chart` /
+> `render_diagram` tools are gone) at runtime; rendering happens in-process.
+
+### Showcase features: CopilotKit-branded cards + charts as images
+
+Three realistic "we run this in our own Slack" features (`app/showcase/`), each
+rendering a **CopilotKit-branded card** plus **charts** as images, and each
+triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
+matching `render_*` tool). Both paths share one `render*` fn.
+
+| Feature              | Slash / prompt               | Data                          | Renders                                                                         |
+| -------------------- | ---------------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| **PR review radar**  | `/prs` · "show the PR radar" | GitHub PRs (public, no token) | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart            |
+| **Weekly OSS pulse** | `/pulse` · "weekly pulse"    | GitHub + npm (public)         | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart |
+| **Linear standup**   | `/standup` · "cycle standup" | Linear (`LINEAR_API_KEY`)     | per-team progress card (a meter per team) + done-vs-remaining stacked bar       |
+
+The brand look comes from **Tailwind**: cards are authored with Tailwind classes
+(CopilotKit brand tokens in `styles/tailwind.css`), compiled to `styles/brand.css`
+with `pnpm build:css`, and fed — together with the **Plus Jakarta Sans** brand
+font (`assets/fonts/`) — to `createChannel({ render: { stylesheets, fonts } })`
+via `app/render/brand.ts`. Takumi resolves the Tailwind classes when it
+rasterizes. Charts default to the CopilotKit brand data-viz palette. Every
+feature reads **live** data and **falls back to sample data** (never throws) when
+the API is unreachable, labelling the card `sample data` so the degradation is
+visible.
+
+> After changing card classes, re-run `pnpm build:css` so the compiled
+> `styles/brand.css` (committed, fed at runtime) includes them.
+
+### Ad-hoc charts & diagrams: `render_chart` / `render_diagram`
+
+Beyond the fixed features above, the bot registers two **generic** data-viz
+tools from `@copilotkit/channels/charts` (`app/tools/index.ts`), so you can ask
+for a one-off visual:
+
+- **`render_chart`** — _"here's a CSV of signups by month, chart it as a bar
+  chart"_ → the agent parses the data and calls
+  `render_chart({ kind: "bar", data: [{label, value}, …], title })`, posting a
+  branded chart image. Supports `bar`/`line`/`pie`/`stacked`/`scatter`.
+- **`render_diagram`** — _"diagram our deploy pipeline"_ → the agent calls
+  `render_diagram({ nodes, edges, direction })`, posting a layered flow diagram
+  (boxes + arrows). Not arbitrary graph auto-layout (Takumi has no JS layout
+  engine).
+
+```ts
+// One render fn, two triggers — app/showcase/pr-radar.tsx
+export async function renderPrRadar(thread) {
+  const { prs, live } = await fetchPrRadar();           // live GitHub or sample
+  await thread.post(<PrRadarCard prs={prs} live={live} />, { filename: "pr-radar.png", width: 760, height: 150 + prs.length * 40 });
+  if (prs.length) await thread.post(<BarChart title="Open PRs by age" data={byAgeBucket(prs)} />, { filename: "pr-age.png" });
+}
+export const prRadarTool = defineChannelTool({ name: "render_pr_radar", /* … */ async handler(_, { thread }) { return renderPrRadar(thread); } });
+export const prsCommand   = defineChannelCommand({ name: "prs", /* … */ async handler({ thread }) { await renderPrRadar(thread); } });
+```
+
+**Source:** `app/showcase/` — `pr-radar.tsx`, `weekly-pulse.tsx`,
+`cycle-standup.tsx`, `lib.ts`; brand render config in `app/render/brand.ts` +
+`styles/`.
+
 ### Human-in-the-loop: `confirm_write`
 
 HITL is a **blocking frontend tool**. Before any Linear/Notion write the
@@ -222,7 +316,7 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Four app-owned slash commands, registered via `createChannel({ commands })`:
+App-owned slash commands, registered via `createChannel({ commands })`:
 
 - **`/agent <text>`** — a mention-free entry point; runs the agent with the
   command text as the prompt.
@@ -232,6 +326,11 @@ Four app-owned slash commands, registered via `createChannel({ commands })`:
   (only you see it); degrades to a DM on platforms without ephemeral messages.
 - **`/file-issue`** — opens a structured Linear issue form; degrades to a
   conversational flow on platforms without modal support (e.g. Telegram).
+- **`/prs`**, **`/pulse`**, **`/standup`** — the showcase features (see
+  [Showcase features](#showcase-features-shadcn-cards--charts-as-images)
+  below). Each renders a shadcn-style card + charts as images and is **also**
+  triggerable by prompt (the matching `render_*` tool), so the same feature
+  works whether you type the slash command or just ask the agent for it.
 
 ```ts
 defineChannelCommand({
@@ -248,12 +347,13 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
-> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
-> Slack won't deliver an unregistered command, even over Socket Mode. The
-> easiest path is to paste the full `slack-app-manifest.yaml` when creating
-> (or updating) your app, which already declares all four. Discord and Telegram
-> register their commands up front via the adapter.
+> **Slack setup:** every command (`/agent`, `/triage`, `/preview`,
+> `/file-issue`, `/prs`, `/pulse`, `/standup`) must be declared in your Slack
+> app under **Slash Commands** — Slack won't deliver an unregistered command,
+> even over Socket Mode. The easiest path is to paste the full
+> `slack-app-manifest.yaml` when creating (or updating) your app, which already
+> declares all of them. Discord and Telegram register their commands up front
+> via the adapter.
 
 ### The agent (`runtime.ts`)
 
@@ -313,7 +413,7 @@ several from one process).
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
 - The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
-  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
+  `/file-issue`, `/prs`, `/pulse`, `/standup` — all passed to `createChannel`) via `setMyCommands` on start
   (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
@@ -392,30 +492,20 @@ Caveat: a single API key can't forge Linear's `creator`, so created issues
 are _authored_ by the bot and _assigned_ to the requester. True per-user
 attribution (and reliable Notion personalization) needs per-user OAuth.
 
-## Files → charts, diagrams & tables
+## Files → tables
 
 Upload a file and the bot analyzes it: images and **PDFs** go straight to the
 model, and CSV/JSON/text are decoded and handed over as text. The adapter is
 transport-only — it downloads the upload and delivers it to the agent as
-multimodal content; the **app** (the `render_*` tools above) decides what to
-do.
+multimodal content; the **app** (the `render_table` tool above) decides what
+to do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
 > (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
 > An older text-only model will ignore the attached document.
 
-Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident
-flow"_, or _"show the incidents as a table"_. The chart/diagram renderers need
-a Chromium binary:
-
-```bash
-npx playwright install chromium
-```
-
-Notes: the chart/diagram libraries load from a CDN into the local browser
-(override `CHART_JS_URL` / `MERMAID_URL`); your data is rendered locally and
-never sent to a rendering service.
+Try it: drop a CSV and say _"show the incidents as a table"_.
 
 ## Deploying
 
@@ -474,9 +564,7 @@ bot service (Railway):
    `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
    subscribe to the `messages` field.
 
-Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
-the same headless browser the Slack/Discord paths already run; their PNGs go
-out as WhatsApp images via the media upload.
+Health check: `GET https://<bot-domain>/` returns `ok`.
 
 ## Feature demos
 

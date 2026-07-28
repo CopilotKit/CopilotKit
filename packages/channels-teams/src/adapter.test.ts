@@ -192,7 +192,9 @@ describe("TeamsAdapter.postFile", () => {
       altText: "Sev counts",
     });
 
-    expect(res).toEqual({ ok: true, fileId: "msg-9" });
+    // Teams posts the attachment as an activity, so the id it returns is a real
+    // message id — reported as `messageId`, not as a media handle.
+    expect(res).toEqual({ ok: true, messageId: "msg-9" });
     const sent = sendActivity.mock.calls[0]![0];
     const attachment = sent.attachments[0];
     expect(attachment.contentType).toBe("image/png");

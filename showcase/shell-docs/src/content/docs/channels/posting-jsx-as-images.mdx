@@ -1,0 +1,175 @@
+---
+title: Posting JSX as images
+description: Post any app component, a shadcn card or a dashboard tile, to a thread with thread.post(<X/>). Arbitrary JSX renders to an image via Takumi (no browser); channels-ui JSX keeps rendering natively.
+icon: "lucide/Component"
+---
+
+You already have the component. A styled MRR card, a dashboard tile, a shadcn summary block, sitting in your app. You want it in the thread. Today the only way is to screenshot it yourself, because `thread.post` understands the `@copilotkit/channels` JSX vocabulary (`<Message>`, `<Header>`, `<Section>`) and nothing else.
+
+Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React component to a PNG, fonts and compiled CSS included, and uploads it. No wrapper, no extra API. Native channel components keep rendering exactly as before.
+
+<Callout type="warn" title="Install react first">
+  The image path renders through React, which is an **optional peer dependency** of `@copilotkit/channels` (your app owns its React version). It is not pulled in automatically. Takumi, the rasterizer, ships with the package, so you do not install it. Add React first:
+
+  ```bash
+  pnpm add react
+  ```
+
+  Without it, posting arbitrary JSX (or importing `@copilotkit/channels/charts`) fails with a module-not-found error.
+</Callout>
+
+<Steps>
+  <Step>
+    ### How it's routed
+
+    `thread.post` classifies what you pass by **where it was authored**, not by inspecting it at call time:
+
+    - A plain React element built in an ordinary app file (react-pragma: `<div>`, a shadcn card, `<MrrCard/>`) goes straight to the **image** path via [Takumi](https://github.com/takumi-rs/takumi) and uploads through the existing `postFile` path. It is not called to peek at its output; a plain element goes to the image renderer as-is.
+    - A `@copilotkit/channels` component (`<Message>`, `<Button>`), or your own component referenced under the channels JSX pragma (or branded as a channels-ui component) that returns channel nodes, renders **natively**, unchanged. An `IssueCard` that returns `<Message>...</Message>` becomes real Block Kit or Adaptive Cards.
+
+    ```tsx
+    // Native. Authored under the channels pragma, renders as real Block Kit /
+    // Adaptive Cards.
+    await thread.post(
+      <Message accent="#16a34a">
+        <Header>Deploy complete</Header>
+        <Section>Shipped <b>v2.4.0</b> to production.</Section>
+      </Message>,
+    );
+
+    // Arbitrary app JSX. A plain React element from an app file, routed to an
+    // image automatically, no wrapper needed.
+    await thread.post(<MrrCard value="$48,200" delta={12} />);
+    ```
+
+    The "call the component and inspect its output" check runs only for components referenced under the channels pragma. A plain element from an app (react-pragma) file is never called; it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (say it calls a hook) is treated as native rather than crashing the classifier. Each element is peeked **at most once** (the verdict is memoized per element), so passing the same element through more than one call does not re-run your component; on the native path it is then called once more to bind. Components referenced under the channels pragma must therefore be pure and side-effect-free.
+
+    <Callout type="info" title="One post, one route">
+      A single `post()` call is either native IR or one image. You cannot mix native components and image output in the same message. Call `post()` twice if you need both.
+    </Callout>
+  </Step>
+  <Step>
+    ### Configure fonts and styling once
+
+    Takumi is a static, browser-free rasterizer with no system fonts, only a built-in Latin (Geist) fallback. Register your fonts and compiled CSS once on `createChannel({ render })`, and every image post picks them up:
+
+    ```ts title="bot.ts"
+    import { createChannel } from "@copilotkit/channels";
+    import { readFileSync } from "node:fs";
+
+    const bot = createChannel({
+      adapters: [/* ... */],
+      agent: (threadId) => /* ... */,
+      render: {
+        fonts: [
+          { name: "Inter", data: readFileSync("./fonts/Inter-Regular.woff2"), weight: 400 },
+          { name: "Inter", data: readFileSync("./fonts/Inter-SemiBold.woff2"), weight: 600 },
+        ],
+        stylesheets: [readFileSync("./styles/global.css", "utf8")], // compiled Tailwind
+        width: 720, // default canvas width; height defaults to 480
+      },
+    });
+    ```
+
+    `stylesheets` takes your compiled CSS as plain strings; class selectors, `var()`, and `@media` resolve. This example loads it with `node:fs` so it runs as-is under Node or tsx. If your build already emits the CSS as an importable string (Vite's `?inline` suffix, say), that is a bundler-only variant and will not run under plain `tsx`/`node`:
+
+    ```ts title="bot.ts (bundler-only variant, e.g. Vite)"
+    import appCss from "./styles/global.css?inline"; // compiled Tailwind, resolved by the bundler
+
+    // ...same createChannel call as above, with stylesheets: [appCss]
+    ```
+
+    <Callout type="warn" title="No fonts configured means Latin-only">
+      Takumi cannot detect missing glyphs before render, so the SDK warns once when no `fonts` are configured, and non-Latin text drops from the image. Any other Takumi render error is surfaced, not swallowed, so a broken font or stylesheet fails loudly.
+    </Callout>
+  </Step>
+  <Step>
+    ### Control what the renderer may fetch
+
+    The rasterizer fetches remote resources your JSX references, `<img src>`, CSS `url()`, emoji sheets. Channel JSX is often built from model or user data, so an ungated fetcher running inside your infrastructure is an SSRF sink: an `<img src="http://169.254.169.254/latest/meta-data/">` would have the renderer read your cloud instance metadata.
+
+    By default, `render` denies non-HTTP(S) schemes and hosts that are literally private, loopback, link-local, or an internal zone (cloud metadata endpoints included), and allows the rest. Override it with `allowImageUrl`:
+
+    ```ts title="bot.ts"
+    const bot = createChannel({
+      // ...
+      render: {
+        // Only this CDN, nothing else.
+        allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com",
+        // Or block every remote fetch:
+        // allowImageUrl: () => false,
+      },
+    });
+    ```
+
+    <Callout type="warn" title="The default check cannot resolve DNS">
+      The hook Takumi exposes is synchronous, so the default policy matches on the URL's literal host. A public hostname that resolves to a private address (DNS rebinding) is **not** caught. If your JSX can carry untrusted URLs, pass an explicit `allowImageUrl` allowlist rather than relying on the default. `allowImageUrl` is channel-wide only, deliberately, a per-post override is exactly the knob a prompt-injected tool argument would reach for.
+    </Callout>
+  </Step>
+  <Step>
+    ### Override per post
+
+    Every `render` field can be overridden for a single post, handy for a wider dashboard, a taller card, or an extra font just for that message:
+
+    ```tsx
+    await thread.post(<WideDashboard data={rows} />, { width: 1200 });
+    await thread.post(<CjkReport data={rows} />, { fonts: [notoSansJP] });
+    await thread.post(<MrrCard value="$48,200" delta={12} />, {
+      filename: "mrr.png",
+      title: "MRR",
+      altText: "Monthly recurring revenue card",
+    });
+    ```
+
+    `filename`, `title`, and `altText` are upload metadata passed straight through to `postFile`. They do not affect rendering.
+  </Step>
+  <Step>
+    ### Author cards with plain JSX
+
+    Write host tags (`<div>`, `<span>`, `<svg>`) and app or chart components (`<Sparkline/>`, `<BarChart/>`, your own components) as plain JSX. No `createElement` needed. The channels JSX runtime compiles the whole tree to nodes, and the image renderer materializes it back to React for Takumi.
+
+    A component nested inside a host card is resolved for you, so you can compose freely:
+
+    ```tsx
+    function Kpi({ label, value }: { label: string; value: string }) {
+      return (
+        <div className="flex flex-col gap-1.5 p-4 bg-card border rounded-xl">
+          <span className="text-sm text-muted-foreground">{label}</span>
+          <span className="text-3xl font-bold">{value}</span>
+        </div>
+      );
+    }
+
+    await thread.post(
+      <div className="flex gap-3 p-6 bg-background">
+        <Kpi label="Stars" value="22.4k" />
+        <Kpi label="Downloads" value="118k" />
+      </div>,
+    );
+    ```
+
+    Need a chart? The `@copilotkit/channels/charts` components render through this same image path. See [Charts](/channels/charts).
+  </Step>
+  <Step>
+    ### Know the limits
+
+    Takumi is a static SSR rasterizer. It calls your components with server-render semantics, not a real browser. Keep this in mind:
+
+    - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use the built-in [charts](/channels/charts) components or your own pure presentational markup instead.
+    - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both throw a clear error if you pass a React element (or an unbranded component that returns one). Post a new image instead.
+    - **Image posts are file-backed, and not every platform hands back a message id.** `post()` returns a `MessageRef` holding the id of the *message* the image was posted as, so `delete()`/`react()` work where the platform reports one (Slack via the file's share, Discord, Teams, Telegram, WhatsApp). Platforms that upload media out of band, or the managed transport (which hands the upload to an async outbox), may report no id at all: you get `{ id: "" }` and a warning. The upload itself still succeeded. Never assume a media/file id doubles as a message id, the platform APIs reject it.
+    - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
+  </Step>
+</Steps>
+
+You have arrived: arbitrary app components render to images alongside your native channel UI, styled with your own fonts and compiled CSS, with no browser anywhere in the process.
+
+## See it end to end
+
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features, each a CopilotKit-branded card plus charts, and each triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
+
+- **PR review radar** (`/prs`): a card of the oldest open PRs with age-colored badges, plus a PRs-by-age bar chart, from GitHub's public API (no token).
+- **Weekly OSS pulse** (`/pulse`): a KPI card (stars, npm downloads, open issues), plus a downloads line chart and an issues bar chart, from GitHub and npm.
+- **Linear cycle standup** (`/standup`): a per-team progress card (one labelled meter per team), plus a done-vs-remaining stacked bar comparing scope across teams, from Linear.
+
+The brand look is a compiled Tailwind stylesheet (`pnpm build:css`) plus Plus Jakarta Sans, fed once via `render.stylesheets` and `render.fonts`. Cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It is a concrete template for wiring your own dashboards, and it registers `chartTool`/`diagramTool` (see [Charts](/channels/charts)) so you can also ask for an ad-hoc chart or diagram.

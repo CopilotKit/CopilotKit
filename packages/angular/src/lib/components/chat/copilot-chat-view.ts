@@ -1,8 +1,14 @@
+import type {
+  TemplateRef,
+  Type,
+  OnInit,
+  OnChanges,
+  OnDestroy,
+  AfterViewInit,
+} from "@angular/core";
 import {
   Component,
   ContentChild,
-  TemplateRef,
-  Type,
   ViewChild,
   ElementRef,
   ChangeDetectionStrategy,
@@ -10,10 +16,6 @@ import {
   ViewEncapsulation,
   computed,
   signal,
-  OnInit,
-  OnChanges,
-  OnDestroy,
-  AfterViewInit,
   input,
   output,
   inject,
@@ -29,7 +31,7 @@ import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
 import { CopilotChatInput } from "./copilot-chat-input";
 import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
 import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
@@ -428,11 +430,11 @@ export class CopilotChatView
   private resizeTimeoutRef?: number;
   private measurementRetryTimeoutRef?: number;
   private readonly ngZone = inject(NgZone);
+  private readonly cdr = inject(ChangeDetectorRef);
   private destroyed = false;
 
   constructor(
     private resizeObserverService: ResizeObserverService,
-    private cdr: ChangeDetectorRef,
     private handlers: CopilotChatViewHandlers,
   ) {
     // Clear any pending resize timeout when toggling isResizing, without signal writes here

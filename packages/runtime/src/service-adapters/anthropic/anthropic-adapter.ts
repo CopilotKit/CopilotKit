@@ -25,7 +25,7 @@
 import type { LanguageModel } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type Anthropic from "@anthropic-ai/sdk";
-import {
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,

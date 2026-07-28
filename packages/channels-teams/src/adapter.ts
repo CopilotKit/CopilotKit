@@ -21,6 +21,7 @@ import type {
   ChannelNode,
   ThreadMessage,
   AgentContentPart,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { ConversationReference } from "@microsoft/agents-activity";
 import { TeamsConversationStore } from "./conversation-store.js";
@@ -476,7 +477,7 @@ export class TeamsAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as TeamsReplyTarget;
     const mime = mimeFromFilename(filename);
     const base64 = Buffer.from(bytes).toString("base64");
@@ -486,22 +487,24 @@ export class TeamsAdapter implements PlatformAdapter {
       name: altText ?? filename,
     });
     try {
+      // Teams posts the attachment as an activity, so the returned id IS the
+      // message id (usable for update/delete) — not a media-storage handle.
       if (t.context) {
         const res = await t.context.sendActivity(activity);
-        return { ok: true, fileId: res?.id };
+        return { ok: true, messageId: res?.id };
       }
       if (this.cloud && t.reference) {
-        let fileId: string | undefined;
+        let messageId: string | undefined;
         const appId = this.opts.clientId ?? process.env.clientId ?? "";
         await this.cloud.continueConversation(
           appId,
           t.reference as Parameters<CloudAdapter["continueConversation"]>[1],
           async (context) => {
             const res = await context.sendActivity(activity);
-            fileId = res?.id;
+            messageId = res?.id;
           },
         );
-        return { ok: true, fileId };
+        return { ok: true, messageId };
       }
       return { ok: false, error: "no live or proactive context to post on" };
     } catch (e) {

@@ -267,6 +267,10 @@ export class FakeAdapter implements PlatformAdapter {
   }[] = [];
   postEphemeral?: PlatformAdapter["postEphemeral"];
 
+  // --- file upload ---
+  /** Override in tests to simulate an adapter that supports (or rejects) file upload. */
+  postFile?: PlatformAdapter["postFile"];
+
   // --- modals ---
   openedModals: { triggerId: string; ir: ChannelNode[] }[] = [];
   renderModal?: PlatformAdapter["renderModal"];

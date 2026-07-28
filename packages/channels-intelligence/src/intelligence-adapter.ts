@@ -4,6 +4,7 @@ import type {
   MessageRef,
   PlatformUser,
   ThreadMessage,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type {
   StateStore,
@@ -683,7 +684,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const channelTarget = target as ChannelReplyTarget;
     const uploadFile = this.source?.uploadFile?.bind(this.source);
     if (!uploadFile || !this.renderSink) {

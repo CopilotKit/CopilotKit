@@ -1,0 +1,27 @@
+/*
+ * Tailwind input for the image-rendered cards. Compile to styles/brand.css with
+ * `pnpm build:css`; that compiled sheet is fed to `createChannel({ render:
+ * { stylesheets } })` and Takumi resolves the classes when rasterizing.
+ *
+ * `@source` tells Tailwind which files to scan for class names (the card
+ * components), so only used utilities land in the output.
+ */
+@import "tailwindcss";
+
+@source "../app/**/*.{ts,tsx}";
+
+/* CopilotKit brand tokens — usable as bg-brand-*, text-brand-*, font-brand. */
+@theme {
+  --font-brand: "Plus Jakarta Sans", sans-serif;
+  --color-brand-purple: #5a3cd1;
+  --color-brand-mint: #85ecce;
+  --color-brand-mint-deep: #189370;
+  --color-brand-blue: #3d92e8;
+  --color-brand-orange: #ffac4d;
+  --color-brand-periwinkle: #bec2ff;
+  --color-brand-ink: #010507;
+  --color-brand-muted: #57575b;
+  --color-brand-surface: #ffffff;
+  --color-brand-bg: #f4f4f8;
+  --color-brand-border: #dbdbe5;
+}

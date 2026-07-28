@@ -4,10 +4,8 @@ import type {
   ActivityRenderer,
   RenderActivityMessageConfig,
 } from "@copilotkit/angular";
-import {
-  mcpAppsSnapshotContentSchema,
-  type MCPAppsSnapshotContent,
-} from "./mcp-apps-content";
+import { mcpAppsSnapshotContentSchema } from "./mcp-apps-content";
+import type { MCPAppsSnapshotContent } from "./mcp-apps-content";
 import { CopilotMCPAppsWidget } from "./mcp-apps-widget";
 
 /**

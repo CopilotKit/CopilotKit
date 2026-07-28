@@ -12,6 +12,8 @@
     "interactive",
     "commands-and-reactions",
     "files-and-multimodality",
+    "posting-jsx-as-images",
+    "charts",
     "mcp",
     "configuration",
     "persistence",

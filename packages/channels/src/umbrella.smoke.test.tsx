@@ -11,6 +11,12 @@ import { whatsapp } from "@copilotkit/channels/whatsapp";
 import { slackCodec } from "@copilotkit/channels/slack/codec";
 import { renderSlackMessage } from "@copilotkit/channels/slack/render";
 import { renderAdaptiveCard } from "@copilotkit/channels/teams/render";
+import {
+  BarChart,
+  LineChart,
+  PieChart,
+  DEFAULT_CHART_COLORS,
+} from "@copilotkit/channels/charts";
 
 describe("@copilotkit/channels umbrella", () => {
   it("exposes the existing engine, testing API, and JSX vocabulary", () => {
@@ -43,4 +49,11 @@ describe("@copilotkit/channels umbrella", () => {
   it("keeps Intelligence gateway and bootstrap internals private", () => {
     expect(Object.keys(intelligence).sort()).toEqual(["intelligenceAdapter"]);
   });
+});
+
+it("exposes chart components from the umbrella /charts entry", () => {
+  expect(typeof BarChart).toBe("function");
+  expect(typeof LineChart).toBe("function");
+  expect(typeof PieChart).toBe("function");
+  expect(DEFAULT_CHART_COLORS.length).toBeGreaterThan(0);
 });

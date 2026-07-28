@@ -17,7 +17,6 @@
  */
 import { z } from "zod";
 import { Context, Header, Message, Section } from "@copilotkit/channels";
-import type { ChannelNode } from "@copilotkit/channels";
 import { accentForIssues, stateGlyph } from "./_status.js";
 
 const issueSchema = z.object({
@@ -59,7 +58,7 @@ const MAX = 15;
 const TITLE_MAX = 70;
 
 /** Render a list of Linear issues as a compact, fixed-size Block Kit card. */
-export function IssueList({ heading, issues }: IssueListProps): ChannelNode {
+export function IssueList({ heading, issues }: IssueListProps) {
   const lines = issues.slice(0, MAX).map((issue: Issue) => {
     const idLink = issue.url
       ? `[**${issue.identifier}**](${issue.url})`

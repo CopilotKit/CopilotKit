@@ -8,11 +8,8 @@ import type {
   ResumeEntry,
   RunAgentResult,
 } from "@ag-ui/client";
-import {
-  ɵInterruptState,
-  type ɵInterruptDecision,
-  type ɵPendingInterrupt,
-} from "@copilotkit/core";
+import { ɵInterruptState } from "@copilotkit/core";
+import type { ɵInterruptDecision, ɵPendingInterrupt } from "@copilotkit/core";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 
 import { injectAgentStore } from "./agent";

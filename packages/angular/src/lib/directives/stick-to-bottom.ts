@@ -1,8 +1,7 @@
+import type { OnDestroy, AfterViewInit } from "@angular/core";
 import {
   Directive,
   ElementRef,
-  OnDestroy,
-  AfterViewInit,
   PLATFORM_ID,
   afterNextRender,
   inject,
