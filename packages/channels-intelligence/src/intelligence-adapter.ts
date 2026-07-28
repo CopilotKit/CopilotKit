@@ -79,6 +79,13 @@ interface ChannelReplyTarget {
   deliveryId: string;
 }
 
+function adapterFromRoute(route: unknown): string | undefined {
+  if (typeof route !== "object" || route === null || !("adapter" in route)) {
+    return undefined;
+  }
+  return typeof route.adapter === "string" ? route.adapter : undefined;
+}
+
 /** Recover the routing a minted {@link MessageRef} carries (for update/delete). */
 function targetFromRef(ref: MessageRef): ChannelReplyTarget {
   if (ref.__deliveryId === undefined || ref.__turnId === undefined) {
@@ -173,6 +180,12 @@ export interface IntelligenceAdapterOptions {
    * behavior). Default 20.
    */
   historyLimit?: number;
+  /**
+   * Emit visible tool-call lifecycle frames. When omitted, Slack routes default
+   * to false and other routes retain the existing visible default. Tool calls
+   * are always captured for execution regardless of this display-only option.
+   */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -995,6 +1008,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const sink = this.renderSinkFor(t);
     const interruptEventNames = new Set<string>(["on_interrupt"]);
     const capturedToolCalls: CapturedToolCall[] = [];
+    const showToolStatus =
+      this.opts.showToolStatus ?? adapterFromRoute(t.route) !== "slack";
     let pendingInterrupt: CapturedInterrupt | undefined;
     let aborted = false;
     let runStarted = false;
@@ -1264,6 +1279,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       onToolCallStartEvent({ event }) {
         if (aborted) return;
         ensureRunStarted();
+        if (!showToolStatus) return;
         enqueue({
           kind: "tool_start",
           toolCallId: event.toolCallId,
@@ -1285,6 +1301,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           toolCallName,
           (toolCallArgs ?? {}) as Record<string, unknown>,
         );
+        if (!showToolStatus) return;
         enqueue({
           kind: "tool_end",
           toolCallId: event.toolCallId,

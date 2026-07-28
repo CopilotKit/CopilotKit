@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { EventType } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
@@ -95,7 +97,87 @@ function isObject(value: unknown): value is {
   return value !== null && typeof value === "object";
 }
 
+function createToolCallAgent() {
+  const agent = new FakeAgent();
+  const input: RunAgentInput = {
+    threadId: "thread_test",
+    runId: "run_test",
+    state: {},
+    messages: [],
+    tools: [],
+    context: [],
+  };
+  const subscriberContext = {
+    messages: [],
+    state: {},
+    agent,
+    input,
+  };
+  agent.setScript([
+    async (subscriber) => {
+      await subscriber.onToolCallStartEvent?.({
+        ...subscriberContext,
+        event: {
+          type: EventType.TOOL_CALL_START,
+          toolCallId: "tc1",
+          toolCallName: "search",
+        },
+      });
+      await subscriber.onToolCallEndEvent?.({
+        ...subscriberContext,
+        event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
+        toolCallName: "search",
+        toolCallArgs: {},
+      });
+    },
+  ]);
+  return agent;
+}
+
+async function renderToolCallKinds(showToolStatus?: boolean) {
+  const fake = makeFakeSession();
+  const bot = createChannel({
+    name: "opentag",
+    agent: createToolCallAgent,
+  });
+  bot.onMessage(async ({ thread }) => {
+    await thread.runAgent();
+  });
+
+  const handle = await startChannelsWithGatewaySession([bot], {
+    session: fake.session,
+    scope,
+    runtimeInstanceId: "rti_1",
+    ...(showToolStatus === undefined ? {} : { showToolStatus }),
+  });
+
+  try {
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (p) => p.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+    return fake.pushes.map(renderKind).filter(Boolean);
+  } finally {
+    await handle.stop();
+  }
+}
+
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
+  it("hides tool status frames by default", async () => {
+    expect(await renderToolCallKinds()).toEqual(["run_started", "finalize"]);
+  });
+
+  it("forwards the showToolStatus opt-in to the managed renderer", async () => {
+    expect(await renderToolCallKinds(true)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+  });
+
   it("finalizes a direct post before requesting completion and never self-acks", async () => {
     const fake = makeFakeSession();
     let ran = false;

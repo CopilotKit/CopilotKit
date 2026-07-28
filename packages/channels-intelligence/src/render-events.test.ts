@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import type { ReplyTarget } from "@copilotkit/channels-core";
+import type { AgentSubscriber } from "@ag-ui/client";
+import { EventType } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
+import { FakeAgent } from "@copilotkit/channels-core";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
@@ -18,16 +21,66 @@ import type {
 import { createRenderBatch } from "./render-batches.js";
 
 const target = {
-  route: { channel: "C1", threadTs: "100.0" },
+  route: { adapter: "slack", channel: "C1", threadTs: "100.0" },
   turnId: "turn_t1",
   deliveryId: "dlv_d1",
-} as unknown as ReplyTarget;
+};
 
-/** Drive a subscriber handler that may be sync or async. */
-type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
+const subscriberAgent = new FakeAgent();
+const subscriberInput: RunAgentInput = {
+  threadId: "thread_test",
+  runId: "run_test",
+  state: {},
+  messages: [],
+  tools: [],
+  context: [],
+};
+const subscriberContext = {
+  messages: [],
+  state: {},
+  agent: subscriberAgent,
+  input: subscriberInput,
+};
+
+function emitTextContent(
+  subscriber: AgentSubscriber,
+  messageId: string,
+  delta: string,
+) {
+  return subscriber.onTextMessageContentEvent?.({
+    ...subscriberContext,
+    event: { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta },
+    textMessageBuffer: "",
+  });
+}
+
+function emitTextEnd(subscriber: AgentSubscriber, messageId: string) {
+  return subscriber.onTextMessageEndEvent?.({
+    ...subscriberContext,
+    event: { type: EventType.TEXT_MESSAGE_END, messageId },
+    textMessageBuffer: "",
+  });
+}
+
+async function emitToolCall(subscriber: AgentSubscriber) {
+  await subscriber.onToolCallStartEvent?.({
+    ...subscriberContext,
+    event: {
+      type: EventType.TOOL_CALL_START,
+      toolCallId: "tc1",
+      toolCallName: "search",
+    },
+  });
+  await subscriber.onToolCallEndEvent?.({
+    ...subscriberContext,
+    event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
+    toolCallName: "search",
+    toolCallArgs: {},
+  });
+}
 
 describe("run renderer — render-event streaming (OSS-402)", () => {
-  it("mints ordered render frames with monotonic seq per (turn, slot) and a finalize", async () => {
+  it("hides tool status frames by default while preserving ordered text frames", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
@@ -35,23 +88,12 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
+    const sub = renderer.subscriber;
 
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onToolCallStartEvent?.({
-      event: { toolCallId: "tc1", toolCallName: "search" },
-    });
-    await sub.onToolCallEndEvent?.({
-      event: { toolCallId: "tc1" },
-      toolCallName: "search",
-      toolCallArgs: {},
-    } as never);
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitToolCall(sub);
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -59,15 +101,58 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "run_started",
       "text_delta",
       "text_delta",
-      "tool_start",
-      "tool_end",
       "text_end",
       "finalize",
     ]);
     // seq is monotonic and zero-based within (turn, slot).
-    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
+  });
+
+  it("emits tool status frames when showToolStatus is enabled", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: true,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber;
+
+    await emitToolCall(sub);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+  });
+
+  it("preserves visible tool status by default for non-Slack routes", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer({
+      ...target,
+      route: { adapter: "teams", conversationId: "conversation_1" },
+    });
+
+    await emitToolCall(renderer.subscriber);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
   });
 
   it("markInterrupted emits an interrupt frame then a finalize", async () => {
@@ -78,10 +163,8 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "partial" },
-    });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "partial");
     await renderer.markInterrupted();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -173,14 +256,10 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       egress,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     expect(egress.ops).toHaveLength(1);

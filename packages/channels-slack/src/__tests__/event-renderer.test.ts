@@ -175,11 +175,12 @@ describe("createRunRenderer", () => {
     expect(captured[0]?.toolCallArgs).toEqual({ title: "final" });
   });
 
-  it("tool-call status: showToolStatus default (true) → START posts 🔧, END edits to ✅", async () => {
+  it("tool-call status: showToolStatus:true → START posts 🔧, END edits to ✅", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -196,12 +197,11 @@ describe("createRunRenderer", () => {
     expect(fake.updates[0]?.text).toContain(":white_check_mark:");
   });
 
-  it("tool-call status: showToolStatus:false → no status posts but still captures", async () => {
+  it("tool-call status: hidden by default but still captured", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
-      showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -493,6 +493,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
@@ -633,8 +634,9 @@ describe("createRunRenderer — native status mode", () => {
 
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
   // "is thinking…" status instead of the old :hourglass: placeholder, and tool
-  // progress flows to both :wrench: rows and the composer "is using…" status
-  // (setStatus drives any thread anchor now, not just panes). ──────────────────
+  // progress, when enabled, flows to both :wrench: rows and the composer
+  // "is using…" status (setStatus drives any thread anchor now, not just
+  // panes). ────────────────────────────────────────────────────────────────────
   it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
@@ -653,6 +655,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "C1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: false, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },

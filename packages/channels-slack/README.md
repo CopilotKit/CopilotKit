@@ -164,10 +164,19 @@ is a thread — a true streaming UI rendering **raw markdown** (so real tables a
 fenced code render natively). A whole turn streams into **one** message: text
 from every step accumulates into a single bubble (Slack documents only a 12k
 char limit _per append_, with no cumulative cap, so there is no multi-message
-splitting), and tool calls surface as native in-message **`task_update`**
-chunks (a "timeline" of `Using …` → `Used …` steps) instead of separate status
-messages. Workspaces where structured chunks aren't available degrade
-automatically to `:wrench:` status rows.
+splitting). Tool-call progress is hidden by default so the final reply stays
+clean. Pass `showToolStatus: true` to surface calls as native in-message
+**`task_update`** chunks (a "timeline" of `Using …` → `Used …` steps) instead
+of separate status messages. Workspaces where structured chunks aren't
+available degrade automatically to `:wrench:` status rows.
+
+```ts
+slack({
+  botToken,
+  appToken,
+  showToolStatus: true,
+});
+```
 
 Flat DMs (no thread) and any workspace where the streaming API is unavailable
 fall back automatically to the shipped `chat.update` transport (throttled edits,
@@ -209,9 +218,10 @@ channel @-mentions, threads it owns, DMs, and the assistant pane. Slack now
 accepts this method with the ordinary **`chat:write`** scope (no `assistant:write`
 needed just for the loading state), so it works for channel-based apps too. The
 status auto-clears when the reply streams in. Tool progress is surfaced per
-surface: the pane uses live composer status ("is using \`tool\`…"); elsewhere it
-uses the native `task_update` timeline (or `:wrench:` rows on older workspaces).
-Set `assistant: false` to opt out of the status (and pane) entirely.
+surface only when `showToolStatus: true`: the pane uses live composer status
+("is using \`tool\`…"); elsewhere it uses the native `task_update` timeline
+(or `:wrench:` rows on older workspaces). Set `assistant: false` to opt out of
+the status (and pane) entirely.
 
 ### Assistant pane (agent-native, default-on)
 
@@ -221,8 +231,8 @@ the adapter activates Slack's assistant pane with **zero config**:
 
 - Opening the pane posts a greeting + tappable prompt chips, and each pane
   conversation is its own thread (replies stay in-thread).
-- While the agent runs, native composer status is shown (see above), with
-  "is using \`tool\`…" per tool call.
+- While the agent runs, native composer status is shown (see above). Opt in
+  with `showToolStatus: true` to show "is using \`tool\`…" per tool call.
 - The pane thread is auto-titled from the first message.
 
 Customize via the `assistant` option, or set `assistant: false` to disable pane

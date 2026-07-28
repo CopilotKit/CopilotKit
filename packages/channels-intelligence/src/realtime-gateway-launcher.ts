@@ -91,6 +91,8 @@ export interface StartChannelsWithGatewaySessionOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
+  /** Override tool-call visibility. Slack defaults false; other routes default true. */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -124,6 +126,7 @@ export async function startChannelsWithGatewaySession(
       renderSink: transport,
       egress: realtimeGatewayEgress,
     }),
+    showToolStatus: opts.showToolStatus,
     // The required runtimeInstanceId is authoritative: merge it in LAST so
     // `handle.metadata` reports the same id the transport stamps on every
     // envelope, regardless of any `env` overrides (which cannot carry it).
@@ -202,6 +205,8 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   webSocket?: unknown;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
+  /** Override tool-call visibility. Slack defaults false; other routes default true. */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -294,6 +299,7 @@ export async function startChannelsOverRealtimeGateway(
       // so forward only the caller's overrides here (they cannot carry the id).
       ...(config.env ? { env: config.env } : {}),
       ...(config.log ? { log: config.log } : {}),
+      showToolStatus: config.showToolStatus,
     });
   } catch (err) {
     session.disconnect();
