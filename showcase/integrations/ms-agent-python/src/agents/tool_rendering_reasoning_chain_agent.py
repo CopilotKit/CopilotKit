@@ -205,11 +205,13 @@ def _build_reasoning_chain_chat_client() -> BaseChatClient:
 
     Mirrors ``reasoning_agent.py::_build_reasoning_chat_client`` — the model
     env var defaults to ``OPENAI_REASONING_MODEL`` and then the canonical
-    ``gpt-5.4`` so the fixture's ``response.reasoning_summary_text.delta``
-    events surface as AG-UI ``REASONING_MESSAGE_*`` events.
+    ``gpt-5`` so the fixture's ``response.reasoning_summary_text.delta``
+    events surface as AG-UI ``REASONING_MESSAGE_*`` events. (``gpt-5.4``
+    emitted no reasoning tokens under aimock replay — same bug the
+    reasoning-default cell hit before the D6 port.)
     """
     return OpenAIChatClient(
-        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5"),
         api_key=os.environ.get("OPENAI_API_KEY"),
     )
 

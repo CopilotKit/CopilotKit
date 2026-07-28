@@ -1,0 +1,134 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / a2ui-recovery (A2UI error recovery)",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-07-28",
+    "_note": "Backend-owned A2UI (recovery_agent.py, injectA2UITool=false). MAF has no toolkit validate→retry loop (unlike LangGraph get_a2ui_tools); the agent uses the a2ui_dynamic secondary-LLM pattern (forced _design_a2ui_surface). NO `context` match field: a real browser (the dojo) does NOT send x-aimock-context (only the test harness does), so context-scoped fixtures would 404 in-browser. The recovery pills' prompts are UNIQUE (same as LG suggestions.ts), so userMessage alone disambiguates. Flow per pill: outer generate_a2ui emit (hasToolResult:false + userMessage; context arg steers the secondary call when session does not surface the pill text); inner _design_a2ui_surface (userMessage=steering phrase + toolName); outer narration (hasToolResult:true). HEAL: secondary returns valid Column + two Metric tiles -> paints declarative-metric x2. EXHAUST: secondary returns structurally invalid surface (dangling child) -> parity target is a graceful failure / no broken paint. toolCallId prefixes use call_d6_msap_ for uniqueness vs LG's call_d6_lp_."
+  },
+  "fixtures": [
+    {
+      "_comment": "HEAL pill - INNER secondary planner (_design_a2ui_surface): VALID surface (Column + two Metric tiles) -> paints declarative-metric x2. userMessage matches the outer generate_a2ui context steering phrase.",
+      "match": {
+        "userMessage": "Q2 revenue summary self-correct malformed",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_heal_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL pill - INNER fallback when session surfaces the full pill prompt as the secondary user message (a2ui_dynamic-style session pull).",
+      "match": {
+        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_heal_design_full",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL pill - outer agent emits generate_a2ui with a context steering phrase (hasToolResult:false so it fires once before narration).",
+      "match": {
+        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_heal_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Q2 revenue summary self-correct malformed\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL pill - outer narration after generate_a2ui returns (hasToolResult:true).",
+      "match": {
+        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "The first render came back malformed - I recovered and painted your Q2 revenue summary."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST pill - INNER secondary planner: structurally INVALID (root references a missing child). MAF has no multi-attempt recovery loop; parity target is a graceful failure rather than a broken surface.",
+      "match": {
+        "userMessage": "report fails every validation pass fallback",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_exhaust_design",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST pill - INNER fallback when session surfaces the full pill prompt.",
+      "match": {
+        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "toolName": "_design_a2ui_surface"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_exhaust_design_full",
+            "name": "_design_a2ui_surface",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST pill - outer agent emits generate_a2ui (hasToolResult:false).",
+      "match": {
+        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_exhaust_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"report fails every validation pass fallback\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST pill - outer narration after generate_a2ui returns (hasToolResult:true).",
+      "match": {
+        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

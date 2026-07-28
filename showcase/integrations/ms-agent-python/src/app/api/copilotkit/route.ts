@@ -578,6 +578,10 @@ const agentNames = [
   // Aliases for ADK/LGP-style underscore names (frontend pages use these).
   "frontend_tools",
   "frontend_tools_async",
+  // ENT-658: threadid-frontend-tool-roundtrip reuses the neutral frontend-tools
+  // agent (same as langgraph-python: createAgent("frontend_tools")). No dedicated
+  // Python agent file — page uses existing catch-all backend via createAgent().
+  "threadid-frontend-tool-roundtrip",
 ];
 
 // Agent names routed to the interrupt-adapted scheduling backend. Both
