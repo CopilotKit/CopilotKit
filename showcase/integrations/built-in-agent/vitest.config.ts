@@ -13,6 +13,9 @@ export default defineConfig({
     include: [
       "src/cvdiag-backend.test.ts",
       "src/cvdiag-backend-persist.e2e.test.ts",
+      // TanStack→AG-UI converter state emission (`/delegations`, `/steps`).
+      // Pure event-in/event-out, so it needs no Next.js build either.
+      "src/lib/factory/tanstack-factory.test.ts",
     ],
     // The live-PB e2e seam needs room to boot PocketBase + drain flush windows.
     testTimeout: 30_000,
