@@ -124,6 +124,9 @@ test("routes the global Channels overview to each surface quickstart", () => {
   expect(isChannelsOverviewPath("/channels")).toBe(true);
   expect(isChannelsOverviewPath("/channels/")).toBe(true);
   expect(isChannelsOverviewPath("/channels/tools")).toBe(false);
+  expect(isChannelsOverviewPath("channels")).toBe(false);
+  expect(isChannelsOverviewPath("//channels//")).toBe(false);
+  expect(isChannelsOverviewPath("/channels//")).toBe(false);
   expect(frontendPathForCurrentPath("react", "/channels", backendSlugs)).toBe(
     "/",
   );

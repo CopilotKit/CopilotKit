@@ -144,7 +144,7 @@ function pathnameSegments(pathname: string): string[] {
 }
 
 export function isChannelsOverviewPath(pathname: string): boolean {
-  return pathnameSegments(pathname).join("/") === "channels";
+  return pathname === "/channels" || pathname === "/channels/";
 }
 
 export function parseFrontendRoutePath(
