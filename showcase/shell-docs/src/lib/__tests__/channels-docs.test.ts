@@ -150,6 +150,9 @@ describe("Channels documentation journey", () => {
       expect(source, slug).toContain('status.overall !== "online"');
       expect(source, slug).toMatch(/opens? no\s+connection/i);
       expect(source, slug).toMatch(/`ready\(\)` is required/i);
+      expect(source, `${slug} bypasses the optional control guard`).not.toMatch(
+        /listener\.channels\.(?:ready|status)\(/,
+      );
       expect(
         source.indexOf('process.once("SIGTERM", shutdown)'),
         `${slug} registers shutdown before activation`,
@@ -157,6 +160,11 @@ describe("Channels documentation journey", () => {
         source.indexOf("await channels.ready({ timeoutMs: 30_000 })"),
       );
     }
+
+    expect(
+      bodyFor("channels/intelligence"),
+      "Intelligence walkthrough bypasses the optional control guard",
+    ).not.toMatch(/listener\.channels\.(?:ready|status)\(/);
   });
 
   it("treats the Intelligence REST and realtime endpoints as separate bases", () => {

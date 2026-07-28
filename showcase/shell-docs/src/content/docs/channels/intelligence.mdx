@@ -235,15 +235,15 @@ agent factories can point to the same agent backend.
   <Step>
     ### Know the healthy state
 
-    After you start the process and call
-    `await listener.channels.ready(...)`, the Channel should become **Online**.
+    After you start the process and call `await channels.ready(...)` on the
+    guarded control from the quickstart, the Channel should become **Online**.
 
     | Status | What to check |
     | --- | --- |
     | **Disabled** | Enable the Channel before expecting delivery. |
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
-    | **Waiting for runtime** | Start the process, call `await listener.channels.ready(...)`, and match its Code and provider to this Channel. |
+    | **Waiting for runtime** | Start the process, call `await channels.ready(...)` on the guarded control, and match its Code and provider to this Channel. |
     | **Conflict** | Stop the duplicate runtime claiming the same Channel declaration. |
     | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |

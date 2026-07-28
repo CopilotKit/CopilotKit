@@ -233,8 +233,9 @@ credentials; your process owns the agent and application logic.
     complete zip; do not unzip and upload only `manifest.json`.
   </Accordion>
   <Accordion title="Startup settles but does not become Online">
-    Inspect `listener.channels.status()`. Finish any **Setup incomplete** state
-    in Intelligence and stop conflicting runtime replicas before retrying.
+    Inspect `channels.status()` after the guard in the runner. Finish any
+    **Setup incomplete** state in Intelligence and stop conflicting runtime
+    replicas before retrying.
   </Accordion>
 </Accordions>
 
