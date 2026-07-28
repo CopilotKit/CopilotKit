@@ -177,6 +177,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * transport support, or a fetch failure) just means the turn starts fresh.
    */
   readonly conversationStore: ConversationStore = {
+    seedsInboundTurn: false,
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const agent = makeAgent(conversationKey);
       const route = (replyTarget as ChannelReplyTarget).route;

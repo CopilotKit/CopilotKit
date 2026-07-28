@@ -234,6 +234,12 @@ export interface AgentSession {
 
 /** Adapter-owned conversation state; the adapter resolves (or creates) the agent session for a conversation. */
 export interface ConversationStore {
+  /**
+   * Whether {@link getOrCreate} seeds the in-flight inbound turn into the
+   * agent's messages. When true, `Thread.runAgent()` must not inject that turn
+   * again.
+   */
+  readonly seedsInboundTurn?: boolean;
   getOrCreate(
     conversationKey: string,
     replyTarget: ReplyTarget,
