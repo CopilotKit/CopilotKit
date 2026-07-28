@@ -42,5 +42,20 @@ the backend is a native TypeScript (`@langchain/langgraph`) port.
   never appends the confirmation bubble, so the harness DOM settle-check times
   out. Red/NSF on the langgraph-python north star too — not a regression here.
 
+## Known behavioral divergence (green, but not byte-behavior-identical to LGP)
+
+- **reasoning-display** (reasoning-custom / reasoning-default) — GREEN, but the
+  reasoning summary does NOT stream token-by-token as it does on
+  langgraph-python. Cause: `@langchain/openai@1.4.4`'s streaming Responses
+  converter pushes the reasoning-summary delta and the answer output_text delta
+  to the same content-block index (both index 0), so the streaming reducer
+  collapses them and the answer is swallowed into the reasoning block (the D6
+  probe then reds with `text-unstable`). Workaround: `disableStreaming: true` in
+  `src/agent/reasoning-agent.ts` forces the non-streaming converter, which
+  yields a correct reasoning block + a separate answer block. Net: reasoning +
+  answer render correctly (matching LGP's content), but arrive at once rather
+  than streamed. Revisit / remove `disableStreaming` when the upstream
+  `@langchain/openai` index-collision bug is fixed.
+
 All other declared cells are GREEN (verified via aimock D6 with the dedicated
 graph running, not the generic `sample_agent`/`starterAgent` fallback).

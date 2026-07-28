@@ -56,6 +56,22 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     model: REASONING_MODEL,
     useResponsesApi: true,
     reasoning: { effort: "low", summary: "auto" },
+    // Token-level streaming of the OpenAI Responses API is buggy in
+    // @langchain/openai@1.4.4: the reasoning-summary delta (index =
+    // summary_index = 0) and the answer output_text delta (index =
+    // content_index = 0) are pushed to the SAME content-block index, so the
+    // streaming reducer collapses them into a single `type: "reasoning"`
+    // block whose `text` field silently swallows the answer. @ag-ui/langgraph
+    // then reads `content[0].type === "reasoning"` for every chunk and routes
+    // the whole turn (answer included) to REASONING_MESSAGE_* events — no
+    // assistant TEXT_MESSAGE ever renders, so the D6 reasoning-display probe
+    // reds with `text-unstable`. The NON-streaming Responses converter
+    // (`convertResponsesMessageToAIMessage`) processes final output *items*
+    // (not indexed deltas) and correctly yields TWO separate blocks — a
+    // `reasoning` block and a `text` block. Disabling token streaming forces
+    // that correct path; the bridge then emits both a reasoning message and
+    // the assistant answer, matching langgraph-python's rendering.
+    disableStreaming: true,
   });
 
   const response = await model.invoke(
