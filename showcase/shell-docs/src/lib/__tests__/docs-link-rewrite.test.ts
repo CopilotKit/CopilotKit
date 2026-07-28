@@ -60,6 +60,40 @@ describe("resolveDocsHref", () => {
     );
   });
 
+  it("preserves the active backend beneath an explicit Vue link namespace", () => {
+    const options = {
+      slugHrefPrefix: "/vue/langgraph-python",
+      frameworkOverride: "langgraph-python",
+      linkNamespaceFramework: "vue",
+    };
+
+    expect(resolveDocsHref("/langgraph-python/quickstart", options)).toBe(
+      "/vue/langgraph-python/quickstart",
+    );
+    expect(resolveDocsHref("/threads", options)).toBe(
+      "/vue/langgraph-python/threads",
+    );
+    expect(resolveDocsHref("/mastra/quickstart", options)).toBe(
+      "/mastra/quickstart",
+    );
+  });
+
+  it("leaves authored links unchanged when link scoping is explicitly disabled", () => {
+    const options = {
+      slugHrefPrefix: "/vue",
+      frameworkOverride: "built-in-agent",
+      linkNamespaceFramework: null,
+    };
+
+    expect(resolveDocsHref("/threads", options)).toBe("/threads");
+    expect(resolveDocsHref("/built-in-agent/server-tools", options)).toBe(
+      "/built-in-agent/server-tools",
+    );
+    expect(
+      resolveDocsHref("/integrations/built-in-agent/model-selection", options),
+    ).toBe("/integrations/built-in-agent/model-selection");
+  });
+
   it("does not scope cross-framework or reserved-route links", () => {
     const options = {
       slugHrefPrefix: "/mastra",

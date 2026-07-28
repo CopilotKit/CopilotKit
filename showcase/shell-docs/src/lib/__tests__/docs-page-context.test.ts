@@ -37,4 +37,16 @@ describe("resolveDocsPageContext", () => {
       linkNamespaceFramework: undefined,
     });
   });
+
+  it("preserves an explicit null link namespace", () => {
+    expect(
+      resolveDocsPageContext({
+        frameworkOverride: "built-in-agent",
+        linkNamespaceFramework: null,
+      }),
+    ).toEqual({
+      backendFramework: "built-in-agent",
+      linkNamespaceFramework: null,
+    });
+  });
 });

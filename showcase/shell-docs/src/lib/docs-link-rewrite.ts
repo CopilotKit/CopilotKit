@@ -67,6 +67,10 @@ export function resolveDocsHref(
   if (!href.startsWith("/") || href.startsWith("//")) return href;
 
   const hasExplicitLinkNamespace = linkNamespaceFramework !== undefined;
+  if (hasExplicitLinkNamespace && linkNamespaceFramework === null) {
+    return href;
+  }
+
   const linkRewriteFramework = hasExplicitLinkNamespace
     ? linkNamespaceFramework
     : (frameworkOverride ?? (slugHrefPrefix === "" ? ROOT_FRAMEWORK : null));
@@ -86,6 +90,17 @@ export function resolveDocsHref(
     return hasExplicitLinkNamespace && slugHrefPrefix
       ? joinPrefixedPath(slugHrefPrefix, legacyIntegrationPath)
       : legacyIntegrationPath;
+  }
+
+  const activeBackendPath = frameworkOverride
+    ? stripPathPrefix(href, `/${frameworkOverride}`)
+    : null;
+  if (
+    hasExplicitLinkNamespace &&
+    activeBackendPath !== null &&
+    slugHrefPrefix
+  ) {
+    return joinPrefixedPath(slugHrefPrefix, activeBackendPath);
   }
 
   const firstSegment = href.slice(1).split(/[/?#]/, 1)[0];

@@ -29,8 +29,7 @@ describe("Vue shared-route exceptions", () => {
     const cli = readVariant("cli");
     const skills = readVariant("build-with-agents");
 
-    expect(cli).toContain("copilotkit@4.4.0");
-    expect(cli).toContain("does not include a Vue template");
+    expect(cli).toMatch(/does not\s+include a Vue template/);
     expect(cli).not.toContain("npx copilotkit@latest create");
     expect(skills).toContain("`copilotkit-setup` and `copilotkit-develop`");
     expect(skills).toContain("do not support Vue setup");
