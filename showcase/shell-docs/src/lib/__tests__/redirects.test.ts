@@ -219,20 +219,19 @@ describe("retired Channels guide redirects", () => {
   });
 });
 
-describe("generated reference and Bots aliases", () => {
-  it("resolves generated Channels references before framework catch-alls", async () => {
+describe("retired generated reference and Bots aliases", () => {
+  it("sends retired Channels references to the provider-neutral guide overview", async () => {
     const generatedReferenceCases = [
-      ["/reference/channels/classes/Thread", "/slack/reference/thread"],
-      [
-        "/reference/channels/types/InteractionContext",
-        "/slack/reference/callbacks",
-      ],
-      [
-        "/reference/channels/components/ApproveButton",
-        "/slack/reference/callbacks",
-      ],
-      ["/reference/channels/classes/Channel", "/slack/reference/channel"],
-      ["/reference/channels", "/slack/reference/channel"],
+      ["/reference/channels/classes/Thread", "/channels"],
+      ["/reference/channels/types/InteractionContext", "/channels"],
+      ["/reference/channels/components/ApproveButton", "/channels"],
+      ["/reference/channels/classes/Channel", "/channels"],
+      ["/reference/channels/functions/createBot", "/channels"],
+      ["/reference/channels/functions/defineBotTool", "/channels"],
+      ["/reference/channels/types/ActionStore", "/channels"],
+      ["/reference/channels/slack/renderBlockKit", "/channels"],
+      ["/reference/channels/discord", "/channels"],
+      ["/reference/channels", "/channels"],
     ] as const;
 
     for (const [source, destination] of generatedReferenceCases) {
@@ -258,23 +257,23 @@ describe("generated reference and Bots aliases", () => {
       );
       await expectPermanentOneHop(
         `/reference/bot${suffix}`,
-        `/slack/reference/channel${suffix}`,
+        `/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/classes/Thread${suffix}`,
-        `/slack/reference/thread${suffix}`,
+        `/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/types/InteractionContext${suffix}`,
-        `/slack/reference/callbacks${suffix}`,
+        `/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/components/ApproveButton${suffix}`,
-        `/slack/reference/callbacks${suffix}`,
+        `/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/classes/Bot${suffix}`,
-        `/slack/reference/channel${suffix}`,
+        `/channels${suffix}`,
       );
     }
   });

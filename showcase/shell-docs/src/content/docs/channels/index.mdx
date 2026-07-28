@@ -13,20 +13,23 @@ listener, and sends the response back as native channel UI.
 
 <Cards>
   <Card
-    title="Build for Slack · Production ready"
+    title="Build for Slack"
     href="/slack"
     description="Configure a managed Slack app, connect your agent framework, then add tools, approvals, and durable state."
   />
   <Card
-    title="Build for Microsoft Teams · Production ready"
+    title="Build for Microsoft Teams"
     href="/teams"
     description="Configure an Azure Bot and Teams app, connect your agent framework, then add tools, approvals, and durable state."
   />
 </Cards>
 
-Discord, WhatsApp, GitHub, and Linear are coming soon. They appear in
-Intelligence as roadmap items, but they do not have setup guides or selectable
-docs routes yet.
+The retired symbol pages documented the pre-0.3 direct-adapter API. For the
+current managed Channels journey, start with [Slack](/slack) or
+[Microsoft Teams](/teams); each provider section includes the maintained
+Channel, Thread, and callback contracts.
+
+Discord and WhatsApp support is coming soon.
 
 ## How a message reaches your agent
 
@@ -52,7 +55,7 @@ your agent, tools, or business logic into CopilotKit.
 | Tools and approval business logic      | Runtime registration, health, and reconnects  |
 | Deployment, logs, and application auth | Conversation-history delivery to the listener |
 
-## The three things to keep aligned
+## Match your Channels configuration
 
 Keep these separate:
 

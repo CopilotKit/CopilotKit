@@ -63,14 +63,6 @@ function SelectorAffordance({ active }: { active: boolean }) {
   );
 }
 
-function FrontendProductionReadyBadge() {
-  return (
-    <span className="shell-docs-radius-control inline-flex shrink-0 self-center border border-[var(--border)] bg-[var(--bg-elevated)] px-1 py-0 text-[8px] font-semibold leading-[10px] text-[var(--text-muted)]">
-      Production ready
-    </span>
-  );
-}
-
 export function FrameworkSelector({
   options,
   categoryOrder: _categoryOrder,
@@ -291,12 +283,7 @@ export function FrameworkSelector({
                   {isChannelsOverview ? (
                     <span className="truncate">Channels overview</span>
                   ) : (
-                    <>
-                      <span className="truncate">{selectedFrontend.name}</span>
-                      {isChannelFrontend(selectedFrontend.id) && (
-                        <FrontendProductionReadyBadge />
-                      )}
-                    </>
+                    <span className="truncate">{selectedFrontend.name}</span>
                   )}
                 </span>
               </span>
@@ -392,9 +379,6 @@ export function FrameworkSelector({
                       </span>
                       <span className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
                         <span className="truncate">{option.name}</span>
-                        {isChannelFrontend(option.id) && (
-                          <FrontendProductionReadyBadge />
-                        )}
                       </span>
                     </button>
                   </React.Fragment>

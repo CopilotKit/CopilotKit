@@ -150,7 +150,7 @@ describe("FrameworkSelector", () => {
     expect(markup).not.toContain("React Native");
   });
 
-  it("labels Slack and Teams as production ready", () => {
+  it("presents Slack and Teams without redundant status badges", () => {
     navigation.pathname = "/slack";
 
     const markup = renderToStaticMarkup(
@@ -162,10 +162,9 @@ describe("FrameworkSelector", () => {
     );
 
     expect(markup).toContain("Slack");
-    expect(markup).toContain("Production ready");
-    expect(markup).toContain("px-1 py-0 text-[8px]");
-    expect(markup).toContain("leading-[10px]");
-    expect(markup).toContain("self-center");
+    expect(markup).not.toContain("Production ready");
+    expect(markup).not.toContain("px-1 py-0 text-[8px]");
+    expect(markup).not.toContain("leading-[10px]");
   });
 
   it("separates channel frontends under a non-selectable Channels SDK label", () => {
@@ -176,7 +175,7 @@ describe("FrameworkSelector", () => {
 
     expect(componentSource).toContain("Channels SDK");
     expect(componentSource).toContain('role="separator"');
-    expect(componentSource).toContain("FrontendProductionReadyBadge");
+    expect(componentSource).not.toContain("FrontendProductionReadyBadge");
     expect(componentSource).not.toContain("FrontendEarlyAccessBadge");
   });
 

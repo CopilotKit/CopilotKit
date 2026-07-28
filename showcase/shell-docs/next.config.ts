@@ -105,26 +105,8 @@ const RETIRED_CHANNEL_GUIDES = [
 ] as const;
 
 const GENERATED_CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] = [
-  ...permanentRedirectsWithSuffixes(
-    "/reference/channels/classes/Thread",
-    "/slack/reference/thread",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/channels/types/InteractionContext",
-    "/slack/reference/callbacks",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/channels/components/:path*",
-    "/slack/reference/callbacks",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/channels",
-    "/slack/reference/channel",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/channels/:path*",
-    "/slack/reference/channel",
-  ),
+  ...permanentRedirectsWithSuffixes("/reference/channels", "/channels"),
+  ...permanentRedirectsWithSuffixes("/reference/channels/:path*", "/channels"),
 ];
 
 const MAINTAINED_CHANNEL_GUIDE_REDIRECTS = CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap(
@@ -158,26 +140,8 @@ const BOTS_REDIRECTS: PermanentRedirect[] = [
     "/bots/interactive/:path+",
     "/slack/interactive",
   ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/bot/classes/Thread",
-    "/slack/reference/thread",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/bot/types/InteractionContext",
-    "/slack/reference/callbacks",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/bot/components/:path*",
-    "/slack/reference/callbacks",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/bot",
-    "/slack/reference/channel",
-  ),
-  ...permanentRedirectsWithSuffixes(
-    "/reference/bot/:path*",
-    "/slack/reference/channel",
-  ),
+  ...permanentRedirectsWithSuffixes("/reference/bot", "/channels"),
+  ...permanentRedirectsWithSuffixes("/reference/bot/:path*", "/channels"),
   ...permanentRedirectsWithSuffixes("/bots", "/channels"),
   ...permanentRedirectsWithSuffixes("/bots/:path*", "/channels"),
 ];
@@ -216,7 +180,7 @@ const CHANNEL_PLATFORM_REDIRECTS: PermanentRedirect[] = [
 ];
 
 const CHANNEL_REDIRECTS: PermanentRedirect[] = [
-  // Generated references must precede `/:framework/channels`; otherwise
+  // Retired generated references must precede `/:framework/channels`; otherwise
   // `/reference/channels/...` is interpreted as a framework-scoped legacy URL.
   ...GENERATED_CHANNEL_REFERENCE_REDIRECTS,
   ...MAINTAINED_CHANNEL_GUIDE_REDIRECTS,

@@ -70,21 +70,34 @@ describe("Channels documentation journey", () => {
     const nav = buildRootSurfaceNav("built-in-agent");
     const channelsIndex = sectionIndex(nav, "Channels");
     const deployIndex = sectionIndex(nav, "Deploy");
+    const overview = nav[channelsIndex + 1];
 
     expect(channelsIndex).toBeGreaterThan(-1);
     expect(deployIndex).toBeGreaterThan(channelsIndex);
+    expect(overview).toMatchObject({
+      type: "page",
+      title: "Overview",
+      slug: "channels",
+    });
   });
 
-  it("publishes only production-ready Slack and Teams setup routes", () => {
+  it("publishes only Slack and Teams setup routes", () => {
     const overview = loadDoc("channels");
     const slack = loadDoc("frontends/slack");
     const teams = loadDoc("frontends/teams");
 
-    expect(overview?.source).toContain("Slack · Production ready");
-    expect(overview?.source).toContain("Teams · Production ready");
+    expect(overview?.source).toContain('title="Build for Slack"');
+    expect(overview?.source).toContain('title="Build for Microsoft Teams"');
+    expect(overview?.source).not.toContain("Production ready");
     expect(overview?.source).toContain(
-      "Discord, WhatsApp, GitHub, and Linear are coming soon",
+      "Discord and WhatsApp support is coming soon.",
     );
+    expect(overview?.source).not.toContain("GitHub");
+    expect(overview?.source).not.toContain("Linear");
+    expect(overview?.source).toContain("## Match your Channels configuration");
+    expect(overview?.source).toContain("pre-0.3 direct-adapter API");
+    expect(overview?.source).toContain("[Slack](/slack)");
+    expect(overview?.source).toContain("[Microsoft Teams](/teams)");
     expect(overview?.source).toContain(
       "insert Mike's final Channels architecture diagram here",
     );

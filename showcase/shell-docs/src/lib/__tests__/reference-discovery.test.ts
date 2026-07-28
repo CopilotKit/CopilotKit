@@ -1,8 +1,13 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import type * as PageTree from "fumadocs-core/page-tree";
 
 import { getAllLlmPages } from "../llm-text";
-import { buildReferencePageTree } from "../reference-items";
+import {
+  REFERENCE_VERSIONS,
+  buildReferencePageTree,
+  referenceStaticParams,
+} from "../reference-items";
 
 function collectPageUrls(tree: PageTree.Root): string[] {
   const urls: string[] = [];
@@ -37,4 +42,24 @@ test("publishes Angular reference guides in navigation and LLM output", () => {
       "reference/angular/production-lifecycle",
     ]),
   );
+});
+
+test("reframes Channels as guides instead of a deleted SDK reference", () => {
+  const staticReferenceSlugs = referenceStaticParams().map(({ slug }) =>
+    slug.join("/"),
+  );
+  const referenceOverview = readFileSync(
+    new URL("../../app/reference/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  expect(REFERENCE_VERSIONS).not.toContain("channels");
+  expect(
+    staticReferenceSlugs.some(
+      (slug) => slug === "channels" || slug.startsWith("channels/"),
+    ),
+  ).toBe(false);
+  expect(referenceOverview).toContain('title="Channels guides"');
+  expect(referenceOverview).toContain('href="/channels"');
+  expect(referenceOverview).not.toContain('href="/channels/reference/channel"');
 });

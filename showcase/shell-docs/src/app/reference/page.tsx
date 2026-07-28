@@ -66,12 +66,6 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
       "The framework-agnostic @copilotkit/core client — runs anywhere JavaScript runs.",
     href: referenceVersionHref("core"),
   },
-  {
-    name: "Channels SDK",
-    description:
-      "Run agents in Slack and Teams with createChannel, managed delivery, tools, and native UI.",
-    href: "/channels/reference/channel",
-  },
 ];
 
 export default function ReferencePage() {
@@ -122,6 +116,17 @@ export default function ReferencePage() {
                     description={sdk.description}
                   />
                 ))}
+              </Cards>
+            </section>
+
+            <section>
+              <h2>Building for Slack or Teams?</h2>
+              <Cards>
+                <Card
+                  title="Channels guides"
+                  href="/channels"
+                  description="Set up managed Slack and Microsoft Teams providers, then add tools, approvals, and durable state."
+                />
               </Cards>
             </section>
 

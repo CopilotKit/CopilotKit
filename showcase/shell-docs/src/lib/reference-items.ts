@@ -10,9 +10,8 @@ import fs from "fs";
 import path from "path";
 import React from "react";
 import matter from "gray-matter";
-import { BookOpen, Slack, MessageCircle } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import type * as PageTree from "fumadocs-core/page-tree";
-import { CopilotKitMark } from "@/components/copilotkit-mark";
 import { resolveWithinDir, safeExistsSync } from "@/lib/safe-fs";
 
 export const REFERENCE_CONTENT_DIR = path.join(
@@ -33,7 +32,6 @@ export const REFERENCE_VERSIONS = [
   "vue",
   "angular",
   "core",
-  "channels",
 ] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
@@ -51,8 +49,6 @@ export const REFERENCE_CATEGORIES = [
   "Types",
   "Enums",
   "SDKs",
-  "Slack",
-  "Discord",
 ] as const;
 export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 
@@ -65,9 +61,7 @@ type ReferenceSubdir =
   | "classes"
   | "types"
   | "enums"
-  | "sdk"
-  | "slack"
-  | "discord";
+  | "sdk";
 
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v2: ["components", "hooks"],
@@ -76,7 +70,6 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   vue: ["components", "hooks"],
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
-  channels: ["components", "functions", "classes", "types", "slack", "discord"],
 };
 
 const VERSION_TOP_LEVEL_PAGES: Partial<
@@ -95,8 +88,6 @@ const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   types: "Types",
   enums: "Enums",
   sdk: "SDKs",
-  slack: "Slack",
-  discord: "Discord",
 };
 
 export type ReferenceItem = {
@@ -341,137 +332,9 @@ function referenceRootName(): React.ReactNode {
   );
 }
 
-// Package separators carry the package's mark. Merge icon + label into
-// the separator's `name` (fumadocs renders `[item.icon, item.name]` as
-// a keyless child array, so the split `icon` prop triggers React's key
-// warning).
-function packageSeparator(
-  icon: React.ReactNode,
-  label: string,
-): PageTree.Separator {
-  return {
-    type: "separator",
-    name: withInlineIcon(icon, label),
-  };
-}
-
-/**
- * The Channels tab groups the sidebar by package, not by category: a
- * `@copilotkit/channels` section with collapsed kind-folders (Components /
- * Functions / Classes / Types), then a flat `@copilotkit/channels-slack`
- * section listing the adapter's own exports (the `slack/` subdir).
- */
-function buildChannelsPageTree(): PageTree.Root {
-  const kindFolder = (
-    name: string,
-    subdir: ReferenceSubdir,
-  ): PageTree.Folder[] => {
-    const items = loadReferenceItems("channels", subdir);
-    if (items.length === 0) return [];
-    return [
-      {
-        type: "folder",
-        name,
-        defaultOpen: false,
-        children: items.map(itemToPage),
-      },
-    ];
-  };
-
-  // Explicit order: the adapter factory first, then rendering, then the
-  // supporting exports. Anything new lands after, in filesystem order.
-  const SLACK_ORDER = [
-    "slack",
-    "slack/renderBlockKit",
-    "slack/markdownToMrkdwn",
-    "slack/defaultSlackTools",
-    "slack/defaultSlackContext",
-    "slack/SanitizingHttpAgent",
-  ];
-  const slackItems = [...loadReferenceItems("channels", "slack")].sort(
-    (a, b) => {
-      const ai = SLACK_ORDER.indexOf(a.slug);
-      const bi = SLACK_ORDER.indexOf(b.slug);
-      return (
-        (ai === -1 ? SLACK_ORDER.length : ai) -
-        (bi === -1 ? SLACK_ORDER.length : bi)
-      );
-    },
-  );
-
-  const slackCoreFolder: PageTree.Folder[] =
-    slackItems.length === 0
-      ? []
-      : [
-          {
-            type: "folder",
-            name: "Core",
-            defaultOpen: false,
-            children: slackItems.map(itemToPage),
-          },
-        ];
-
-  // Explicit order: adapter factory first, then rendering, then supporting
-  // exports. Anything new lands after, in filesystem order.
-  const DISCORD_ORDER = [
-    "discord",
-    "discord/renderComponents",
-    "discord/defaultDiscordTools",
-    "discord/defaultDiscordContext",
-    "discord/DISCORD_LIMITS",
-  ];
-  const discordItems = [...loadReferenceItems("channels", "discord")].sort(
-    (a, b) => {
-      const ai = DISCORD_ORDER.indexOf(a.slug);
-      const bi = DISCORD_ORDER.indexOf(b.slug);
-      return (
-        (ai === -1 ? DISCORD_ORDER.length : ai) -
-        (bi === -1 ? DISCORD_ORDER.length : bi)
-      );
-    },
-  );
-
-  const discordCoreFolder: PageTree.Folder[] =
-    discordItems.length === 0
-      ? []
-      : [
-          {
-            type: "folder",
-            name: "Core",
-            defaultOpen: false,
-            children: discordItems.map(itemToPage),
-          },
-        ];
-
-  return {
-    name: referenceRootName(),
-    children: [
-      packageSeparator(
-        React.createElement(CopilotKitMark),
-        "@copilotkit/channels",
-      ),
-      ...kindFolder("Components", "components"),
-      ...kindFolder("Functions", "functions"),
-      ...kindFolder("Classes", "classes"),
-      ...kindFolder("Types", "types"),
-      packageSeparator(
-        React.createElement(Slack, { size: 16 }),
-        "@copilotkit/channels-slack",
-      ),
-      ...slackCoreFolder,
-      packageSeparator(
-        React.createElement(MessageCircle, { size: 16 }),
-        "@copilotkit/channels-discord",
-      ),
-      ...discordCoreFolder,
-    ],
-  };
-}
-
 export function buildReferencePageTree(
   version: ReferenceVersion,
 ): PageTree.Root {
-  if (version === "channels") return buildChannelsPageTree();
   const allItems = loadReferenceVersionItems(version);
   return {
     name: referenceRootName(),
