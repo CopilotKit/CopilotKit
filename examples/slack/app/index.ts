@@ -13,8 +13,8 @@
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
- * example needs an Intelligence key (free tier: `COPILOTKIT_INTELLIGENCE_URL` +
- * `COPILOTKIT_API_KEY`). The platform adapters stay DIRECT (they keep their own
+ * example needs an Intelligence key (free tier: `COPILOTKIT_API_KEY`; the
+ * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * four platforms stay on the ONE Channel — you declare it on
@@ -280,11 +280,13 @@ async function main() {
   // The Intelligence client the Channel-owning runtime is configured with. A
   // Channel runs only through the Intelligence runtime — the direct adapters
   // keep their own platform credentials, but the runtime is what starts them.
-  // Both URLs are required: the API and realtime planes are separate hosts
-  // (api.… vs realtime.…), so neither can be derived from the other.
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: required("COPILOTKIT_INTELLIGENCE_URL"),
-    wsUrl: required("COPILOTKIT_INTELLIGENCE_WS_URL"),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 
