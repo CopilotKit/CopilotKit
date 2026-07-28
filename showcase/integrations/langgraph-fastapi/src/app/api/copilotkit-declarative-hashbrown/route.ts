@@ -13,8 +13,7 @@
 // - src/app/api/copilotkit-a2ui-fixed-schema/route.ts (topology this mirrors)
 // - src/agents/src/byoc_hashbrown_agent.py (the backend graph)
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

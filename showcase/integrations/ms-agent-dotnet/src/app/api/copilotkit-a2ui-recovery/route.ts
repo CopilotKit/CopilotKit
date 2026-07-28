@@ -12,8 +12,7 @@
 // catalogId). The .NET backend exposes this agent at `AGENT_URL/a2ui-recovery`
 // (see agent/Program.cs).
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
