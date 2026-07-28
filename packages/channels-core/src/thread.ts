@@ -292,11 +292,10 @@ export class Thread implements ThreadInterface {
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
-     * A user message to inject before running. Needed when the input isn't
-     * already in the conversation history the adapter reconstructs — e.g. a
-     * slash command, whose args are never posted to the channel. A
-     * `AgentContentPart[]` carries multimodal content (e.g. inbound image/file
-     * attachments) the model can read.
+     * The user message to inject before running. Defaults to the inbound
+     * `message.text` for message and mention handlers. Pass an explicit string
+     * to override that text, or `AgentContentPart[]` to preserve multimodal
+     * input.
      */
     prompt?: string | AgentContentPart[];
     /**
@@ -313,7 +312,10 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
-    return this.run(undefined, input);
+    return this.run(undefined, {
+      ...input,
+      prompt: input?.prompt ?? this.deps.message?.text,
+    });
   }
 
   async resume(value: unknown): Promise<MessageRef | undefined> {

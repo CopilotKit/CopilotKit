@@ -95,6 +95,36 @@ describe("createChannel", () => {
     expect(renderer.finishCalls).toBe(1);
   });
 
+  it("defaults runAgent prompt to the inbound message text", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const added: unknown[] = [];
+    const origAddMessage = agent.addMessage.bind(agent);
+    agent.addMessage = (message) => {
+      added.push(message);
+      return origAddMessage(message);
+    };
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Say my name",
+      platform: "fake",
+    });
+
+    expect(added).toHaveLength(1);
+    expect(added[0]).toMatchObject({
+      role: "user",
+      content: "Say my name",
+    });
+  });
+
   it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
