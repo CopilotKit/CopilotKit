@@ -1,4 +1,4 @@
-﻿{
+{
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / tool-rendering-custom-catchall. Pills: 'Weather in SF' (get_weather/San Francisco), 'Find flights' (search_flights/SFO->JFK), 'Roll a d20' (5 sequential roll_d20 calls ending in 20), 'Chain tools' (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). Backend tools execute on LangGraph Python and return real JSON results, which the wildcard renderer surfaces in the result block. Mirrors the matcher/tool-call shape of d6/ms-agent-python/tool-rendering.json, with distinct toolCallIds to avoid cross-fixture leakage. PILL PROMPTS (must match suggestions.ts verbatim): \"What's the weather in San Francisco?\", \"Find flights from SFO to JFK.\", \"Roll a 20-sided die.\", \"Chain a few tools in this single turn: get the weather in Tokyo, search flights from SFO to Tokyo, and roll a d20.\"",
     "sourceFile": "aimock/d6/langgraph-python/tool-rendering-custom-catchall.json (ported 1:1, context swapped)",

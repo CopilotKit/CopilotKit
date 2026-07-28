@@ -1,26 +1,26 @@
 import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 // Two pills exercise the recovery loop deterministically via aimock fixtures
-// (showcase/aimock/d6/langgraph-python/a2ui-recovery.json). Prompts are unique
-// within the langgraph-python context so they don't collide with the
-// declarative-gen-ui (a2ui_dynamic) fixtures.
-//   - "heal":    inner render_a2ui returns free-form/sloppy args (components &
-//                data as JSON strings) -> middleware parse_and_fix heals them
-//                into a valid surface in a single pass -> painted.
-//   - "exhaust": inner render_a2ui is invalid on every attempt -> attempt cap
-//                hit -> a2ui_recovery_exhausted -> tasteful `failed` state.
+// (showcase/aimock/d6/ms-agent-python/a2ui-recovery.json).
+// Prompts are UNIQUE to ms-agent-python — secondary `render_a2ui` LLM calls
+// do not carry x-aimock-context, so shared LG/built-in wording would collide
+// in the fleet-wide aimock matcher (see d5-a2ui-recovery.ts module docstring).
+//   - "heal":    secondary design returns a valid 2-metric surface (after
+//                optional invalid first attempts) -> painted.
+//   - "exhaust": secondary design is invalid every attempt -> attempt cap
+//                hit -> a2ui_recovery_exhausted -> "Couldn't generate the UI".
 export function useA2uiRecoverySuggestions() {
   useConfigureSuggestions({
     suggestions: [
       {
         title: "Recover a bad render",
         message:
-          "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+          "Sketch the Vantage Q2 revenue board and recover if the first A2UI pass is malformed.",
       },
       {
         title: "Show an unrecoverable failure",
         message:
-          "Build a report that fails every validation pass so I can preview the fallback.",
+          "Sketch a Vantage board that always fails A2UI validation so I can preview the hard-fail fallback.",
       },
     ],
     available: "always",

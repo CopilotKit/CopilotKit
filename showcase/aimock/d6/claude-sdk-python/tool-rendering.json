@@ -3,7 +3,9 @@
     "description": "D6 fixtures for claude-sdk-python / tool-rendering",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "updated": "2026-07-28",
+    "_shortMatcherCull": "removed 2 bare short userMessage matchers that stole longer prompts (first-match-wins)"
   },
   "fixtures": [
     {
@@ -273,31 +275,6 @@
       },
       "response": {
         "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "AAPL",
-        "toolCallId": "call_d5_get_stock_price_001",
-        "context": "claude-sdk-python"
-      },
-      "response": {
-        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "AAPL",
-        "context": "claude-sdk-python"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
-          }
-        ]
       }
     },
     {

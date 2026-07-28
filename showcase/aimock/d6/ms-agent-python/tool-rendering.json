@@ -3,7 +3,9 @@
     "description": "D6 fixtures for ms-agent-python / tool-rendering",
     "sourceFile": "d5-all.json",
     "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "copiedFrom": "langgraph-python",
+    "updated": "2026-07-28",
+    "_shortMatcherCull": "removed 2 bare short userMessage matchers that stole longer prompts (first-match-wins)"
   },
   "fixtures": [
     {
@@ -277,33 +279,6 @@
       },
       "response": {
         "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "AAPL",
-        "toolCallId": "call_d5_get_stock_price_001",
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
-      }
-    },
-    {
-      "_comment": "AAPL \u2014 first leg: emit get_stock_price tool call. turnIndex:0 gate REMOVED \u2014 the D5 tool-rendering-custom-catchall probe runs 'weather in Tokyo' first then sends 'What's the current price of AAPL?', so the AAPL leg fires at turnIndex>=2 (multi-pill thread). Replaced turnIndex:0 with hasToolResult:false: matches when the last message is a user prompt (not a tool result), which keeps the first-leg fixture from re-firing after the follow-up content already lands. The toolCallId follow-up fixture above wins on iteration 2 (last message is tool with id call_d5_get_stock_price_001).",
-      "match": {
-        "userMessage": "AAPL",
-        "hasToolResult": false,
-        "context": "ms-agent-python"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
-          }
-        ]
       }
     },
     {

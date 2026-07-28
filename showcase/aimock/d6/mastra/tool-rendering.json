@@ -3,7 +3,9 @@
     "description": "D6 fixtures for mastra / tool-rendering",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "updated": "2026-07-28",
+    "_shortMatcherCull": "removed 2 bare short userMessage matchers that stole longer prompts (first-match-wins)"
   },
   "fixtures": [
     {
@@ -205,7 +207,7 @@
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt on userMessage only (mirrors gold tool_rendering_agent fixture) — the toolCallId-chained fixtures above win for iterations 2-6, so no hasToolResult gate is needed here (and the gate broke when prior-pill tool results linger in thread history).",
+      "_comment": "First roll. Matches the initial user prompt on userMessage only (mirrors gold tool_rendering_agent fixture) \u2014 the toolCallId-chained fixtures above win for iterations 2-6, so no hasToolResult gate is needed here (and the gate broke when prior-pill tool results linger in thread history).",
       "match": {
         "userMessage": "Roll a 20-sided die.",
         "context": "mastra"
@@ -277,32 +279,6 @@
       },
       "response": {
         "content": "The weather in Tokyo is currently 22\u00b0C with partly cloudy skies and light easterly winds."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "AAPL",
-        "toolCallId": "call_d5_get_stock_price_001",
-        "context": "mastra"
-      },
-      "response": {
-        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "AAPL",
-        "context": "mastra",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_get_stock_price_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\"}"
-          }
-        ]
       }
     },
     {

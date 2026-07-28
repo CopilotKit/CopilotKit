@@ -104,11 +104,13 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Build a report that fails every validation pass so I can preview the fallback.",
   },
-  // UI is byte-identical to langgraph-python (ms-py-d6 blitz) — same suggestions.ts messages.
+  // Unique per-slug prompts (required: secondary render_a2ui has no
+  // x-aimock-context, so shared LG/built-in wording collides and steals
+  // sequenceIndex / exhaust fixtures — see module docstring).
   "ms-agent-python": {
-    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    heal: "Sketch the Vantage Q2 revenue board and recover if the first A2UI pass is malformed.",
     exhaust:
-      "Build a report that fails every validation pass so I can preview the fallback.",
+      "Sketch a Vantage board that always fails A2UI validation so I can preview the hard-fail fallback.",
   },
   "ms-agent-dotnet": {
     heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",

@@ -6,7 +6,7 @@
   },
   "fixtures": [
     {
-      "_comment": "pill sales-dashboard hero — inner secondary LLM (tool_choice forced on render_a2ui) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt. Hero surface: bare 4-tile KPI Metric row + PieChart + BarChart (no surrounding Card), satisfying the driver's minCounts metric:4 pie:1 bar:1.",
+      "_comment": "pill sales-dashboard hero \u2014 inner secondary LLM (tool_choice forced on render_a2ui) emits the flat A2UI components. Discriminated by toolName so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt. Hero surface: bare 4-tile KPI Metric row + PieChart + BarChart (no surrounding Card), satisfying the driver's minCounts metric:4 pie:1 bar:1.",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
         "toolName": "render_a2ui"
@@ -23,7 +23,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill sales-dashboard hero — outer agent narration after generate_a2ui returns.",
+      "_comment": "pill sales-dashboard hero \u2014 outer agent narration after generate_a2ui returns.",
       "match": {
         "context": "mastra",
         "toolCallId": "call_d6_decl_dash_outer_001"
@@ -34,7 +34,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args).",
+      "_comment": "pill sales-dashboard hero \u2014 outer agent emits generate_a2ui (no args).",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
         "context": "mastra"
@@ -44,14 +44,14 @@
           {
             "id": "call_d6_decl_dash_outer_001",
             "name": "generate_a2ui",
-            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Show me my sales dashboard for this quarter.\"}]}"
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Show me my sales dashboard for this quarter.\"}], \"context\": \"Show me my sales dashboard for this quarter.\"}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — inner secondary LLM emits a DataTable + BarChart (driver minCounts data-table:1 bar:1).",
+      "_comment": "pill team-performance \u2014 inner secondary LLM emits a DataTable + BarChart (driver minCounts data-table:1 bar:1).",
       "match": {
         "userMessage": "How are our sales reps performing against quota?",
         "toolName": "render_a2ui"
@@ -68,7 +68,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — outer agent narration after generate_a2ui returns.",
+      "_comment": "pill team-performance \u2014 outer agent narration after generate_a2ui returns.",
       "match": {
         "context": "mastra",
         "toolCallId": "call_d6_decl_team_outer_001"
@@ -79,7 +79,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill team-performance — outer agent emits generate_a2ui (no args).",
+      "_comment": "pill team-performance \u2014 outer agent emits generate_a2ui (no args).",
       "match": {
         "userMessage": "How are our sales reps performing against quota?",
         "context": "mastra"
@@ -89,14 +89,14 @@
           {
             "id": "call_d6_decl_team_outer_001",
             "name": "generate_a2ui",
-            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"How are our sales reps performing against quota?\"}]}"
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"How are our sales reps performing against quota?\"}], \"context\": \"How are our sales reps performing against quota?\"}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — inner secondary LLM emits a 3-tile KPI Metric strip + 3 severity Cards each carrying a StatusBadge (driver minCounts status-badge:3 metric:3).",
+      "_comment": "pill at-risk \u2014 inner secondary LLM emits a 3-tile KPI Metric strip + 3 severity Cards each carrying a StatusBadge (driver minCounts status-badge:3 metric:3).",
       "match": {
         "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
         "toolName": "render_a2ui"
@@ -113,7 +113,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — outer agent narration after generate_a2ui returns.",
+      "_comment": "pill at-risk \u2014 outer agent narration after generate_a2ui returns.",
       "match": {
         "context": "mastra",
         "toolCallId": "call_d6_decl_risk_outer_001"
@@ -124,7 +124,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill at-risk — outer agent emits generate_a2ui (no args).",
+      "_comment": "pill at-risk \u2014 outer agent emits generate_a2ui (no args).",
       "match": {
         "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
         "context": "mastra"
@@ -134,14 +134,14 @@
           {
             "id": "call_d6_decl_risk_outer_001",
             "name": "generate_a2ui",
-            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Are any accounts or pipeline deals at risk this quarter?\"}]}"
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Are any accounts or pipeline deals at risk this quarter?\"}], \"context\": \"Are any accounts or pipeline deals at risk this quarter?\"}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — inner secondary LLM emits a Card of InfoRow facts + a PieChart of revenue by product line (driver minCounts info-row:1 pie:1).",
+      "_comment": "pill top-account \u2014 inner secondary LLM emits a Card of InfoRow facts + a PieChart of revenue by product line (driver minCounts info-row:1 pie:1).",
       "match": {
         "userMessage": "Pull up the details on our biggest account.",
         "toolName": "render_a2ui"
@@ -158,7 +158,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — outer agent narration after generate_a2ui returns.",
+      "_comment": "pill top-account \u2014 outer agent narration after generate_a2ui returns.",
       "match": {
         "context": "mastra",
         "toolCallId": "call_d6_decl_acct_outer_001"
@@ -169,7 +169,7 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "pill top-account — outer agent emits generate_a2ui (no args).",
+      "_comment": "pill top-account \u2014 outer agent emits generate_a2ui (no args).",
       "match": {
         "userMessage": "Pull up the details on our biggest account.",
         "context": "mastra"
@@ -179,7 +179,7 @@
           {
             "id": "call_d6_decl_acct_outer_001",
             "name": "generate_a2ui",
-            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Pull up the details on our biggest account.\"}]}"
+            "arguments": "{\"messages\": [{\"role\": \"user\", \"content\": \"Pull up the details on our biggest account.\"}], \"context\": \"Pull up the details on our biggest account.\"}"
           }
         ]
       },

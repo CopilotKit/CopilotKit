@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "D6 fixtures for mastra / a2ui-recovery (A2UI error recovery). Backend-owned A2UI (a2uiRecoveryAgent, getA2UITools, injectA2UITool=false) with the toolkit validate->retry loop made visible. NO `context` match field: a real browser (the dojo) does NOT send x-aimock-context (only the harness does), and the inner render_a2ui sub-agent calls carry NO context header at all, so context-scoped fixtures would 404 / collide. The two pills' prompts are UNIQUE per framework (no substring overlap), so userMessage alone disambiguates across frameworks. Flow per pill: outer generate_a2ui emit (userMessage, tool-less — matched last); inner render_a2ui (userMessage+toolName+sequenceIndex; listed first so they win for the inner calls); outer narration (unique toolCallId of the emit). HEAL: attempt 1 (seq 0) invalid (dangling child) -> retry -> attempt 2 (seq 1) valid -> paints (Column + 2 Metric). EXHAUST: invalid every attempt -> recovery exhausts -> a2ui_recovery_exhausted.",
+    "description": "D6 fixtures for mastra / a2ui-recovery (A2UI error recovery). Backend-owned A2UI (a2uiRecoveryAgent, getA2UITools, injectA2UITool=false) with the toolkit validate->retry loop made visible. NO `context` match field: a real browser (the dojo) does NOT send x-aimock-context (only the harness does), and the inner render_a2ui sub-agent calls carry NO context header at all, so context-scoped fixtures would 404 / collide. The two pills' prompts are UNIQUE per framework (no substring overlap), so userMessage alone disambiguates across frameworks. Flow per pill: outer generate_a2ui emit (userMessage, tool-less \u2014 matched last); inner render_a2ui (userMessage+toolName+sequenceIndex; listed first so they win for the inner calls); outer narration (unique toolCallId of the emit). HEAL: attempt 1 (seq 0) invalid (dangling child) -> retry -> attempt 2 (seq 1) valid -> paints (Column + 2 Metric). EXHAUST: invalid every attempt -> recovery exhausts -> a2ui_recovery_exhausted.",
     "created": "2026-07-02"
   },
   "fixtures": [
@@ -46,14 +46,15 @@
         "toolCallId": "call_d6_mastra_recover_heal_outer_001"
       },
       "response": {
-        "content": "The first render came back malformed — I recovered and painted your quarterly revenue tile."
+        "content": "The first render came back malformed \u2014 I recovered and painted your quarterly revenue tile."
       },
       "chunkSize": 9999
     },
     {
       "_comment": "HEAL - outer agent emits generate_a2ui (matched by the unique prompt).",
       "match": {
-        "userMessage": "mend a botched opening attempt"
+        "userMessage": "mend a botched opening attempt",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -89,14 +90,15 @@
         "toolCallId": "call_d6_mastra_recover_exhaust_outer_001"
       },
       "response": {
-        "content": "I couldn't produce a valid surface after several attempts — showing a graceful fallback instead."
+        "content": "I couldn't produce a valid surface after several attempts \u2014 showing a graceful fallback instead."
       },
       "chunkSize": 9999
     },
     {
       "_comment": "EXHAUST - outer agent emits generate_a2ui (matched by the unique prompt).",
       "match": {
-        "userMessage": "flunks every validation sweep"
+        "userMessage": "flunks every validation sweep",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [

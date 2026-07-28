@@ -5,8 +5,12 @@ Pattern (ported from the LangGraph reference
 `showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, it invokes a
-  secondary LLM bound to `_design_a2ui_surface` (tool_choice forced) and returns the
+  secondary LLM bound to `render_a2ui` (tool_choice forced) and returns the
   resulting `a2ui_operations` container.
+  NOTE: the secondary tool MUST be named `render_a2ui` (not a private alias).
+  aimock is first-match-wins and strips `context`; bare-userMessage outer
+  fixtures from earlier frameworks would steal any non-`render_a2ui` secondary
+  call. Shared d6 design fixtures key on toolName=render_a2ui.
 - The runtime (see `src/app/api/copilotkit-declarative-gen-ui/route.ts`) uses
   `injectA2UITool: false` because the tool binding is owned by the agent here
   (double-injection would duplicate the tool slot).
@@ -72,10 +76,11 @@ def generate_a2ui(
             latest_user_message = ""
 
     client = OpenAI()
+    # Secondary tool name MUST be `render_a2ui` — see module docstring.
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "_design_a2ui_surface",
+            "name": "render_a2ui",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -94,15 +99,21 @@ def generate_a2ui(
     #   1. `latest_user_message` from the active AgentSession (preferred —
     #      lets aimock's substring matcher pick the right fixture per pill).
     #   2. The caller-supplied `context` arg (LangGraph-style summary).
-    #   3. A generic catch-all that contains all four d5 demo keywords so
-    #      direct/test invocations still match SOME fixture instead of
-    #      falling through to the real-OpenAI proxy.
-    user_content = (
-        latest_user_message
-        or context
-        or "KPI dashboard with 3-4 metrics, pie chart sales by region, "
-        "bar chart quarterly revenue, status report."
-    )
+    # Do NOT fall back to a generic "KPI dashboard..." string — that
+    # hijacks aimock into render-a2ui.json's $1.24M demo surface and
+    # fails the gen-ui-declarative probe (expects $4.2M + charts).
+    # Prefer session message, then tool-arg context. Outer aimock fixtures
+    # now pass context=<full userMessage> even when older ones used "{}".
+    user_content = (latest_user_message or context or "").strip()
+    if not user_content:
+        # Last resort: empty secondary prompt 404s aimock — surface a
+        # structured error the A2UI renderer can show rather than hanging.
+        return json.dumps(
+            {
+                "error": "generate_a2ui: no user message or context available "
+                "for secondary design call"
+            }
+        )
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -115,11 +126,11 @@ def generate_a2ui(
             {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
+        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
     )
 
     if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
+        return json.dumps({"error": "LLM did not call render_a2ui"})
 
     tool_call = response.choices[0].message.tool_calls[0]
     args = json.loads(tool_call.function.arguments)

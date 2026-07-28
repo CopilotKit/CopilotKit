@@ -2,45 +2,29 @@
   "_meta": {
     "description": "D6 fixtures for ms-agent-python / a2ui-recovery",
     "created": "2026-07-28",
-    "_note": "Backend-owned generate_a2ui with MAF validate→retry (recovery_agent.py). Secondary LLM forced to _design_a2ui_surface. HEAL: design always returns 2 valid Metric tiles (probe only asserts final paint). EXHAUST: design always invalid → agent exhausts → status:failed envelope → 'Couldn't generate the UI'. No context field (dojo has no x-aimock-context)."
+    "updated": "2026-07-28",
+    "_note": "UNIQUE per-slug prompts (ms-agent-python). HEAL design always valid (2 metrics). EXHAUST always invalid. Outer gated by systemMessage."
   },
   "fixtures": [
     {
-      "_comment": "HEAL — secondary design: valid Column + two Metric tiles (declarative-metric x2).",
+      "_comment": "HEAL design always valid",
       "match": {
-        "userMessage": "self-correct a malformed first attempt",
-        "toolName": "_design_a2ui_surface"
+        "userMessage": "Sketch the Vantage Q2 revenue board and recover if the first A2UI pass is malformed.",
+        "toolName": "render_a2ui"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_msap_recover_heal_design",
-            "name": "_design_a2ui_surface",
-            "arguments": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"m1\",\"m2\"]},{\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"m2\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}],\"data\":{}}"
+            "id": "call_d6_msap_recover_heal_good",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \".2M\", \"trend\": \"up\", \"trendValue\": \"+12% QoQ\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\", \"trendValue\": \"-2 pts\"}], \"data\": {}}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "HEAL — outer emit generate_a2ui.",
-      "match": {
-        "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
-        "hasToolResult": false
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_msap_recover_heal_outer_001",
-            "name": "generate_a2ui",
-            "arguments": "{\"context\":\"Build my Q2 revenue summary and self-correct a malformed first attempt.\"}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "HEAL — outer narration.",
+      "_comment": "HEAL narration",
       "match": {
         "toolCallId": "call_d6_msap_recover_heal_outer_001"
       },
@@ -50,26 +34,55 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "EXHAUST — secondary design always invalid (dangling child) so recovery loop exhausts.",
+      "_comment": "HEAL outer",
       "match": {
-        "userMessage": "fails every validation pass",
-        "toolName": "_design_a2ui_surface"
+        "userMessage": "Sketch the Vantage Q2 revenue board and recover if the first A2UI pass is malformed.",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_d6_msap_recover_exhaust_design",
-            "name": "_design_a2ui_surface",
-            "arguments": "{\"surfaceId\":\"recovery-demo-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"never-defined\"]}]}"
+            "id": "call_d6_msap_recover_heal_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\": \"Sketch the Vantage Q2 revenue board and recover if the first A2UI pass is malformed.\"}"
           }
         ]
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "EXHAUST — outer emit generate_a2ui.",
+      "_comment": "EXHAUST design always invalid",
       "match": {
-        "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
+        "userMessage": "Sketch a Vantage board that always fails A2UI validation so I can preview the hard-fail fallback.",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_msap_recover_exhaust_design",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST narration",
+      "match": {
+        "toolCallId": "call_d6_msap_recover_exhaust_outer_001"
+      },
+      "response": {
+        "content": "Couldn't generate the UI after repeated validation failures. Showing a graceful fallback instead."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST outer",
+      "match": {
+        "userMessage": "Sketch a Vantage board that always fails A2UI validation so I can preview the hard-fail fallback.",
+        "toolName": "generate_a2ui",
         "hasToolResult": false
       },
       "response": {
@@ -77,19 +90,9 @@
           {
             "id": "call_d6_msap_recover_exhaust_outer_001",
             "name": "generate_a2ui",
-            "arguments": "{\"context\":\"Build a report that fails every validation pass so I can preview the fallback.\"}"
+            "arguments": "{\"context\": \"Sketch a Vantage board that always fails A2UI validation so I can preview the hard-fail fallback.\"}"
           }
         ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "EXHAUST — outer narration after failed envelope.",
-      "match": {
-        "toolCallId": "call_d6_msap_recover_exhaust_outer_001"
-      },
-      "response": {
-        "content": "Recovery exhausted — the UI could not be generated after repeated validation failures."
       },
       "chunkSize": 9999
     }

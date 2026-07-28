@@ -9,7 +9,9 @@ Backend-owned wiring: this agent OWNS `generate_a2ui`. The dedicated route at
 `/api/copilotkit-a2ui-recovery` sets `injectA2UITool: false`.
 
 Recovery loop (MAF-native, mirrors toolkit semantics for the probe):
-  1. Secondary LLM is forced to call `_design_a2ui_surface`.
+  1. Secondary LLM is forced to call `render_a2ui` (shared aimock toolName
+     with LG/ag2 design fixtures — private aliases get stolen by bare
+     userMessage outer fixtures because aimock strips `context`).
   2. Components are validated (root present; every child id resolves).
   3. Invalid → retry up to max_attempts (default 3).
   4. Still invalid → return hard-fail envelope
@@ -80,20 +82,23 @@ def _latest_user_message(session: Any, context: str) -> str:
                         break
         except Exception:
             latest = ""
-    return (
-        latest
-        or context
-        or "Q2 revenue summary, self-correct malformed first attempt, "
-        "validation fallback report."
-    )
+    # Prefer the real user turn; never invent a keyword soup that could
+    # collide with other demos' aimock fixtures (substring matching).
+    return latest or context
 
 
 def _design_once(client: Any, user_content: str, attempt: int) -> dict[str, Any]:
-    """One secondary-LLM design attempt. Returns tool-call args or raises."""
+    """One secondary-LLM design attempt. Returns tool-call args or raises.
+
+    Uses tool name `render_a2ui` so aimock first-match hits the shared
+    HEAL/EXHAUST design fixtures (LG/ag2) keyed on toolName=render_a2ui
+    + sequenceIndex. Do NOT append attempt markers to the user message —
+    that would break userMessage substring matchers on the recovery pills.
+    """
     tool_schema = {
         "type": "function",
         "function": {
-            "name": "_design_a2ui_surface",
+            "name": "render_a2ui",
             "description": "Render a dynamic A2UI v0.9 surface.",
             "parameters": {
                 "type": "object",
@@ -107,10 +112,9 @@ def _design_once(client: Any, user_content: str, attempt: int) -> dict[str, Any]
             },
         },
     }
-    # Attempt number is folded into the user message so aimock can key
-    # HEAL seq0 invalid → seq1 valid via sequenceIndex OR distinct prompts
-    # when sequenceIndex is unavailable on this transport.
-    attempt_hint = f"\n[recovery_attempt={attempt}]"
+    # Keep the user message identical across attempts so aimock
+    # sequenceIndex can advance HEAL seq0 (invalid) → seq1 (valid).
+    _ = attempt  # reserved for future logging / diagnostics
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
@@ -120,16 +124,16 @@ def _design_once(client: Any, user_content: str, attempt: int) -> dict[str, Any]
                     f"Generate a useful dashboard UI. Use catalogId='{CUSTOM_CATALOG_ID}'."
                 ),
             },
-            {"role": "user", "content": user_content + attempt_hint},
+            {"role": "user", "content": user_content},
         ],
         tools=[tool_schema],
         tool_choice={
             "type": "function",
-            "function": {"name": "_design_a2ui_surface"},
+            "function": {"name": "render_a2ui"},
         },
     )
     if not response.choices[0].message.tool_calls:
-        raise RuntimeError("LLM did not call _design_a2ui_surface")
+        raise RuntimeError("LLM did not call render_a2ui")
     tool_call = response.choices[0].message.tool_calls[0]
     raw_args = tool_call.function.arguments
     args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
@@ -186,11 +190,19 @@ def generate_a2ui(
         return json.dumps(result)
 
     # Recovery exhausted — hard-fail envelope for A2UIRecoveryFailure UI.
+    # MUST include `a2ui_operations` (even empty) so the a2ui middleware emits
+    # an `a2ui-surface` activity whose content the React renderer inspects for
+    # status==="failed" (see A2UIMessageRenderer). Without the key, the tool
+    # result is ignored and no "Couldn't generate the UI" card appears.
     return json.dumps(
         {
+            "a2ui_operations": [],
             "status": "failed",
-            "error": "a2ui_recovery_exhausted",
-            "message": "Couldn't generate the UI after validation retries.",
+            "code": "a2ui_recovery_exhausted",
+            "error": (
+                f"Couldn't generate the UI after {MAX_ATTEMPTS} "
+                f"validation attempt(s)."
+            ),
             "attempts": attempts,
             "maxAttempts": MAX_ATTEMPTS,
         }

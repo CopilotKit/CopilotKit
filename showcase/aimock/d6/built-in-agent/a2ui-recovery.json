@@ -33,7 +33,8 @@
       "match": {
         "userMessage": "Build my Q2 revenue summary and self-correct a malformed first attempt.",
         "turnIndex": 0,
-        "context": "built-in-agent"
+        "context": "built-in-agent",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
@@ -62,7 +63,8 @@
       "match": {
         "userMessage": "Build a report that fails every validation pass so I can preview the fallback.",
         "turnIndex": 2,
-        "context": "built-in-agent"
+        "context": "built-in-agent",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
