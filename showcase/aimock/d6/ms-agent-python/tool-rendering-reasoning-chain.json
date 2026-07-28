@@ -9,7 +9,7 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) \u2014 final narration after the MSFT tool result lands. Specific toolCallId so this matches BEFORE the first-leg fixture below despite the same userMessage substring. Source: showcase/harness/fixtures/d5/tool-rendering-reasoning-chain.json.",
       "match": {
-        "userMessage": "Compare AAPL and MSFT stocks",
+        "userMessage": "Compare AAPL and MSFT stocks for me.",
         "toolCallId": "call_rc_stock_msft_001",
         "context": "ms-agent-python"
       },
@@ -20,7 +20,7 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) \u2014 second leg: after get_stock_price(AAPL) returns, chain to MSFT for the comparison.",
       "match": {
-        "userMessage": "Compare AAPL and MSFT stocks",
+        "userMessage": "Compare AAPL and MSFT stocks for me.",
         "toolCallId": "call_rc_stock_aapl_001",
         "context": "ms-agent-python"
       },
@@ -39,7 +39,7 @@
     {
       "_comment": "tool-rendering-reasoning-chain pill 1 (stocks) \u2014 first leg: emit get_stock_price(AAPL). The `Compare AAPL and MSFT stocks` substring is unique to this demo's pill prompt \u2014 other integrations' reasoning-chain demos still send the older `How is AAPL doing?` prompt \u2014 so we don't need a tool-name gate and the fixture stays scoped to langgraph-python without affecting fleet-wide aimock traffic. MUST appear before the bare 'AAPL' fixtures later in this file.",
       "match": {
-        "userMessage": "Compare AAPL and MSFT stocks",
+        "userMessage": "Compare AAPL and MSFT stocks for me.",
         "context": "ms-agent-python"
       },
       "response": {

@@ -113,7 +113,7 @@
     },
     {
       "match": {
-        "userMessage": "Plan a product launch",
+        "userMessage": "Plan a product launch for a new mobile app.",
         "context": "ms-agent-python"
       },
       "response": {
@@ -235,7 +235,7 @@
     },
     {
       "match": {
-        "userMessage": "team offsite",
+        "userMessage": "Organize a three-day engineering team offsite.",
         "context": "ms-agent-python"
       },
       "response": {
@@ -357,7 +357,7 @@
     },
     {
       "match": {
-        "userMessage": "Research our top competitor",
+        "userMessage": "Research our top competitor and summarize their strengths and weaknesses.",
         "context": "ms-agent-python"
       },
       "response": {
