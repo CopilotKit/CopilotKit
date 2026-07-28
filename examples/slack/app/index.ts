@@ -77,13 +77,6 @@ const required = (name: string): string => {
 const have = (...names: string[]): boolean =>
   names.every((n) => Boolean(process.env[n]));
 
-/**
- * Derive the Intelligence websocket base URL from the API base URL when it
- * isn't set explicitly: `http(s)://…` → `ws(s)://…` (same host + port).
- */
-const deriveWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
-
 async function main() {
   const agentUrl = required("AGENT_URL");
   const agentHeaders = process.env.AGENT_AUTH_HEADER
@@ -287,12 +280,11 @@ async function main() {
   // The Intelligence client the Channel-owning runtime is configured with. A
   // Channel runs only through the Intelligence runtime — the direct adapters
   // keep their own platform credentials, but the runtime is what starts them.
-  const intelligenceApiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+  // Both URLs are required: the API and realtime planes are separate hosts
+  // (api.… vs realtime.…), so neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: intelligenceApiUrl,
-    wsUrl:
-      process.env.COPILOTKIT_INTELLIGENCE_WS_URL ??
-      deriveWsUrl(intelligenceApiUrl),
+    apiUrl: required("COPILOTKIT_INTELLIGENCE_URL"),
+    wsUrl: required("COPILOTKIT_INTELLIGENCE_WS_URL"),
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 

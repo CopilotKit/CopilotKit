@@ -78,12 +78,17 @@ channel.onMessage(async ({ thread, message }) => {
 
 // The runtime owns the channel; a CopilotKit Intelligence key runs it (free
 // tier available). `ready()` activates it.
-const apiUrl = process.env.COPILOTKIT_INTELLIGENCE_URL!;
 const runtime = new CopilotRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
-    apiUrl,
-    wsUrl: apiUrl.replace(/^http/, "ws"),
+    // Both URLs come from your Intelligence dashboard; see the Quickstart for the
+
+    // full env block. Self-hosted deployments use their own two hosts.
+
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
+    // A separate host from apiUrl — the realtime plane is deployed apart, so
+    // this cannot be derived by swapping the API URL scheme.
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
     apiKey: process.env.COPILOTKIT_API_KEY!,
   }),
   identifyUser: () => ({ id: "demo-user", name: "Demo User" }),

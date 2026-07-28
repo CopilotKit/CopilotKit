@@ -220,7 +220,7 @@ describe("connectRealtimeGateway", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 0,
         join: {
@@ -243,7 +243,7 @@ describe("connectRealtimeGateway", () => {
     };
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join,
@@ -266,7 +266,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires a registered onClose callback exactly once when the socket drops unexpectedly", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -293,7 +293,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires onClose again for a second drop after the socket reopens", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -337,7 +337,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("does not fire onClose when the drop is our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -362,7 +362,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("still fires later onClose callbacks when an earlier one throws", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -394,7 +394,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -417,7 +417,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -437,7 +437,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -462,7 +462,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     );
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -499,7 +499,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     );
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -523,7 +523,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     const { FakeWebSocket, instances } = makeFakeWebSocket("error-conflict");
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -554,7 +554,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     const { FakeWebSocket } = makeFakeWebSocket("error-mixed");
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -589,7 +589,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on an unexpected drop and back to online on a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -618,7 +618,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -652,7 +652,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("surfaces a superseded listener as fenced instead of pretending Phoenix will rejoin it", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -681,7 +681,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("gives up (emits gave_up) when the reconnect window elapses without a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -712,7 +712,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -749,7 +749,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -800,7 +800,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("does not emit a connection-state transition for our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {

@@ -51,8 +51,8 @@ export class PlatformRequestError extends Error {
  * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
  *
  * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://api.copilotkit.ai",
- *   wsUrl: "wss://api.copilotkit.ai",
+ *   apiUrl: "https://api.intelligence.copilotkit.ai",
+ *   wsUrl: "wss://realtime.intelligence.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
  * });
  *
@@ -71,9 +71,16 @@ export interface ThreadDeletedPayload {
 }
 
 export interface CopilotKitIntelligenceConfig {
-  /** Base URL of the intelligence platform API, e.g. "https://api.copilotkit.ai" */
+  /** Base URL of the intelligence platform API, e.g. "https://api.intelligence.copilotkit.ai" */
   apiUrl: string;
-  /** Intelligence websocket base URL. Runner and client socket URLs are derived from this. */
+  /**
+   * Intelligence websocket base URL, e.g. "wss://realtime.intelligence.copilotkit.ai".
+   * Runner and client socket URLs are derived from this by appending `/runner` or
+   * `/client`, so pass the bare base.
+   *
+   * This is a DIFFERENT host from {@link apiUrl} — the API and realtime planes are
+   * deployed separately — so it cannot be derived by scheme-swapping `apiUrl`.
+   */
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;

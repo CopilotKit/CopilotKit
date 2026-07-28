@@ -117,7 +117,8 @@ bot.onMention(async ({ thread, message }) => {
 // lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
   apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
-  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!, // or derive from apiUrl
+  // Separate host from apiUrl (api.… vs realtime.…) — not derivable from it.
+  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
   apiKey: process.env.COPILOTKIT_API_KEY!,
 });
 const runtime = new CopilotRuntime({
