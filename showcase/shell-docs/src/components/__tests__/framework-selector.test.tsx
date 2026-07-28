@@ -120,6 +120,9 @@ describe("FrameworkSelector", () => {
     expect(markup).toContain("Docs surface");
     expect(markup).toContain("Channels overview");
     expect(markup).toContain("lucide-messages-square");
+    expect(markup).toContain(
+      'aria-label="Choose docs surface, current: Channels overview"',
+    );
     expect(markup).not.toContain("Agent backend");
     expect(markup).not.toContain("CopilotKit");
     expect(markup).not.toContain(">React<");
@@ -219,14 +222,19 @@ describe("FrameworkSelector", () => {
     );
   });
 
-  it("routes frontend selections when the destination changes", () => {
+  it("routes frontend selections when the selection and destination change", () => {
     const componentSource = readFileSync(
       new URL("../framework-selector.tsx", import.meta.url),
       "utf8",
     );
 
-    expect(componentSource).toContain("if (destinationPath !== pathname)");
-    expect(componentSource).not.toContain("if (id !== effectiveFrontendId)");
+    expect(componentSource).toContain(
+      "const shouldNavigate = isChannelsOverview || id !== effectiveFrontendId;",
+    );
+    expect(componentSource).toContain(
+      "if (shouldNavigate && destinationPath !== pathname)",
+    );
+    expect(componentSource).not.toContain("if (destinationPath !== pathname)");
   });
 
   it("attributes explicit frontend switches with their origin and backend", () => {

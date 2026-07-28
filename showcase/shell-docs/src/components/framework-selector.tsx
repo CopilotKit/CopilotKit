@@ -123,7 +123,8 @@ export function FrameworkSelector({
       pathname,
       options.map((option) => option.slug),
     );
-    if (destinationPath !== pathname) {
+    const shouldNavigate = isChannelsOverview || id !== effectiveFrontendId;
+    if (shouldNavigate && destinationPath !== pathname) {
       try {
         posthog?.capture("docs.frontend_selected", {
           frontend: id,
@@ -179,9 +180,12 @@ export function FrameworkSelector({
 
   const topbarBtnClasses =
     "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
-  const frontendPickerLabel = isChannelsOverview
+  const frontendMenuLabel = isChannelsOverview
     ? "Choose docs surface"
     : "Choose frontend";
+  const frontendButtonLabel = isChannelsOverview
+    ? `${frontendMenuLabel}, current: Channels overview`
+    : frontendMenuLabel;
 
   const backendOptions = (
     includePinnedBIA: boolean,
@@ -258,7 +262,7 @@ export function FrameworkSelector({
               }
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
-              aria-label={frontendPickerLabel}
+              aria-label={frontendButtonLabel}
               className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
@@ -339,7 +343,7 @@ export function FrameworkSelector({
           {openMenu === "frontend" && (
             <div
               role="listbox"
-              aria-label={frontendPickerLabel}
+              aria-label={frontendMenuLabel}
               className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
               {FRONTEND_OPTIONS.map((option, index) => {
