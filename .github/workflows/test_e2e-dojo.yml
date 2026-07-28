@@ -22,6 +22,13 @@ on:
         type: string
 
 env:
+  # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
+  # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
+  # from user activity in PostHog. The runtime reads these at startup and
+  # reports `telemetryDisabled` on /info, which is how the browser-side
+  # Inspector in a CI-booted app learns to stay quiet too.
+  COPILOTKIT_TELEMETRY_DISABLED: "true"
+  DO_NOT_TRACK: "1"
   NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "E2E Dojo"

@@ -44,6 +44,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
+  # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
+  # from user activity in PostHog. The runtime reads these at startup and
+  # reports `telemetryDisabled` on /info, which is how the browser-side
+  # Inspector in a CI-booted app learns to stay quiet too.
+  COPILOTKIT_TELEMETRY_DISABLED: "true"
+  DO_NOT_TRACK: "1"
   CI: "true"
   NX_CLOUD_DISTRIBUTED_EXECUTION: "false"
   NX_NO_CLOUD: "true"
@@ -152,6 +159,10 @@ jobs:
           BASE_COMMIT: ${{ inputs.base_commit }}
           INTEGRATION: ${{ matrix.integration }}
         run: |
+          # The workflow-level COPILOTKIT_TELEMETRY_DISABLED / DO_NOT_TRACK do
+          # not cross the container boundary, so they are passed explicitly
+          # below (OSS-565) — otherwise this container's runtime reports
+          # telemetry as enabled and the Playwright-driven Inspector emits.
           docker run --detach \
             --name frontend-matrix-integration \
             --add-host host.docker.internal:host-gateway \
@@ -166,6 +177,8 @@ jobs:
             --env AIMOCK_URL=http://host.docker.internal:4010 \
             --env GitHubToken=gh-mock-ci \
             --env 'LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}' \
+            --env COPILOTKIT_TELEMETRY_DISABLED=true \
+            --env DO_NOT_TRACK=1 \
             "frontend-matrix-$INTEGRATION:$BASE_COMMIT"
           for _ in $(seq 1 90); do
             if curl --fail --silent --max-time 2 http://127.0.0.1:10000/api/health > /dev/null; then

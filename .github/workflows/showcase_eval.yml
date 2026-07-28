@@ -43,6 +43,15 @@ concurrency:
   group: showcase-eval-${{ github.event.inputs.pr_number || github.event.issue.number || github.run_id }}
   cancel-in-progress: true
 
+env:
+  # Telemetry off for automated runs (OSS-565). CI jobs that boot real apps
+  # emit `oss.runtime.*` / `oss.inspector.*` events that are indistinguishable
+  # from user activity in PostHog. The runtime reads these at startup and
+  # reports `telemetryDisabled` on /info, which is how the browser-side
+  # Inspector in a CI-booted app learns to stay quiet too.
+  COPILOTKIT_TELEMETRY_DISABLED: "true"
+  DO_NOT_TRACK: "1"
+
 permissions:
   contents: read
 
