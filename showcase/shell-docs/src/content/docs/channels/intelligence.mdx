@@ -212,10 +212,15 @@ agent factories can point to the same agent backend.
     CHANNEL_CODE=<your-channel-code>
     ```
 
-    The two URLs above are the hosted Intelligence endpoints; use your
-    deployment's app API and realtime gateway URLs when self-hosting. Open
-    **API Keys** in the project sidebar to create and copy the project-scoped
-    runtime key.
+    The Runtime pinned in the platform quickstarts requires both Intelligence
+    base URLs. The REST and realtime planes use separate hosts, so do not derive
+    the WebSocket URL by changing the API URL's scheme. Pass bare base URLs: the
+    client appends `/api/...`, `/runner`, or `/client` itself. Do not append
+    `/api`, `/socket`, `/runner`, or `/client`. For self-hosted deployments,
+    replace both bases together.
+
+    Open **API Keys** in the project sidebar to create and copy the
+    project-scoped runtime key.
 
     You choose `CHANNEL_CODE` from the exact Code above, and the selected agent
     framework adds its own backend variables. The SDK receives the Intelligence
@@ -230,14 +235,15 @@ agent factories can point to the same agent backend.
   <Step>
     ### Know the healthy state
 
-    After you start the SDK listener, the Channel should become **Online**.
+    After you start the process and call
+    `await listener.channels.ready(...)`, the Channel should become **Online**.
 
     | Status | What to check |
     | --- | --- |
     | **Disabled** | Enable the Channel before expecting delivery. |
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
-    | **Waiting for runtime** | Start the listener and match its Code and provider to this Channel. |
+    | **Waiting for runtime** | Start the process, call `await listener.channels.ready(...)`, and match its Code and provider to this Channel. |
     | **Conflict** | Stop the duplicate runtime claiming the same Channel declaration. |
     | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
@@ -245,15 +251,15 @@ agent factories can point to the same agent backend.
 
     <FrontendOnly frontend="slack">
 
-    Continue with the [Slack quickstart](/slack) to start the listener and
-    verify a real message.
+    Continue with the [Slack quickstart](/slack) to start the process, activate
+    the listener with `ready()`, and verify a real message.
 
     </FrontendOnly>
 
     <FrontendOnly frontend="teams">
 
-    Continue with the [Teams quickstart](/teams) to start the listener and
-    verify a real message.
+    Continue with the [Teams quickstart](/teams) to start the process, activate
+    the listener with `ready()`, and verify a real message.
 
     </FrontendOnly>
 

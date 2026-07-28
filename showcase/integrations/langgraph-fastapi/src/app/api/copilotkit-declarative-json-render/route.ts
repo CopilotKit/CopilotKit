@@ -1,14 +1,17 @@
 /**
- * Dedicated runtime for the BYOC json-render demo.
+ * Dedicated runtime for the declarative-json-render demo.
  *
  * Splitting into its own endpoint (mirroring beautiful-chat +
- * declarative-gen-ui) keeps the `byoc_json_render` agent isolated from the
+ * declarative-gen-ui) keeps the `byoc_json_render` graph isolated from the
  * default multi-agent `/api/copilotkit` runtime. The frontend's demo page
- * (src/app/demos/byoc-json-render/page.tsx) points `<CopilotKit
- * runtimeUrl>` here.
+ * (src/app/demos/declarative-json-render/page.tsx) points `<CopilotKit
+ * runtimeUrl>` here. The Python module + langgraph graph ID retain the legacy
+ * `byoc_json_render` name; only the user-facing slug, route, and frontend
+ * folder were renamed. Mirrors langgraph-python.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -37,7 +40,7 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-json-render",
+      endpoint: "/api/copilotkit-declarative-json-render",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime,
     });

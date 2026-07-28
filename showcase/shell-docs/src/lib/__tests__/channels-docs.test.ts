@@ -132,6 +132,45 @@ describe("Channels documentation journey", () => {
     }
   });
 
+  it("matches the pinned Runtime URL and lifecycle contract", () => {
+    for (const slug of providerQuickstartSlugs) {
+      const source = bodyFor(slug);
+
+      expect(source, slug).toContain(
+        'apiUrl: required("INTELLIGENCE_API_URL")',
+      );
+      expect(source, slug).toContain(
+        'wsUrl: required("INTELLIGENCE_GATEWAY_WS_URL")',
+      );
+      expect(source, slug).toContain("const channels = listener.channels");
+      expect(source, slug).toMatch(/if \(!channels\)/);
+      expect(source, slug).toContain(
+        "await channels.ready({ timeoutMs: 30_000 })",
+      );
+      expect(source, slug).toContain('status.overall !== "online"');
+      expect(source, slug).toMatch(/opens? no\s+connection/i);
+      expect(source, slug).toMatch(/`ready\(\)` is required/i);
+      expect(
+        source.indexOf('process.once("SIGTERM", shutdown)'),
+        `${slug} registers shutdown before activation`,
+      ).toBeLessThan(
+        source.indexOf("await channels.ready({ timeoutMs: 30_000 })"),
+      );
+    }
+  });
+
+  it("treats the Intelligence REST and realtime endpoints as separate bases", () => {
+    const source = bodyFor("channels/intelligence");
+
+    expect(source).toMatch(/REST and realtime planes use separate hosts/i);
+    expect(source).toMatch(/do not derive\s+the WebSocket URL/i);
+    expect(source).toMatch(/Pass bare base URLs/i);
+    expect(source).toMatch(
+      /Do not append\s+`\/api`, `\/socket`, `\/runner`, or `\/client`/i,
+    );
+    expect(source).toMatch(/replace both bases together/i);
+  });
+
   it("keeps the global Channels page overview-only", () => {
     const overview = bodyFor("channels");
     const cardHrefs = Array.from(

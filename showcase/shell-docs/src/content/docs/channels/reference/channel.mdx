@@ -188,30 +188,33 @@ See [Tools and context](/channels/tools).
 
 ## Runtime lifecycle
 
-A Channel has no public `start()` method. The long-running runtime listener owns
-activation:
+A Channel has no public `start()` method. Creating the long-running runtime
+listener exposes lifecycle control but opens no connection. The first
+`ready()` call is required and lazily opens the Realtime Gateway connection:
 
 ```ts title="channel.ts"
 const listener = createCopilotNodeListener({ runtime });
 
-if (!listener.channels) throw new Error("Channels were not configured.");
+const channels = listener.channels;
+if (!channels) throw new Error("Channels were not configured.");
 
-await listener.channels.ready({ timeoutMs: 30_000 });
-const status = listener.channels.status();
+await channels.ready({ timeoutMs: 30_000 });
+const status = channels.status();
 if (status.overall !== "online") {
   throw new Error(`Channel not online: ${JSON.stringify(status)}`);
 }
 
 // During graceful shutdown:
-await listener.channels.stop();
+await channels.stop();
 ```
 
-`ready()` settles for `online` and `setup_required`; inspect `status()` before
-accepting traffic.
+`ready()` reports the initial `online` or `setup_required` outcome once; inspect
+`status()` before accepting traffic. Observe later drops and reconnects through
+`status()`.
 
 | Status           | Meaning                                                          |
 | ---------------- | ---------------------------------------------------------------- |
-| `connecting`     | Activation is still in progress.                                 |
+| `connecting`     | `ready()` has not activated the Channel yet, or activation is in progress. |
 | `online`         | The managed session is currently sendable.                       |
 | `setup_required` | The runtime declaration exists but provider setup is incomplete. |
 | `reconnecting`   | The gateway connection dropped and is retrying.                  |

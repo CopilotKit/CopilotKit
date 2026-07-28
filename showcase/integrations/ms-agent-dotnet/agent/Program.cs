@@ -84,6 +84,17 @@ app.MapPost("/multimodal", (HttpContext context) => MultimodalEndpoint.HandleAsy
     agentFactory.CreateMultimodalChatClient(),
     loggerFactory.CreateLogger("MultimodalEndpoint")));
 
+// A2UI Error Recovery demo. Backend-owned render->validate->retry loop with a
+// graceful a2ui_recovery_exhausted fallback. Mounted as a raw SSE endpoint (NOT
+// MapAGUI): the recovery-exhausted card only renders from an a2ui-surface
+// ACTIVITY_SNAPSHOT carrying status:"failed", which the MS Agent Framework AG-UI
+// adapter cannot emit — so this endpoint hand-writes the AG-UI SSE stream, the
+// same adapter-bypass pattern used by /multimodal. See agent/RecoveryAgent.cs.
+app.MapPost("/a2ui-recovery", (HttpContext context) => RecoveryAgent.HandleAsync(
+    context,
+    builder.Configuration,
+    loggerFactory.CreateLogger("RecoveryAgent")));
+
 // Beautiful Chat flagship demo.
 app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
 

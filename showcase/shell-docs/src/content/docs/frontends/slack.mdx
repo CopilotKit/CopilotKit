@@ -142,32 +142,35 @@ agent and application logic.
       basePath: "/api/copilotkit",
     });
 
-    if (!listener.channels) {
+    const channels = listener.channels;
+    if (!channels) {
       throw new Error("Managed Channels control surface was not created.");
-    }
-
-    await listener.channels.ready({ timeoutMs: 30_000 });
-    const status = listener.channels.status();
-    if (status.overall !== "online") {
-      throw new Error(`Slack Channel is not online: ${JSON.stringify(status)}`);
     }
 
     const server = createServer(listener);
     const port = Number(process.env.PORT ?? 3000);
-    server.listen(port, () => {
-      console.log(`Slack Channel online; lifecycle server listening on :${port}`);
-    });
-
     const shutdown = async () => {
-      await listener.channels!.stop();
-      server.close();
+      await channels.stop();
+      if (server.listening) server.close();
     };
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
+
+    await channels.ready({ timeoutMs: 30_000 });
+    const status = channels.status();
+    if (status.overall !== "online") {
+      throw new Error(`Slack Channel is not online: ${JSON.stringify(status)}`);
+    }
+
+    server.listen(port, () => {
+      console.log(`Slack Channel online; lifecycle server listening on :${port}`);
+    });
     ```
 
-    `ready()` can also settle when setup is required, so the explicit
-    `status().overall === "online"` check prevents a false-positive startup.
+    Creating the Node listener exposes Channel lifecycle control but opens no
+    connection. On this long-running host, `ready()` is required: its first call
+    lazily opens the Realtime Gateway connection. It can resolve with setup
+    still required, so inspect `status()` before reporting the Channel online.
 
   </Step>
 
@@ -183,9 +186,12 @@ agent and application logic.
     PORT=3000
     ```
 
-    The URLs above target hosted Intelligence. For a self-hosted deployment,
-    substitute its app API and realtime gateway URLs. Create the project-scoped
-    runtime key from **API Keys** in the Intelligence project sidebar.
+    The pinned Runtime requires both Intelligence base URLs. The REST and
+    realtime planes use separate hosts, so do not derive the WebSocket URL from
+    the API URL. Pass each as a bare base URL without `/api`, `/socket`,
+    `/runner`, or `/client`. For a self-hosted deployment, replace both bases
+    together. Create the project-scoped runtime key from **API Keys** in the
+    Intelligence project sidebar.
 
     Keep `.env` out of source control, start the selected agent backend, then
     run:

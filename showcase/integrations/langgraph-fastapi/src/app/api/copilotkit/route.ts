@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -40,21 +41,31 @@ const ROUTE_DEBUG =
   process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
   process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
-function createAgent(graphId: string = "sample_agent") {
+function createAgent(
+  graphId: string = "sample_agent",
+  options: { recursionLimit?: number } = {},
+) {
+  // LangGraph's `recursion_limit` defaults to 25 (langchain_core), and
+  // `with_config` in Python doesn't propagate when the graph is invoked via
+  // the langgraph server's runs API — the `.with_config(...)` wrapper on the
+  // graph object isn't visible to the assistant config the server builds per
+  // run. Bake the limit into `assistantConfig` here so it travels with every
+  // run we kick off through this route. Without this, multi-step graphs like
+  // `gen_ui_agent` (which walks ~15 supersteps of set_steps calls, more once
+  // prior turns accumulate in the thread) hit the default 25 mid-run and the
+  // final state-publishing tool call never streams — the state card then
+  // shows stale content from the previous pill. Mirrors langgraph-python.
   return new LangGraphAgent({
     deploymentUrl: `${AGENT_URL}/`,
     graphId,
+    assistantConfig: { recursion_limit: options.recursionLimit ?? 100 },
   });
 }
 
 const agentNames = [
-  "agentic_chat",
   "human_in_the_loop",
-  "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -74,8 +85,19 @@ agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "tool_rendering_reasoning_chain",
 );
-agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
-agents["reasoning-default-render"] = createAgent("reasoning_agent");
+// Reasoning variants. The Custom demo (`reasoning-custom`) and the
+// Default demo (`reasoning-default`) both share the same backend graph;
+// the only difference is whether the frontend overrides the
+// `messageView.reasoningMessage` slot. Mirrors langgraph-python.
+agents["reasoning-custom"] = createAgent("reasoning_agent");
+agents["reasoning-default"] = createAgent("reasoning_agent");
+
+// Agentic Generative UI — dedicated `gen_ui_agent` graph. The agent defines
+// its own `steps` state + a `set_steps` tool the model calls to publish plan
+// progress; the frontend subscribes via `useAgent`. Previously this name fell
+// through the neutral-assistant loop to `sample_agent`, which has no `steps`
+// state or `set_steps` tool, so the demo never rendered a progress card.
+agents["gen-ui-agent"] = createAgent("gen_ui_agent");
 
 // Interrupt variants — share the dedicated `interrupt_agent` graph that uses
 // langgraph's `interrupt()` primitive inside `schedule_meeting`.
@@ -113,6 +135,23 @@ agents["shared-state-read-write"] = createAgent("shared_state_read_write");
 // critique_agent (each a full create_agent under the hood). Every delegation
 // is appended to `state.delegations` for live UI rendering.
 agents["subagents"] = createAgent("subagents");
+
+// Agentic Chat — dedicated neutral-assistant graph (tools=[] +
+// CopilotKitMiddleware). Previously fell through to `sample_agent`. Mirrors
+// langgraph-python.
+agents["agentic_chat"] = createAgent("agentic_chat");
+// Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
+// The frontend registers render_bar_chart / render_pie_chart via useComponent;
+// CopilotKitMiddleware injects them into the model request. Mirrors
+// langgraph-python.
+agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
+// Shared State: Streaming — dedicated graph with the write_document tool +
+// StateStreamingMiddleware for per-token state-delta streaming. Mirrors
+// langgraph-python.
+agents["shared-state-streaming"] = createAgent("shared_state_streaming");
+// Thread-id frontend-tool round-trip — reuses the frontend_tools graph
+// (no dedicated graph needed). Mirrors langgraph-python.
+agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools");
 
 agents["default"] = createAgent();
 
