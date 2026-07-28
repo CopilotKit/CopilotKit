@@ -24,6 +24,7 @@ import type {
   ThreadMessage,
   EmojiValue,
   EphemeralResult,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { DiscordConversationStore } from "./conversation-store.js";
@@ -485,14 +486,16 @@ export class DiscordAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as ReplyTarget;
     try {
       const channel = await this.fetchSendable(t.channelId);
       const msg = await channel.send({
         files: [{ attachment: Buffer.from(args.bytes), name: args.filename }],
       });
-      return { ok: true, fileId: msg.id };
+      // Discord posts the attachment AS a message, so its id is a real message
+      // id (usable for delete/react) — not a media-storage handle.
+      return { ok: true, messageId: msg.id };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }

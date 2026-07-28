@@ -7,6 +7,7 @@ import type {
   MessageRef,
   PlatformUser,
   ThreadMessage,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
@@ -305,7 +306,7 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  ): Promise<PostFileResult>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

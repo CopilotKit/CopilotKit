@@ -15,10 +15,11 @@ export interface ReplyTarget {
    */
   recipientUserId?: string;
   /**
-   * Inbound message ts used as the thread anchor for
-   * `assistant.threads.setStatus` in flat DMs (which have no `threadTs`).
-   * Replies still post flat; this only gives the native "is thinking…"
-   * indicator a thread to attach to.
+   * Inbound message ts. Anchors `assistant.threads.setStatus` in flat DMs
+   * (which have no `threadTs`), and serves as the fallback reply thread anchor
+   * so a turn's text, images, and status all land together under the inbound
+   * message instead of the status sitting in a thread while replies scatter to
+   * the conversation root.
    */
   statusTs?: string;
 }

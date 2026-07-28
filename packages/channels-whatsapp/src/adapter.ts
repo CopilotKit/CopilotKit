@@ -12,6 +12,7 @@ import type {
   MessageRef,
   PlatformUser,
   ThreadMessage,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type {
   ReplyTarget,
@@ -178,7 +179,7 @@ export class WhatsAppAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     try {
       const mime = guessMime(args.filename);
       const mediaId = await this.client.uploadMedia(
@@ -210,7 +211,9 @@ export class WhatsAppAdapter implements PlatformAdapter {
           (mime.startsWith("image/") ? "[image]" : "[document]"),
         ref,
       );
-      return { ok: true, fileId: mediaId };
+      // `mediaId` is the uploaded media handle; `ref.id` is the wamid of the
+      // message that carries it — only the latter is a usable message id.
+      return { ok: true, messageId: ref.id, fileId: mediaId };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }

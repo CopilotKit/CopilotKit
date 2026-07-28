@@ -97,7 +97,9 @@ describe("whatsapp() adapter", () => {
       { to: "111", phoneNumberId: "PNID" },
       { bytes: new Uint8Array([1]), filename: "pic.png", altText: "a pic" },
     );
-    expect(res).toEqual({ ok: true, fileId: "MEDIA1" });
+    // `fileId` is the uploaded media handle; `messageId` is the wamid of the
+    // message carrying it — the only one usable as a MessageRef.
+    expect(res).toEqual({ ok: true, fileId: "MEDIA1", messageId: "x" });
     expect(calls[0]).toEqual({
       type: "image",
       image: { id: "MEDIA1", caption: "a pic" },

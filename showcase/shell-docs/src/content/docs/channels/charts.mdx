@@ -37,7 +37,7 @@ await thread.post(
 );
 ```
 
-Charts default to the CopilotKit brand data-viz palette (purple, mint, blue, orange, teal): `#6366f1`, `#22c55e`, `#f59e0b`, `#ef4444`, `#06b6d4`. Pass a `colors` prop to override.
+Charts default to the CopilotKit brand data-viz palette: `#5a3cd1` (purple), `#85ecce` (mint), `#3d92e8` (blue), `#ffac4d` (orange), `#189370` (deep mint), `#bec2ff` (periwinkle). Pass a `colors` prop to override.
 
 ## The chart components
 
@@ -106,6 +106,42 @@ A few things worth knowing before you theme one:
 - **`gridColor` and `showGrid` apply only to `LineChart` and `Scatter`.**
 - **Scaling is data-relative, not zero-anchored.** `LineChart` and `Sparkline` scale the y-axis to the data's own min and max; `Scatter` scales both axes to the point extent. Include a zero-valued datum if you need a zero baseline.
 - **Pass non-negative values.** `BarChart` clamps a negative value to a zero-height bar. `StackedBar` clamps a negative segment to zero and distorts the remaining segments in that bar.
+
+## Flow diagrams
+
+`FlowDiagram` takes nodes and edges and renders them as layered boxes joined by arrows, for a pipeline, a state machine, or a request path.
+
+```tsx
+import { FlowDiagram, diagramCanvasSize } from "@copilotkit/channels/charts";
+
+const nodes = [
+  { id: "hook", label: "Webhook" },
+  { id: "queue", label: "Queue" },
+  { id: "agent", label: "Agent run" },
+  { id: "post", label: "Post to Slack" },
+];
+const edges = [
+  { from: "hook", to: "queue", label: "enqueue" },
+  { from: "queue", to: "agent" },
+  { from: "agent", to: "post" },
+];
+
+// The canvas is fixed-size and the diagram fills it, so size it to the layout.
+await thread.post(
+  <FlowDiagram nodes={nodes} edges={edges} title="Request path" />,
+  diagramCanvasSize(nodes, edges, "down"),
+);
+```
+
+How the edges are drawn:
+
+- Nodes are layered by longest path from a root, so a linear process renders as a clean top-to-bottom chain (`direction="right"` lays it out left-to-right instead).
+- **Every declared edge appears.** A gap between adjacent layers gets one arrow *per edge* crossing it, captioned with that edge's `label`. When a gap carries more than one edge, each arrow is also captioned `from -> to`, because position alone cannot say which boxes an arrow joins.
+- Edges a layered layout cannot route, skip-level, backward, and self edges, are listed as `from -> to` text under the flow rather than dropped. So two graphs that differ only in their edges never render identically.
+- Edges referencing an unknown node id are ignored.
+- `diagramCanvasSize(nodes, edges, direction)` returns a `{ width, height }` sized to the layout's depth, breadth, and edge count. Spread it into the post options (as above) so a long or wide flow is not clipped by the default 720x480 canvas.
+
+Layout is deliberately simple, there is no graph auto-routing engine here (that would need a browser). For a hand-tuned picture, author your own JSX and post it as an [image](/channels/posting-jsx-as-images).
 
 These are separate from the native [`<Chart>` component](/channels/ui-library), which renders as a real Block Kit or Adaptive Card chart where the platform supports it. The `charts` components are for image output styled with your own CSS.
 

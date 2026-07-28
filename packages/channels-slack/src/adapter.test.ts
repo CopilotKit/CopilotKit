@@ -54,6 +54,15 @@ describe("SlackAdapter.post", () => {
     expect((ref as { channel?: string }).channel).toBe("C1");
   });
 
+  it("threads the reply under statusTs when the target has no threadTs (flat DM)", async () => {
+    const { adapter, chat } = makeAdapter();
+    await adapter.post({ channel: "C1", statusTs: "200.0" }, [section("hi")]);
+    const arg = chat.postMessage.mock.calls[0]![0] as { thread_ts?: string };
+    // Without the fallback the reply would post to the DM root, splitting it
+    // from the "is thinking…" status (which anchors to the same statusTs).
+    expect(arg.thread_ts).toBe("200.0");
+  });
+
   it("renders a <Message accent> as a colored attachment with a short top-level text and NO fallback on the attachment", async () => {
     const { adapter, chat } = makeAdapter();
     const header = (text: string): ChannelNode => ({
@@ -263,10 +272,20 @@ describe("SlackAdapter.getMessages", () => {
 });
 
 describe("SlackAdapter.postFile", () => {
-  it("uploads via files.uploadV2 with channel_id/thread_ts/file and returns ok", async () => {
+  it("uploads via files.uploadV2 and reports the file id plus the share ts as the message id", async () => {
     const { adapter } = makeAdapter();
+    // uploadV2 nests the result: { files: [ { files: [ { id, shares } ] } ] }.
+    // The F-id is the FILE; the ts under `shares` is the message it landed in,
+    // and the only value Slack's chat.delete / reactions.add accept.
     const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
       ok: true,
+      files: [
+        {
+          files: [
+            { id: "F123", shares: { public: { C1: [{ ts: "300.5" }] } } },
+          ],
+        },
+      ],
     }));
     (adapter as unknown as { client: { files: unknown } }).client = {
       files: { uploadV2 },
@@ -282,7 +301,7 @@ describe("SlackAdapter.postFile", () => {
       },
     );
 
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, fileId: "F123", messageId: "300.5" });
     expect(uploadV2).toHaveBeenCalledTimes(1);
     const arg = uploadV2.mock.calls[0]![0] as {
       channel_id: string;
@@ -316,6 +335,51 @@ describe("SlackAdapter.postFile", () => {
 
     const arg = uploadV2.mock.calls[0]![0] as { thread_ts?: string };
     expect(arg.thread_ts).toBeUndefined();
+  });
+
+  it("reports no messageId when the upload response carries no share ts", async () => {
+    const { adapter } = makeAdapter();
+    // A file uploaded without a share (or a response shape Slack changed under
+    // us) must NOT pass the F-id off as a message id.
+    const uploadV2 = vi.fn(async () => ({
+      ok: true,
+      files: [{ files: [{ id: "F77" }] }],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+
+    const res = await adapter.postFile(
+      { channel: "C1" },
+      { bytes: new Uint8Array([1]), filename: "x.png" },
+    );
+
+    expect(res).toEqual({ ok: true, fileId: "F77", messageId: undefined });
+  });
+
+  it("threads the upload under statusTs when the target has no threadTs (flat DM)", async () => {
+    const { adapter } = makeAdapter();
+    const uploadV2 = vi.fn(async (_arg: Record<string, unknown>) => ({
+      ok: true,
+      files: [
+        {
+          files: [{ id: "F9", shares: { private: { C1: [{ ts: "301.1" }] } } }],
+        },
+      ],
+    }));
+    (adapter as unknown as { client: { files: unknown } }).client = {
+      files: { uploadV2 },
+    };
+
+    const res = await adapter.postFile(
+      { channel: "C1", statusTs: "200.0" },
+      { bytes: new Uint8Array([1]), filename: "x.png" },
+    );
+
+    const arg = uploadV2.mock.calls[0]![0] as { thread_ts?: string };
+    expect(arg.thread_ts).toBe("200.0");
+    expect(res.fileId).toBe("F9");
+    expect(res.messageId).toBe("301.1");
   });
 
   it("returns ok:false with the error message when uploadV2 throws", async () => {

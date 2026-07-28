@@ -18,6 +18,7 @@ import type {
   ThreadMessage,
   EmojiValue,
   EphemeralResult,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { TelegramConversationStore } from "./conversation-store.js";
@@ -549,7 +550,7 @@ export class TelegramAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as ReplyTarget;
     try {
       const result = await this.bot.api.sendDocument(
@@ -559,7 +560,13 @@ export class TelegramAdapter implements PlatformAdapter {
           ? { message_thread_id: t.messageThreadId }
           : {},
       );
-      return { ok: true, fileId: result.document?.file_id };
+      // `document.file_id` is Telegram's media handle (reusable in a later send),
+      // NOT a message id — deleteMessage/setMessageReaction need `message_id`.
+      return {
+        ok: true,
+        messageId: String(result.message_id),
+        fileId: result.document?.file_id,
+      };
     } catch (e) {
       return { ok: false, error: String(e) };
     }

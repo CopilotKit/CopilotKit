@@ -17,6 +17,7 @@ import {
   StackedBar,
   Scatter,
   FlowDiagram,
+  diagramCanvasSize,
 } from "@copilotkit/channels/charts";
 
 const datum = z.object({ label: z.string(), value: z.number() });
@@ -136,13 +137,13 @@ export const diagramTool = defineChannelTool({
   async handler(a, { thread }) {
     if (!a.nodes?.length)
       return "render_diagram needs at least one node in `nodes`.";
-    // Size the canvas to the flow so it fills the image rather than floating in a
-    // wide frame: a top-to-bottom flow gets a portrait canvas, left-to-right a
-    // landscape one. Height grows with the number of layers (roughly the chain).
-    const right = a.direction === "right";
-    const span = 120 + Math.min(a.nodes.length, 8) * (right ? 150 : 96);
-    const width = right ? Math.max(760, span) : 620;
-    const height = right ? 420 : Math.max(360, span);
+    // Size the canvas to the actual layout (depth = layers, breadth = widest
+    // layer) so the whole flow fits the image instead of clipping off-screen.
+    const { width, height } = diagramCanvasSize(
+      a.nodes,
+      a.edges ?? [],
+      a.direction,
+    );
     await thread.post(
       <FlowDiagram
         nodes={a.nodes}

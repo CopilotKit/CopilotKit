@@ -28,6 +28,7 @@ import type {
   ChannelNode,
   ThreadMessage,
   EmojiValue,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { SlackConversationStore } from "./conversation-store.js";
@@ -63,6 +64,19 @@ import type {
   SlackFeedbackOptions,
   SlackRespondToOptions,
 } from "./types.js";
+
+/**
+ * The parts of an uploaded Slack file we read back. `@slack/web-api` types
+ * `filesUploadV2`'s response loosely, so narrow to what we use: the file id and
+ * the `shares` map that records the message ts each channel got.
+ */
+interface SlackUploadedFile {
+  id?: string;
+  shares?: {
+    public?: Record<string, Array<{ ts?: string }> | undefined>;
+    private?: Record<string, Array<{ ts?: string }> | undefined>;
+  };
+}
 
 export interface SlackAdapterOptions {
   /** Slack bot token (xoxb-…). */
@@ -315,6 +329,17 @@ export class SlackAdapter implements PlatformAdapter {
     return renderBlockKit(ir);
   }
 
+  /**
+   * Thread anchor for content replies: an explicit `threadTs`, else the inbound
+   * message ts (`statusTs`). Without the fallback, replies in a flat DM (which
+   * carries only `statusTs`) scatter to the conversation root while the "is
+   * thinking…" status sits in a thread — so the agent's text lands apart from
+   * its images and the status. Falling back keeps the whole turn in one thread.
+   */
+  private replyThreadTs(t: ReplyTarget): string | undefined {
+    return t.threadTs ?? t.statusTs;
+  }
+
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const { blocks, accent } = renderSlackMessage(ir);
@@ -324,7 +349,7 @@ export class SlackAdapter implements PlatformAdapter {
     // attachments. The gen-UI card IS the presentation.
     const base = {
       channel: t.channel,
-      thread_ts: t.threadTs,
+      thread_ts: this.replyThreadTs(t),
       unfurl_links: false,
       unfurl_media: false,
       // Short one-line notification/a11y fallback. Slack does NOT render a
@@ -378,7 +403,7 @@ export class SlackAdapter implements PlatformAdapter {
         postPlaceholder: async (text) => {
           const posted = await this.client.chat.postMessage({
             channel: t.channel,
-            thread_ts: t.threadTs,
+            thread_ts: this.replyThreadTs(t),
             text,
             unfurl_links: false,
             unfurl_media: false,
@@ -858,6 +883,21 @@ export class SlackAdapter implements PlatformAdapter {
     return out;
   }
 
+  /**
+   * `files.uploadV2` returns the FILE, whose `shares` map records the message(s)
+   * it was posted into: `shares.public|private[channelId] = [{ ts, ... }]`.
+   * That `ts` is the message id Slack's chat.delete / reactions.add want.
+   */
+  private static firstShareTsOf(file?: SlackUploadedFile): string | undefined {
+    for (const group of [file?.shares?.public, file?.shares?.private]) {
+      for (const entries of Object.values(group ?? {})) {
+        const ts = entries?.[0]?.ts;
+        if (ts) return ts;
+      }
+    }
+    return undefined;
+  }
+
   async postFile(
     target: BotReplyTarget,
     {
@@ -871,7 +911,7 @@ export class SlackAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<PostFileResult> {
     const t = target as ReplyTarget;
     try {
       // Slack's `FilesUploadV2Arguments` union types `thread_ts` as a
@@ -884,11 +924,23 @@ export class SlackAdapter implements PlatformAdapter {
         title,
         alt_text: altText,
       };
-      if (t.threadTs) args.thread_ts = t.threadTs;
-      await this.client.files.uploadV2(
+      // Thread the upload under the same anchor as text replies (explicit
+      // thread, else the inbound message) so images don't scatter to the root.
+      const threadTs = this.replyThreadTs(t);
+      if (threadTs) args.thread_ts = threadTs;
+      const result = (await this.client.files.uploadV2(
         args as unknown as Parameters<WebClient["files"]["uploadV2"]>[0],
-      );
-      return { ok: true };
+      )) as { files?: Array<{ files?: Array<SlackUploadedFile> }> };
+      // uploadV2 nests the uploaded file(s): { files: [ { files: [ { id, shares } ] } ] }.
+      const file = result.files?.[0]?.files?.[0];
+      return {
+        ok: true,
+        // The F-id identifies the FILE. Slack's chat.delete/reactions.add need
+        // the ts of the message the file was shared into, which rides along in
+        // `shares` — surface both, honestly labeled.
+        fileId: file?.id,
+        messageId: SlackAdapter.firstShareTsOf(file),
+      };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }

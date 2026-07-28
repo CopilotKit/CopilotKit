@@ -42,7 +42,7 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
     await thread.post(<MrrCard value="$48,200" delta={12} />);
     ```
 
-    The "call the component and inspect its output" check runs only for components referenced under the channels pragma. A plain element from an app (react-pragma) file is never called; it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (say it calls a hook) is treated as native rather than crashing the classifier. Because classification may call an unbranded component an extra time (peek, then bind on the native path), components referenced under the channels pragma must be pure and side-effect-free.
+    The "call the component and inspect its output" check runs only for components referenced under the channels pragma. A plain element from an app (react-pragma) file is never called; it goes straight to the image path. An unbranded channels-pragma component that throws during this peek (say it calls a hook) is treated as native rather than crashing the classifier. Each element is peeked **at most once** (the verdict is memoized per element), so passing the same element through more than one call does not re-run your component; on the native path it is then called once more to bind. Components referenced under the channels pragma must therefore be pure and side-effect-free.
 
     <Callout type="info" title="One post, one route">
       A single `post()` call is either native IR or one image. You cannot mix native components and image output in the same message. Call `post()` twice if you need both.
@@ -81,6 +81,29 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
 
     <Callout type="warn" title="No fonts configured means Latin-only">
       Takumi cannot detect missing glyphs before render, so the SDK warns once when no `fonts` are configured, and non-Latin text drops from the image. Any other Takumi render error is surfaced, not swallowed, so a broken font or stylesheet fails loudly.
+    </Callout>
+  </Step>
+  <Step>
+    ### Control what the renderer may fetch
+
+    The rasterizer fetches remote resources your JSX references, `<img src>`, CSS `url()`, emoji sheets. Channel JSX is often built from model or user data, so an ungated fetcher running inside your infrastructure is an SSRF sink: an `<img src="http://169.254.169.254/latest/meta-data/">` would have the renderer read your cloud instance metadata.
+
+    By default, `render` denies non-HTTP(S) schemes and hosts that are literally private, loopback, link-local, or an internal zone (cloud metadata endpoints included), and allows the rest. Override it with `allowImageUrl`:
+
+    ```ts title="bot.ts"
+    const bot = createChannel({
+      // ...
+      render: {
+        // Only this CDN, nothing else.
+        allowImageUrl: (url) => new URL(url).origin === "https://cdn.example.com",
+        // Or block every remote fetch:
+        // allowImageUrl: () => false,
+      },
+    });
+    ```
+
+    <Callout type="warn" title="The default check cannot resolve DNS">
+      The hook Takumi exposes is synchronous, so the default policy matches on the URL's literal host. A public hostname that resolves to a private address (DNS rebinding) is **not** caught. If your JSX can carry untrusted URLs, pass an explicit `allowImageUrl` allowlist rather than relying on the default. `allowImageUrl` is channel-wide only, deliberately, a per-post override is exactly the knob a prompt-injected tool argument would reach for.
     </Callout>
   </Step>
   <Step>
@@ -134,7 +157,7 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
 
     - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use the built-in [charts](/channels/charts) components or your own pure presentational markup instead.
     - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both throw a clear error if you pass a React element (or an unbranded component that returns one). Post a new image instead.
-    - **Image posts are file-backed.** They return a `MessageRef` like any other post, but with more limited edit support than a native message.
+    - **Image posts are file-backed, and not every platform hands back a message id.** `post()` returns a `MessageRef` holding the id of the *message* the image was posted as, so `delete()`/`react()` work where the platform reports one (Slack via the file's share, Discord, Teams, Telegram, WhatsApp). Platforms that upload media out of band, or the managed transport (which hands the upload to an async outbox), may report no id at all: you get `{ id: "" }` and a warning. The upload itself still succeeded. Never assume a media/file id doubles as a message id, the platform APIs reject it.
     - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
   </Step>
 </Steps>
