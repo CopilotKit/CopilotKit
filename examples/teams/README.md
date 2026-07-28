@@ -23,8 +23,6 @@ From this directory (after `pnpm install` at the repo root):
 
 ```sh
 export OPENAI_API_KEY=sk-...              # or add it to .env (see .env.example)
-export COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai
-export COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai
 export COPILOTKIT_API_KEY=cpk-...          # Intelligence key (free tier)
 pnpm start                                 # starts the bot on http://localhost:3978/api/messages
 ```
@@ -178,15 +176,18 @@ Set the environment for wherever you deploy:
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
 - `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
-- `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` /
-  `COPILOTKIT_API_KEY` _(all required)_: the Intelligence runtime that owns the
+- `COPILOTKIT_API_KEY` _(required)_: the Intelligence runtime that owns the
   Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
-  at startup without these (free tier is enough). The API and realtime planes are
-  **separate hosts** (`api.intelligence.copilotkit.ai` vs
-  `realtime.intelligence.copilotkit.ai`), so the websocket URL cannot be derived
-  from the API URL by swapping the scheme — both are shown on your project's
-  Intelligence dashboard. Getting the websocket host wrong does not produce an
-  error; the Channel sits in `connecting` until it times out.
+  at startup without it (free tier is enough). No URLs to configure — the SDK
+  defaults to the managed Intelligence platform.
+- `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
+  point the bot at a self-hosted or dev Intelligence deployment. Set **both or
+  neither**: the API and realtime planes are **separate hosts**
+  (`api.intelligence.copilotkit.ai` vs `realtime.intelligence.copilotkit.ai`), so
+  the websocket URL cannot be derived from the API URL by swapping the scheme, and
+  setting one alone leaves the other plane on the managed platform. Getting the
+  websocket host wrong does not produce an error; the Channel sits in `connecting`
+  until it times out.
 - `CHANNELS_PORT` _(optional)_: port for the Intelligence runtime that owns the
   Channel (loopback-only, default 8300).
 - `clientId` / `clientSecret` / `tenantId`: needed to reach real Teams (see

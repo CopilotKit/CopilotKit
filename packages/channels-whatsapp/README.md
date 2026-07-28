@@ -58,10 +58,8 @@ bot.onMessage(async ({ thread }) => {
 // The runtime owns the channel's lifecycle — there is no `bot.start()`.
 const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
-    // The API and realtime planes are DIFFERENT hosts — do not scheme-swap one
-    // into the other. Both are shown on your project's Intelligence dashboard.
-    apiUrl: "https://api.intelligence.copilotkit.ai",
-    wsUrl: "wss://realtime.intelligence.copilotkit.ai",
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
   identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),

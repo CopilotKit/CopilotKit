@@ -125,11 +125,13 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  // Both URLs are required: the API and realtime planes are separate hosts
-  // (api.… vs realtime.…), so neither can be derived from the other.
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: required("COPILOTKIT_INTELLIGENCE_URL"),
-    wsUrl: required("COPILOTKIT_INTELLIGENCE_WS_URL"),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 

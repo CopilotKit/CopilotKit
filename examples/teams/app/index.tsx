@@ -16,9 +16,9 @@
  * `bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
- * (`COPILOTKIT_INTELLIGENCE_URL` + `COPILOTKIT_API_KEY` — free tier), which the
- * runtime that owns the Channel is configured with. No Microsoft credentials
- * are needed to test in the M365 Agents Playground:
+ * (`COPILOTKIT_API_KEY` — free tier; the platform URLs default to the managed
+ * service), which the runtime that owns the Channel is configured with. No
+ * Microsoft credentials are needed to test in the M365 Agents Playground:
  *
  *   pnpm start        # bot on http://localhost:3978/api/messages
  *   pnpm playground   # M365 Agents Playground UI (http://localhost:56150)
@@ -70,11 +70,11 @@ const required = (name: string): string => {
       `Missing ${name}.\n` +
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
-        "  export COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai\n" +
-        "  export COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai\n" +
-        "  export COPILOTKIT_API_KEY=cpk-...   (or add them to examples/teams/.env)\n" +
-        "The API and websocket URLs are DIFFERENT hosts (api.… vs realtime.…), so\n" +
-        "the websocket URL cannot be derived from the API URL — set both.",
+        "  export COPILOTKIT_API_KEY=cpk-...   (or add it to examples/teams/.env)\n" +
+        "No URLs to set: the SDK defaults to the managed Intelligence platform. A\n" +
+        "self-hosted deployment exports COPILOTKIT_INTELLIGENCE_URL AND\n" +
+        "COPILOTKIT_INTELLIGENCE_WS_URL — they are DIFFERENT hosts, so the websocket\n" +
+        "URL cannot be derived from the API URL.",
     );
     process.exit(1);
   }
@@ -236,11 +236,13 @@ bot.onMessage(async ({ thread, message }) => {
 // Teams adapter stays DIRECT (it keeps its own credentials/transport), but a
 // Channel runs only through the Intelligence runtime, so the runtime is what
 // starts and stops it.
-// Both URLs are required: the API and realtime planes are separate hosts, so
-// there is no derive that produces one from the other.
+// apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+// overrides target a self-hosted or dev deployment. Set both or neither: the API
+// and realtime planes are separate hosts, so there is no derive that produces one
+// from the other.
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: required("COPILOTKIT_INTELLIGENCE_URL"),
-  wsUrl: required("COPILOTKIT_INTELLIGENCE_WS_URL"),
+  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
   apiKey: required("COPILOTKIT_API_KEY"),
 });
 

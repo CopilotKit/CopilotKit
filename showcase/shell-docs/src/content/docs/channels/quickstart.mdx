@@ -53,21 +53,20 @@ walkthrough and per-platform install links.
 <Step>
 ### Set the environment
 
-The Intelligence runtime reads the first three. For a managed channel no platform
+`COPILOTKIT_API_KEY` is your Intelligence key. For a managed channel no platform
 tokens live in your app. `OPENAI_API_KEY` powers the agent's model.
 
-The API and websocket URLs are **different hosts**, so the websocket URL cannot be
-derived from the API URL by swapping the scheme — set both. Getting the websocket
-host wrong does not raise an error; the channel sits in `connecting` until it times
-out. Self-hosted deployments substitute their own two hosts.
-
 ```bash
-COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai
-# A separate host from the API URL above, so it cannot be derived from it.
-COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai
 COPILOTKIT_API_KEY=cpk-...
 OPENAI_API_KEY=sk-...
 ```
+
+There are no URLs to configure: the SDK defaults to the managed Intelligence
+platform. A self-hosted deployment overrides `apiUrl` **and** `wsUrl` on
+`CopilotKitIntelligence` — they are different hosts, so the websocket URL cannot be
+derived from the API URL by swapping the scheme, and setting only one leaves the
+other plane pointed at the managed host. Getting the websocket host wrong does not
+raise an error; the channel sits in `connecting` until it times out.
 </Step>
 
 <Step>
@@ -129,10 +128,8 @@ channel.onMessage(async ({ thread, message }) => {
 // `ready()` activates it. The Intelligence key (free tier available) is what
 // lets the runtime run any channel.
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
-  // A separate host from apiUrl — the realtime plane is deployed apart, so
-  // this cannot be derived by swapping the API URL scheme.
-  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+  // apiUrl and wsUrl default to the managed Intelligence platform. Override
+  // both together only for a self-hosted deployment.
   apiKey: process.env.COPILOTKIT_API_KEY!,
 });
 
