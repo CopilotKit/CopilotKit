@@ -368,12 +368,17 @@ function toHttpProbeUrl(wsUrl: string): string | undefined {
 }
 
 /**
- * Per-channel `state` values (from the gateway's `CHANNEL_STATE_KINDS`) that
- * mean a declared channel is genuinely unconfigured or waiting — a degraded
- * `setup_required` condition, not a hard failure. Any other non-`channel_live`
- * state (`runtime_conflict`, `platform_setup_failed`, `delivery_failed`,
- * `egress_failed`, `runtime_offline`, `runtime_not_declared`) is treated as a
- * hard error; see {@link classifyJoinError}.
+ * Per-channel `state` values that mean a declared channel is genuinely
+ * unconfigured or waiting — a degraded `setup_required` condition, not a hard
+ * failure. Any other non-`channel_live` state (`runtime_conflict`,
+ * `platform_setup_failed`, `delivery_failed`, `egress_failed`, `runtime_offline`,
+ * `runtime_not_declared`) is treated as a hard error; see
+ * {@link classifyJoinError}.
+ *
+ * Sourced from two Intelligence vocabularies, not one. Most are read-model
+ * `CHANNEL_STATE_KINDS` members. `channel_not_declared` is declaration-only
+ * (`CHANNEL_LISTENER_DECLARATION_STATES`) and has no read-model counterpart:
+ * only a join needs to name a channel the project does not have.
  *
  * Verified against Intelligence `sdk_channel.ex` +
  * `libs/app-api-contracts/src/channels.ts`: the gateway rejects a join with
@@ -384,6 +389,7 @@ function toHttpProbeUrl(wsUrl: string): string | undefined {
  */
 const SETUP_REQUIRED_CHANNEL_STATES: ReadonlySet<string> = new Set([
   "no_channels_yet",
+  "channel_not_declared",
   "adapter_setup_required",
   "slack_setup_complete_waiting_for_runtime",
   "channel_setup_complete_waiting_for_runtime",
@@ -935,9 +941,16 @@ function describeTransportError(error: unknown): {
  *
  * `runtime_not_declared` is treated as a HARD error here: during our own join
  * the runtime IS declaring itself, so the gateway reporting the channel as
- * runtime-not-declared is a server/runtime disagreement, not user setup. TODO
- * (gateway-owner): confirm this is never a benign join-vs-heartbeat race; if it
- * is, add it to {@link SETUP_REQUIRED_CHANNEL_STATES} and document why.
+ * runtime-not-declared is a server/runtime disagreement, not user setup.
+ *
+ * OSS-622 settled the open question this comment used to carry. app-api WAS
+ * sending `runtime_not_declared` on the join path for a benign condition — a
+ * declared channel the project does not have — because the declaration contract
+ * had no token for it. The token meant the inverse of its read-model sense, so
+ * reading it literally (correctly) turned every first run of a new channel into a
+ * crashed startup. app-api now sends `channel_not_declared` for that case, which
+ * is classified setup-required above. `runtime_not_declared` keeps its literal
+ * reading and stays a hard error.
  *
  * When a `channel_declaration_unavailable` reject carries no parseable
  * per-channel detail, we degrade to `setup_required` (the conservative
