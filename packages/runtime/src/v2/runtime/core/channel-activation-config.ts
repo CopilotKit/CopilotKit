@@ -41,6 +41,12 @@ export interface ChannelActivationConfig {
    * connection for the declared provider.
    */
   adapter: string;
+  /**
+   * Whether a turn in a SHARED conversation may use user-private Intelligence
+   * memory (OSS-643). Resolved from the Intelligence client; defaults to
+   * `"direct-only"`.
+   */
+  channelMemoryPolicy: "direct-only" | "shared";
   /** Identifier for the runtime instance activating this Channel. */
   runtimeInstanceId: string;
 }
@@ -164,6 +170,11 @@ export function deriveChannelActivationConfig(args: {
     projectId,
     channelName,
     adapter: trimmedProvider ? trimmedProvider : "slack",
+    // OSS-643: fail closed. An Intelligence client predating the option, or one
+    // that does not expose the accessor, gets "direct-only" — user-private
+    // memory never silently reaches a shared conversation.
+    channelMemoryPolicy:
+      intelligence.ɵgetChannelMemoryPolicy?.() ?? "direct-only",
     runtimeInstanceId,
   };
 }

@@ -188,8 +188,20 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
-  /** Resolves the authenticated user for intelligence requests. */
-  identifyUser: IdentifyUserCallback;
+  /**
+   * Resolves the authenticated user for HTTP Intelligence requests.
+   *
+   * Required unless this runtime declares a non-empty `channels` array: a
+   * Channel-only runtime has no HTTP callers to authenticate, and a managed
+   * Channel turn carries its own verified sender identity on the delivery, so
+   * demanding a callback here would force a placeholder that attributes every
+   * turn to a fake user (OSS-643).
+   *
+   * A runtime that serves BOTH still needs it — omitting it makes every HTTP
+   * Intelligence request fail with an actionable 500 rather than running
+   * unauthenticated.
+   */
+  identifyUser?: IdentifyUserCallback;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -250,7 +262,8 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
-  identifyUser: IdentifyUserCallback;
+  /** Absent on a Channel-only runtime; see {@link CopilotIntelligenceRuntimeOptions.identifyUser}. */
+  identifyUser?: IdentifyUserCallback;
   generateThreadNames: boolean;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
@@ -371,7 +384,7 @@ export class CopilotIntelligenceRuntime
   implements CopilotIntelligenceRuntimeLike
 {
   readonly intelligence: CopilotKitIntelligence;
-  readonly identifyUser: IdentifyUserCallback;
+  readonly identifyUser?: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
@@ -395,6 +408,17 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
+    // A Channel-only runtime may omit `identifyUser` (OSS-643) — managed turns
+    // carry their own verified sender. Everything else still needs it, and
+    // failing here beats discovering it on the first request.
+    if (!options.identifyUser && !(options.channels?.length ?? 0)) {
+      throw new Error(
+        "CopilotRuntime: `identifyUser` is required for Intelligence. Pass " +
+          "`identifyUser(request)` to authenticate HTTP callers, or declare " +
+          "`channels` for a Channel-only runtime (managed Channel turns carry " +
+          "their own verified sender identity).",
+      );
+    }
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
     // Telemetry attribution is handled by the base constructor for all modes;

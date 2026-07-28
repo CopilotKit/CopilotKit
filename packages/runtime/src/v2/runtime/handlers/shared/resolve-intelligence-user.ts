@@ -60,6 +60,18 @@ export async function resolveIntelligenceUser(params: {
 }): Promise<CopilotRuntimeUser | Response> {
   const { runtime, request } = params;
 
+  // A Channel-only runtime legitimately has no `identifyUser` (OSS-643), but an
+  // HTTP Intelligence request still needs an authenticated caller. Fail with an
+  // actionable message rather than a TypeError on an undefined callback.
+  if (typeof runtime.identifyUser !== "function") {
+    return errorResponse(
+      "This runtime serves HTTP Intelligence requests but has no `identifyUser`. " +
+        "Channel-only runtimes may omit it; a runtime that also serves browser " +
+        "or API users must authenticate those requests with `identifyUser(request)`.",
+      500,
+    );
+  }
+
   try {
     const result = validateIntelligenceUser(await runtime.identifyUser(request));
     if (isUserValidationError(result)) {

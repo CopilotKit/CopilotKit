@@ -104,7 +104,7 @@ describe("parseProjectIdFromApiKey", () => {
 });
 
 describe("deriveChannelActivationConfig", () => {
-  it("resolves all six fields from the intelligence config and channel", () => {
+  it("resolves every field from the intelligence config and channel", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
     const channel = createChannel({ name: "support" });
 
@@ -121,6 +121,10 @@ describe("deriveChannelActivationConfig", () => {
       projectId: 42,
       channelName: "support",
       adapter: "slack",
+      // OSS-643: this fake intelligence exposes no ɵgetChannelMemoryPolicy, so
+      // this also pins the fail-closed default — user-private memory must never
+      // reach a shared conversation just because the accessor was absent.
+      channelMemoryPolicy: "direct-only",
       runtimeInstanceId: "rti_x",
     });
   });

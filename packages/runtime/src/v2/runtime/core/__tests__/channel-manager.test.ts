@@ -828,6 +828,7 @@ describe("defaultActivateChannel", () => {
     projectId: 42,
     channelName: "support",
     adapter: "slack",
+    channelMemoryPolicy: "direct-only" as const,
     runtimeInstanceId: "rti_x",
   };
 

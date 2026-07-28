@@ -9,6 +9,8 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
 import type { Channel } from "@copilotkit/channels";
+import type { CopilotRuntimeLike } from "./runtime";
+import { prepareChannelTurnAgent } from "./channel-turn-identity";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -148,6 +150,12 @@ export interface ChannelManagerArgs {
   /** Per-handle deadline (ms) for `handle.stop()` during {@link ChannelManager.stop}
    * so a wedged stop can't hang SIGTERM shutdown. Default 5000. */
   stopHandleTimeoutMs?: number;
+  /**
+   * The runtime whose Intelligence client and memory policy back per-turn
+   * identity preparation (OSS-643). Optional so a test manager can omit it;
+   * without it, managed turns simply run with no user-scoped features.
+   */
+  runtime?: CopilotRuntimeLike;
 }
 
 /** Per-Channel mutable activation entry tracked by the manager. */
@@ -194,6 +202,12 @@ export interface ChannelsIntelligenceModule {
        * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
        * silent in the managed path. */
       log?: (msg: string, meta?: unknown) => void;
+      /** Per-turn identity preparation for managed turns (OSS-643). */
+      prepareAgentForTurn?: (params: {
+        agent: unknown;
+        user?: { id: string; appUserId?: string; name?: string };
+        conversationScope: "direct" | "shared";
+      }) => Promise<void>;
     },
   ) => Promise<ChannelsHandle>;
 }
@@ -228,6 +242,7 @@ export async function defaultActivateChannel(
       CHANNELS_INTELLIGENCE_SPECIFIER
     ) as Promise<ChannelsIntelligenceModule>,
   log?: (msg: string, meta?: unknown) => void,
+  runtime?: CopilotRuntimeLike,
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
   try {
@@ -255,6 +270,25 @@ export async function defaultActivateChannel(
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.
     ...(log ? { log } : {}),
+    // OSS-643: give each managed turn the SENDER's Intelligence identity. Only
+    // the runtime can build this — it owns the Intelligence client and the
+    // memory policy — so it is injected here rather than resolved in the SDK.
+    ...(runtime
+      ? {
+          prepareAgentForTurn: (params: {
+            agent: unknown;
+            user?: { id: string; appUserId?: string; name?: string };
+            conversationScope: "direct" | "shared";
+          }) =>
+            prepareChannelTurnAgent({
+              runtime,
+              agent: params.agent as never,
+              user: params.user,
+              conversationScope: params.conversationScope,
+              memoryPolicy: config.channelMemoryPolicy,
+            }),
+        }
+      : {}),
   });
 }
 
@@ -363,6 +397,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
   private readonly stopHandleTimeoutMs: number;
+  private readonly runtime?: CopilotRuntimeLike;
 
   private readonly entries = new Map<string, ChannelEntry>();
   private activated = false;
@@ -380,12 +415,19 @@ export class ChannelManager implements ChannelsControl {
     this.activateChannel =
       args.activateChannel ??
       ((config, channel) =>
-        defaultActivateChannel(config, channel, undefined, this.log));
+        defaultActivateChannel(
+          config,
+          channel,
+          undefined,
+          this.log,
+          this.runtime,
+        ));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
     this.stopHandleTimeoutMs =
       args.stopHandleTimeoutMs ?? DEFAULT_STOP_HANDLE_TIMEOUT_MS;
+    this.runtime = args.runtime;
   }
 
   /**

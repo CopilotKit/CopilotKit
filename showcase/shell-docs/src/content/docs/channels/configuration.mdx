@@ -31,6 +31,88 @@ const channel = createChannel({
 });
 ```
 
+## Who the sender is
+
+Every managed turn carries the person who sent it. `message.user` gives you two
+different ids, and the difference matters:
+
+| Field | What it is | Use it for |
+| --- | --- | --- |
+| `message.user.id` | The **raw provider id** (Slack `U…`, Teams MRI). | Mentions, `users.info`, anything you send back to the platform. |
+| `message.user.appUserId` | The **canonical CopilotKit identity**, e.g. `slack:T0123:U9`. | Anything that should follow the person — this is what Intelligence attributes memory and learning to. |
+| `message.user.name` | Best-effort display name. | Display only. Never use it for identity or access. |
+
+`appUserId` is derived by Intelligence, which is the authority — it is the same
+identity your canonical threads are created with. Never rebuild it yourself:
+a second derivation drifts, and the person's memory stops matching their thread.
+It is workspace-scoped on purpose, because a Slack user id is only unique
+*within* one workspace.
+
+```ts
+channel.onMessage(async ({ message, thread }) => {
+  // Mention them on the platform with the raw id...
+  await thread.post(`Hi <@${message.user?.id}>`);
+  // ...but key your own records off the canonical one.
+  await recordTicketFor(message.user?.appUserId);
+});
+```
+
+## Memory in shared conversations
+
+Intelligence memory is **per person**. In a DM that is exactly what you want. In
+a Slack channel or Teams group chat, the reply is visible to everyone in the
+room, so pulling one member's private memory into it would disclose their data
+to their colleagues — triggered by their own message, with no moment where they
+chose to share it.
+
+So by default, user-private memory is used in **direct messages only**:
+
+```ts
+new CopilotKitIntelligence({
+  apiKey: process.env.COPILOTKIT_API_KEY!,
+  enableEnterpriseLearning: true,
+  // "direct-only" (the default) — private memory in DMs only.
+  // "shared" — opt in to using it in group channels too, accepting that a
+  // reply there is visible to everyone in the conversation.
+  channelMemoryPolicy: "direct-only",
+});
+```
+
+<Callout type="warn">
+`"shared"` also means other participants' messages get written into whoever
+addressed the bot. Turn it on deliberately, not to make group channels feel
+livelier.
+</Callout>
+
+## Authenticating HTTP callers
+
+A runtime that serves browser or API traffic needs `identifyUser(request)` to
+say who is calling:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { support: agent },
+  intelligence,
+  identifyUser: async (request) => getUserFromSession(request),
+});
+```
+
+A **channel-only** runtime can omit it. Managed turns carry their own verified
+sender, so there are no HTTP callers to authenticate:
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { support: agent },
+  intelligence,
+  channels: [channel], // no identifyUser needed
+});
+```
+
+If a runtime serves both, keep `identifyUser` — without it, HTTP Intelligence
+requests fail with a 500 rather than running unauthenticated. The two identity
+sources stay isolated: a channel turn never consults `identifyUser`, and an HTTP
+request never sees a channel sender.
+
 ## Per-thread state
 
 Give `store.state` a schema and `thread.state()` / `thread.setState()` become

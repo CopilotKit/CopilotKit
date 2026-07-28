@@ -100,6 +100,21 @@ export interface CopilotKitIntelligenceConfig {
    */
   enableEnterpriseLearning?: boolean;
   /**
+   * Whether a managed Channel turn in a SHARED conversation (a Slack channel or
+   * Teams group chat, as opposed to a 1:1 DM) may use user-private Intelligence
+   * memory. Defaults to `"direct-only"` (OSS-643).
+   *
+   * `"shared"` is an explicit operator opt-in that accepts two consequences: the
+   * model may disclose a sender's private memory to everyone in the channel, and
+   * other participants' statements get written into the sender's private store.
+   * It must never become the default.
+   *
+   * A third value, `"conversation"` — memory scoped to the conversation rather
+   * than to any participant — is tracked in OSS-649 and is intended to become
+   * the default, removing this tradeoff instead of gating it.
+   */
+  channelMemoryPolicy?: "direct-only" | "shared";
+  /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
    */
@@ -439,6 +454,7 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
+  #channelMemoryPolicy: "direct-only" | "shared";
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -461,6 +477,7 @@ export class CopilotKitIntelligence {
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
+    this.#channelMemoryPolicy = config.channelMemoryPolicy ?? "direct-only";
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -557,6 +574,11 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /** @internal Read by the Channel turn preparation hook (OSS-643). */
+  ɵgetChannelMemoryPolicy(): "direct-only" | "shared" {
+    return this.#channelMemoryPolicy;
   }
 
   async #request<T>(
