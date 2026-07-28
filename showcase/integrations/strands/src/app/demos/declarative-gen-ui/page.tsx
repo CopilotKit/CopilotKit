@@ -10,15 +10,9 @@
  *      `myCatalog`).
  *   2. Pass that catalog to the provider via
  *      `<CopilotKit a2ui={{ catalog: myCatalog }}>`.
- *   3. The dedicated runtime at `/api/copilotkit-declarative-gen-ui` is
- *      configured with `injectA2UITool: true` + `defaultCatalogId:
- *      "declarative-gen-ui-catalog"`. The runtime injects a `generate_a2ui`
- *      tool and drives a secondary render planner to GENERATE the surface;
- *      the Strands adapter auto-injects the tool on the backend side when it
- *      sees the forwarded flag (the dedicated backend agent wires no tool
- *      itself). The A2UI middleware serialises the registered catalog schema
- *      so the planner knows which components are available. Mirrors the
- *      canonical `examples/integrations/langgraph-python` reference.
+ *   3. The provider points at the dedicated runtime at
+ *      `/api/copilotkit-declarative-gen-ui`, which renders the A2UI surfaces
+ *      the `declarative-gen-ui` agent produces.
  *
  * Reference:
  *   https://docs.copilotkit.ai/integrations/langgraph/generative-ui/a2ui

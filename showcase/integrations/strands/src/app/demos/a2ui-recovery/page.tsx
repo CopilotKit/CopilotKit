@@ -3,13 +3,13 @@
 /**
  * A2UI Error Recovery demo.
  *
- * Same auto-injected dynamic-schema A2UI setup as declarative-gen-ui (it reuses
- * that demo's catalog), but it makes the toolkit's validate->retry recovery loop
- * visible. The dedicated runtime at `/api/copilotkit-a2ui-recovery` proxies to a
- * dedicated backend agent (`src/agents/recovery_agent.py`); the page's provider
- * catalog auto-enables A2UI tool injection, so the Strands adapter auto-injects
- * `generate_a2ui`, drives the forced `render_a2ui` sub-agent, and runs the
- * recovery loop + recovery-exhausted hard-fail envelope (OSS-158 / OSS-375).
+ * Same dynamic-schema A2UI setup as declarative-gen-ui (it reuses that demo's
+ * catalog), but it makes the toolkit's validate->retry recovery loop visible.
+ * The dedicated runtime at `/api/copilotkit-a2ui-recovery` is configured with
+ * `injectA2UITool: false` — the backend agent (`src/agents/recovery_agent.py`)
+ * owns `generate_a2ui` via `ag_ui_langgraph.get_a2ui_tools`, whose body runs
+ * the forced `render_a2ui` sub-agent and the recovery loop + recovery-exhausted
+ * hard-fail envelope IN-GRAPH (OSS-158 / OSS-375).
  *
  * The two suggestion pills drive aimock fixtures that force:
  *   - HEAL: an invalid first render that recovers to a valid one
