@@ -34,28 +34,40 @@ describe("d5-gen-ui-interrupt script", () => {
     ]);
   });
 
-  it("assertion clicks slot via evaluate (JS-level click) then polls for resolved-state signal", async () => {
+  it("assertion clicks via JS then waits for a new resumed-run confirmation", async () => {
     // The probe uses `clickByJs` (page.evaluate-driven .click()) to
-    // bypass the cpk-web-inspector overlay, then polls page.evaluate
-    // for one of three resume signals: `pickedTestid` (the
-    // time-picker-picked testid mounted), `bookedBadge` (the visible
-    // "Booked" badge text), or `scheduledNarration` (the agent's
-    // resume continuation containing "scheduled" / "confirmed"). Any
-    // of those means resolve() fired and propagated.
+    // bypass the cpk-web-inspector overlay, then requires the assistant
+    // cascade to grow with a booked/scheduled confirmation. The card's
+    // synchronous local picked state alone must not advance pill 2 while
+    // pill 1 is still returning its tool result.
     //
-    // Test mock: first evaluate call is the click (returns undefined),
-    // second evaluate call is the poll (returns a signal that satisfies
-    // one of the three conditions so the assertion resolves cleanly).
+    // Test mock: first evaluate snapshots the pre-click assistant count,
+    // second performs the click, and third observes the new continuation.
     let evaluateCallCount = 0;
     const evaluate = vi.fn<(fn: () => unknown) => Promise<unknown>>(
       async () => {
         evaluateCallCount += 1;
-        if (evaluateCallCount === 1) return undefined; // click
-        // Subsequent polling calls — return a signal that triggers exit.
+        if (evaluateCallCount === 1) {
+          return {
+            count: 1,
+            lastText: "choose a time",
+            pickedTestid: false,
+            runningNow: false,
+            runStartCount: 1,
+            lastStoppedAtMs: Date.now() - 2_000,
+            runsFinished: 1,
+            sample: "",
+          };
+        }
+        if (evaluateCallCount === 2) return undefined; // click
         return {
+          count: 2,
+          lastText: "booked: sales intro call confirmed",
           pickedTestid: true,
-          bookedBadge: false,
-          scheduledNarration: false,
+          runningNow: false,
+          runStartCount: 2,
+          lastStoppedAtMs: Date.now() - 1_000,
+          runsFinished: 2,
           sample: "",
         };
       },
@@ -70,14 +82,15 @@ describe("d5-gen-ui-interrupt script", () => {
     const assertion = buildInterruptAssertion("sales-call");
     await expect(assertion(page)).resolves.toBeUndefined();
     // clickByJs builds a zero-arg function whose source contains the
-    // selector via JSON.stringify. The first evaluate call is the click;
-    // assert the function body references the slot selector.
+    // selector via JSON.stringify. Find that call among the baseline/poll
+    // evaluates and assert it references the slot selector.
     expect(evaluate).toHaveBeenCalled();
-    const firstCall = evaluate.mock.calls[0];
-    expect(firstCall).toBeDefined();
-    const clickFn = firstCall![0];
+    const clickFn = evaluate.mock.calls
+      .map(([fn]) => fn)
+      .find((fn) => fn.toString().includes("time-picker-slot"));
+    expect(clickFn).toBeDefined();
     expect(typeof clickFn).toBe("function");
-    expect(clickFn.toString()).toContain("time-picker-slot");
+    expect(clickFn?.toString()).toContain("time-picker-slot");
     // The probe waits on the time-picker-card AND the time-picker-slot
     // testids before clicking; both should have been waitForSelector'd.
     expect(waitForSelector).toHaveBeenCalledWith(
