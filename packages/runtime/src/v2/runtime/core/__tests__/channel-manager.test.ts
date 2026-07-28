@@ -13,6 +13,7 @@ import type {
   ChannelsHandle,
   ChannelsIntelligenceModule,
 } from "../channel-manager";
+import { deriveChannelActivationConfig } from "../channel-activation-config";
 import type { ChannelActivationConfig } from "../channel-activation-config";
 
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
@@ -27,6 +28,17 @@ function fakeIntelligence(): CopilotKitIntelligence {
 /** A minimal fake ChannelsHandle whose `stop` is a spy. */
 function fakeHandle(): ChannelsHandle & { stop: ReturnType<typeof vi.fn> } {
   return { metadata: {}, stop: vi.fn(async () => {}) };
+}
+
+function captureChannelsIntelligenceLaunch() {
+  const handle = fakeHandle();
+  const start = vi.fn<
+    ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
+  >(async () => handle);
+  const importer = async (): Promise<ChannelsIntelligenceModule> => ({
+    startChannelsOverRealtimeGateway: start,
+  });
+  return { handle, start, importer };
 }
 
 describe("ChannelSetupRequiredError", () => {
@@ -832,14 +844,8 @@ describe("defaultActivateChannel", () => {
   };
 
   it("maps config to launcher opts and returns the launcher's handle", async () => {
-    const handle: ChannelsHandle = { metadata: {}, stop: async () => {} };
-    const start = vi.fn<
-      ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
-    >(async () => handle);
+    const { handle, start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({ name: "support" });
-    const importer = async (): Promise<ChannelsIntelligenceModule> => ({
-      startChannelsOverRealtimeGateway: start,
-    });
 
     const result = await defaultActivateChannel(config, channel, importer);
 
@@ -863,15 +869,44 @@ describe("defaultActivateChannel", () => {
     expect(opts.scope).not.toHaveProperty("channelId");
   });
 
-  it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
-    const handle: ChannelsHandle = { metadata: {}, stop: async () => {} };
-    const start = vi.fn<
-      ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
-    >(async () => handle);
+  it("keeps tool status omitted when createChannel() does not configure it", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({ name: "support" });
-    const importer = async (): Promise<ChannelsIntelligenceModule> => ({
-      startChannelsOverRealtimeGateway: start,
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
     });
+
+    await defaultActivateChannel(activationConfig, channel, importer);
+
+    expect(activationConfig).not.toHaveProperty("showToolStatus");
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts).not.toHaveProperty("showToolStatus");
+  });
+
+  it("forwards createChannel({ showToolStatus: true }) to the managed launcher", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({
+      name: "support",
+      showToolStatus: true,
+    });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(activationConfig, channel, importer);
+
+    expect(activationConfig.showToolStatus).toBe(true);
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.showToolStatus).toBe(true);
+  });
+
+  it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
     const log = vi.fn();
 
     await defaultActivateChannel(config, channel, importer, log);

@@ -187,6 +187,8 @@ export interface ChannelsIntelligenceModule {
       scope: { projectId: number; channelName: string };
       runtimeInstanceId: string;
       adapter?: string;
+      /** Optional per-Channel override for managed tool-call visibility. */
+      showToolStatus?: boolean;
       /** Intelligence app-api HTTP base URL, forwarded to the transport so the
        * managed realtime path enables file/history parity (HTTP-only) — OSS-476. */
       appApiBaseUrl?: string;
@@ -247,6 +249,9 @@ export async function defaultActivateChannel(
     scope: { projectId: config.projectId, channelName: config.channelName },
     runtimeInstanceId: config.runtimeInstanceId,
     adapter: config.adapter,
+    ...(config.showToolStatus !== undefined
+      ? { showToolStatus: config.showToolStatus }
+      : {}),
     // Forward the app-api HTTP base URL so the transport wires file/history
     // (HTTP-only) on the NORMAL managed path — without this, Channels started by
     // the CopilotRuntime handler run with no history/file support (OSS-476).

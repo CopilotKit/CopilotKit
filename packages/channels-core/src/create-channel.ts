@@ -228,6 +228,15 @@ export interface CreateChannelOptions<
    * developer's own adapter, not by managed activation.
    */
   provider?: ManagedChannelProvider;
+  /**
+   * Override visible tool-call progress for a managed Channel. Managed Slack
+   * defaults to hidden; other managed providers retain their existing default
+   * when this is unset.
+   *
+   * Ignored for direct-adapter Channels. Configure direct Slack with
+   * `slack({ showToolStatus: true })` instead.
+   */
+  showToolStatus?: boolean;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -258,6 +267,12 @@ export interface Channel<TState = unknown> {
    * (`"slack"`). Ignored for direct-adapter Channels.
    */
   readonly provider?: ManagedChannelProvider;
+  /**
+   * Managed tool-call visibility override from
+   * `createChannel({ showToolStatus })`. Managed Slack defaults to hidden when
+   * undefined. Ignored for direct-adapter Channels.
+   */
+  readonly showToolStatus?: boolean;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -782,6 +797,9 @@ export function createChannel<
   const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
+    ...(opts.showToolStatus !== undefined
+      ? { showToolStatus: opts.showToolStatus }
+      : {}),
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect
       // the Channel's private adapter list.

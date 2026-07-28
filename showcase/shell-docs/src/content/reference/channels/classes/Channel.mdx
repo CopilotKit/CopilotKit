@@ -26,6 +26,7 @@ the Microsoft Teams provider.
 | ------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
 | `name`       | `string`                                               | Project-unique Intelligence Code. Required for managed Channels; lowercase kebab-case, 3–64 characters, and not `channels`. |
 | `provider`   | `"slack" \| "teams"`                                   | Managed provider declared to Intelligence. Slack is the default when omitted; set it explicitly in production code.         |
+| `showToolStatus` | `boolean`                                           | Controls managed Slack tool-call progress. It is hidden by default; set `true` to show it.                                  |
 | `agent`      | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Use a factory for thread isolation.                                                              |
 | `tools`      | `ChannelTool[]`                                        | Typed tools forwarded to the agent.                                                                                         |
 | `context`    | `ContextEntry[]`                                       | Stable `{ description, value }` context sent on each run.                                                                   |
@@ -110,6 +111,7 @@ release a lock only when the supplied token still owns it.
 | -------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `name`         | `string \| undefined`             | Declared Intelligence Code.                                                                                   |
 | `provider`     | `"slack" \| "teams" \| undefined` | Managed provider. `undefined` resolves to Slack.                                                              |
+| `showToolStatus` | `boolean \| undefined`           | Managed Slack tool-call visibility preference from `createChannel()`.                                      |
 | `adapters`     | `readonly PlatformAdapter[]`      | Attached transport snapshot. Managed Channels start empty and receive the Intelligence adapter at activation. |
 | `commandNames` | `string[]`                        | Normalized names declared through `commands` or `onCommand`.                                                  |
 | `transcripts`  | `Transcripts`                     | Optional SDK transcript API. It is not the managed provider-history store.                                    |
