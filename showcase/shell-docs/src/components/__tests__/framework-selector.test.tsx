@@ -106,6 +106,27 @@ describe("FrameworkSelector", () => {
     expect(markup).not.toContain("Agentic backend");
   });
 
+  it("shows a neutral Channels overview without an active backend", () => {
+    navigation.pathname = "/channels";
+
+    const markup = renderToStaticMarkup(
+      <FrameworkSelector
+        options={options}
+        categoryOrder={[]}
+        variant="sidebar"
+      />,
+    );
+
+    expect(markup).toContain("Docs surface");
+    expect(markup).toContain("Channels overview");
+    expect(markup).toContain("lucide-messages-square");
+    expect(markup).not.toContain("Agent backend");
+    expect(markup).not.toContain("CopilotKit");
+    expect(markup).not.toContain(">React<");
+    expect(markup).not.toContain("Production ready");
+    expect(markup.match(/<button/g)?.length).toBe(1);
+  });
+
   it("reflects the frontend selected by the URL", () => {
     navigation.pathname = "/vue";
 
@@ -198,6 +219,16 @@ describe("FrameworkSelector", () => {
     );
   });
 
+  it("routes frontend selections when the destination changes", () => {
+    const componentSource = readFileSync(
+      new URL("../framework-selector.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(componentSource).toContain("if (destinationPath !== pathname)");
+    expect(componentSource).not.toContain("if (id !== effectiveFrontendId)");
+  });
+
   it("attributes explicit frontend switches with their origin and backend", () => {
     const componentSource = readFileSync(
       new URL("../framework-selector.tsx", import.meta.url),
@@ -205,7 +236,9 @@ describe("FrameworkSelector", () => {
     );
 
     expect(componentSource).toContain('"docs.frontend_selected"');
-    expect(componentSource).toContain("from_frontend: effectiveFrontendId");
+    expect(componentSource).toContain(
+      'from_frontend: isChannelsOverview ? "channels" : effectiveFrontendId',
+    );
     expect(componentSource).toContain("backend: effectiveFramework");
     expect(componentSource).toContain("from_path: pathname");
     expect(componentSource).toContain("destination_path: destinationPath");
