@@ -46,10 +46,14 @@ function isFnTypeNode(v: unknown): v is {
  * them from the string-typed channel vocabulary (`{type: "section"}`), which
  * stays native.
  *
- * Peeking calls a presentational component once for classification; the native
- * path then calls it again during binding. This double call is acceptable for
- * the pure, presentational components this targets.
+ * Each node object is peeked AT MOST ONCE: the outcome is memoized in a
+ * WeakMap, so repeated classification of the same node (`awaitChoice` checks
+ * before posting, then `post` checks again) never re-invokes the component. The
+ * native path still invokes it once more when it binds — components reaching
+ * `post` must be pure/presentational, which is what the peek requires anyway.
  */
+const peeked = new WeakMap<object, object | null>();
+
 export function resolveArbitraryElement(v: unknown): object | null {
   if (isReactElement(v)) {
     const t = (v as { type?: unknown }).type;
@@ -58,16 +62,24 @@ export function resolveArbitraryElement(v: unknown): object | null {
     return v as object;
   }
   if (isFnTypeNode(v) && !isChannelComponent(v.type)) {
+    // Already classified? Reuse it — never invoke the component twice.
+    if (peeked.has(v)) return peeked.get(v) ?? null;
     try {
       const out = v.type(v.props ?? {});
       if (isReactElement(out)) {
         const ot = (out as { type?: unknown }).type;
         // Symmetric guard: an unbranded wrapper that peeks out to a branded
         // channels-ui element is still native — it must not route to the image path.
-        if (typeof ot === "function" && isChannelComponent(ot)) return null;
+        if (typeof ot === "function" && isChannelComponent(ot)) {
+          peeked.set(v, null);
+          return null;
+        }
+        peeked.set(v, out as object);
         return out as object;
       }
+      peeked.set(v, null);
     } catch (err) {
+      peeked.set(v, null);
       // A throw here (e.g. the component uses React hooks) means it can't be
       // statically classified → route native. Logged at debug so a genuine
       // component bug is still discoverable rather than fully silent.

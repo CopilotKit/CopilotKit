@@ -9,6 +9,7 @@ import type {
   MessageOperation,
   ProviderActor,
   ThreadMessage,
+  PostFileResult,
 } from "@copilotkit/channels-ui";
 import type { IngressIdentityContext } from "./identity.js";
 import type { ResolvedChannelMemory } from "./memory.js";
@@ -410,14 +411,7 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{
-    ok: boolean;
-    /** Provider file or message ID for native adapters. */
-    fileId?: string;
-    /** Provider-neutral managed asset ID for Intelligence adapters. */
-    assetId?: string;
-    error?: string;
-  }>;
+  ): Promise<PostFileResult>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.
