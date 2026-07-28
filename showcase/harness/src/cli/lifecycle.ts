@@ -160,17 +160,41 @@ export function stageSharedModules(): void {
     for (const linkName of ["tools", "shared-tools", "_shared"]) {
       const linkPath = path.join(pkgDir, linkName);
 
-      // Only process if it's a symlink
+      // Resolve the intended target directory. Two shapes:
+      // 1. Real symlink (`fs.lstatSync(...).isSymbolicLink()`).
+      // 2. Windows / `core.symlinks=false` "symlink-as-file": a regular file
+      //    whose entire content is the relative target path (e.g. `../_shared`).
+      //    Without handling (2), Docker COPY packages a 10-byte text file and
+      //    Python agents crash with `ModuleNotFoundError: _shared.cvdiag_bootstrap`.
+      let target: string | null = null;
       try {
         const stat = fs.lstatSync(linkPath);
-        if (!stat.isSymbolicLink()) continue;
+        if (stat.isSymbolicLink()) {
+          target = fs.readlinkSync(linkPath);
+        } else if (stat.isFile() && !stat.isDirectory()) {
+          const content = fs
+            .readFileSync(linkPath, "utf8")
+            .replace(/\r?\n/g, "")
+            .trim();
+          // Short relative path pointer only — never treat source files as pointers.
+          if (
+            content.length > 0 &&
+            content.length < 200 &&
+            (/^(\.\.\/)+[A-Za-z0-9._/-]+$/.test(content) ||
+              /^\.\/[A-Za-z0-9._/-]+$/.test(content))
+          ) {
+            target = content;
+          }
+        } else {
+          continue;
+        }
       } catch {
         // Doesn't exist -- skip
         continue;
       }
 
-      // Resolve the symlink target
-      let target = fs.readlinkSync(linkPath);
+      if (target == null) continue;
+
       if (!path.isAbsolute(target)) {
         target = path.resolve(path.dirname(linkPath), target);
       }
@@ -183,8 +207,8 @@ export function stageSharedModules(): void {
         continue;
       }
 
-      // Remove the symlink, copy the real directory in its place
-      fs.rmSync(linkPath);
+      // Remove the symlink / pointer file, copy the real directory in its place
+      fs.rmSync(linkPath, { force: true, recursive: true });
       fs.cpSync(target, linkPath, { recursive: true });
       log.debug("staged shared module", {
         pkg: pkg.name,

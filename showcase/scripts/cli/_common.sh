@@ -72,19 +72,45 @@ stage_shared() {
   # so Docker COPY can follow them (Docker build contexts can't traverse
   # symlinks that point outside the context). `_shared` carries the
   # single-source CVDIAG bootstrap module into each Python integration context.
+  #
+  # Windows note: with `core.symlinks=false` (default on many checkouts), git
+  # materializes symlinks as *regular files* whose content is the relative
+  # target path (e.g. `../_shared`). `[ -L ]` is false for those, so we also
+  # detect "symlink-as-file" entries and resolve them the same way. Without
+  # this, Docker COPYs a 10-byte text file as `_shared/` and the agent dies
+  # with `ModuleNotFoundError: No module named '_shared.cvdiag_bootstrap'`.
   for pkg_dir in "$SHOWCASE_ROOT"/integrations/*/; do
     for link_name in tools shared-tools _shared; do
       local link_path="$pkg_dir/$link_name"
+      local target=""
       if [ -L "$link_path" ]; then
-        local target
         target="$(readlink "$link_path")"
+      elif [ -f "$link_path" ] && [ ! -d "$link_path" ]; then
+        # Symlink-as-file (Windows / core.symlinks=false): the entire file
+        # content is the relative target path (e.g. `../_shared`).
+        local content
+        content="$(tr -d '\r\n' <"$link_path" 2>/dev/null || true)"
+        # Short relative path only — never treat source files as pointers.
+        if [ -n "$content" ] && [ "${#content}" -lt 200 ] \
+          && [[ "$content" =~ ^(\.\./)+[A-Za-z0-9._/-]+$ || "$content" =~ ^\./[A-Za-z0-9._/-]+$ ]]; then
+          target="$content"
+        fi
+      fi
+      if [ -n "$target" ]; then
         # Resolve relative symlink targets against the link's directory
         if [[ "$target" != /* ]]; then
           target="$(cd "$(dirname "$link_path")" && cd "$(dirname "$target")" && pwd)/$(basename "$target")"
         fi
         if [ -d "$target" ]; then
-          rm "$link_path"
-          rsync -a "$target/" "$link_path/"
+          rm -f "$link_path" 2>/dev/null || rm -rf "$link_path"
+          # rsync is preferred but not available in Git Bash on Windows —
+          # fall back to mkdir + cp so stage_shared works in that environment.
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -a "$target/" "$link_path/"
+          else
+            mkdir -p "$link_path"
+            cp -a "$target/." "$link_path/"
+          fi
         fi
       fi
     done

@@ -104,6 +104,17 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Build a report that fails every validation pass so I can preview the fallback.",
   },
+  // UI is byte-identical to langgraph-python (ms-py-d6 blitz) — same suggestions.ts messages.
+  "ms-agent-python": {
+    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a report that fails every validation pass so I can preview the fallback.",
+  },
+  "ms-agent-dotnet": {
+    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a report that fails every validation pass so I can preview the fallback.",
+  },
   "langgraph-fastapi": {
     heal: "Put together a quarterly metrics overview and repair a malformed first attempt.",
     exhaust:
