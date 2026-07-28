@@ -13,14 +13,18 @@ function makeFakeClient() {
     ts: string;
   }[] = [];
   const updates: { channel: string; ts: string; text: string }[] = [];
+  const events: string[] = [];
   let counter = 0;
   const transport: SlackRenderTransport = {
-    setStatus: vi.fn(async () => {}),
+    setStatus: vi.fn(async (args: { status: string }) => {
+      events.push(`status:${args.status}`);
+    }),
     postMessage: vi.fn(
       async (args: { channel: string; thread_ts?: string; text: string }) => {
         counter++;
         const ts = `${counter}.000`;
         posts.push({ ...args, ts });
+        events.push(`post:${args.text}`);
         return { ts };
       },
     ),
@@ -30,7 +34,7 @@ function makeFakeClient() {
       },
     ),
   };
-  return { transport, posts, updates };
+  return { transport, posts, updates, events };
 }
 
 type Event =
@@ -38,7 +42,10 @@ type Event =
   | { kind: "chunks"; value: AnyChunk[] };
 
 /** Fake native streaming transport recording every streamed message's lifecycle. */
-function makeFakeNativeTransport(opts?: { failChunks?: boolean }) {
+function makeFakeNativeTransport(opts?: {
+  failChunks?: boolean;
+  failStart?: boolean;
+}) {
   const messages: {
     ts: string;
     events: Event[];
@@ -48,6 +55,7 @@ function makeFakeNativeTransport(opts?: { failChunks?: boolean }) {
   let counter = 0;
   const transport: NativeStreamTransport = {
     startStream: vi.fn(async () => {
+      if (opts?.failStart) throw new Error("startStream unavailable");
       counter++;
       const ts = `S${counter}`;
       messages.push({ ts, events: [], stopped: false });
@@ -247,6 +255,32 @@ describe("createRunRenderer — native streaming", () => {
     await finish!();
 
     expect(fake.posts.some((p) => p.text.includes(":wrench:"))).toBe(true);
+  });
+
+  it("posts transformed fallback text and clears status after native start failure", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport({ failStart: true });
+    const { subscriber: sub, finish } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: {} },
+      nativeStreaming: { transport: nt.transport },
+    });
+
+    await sub.onRunStartedEvent!({} as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "**fallback**" },
+    } as never);
+    await finish!();
+
+    expect(nt.transport.startStream).toHaveBeenCalledTimes(1);
+    expect(fake.posts).toHaveLength(1);
+    expect(fake.posts[0]?.text).toBe("*fallback*");
+    expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(true);
+    expect(fake.updates.at(-1)?.text).toBe("*fallback*");
+    expect(fake.events.indexOf("post:*fallback*")).toBeLessThan(
+      fake.events.indexOf("status:"),
+    );
   });
 
   it("does NOT attach the feedback row to an interrupted partial reply", async () => {

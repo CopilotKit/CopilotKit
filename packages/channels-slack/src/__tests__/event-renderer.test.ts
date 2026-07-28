@@ -61,10 +61,11 @@ describe("createRunRenderer", () => {
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: id } } as never);
 
-    // (a) Text streaming posts a placeholder then updates it; the LAST
-    // update must be the fully-accumulated text.
+    // (a) The first post contains the buffered response, then updates track
+    // the fully accumulated text.
     expect(fake.posts).toHaveLength(1);
-    expect(fake.posts[0]?.text).toBe("_thinking…_");
+    expect(fake.posts[0]?.text).toBe("ECHO");
+    expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(true);
     expect(fake.updates.length).toBeGreaterThan(0);
     expect(fake.updates.at(-1)?.text).toBe("ECHO");
   });
@@ -287,6 +288,10 @@ describe("createRunRenderer", () => {
       textMessageBuffer: "",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+    const initial = fake.posts[0]?.text ?? "";
+    expect(initial).toContain("*hi*");
+    expect(initial).toContain("<https://x.com|docs>");
+    expect(initial).toContain("•  a");
     const last = fake.updates.at(-1)?.text ?? "";
     expect(last).toContain("*hi*");
     expect(last).toContain("<https://x.com|docs>");
