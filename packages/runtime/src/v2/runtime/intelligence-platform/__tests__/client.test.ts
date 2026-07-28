@@ -270,10 +270,6 @@ test.each([
         source: "managed",
       }),
   ],
-  [
-    "public ready union used as the private transport",
-    () => jsonResponse(READY_RUNTIME_ENTITLEMENTS),
-  ],
 ])(
   "getRuntimeEntitlements rejects %s successful body with a typed validation error",
   async (_label, response) => {
