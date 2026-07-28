@@ -222,21 +222,6 @@ describe("FrameworkSelector", () => {
     );
   });
 
-  it("routes frontend selections when the selection and destination change", () => {
-    const componentSource = readFileSync(
-      new URL("../framework-selector.tsx", import.meta.url),
-      "utf8",
-    );
-
-    expect(componentSource).toContain(
-      "const shouldNavigate = isChannelsOverview || id !== effectiveFrontendId;",
-    );
-    expect(componentSource).toContain(
-      "if (shouldNavigate && destinationPath !== pathname)",
-    );
-    expect(componentSource).not.toContain("if (destinationPath !== pathname)");
-  });
-
   it("attributes explicit frontend switches with their origin and backend", () => {
     const componentSource = readFileSync(
       new URL("../framework-selector.tsx", import.meta.url),

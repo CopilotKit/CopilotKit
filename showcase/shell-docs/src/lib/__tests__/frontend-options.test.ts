@@ -13,8 +13,10 @@ import {
   getFrontendOption,
   isChannelFrontend,
   isChannelsOverviewPath,
+  isFrontendOptionActive,
   isFrontendId,
   parseFrontendRoutePath,
+  shouldNavigateFrontendSelection,
 } from "../frontend-options";
 import {
   FRONTEND_DOCS_STATUS_CONTENT_SLUG,
@@ -144,6 +146,52 @@ test("routes the global Channels overview to each surface quickstart", () => {
   );
   expect(frontendPathForCurrentPath("teams", "/channels", backendSlugs)).toBe(
     "/teams",
+  );
+});
+
+test("navigates from the Channels overview to React when React is effective", () => {
+  const pathname = "/channels";
+  const destinationPath = frontendPathForCurrentPath("react", pathname);
+
+  expect(destinationPath).toBe("/");
+  expect(
+    shouldNavigateFrontendSelection(
+      "react",
+      "react",
+      pathname,
+      destinationPath,
+    ),
+  ).toBe(true);
+});
+
+test("keeps an active React selection on its current docs page", () => {
+  const pathname = "/mastra/quickstart";
+  const destinationPath = frontendPathForCurrentPath("react", pathname, [
+    "mastra",
+  ]);
+
+  expect(destinationPath).toBe("/mastra");
+  expect(
+    shouldNavigateFrontendSelection(
+      "react",
+      "react",
+      pathname,
+      destinationPath,
+    ),
+  ).toBe(false);
+});
+
+test("keeps every frontend option inactive on the Channels overview", () => {
+  expect(
+    FRONTEND_OPTIONS.map((option) =>
+      isFrontendOptionActive(option.id, "react", "/channels"),
+    ),
+  ).toEqual(FRONTEND_OPTIONS.map(() => false));
+});
+
+test("keeps the current frontend option active outside the Channels overview", () => {
+  expect(isFrontendOptionActive("react", "react", "/mastra/quickstart")).toBe(
+    true,
   );
 });
 

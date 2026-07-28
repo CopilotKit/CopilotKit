@@ -18,6 +18,8 @@ import {
   frontendPathForCurrentPath,
   isChannelFrontend,
   isChannelsOverviewPath,
+  isFrontendOptionActive,
+  shouldNavigateFrontendSelection,
 } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 
@@ -123,8 +125,14 @@ export function FrameworkSelector({
       pathname,
       options.map((option) => option.slug),
     );
-    const shouldNavigate = isChannelsOverview || id !== effectiveFrontendId;
-    if (shouldNavigate && destinationPath !== pathname) {
+    if (
+      shouldNavigateFrontendSelection(
+        id,
+        effectiveFrontendId,
+        pathname,
+        destinationPath,
+      )
+    ) {
       try {
         posthog?.capture("docs.frontend_selected", {
           frontend: id,
@@ -347,8 +355,11 @@ export function FrameworkSelector({
               className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
               {FRONTEND_OPTIONS.map((option, index) => {
-                const isActive =
-                  !isChannelsOverview && option.id === selectedFrontend.id;
+                const isActive = isFrontendOptionActive(
+                  option.id,
+                  effectiveFrontendId,
+                  pathname,
+                );
                 return (
                   <React.Fragment key={option.id}>
                     {isChannelFrontend(option.id) &&

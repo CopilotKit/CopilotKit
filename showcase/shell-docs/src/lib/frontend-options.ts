@@ -147,6 +147,26 @@ export function isChannelsOverviewPath(pathname: string): boolean {
   return pathname === "/channels" || pathname === "/channels/";
 }
 
+export function shouldNavigateFrontendSelection(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  pathname: string,
+  destinationPath: string,
+): boolean {
+  return (
+    (isChannelsOverviewPath(pathname) || id !== effectiveFrontendId) &&
+    destinationPath !== pathname
+  );
+}
+
+export function isFrontendOptionActive(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  pathname: string,
+): boolean {
+  return !isChannelsOverviewPath(pathname) && id === effectiveFrontendId;
+}
+
 export function parseFrontendRoutePath(
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
