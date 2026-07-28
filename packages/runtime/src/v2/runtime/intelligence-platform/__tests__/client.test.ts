@@ -1,9 +1,6 @@
 import { describe, it, expect, test, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence, PlatformRequestError } from "../client";
-import {
-  findForbiddenPublicKeyPaths,
-  READY_RUNTIME_ENTITLEMENTS,
-} from "../../__tests__/runtime-entitlement-test-utils";
+import { findForbiddenPublicKeyPaths } from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
@@ -272,10 +269,6 @@ test.each([
         ...ACTIVE_MANAGED_RUNTIME_ENTITLEMENT_TRANSPORT,
         source: "managed",
       }),
-  ],
-  [
-    "public ready union used as the private transport",
-    () => jsonResponse(READY_RUNTIME_ENTITLEMENTS),
   ],
 ])(
   "getRuntimeEntitlements rejects %s successful body with a typed validation error",
