@@ -109,6 +109,10 @@ channel.onMessage(async ({ thread, message }) => {
 const runtime = new CopilotRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
+    // Both URLs come from your Intelligence dashboard; see the Quickstart for the
+
+    // full env block. Self-hosted deployments use their own two hosts.
+
     apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
     // A separate host from apiUrl — the realtime plane is deployed apart, so
     // this cannot be derived by swapping the API URL scheme.
