@@ -11,8 +11,15 @@ Obtain `apiKey` and `organizationId` from the CopilotKit Intelligence dashboard.
 
 ### URL format
 
-The client prepends `/api/...` and the Intelligence websocket layer derives `/runner`
-or `/client` suffixes internally. Pass the bare base URLs — do NOT append `/api`,
+**Omit `apiUrl` and `wsUrl`.** Both default to the managed platform
+(`https://api.intelligence.copilotkit.ai` and
+`wss://realtime.intelligence.copilotkit.ai`), so `apiKey` is the only URL-related
+config you need. Never invent or guess these values — leaving them unset is always
+correct against the managed service.
+
+If you do set them (non-production or a future self-hosted deployment), the client
+prepends `/api/...` and the Intelligence websocket layer derives `/runner` or
+`/client` suffixes internally. Pass the bare base URLs — do NOT append `/api`,
 `/socket`, `/runner`, or `/client` yourself:
 
 ```typescript
@@ -29,8 +36,9 @@ wsUrl:  "wss://realtime.intelligence.copilotkit.ai/socket",
 produce one from the other by swapping the scheme. Deriving `wsUrl` as
 `apiUrl.replace(/^http/, "ws")` yields `wss://api.intelligence.copilotkit.ai`, which
 serves no socket — and the resulting failure is a silent hang, not an error, because
-the socket layer treats an unreachable host as a retryable reconnect. Always configure
-both explicitly. Both values are shown on your project's Intelligence dashboard.
+the socket layer treats an unreachable host as a retryable reconnect. For the same
+reason, override the two together or not at all: setting one alone leaves the other
+plane on the managed host, which the client warns about at construction.
 
 Source: `packages/runtime/src/v2/runtime/intelligence-platform/client.ts:41-46, 259,
 356-357, 437, 468, 682-708`.
@@ -45,8 +53,7 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: "https://api.intelligence.copilotkit.ai",
-  wsUrl: "wss://realtime.intelligence.copilotkit.ai",
+  // apiUrl / wsUrl default to the managed Intelligence platform — leave them unset.
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORG_ID!,
 });
@@ -200,14 +207,20 @@ new CopilotKitIntelligence({
   apiKey,
   organizationId,
 });
+
+new CopilotKitIntelligence({
+  // Only one plane overridden — wsUrl silently stays on the managed host. Warns, then hangs.
+  apiUrl: "https://api.intelligence.copilotkit.ai",
+  apiKey,
+  organizationId,
+});
 ```
 
 Correct:
 
 ```typescript
 new CopilotKitIntelligence({
-  apiUrl: "https://api.intelligence.copilotkit.ai",
-  wsUrl: "wss://realtime.intelligence.copilotkit.ai",
+  // No apiUrl / wsUrl — they default to the managed platform.
   apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORG_ID!,
 });

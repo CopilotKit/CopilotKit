@@ -116,9 +116,7 @@ bot.onMention(async ({ thread, message }) => {
 // A Channel runs only through the Intelligence runtime, which OWNS its
 // lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
-  // Separate host from apiUrl (api.… vs realtime.…) — not derivable from it.
-  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+  // apiUrl/wsUrl default to the managed Intelligence platform.
   apiKey: process.env.COPILOTKIT_API_KEY!,
 });
 const runtime = new CopilotRuntime({
@@ -128,14 +126,15 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the listener activates the Channel (starting its adapters) and
-// exposes `.channels` for readiness + shutdown — no bot.start()/bot.stop().
+// Mounting the listener exposes `.channels` for activation + shutdown but opens
+// no connection; `ready()` activates the Channel (starting its adapters).
+// No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
 createServer(listener).listen(8300, "127.0.0.1");
-await listener.channels?.ready();
+await listener.channels.ready();
 ```
 
 The runnable Slack example keeps DMs and the assistant pane conversational, but
@@ -323,7 +322,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
-#   COPILOTKIT_INTELLIGENCE_URL / COPILOTKIT_API_KEY  (REQUIRED — owns the Channel; free tier)
+#   COPILOTKIT_API_KEY                         (REQUIRED — owns the Channel; free tier)
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
 #   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
@@ -333,9 +332,9 @@ cp .env.example .env
 #   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-A Channel runs only through the Intelligence runtime, so
-`COPILOTKIT_INTELLIGENCE_URL` + `COPILOTKIT_API_KEY` are **required** (free tier).
-The platform adapters stay direct — the runtime that owns the Channel starts each
+A Channel runs only through the Intelligence runtime, so `COPILOTKIT_API_KEY` is
+**required** (free tier). There are no URLs to set — the SDK defaults to the
+managed Intelligence platform. The platform adapters stay direct — the runtime that owns the Channel starts each
 of them for you. Linear and Notion are independent — set only the ones you want;
 the agent wires up whichever credentials are present.
 

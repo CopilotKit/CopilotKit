@@ -28,10 +28,6 @@ tenantId=...
 
 # The runtime runs every channel, so a CopilotKit Intelligence key is required
 # even for a direct adapter (free tier available).
-COPILOTKIT_INTELLIGENCE_URL=https://api.intelligence.copilotkit.ai
-# A separate host from the API URL above, so it cannot be derived from it.
-# Self-hosted deployments substitute their own two hosts.
-COPILOTKIT_INTELLIGENCE_WS_URL=wss://realtime.intelligence.copilotkit.ai
 COPILOTKIT_API_KEY=cpk-...
 ```
 
@@ -67,10 +63,8 @@ channel.onMessage(async ({ thread, message }) => {
 const runtime = new CopilotRuntime({
   agents: {},
   intelligence: new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL!,
-    // A separate host from apiUrl — the realtime plane is deployed apart, so
-    // this cannot be derived by swapping the API URL scheme.
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+    // apiUrl and wsUrl default to the managed Intelligence platform. Override
+    // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_API_KEY!,
   }),
   identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
@@ -78,7 +72,7 @@ const runtime = new CopilotRuntime({
 });
 
 const listener = createCopilotNodeListener({ runtime });
-await listener.channels?.ready();
+await listener.channels.ready();
 ```
 
 ## Set up the Teams side
