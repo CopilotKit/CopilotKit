@@ -95,9 +95,17 @@ describe("Channels documentation journey", () => {
     expect(overview?.source).not.toContain("GitHub");
     expect(overview?.source).not.toContain("Linear");
     expect(overview?.source).toContain("## Match your Channels configuration");
-    expect(overview?.source).toContain("pre-0.3 direct-adapter API");
+    expect(overview?.source).not.toMatch(
+      /retired symbol|pre-0\.3 direct-adapter/i,
+    );
     expect(overview?.source).toContain("[Slack](/slack)");
-    expect(overview?.source).toContain("[Microsoft Teams](/teams)");
+    expect(overview?.source).toContain("[Teams](/teams)");
+    expect(overview?.source).toContain(
+      'src="/images/slack-bot-generative-ui-light.png"',
+    );
+    expect(overview?.source).toContain(
+      'src="/images/slack-bot-generative-ui-dark.png"',
+    );
     expect(overview?.source).toContain(
       "insert Mike's final Channels architecture diagram here",
     );
@@ -106,11 +114,11 @@ describe("Channels documentation journey", () => {
     expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
-  it("pins the tested Channels SDK pair in both provider quickstarts", () => {
+  it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.3.0 @copilotkit/runtime@1.63.3-canary.rc-1";
+      "npm install --save-exact @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.63.3-canary.rc-1";
+      "npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
@@ -145,7 +153,7 @@ describe("Channels documentation journey", () => {
     }
   });
 
-  it("matches the pinned Runtime URL and lifecycle contract", () => {
+  it("matches the Runtime URL and lifecycle contract", () => {
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
 
@@ -183,11 +191,11 @@ describe("Channels documentation journey", () => {
   it("treats the Intelligence REST and realtime endpoints as separate bases", () => {
     const source = bodyFor("channels/intelligence");
 
-    expect(source).toMatch(/REST and realtime planes use separate hosts/i);
+    expect(source).toMatch(/REST and realtime planes\s+use\s+separate hosts/i);
     expect(source).toMatch(/do not derive\s+the WebSocket URL/i);
     expect(source).toMatch(/Pass bare base URLs/i);
     expect(source).toMatch(
-      /Do not append\s+`\/api`, `\/socket`, `\/runner`, or `\/client`/i,
+      /Do not append\s+`\/api`,\s+`\/socket`,\s+`\/runner`,\s+or\s+`\/client`/i,
     );
     expect(source).toMatch(/replace both bases together/i);
   });
@@ -263,17 +271,11 @@ describe("Channels documentation journey", () => {
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");
 
-    expect(source).toMatch(
-      /Intelligence UI can store and configure\s+multiple selected platforms/i,
-    );
-    expect(source).toMatch(/one provider per\s+`createChannel` declaration/i);
-    expect(source).toMatch(/one Channel per gateway session/i);
-    expect(source).toMatch(/one Intelligence Channel per provider/i);
-    expect(source).toMatch(/unique Codes/i);
-    expect(source).toMatch(/one declaration and gateway session per Code/i);
-    expect(source).toMatch(/same agent backend/i);
+    expect(source).toMatch(/separate Intelligence Channel/i);
+    expect(source).toMatch(/unique Code/i);
+    expect(source).toMatch(/same\s+agent\s+backend/i);
     expect(source).not.toMatch(
-      /(?:cannot|does not) (?:select|support) multiple/i,
+      /current managed SDK activation|runtime ownership|gateway session/i,
     );
 
     expect(slack).toMatch(/select and configure only Slack/i);
@@ -282,23 +284,36 @@ describe("Channels documentation journey", () => {
     expect(teams).toContain('name: "support-teams"');
   });
 
-  it("hands off from the wizard to the pinned provider quickstart", () => {
+  it("hands off from Intelligence to the canonical provider quickstart", () => {
     const source = bodyFor("channels/intelligence");
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");
 
-    expect(source).not.toMatch(/copy the snippet if useful/i);
-    expect(source).not.toContain('from "@copilotkit/channel"');
-    expect(source).toMatch(
-      /runtime snippet[\s\S]{0,240}Channel Code[\s\S]{0,120}configuration reference/i,
+    expect(source).not.toMatch(
+      /Do not copy|runtime snippet|Copy snippet|configuration reference/i,
     );
+    expect(source).not.toContain('from "@copilotkit/channel"');
     expect(source).toContain("### Configure the runtime handoff");
     expect(source).not.toContain("### Copy the runtime handoff");
 
-    expect(slack).toMatch(/pinned Slack quickstart's provider\s+runner/i);
+    expect(slack).toMatch(/canonical Slack quickstart/i);
     expect(slack).toContain("[Slack quickstart](/slack)");
-    expect(teams).toMatch(/pinned Teams quickstart's provider\s+runner/i);
+    expect(teams).toMatch(/canonical Teams quickstart/i);
     expect(teams).toContain("[Teams quickstart](/teams)");
+  });
+
+  it("shows the Intelligence Channels area before the setup steps", () => {
+    const source = bodyFor("channels/intelligence");
+    const imageIndex = source.indexOf(
+      'src="/images/channels/intelligence-channels-overview.png"',
+    );
+    const stepsIndex = source.indexOf("<Steps>");
+
+    expect(imageIndex).toBeGreaterThan(-1);
+    expect(imageIndex).toBeLessThan(stepsIndex);
+    expect(source).toMatch(
+      /alt="[^"]*Intelligence[^"]*Channels[^"]*Slack[^"]*Teams[^"]*"/i,
+    );
   });
 
   it("keeps required environment reads self-contained in provider snippets", () => {
@@ -477,12 +492,12 @@ describe("Channels documentation journey", () => {
     expect(combinedSource).not.toMatch(
       /(?:Slack|Teams)[^\n]{0,60}early access|early access[^\n]{0,60}(?:Slack|Teams)/i,
     );
-    const proseWithoutTestedRuntimePin = combinedSource.replaceAll(
-      "@copilotkit/runtime@1.63.3-canary.rc-1",
+    const proseWithoutTestedRuntimeVersion = combinedSource.replaceAll(
+      "@copilotkit/runtime@1.64.0",
       "",
     );
-    expect(proseWithoutTestedRuntimePin).not.toMatch(
-      /\bcanary\b|coordinated launch|launch version|managed launch path/i,
+    expect(proseWithoutTestedRuntimeVersion).not.toMatch(
+      /\bcanary\b|\bpinned\b|coordinated launch|launch version|managed launch path/i,
     );
   });
 

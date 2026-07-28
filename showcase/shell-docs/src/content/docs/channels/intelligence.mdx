@@ -9,17 +9,18 @@ doc_type: how-to
 This walkthrough starts with an Intelligence project and ends with a configured
 platform connection waiting for your Channels SDK runtime.
 
-<Callout type="info" title="Intelligence setup and runtime ownership are different">
-  The Intelligence UI can store and configure multiple selected platforms on
-  one Channel record. Current managed SDK activation is one provider per
-  `createChannel` declaration and one Channel per gateway session. Because
-  runtime ownership is keyed by Code, do not use one Code to serve Slack and
-  Teams concurrently.
+<Image
+  src="/images/channels/intelligence-channels-overview.png"
+  alt="The Copilot Intelligence Channels area showing separate Slack and Teams Channels with their runtime statuses."
+  width={1440}
+  height={1100}
+  className="my-8 w-full rounded-xl border border-fd-border"
+/>
 
-To run both production providers, create one Intelligence Channel per provider
-with unique Codes, then run one declaration and gateway session per Code. Both
-agent factories can point to the same agent backend.
-
+<Callout type="info" title="Create one Channel per platform">
+  Create a separate Intelligence Channel for Slack and Microsoft Teams. Give
+  each Channel a unique Code. Both Channels can connect to the same agent
+  backend.
 </Callout>
 
 <Steps>
@@ -84,23 +85,23 @@ agent factories can point to the same agent backend.
   </Step>
 
   <Step>
-    ### Select the provider for this runtime
+    ### Choose a platform
 
-    The picker allows multiple selected platforms on one Intelligence Channel
-    record, but that does not change the current runtime ownership model.
+    Select Slack or Microsoft Teams. To support both platforms, finish this
+    Channel first, then create another Channel with a different Code for the
+    other platform.
 
     <FrontendOnly frontend="slack">
 
-    Select and configure only Slack for this guide. Use `support-slack` (or
-    another unique Slack Code) for its runtime declaration and gateway session.
+    Select and configure only Slack for this guide. Use `support-slack` or
+    another unique Code.
 
     </FrontendOnly>
 
     <FrontendOnly frontend="teams">
 
     Select and configure only Microsoft Teams for this guide. Use
-    `support-teams` (or another unique Teams Code) for its runtime declaration
-    and gateway session.
+    `support-teams` or another unique Code.
 
     </FrontendOnly>
 
@@ -166,21 +167,18 @@ agent factories can point to the same agent backend.
   <Step>
     ### Review and create
 
-    The **Review** phase shows **Ready to create**, the runtime snippet, and a
-    **Copy snippet** action. Confirm the Display name, Code, and selected
-    platform, then click **Create channel**.
-
-    Do not copy or run the wizard's runtime snippet. Treat the runtime snippet
-    only as a Channel Code and configuration reference; use the pinned provider
-    runner in the matching quickstart instead.
+    In the **Review** phase, confirm the Display name, Code, and selected
+    platform, then click **Create channel**. Next, follow the matching
+    quickstart. It contains the complete supported listener and install command;
+    set `CHANNEL_CODE` to the exact Code you created above.
 
     Credential validation is not an end-to-end message test.
 
     <FrontendOnly frontend="slack">
 
     A valid but mismatched Slack token pair can still fail at runtime. Complete
-    the real provider-message check with the pinned Slack quickstart's provider
-    runner: [Slack quickstart](/slack).
+    the real provider-message check with the canonical Slack quickstart:
+    [Slack quickstart](/slack).
 
     </FrontendOnly>
 
@@ -188,7 +186,7 @@ agent factories can point to the same agent backend.
 
     A valid app registration can still fail if the Azure Bot or Teams app
     package points at the wrong identity. Complete the real provider-message
-    check with the pinned Teams quickstart's provider runner:
+    check with the canonical Teams quickstart:
     [Teams quickstart](/teams).
 
     </FrontendOnly>
@@ -211,12 +209,11 @@ agent factories can point to the same agent backend.
     CHANNEL_CODE=<your-channel-code>
     ```
 
-    The Runtime pinned in the platform quickstarts requires both Intelligence
-    base URLs. The REST and realtime planes use separate hosts, so do not derive
-    the WebSocket URL by changing the API URL's scheme. Pass bare base URLs: the
-    client appends `/api/...`, `/runner`, or `/client` itself. Do not append
-    `/api`, `/socket`, `/runner`, or `/client`. For self-hosted deployments,
-    replace both bases together.
+    Both Intelligence base URLs are required. The REST and realtime planes use
+    separate hosts, so do not derive the WebSocket URL by changing the API
+    URL's scheme. Pass bare base URLs: the client appends `/api/...`, `/runner`,
+    or `/client` itself. Do not append `/api`, `/socket`, `/runner`, or
+    `/client`. For self-hosted deployments, replace both bases together.
 
     Open **API Keys** in the project sidebar to create and copy the
     project-scoped runtime key.

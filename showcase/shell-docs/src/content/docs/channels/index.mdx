@@ -11,6 +11,21 @@ Your agent still runs in your infrastructure. CopilotKit Intelligence owns the
 Slack or Microsoft Teams connection, delivers each turn to your Channels SDK
 listener, and sends the response back as native channel UI.
 
+<Image
+  src="/images/slack-bot-generative-ui-light.png"
+  alt="A Slack user asks the Kite agent to chart project progress, and Kite responds with a native chart."
+  width={920}
+  height={822}
+  className="block dark:hidden my-8 w-full max-w-3xl mx-auto rounded-xl"
+/>
+<Image
+  src="/images/slack-bot-generative-ui-dark.png"
+  alt="A Slack user asks the Kite agent to chart project progress, and Kite responds with a native chart."
+  width={1024}
+  height={915}
+  className="hidden dark:block my-8 w-full max-w-3xl mx-auto rounded-xl"
+/>
+
 <Cards>
   <Card
     title="Build for Slack"
@@ -23,11 +38,6 @@ listener, and sends the response back as native channel UI.
     description="Configure an Azure Bot and Teams app, connect your agent framework, then add tools, approvals, and durable state."
   />
 </Cards>
-
-The retired symbol pages documented the pre-0.3 direct-adapter API. For the
-current managed Channels journey, start with [Slack](/slack) or
-[Microsoft Teams](/teams); each provider section includes the maintained
-Channel, Thread, and callback contracts.
 
 Discord and WhatsApp support is coming soon.
 

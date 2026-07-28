@@ -41,4 +41,15 @@ describe("public image assets", () => {
       );
     }
   });
+
+  it("serves the Intelligence Channels overview as a real PNG file", () => {
+    const bytes = readPublicAsset(
+      "images/channels/intelligence-channels-overview.png",
+    );
+
+    expect(bytes.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(bytes.toString("utf8", 0, 32)).not.toContain(
+      "version https://git-lfs",
+    );
+  });
 });
