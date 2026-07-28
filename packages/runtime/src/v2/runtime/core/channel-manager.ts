@@ -32,9 +32,17 @@ import type { Channel } from "@copilotkit/channels";
  * Channels move through these states. A direct Channel is driven by the manager
  * too — it is started via {@link Channel.ɵruntime}`.start()` and reaches `online`
  * once its own transport is up — but it is NOT wired into the Intelligence
- * gateway/canonical/reliability layer (deferred, OSS-599): it simply runs its
- * own adapter transport, started and stopped by the manager. A direct Channel
- * has no managed-session drop signal, so it never reports `reconnecting`.
+ * gateway/canonical/reliability layer: it simply runs its own adapter transport,
+ * started and stopped by the manager. A direct Channel has no managed-session
+ * drop signal, so it never reports `reconnecting`.
+ *
+ * That gap is BY DESIGN, not a deferral. Run-correctness (canonical
+ * cross-surface history, fenced outer-run/single-terminal, durable
+ * HITL-resume-across-restart, selection pinning) and the reliability layer are
+ * Intelligence-side only — see OSS-599's boundary discipline. A direct Channel's
+ * ceiling is the SDK's in-process run loop. Do not "finish" this by pulling the
+ * canonical/reliability layer down into the SDK: that is explicitly the thing
+ * OSS-599 forbids.
  */
 export type ChannelStatus =
   | "connecting"
@@ -318,9 +326,10 @@ function withTimeout<T>(
  * through the injected engine over the Intelligence gateway; a DIRECT Channel
  * (developer-supplied adapter) is started through its own transport seam
  * (`channel.ɵruntime.start()`) — driven by the manager, but running only its own
- * adapter transport, not the gateway path (gateway/canonical/reliability wiring
- * for direct Channels is deferred, OSS-599). Its very existence means Intelligence
- * is configured, so there is no standalone/self-started path.
+ * adapter transport, not the gateway path (direct Channels stay below the
+ * canonical/reliability layer by design — see {@link ChannelStatus} and OSS-599).
+ * Its very existence means Intelligence is configured, so there is no
+ * standalone/self-started path.
  *
  * Activation is lazy and idempotent — constructing the manager does nothing;
  * {@link activate} starts it and a second call is a no-op. Activation throws
@@ -416,8 +425,8 @@ export class ChannelManager implements ChannelsControl {
     // from a local direct adapter — a managed-eligible Channel has an empty
     // `adapters` at declaration time. Managed+direct coexistence on the same
     // Channel is NOT supported today; it is deferred (OSS-484). Direct Channels
-    // run only their own transport here; wiring them into the Intelligence
-    // gateway/canonical/reliability layer is deferred (OSS-599).
+    // run only their own transport here and stay below the Intelligence
+    // canonical/reliability layer by design, not pending work (OSS-599).
     for (const channel of this.channels) {
       const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
       if (isDirect) {
@@ -520,7 +529,7 @@ export class ChannelManager implements ChannelsControl {
    * driven by the manager — but only because the Intelligence runtime constructed
    * this manager at all — and runs its OWN adapter transport, NOT the Intelligence
    * gateway path. It is deliberately NOT wired into the gateway/canonical/
-   * reliability layer (deferred, OSS-599).
+   * reliability layer — that boundary is permanent, not a deferral (OSS-599).
    *
    * Mirrors the managed path's settle machinery so teardown resilience is shared:
    * the entry's `handle` is a synthetic {@link ChannelsHandle} whose `stop()`
@@ -538,7 +547,7 @@ export class ChannelManager implements ChannelsControl {
   private startDirectChannel(channel: Channel): void {
     const name = channel.name!;
     this.log?.(
-      `channel "${name}" carries a direct adapter — starting its own transport via channel.ɵruntime.start() (the Intelligence runtime drives its lifecycle; it runs its own adapter transport, NOT the managed gateway path — gateway/canonical/reliability wiring deferred (OSS-599); managed+direct coexistence deferred (OSS-484))`,
+      `channel "${name}" carries a direct adapter — starting its own transport via channel.ɵruntime.start() (the Intelligence runtime drives its lifecycle; it runs its own adapter transport, NOT the managed gateway path — direct Channels stay below the canonical/reliability layer by design (OSS-599); managed+direct coexistence deferred (OSS-484))`,
     );
 
     let resolveSettled!: () => void;
