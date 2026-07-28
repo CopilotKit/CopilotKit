@@ -19,7 +19,7 @@
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * four platforms stay on the ONE Channel — you declare it on
  * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })`, mount a
- * node listener, and drive `listener.channels?.ready()` / `.stop()`. There is no
+ * node listener, and drive `listener.channels.ready()` / `.stop()`. There is no
  * `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
@@ -302,9 +302,10 @@ async function main() {
     channels: [bot],
   });
 
-  // Mounting the Node listener creates the runtime handler, which activates the
-  // Channel (starting all its direct adapters) and exposes `.channels` for
-  // readiness + shutdown. This listener holds the Intelligence key and needs no
+  // Mounting the Node listener creates the runtime handler and exposes
+  // `.channels` for readiness + shutdown. It opens NO connection yet — the
+  // `ready()` call below is what activates the Channel (starting all its direct
+  // adapters). This listener holds the Intelligence key and needs no
   // public ingress (each platform adapter has its own — e.g. WhatsApp's webhook
   // on $PORT); it only owns the Channel lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
@@ -318,11 +319,12 @@ async function main() {
     );
   });
 
-  // Drive readiness through the runtime's Channel control instead of a
-  // (now-removed) bot.start(): resolves once every direct adapter's transport is
-  // up across all active platforms.
+  // Activate through the runtime's Channel control instead of a (now-removed)
+  // bot.start(): this is what connects the Channel, and it resolves once every
+  // direct adapter's transport is up across all active platforms. Required —
+  // skip it and the process serves HTTP with nothing connected.
   // Bound startup so a wedged adapter connect can't hang readiness forever.
-  await listener.channels?.ready({ timeoutMs: 30_000 });
+  await listener.channels.ready({ timeoutMs: 30_000 });
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
@@ -331,7 +333,7 @@ async function main() {
     console.log(`\n[channel] received ${signal}, stopping…`);
     // Stop through the runtime's Channel control, which tears down every direct
     // adapter it started.
-    await listener.channels?.stop();
+    await listener.channels.stop();
     // Tear down the shared headless browser used for chart/diagram rendering.
     await closeBrowser();
     process.exit(0);

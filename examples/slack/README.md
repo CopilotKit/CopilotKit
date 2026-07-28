@@ -128,14 +128,15 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the listener activates the Channel (starting its adapters) and
-// exposes `.channels` for readiness + shutdown — no bot.start()/bot.stop().
+// Mounting the listener exposes `.channels` for activation + shutdown but opens
+// no connection; `ready()` activates the Channel (starting its adapters).
+// No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
 createServer(listener).listen(8300, "127.0.0.1");
-await listener.channels?.ready();
+await listener.channels.ready();
 ```
 
 The runnable Slack example keeps DMs and the assistant pane conversational, but

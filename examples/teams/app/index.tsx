@@ -12,7 +12,7 @@
  * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
  * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })`,
  * and you drive readiness/shutdown through the handler's `channels` control
- * (`listener.channels?.ready()` / `.stop()`) — there is no `bot.start()`/
+ * (`listener.channels.ready()` / `.stop()`) — there is no `bot.start()`/
  * `bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
@@ -258,9 +258,10 @@ const channelRuntime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the Node listener creates the runtime handler, which activates the
-// Channel (starting the direct Teams adapter) and exposes `.channels` for
-// readiness + shutdown. Bind loopback: this runtime holds the Intelligence key
+// Mounting the Node listener creates the runtime handler and exposes
+// `.channels` for readiness + shutdown. It opens NO connection yet — the
+// `ready()` call below activates the Channel (starting the direct Teams
+// adapter). Bind loopback: this runtime holds the Intelligence key
 // and needs no public ingress (the Teams adapter has its own on :${port}); the
 // listener only owns the Channel lifecycle and keeps the process alive.
 const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
@@ -274,11 +275,12 @@ createServer(listener).listen(channelPort, "127.0.0.1", () => {
   );
 });
 
-// Drive readiness through the runtime's Channel control instead of a
-// (now-removed) bot.start(): resolves once the direct Teams adapter's transport
-// is up.
+// Activate through the runtime's Channel control instead of a (now-removed)
+// bot.start(): this is what connects the Channel, and it resolves once the
+// direct Teams adapter's transport is up. Required — skip it and nothing
+// connects.
 // Bound startup so a wedged adapter connect can't hang readiness forever.
-await listener.channels?.ready({ timeoutMs: 30_000 });
+await listener.channels.ready({ timeoutMs: 30_000 });
 
 console.log(
   `Teams demo bot listening at http://localhost:${port}/api/messages`,
@@ -293,7 +295,7 @@ console.log(
 // tears down the direct Teams adapter it started.
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
-  await listener.channels?.stop().catch(() => {});
+  await listener.channels.stop().catch(() => {});
   process.exit(0);
 };
 process.on("SIGINT", () => void shutdown("SIGINT"));

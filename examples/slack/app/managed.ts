@@ -13,10 +13,10 @@
  * IDENTICAL to the native bot; only the transport changes. Instead of a
  * launcher, the managed path now goes through the NORMAL runtime handler: you
  * hand your `createChannel(...)` to `new CopilotRuntime({ …, channels })` and
- * mount it with `createCopilotNodeListener`. Creating the listener activates
- * the managed Channel (the runtime derives every infra id — project, adapter,
- * channel — from the Intelligence config + the channel `name`, so the developer
- * supplies NONE of them):
+ * mount it with `createCopilotNodeListener`, then `await
+ * listener.channels.ready()` to activate the managed Channel (the runtime
+ * derives every infra id — project, adapter, channel — from the Intelligence
+ * config + the channel `name`, so the developer supplies NONE of them):
  *
  *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })   // index.ts
  *   managed:  new CopilotRuntime({ intelligence, identifyUser, channels })     // this file
@@ -144,27 +144,31 @@ async function main() {
     channels: [support],
   });
 
-  // Mounting the NORMAL handler is what starts the managed Channel: the Node
-  // listener creates the runtime handler (which activates the Channel over the
-  // Intelligence transport) and exposes `.channels` for shutdown. There is no
-  // public Slack ingress on this port — Intelligence owns the Slack edge — but
-  // the server keeps the lifecycle-owning process alive.
+  // The NORMAL handler is what runs the managed Channel: the Node listener
+  // creates the runtime handler and exposes `.channels` for activation +
+  // shutdown. Mounting it opens NO connection — `ready()` below activates the
+  // Channel over the Intelligence transport. There is no public Slack ingress on
+  // this port — Intelligence owns the Slack edge — but the server keeps the
+  // lifecycle-owning process alive.
   const listener = createCopilotNodeListener({
     runtime,
     basePath: "/api/copilotkit",
   });
   const port = Number(process.env.PORT ?? 8300);
   createServer(listener).listen(port, () => {
-    console.log(
-      `[channel] started managed Channel "${channelName}" (listener on :${port})`,
-    );
+    console.log(`[channel] listener on :${port}`);
   });
+
+  // Required: this is the call that connects the managed Channel to the Realtime
+  // Gateway. Bound it so a wedged connect can't hang startup forever.
+  await listener.channels.ready({ timeoutMs: 30_000 });
+  console.log(`[channel] started managed Channel "${channelName}"`);
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
     let exitCode = 0;
     try {
-      await listener.channels?.stop();
+      await listener.channels.stop();
     } catch (err) {
       console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;

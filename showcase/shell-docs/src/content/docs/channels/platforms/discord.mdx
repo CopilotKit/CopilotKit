@@ -72,7 +72,7 @@ const runtime = new CopilotRuntime({
 });
 
 const listener = createCopilotNodeListener({ runtime });
-await listener.channels?.ready();
+await listener.channels.ready();
 ```
 
 ## Typed slash commands
