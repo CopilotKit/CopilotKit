@@ -61,7 +61,9 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackBannerClicked,
+  trackBannerDismissed,
   trackBannerViewed,
+  trackInspectorOpened,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
   trackThreadsEnabledViewed,
@@ -79,7 +81,10 @@ import {
   trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
 import type {
+  BannerSurface,
   InspectorMemoryTelemetryProps,
+  InspectorOpenSource,
+  InspectorOpenedTelemetryProps,
   InspectorThreadTelemetryProps,
 } from "./lib/telemetry.js";
 
@@ -4192,16 +4197,28 @@ export class WebInspectorElement extends LitElement {
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
   private announcementExpanded = false;
-  // Per-instance dedup for `oss.inspector.banner_viewed` so the event fires
-  // at most once per announcement timestamp per inspector mount. Plan calls
-  // for "de-dup per timestamp per session"; instance-scoping is closer
-  // to per-mount than per-tab (sessionStorage), but for the inspector the
-  // distinction is academic — inspector instances rarely outlive the page.
-  private viewedBannerTimestamps: Set<string> = new Set();
-  private pendingBannerViewed: {
+  // Per-instance dedup for `oss.inspector.banner_viewed`, keyed by
+  // `${timestamp}:${surface}` so the event fires at most once per
+  // announcement per surface per inspector mount. Plan calls for "de-dup per
+  // timestamp per session"; instance-scoping is closer to per-mount than
+  // per-tab (sessionStorage), but for the inspector the distinction is
+  // academic — inspector instances rarely outlive the page. The surface is
+  // part of the key (OSS-568) because the bubble on the collapsed widget and
+  // the card inside the opened panel are separate impressions: a user can see
+  // one without ever seeing the other.
+  private viewedBannerSurfaces: Set<string> = new Set();
+  // Queue rather than a single slot: a user can open the panel (second
+  // surface) before the runtime handshake has flushed the first impression.
+  private pendingBannerViewed: Array<{
     banner_id: string;
+    surface: BannerSurface;
     cta_label?: string;
-  } | null = null;
+  }> = [];
+  // Same deferral for `oss.inspector.opened` — the panel can be opened before
+  // /info returns, at which point `core.telemetryDisabled` is not yet known.
+  // Also a queue: open → close → open before the handshake is three real
+  // events, and dropping all but the last would undercount opens.
+  private pendingOpened: InspectorOpenedTelemetryProps[] = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -4542,7 +4559,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingBannerViewed();
+          this.flushPendingTelemetry();
           if (this.areThreadEndpointsAvailable()) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
@@ -4609,7 +4626,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingBannerViewed();
+      this.flushPendingTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -6817,7 +6834,7 @@ ${argsString}</pre
       !this.isOpen &&
       !this.draggedDuringInteraction
     ) {
-      this.openInspector();
+      this.openInspector("floating_button");
     }
 
     this.resetPointerTracking();
@@ -6850,7 +6867,7 @@ ${argsString}</pre
 
     if (!this.isOpen) {
       event.preventDefault();
-      this.openInspector();
+      this.openInspector("floating_button");
     }
   };
 
@@ -7321,17 +7338,24 @@ ${argsString}</pre
     this.draggedDuringInteraction = false;
   }
 
-  private openInspector(): void {
+  private openInspector(source: InspectorOpenSource): void {
     if (this.isOpen) {
       return;
     }
 
+    const hadUnseenAnnouncement = this.hasUnseenAnnouncement;
     this.showAnnouncementPreview = false; // hide the bubble once the inspector is opened
 
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
     this.persistState(); // Save the open state
+
+    this.trackOpened(source, hadUnseenAnnouncement);
+    // The in-panel announcement card is now the visible surface, so it earns
+    // its own banner_viewed impression (no-op when the announcement hasn't
+    // loaded yet — fetchAnnouncement records it on arrival instead).
+    this.maybeTrackBannerViewed();
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -7846,6 +7870,44 @@ ${argsString}</pre
         </div>
       </div>
     `;
+  }
+
+  // Fires `oss.inspector.opened` for a user-initiated open (OSS-566). Queued
+  // until the runtime handshake completes so an open is never reported for a
+  // runtime that has telemetry disabled. Restoring a persisted-open panel on
+  // mount assigns `isOpen` directly instead of routing through
+  // `openInspector`, so page reloads and dev-server hot reloads are not
+  // counted as opens.
+  private trackOpened(
+    source: InspectorOpenSource,
+    hadUnseenAnnouncement: boolean,
+  ): void {
+    if (this.core?.telemetryDisabled) return;
+    this.pendingOpened.push({
+      open_source: source,
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+      has_unseen_announcement: hadUnseenAnnouncement,
+    });
+    this.flushPendingOpened();
+  }
+
+  // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
+  // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
+  // replacing it, so dashboards reading the `cta` value keep working.
+  private trackBannerDismissedOnce(surface: BannerSurface): void {
+    if (this.core?.telemetryDisabled) return;
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const key = `${id}:dismissed:${surface}`;
+    if (this.clickedBannerIds.has(key)) return;
+    this.clickedBannerIds.add(key);
+    trackBannerDismissed({
+      banner_id: id,
+      surface,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
   }
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
@@ -10731,7 +10793,7 @@ ${prettyEvent}</pre
         <button
           class="announcement-dismiss ml-auto"
           type="button"
-          @click=${this.handleDismissAnnouncement}
+          @click=${() => this.dismissAnnouncement("expanded_card")}
           aria-label="Dismiss announcement"
         >
           ${this.renderIcon("X")}
@@ -10771,14 +10833,71 @@ ${prettyEvent}</pre
     </div>`;
   }
 
+  private flushPendingTelemetry(): void {
+    this.flushPendingBannerViewed();
+    this.flushPendingOpened();
+  }
+
   private flushPendingBannerViewed(): void {
-    if (!this.pendingBannerViewed || this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = null;
+    if (this.pendingBannerViewed.length === 0) return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
       return;
     }
     if (this.runtimeStatus !== "connected") return;
-    trackBannerViewed(this.pendingBannerViewed);
-    this.pendingBannerViewed = null;
+    const queued = this.pendingBannerViewed;
+    this.pendingBannerViewed = [];
+    for (const props of queued) trackBannerViewed(props);
+  }
+
+  private flushPendingOpened(): void {
+    if (this.pendingOpened.length === 0) return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingOpened = [];
+      return;
+    }
+    if (this.runtimeStatus !== "connected") return;
+    const queued = this.pendingOpened;
+    this.pendingOpened = [];
+    for (const props of queued) trackInspectorOpened(props);
+  }
+
+  /**
+   * Which announcement surface is on screen right now, or null when the
+   * announcement isn't visible. Mirrors the render gates in
+   * `renderAnnouncementPreview` (bubble) and `renderAnnouncementBanner`
+   * (in-panel card) — opening the panel clears `showAnnouncementPreview`, so
+   * the two are mutually exclusive.
+   */
+  private getVisibleBannerSurface(): BannerSurface | null {
+    if (!this.hasUnseenAnnouncement) return null;
+    if (this.isOpen) {
+      return this.announcementHtml ? "expanded_card" : null;
+    }
+    return this.showAnnouncementPreview && this.announcementPreviewText
+      ? "collapsed_preview"
+      : null;
+  }
+
+  /**
+   * Records a `banner_viewed` impression for whichever surface is currently
+   * visible, once per announcement per surface. Queued rather than sent
+   * directly because `telemetryDisabled` is unknown until /info returns.
+   */
+  private maybeTrackBannerViewed(): void {
+    const id = this.announcementTimestamp;
+    if (!id) return;
+    const surface = this.getVisibleBannerSurface();
+    if (!surface) return;
+    const key = `${id}:${surface}`;
+    if (this.viewedBannerSurfaces.has(key)) return;
+    this.viewedBannerSurfaces.add(key);
+    this.pendingBannerViewed.push({
+      banner_id: id,
+      surface,
+      cta_label: this.announcementCtaLabel ?? undefined,
+    });
+    this.flushPendingBannerViewed();
   }
 
   private ensureAnnouncementLoading(): void {
@@ -10828,7 +10947,7 @@ ${prettyEvent}</pre
 
   private handleAnnouncementPreviewClick(): void {
     this.showAnnouncementPreview = false;
-    this.openInspector();
+    this.openInspector("announcement_preview");
   }
 
   // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
@@ -10841,13 +10960,14 @@ ${prettyEvent}</pre
     // Don't let the dismiss bubble to the preview body, whose click opens the
     // inspector.
     event.stopPropagation();
-    this.handleDismissAnnouncement();
+    this.dismissAnnouncement("collapsed_preview");
   };
 
-  private handleDismissAnnouncement = (): void => {
+  private dismissAnnouncement(surface: BannerSurface): void {
     this.trackBannerClickedOnce({ cta: "dismiss" });
+    this.trackBannerDismissedOnce(surface);
     this.markAnnouncementSeen();
-  };
+  }
 
   private async fetchAnnouncement(): Promise<void> {
     try {
@@ -10888,21 +11008,12 @@ ${prettyEvent}</pre
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
 
-      // banner_viewed: gate on actual visibility and per-mount dedup.
-      // Store as pending rather than firing immediately — telemetryDisabled
+      // banner_viewed: gate on actual visibility and per-mount dedup, and
+      // stamp the surface the announcement is showing on right now. The
+      // event is queued rather than fired immediately — telemetryDisabled
       // may not be known yet if /info hasn't returned. Flushed in
       // onRuntimeConnectionStatusChanged once the handshake completes.
-      if (
-        this.hasUnseenAnnouncement &&
-        !this.viewedBannerTimestamps.has(timestamp)
-      ) {
-        this.viewedBannerTimestamps.add(timestamp);
-        this.pendingBannerViewed = {
-          banner_id: timestamp,
-          cta_label: ctaLabel ?? undefined,
-        };
-        this.flushPendingBannerViewed();
-      }
+      this.maybeTrackBannerViewed();
 
       this.requestUpdate();
     } catch (error) {

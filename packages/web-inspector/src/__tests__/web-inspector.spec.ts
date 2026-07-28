@@ -235,6 +235,26 @@ function getContextInternals(inspector: WebInspectorElement) {
   return inspector as unknown as InspectorContextInternals;
 }
 
+type TelemetryPost = { event: string; properties: Record<string, unknown> };
+
+/** Decode the `oss.inspector.*` payloads a stubbed fetch received. */
+function telemetryPostsFrom(fetchMock: {
+  mock: { calls: unknown[][] };
+}): TelemetryPost[] {
+  return fetchMock.mock.calls
+    .filter(
+      (call) =>
+        String(call[0]) === "https://telemetry.copilotkit.ai/ingest" &&
+        (call[1] as RequestInit | undefined)?.method === "POST",
+    )
+    .map(
+      (call) =>
+        JSON.parse(
+          ((call[1] as RequestInit | undefined)?.body as string) ?? "{}",
+        ) as TelemetryPost,
+    );
+}
+
 // --- Tests ---
 
 describe("WebInspectorElement", () => {
@@ -1472,6 +1492,36 @@ describe("WebInspectorElement announcement preview dismissal", () => {
     expect(a.isOpen).toBe(false);
   });
 
+  it("emits banner_dismissed with the bubble surface alongside banner_clicked", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const timestamp = "2026-06-11T13:00:00.000Z";
+    const { inspector } = await mountWithUnseenAnnouncement(timestamp);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
+      ?.click();
+    await inspector.updateComplete;
+
+    const posts = telemetryPostsFrom(fetchMock);
+    const dismissed = posts.find(
+      (post) => post.event === "oss.inspector.banner_dismissed",
+    );
+    expect(dismissed?.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "collapsed_preview",
+    });
+    // The legacy signal keeps flowing so existing dashboards don't zero out.
+    const clicked = posts.find(
+      (post) => post.event === "oss.inspector.banner_clicked",
+    );
+    expect(clicked?.properties).toMatchObject({
+      banner_id: timestamp,
+      cta: "dismiss",
+    });
+  });
+
   it("clicking the popout body opens the inspector without persisting", async () => {
     const { inspector, a } = await mountWithUnseenAnnouncement(
       "2026-06-11T13:00:00.000Z",
@@ -1487,6 +1537,182 @@ describe("WebInspectorElement announcement preview dismissal", () => {
     expect(a.isOpen).toBe(true);
     expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
     expect(a.hasUnseenAnnouncement).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Panel-open + banner-surface telemetry (OSS-566 / OSS-568)
+// ─────────────────────────────────────────────────────────────────────────
+//
+// `oss.inspector.opened` exists because opens were previously only inferable
+// from in-panel activity (a floor) or from `banner_clicked` cta=body (which
+// misses the floating-button path). `banner_viewed` carries a `surface`
+// because the bubble on the collapsed widget and the card inside the opened
+// panel are separate impressions — reach on one says nothing about the other.
+
+const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+
+type OpenTelemetryInternals = {
+  isOpen: boolean;
+  announcementTimestamp: string | null;
+  fetchAnnouncement: () => Promise<void>;
+  openInspector: (source: "floating_button" | "announcement_preview") => void;
+};
+
+describe("WebInspectorElement open + banner surface telemetry", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  const timestamp = "2026-07-01T09:00:00.000Z";
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    fetchMock = vi.fn((input: unknown) => {
+      if (String(input) === ANNOUNCEMENT_URL) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              timestamp,
+              previewText: "Channels are here",
+              announcement: "Channels are here — [read more](https://x.test)",
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(null, { status: 204 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** Mount an inspector attached to a connected core with telemetry on. */
+  function mount(telemetryDisabled = false) {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      {},
+      {},
+      telemetryDisabled,
+    );
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    return {
+      inspector,
+      internals: inspector as unknown as OpenTelemetryInternals,
+    };
+  }
+
+  const posts = () => telemetryPostsFrom(fetchMock);
+  const eventsNamed = (name: string) =>
+    posts().filter((post) => post.event === name);
+
+  it("records the collapsed bubble impression, then the in-panel card on open", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    const first = eventsNamed("oss.inspector.banner_viewed");
+    expect(first).toHaveLength(1);
+    expect(first[0]!.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "collapsed_preview",
+    });
+
+    // Opening reveals the in-panel card — a distinct impression.
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    const surfaces = eventsNamed("oss.inspector.banner_viewed").map(
+      (post) => post.properties.surface,
+    );
+    expect(surfaces).toEqual(["collapsed_preview", "expanded_card"]);
+  });
+
+  it("does not re-record an impression for a surface already seen this mount", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(1);
+  });
+
+  it("emits opened with the floating-button source and announcement context", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.click();
+    await inspector.updateComplete;
+
+    const opened = eventsNamed("oss.inspector.opened");
+    expect(opened).toHaveLength(1);
+    expect(opened[0]!.properties).toMatchObject({
+      open_source: "floating_button",
+      has_unseen_announcement: true,
+      package_name: "@copilotkit/web-inspector",
+    });
+  });
+
+  it("attributes an open through the announcement bubble to that surface", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "announcement_preview",
+    });
+  });
+
+  it("counts one open per open, and nothing for an already-open panel", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
+
+    internals.openInspector("floating_button");
+    internals.openInspector("floating_button");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(1);
+  });
+
+  it("does not count a restored-open panel as an open", async () => {
+    const { inspector, internals } = mount();
+    // Restoring persisted state assigns isOpen directly rather than calling
+    // openInspector — otherwise every reload / dev-server hot reload would
+    // register as a fresh open.
+    internals.isOpen = true;
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")).toHaveLength(0);
+  });
+
+  it("emits nothing when the runtime has telemetry disabled", async () => {
+    const { inspector, internals } = mount(true);
+
+    await internals.fetchAnnouncement();
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    expect(posts()).toEqual([]);
   });
 });
 
