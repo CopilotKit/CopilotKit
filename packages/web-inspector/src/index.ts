@@ -4221,7 +4221,36 @@ export class WebInspectorElement extends LitElement {
   // /info returns, at which point `core.telemetryDisabled` is not yet known.
   // Also a queue: open → close → open before the handshake is three real
   // events, and dropping all but the last would undercount opens.
-  private pendingOpened: InspectorOpenedTelemetryProps[] = [];
+  //
+  // Only the *intent* is queued. Runtime segmentation (`license_status`,
+  // `runtime_mode`, `runtime_url_type`) is deliberately NOT captured here:
+  // before the handshake, `licenseStatus` is undefined and `runtimeMode`
+  // reads its `sse` default, so snapshotting would permanently attribute an
+  // early open against an Intelligence runtime to SSE. Those fields are
+  // resolved at flush time, when /info has actually landed.
+  private pendingOpened: Array<{
+    open_source: InspectorOpenSource;
+    has_unseen_announcement: boolean;
+  }> = [];
+  // Banner *interactions* (`banner_clicked` / `banner_dismissed`) defer behind
+  // the same handshake gate as impressions. A user can swat the preview bubble
+  // away before /info returns, and firing then would send an event for a
+  // runtime that turns out to have telemetry disabled. Dedup still happens at
+  // interaction time, so a double-click queues one event, not two.
+  private pendingBannerInteractions: Array<
+    | {
+        kind: "clicked";
+        banner_id: string;
+        cta: "body" | "dismiss";
+        cta_label?: string;
+      }
+    | {
+        kind: "dismissed";
+        banner_id: string;
+        surface: BannerSurface;
+        cta_label?: string;
+      }
+  > = [];
   // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
@@ -7893,9 +7922,6 @@ ${argsString}</pre
     if (this.pendingOpened.length >= MAX_PENDING_TELEMETRY_EVENTS) return;
     this.pendingOpened.push({
       open_source: source,
-      license_status: this.core?.licenseStatus ?? undefined,
-      runtime_mode: this.core?.runtimeMode ?? undefined,
-      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
     });
     this.flushPendingOpened();
@@ -7904,34 +7930,46 @@ ${argsString}</pre
   // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
   // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
   // replacing it, so dashboards reading the `cta` value keep working.
+  // Queued behind the runtime handshake — see `pendingBannerInteractions`.
   private trackBannerDismissedOnce(surface: BannerSurface): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:dismissed:${surface}`;
     if (this.clickedBannerIds.has(key)) return;
+    if (this.pendingBannerInteractions.length >= MAX_PENDING_TELEMETRY_EVENTS) {
+      return;
+    }
     this.clickedBannerIds.add(key);
-    trackBannerDismissed({
+    this.pendingBannerInteractions.push({
+      kind: "dismissed",
       banner_id: id,
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
+    this.flushPendingBannerInteractions();
   }
 
   // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
   // copy-button retries and accidental multi-clicks don't inflate funnel counts.
+  // Queued behind the runtime handshake — see `pendingBannerInteractions`.
   private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
     if (this.core?.telemetryDisabled) return;
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
+    if (this.pendingBannerInteractions.length >= MAX_PENDING_TELEMETRY_EVENTS) {
+      return;
+    }
     this.clickedBannerIds.add(key);
-    trackBannerClicked({
+    this.pendingBannerInteractions.push({
+      kind: "clicked",
       banner_id: id,
       cta: opts.cta,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
+    this.flushPendingBannerInteractions();
   }
 
   private handleTalkToEngineerClick = (): void => {
@@ -10843,6 +10881,7 @@ ${prettyEvent}</pre
 
   private flushPendingTelemetry(): void {
     this.flushPendingBannerViewed();
+    this.flushPendingBannerInteractions();
     this.flushPendingOpened();
   }
 
@@ -10858,6 +10897,36 @@ ${prettyEvent}</pre
     for (const props of queued) trackBannerViewed(props);
   }
 
+  private flushPendingBannerInteractions(): void {
+    if (this.pendingBannerInteractions.length === 0) return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerInteractions = [];
+      return;
+    }
+    if (this.runtimeStatus !== "connected") return;
+    const queued = this.pendingBannerInteractions;
+    this.pendingBannerInteractions = [];
+    for (const interaction of queued) {
+      if (interaction.kind === "clicked") {
+        trackBannerClicked({
+          banner_id: interaction.banner_id,
+          cta: interaction.cta,
+          cta_label: interaction.cta_label,
+        });
+      } else {
+        trackBannerDismissed({
+          banner_id: interaction.banner_id,
+          surface: interaction.surface,
+          cta_label: interaction.cta_label,
+        });
+      }
+    }
+  }
+
+  // Runtime segmentation is resolved HERE, not when the open was queued: an
+  // open recorded before /info landed would otherwise carry `licenseStatus:
+  // undefined` and the `sse` default forever, misattributing early opens
+  // against an Intelligence runtime.
   private flushPendingOpened(): void {
     if (this.pendingOpened.length === 0) return;
     if (this.core?.telemetryDisabled) {
@@ -10867,7 +10936,14 @@ ${prettyEvent}</pre
     if (this.runtimeStatus !== "connected") return;
     const queued = this.pendingOpened;
     this.pendingOpened = [];
-    for (const props of queued) trackInspectorOpened(props);
+    const runtimeProps = {
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+    } satisfies Partial<InspectorOpenedTelemetryProps>;
+    for (const intent of queued) {
+      trackInspectorOpened({ ...intent, ...runtimeProps });
+    }
   }
 
   /**

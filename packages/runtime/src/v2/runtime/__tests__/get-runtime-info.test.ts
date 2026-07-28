@@ -8,8 +8,17 @@ import type {
 import type { AgentRunner } from "../runner/agent-runner";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { restoreTelemetryOptOutEnv } from "./telemetry-opt-out-env";
 
 // Mock transcription service
 class MockTranscriptionService extends TranscriptionService {
@@ -23,6 +32,15 @@ describe("handleGetRuntimeInfo", () => {
   // assertions are only meaningful against a known env. CI now sets the
   // opt-out vars for the whole job (OSS-565), and a developer may have
   // DO_NOT_TRACK exported globally — clear them so each test controls its own.
+  //
+  // The originals are put back in `afterAll` rather than left deleted: the
+  // job-wide opt-out is a safety property, and a suite that clears it should
+  // not hand a weaker environment to whatever runs next in the same process.
+  const originalOptOut = {
+    COPILOTKIT_TELEMETRY_DISABLED: process.env.COPILOTKIT_TELEMETRY_DISABLED,
+    DO_NOT_TRACK: process.env.DO_NOT_TRACK,
+  };
+
   beforeEach(() => {
     delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
     delete process.env.DO_NOT_TRACK;
@@ -31,6 +49,10 @@ describe("handleGetRuntimeInfo", () => {
   afterEach(() => {
     delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
     delete process.env.DO_NOT_TRACK;
+  });
+
+  afterAll(() => {
+    restoreTelemetryOptOutEnv(originalOptOut);
   });
 
   const mockRequest = new Request("https://example.com/info");

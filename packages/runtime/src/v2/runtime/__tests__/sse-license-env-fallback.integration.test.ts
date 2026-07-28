@@ -11,7 +11,16 @@
  * nothing. Per-file isolation makes this construction the ONLY thing that
  * could set the token — a faithful guard.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  afterAll,
+} from "vitest";
+import { restoreTelemetryOptOutEnv } from "./telemetry-opt-out-env";
 import type { AbstractAgent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 import { lambdaClient } from "@copilotkit/shared";
@@ -53,9 +62,25 @@ function makeSseRunner() {
 // (`const telemetry = new TelemetryClient()` in telemetry-client.ts) latches
 // `telemetryDisabled` from the environment at module-import time, which
 // happens before any hook runs. Hoisted callbacks run before the imports.
-vi.hoisted(() => {
+//
+// Clearing them is only safe if it is undone, so the hoisted callback also
+// snapshots the originals and `afterAll` puts them back — the job-wide
+// opt-out is a safety property, and this suite must not hand a weaker
+// environment to whatever runs next in the same process. The capture is
+// inline rather than a helper call because hoisted callbacks run before the
+// imports they would need.
+const originalOptOut = vi.hoisted(() => {
+  const snapshot = {
+    COPILOTKIT_TELEMETRY_DISABLED: process.env.COPILOTKIT_TELEMETRY_DISABLED,
+    DO_NOT_TRACK: process.env.DO_NOT_TRACK,
+  };
   delete process.env.COPILOTKIT_TELEMETRY_DISABLED;
   delete process.env.DO_NOT_TRACK;
+  return snapshot;
+});
+
+afterAll(() => {
+  restoreTelemetryOptOutEnv(originalOptOut);
 });
 
 describe("SSE license env fallback → telemetry sink (integration)", () => {
