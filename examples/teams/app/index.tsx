@@ -275,6 +275,25 @@ createServer(listener).listen(channelPort, "127.0.0.1", () => {
   );
 });
 
+// Stop the bot cleanly on exit — through the runtime's Channel control, which
+// tears down the direct Teams adapter it started. Teardown is best-effort, but a
+// failure is logged rather than swallowed, and `process.exit` always runs so
+// Ctrl-C can't hang.
+const shutdown = async (signal: string): Promise<void> => {
+  console.log(`\nReceived ${signal}, stopping…`);
+  await listener.channels
+    .stop()
+    .catch((err: unknown) =>
+      console.error("Error stopping Channel (continuing shutdown)", err),
+    );
+  process.exit(0);
+};
+// Registered BEFORE activation on purpose: `ready()` below can take up to its
+// timeout, and a Ctrl-C inside that window must still tear the Channel down
+// rather than hit Node's default handler and skip teardown.
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+
 // Activate through the runtime's Channel control instead of a (now-removed)
 // bot.start(): this is what connects the Channel, and it resolves once the
 // direct Teams adapter's transport is up. Required — skip it and nothing
@@ -290,13 +309,3 @@ console.log(
     "auto-rendered card, upload a CSV and ask for a chart to see render_chart, " +
     'or "announce X to the team" to see the HITL approval.',
 );
-
-// Stop the bot cleanly on exit — through the runtime's Channel control, which
-// tears down the direct Teams adapter it started.
-const shutdown = async (signal: string): Promise<void> => {
-  console.log(`\nReceived ${signal}, stopping…`);
-  await listener.channels.stop().catch(() => {});
-  process.exit(0);
-};
-process.on("SIGINT", () => void shutdown("SIGINT"));
-process.on("SIGTERM", () => void shutdown("SIGTERM"));
