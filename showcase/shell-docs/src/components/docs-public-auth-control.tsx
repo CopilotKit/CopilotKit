@@ -1,6 +1,7 @@
 "use client";
 
 import { UserButton, useUser } from "@clerk/nextjs";
+import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Component } from "react";
 import { useEffect, useState } from "react";
@@ -24,11 +25,13 @@ export function buildDocsAuthEntryHref(
 }
 
 export function useDocsAuthEntryHref(): string {
-  const [href, setHref] = useState(DOCS_AUTH_ENTRY_BASE);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [href, setHref] = useState(buildDocsAuthEntryHref);
 
   useEffect(() => {
     setHref(buildDocsAuthEntryHref());
-  }, []);
+  }, [pathname, searchParams]);
 
   return href;
 }
@@ -45,7 +48,7 @@ export function DocsPublicAuthControl({ fallback }: { fallback: ReactNode }) {
   );
 }
 
-class DocsAuthFallbackBoundary extends Component<
+export class DocsAuthFallbackBoundary extends Component<
   { children: ReactNode; fallback: ReactNode },
   { hasError: boolean }
 > {

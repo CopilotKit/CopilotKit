@@ -10,6 +10,7 @@ const clerkState = {
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("posthog-js/react", () => ({
@@ -29,9 +30,14 @@ vi.mock("@clerk/nextjs", () => ({
 }));
 
 import { BrandNav, buildDocsAuthEntryHref } from "../brand-nav";
+import { DocsAuthFallbackBoundary } from "../docs-public-auth-control";
 
 const brandNavSource = readFileSync(
   new URL("../brand-nav.tsx", import.meta.url),
+  "utf8",
+);
+const docsPublicAuthControlSource = readFileSync(
+  new URL("../docs-public-auth-control.tsx", import.meta.url),
   "utf8",
 );
 const globalsCss = readFileSync(
@@ -82,5 +88,28 @@ describe("BrandNav auth control", () => {
     expect(href).toBe(
       "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=https%3A%2F%2Fdocs.copilotkit.ai%2Fchannels%3Futm_source%3Dwebsite%23install",
     );
+  });
+
+  it("keeps the public auth CTA when Clerk auth state cannot be resolved", () => {
+    const boundary = new DocsAuthFallbackBoundary({
+      children: <button type="button">Account menu</button>,
+      fallback: (
+        <a href="https://dashboard.operations.copilotkit.ai/sign-in">
+          Get Enterprise Intelligence free
+        </a>
+      ),
+    });
+    boundary.state = DocsAuthFallbackBoundary.getDerivedStateFromError();
+
+    const markup = renderToStaticMarkup(boundary.render());
+
+    expect(markup).toContain("Get Enterprise Intelligence free");
+    expect(markup).not.toContain("Account menu");
+  });
+
+  it("refreshes the auth href when the persistent nav route context changes", () => {
+    expect(docsPublicAuthControlSource).toContain("usePathname()");
+    expect(docsPublicAuthControlSource).toContain("useSearchParams()");
+    expect(docsPublicAuthControlSource).toContain("[pathname, searchParams]");
   });
 });
