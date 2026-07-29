@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import type { ReplyTarget } from "@copilotkit/channels-core";
+import type { AgentSubscriber } from "@ag-ui/client";
+import { EventType } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
+import { FakeAgent } from "@copilotkit/channels-core";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
@@ -18,16 +21,66 @@ import type {
 import { createRenderBatch } from "./render-batches.js";
 
 const target = {
-  route: { channel: "C1", threadTs: "100.0" },
+  route: { adapter: "slack", channel: "C1", threadTs: "100.0" },
   turnId: "turn_t1",
   deliveryId: "dlv_d1",
-} as unknown as ReplyTarget;
+};
 
-/** Drive a subscriber handler that may be sync or async. */
-type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
+function makeSubscriberContext() {
+  return {
+    messages: [],
+    state: {},
+    agent: new FakeAgent(),
+    input: {
+      threadId: "thread_test",
+      runId: "run_test",
+      state: {},
+      messages: [],
+      tools: [],
+      context: [],
+    } satisfies RunAgentInput,
+  };
+}
+
+function emitTextContent(
+  subscriber: AgentSubscriber,
+  messageId: string,
+  delta: string,
+) {
+  return subscriber.onTextMessageContentEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta },
+    textMessageBuffer: "",
+  });
+}
+
+function emitTextEnd(subscriber: AgentSubscriber, messageId: string) {
+  return subscriber.onTextMessageEndEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TEXT_MESSAGE_END, messageId },
+    textMessageBuffer: "",
+  });
+}
+
+async function emitToolCall(subscriber: AgentSubscriber) {
+  await subscriber.onToolCallStartEvent?.({
+    ...makeSubscriberContext(),
+    event: {
+      type: EventType.TOOL_CALL_START,
+      toolCallId: "tc1",
+      toolCallName: "search",
+    },
+  });
+  await subscriber.onToolCallEndEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
+    toolCallName: "search",
+    toolCallArgs: {},
+  });
+}
 
 describe("run renderer — render-event streaming (OSS-402)", () => {
-  it("mints ordered render frames with monotonic seq per (turn, slot) and a finalize", async () => {
+  it("always emits ordered tool frames while leaving the display preference omitted", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
@@ -35,23 +88,12 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
+    const sub = renderer.subscriber;
 
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onToolCallStartEvent?.({
-      event: { toolCallId: "tc1", toolCallName: "search" },
-    });
-    await sub.onToolCallEndEvent?.({
-      event: { toolCallId: "tc1" },
-      toolCallName: "search",
-      toolCallArgs: {},
-    } as never);
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitToolCall(sub);
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -64,10 +106,65 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "text_end",
       "finalize",
     ]);
+    expect(renderSink.frames[0]?.event).toEqual({ kind: "run_started" });
     // seq is monotonic and zero-based within (turn, slot).
     expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
+  });
+
+  it("attaches an explicit tool-status opt-in to run_started", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: true,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber;
+
+    await emitToolCall(sub);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: true,
+    });
+  });
+
+  it("attaches an explicit hidden preference without filtering tool frames", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: false,
+    });
+    const renderer = adapter.createRunRenderer({
+      ...target,
+      route: { opaque: "route" },
+    });
+
+    await emitToolCall(renderer.subscriber);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: false,
+    });
   });
 
   it("markInterrupted emits an interrupt frame then a finalize", async () => {
@@ -78,10 +175,8 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "partial" },
-    });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "partial");
     await renderer.markInterrupted();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -90,6 +185,23 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "text_delta",
       "interrupt",
       "finalize",
+    ]);
+  });
+
+  it("emits run_started before finalize for a terminal-only run", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: false,
+    });
+
+    await adapter.createRunRenderer(target).finish?.();
+
+    expect(renderSink.frames.map((f) => f.event)).toEqual([
+      { kind: "run_started", showToolStatus: false },
+      { kind: "finalize" },
     ]);
   });
 
@@ -173,14 +285,10 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       egress,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     expect(egress.ops).toHaveLength(1);
@@ -1041,13 +1149,8 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
         config: { log },
       });
       const renderer = adapter.createRunRenderer(target);
-      const sub = renderer.subscriber as unknown as Sub;
-      sub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta: "hel" },
-      });
-      sub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta: "lo" },
-      });
+      await emitTextContent(renderer.subscriber, "m1", "hel");
+      await emitTextContent(renderer.subscriber, "m1", "lo");
       await renderer.finish?.();
     } finally {
       vi.unstubAllEnvs();

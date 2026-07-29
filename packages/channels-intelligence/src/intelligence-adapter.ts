@@ -179,6 +179,11 @@ export interface IntelligenceAdapterOptions {
    * behavior). Default 20.
    */
   historyLimit?: number;
+  /**
+   * Provider presentation preference attached to the run-started frame. Tool
+   * calls are always captured and emitted for execution and canonical history.
+   */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -1253,7 +1258,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const ensureRunStarted = (): void => {
       if (runStarted) return;
       runStarted = true;
-      enqueue({ kind: "run_started" });
+      enqueue({
+        kind: "run_started",
+        ...(this.opts.showToolStatus !== undefined
+          ? { showToolStatus: this.opts.showToolStatus }
+          : {}),
+      });
     };
 
     const captureToolCall = (
@@ -1357,11 +1367,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
       },
       async finish() {
         if (aborted) return;
+        // A run that completes without text, tools, or an error still needs a
+        // lifecycle start so the gateway can retain the presentation setting.
+        ensureRunStarted();
         enqueue({ kind: "finalize" });
         await drain();
       },
       async markInterrupted() {
         if (aborted) return;
+        ensureRunStarted();
         aborted = true;
         enqueue({ kind: "interrupt" });
         enqueue({ kind: "finalize" });

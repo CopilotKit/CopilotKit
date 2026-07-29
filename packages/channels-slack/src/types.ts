@@ -42,7 +42,7 @@ export interface SlackAssistantOptions {
     thinking?: string;
     /** Up to 10 loading messages Slack rotates through. */
     loadingMessages?: readonly string[];
-    /** Surface "is using `tool`…" per tool call. Default true. */
+    /** Surface "is using `tool`…" when global tool status is enabled. Default true. */
     toolStatus?: boolean;
   };
 }

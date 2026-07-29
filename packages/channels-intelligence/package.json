@@ -47,6 +47,7 @@
     "phoenix": "^1.8.4"
   },
   "devDependencies": {
+    "@ag-ui/core": "0.0.57",
     "@copilotkit/typescript-config": "workspace:^",
     "@types/node": "^22.10.0",
     "@types/phoenix": "^1.6.6",
