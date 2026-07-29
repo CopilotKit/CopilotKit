@@ -70,7 +70,7 @@ describe("Vue host configuration", () => {
       ),
     ).toMatchObject({
       kind: "unavailable",
-      reason: 'Feature "frontend-tools" does not have a Vue implementation.',
+      reason: 'Feature "frontend-tools" does not have a Vue runtime route.',
     });
     expect(mount).not.toHaveBeenCalled();
   });
