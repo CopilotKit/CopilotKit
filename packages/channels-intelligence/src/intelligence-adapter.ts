@@ -675,15 +675,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * Push a discrete render frame (post/update) through the realtime render sink
    * so the Connector Outbox renders it as Block Kit — preserving rich JSX/IR
    * instead of flattening to text. Returns a {@link MessageRef} keyed to the
-   * frame so a later update/delete can re-address it.
+   * Outbox frame (`turnId:slot:seq`) so a later update/delete can re-address
+   * it. The batch receipt's `egressOperationId` names the durable lane
+   * operation, not one provider message, so it must not become a message ref.
    */
   private async postRenderFrame(
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
-    const { receipt, seq } = await this.pushRenderFrame(target, event);
+    const { seq } = await this.pushRenderFrame(target, event);
     return {
-      id: receipt.egressOperationId || `${target.turnId}:main:${seq}`,
+      id: `${target.turnId}:main:${seq}`,
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,

@@ -114,6 +114,35 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     ).toEqual(card);
   });
 
+  it("returns the frame key for each post so a later update addresses the right message", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const firstCard = [
+      { type: "section", props: { children: "first" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+    const secondCard = [
+      { type: "section", props: { children: "second" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    const firstRef = await adapter.post(target, firstCard);
+    const secondRef = await adapter.post(target, secondCard);
+    await adapter.update(secondRef, secondCard);
+
+    expect(firstRef.id).toMatch(/^turn_[A-Za-z0-9_-]+:main:\d+$/);
+    expect(secondRef.id).toMatch(/^turn_[A-Za-z0-9_-]+:main:\d+$/);
+    expect(secondRef.id).not.toBe(firstRef.id);
+    const updateFrame = renderSink.frames.find(
+      (frame) => frame.event.kind === "update",
+    );
+    expect((updateFrame?.event as { kind: "update"; ref: string }).ref).toBe(
+      secondRef.id,
+    );
+  });
+
   it("routes a delete through a delete render frame when a renderSink is wired (OSS-420)", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
