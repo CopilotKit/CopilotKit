@@ -1,4 +1,6 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
+import { EventType } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
 import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
@@ -77,16 +79,20 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
 
 /** Read the semantic render kind from a recorded gateway push. */
 function renderKind(push: { event: string; payload: unknown }) {
-  if (push.event !== "channel.render_batch.v1") return undefined;
+  const event = renderEvents(push)[0];
+  return event && typeof event.kind === "string" ? event.kind : undefined;
+}
+
+function renderEvents(push: { event: string; payload: unknown }) {
+  if (push.event !== "channel.render_batch.v1") return [];
   if (!isObject(push.payload) || !isObject(push.payload.payload)) {
-    return undefined;
+    return [];
   }
   const frames = push.payload.payload.frames;
-  const event =
-    Array.isArray(frames) && isObject(frames[0]) ? frames[0].event : undefined;
-  return isObject(event) && typeof event.kind === "string"
-    ? event.kind
-    : undefined;
+  if (!Array.isArray(frames)) return [];
+  return frames.flatMap((frame) =>
+    isObject(frame) && isObject(frame.event) ? [frame.event] : [],
+  );
 }
 
 function isObject(value: unknown): value is {
@@ -99,7 +105,111 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function createToolCallAgent() {
+  const agent = new FakeAgent();
+  const input: RunAgentInput = {
+    threadId: "thread_test",
+    runId: "run_test",
+    state: {},
+    messages: [],
+    tools: [],
+    context: [],
+  };
+  const subscriberContext = {
+    messages: [],
+    state: {},
+    agent,
+    input,
+  };
+  agent.setScript([
+    async (subscriber) => {
+      await subscriber.onToolCallStartEvent?.({
+        ...subscriberContext,
+        event: {
+          type: EventType.TOOL_CALL_START,
+          toolCallId: "tc1",
+          toolCallName: "search",
+        },
+      });
+      await subscriber.onToolCallEndEvent?.({
+        ...subscriberContext,
+        event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
+        toolCallName: "search",
+        toolCallArgs: {},
+      });
+    },
+  ]);
+  return agent;
+}
+
+async function renderToolCallEvents({
+  channelShowToolStatus,
+  launcherShowToolStatus,
+}: {
+  channelShowToolStatus?: boolean;
+  launcherShowToolStatus?: boolean;
+} = {}) {
+  const fake = makeFakeSession();
+  const bot = createChannel({
+    name: "opentag",
+    agent: createToolCallAgent,
+    ...(channelShowToolStatus === undefined
+      ? {}
+      : { showToolStatus: channelShowToolStatus }),
+  });
+  bot.onMessage(async ({ thread }) => {
+    await thread.runAgent();
+  });
+
+  const handle = await startChannelsWithGatewaySession([bot], {
+    session: fake.session,
+    scope,
+    runtimeInstanceId: "rti_1",
+    ...(launcherShowToolStatus === undefined
+      ? {}
+      : { showToolStatus: launcherShowToolStatus }),
+  });
+
+  try {
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (p) => p.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+    return fake.pushes.flatMap(renderEvents);
+  } finally {
+    await handle.stop();
+  }
+}
+
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
+  it("always forwards tool lifecycle frames when the display preference is omitted", async () => {
+    const events = await renderToolCallEvents();
+    expect(events.map((event) => event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+    expect(events[0]).toEqual({ kind: "run_started" });
+  });
+
+  it("forwards createChannel({ showToolStatus: true }) through the managed launcher", async () => {
+    const events = await renderToolCallEvents({
+      channelShowToolStatus: true,
+    });
+    expect(events[0]).toEqual({ kind: "run_started", showToolStatus: true });
+  });
+
+  it("gives a launcher override precedence over the Channel preference", async () => {
+    const events = await renderToolCallEvents({
+      channelShowToolStatus: true,
+      launcherShowToolStatus: false,
+    });
+    expect(events[0]).toEqual({ kind: "run_started", showToolStatus: false });
+  });
+
   it("finalizes a direct post before requesting completion and never self-acks", async () => {
     const fake = makeFakeSession();
     let ran = false;
@@ -195,6 +305,7 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     );
 
     expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual([
+      "run_started",
       "finalize",
       "post",
       "finalize",

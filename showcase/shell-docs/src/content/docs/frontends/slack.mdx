@@ -242,6 +242,23 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
   </Step>
 </Steps>
 
+## Tool-call progress
+
+Managed Slack keeps tool-call progress out of the streamed reply by default, so
+the conversation ends with a clean result. Tool lifecycle events still remain
+in Intelligence history and are available during replay.
+
+Opt in per Channel when the live tool timeline is useful:
+
+```ts title="channel.ts"
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  showToolStatus: true,
+});
+```
+
 ## Troubleshooting
 
 <Accordions>

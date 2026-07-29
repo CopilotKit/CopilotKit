@@ -50,11 +50,11 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
  *
  * When `nativeStreaming` is set, the run uses a SINGLE turn-scoped
  * `chat.startStream` message for the whole turn: text from every AG-UI
- * message accumulates into it (separated by blank lines), and tool calls
- * surface as native `task_update` chunks INSIDE that message. The message is
- * finalized once, at `finish()`, optionally carrying a feedback row. The
+ * message accumulates into it (separated by blank lines), and opted-in tool
+ * calls surface as native `task_update` chunks INSIDE that message. The message
+ * is finalized once, at `finish()`, optionally carrying a feedback row. The
  * legacy path keeps the prior behavior — one `chat.update` message per AG-UI
- * text message, plus separate `:wrench:` tool-status rows.
+ * text message, plus separate `:wrench:` tool-status rows when enabled.
  */
 export function createRunRenderer(args: {
   /**
@@ -73,7 +73,7 @@ export function createRunRenderer(args: {
   interruptEventNames?: ReadonlySet<string>;
   /**
    * Master toggle for surfacing tool-call progress in the UI. Defaults to
-   * `true`. When `false`, NO tool progress is shown on any surface — native
+   * `false`. When `false`, NO tool progress is shown on any surface — native
    * in-message `task_update` chunks, legacy `:wrench:` rows, and the pane's
    * "is using `tool`…" composer status are all suppressed (tools still run;
    * only the display is hidden). When `true`, the surface is chosen by target:
@@ -127,7 +127,7 @@ export function createRunRenderer(args: {
   const { transport, target } = args;
   const interruptEventNames =
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
-  const showToolStatus = args.showToolStatus ?? true;
+  const showToolStatus = args.showToolStatus ?? false;
   const nativeMode = args.nativeStreaming !== undefined;
 
   // ── Native status mode ──────────────────────────────────────────────
@@ -421,6 +421,10 @@ export function createRunRenderer(args: {
       // still gates panes; every other surface shows it when tool status is on.
       if (statusMode && showToolStatus && (isPane ? paneToolStatus : true)) {
         await setStatus(`is using \`${event.toolCallName}\`…`);
+      } else if (statusMode && !showToolStatus) {
+        // Keep Slack's generic status alive during long tool calls without
+        // revealing tool names or adding visible tool-progress rows.
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
       }
       // Panes surface tool activity ONLY as composer status — no in-thread rows.
       if (isPane) return;
@@ -461,6 +465,9 @@ export function createRunRenderer(args: {
         toolCallName,
         (toolCallArgs ?? {}) as Record<string, unknown>,
       );
+      if (statusMode && !showToolStatus) {
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
+      }
       // Pane threads use live status (set on START); no per-call rows to edit.
       if (isPane) return;
       // Native path: complete the in-message `task_update`.

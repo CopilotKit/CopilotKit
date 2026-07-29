@@ -129,6 +129,8 @@ export interface StartChannelsOptions {
   resolveTransport: (channelName: string) => ChannelTransport;
   /** Activation env overrides; omitted fields are gathered from the process. */
   env?: Partial<ChannelActivationEnv>;
+  /** Override managed provider tool-call visibility; omission is forwarded. */
+  showToolStatus?: boolean;
 }
 
 export interface ChannelsHandle {
@@ -151,7 +153,10 @@ export interface ChannelsHandle {
    * `ConnectedRealtimeGatewaySession.onStateChange` in `realtime-gateway.ts`).
    */
   onStateChange?(
-    cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+    cb: (
+      state: "online" | "reconnecting" | "gave_up" | "fenced",
+      detail?: { reason?: string; code?: string },
+    ) => void,
   ): void;
 }
 
@@ -199,13 +204,19 @@ export async function startChannelsInternal(
       const { source, egress, renderSink, store } = opts.resolveTransport(
         channel.name!,
       );
+      const adapterOptions = {
+        source,
+        egress,
+        renderSink,
+        store,
+        showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
+      };
       channel.ɵruntime.addAdapter(
         terminalBatchingEnabled
-          ? intelligenceAdapterInternal(
-              { source, egress, renderSink, store },
-              { terminalBatchingEnabled: true },
-            )
-          : intelligenceAdapter({ source, egress, renderSink, store }),
+          ? intelligenceAdapterInternal(adapterOptions, {
+              terminalBatchingEnabled: true,
+            })
+          : intelligenceAdapter(adapterOptions),
       );
       await channel.ɵruntime.start();
       startedChannels.push(channel);

@@ -66,6 +66,9 @@ export class InMemoryRenderEventSink implements RenderEventSink {
 export class InMemoryDeliverySource implements DeliverySource {
   readonly acked: string[] = [];
   readonly nacked: { deliveryId: string; reason: string }[] = [];
+  /** Every `abandon` call, in order — a fenced delivery must retire its lease
+   * state here rather than through ack/nack (see {@link DeliverySource.abandon}). */
+  readonly abandoned: { deliveryId: string; reason: string }[] = [];
   /** Seed by handle so a turn's file refs hydrate into content parts. */
   readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
   /**
@@ -105,6 +108,9 @@ export class InMemoryDeliverySource implements DeliverySource {
   }
   async nack(deliveryId: string, reason: string): Promise<void> {
     this.nacked.push({ deliveryId, reason });
+  }
+  abandon(deliveryId: string, reason: string): void {
+    this.abandoned.push({ deliveryId, reason });
   }
   async fetchFile(
     handle: string,

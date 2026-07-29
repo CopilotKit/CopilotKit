@@ -209,6 +209,45 @@ describe("startChannels", () => {
     await handle.stop();
   });
 
+  it("forwards the Channel tool-status preference to a managed run", async () => {
+    const bot = createChannel({
+      name: "support",
+      showToolStatus: true,
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const renderSink = new InMemoryRenderEventSink();
+    const handle = await startChannels({
+      channels: [bot],
+      resolveTransport: () => ({ source, egress, renderSink }),
+      env: { runtimeEnv: "test" },
+    });
+
+    await source.deliver({
+      deliveryId: "d1",
+      eventId: "e1",
+      turnId: "t1",
+      channelName: "support",
+      platform: "slack",
+      conversationKey: "c1",
+      route: {},
+      kind: "turn",
+      text: "hi",
+    });
+
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: true,
+    });
+
+    await handle.stop();
+  });
+
   it("throws on invalid names before wiring anything", async () => {
     const a = createChannel({ agent: () => new FakeAgent() }); // no name
     await expect(

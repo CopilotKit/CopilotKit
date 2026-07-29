@@ -1368,3 +1368,163 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     session.disconnect();
   });
 });
+
+describe("connection-health detail (OSS-670)", () => {
+  it("reports the drop cause alongside reconnecting/gave_up", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    // A transport error with an OS code, then the drop it belongs to.
+    instances[0]!.onerror?.(
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+    );
+    instances[0]!.onclose?.();
+    await waitUntil(() => seen.some((s) => s.state === "gave_up"));
+
+    const gaveUp = seen.find((s) => s.state === "gave_up")!;
+    expect(gaveUp.detail?.code).toBe("ECONNRESET");
+    expect(gaveUp.detail?.reason).toContain("ECONNRESET");
+
+    session.disconnect();
+  });
+
+  it("does not attribute a later outage to the previous one's cause", async () => {
+    const { FakeWebSocket, instances, control } = makeFakeWebSocket(
+      "give-up-then-recover",
+    );
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      timeoutMs: 50,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    // Outage 1 reports a concrete OS code, then heals.
+    instances[0]!.onerror?.(
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+    );
+    instances[0]!.onclose?.();
+    control.recover = true;
+    await waitUntil(() => seen.some((s) => s.state === "online"), 8000);
+
+    // Outage 2 is a clean close that reports NOTHING. Inheriting outage 1's
+    // cause would send an operator chasing an error that already healed.
+    const afterOnline = seen.length;
+    instances[instances.length - 1]!.onclose?.();
+    await waitUntil(
+      () => seen.slice(afterOnline).some((s) => s.state === "reconnecting"),
+      8000,
+    );
+
+    const second = seen
+      .slice(afterOnline)
+      .find((s) => s.state === "reconnecting")!;
+    expect(second.detail?.code).toBeUndefined();
+    expect(second.detail?.reason ?? "").not.toContain("ECONNRESET");
+
+    session.disconnect();
+  });
+
+  it("reports an unhealthy gateway as unhealthy, not as a bad credential", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      // A gateway mid-rolling-restart: reachable, answering 503. Telling an
+      // operator to rotate a working API key here is worse than saying nothing.
+      diagnosticFetch: (async () =>
+        new Response("", { status: 503 })) as typeof fetch,
+    });
+
+    const seen: { reason?: string }[] = [];
+    session.onStateChange((_state, detail) => seen.push({ ...detail }));
+
+    instances[0]!.onerror?.(new Error("Received network error"));
+    instances[0]!.onclose?.();
+    await waitUntil(() => seen.some((s) => s.reason?.includes("503")));
+
+    const named = seen.find((s) => s.reason?.includes("503"))!;
+    expect(named.reason).toMatch(/reachable but not healthy/i);
+    expect(named.reason).not.toMatch(/API key/i);
+
+    session.disconnect();
+  });
+
+  it("probes the endpoint when a reconnect is refused and names the cause", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      // The host is up and answers HTTP; only the WS upgrade is refused — the
+      // signature of a rejected runner credential.
+      diagnosticFetch: (async () =>
+        new Response("", { status: 403 })) as typeof fetch,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    instances[0]!.onerror?.(new Error("Received network error"));
+    instances[0]!.onclose?.();
+    await waitUntil(() =>
+      seen.some((s) => s.detail?.reason?.includes("handshake was refused")),
+    );
+
+    const named = seen.find((s) =>
+      s.detail?.reason?.includes("handshake was refused"),
+    )!;
+    expect(named.detail!.reason).toContain("403");
+    expect(named.detail!.reason).toMatch(/API key/i);
+
+    session.disconnect();
+  });
+});

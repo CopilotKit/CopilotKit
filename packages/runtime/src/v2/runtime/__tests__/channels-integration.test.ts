@@ -100,7 +100,9 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
       agents: {},
       intelligence,
       identifyUser,
-      channels: [createChannel({ name: "support", agent })],
+      channels: [
+        createChannel({ name: "support", agent, showToolStatus: true }),
+      ],
     });
 
     const state = capturingEngine();
@@ -130,6 +132,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(config.channelName).toBe("support");
     expect(state.calls[0]!.channelName).toBe("support");
     expect(config.adapter).toBe("slack");
+    expect(config.showToolStatus).toBe(true);
     expect(config.wsUrl).toBe(intelligence.ɵgetRunnerWsUrl());
     expect(config.apiKey).toBe(intelligence.ɵgetRunnerAuthToken());
     expect(config.runtimeInstanceId).toMatch(/^rti_/);

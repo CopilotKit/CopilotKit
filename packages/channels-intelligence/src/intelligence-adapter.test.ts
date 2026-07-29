@@ -115,6 +115,29 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
   });
 
+  it("abandons (not nacks) the delivery when the lease was revoked mid-turn", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createChannel({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {
+      throw Object.assign(new Error("push failed"), {
+        code: "CHANNEL_DELIVERY_LEASE_INVALID",
+      });
+    });
+    await bot.ɵruntime.start();
+    await source.deliver(envelope({ deliveryId: "d9" }));
+
+    // Fenced: another owner holds the delivery, so no intent can land and
+    // app-api owns redelivery — but the source's per-delivery lease state must
+    // still be retired, which only `abandon` does on this path (OSS-670).
+    expect(source.acked).toEqual([]);
+    expect(source.nacked).toEqual([]);
+    expect(source.abandoned.map((a) => a.deliveryId)).toEqual(["d9"]);
+  });
+
   it("drops the per-turn render flusher after dispatch", async () => {
     const source = new InMemoryDeliverySource();
     const egress = new InMemoryEgressSink();
