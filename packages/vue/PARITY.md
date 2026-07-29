@@ -5,21 +5,28 @@ Keep it updated whenever React parity work lands in `packages/vue`.
 
 ## Scope and source of truth
 
-- Scope: `packages/vue/**` only.
+- Primary implementation and parity-matrix scope: `packages/vue/**`. This file may point to executable Vue integration surfaces without duplicating their ownership data.
 - Canonical source: `packages/react-core/`, `packages/react-ui/`, `packages/react-textarea/`.
 - Goal: semantic parity plus high discoverability.
-- Current priority: package-only parity. Avoid upstream/shared changes outside the Vue package until the Vue port is ready to merge.
+- Current priority: package parity within the established Vue package, documentation, and Showcase integration boundaries. Avoid broad shared-policy changes.
 
 ## Package boundary and documentation placement
 
 - `@copilotkit/vue` follows the same single-package direction as `@copilotkit/react`.
 - Core hooks/providers/types and UI-facing rendering primitives should live in this package.
 - Keep scope aligned with React's package surface; avoid introducing a parallel `vue-ui` package split.
-- Do not add Vue-only hook/component pages to the shared `docs/` V2 reference unless the repository adopts an explicit Vue section there.
-- Keep user-facing package usage and API docs in `README.md`.
-- Keep user-facing visual docs/examples in `examples/v2/vue/storybook/**`.
+- Long-form user documentation and API reference belong in `showcase/shell-docs/`.
+- Keep `README.md` as the npm-facing package entry point for installation and concise usage.
+- Runnable visual examples belong to the Showcase Vue host and generated frontend catalogs; Storybook is not the canonical integration surface.
 - Keep parity policy, translation rules, checklist, and the living React-to-Vue matrix in this file.
-- Treat Storybook/demo parity as follow-up work outside this package unless the task explicitly enters a repo-wide parity phase.
+- Showcase coverage and build ownership live in `showcase/shared/frontend-registry.json`, the generated frontend catalogs, and the existing Showcase validation/build workflows. Link to those sources instead of duplicating cell counts, feature counts, or a second coverage table here.
+
+## Verification boundary
+
+- Package behavior is verified by the Vue package's Nx test, type-check, lint, and build targets as applicable.
+- Existing Showcase validation and build workflows provide automatic canonical-artifact, integration-image staging/build, and hosting-contract validation for relevant pull requests.
+- There is no full automatic Vue browser/runtime matrix on every pull request. Artifact and image-build success is not browser/runtime passing evidence.
+- Currently visible consumer type failures remain outside this passing evidence; this document does not suppress, allowlist, or redefine them.
 
 ## API compatibility policy
 
@@ -303,14 +310,14 @@ For package-level parity work, all items below are required before a ported Reac
 4. Code-level docs parity:
    New public hooks/composables include JSDoc on implementation with at least one usage example.
 5. Package docs parity:
-   User-facing Vue notes remain documented in `README.md`.
+   Concise npm-facing Vue notes remain documented in `README.md`; long-form user documentation and reference live in shell-docs.
 
-Out-of-package follow-up, when the repo enters repo-wide parity work:
+Executable integration follow-up for user-visible features:
 
 1. Visual parity:
-   Add or update the corresponding Vue Storybook story for user-visible features.
+   Add or update the corresponding runnable surface in the Showcase Vue host/catalog.
 2. Demo/example parity:
-   Add or update runnable Vue demo/example usage for user-visible features.
+   Update the Showcase-owned registry/catalog inputs without duplicating coverage data in this file.
 
 ## React -> Vue Parity Matrix
 
