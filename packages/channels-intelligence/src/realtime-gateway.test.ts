@@ -1404,4 +1404,44 @@ describe("connection-health detail (OSS-670)", () => {
 
     session.disconnect();
   });
+
+  it("probes the endpoint when a reconnect is refused and names the cause", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+      // The host is up and answers HTTP; only the WS upgrade is refused — the
+      // signature of a rejected runner credential.
+      diagnosticFetch: (async () =>
+        new Response("", { status: 403 })) as typeof fetch,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    instances[0]!.onerror?.(new Error("Received network error"));
+    instances[0]!.onclose?.();
+    await waitUntil(() =>
+      seen.some((s) => s.detail?.reason?.includes("refused the WebSocket")),
+    );
+
+    const named = seen.find((s) =>
+      s.detail?.reason?.includes("refused the WebSocket"),
+    )!;
+    expect(named.detail!.reason).toContain("403");
+    expect(named.detail!.reason).toMatch(/API key/i);
+
+    session.disconnect();
+  });
 });

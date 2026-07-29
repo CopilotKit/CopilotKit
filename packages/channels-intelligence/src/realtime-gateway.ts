@@ -283,6 +283,8 @@ interface EndpointDiagnosis {
   readonly code?: string;
   /** Whether the cause cannot clear on its own (fail now, don't wait). */
   readonly nonRetryable: boolean;
+  /** HTTP status the host answered with, when it answered at all. */
+  readonly status?: number;
   /** The raw failure, attached to the thrown error as `cause`. */
   readonly cause?: unknown;
 }
@@ -341,6 +343,7 @@ async function diagnoseEndpoint(
         "connections — only the WebSocket handshake failed, so the wsUrl path may not be the " +
         "gateway's socket endpoint",
       nonRetryable: false,
+      status: response.status,
     };
   } catch (err) {
     const { text, code } = describeTransportError(err);
@@ -596,6 +599,34 @@ export async function connectRealtimeGateway(
     }
     return diagnosis;
   };
+  // A reconnect probe is per OUTAGE, not per process: `diagnosis` above is
+  // memoised for the life of the connect, so reusing it would report a stale
+  // verdict for a later, different outage. Reset by `enterOnline`.
+  let outageProbe: Promise<void> | undefined;
+  /**
+   * Ask the endpoint over HTTP why it will not take us back. A refused upgrade
+   * (a rejected/rotated project API key) is indistinguishable at the WebSocket
+   * layer from a gateway that is simply down, and Phoenix retries both forever —
+   * so without this the operator sees nothing at all (OSS-670).
+   */
+  const probeOutage = (): void => {
+    if (outageProbe !== undefined) return;
+    outageProbe = diagnoseEndpoint(
+      config.wsUrl,
+      probeTimeoutMs,
+      config.diagnosticFetch,
+    ).then(
+      (result) => {
+        if (result === undefined) return;
+        lastOutageDiagnosis =
+          result.status !== undefined
+            ? `the gateway host answered HTTP ${result.status} but refused the WebSocket handshake — ` +
+              "the project API key may have been revoked or rotated"
+            : result.text;
+      },
+      () => undefined,
+    );
+  };
   /** Reject the initial connect as unreachable and stop the retry loop. */
   const failUnreachable = (): void => {
     if (initialJoinSettled) return;
@@ -638,6 +669,11 @@ export async function connectRealtimeGateway(
     if (everConnected || establishedConnections > 0) {
       lastTransportError = detail.text ?? lastTransportError;
       lastTransportCode = detail.code ?? lastTransportCode;
+      // Only probe when the transport did NOT name the cause. A transport that
+      // exposes an OS code (`ECONNRESET`, `ECONNREFUSED`) has already said what
+      // happened, and the probe would both waste a request and overwrite a
+      // better answer — the same trust rule the initial-connect path applies.
+      if (detail.code === undefined) probeOutage();
       return;
     }
     lastTransportRaw = error;
@@ -756,6 +792,10 @@ export async function connectRealtimeGateway(
     // can transition `reconnecting` → `gave_up` again.
     gaveUp = false;
     clearGiveUpTimer();
+    // The outage is over: drop its verdict so the NEXT one is diagnosed on its
+    // own evidence rather than reusing this one's.
+    outageProbe = undefined;
+    lastOutageDiagnosis = undefined;
     emitState("online");
   };
 
