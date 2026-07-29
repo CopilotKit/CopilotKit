@@ -3,6 +3,7 @@ import type { AgentSubscriber } from "@ag-ui/client";
 import { EventType } from "@ag-ui/core";
 import type { RunAgentInput } from "@ag-ui/core";
 import { FakeAgent } from "@copilotkit/channels-core";
+import type { ReplyTarget } from "@copilotkit/channels-core";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
@@ -25,6 +26,8 @@ const target = {
   turnId: "turn_t1",
   deliveryId: "dlv_d1",
 };
+
+type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
 
 function makeSubscriberContext() {
   return {
