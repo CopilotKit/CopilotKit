@@ -7,6 +7,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
 import { jsonSchemaToZod } from "./tanstack-factory";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 /**
  * Built-in agent for the Open Generative UI demo.
@@ -44,6 +45,7 @@ export function createOguiAgent() {
         systemPrompts,
         tools,
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });

@@ -7,6 +7,7 @@ import { z } from "zod";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY } from "./demo-stream";
 
 const CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog";
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
@@ -447,6 +448,7 @@ function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
           : [SYSTEM_PROMPT, ...systemPrompts],
         tools: [generateA2ui],
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
     },
   });
