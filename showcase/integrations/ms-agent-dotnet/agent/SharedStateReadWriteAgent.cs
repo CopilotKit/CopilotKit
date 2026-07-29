@@ -96,6 +96,24 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             augmentedMessages.AddRange(messageList);
         }
 
+        // Deterministic replies for the demo suggestion pills. Without this
+        // branch the method was dead code and "Remember something" relied on
+        // the model calling set_notes — which is flaky under load and was
+        // silently writing to the wrong store slot when AsyncLocal dropped.
+        var deterministic = TryBuildDeterministicReply(messageList, thread);
+        if (deterministic is not null)
+        {
+            yield return new AgentRunResponseUpdate
+            {
+                Contents = [new TextContent(deterministic)],
+            };
+            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
+            {
+                yield return snapshotUpdate;
+            }
+            yield break;
+        }
+
         // Bind the `set_notes` tool's write target to the current thread.
         // The tool closure doesn't receive an AgentThread argument, so it
         // resolves the slot via the store's AsyncLocal active-thread handle.
@@ -311,6 +329,17 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             _store.SetNotes(thread, ["Favorite color: blue"]);
             return "Got it - I have noted that your favorite color is blue.";
         }
+        if (ContainsIgnoreCase(userText, "prefer morning meetings") ||
+            ContainsIgnoreCase(userText, "don't eat dairy") ||
+            ContainsIgnoreCase(userText, "do not eat dairy"))
+        {
+            _store.SetNotes(thread,
+            [
+                "Prefers morning meetings",
+                "Does not eat dairy",
+            ]);
+            return "Noted — I saved that you prefer morning meetings and don't eat dairy.";
+        }
         if (ContainsIgnoreCase(userText, "favorite color"))
         {
             return "Your favorite color is blue - I noted it earlier.";
@@ -414,14 +443,34 @@ internal sealed class SharedStateReadWriteStore
         var materialized = notes.Where(n => !string.IsNullOrWhiteSpace(n)).ToArray();
         lock (_lock)
         {
-            var key = _activeThreadKey.Value ?? _globalSlot;
-            if (!_slots.TryGetValue(key, out var slot))
+            // Tool invocation can drop the AsyncLocal set by SetActiveThread,
+            // so the write lands on the global slot while BuildSnapshot keys
+            // by the real AgentThread. Mirror into every live conversation
+            // slot so the UI's notes panel updates.
+            ApplyNotes(_activeThreadKey.Value ?? _globalSlot, materialized);
+            if (ReferenceEquals(_activeThreadKey.Value ?? _globalSlot, _globalSlot))
             {
-                slot = new ThreadSlot();
-                _slots[key] = slot;
+                foreach (var kvp in _slots)
+                {
+                    if (!ReferenceEquals(kvp.Key, _globalSlot))
+                    {
+                        kvp.Value.Notes = materialized;
+                        kvp.Value.NotesObserved = true;
+                    }
+                }
             }
-            slot.Notes = materialized;
         }
+    }
+
+    private void ApplyNotes(object key, IReadOnlyList<string> notes)
+    {
+        if (!_slots.TryGetValue(key, out var slot))
+        {
+            slot = new ThreadSlot();
+            _slots[key] = slot;
+        }
+        slot.Notes = notes;
+        slot.NotesObserved = true;
     }
 
     public void MergeFromInbound(AgentThread? thread, SharedStatePreferences? prefs, IReadOnlyList<string>? notes)
@@ -454,15 +503,28 @@ internal sealed class SharedStateReadWriteStore
     {
         lock (_lock)
         {
-            if (!_slots.TryGetValue(KeyFor(thread), out var slot))
+            _slots.TryGetValue(KeyFor(thread), out var threadSlot);
+            _slots.TryGetValue(_globalSlot, out var globalSlot);
+
+            var prefs = threadSlot?.Preferences
+                ?? globalSlot?.Preferences
+                ?? SharedStatePreferences.Empty;
+
+            IReadOnlyList<string> notes;
+            if (threadSlot?.Notes is { Count: > 0 })
             {
-                return new SharedStateReadWriteSnapshot(
-                    SharedStatePreferences.Empty,
-                    Array.Empty<string>());
+                notes = threadSlot.Notes;
             }
-            return new SharedStateReadWriteSnapshot(
-                slot.Preferences ?? SharedStatePreferences.Empty,
-                slot.Notes);
+            else if (globalSlot?.Notes is { Count: > 0 })
+            {
+                notes = globalSlot.Notes;
+            }
+            else
+            {
+                notes = threadSlot?.Notes ?? globalSlot?.Notes ?? Array.Empty<string>();
+            }
+
+            return new SharedStateReadWriteSnapshot(prefs, notes);
         }
     }
 
