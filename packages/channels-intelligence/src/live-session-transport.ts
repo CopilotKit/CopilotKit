@@ -47,6 +47,7 @@ export type LiveSessionTurnInput =
       kind: "interaction";
       actionId: string;
       value?: unknown;
+      /** Opaque Gateway-minted source-message capability; never a raw provider id. */
       messageRef?: { id: string };
       triggerId?: string;
     };

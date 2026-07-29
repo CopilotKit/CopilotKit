@@ -39,6 +39,7 @@ import type {
   LiveSessionRun,
   LiveSessionTransport,
 } from "./live-session-transport.js";
+import { assertProviderReference } from "./live-session-contracts.js";
 
 interface LiveReplyTarget {
   session: LiveDeliverySession;
@@ -49,6 +50,7 @@ interface LiveMessageRef extends MessageRef {
   responseId: string;
   session: LiveDeliverySession;
   adapter: "slack" | "teams";
+  providerReference?: string;
 }
 
 export interface CanonicalChannelRunArgs {
@@ -211,7 +213,11 @@ export class LiveSessionAdapter implements PlatformAdapter {
           ...base,
           id: input.actionId,
           ...(input.value !== undefined ? { value: input.value } : {}),
-          ...(input.messageRef ? { messageRef: input.messageRef } : {}),
+          ...(input.messageRef !== undefined
+            ? {
+                messageRef: inboundMessageRef(replyTarget, input.messageRef),
+              }
+            : {}),
           ...(input.triggerId ? { triggerId: input.triggerId } : {}),
         });
         return;
@@ -301,7 +307,13 @@ export class LiveSessionAdapter implements PlatformAdapter {
 
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
     const ref = asLiveRef(refValue);
-    await this.replaceRendered(ref.session, ref.adapter, ref.responseId, ir);
+    await this.replaceRendered(
+      ref.session,
+      ref.adapter,
+      ref.responseId,
+      ir,
+      ref.providerReference,
+    );
   }
 
   async delete(refValue: MessageRef): Promise<void> {
@@ -311,6 +323,9 @@ export class LiveSessionAdapter implements PlatformAdapter {
     }
     await ref.session.effect(ref.responseId, {
       kind: "slack.message.delete",
+      ...(ref.providerReference
+        ? { providerReference: ref.providerReference }
+        : {}),
     });
   }
 
@@ -507,6 +522,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
     adapter: "slack" | "teams",
     responseId: string,
     ir: ChannelNode[],
+    providerReference?: string,
   ): Promise<void> {
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
@@ -514,10 +530,14 @@ export class LiveSessionAdapter implements PlatformAdapter {
         kind: "slack.message.replace",
         text: collectText(ir),
         blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
+        ...(providerReference ? { providerReference } : {}),
       });
       return;
     }
-    await session.effect(responseId, teamsMessageEffect("replace", ir));
+    await session.effect(
+      responseId,
+      teamsMessageEffect("replace", ir, providerReference),
+    );
   }
 
   async getMessages(targetValue: ReplyTarget): Promise<ThreadMessage[]> {
@@ -551,17 +571,21 @@ export class LiveSessionAdapter implements PlatformAdapter {
 function teamsMessageEffect(
   operation: "create" | "replace",
   ir: ChannelNode[],
+  providerReference?: string,
 ) {
   const text = renderTeamsMarkdown(ir);
+  const reference = providerReference ? { providerReference } : {};
   return isPlainText(ir)
     ? {
         kind: `teams.message.${operation}` as const,
         text,
+        ...reference,
       }
     : {
         kind: `teams.message.${operation}` as const,
         text,
         cards: [renderAdaptiveCard(ir) as unknown as Record<string, unknown>],
+        ...reference,
       };
 }
 
@@ -584,13 +608,30 @@ function asLiveRef(value: MessageRef): LiveMessageRef {
 function messageRef(
   target: LiveReplyTarget,
   responseId: string,
+  providerReference?: string,
 ): LiveMessageRef {
   return {
-    id: responseId,
+    id: providerReference ?? responseId,
     responseId,
     session: target.session,
     adapter: target.delivery.adapter,
+    ...(providerReference ? { providerReference } : {}),
   };
+}
+
+/** Rehydrate a Gateway reference with delivery-local update state. */
+function inboundMessageRef(
+  target: LiveReplyTarget,
+  value: unknown,
+): LiveMessageRef {
+  if (typeof value !== "object" || value === null || !("id" in value)) {
+    throw new TypeError(
+      "provider message reference must contain an opaque capability",
+    );
+  }
+  const providerReference = value.id;
+  assertProviderReference(providerReference);
+  return messageRef(target, mintId("response_"), providerReference);
 }
 
 function mintId(prefix: string): string {

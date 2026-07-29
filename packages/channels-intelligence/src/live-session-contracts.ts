@@ -33,17 +33,30 @@ export type ChannelProviderEffect =
       finalTextDigest: string;
     })
   | (ProviderEffectBase & {
-      kind: "slack.message.create" | "slack.message.replace";
+      kind: "slack.message.create";
       text: string;
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     })
   | (ProviderEffectBase & {
-      kind: "slack.message.delete";
+      kind: "slack.message.replace";
+      text: string;
+      blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+      providerReference?: string;
     })
   | (ProviderEffectBase & {
-      kind: "teams.message.create" | "teams.message.replace";
+      kind: "slack.message.delete";
+      providerReference?: string;
+    })
+  | (ProviderEffectBase & {
+      kind: "teams.message.create";
       text: string;
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    })
+  | (ProviderEffectBase & {
+      kind: "teams.message.replace";
+      text: string;
+      cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+      providerReference?: string;
     })
   | (ProviderEffectBase & {
       kind: "slack.file.create";
@@ -88,6 +101,18 @@ const PROVIDER_EFFECT_KINDS = new Set<ChannelProviderEffect["kind"]>([
 ]);
 
 const SHA_256_PATTERN = /^[a-f0-9]{64}$/;
+const PROVIDER_REFERENCE_PATTERN = /^pref_v1_[A-Za-z0-9_-]+$/;
+
+/** Assert that a message reference is an opaque Gateway-minted capability. */
+export function assertProviderReference(
+  value: unknown,
+): asserts value is string {
+  if (typeof value !== "string" || !PROVIDER_REFERENCE_PATTERN.test(value)) {
+    throw new TypeError(
+      "provider reference must be an opaque pref_v1 capability",
+    );
+  }
+}
 
 /** Return the UTF-8 JSON size of one provider effect. */
 export function providerEffectByteLength(effect: unknown): number {
@@ -130,6 +155,18 @@ export function assertProviderEffect(
     !SHA_256_PATTERN.test(effect.payloadDigest)
   ) {
     throw new TypeError("provider effect metadata is invalid");
+  }
+  if ("providerReference" in effect) {
+    if (
+      effect.kind !== "slack.message.replace" &&
+      effect.kind !== "slack.message.delete" &&
+      effect.kind !== "teams.message.replace"
+    ) {
+      throw new TypeError(
+        "provider reference is not supported for this effect kind",
+      );
+    }
+    assertProviderReference(effect.providerReference);
   }
   if (providerEffectByteLength(effect) > PROVIDER_EFFECT_MAX_BYTES) {
     throw new RangeError("provider effect exceeds 64 KiB");
