@@ -88,6 +88,8 @@ export type ChannelIngressEnvelope =
       /** Minted action id (ck:...) the rendered control carries. */
       actionId: string;
       value?: unknown;
+      /** Provider-faithful named form values submitted with the action. */
+      values?: Record<string, unknown>;
       /** The message the interaction occurred on (so handlers can update it). */
       messageRef?: MessageRef;
       triggerId?: string;

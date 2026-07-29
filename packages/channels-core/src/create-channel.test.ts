@@ -5,7 +5,13 @@ import { defineChannelCommand } from "./commands.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
 import { MemoryStore } from "./state/memory-store.js";
-import { Section, Actions, Button } from "@copilotkit/channels-ui";
+import {
+  Section,
+  Actions,
+  Button,
+  platformNode,
+  PlatformUiMismatchError,
+} from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
 
@@ -85,6 +91,106 @@ describe("createChannel", () => {
     const ir = fake.posted[0]!;
     expect(findNode(ir, "section")).toBeDefined();
     expect(collectText(ir)).toBe("hi");
+  });
+
+  it("uses the managed delivery platform for thread and message context", async () => {
+    const fake = new FakeAdapter({ platform: "intelligence" });
+    const channel = createChannel({ adapters: [fake] });
+    let platform = "";
+    let messagePlatform = "";
+    channel.onMention(({ thread, message }) => {
+      platform = thread.platform;
+      messagePlatform = message.platform;
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hello",
+      platform: "teams",
+    });
+
+    expect(platform).toBe("teams");
+    expect(messagePlatform).toBe("teams");
+  });
+
+  it("uses the managed interaction platform and preserves submitted values", async () => {
+    const fake = new FakeAdapter({ platform: "intelligence" });
+    const channel = createChannel({ adapters: [fake] });
+    let received:
+      | {
+          threadPlatform: string;
+          messagePlatform: string;
+          platform: string;
+          values: Record<string, unknown>;
+        }
+      | undefined;
+    channel.onInteraction("deploy", ({ thread, message, platform, values }) => {
+      received = {
+        threadPlatform: thread.platform,
+        messagePlatform: message.platform,
+        platform,
+        values,
+      };
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onInteraction({
+      id: "deploy",
+      conversationKey: "c1",
+      replyTarget: {},
+      platform: "teams",
+      values: { environment: "production", regions: ["us-east", "us-west"] },
+    });
+
+    expect(received).toEqual({
+      threadPlatform: "teams",
+      messagePlatform: "teams",
+      platform: "teams",
+      values: { environment: "production", regions: ["us-east", "us-west"] },
+    });
+  });
+
+  it("rejects native UI before the action registry persists it", async () => {
+    const fake = new FakeAdapter({ platform: "slack" });
+    const writes: string[] = [];
+    const channel = createChannel({
+      adapters: [fake],
+      actionStore: {
+        async put(id) {
+          writes.push(id);
+        },
+        async get() {
+          return undefined;
+        },
+        async delete() {},
+      },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.post(
+        platformNode({
+          protocol: 1,
+          platform: "teams",
+          dialect: "adaptive-card",
+          dialectVersion: "1.5",
+          element: "AdaptiveCard",
+          attributes: {},
+          onSubmit: () => undefined,
+        }),
+      );
+    });
+
+    await channel.ɵruntime.start();
+    await expect(
+      fake.getSink().onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hello",
+        platform: "slack",
+      }),
+    ).rejects.toBeInstanceOf(PlatformUiMismatchError);
+    expect(writes).toEqual([]);
   });
 
   it("calls renderer.finish() once after a turn's run-loop resolves", async () => {

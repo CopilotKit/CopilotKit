@@ -447,7 +447,11 @@ export function createChannel<
     adapter: PlatformAdapter,
     replyTarget: unknown,
     conversationKey: string,
-    extras?: { userKey?: string; message?: IncomingMessage },
+    extras?: {
+      userKey?: string;
+      message?: IncomingMessage;
+      targetPlatform?: string;
+    },
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
@@ -470,6 +474,7 @@ export function createChannel<
       transcripts,
       userKey: extras?.userKey,
       message: extras?.message,
+      targetPlatform: extras?.targetPlatform,
       telemetry,
     };
     return new Thread(deps);
@@ -559,7 +564,7 @@ export function createChannel<
             adapter,
             turn.replyTarget,
             turn.conversationKey,
-            { userKey, message },
+            { userKey, message, targetPlatform: turn.platform },
           );
           // v1 routing: there is no turn `kind`, so prefer mention handlers; if
           // none are registered, fall back to message handlers. (The reference
@@ -587,10 +592,12 @@ export function createChannel<
           }
         }
 
+        const sourcePlatform = evt.platform ?? adapter.platform;
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { targetPlatform: sourcePlatform },
         );
         const user = evt.user ?? { id: "" };
         const ctx: InteractionContext = {
@@ -599,12 +606,12 @@ export function createChannel<
             text: "",
             user,
             ref: evt.messageRef ?? { id: "" },
-            platform: adapter.platform,
+            platform: sourcePlatform,
           },
           action: { id: evt.id, value: evt.value },
-          values: {},
+          values: evt.values ?? {},
           user,
-          platform: adapter.platform,
+          platform: sourcePlatform,
         };
         const openModal = makeOpenModal(
           adapter,
@@ -657,6 +664,7 @@ export function createChannel<
           adapter,
           cmd.replyTarget,
           cmd.conversationKey,
+          { targetPlatform: cmd.platform },
         );
         // Resolve typed options from any structured args the surface supplied
         // (e.g. Discord); text-only surfaces (Slack) leave `options` empty and
@@ -690,6 +698,7 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { targetPlatform: evt.platform },
         );
         for (const h of threadStartedHandlers)
           await h({ thread, user: evt.user });
@@ -710,6 +719,7 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { targetPlatform: evt.platform ?? adapter.platform },
         );
         // Prefer the adapter's update-capable ref; fall back to the bare id.
         const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };

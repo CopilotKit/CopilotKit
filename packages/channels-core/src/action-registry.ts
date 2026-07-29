@@ -19,6 +19,14 @@ export class ActionExpiredError extends Error {
 
 const EVENT_PROPS = ["onClick", "onSelect", "onSubmit"] as const;
 
+export interface BindRenderableOptions {
+  /**
+   * Runs after JSX expansion and before any action record is written. This is
+   * the boundary where an adapter rejects a UI tree it cannot render.
+   */
+  preflight?: (root: ChannelNode[]) => void | Promise<void>;
+}
+
 function isComponentElement(
   ui: unknown,
 ): ui is { type: ComponentFn; props: Record<string, unknown> } {
@@ -111,9 +119,11 @@ export class ActionRegistry {
     componentName: string,
     props: Record<string, unknown>,
     conversationKey: string,
+    options?: BindRenderableOptions,
   ): Promise<ChannelNode[]> {
     const fn = this.components.get(componentName);
     const root = renderToIR((fn ? fn(props) : props) as Renderable);
+    await options?.preflight?.(root);
     await this.walk(root, [], componentName, props, conversationKey);
     return root;
   }
@@ -128,6 +138,7 @@ export class ActionRegistry {
   async bindRenderable(
     ui: Renderable,
     conversationKey: string,
+    options?: BindRenderableOptions,
   ): Promise<{
     root: ChannelNode[];
     onReaction?: MessageReactionHandler;
@@ -146,9 +157,10 @@ export class ActionRegistry {
       component = fn.name || "anonymous";
       props = (ui.props ?? {}) as Record<string, unknown>;
       this.registerComponent(component, fn);
-      root = await this.bindTree(component, props, conversationKey);
+      root = await this.bindTree(component, props, conversationKey, options);
     } else {
       root = renderToIR(ui);
+      await options?.preflight?.(root);
       await this.walk(root, [], "", undefined, conversationKey);
     }
     const onReaction = takeMessageReaction(root);

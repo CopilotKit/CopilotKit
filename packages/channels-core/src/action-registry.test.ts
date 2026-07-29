@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
 import { InMemoryActionStore } from "./action-store.js";
+import type { ActionSnapshot, ActionStore } from "./action-store.js";
 import { MemoryStore } from "./state/memory-store.js";
 import { kvActionStore } from "./state/kv-action-store.js";
 import type { ChannelNode, InteractionContext } from "@copilotkit/channels-ui";
@@ -165,5 +166,32 @@ describe("ActionRegistry", () => {
         ActionExpiredError,
       );
     });
+  });
+
+  it("runs preflight before writing any action snapshot", async () => {
+    const writes: string[] = [];
+    const store: ActionStore = {
+      async put(id: string, _snap: ActionSnapshot): Promise<void> {
+        writes.push(id);
+      },
+      async get(): Promise<ActionSnapshot | undefined> {
+        return undefined;
+      },
+      async delete(): Promise<void> {},
+    };
+    const reg = new ActionRegistry({ store });
+    const tree: ChannelNode = {
+      type: "button",
+      props: { onClick: () => undefined },
+    };
+
+    await expect(
+      reg.bindRenderable(tree, "conv", {
+        preflight: () => {
+          throw new Error("unsupported UI");
+        },
+      }),
+    ).rejects.toThrow("unsupported UI");
+    expect(writes).toEqual([]);
   });
 });

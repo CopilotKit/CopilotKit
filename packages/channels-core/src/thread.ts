@@ -1,5 +1,6 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
 import type { ActionRegistry } from "./action-registry.js";
+import { validatePlatformUi } from "@copilotkit/channels-ui";
 import type {
   AgentContentPart,
   Renderable,
@@ -56,6 +57,8 @@ export interface ThreadDeps {
   userKey?: string;
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
+  /** Source platform for a managed delivery (for example, "teams"). */
+  targetPlatform?: string;
   /**
    * Optional anonymous telemetry sink. Structural type (not the concrete
    * ChannelTelemetry) avoids an import cycle; the real ChannelTelemetry satisfies it.
@@ -75,7 +78,7 @@ export class Thread implements ThreadInterface {
   private readonly store: StateStore;
 
   constructor(private deps: ThreadDeps) {
-    this.platform = deps.adapter.platform;
+    this.platform = deps.targetPlatform ?? deps.adapter.platform;
     this.conversationKey = deps.conversationKey;
     this.supportsBlockingChoice =
       deps.adapter.capabilities.supportsBlockingChoice;
@@ -83,7 +86,9 @@ export class Thread implements ThreadInterface {
   }
 
   private async bindForPost(ui: Renderable) {
-    return this.deps.registry.bindRenderable(ui, this.deps.conversationKey);
+    return this.deps.registry.bindRenderable(ui, this.deps.conversationKey, {
+      preflight: (root) => validatePlatformUi(root, this.platform),
+    });
   }
 
   /**

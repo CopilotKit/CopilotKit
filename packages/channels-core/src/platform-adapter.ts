@@ -107,6 +107,10 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
 export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
   value?: unknown;
+  /** Provider-faithful named input values submitted with the interaction. */
+  values?: Record<string, unknown>;
+  /** Source provider for a managed interaction (for example, "teams"). */
+  platform?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */

@@ -532,6 +532,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
           conversationKey: env.conversationKey,
           replyTarget,
           value: env.value,
+          values: env.values,
+          platform: env.platform,
           user,
           eventId: env.eventId,
           turnId: env.turnId,
