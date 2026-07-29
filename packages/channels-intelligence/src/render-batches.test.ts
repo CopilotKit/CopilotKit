@@ -95,6 +95,39 @@ describe("managed render batch compaction", () => {
     expect(attempts[1]).toBe(attempts[0]);
   });
 
+  it("waits before retrying a batch rejected while app-api is busy", async () => {
+    vi.useFakeTimers();
+    const attempts: AcceptedBatch[] = [];
+    const sink: RenderEventSink = {
+      pushBatch: async (batch) => {
+        attempts.push(batch);
+        if (attempts.length === 1) {
+          throw new Error("app_api_busy");
+        }
+        return {
+          batchId: batch.batchId,
+          egressOperationId: "eop_retry",
+          acceptedThroughSeq: batch.endSeq,
+          duplicate: true,
+        };
+      },
+    };
+    const { renderer, subscriber } = createRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hello" },
+    });
+    const finishing = renderer.finish?.();
+    await settle();
+
+    expect(attempts).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(99);
+    expect(attempts).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await finishing;
+    expect(attempts[1]).toBe(attempts[0]);
+  });
+
   it("flushes the first non-empty text immediately with contiguous post-compaction sequence numbers", async () => {
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);

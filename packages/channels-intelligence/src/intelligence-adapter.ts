@@ -103,6 +103,21 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 const RUN_ERROR_POST_TEXT =
   "⚠️ The agent ran into an error and couldn't finish responding. Please try again.";
 
+const RENDER_BATCH_RETRY_BASE_MS = 100;
+
+/**
+ * Wait before retrying a transient render-batch rejection.
+ *
+ * @param attempt - The one-based attempt that just failed.
+ * @returns A promise that resolves after bounded exponential backoff.
+ */
+const waitForRenderBatchRetry = async (attempt: number): Promise<void> => {
+  const delayMs = RENDER_BATCH_RETRY_BASE_MS * 2 ** (attempt - 1);
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+};
+
 /**
  * Supported configuration for the Intelligence-delivered Channels adapter.
  * Exposed to consumers through `@copilotkit/channels/intelligence`.
@@ -1003,6 +1018,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
                 message.includes("CHANNEL_RENDER_SEQUENCE_GAP") ||
                 message.includes("-> 409");
               if (permanent || attempt === 3) throw err;
+              await waitForRenderBatchRetry(attempt);
             }
           }
           if (!receipt) {
