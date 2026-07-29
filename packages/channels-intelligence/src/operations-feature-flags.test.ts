@@ -32,6 +32,7 @@ test("requests the Operations flag for the Intelligence project identity", async
   expect(init).toEqual({
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    signal: expect.any(AbortSignal),
     body: JSON.stringify({
       token: OPERATIONS_TOKEN,
       distinct_id: "intelligence-project:123",
@@ -70,6 +71,35 @@ test("returns false for a network failure", async () => {
   await expect(
     isChannelsTerminalBatchingEnabled(123, fetch as typeof globalThis.fetch),
   ).resolves.toBe(false);
+});
+
+test("aborts a request after 3 seconds and returns false", async () => {
+  vi.useFakeTimers();
+  try {
+    const fetch = vi.fn(
+      async (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+    const settled = vi.fn();
+
+    const evaluation = isChannelsTerminalBatchingEnabled(123, fetch);
+    void evaluation.then(settled);
+
+    await vi.advanceTimersByTimeAsync(2_999);
+    expect(settled).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(settled).toHaveBeenCalledWith(false);
+    await expect(evaluation).resolves.toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 test("returns false for malformed JSON", async () => {
