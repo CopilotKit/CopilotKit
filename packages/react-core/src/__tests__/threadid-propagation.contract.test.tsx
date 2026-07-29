@@ -280,7 +280,15 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     // A threadId written onto a shared-singleton agent would let two useAgent
     // callers clobber each other's thread; requiring runtimeAgentId forces the
     // safe private-proxy path. Fail loud rather than silently mutate.
+    //
+    // UseAgentProps rejects this combination at compile time (see
+    // use-agent-types.test.tsx), so reaching the runtime guard requires opting
+    // out of the type — which is precisely the untyped-caller case the guard
+    // exists for. The @ts-expect-error doubles as the assertion that the
+    // compile-time half of the contract is still in force: if the type ever
+    // stopped rejecting this, check-types would fail on the unused directive.
     function Probe() {
+      // @ts-expect-error threadId requires runtimeAgentId
       useAgent({ agentId: "default", threadId: "some-thread" });
       return null;
     }
@@ -292,6 +300,46 @@ describe("useAgent → agent.threadId sync from chat configuration", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("throws when runtimeAgentId is provided without threadId", () => {
+    // The converse guard: a private proxied agent with no thread to scope
+    // behaves like the shared agent while costing a registration and a local
+    // agentId to keep unique. Rejected rather than left looking meaningful.
+    function Probe() {
+      // @ts-expect-error runtimeAgentId requires threadId
+      useAgent({ agentId: "chat-1", runtimeAgentId: "assistant" });
+      return null;
+    }
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => render(<Probe />)).toThrow(/requires `threadId`/);
+    } finally {
+      spy.mockRestore();
+    }
+    // Nothing should have been registered before the throw.
+    expect(mockCopilotkit.registerProxiedAgent).not.toHaveBeenCalled();
+  });
+
+  it("throws when runtimeAgentId is provided without an explicit agentId", () => {
+    // The proxy is registered under the resolved agentId. Falling back to the
+    // chat configuration or DEFAULT_AGENT_ID would register over an agent that
+    // already exists — `already registered` if runtime discovery has landed,
+    // silent shadowing if it hasn't. Demand the caller name a local id.
+    function Probe() {
+      // @ts-expect-error runtimeAgentId requires an explicit agentId
+      useAgent({ runtimeAgentId: "assistant", threadId: "thread-1" });
+      return null;
+    }
+
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(() => render(<Probe />)).toThrow(/requires an explicit `agentId`/);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(mockCopilotkit.registerProxiedAgent).not.toHaveBeenCalled();
   });
 
   it("does not clobber threadIds across two hooks sharing a runtimeAgentId", () => {
