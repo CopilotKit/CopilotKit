@@ -270,6 +270,28 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     now: () => "2026-07-01T00:00:00.000Z",
   });
 
+  /** A `delivery.available` payload for one leased text turn. */
+  const makeDeliveryPayload = (input: {
+    deliveryId: string;
+    turnId: string;
+    leaseToken: string;
+  }) => ({
+    payload: {
+      delivery: {
+        id: input.deliveryId,
+        leaseToken: input.leaseToken,
+        adapter: "slack",
+        channel: { id: "channel_1", name: "support" },
+        turn: {
+          id: input.turnId,
+          eventId: "evt_1",
+          replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+          input: { kind: "text", text: "hi" },
+        },
+      },
+    },
+  });
+
   it("streams render frames, awaits receipts, then sends complete_requested (not ack)", async () => {
     const fake = makeFakeSession();
     const t = new RealtimeGatewayTransport(cfg(fake.session));
@@ -749,6 +771,73 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
 
     expect(fake.pushes).toHaveLength(0);
     expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
+  });
+
+  it("abandons a delivery whose lease was revoked instead of nacking it", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {
+      throw Object.assign(new Error("push failed"), {
+        code: "CHANNEL_DELIVERY_LEASE_INVALID",
+      });
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d1",
+        turnId: "turn_t1",
+        leaseToken: "lease_l1",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(logs.some((m) => m.includes("lease revoked; abandoning"))).toBe(
+      true,
+    );
+    expect(fake.pushes.map((p) => p.event)).not.toContain(
+      "channel.delivery.fail.v1",
+    );
+    expect(logs.some((m) => m.includes("nack after turn failure failed"))).toBe(
+      false,
+    );
+  });
+
+  it("swallows a fail intent that is itself fenced by a revoked lease", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    // Reject only the fail intent, the way app-api's 409 arrives on the wire.
+    const session: RealtimeGatewaySession = {
+      ...fake.session,
+      push: async (event, payload) => {
+        if (event === "channel.delivery.fail.v1") {
+          throw Object.assign(new Error("push failed"), {
+            code: "CHANNEL_DELIVERY_LEASE_INVALID",
+          });
+        }
+        return fake.session.push(event, payload);
+      },
+    };
+    const t = new RealtimeGatewayTransport({
+      ...cfg(session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {});
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d2",
+        turnId: "turn_t2",
+        leaseToken: "lease_l2",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    await expect(t.nack("dlv_d2", "boom")).resolves.toBeUndefined();
+    expect(logs.some((m) => m.includes("fenced by a revoked lease"))).toBe(
+      true,
+    );
   });
 
   it("stamps the delivery's authoritative scope (not the transport default) on render + fail", async () => {

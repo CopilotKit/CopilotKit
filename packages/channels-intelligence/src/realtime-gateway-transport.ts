@@ -186,6 +186,26 @@ const DELIVERY_AVAILABLE = "channel.delivery.available.v1";
 const COMPLETE_REQUESTED = "channel.delivery.complete_requested.v1";
 const DELIVERY_FAIL = "channel.delivery.fail.v1";
 
+/**
+ * app-api's lease fence: another owner holds this delivery. Every intent —
+ * render batch, complete, fail — is validated against `leased_until > now()`
+ * AND the lease-token hash, so once a lease is revoked (the listener was
+ * released under a gateway restart, or a replacement runtime re-leased the
+ * work) NOTHING this transport can send for that delivery will be accepted.
+ * Redelivery is app-api's job, so the only correct move is to drop our state
+ * quietly (OSS-670).
+ */
+const LEASE_REVOKED_CODE = "CHANNEL_DELIVERY_LEASE_INVALID";
+
+/** Whether an error is app-api's revoked-lease fence (see {@link LEASE_REVOKED_CODE}). */
+function isLeaseRevoked(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === LEASE_REVOKED_CODE
+  );
+}
+
 /** Per-delivery state the transport needs to build completion/fail intents. */
 interface DeliveryState {
   turnId: string;
@@ -386,6 +406,21 @@ export class RealtimeGatewayTransport
         `realtime gateway turn ${env.turnId} exceeded ${this.deliveryTimeoutMs}ms`,
       );
     } catch (err) {
+      if (isLeaseRevoked(err)) {
+        // Nacking here would send a `fail` the same fence rejects, and that
+        // second 409 is what used to surface as "nack after turn failure
+        // failed" followed by "no delivery state". Drop the state and report
+        // the real condition once.
+        this.deliveries.delete(env.deliveryId);
+        this.log?.(
+          "realtime gateway delivery lease revoked; abandoning (app-api owns redelivery)",
+          {
+            deliveryId: env.deliveryId,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        );
+        return;
+      }
       this.log?.("realtime gateway turn failed/timed out; nacking", {
         deliveryId: env.deliveryId,
         error: err instanceof Error ? err.message : String(err),
@@ -676,27 +711,37 @@ export class RealtimeGatewayTransport
     const lastAccepted = accepted[accepted.length - 1];
     // Claim the terminal signal BEFORE the wire call (XOR with ack) — see ack().
     this.deliveries.delete(deliveryId);
-    await this.session.push(DELIVERY_FAIL, {
-      type: DELIVERY_FAIL,
-      occurredAt: this.now(),
-      payload: {
-        ...state.scope,
-        deliveryId,
-        turnId: state.turnId,
-        runtimeInstanceId: this.runtimeInstanceId,
-        leaseToken: state.leaseToken,
-        ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
-        ...(lastAccepted ? { lastAccepted } : {}),
-        failedAt: this.now(),
-        // Bound the reason (parity with HttpDeliverySource.nack) so a long
-        // error/stack isn't sent verbatim over the gateway socket.
-        error: {
-          code: "runtime_error",
-          message: (reason || "runtime error").slice(0, 500),
-          retryable,
+    try {
+      await this.session.push(DELIVERY_FAIL, {
+        type: DELIVERY_FAIL,
+        occurredAt: this.now(),
+        payload: {
+          ...state.scope,
+          deliveryId,
+          turnId: state.turnId,
+          runtimeInstanceId: this.runtimeInstanceId,
+          leaseToken: state.leaseToken,
+          ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
+          ...(lastAccepted ? { lastAccepted } : {}),
+          failedAt: this.now(),
+          // Bound the reason (parity with HttpDeliverySource.nack) so a long
+          // error/stack isn't sent verbatim over the gateway socket.
+          error: {
+            code: "runtime_error",
+            message: (reason || "runtime error").slice(0, 500),
+            retryable,
+          },
         },
-      },
-    });
+      });
+    } catch (err) {
+      if (!isLeaseRevoked(err)) throw err;
+      // The fence already moved this delivery to another owner; a fail we
+      // cannot land is not a caller error.
+      this.log?.(
+        "realtime gateway fail intent fenced by a revoked lease; dropping",
+        { deliveryId, reason },
+      );
+    }
   }
 
   async stop(): Promise<void> {
