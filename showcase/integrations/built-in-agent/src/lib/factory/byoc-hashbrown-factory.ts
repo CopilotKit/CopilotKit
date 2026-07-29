@@ -8,6 +8,7 @@ import { openaiText } from "@tanstack/ai-openai";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 const BYOC_HASHBROWN_SYSTEM_PROMPT = `\
 You are a sales analytics assistant that replies by emitting a single JSON
@@ -81,6 +82,9 @@ async function* convertStream(
     const raw = chunk as any;
     const type = raw.type as string;
 
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
+
     // Skip RUN_FINISHED from TanStack's adapter — the Agent class emits
     // its own lifecycle events.
     if (type === "RUN_FINISHED") continue;
@@ -128,6 +132,7 @@ export function createByocHashbrownAgent() {
           temperature: 0.2,
         },
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);
