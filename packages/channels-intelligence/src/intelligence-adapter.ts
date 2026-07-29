@@ -1190,7 +1190,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
       if (tailFlushTimer !== undefined || pendingText === undefined) return;
       tailFlushTimer = setTimeout(() => {
         tailFlushTimer = undefined;
-        flushPendingTextBatch();
+        flushPendingText();
+        if (streaming) flushBatch();
       }, RENDER_TEXT_TAIL_FLUSH_MS);
     };
 
@@ -1276,6 +1277,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           firstTextFlushed = true;
           flushPendingTextBatch();
         }
+        scheduleTailFlush();
         return;
       }
 

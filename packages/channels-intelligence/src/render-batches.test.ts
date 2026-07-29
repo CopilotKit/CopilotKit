@@ -262,6 +262,33 @@ describe("managed render batch compaction", () => {
     ]);
   });
 
+  it("preserves the 250 ms text boundary without submitting the terminal batch early", async () => {
+    vi.useFakeTimers();
+    const sink = new RecordingBatchSink();
+    const { renderer, subscriber } = createTerminalBatchingRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "first" },
+    });
+    await vi.advanceTimersByTimeAsync(250);
+    expect(sink.batches).toHaveLength(0);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: " second" },
+    });
+    await renderer.finish?.();
+
+    expect(sink.batches).toHaveLength(1);
+    expect(
+      sink.batches[0]?.frames
+        .filter((frame) => frame.event.kind === "text_delta")
+        .map((frame) => frame.event),
+    ).toEqual([
+      { kind: "text_delta", messageId: "m1", delta: "first" },
+      { kind: "text_delta", messageId: "m1", delta: " second" },
+    ]);
+  });
+
   it.each([
     {
       name: "interrupt",
@@ -358,7 +385,9 @@ describe("managed render batch compaction", () => {
       event: { toolCallId: "tc64", toolCallName: "search" },
     });
     await settle();
-    expect(sink.batches.at(-1)?.frames).toHaveLength(1);
+    expect(sink.batches.map((batch) => batch.frames.length)).toEqual([
+      64, 1, 1,
+    ]);
 
     await renderer.finish?.();
   });
@@ -383,7 +412,7 @@ describe("managed render batch compaction", () => {
       event: { toolCallId: "tc4", toolCallName: "small" },
     });
     await settle();
-    expect(sink.batches.at(-1)?.frames).toHaveLength(1);
+    expect(sink.batches.map((batch) => batch.frames.length)).toEqual([4, 1, 1]);
 
     await renderer.finish?.();
   });
