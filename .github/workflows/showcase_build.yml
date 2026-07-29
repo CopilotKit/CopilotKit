@@ -490,7 +490,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -785,7 +785,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to GHCR
-        uses: docker/login-action@371161bbe7024a29a25c5e19bfcbc0804fe9ad2c # v4.5.2
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
