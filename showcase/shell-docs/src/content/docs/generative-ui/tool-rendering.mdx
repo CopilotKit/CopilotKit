@@ -73,9 +73,21 @@ The most expressive path is one renderer per tool name. The primary
 `tool-rendering` cell wires two: `get_weather` draws a branded
 `WeatherCard`, `search_flights` draws a `FlightListCard`. Each renderer
 receives the tool's parsed arguments, a live `status`, and (once the agent
-returns) the `result`:
+returns) the `result`.
+
+### Imports
+
+First, import the necessary dependencies and your custom components:
+
+<Snippet region="tool-rendering-imports" title="frontend/src/app/page.tsx — imports" />
+
+### Weather tool renderer
+
+The weather renderer uses the `WeatherCard` component and the `parseJsonResult` helper to parse the tool result:
 
 <Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
+
+### Flight tool renderer
 
 The flight renderer follows the same pattern with a different component and schema:
 
@@ -85,6 +97,28 @@ The flight renderer follows the same pattern with a different component and sche
   The `name` you pass to `useRenderTool` must match the tool name the agent
   exposes; that's how the runtime routes the call to your component.
 </Callout>
+
+### Component implementations
+
+Here are the complete implementations of the custom components used above:
+
+#### WeatherCard component
+
+The `WeatherCard` is a branded UI component that displays weather information:
+
+<Snippet region="weather-card-component" title="frontend/src/app/weather-card.tsx — WeatherCard component" />
+
+#### FlightListCard component
+
+The `FlightListCard` displays a list of flight search results:
+
+<Snippet region="flight-list-card-component" title="frontend/src/app/flight-list-card.tsx — FlightListCard component" />
+
+#### parseJsonResult helper
+
+The `parseJsonResult` helper safely parses tool results that may arrive as JSON strings or already-parsed objects:
+
+<Snippet region="parse-json-result-helper" title="frontend/src/app/parse-json-result.ts — parseJsonResult helper" />
 
 Per-tool renderers compose with a catch-all: named renderers claim the
 "interesting" tools and a wildcard handles everything else. In the primary
