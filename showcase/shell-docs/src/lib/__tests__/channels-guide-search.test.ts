@@ -56,15 +56,23 @@ describe("Channels guide search results", () => {
     ]);
   });
 
-  it("does not create a result for the removed Channels overview", () => {
+  it("creates a provider-scoped result for the Channels overview", () => {
     expect(
       resolveChannelSearchResults({
-        topic: "",
+        topic: "overview",
         title: "Channels",
         selectedFramework: "mastra",
         activeFrontend: "slack",
       }),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        frontend: "slack",
+        groupKey: "channel:slack:overview",
+        id: "docs:channel:slack:overview",
+        title: "Channels",
+        href: "/slack/mastra",
+      },
+    ]);
   });
 });
 
@@ -114,10 +122,13 @@ describe("generated Channels search index", () => {
   it("retains canonical frontend identities and docs-status expansions", () => {
     expect(searchIndex).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ title: "Slack", href: "/slack" }),
         expect.objectContaining({
-          title: "Microsoft Teams",
-          href: "/teams",
+          title: "Connect and run your agent in Slack",
+          href: "/slack/connect",
+        }),
+        expect.objectContaining({
+          title: "Connect and run your agent in Microsoft Teams",
+          href: "/teams/connect",
         }),
         expect.objectContaining({
           title: "Vue: Docs status",

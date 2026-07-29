@@ -37,6 +37,7 @@ import matter from "gray-matter";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
   channelGuideHref,
   getChannelGuidePublicSlug,
 } from "./channel-guide-routes";
@@ -214,7 +215,7 @@ export function getAllLlmPages(
     new Set(["integrations"]),
   )) {
     if (!slug) continue;
-    // Slack/Teams quickstarts and the four shared Channels guide sources are
+    // Slack/Teams connection guides and the shared Channels guide sources are
     // emitted below as an explicit provider × framework matrix. Skipping them
     // here prevents the bare filesystem walk from claiming their canonical
     // URLs before the correctly annotated variants are pushed.
@@ -301,7 +302,7 @@ export function getAllLlmPages(
   }
 
   // 3. Canonical Slack/Teams routes. Both discovery modes retain every
-  // framework-specific quickstart because its FrameworkSetup expansion is
+  // framework-specific connection guide because its FrameworkSetup expansion is
   // unique. Shared guide sources vary only by provider, so the compact corpus
   // keeps one Built-in Agent copy per provider while llms.txt advertises the
   // complete canonical route matrix.
@@ -309,14 +310,14 @@ export function getAllLlmPages(
     (integration) => getDocsMode(integration.slug) !== "hidden",
   );
   for (const frontend of CHANNEL_FRONTENDS) {
-    const quickstart = loadDoc(`frontends/${frontend}`);
-    if (quickstart) {
+    const connectionGuide = loadDoc(`frontends/${frontend}`);
+    if (connectionGuide) {
       for (const integration of visibleIntegrations) {
         push({
-          url: channelGuideHref(frontend, integration.slug, "").slice(1),
-          title: quickstart.fm.title,
-          description: quickstart.fm.description,
-          filePath: quickstart.filePath,
+          url: channelConnectHref(frontend, integration.slug).slice(1),
+          title: connectionGuide.fm.title,
+          description: connectionGuide.fm.description,
+          filePath: connectionGuide.filePath,
           loadSlug: `frontends/${frontend}`,
           framework: integration.slug,
           frontend,

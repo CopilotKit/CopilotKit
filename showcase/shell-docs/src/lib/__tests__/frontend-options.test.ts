@@ -88,6 +88,10 @@ test("keeps React as the full docs surface and routes other frontends to their g
     "/slack/concepts/architecture",
   );
   expect(frontendPathFor("react", "quickstart")).toBe("/");
+  expect(frontendPathFor("slack", "quickstart")).toBe("/slack");
+  expect(frontendPathFor("teams", "quickstart")).toBe("/teams");
+  expect(frontendPathFor("slack", "connect")).toBe("/slack/connect");
+  expect(frontendPathFor("teams", "connect")).toBe("/teams/connect");
   expect(frontendPathFor("react", "using-these-docs")).toBe("/");
   expect(frontendFromPathname("/vue")).toBe("vue");
   expect(frontendFromPathname("/vue/concepts/architecture")).toBe("vue");
@@ -539,7 +543,7 @@ test("gives Slack and Teams the maintained Channels journey", () => {
   const slackNav = getFrontendQuickstartNavTree("slack");
   const teamsNav = getFrontendQuickstartNavTree("teams");
   const gettingStartedPages = CHANNEL_GUIDE_ROUTES.filter(
-    (route) => route.section === "getting-started",
+    (route) => route.section === "getting-started" && route.slug !== "overview",
   ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
   const buildPages = CHANNEL_GUIDE_ROUTES.filter(
     (route) => route.section === "build",
@@ -549,8 +553,13 @@ test("gives Slack and Teams the maintained Channels journey", () => {
   ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
   const expectedNav = [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
-    { type: "page", title: "Quickstart", slug: "" },
+    { type: "page", title: "Overview", slug: "" },
     ...gettingStartedPages,
+    {
+      type: "page",
+      title: "Connect and run your agent",
+      slug: "connect",
+    },
     { type: "section", title: "Build", icon: "lucide/Wand2" },
     ...buildPages,
     { type: "section", title: "Production", icon: "lucide/ServerCog" },
@@ -606,16 +615,22 @@ test("builds the exact channel journey beneath every active prefix", () => {
   const pageUrls = collectPageUrls(navTreeToPageTree(navTree, "/slack"));
   expect(pageUrls).toEqual([
     "/slack",
-    ...CHANNEL_GUIDE_ROUTES.map(({ slug }) => `/slack/${slug}`),
+    "/slack/intelligence",
+    "/slack/connect",
+    ...CHANNEL_GUIDE_ROUTES.filter(
+      ({ slug }) => !["overview", "intelligence"].includes(slug),
+    ).map(({ slug }) => `/slack/${slug}`),
     "/reference/channels",
   ]);
   expect(
     collectPageUrls(navTreeToPageTree(navTree, "/slack/langgraph-fastapi")),
   ).toEqual([
     "/slack/langgraph-fastapi",
-    ...CHANNEL_GUIDE_ROUTES.map(
-      ({ slug }) => `/slack/langgraph-fastapi/${slug}`,
-    ),
+    "/slack/langgraph-fastapi/intelligence",
+    "/slack/langgraph-fastapi/connect",
+    ...CHANNEL_GUIDE_ROUTES.filter(
+      ({ slug }) => !["overview", "intelligence"].includes(slug),
+    ).map(({ slug }) => `/slack/langgraph-fastapi/${slug}`),
     "/reference/channels",
   ]);
   expect(
@@ -624,7 +639,11 @@ test("builds the exact channel journey beneath every active prefix", () => {
     ),
   ).toEqual([
     "/teams/mastra",
-    ...CHANNEL_GUIDE_ROUTES.map(({ slug }) => `/teams/mastra/${slug}`),
+    "/teams/mastra/intelligence",
+    "/teams/mastra/connect",
+    ...CHANNEL_GUIDE_ROUTES.filter(
+      ({ slug }) => !["overview", "intelligence"].includes(slug),
+    ).map(({ slug }) => `/teams/mastra/${slug}`),
     "/reference/channels",
   ]);
   expect(pageUrls).not.toEqual(

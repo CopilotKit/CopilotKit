@@ -1,17 +1,20 @@
 ---
-title: Slack
-description: Run any supported agent framework in Slack through a production-ready managed CopilotKit Intelligence connection.
+title: Connect and run your agent in Slack
+description: Run any supported agent framework in Slack through a managed CopilotKit Intelligence connection.
 icon: "lucide/Slack"
 doc_type: tutorial
 ---
 
-In this quickstart, you will connect an AG-UI agent to a managed Slack app,
+In this guide, you will connect an AG-UI agent to a managed Slack app,
 start a long-running Channels SDK listener, and verify a real workspace message.
 CopilotKit Intelligence holds the Slack credentials; your process holds the
 agent and application logic.
 
-Managed Intelligence support for Discord and WhatsApp is coming soon. The SDK
-already exports developer-operated direct adapters for those providers.
+New to the product? Start with the [Channels overview](/channels) to understand
+how the SDK, Runtime, Intelligence, and provider connection fit together.
+
+Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
+You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
 ## Before you start
 
@@ -19,20 +22,15 @@ already exports developer-operated direct adapters for those providers.
   available in Node.js 22+
 - A long-running Node host or container; serverless request handlers cannot own
   the persistent gateway connection
-- A Channel configured with Slack in
-  [CopilotKit Intelligence](/channels/intelligence)
-- The exact Channel **Code** and project runtime configuration
-- A Slack workspace where the app is installed and invited
 
-<Callout type="info" title="Run a persistent realtime listener">
-  Managed delivery uses a realtime gateway connection. Keep this process alive.
-  The install command below uses an exact, tested SDK pair; upgrade
-  `@copilotkit/channels` and `@copilotkit/runtime` together.
-</Callout>
+## Build and run your Channel
 
 <Steps>
   <Step>
     ### Create the runner
+
+    The install command below uses an exact, tested SDK pair; upgrade
+    `@copilotkit/channels` and `@copilotkit/runtime` together.
 
     ```bash title="Terminal"
     mkdir my-slack-channel
@@ -208,6 +206,22 @@ already exports developer-operated direct adapters for those providers.
     ```
 
     Intelligence should change from **Waiting for runtime** to **Online**.
+
+    #### Know the healthy state
+
+    After you start the process and call `await channels.ready(...)` on the
+    guarded control from this guide, the Channel should become **Online**.
+
+    | Status | What to check |
+    | --- | --- |
+    | **Disabled** | Enable the Channel before expecting delivery. |
+    | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
+    | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
+    | **Waiting for runtime** | Start the process, call `await channels.ready(...)` on the guarded control, and match its Code and provider to this Channel. |
+    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
+    | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
+    | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
+    | **Online** | The runtime is connected; send a real provider message to verify the full path. |
 
   </Step>
 

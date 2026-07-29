@@ -196,7 +196,12 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
     {
       ...entry,
       section: "Frontends",
-      href: tail.length > 0 ? `/${frontend}/${tail.join("/")}` : `/${frontend}`,
+      href:
+        tail.length > 0
+          ? `/${frontend}/${tail.join("/")}`
+          : frontend === "slack" || frontend === "teams"
+            ? `/${frontend}/connect`
+            : `/${frontend}`,
     },
   ];
 }

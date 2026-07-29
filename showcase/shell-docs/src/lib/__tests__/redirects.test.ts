@@ -89,26 +89,27 @@ async function expectPermanentOneHop(
 describe("canonical Channels guide redirects", () => {
   it("resolves the complete maintained guide matrix by actual first match", async () => {
     for (const { slug } of CHANNEL_GUIDE_ROUTES) {
+      const guideSuffix = slug === "overview" ? "" : `/${slug}`;
       for (const suffix of RAW_DOC_SUFFIXES) {
         await expectPermanentOneHop(
           `/channels/${slug}${suffix}`,
-          `/slack/${slug}${suffix}`,
+          `/slack${guideSuffix}${suffix}`,
         );
 
         for (const frontend of CHANNEL_FRONTENDS) {
           await expectPermanentOneHop(
             `/${frontend}/mastra/channels/${slug}${suffix}`,
-            `/${frontend}/mastra/${slug}${suffix}`,
+            `/${frontend}/mastra${guideSuffix}${suffix}`,
           );
           await expectPermanentOneHop(
             `/${frontend}/channels/${slug}${suffix}`,
-            `/${frontend}/${slug}${suffix}`,
+            `/${frontend}${guideSuffix}${suffix}`,
           );
         }
 
         await expectPermanentOneHop(
           `/mastra/channels/${slug}${suffix}`,
-          `/slack/mastra/${slug}${suffix}`,
+          `/slack/mastra${guideSuffix}${suffix}`,
         );
       }
     }
@@ -116,29 +117,46 @@ describe("canonical Channels guide redirects", () => {
 
   it("collapses every explicit Built-in Agent guide shape in one hop", async () => {
     for (const { slug } of CHANNEL_GUIDE_ROUTES) {
+      const guideSuffix = slug === "overview" ? "" : `/${slug}`;
       for (const suffix of RAW_DOC_SUFFIXES) {
         for (const frontend of CHANNEL_FRONTENDS) {
           await expectPermanentOneHop(
             `/${frontend}/built-in-agent/${slug}${suffix}`,
-            `/${frontend}/${slug}${suffix}`,
+            `/${frontend}${guideSuffix}${suffix}`,
           );
           await expectPermanentOneHop(
             `/${frontend}/built-in-agent/channels/${slug}${suffix}`,
-            `/${frontend}/${slug}${suffix}`,
+            `/${frontend}${guideSuffix}${suffix}`,
           );
         }
 
         await expectPermanentOneHop(
           `/built-in-agent/channels/${slug}${suffix}`,
-          `/slack/${slug}${suffix}`,
+          `/slack${guideSuffix}${suffix}`,
         );
       }
     }
   });
 
-  it("redirects the removed overview and leaves canonical guide URLs alone", async () => {
+  it("redirects the legacy overview and leaves canonical guide URLs alone", async () => {
     for (const suffix of RAW_DOC_SUFFIXES) {
       await expectPermanentOneHop(`/channels${suffix}`, `/slack${suffix}`);
+      await expectPermanentOneHop(
+        `/slack/overview${suffix}`,
+        `/slack${suffix}`,
+      );
+      await expectPermanentOneHop(
+        `/teams/mastra/overview${suffix}`,
+        `/teams/mastra${suffix}`,
+      );
+      await expectPermanentOneHop(
+        `/slack/quickstart${suffix}`,
+        `/slack/connect${suffix}`,
+      );
+      await expectPermanentOneHop(
+        `/teams/mastra/quickstart${suffix}`,
+        `/teams/mastra/connect${suffix}`,
+      );
       expect(await resolveFirstRedirect(`/slack/tools${suffix}`)).toBeNull();
       expect(
         await resolveFirstRedirect(`/teams/mastra/threads-and-state${suffix}`),
@@ -164,7 +182,7 @@ describe("canonical Channels guide redirects", () => {
 
 describe("retired Channels guide redirects", () => {
   const retiredGuides = [
-    ["quickstart", "intelligence"],
+    ["quickstart", "connect"],
     ["ui-library", "rich-messages"],
     ["mcp", "tools"],
     ["configuration", "intelligence"],
@@ -302,7 +320,7 @@ describe("Channels reference and Bots aliases", () => {
       );
       await expectPermanentOneHop(
         `/bots/quickstart${suffix}`,
-        `/slack/intelligence${suffix}`,
+        `/slack/connect${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot${suffix}`,

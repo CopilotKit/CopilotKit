@@ -32,6 +32,7 @@ import {
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
   channelGuideHref,
 } from "@/lib/channel-guide-routes";
 import { loadDoc } from "@/lib/docs-render";
@@ -154,10 +155,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     });
   }
 
-  // Frontend quickstarts. The source MDX lives under
+  // Frontend landing guides. The source MDX lives under
   // content/docs/frontends/*, but those files are not served as
   // /frontends/* docs anymore; they canonicalize to /<frontend>.
   for (const frontend of FRONTEND_PAGE_IDS) {
+    if (CHANNEL_FRONTENDS.some((channel) => channel === frontend)) continue;
+
     const doc = loadDoc(getFrontendContentSlug(frontend));
     if (doc) {
       pushUnique({
@@ -198,14 +201,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
   }
 
   for (const frontend of CHANNEL_FRONTENDS) {
-    const quickstartDoc = loadDoc(getFrontendContentSlug(frontend));
-    if (!quickstartDoc) continue;
-    const quickstartLastModified = resolveLastModified(quickstartDoc.filePath);
+    const connectionDoc = loadDoc(getFrontendContentSlug(frontend));
+    if (!connectionDoc) continue;
+    const connectionLastModified = resolveLastModified(connectionDoc.filePath);
 
     for (const framework of visibleChannelFrameworks) {
       pushUnique({
-        url: `${baseUrl}${channelGuideHref(frontend, framework.slug, "")}`,
-        lastModified: quickstartLastModified,
+        url: `${baseUrl}${channelConnectHref(frontend, framework.slug)}`,
+        lastModified: connectionLastModified,
       });
 
       for (const guide of CHANNEL_GUIDE_ROUTES) {
