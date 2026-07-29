@@ -11,6 +11,7 @@ import type {
 } from "@copilotkit/channels-ui";
 import {
   assertAdaptiveCardPayload,
+  assertRawAdaptiveCardPayload,
   TEAMS_CARD_SCHEMA_URL,
   TEAMS_CARD_VERSION,
 } from "./schema.js";
@@ -65,7 +66,7 @@ function serializeNativeAdaptiveCard(
 ): AdaptiveCardPayload {
   if (root.props.element === RAW_ADAPTIVE_CARD_ELEMENT) {
     requireNoChildren(root.props.element, root.props.children ?? [], [0]);
-    assertAdaptiveCardPayload(root.props.attributes);
+    assertRawAdaptiveCardPayload(root.props.attributes);
     return root.props.attributes as unknown as AdaptiveCardPayload;
   }
   if (root.props.element !== "AdaptiveCard") {

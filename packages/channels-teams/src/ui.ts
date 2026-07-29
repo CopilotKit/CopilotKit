@@ -31,7 +31,7 @@ import type {
   PlatformNode,
 } from "@copilotkit/channels-ui";
 import { RAW_ADAPTIVE_CARD_ELEMENT } from "./render/native-adaptive-card.js";
-import { assertAdaptiveCardPayload } from "./render/schema.js";
+import { assertRawAdaptiveCardPayload } from "./render/schema.js";
 
 export const TEAMS_PLATFORM = "teams";
 export const ADAPTIVE_CARD_DIALECT = "adaptive-card";
@@ -239,7 +239,7 @@ export const Action = {
  * callbacks must use `Action.Submit` JSX so Channels can bind them durably.
  */
 export function rawAdaptiveCard(payload: unknown): PlatformNode {
-  assertAdaptiveCardPayload(payload);
+  assertRawAdaptiveCardPayload(payload);
   return platformNode({
     protocol: 1,
     platform: TEAMS_PLATFORM,

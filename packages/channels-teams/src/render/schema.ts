@@ -64,6 +64,55 @@ export function assertAdaptiveCardPayload(
   }
 }
 
+/**
+ * Validate the data-only raw-card escape hatch. Native JSX owns the reserved
+ * callback envelope; accepting it from raw JSON would let a card bypass action
+ * binding and target a persisted Channels handler directly.
+ */
+export function assertRawAdaptiveCardPayload(
+  payload: unknown,
+): asserts payload is AdaptiveCardPayload {
+  assertAdaptiveCardPayload(payload);
+  assertNoReservedChannelsMetadata(payload, "card");
+}
+
+function assertNoReservedChannelsMetadata(value: unknown, path: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) =>
+      assertNoReservedChannelsMetadata(entry, `${path}[${index}]`),
+    );
+    return;
+  }
+  if (!isRecord(value)) return;
+
+  if (value.type === "Action.Submit" && isRecord(value.data)) {
+    if (
+      Object.hasOwn(value.data, "__copilotkit") ||
+      Object.hasOwn(value.data, "ckActionId")
+    ) {
+      throw new Error(
+        `Adaptive Card ${path}.data may not contain reserved Channels action metadata. Use native Action.Submit JSX for callbacks.`,
+      );
+    }
+  }
+
+  if (typeof value.type === "string" && value.type.startsWith("Input.")) {
+    const id = value.id;
+    if (
+      typeof id === "string" &&
+      (id === "ckActionId" || id.startsWith("__copilotkit"))
+    ) {
+      throw new Error(
+        `Adaptive Card ${path}.id uses a reserved Channels input id.`,
+      );
+    }
+  }
+
+  for (const [key, entry] of Object.entries(value)) {
+    assertNoReservedChannelsMetadata(entry, `${path}.${key}`);
+  }
+}
+
 const CARD_ELEMENTS = new Set([
   "ActionSet",
   "Column",

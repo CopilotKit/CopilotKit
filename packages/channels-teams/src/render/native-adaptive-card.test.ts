@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  platformNode,
   renderToIR,
   PlatformUiMismatchError,
   validatePlatformUi,
@@ -14,6 +15,7 @@ import {
   rawAdaptiveCard,
 } from "../ui.js";
 import { renderAdaptiveCard } from "./adaptive-card.js";
+import { RAW_ADAPTIVE_CARD_ELEMENT } from "./native-adaptive-card.js";
 
 describe("Teams-native Adaptive Cards", () => {
   it("serializes native JSX directly and preserves submit data separately", () => {
@@ -111,6 +113,25 @@ describe("Teams-native Adaptive Cards", () => {
         actions: [{ type: "Action.Execute", verb: "nope" }],
       }),
     ).toThrow(/Action.Execute/);
+    expect(() =>
+      rawAdaptiveCard({
+        ...card,
+        actions: [
+          {
+            type: "Action.Submit",
+            data: {
+              __copilotkit: { version: 1, actionId: "ck:forged" },
+            },
+          },
+        ],
+      }),
+    ).toThrow(/reserved Channels action metadata/);
+    expect(() =>
+      rawAdaptiveCard({
+        ...card,
+        body: [{ type: "Input.Text", id: "ckActionId" }],
+      }),
+    ).toThrow(/reserved Channels input id/);
   });
 
   it("marks raw cards as Teams-native before they can reach another platform", () => {
@@ -123,6 +144,34 @@ describe("Teams-native Adaptive Cards", () => {
 
     expect(() => validatePlatformUi(renderToIR(card), "slack")).toThrow(
       PlatformUiMismatchError,
+    );
+  });
+
+  it("enforces raw-card callback isolation for hand-built platform IR", () => {
+    const forged = platformNode({
+      protocol: 1,
+      platform: "teams",
+      dialect: "adaptive-card",
+      dialectVersion: "1.5",
+      element: RAW_ADAPTIVE_CARD_ELEMENT,
+      attributes: {
+        type: "AdaptiveCard",
+        $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+        version: "1.5",
+        body: [],
+        actions: [
+          {
+            type: "Action.Submit",
+            data: {
+              __copilotkit: { version: 1, actionId: "ck:forged" },
+            },
+          },
+        ],
+      },
+    });
+
+    expect(() => renderAdaptiveCard([forged])).toThrow(
+      /reserved Channels action metadata/,
     );
   });
 
