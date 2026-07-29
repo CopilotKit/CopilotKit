@@ -10,8 +10,8 @@ describe("createChannel — optional adapters + addAdapter", () => {
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({ agent: () => new FakeAgent() });
-    channel.addAdapter(fake);
-    await channel.start();
+    channel.ɵruntime.addAdapter(fake);
+    await channel.ɵruntime.start();
     expect(fake.started).toBe(true);
   });
 
@@ -20,8 +20,10 @@ describe("createChannel — optional adapters + addAdapter", () => {
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
-    await channel.start();
-    expect(() => channel.addAdapter(new FakeAdapter())).toThrow(/start/i);
+    await channel.ɵruntime.start();
+    expect(() => channel.ɵruntime.addAdapter(new FakeAdapter())).toThrow(
+      /start/i,
+    );
   });
 
   it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
@@ -31,9 +33,9 @@ describe("createChannel — optional adapters + addAdapter", () => {
       agent: () => new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
-    await channel.start();
+    await channel.ɵruntime.start();
     const transcriptsAfterFirst = channel.transcripts;
-    await channel.start(); // second call must be a no-op
+    await channel.ɵruntime.start(); // second call must be a no-op
     expect(startSpy).toHaveBeenCalledTimes(1);
     // Same transcript-store instance → state (locks/dedup/actions) not wiped.
     expect(channel.transcripts).toBe(transcriptsAfterFirst);
@@ -46,9 +48,9 @@ describe("createChannel — optional adapters + addAdapter", () => {
       agent: () => new FakeAgent(),
     });
     const startSpy = vi.spyOn(fake, "start");
-    await channel.start();
-    await channel.stop();
-    await channel.start(); // stop() cleared `started`, so this is a real restart
+    await channel.ɵruntime.start();
+    await channel.ɵruntime.stop();
+    await channel.ɵruntime.start(); // stop() cleared `started`, so this is a real restart
     expect(startSpy).toHaveBeenCalledTimes(2);
   });
 });
@@ -83,7 +85,7 @@ describe("createChannel — store resolution", () => {
         transcripts: {},
       },
     });
-    await seeder.start();
+    await seeder.ɵruntime.start();
     await seeder.transcripts.append(
       { platform: "fake", conversationKey: "c" },
       { role: "user", text: "seeded" },
@@ -97,7 +99,7 @@ describe("createChannel — store resolution", () => {
       agent: () => new FakeAgent(),
       store: { identity: () => "u@x.com", transcripts: {} },
     });
-    await channel.start();
+    await channel.ɵruntime.start();
 
     const entries = await channel.transcripts.list({ userKey: "u@x.com" });
     expect(entries.map((e) => e.text)).toContain("seeded");
@@ -117,7 +119,7 @@ describe("createChannel — store resolution", () => {
         transcripts: {},
       },
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -132,7 +134,7 @@ describe("createChannel — store resolution", () => {
       adapters: [a, b],
       agent: () => new FakeAgent(),
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("state store"));
     warn.mockRestore();
   });
@@ -153,7 +155,7 @@ describe("createChannel — id propagation to handler context", () => {
         eventId: message.eventId,
       };
     });
-    await channel.start();
+    await channel.ɵruntime.start();
     fake.emitTurn({
       userText: "hi",
       conversationKey: "c1",

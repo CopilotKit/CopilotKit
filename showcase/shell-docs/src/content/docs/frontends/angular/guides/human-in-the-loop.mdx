@@ -150,6 +150,10 @@ The controller clears stale decisions when the thread changes. Calls to
 `resolve` or `cancel` share one in-flight resume promise, so a double click
 does not start two resume runs.
 
+The runnable Showcase uses the same controller API in its route-aware feature:
+
+<AngularSnippet region="interrupt-controller" />
+
 Use the controller's `enabled` option when several components listen to the
 same agent and each should accept only certain interrupt payloads. Use
 `handler` when the view needs async data prepared before it appears.

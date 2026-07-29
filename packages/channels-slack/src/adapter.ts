@@ -786,6 +786,7 @@ export class SlackAdapter implements PlatformAdapter {
   get conversationStore(): ConversationStore {
     const store = this.store;
     return {
+      seedsInboundTurn: store.seedsInboundTurn,
       async getOrCreate(
         conversationKey: string,
         replyTarget: BotReplyTarget,

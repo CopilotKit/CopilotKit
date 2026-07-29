@@ -301,8 +301,6 @@ export function useAgent({
       // Return cached provisional if available (keeps reference stable)
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        // Update headers on the cached agent in case they changed
-        copilotkit.applyHeadersToAgent(cached);
         return { agent: cached, isReady: false };
       }
 
@@ -310,6 +308,7 @@ export function useAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
@@ -329,13 +328,13 @@ export function useAgent({
     ) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        copilotkit.applyHeadersToAgent(cached);
         return { agent: cached, isReady: false };
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId: resolvedAgentId,
         transport: copilotkit.runtimeTransport,
+        credentials: copilotkit.credentials,
         runtimeMode: "pending",
       });
       copilotkit.applyHeadersToAgent(provisional);
@@ -364,6 +363,7 @@ export function useAgent({
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
     copilotkit.runtimeTransport,
+    copilotkit.credentials,
     JSON.stringify(copilotkit.headers),
   ]);
 
@@ -423,9 +423,9 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, throttleMs, providerThrottleMs, updateFlags]);
 
-  // Keep HttpAgent headers fresh without mutating inside useMemo, which is
-  // unsafe in concurrent mode (React may invoke useMemo multiple times and
-  // discard intermediate results, but mutations always land).
+  // Keep HttpAgent request settings fresh without mutating inside useMemo,
+  // which is unsafe in concurrent mode (React may invoke useMemo multiple
+  // times and discard intermediate results, but mutations always land).
   useEffect(() => {
     if (agent instanceof HttpAgent) {
       // Merge core headers on top of the agent's own headers rather than
@@ -433,8 +433,11 @@ export function useAgent({
       // self-hosted backend) are preserved (see #5635).
       copilotkit.applyHeadersToAgent(agent);
     }
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.credentials = copilotkit.credentials;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers)]);
+  }, [agent, JSON.stringify(copilotkit.headers), copilotkit.credentials]);
 
   // Propagate the caller-supplied threadId onto the agent. AbstractAgent's
   // constructor auto-mints a UUID when no threadId is passed, so without this

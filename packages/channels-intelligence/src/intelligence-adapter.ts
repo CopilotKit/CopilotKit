@@ -42,6 +42,10 @@ import {
 import type { IntelligenceTransportConfig } from "./http-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
 import { buildContentParts } from "./content-parts.js";
+import {
+  createRenderTurnMetrics,
+  resolveRenderMetricsMode,
+} from "./render-metrics.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
@@ -79,6 +83,16 @@ const textNode = (value: string): ChannelNode[] => [
 ];
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
+
+/**
+ * User-visible reply posted when a run terminates with a `run_error` on the
+ * HTTP-fallback render path (no Connector Outbox). Intentionally generic: the
+ * raw error message may carry internal detail (stack fragments, upstream URLs),
+ * so it is logged via `config.log` for operators rather than shown to the end
+ * user in the channel.
+ */
+const RUN_ERROR_POST_TEXT =
+  "⚠️ The agent ran into an error and couldn't finish responding. Please try again.";
 
 /**
  * Supported configuration for the Intelligence-delivered Channels adapter.
@@ -167,6 +181,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * transport support, or a fetch failure) just means the turn starts fresh.
    */
   readonly conversationStore: ConversationStore = {
+    seedsInboundTurn: false,
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const agent = makeAgent(conversationKey);
       const route = (replyTarget as ChannelReplyTarget).route;
@@ -266,9 +281,14 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn egress sequence; reset at the start of each turn's processing so
-   * a redelivered turn reproduces the same operation id sequence. */
-  private readonly seq = new Map<string, number>();
+  /** Per-turn render state; reset at the start of each turn's processing so a
+   * redelivery reproduces the same operation ids. A realtime turn starts
+   * non-terminal: even an output-free handler must durably accept `finalize`
+   * before its delivery may complete. */
+  private readonly renderState = new Map<
+    string,
+    { nextSeq: number; needsFinalize: boolean }
+  >();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -283,13 +303,35 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.stateStore = opts.store ?? this.buildDefaultStore();
   }
 
+  /** Process environment, or an empty bag off-process (browser/edge). */
+  private readEnv(): Record<string, string | undefined> {
+    return typeof process !== "undefined"
+      ? process.env
+      : ({} as Record<string, string | undefined>);
+  }
+
+  /**
+   * Diagnostics sink for opt-in instrumentation: the configured transport
+   * logger when one was supplied, else the console. Only reached once
+   * instrumentation is explicitly switched on, so it never adds log volume to a
+   * default run.
+   *
+   * @param message - Log message.
+   * @param meta - Structured metadata.
+   */
+  private diagnosticLog(message: string, meta?: unknown): void {
+    const configured = this.opts.config?.log;
+    if (configured) {
+      configured(message, meta);
+      return;
+    }
+    console.info(`[channels-intelligence] ${message}`, meta);
+  }
+
   /** Build the default Intelligence-backed durable store, or undefined. */
   private buildDefaultStore(): StateStore | undefined {
     if (this.opts.source || this.opts.egress) return undefined;
-    const env =
-      typeof process !== "undefined"
-        ? process.env
-        : ({} as Record<string, string | undefined>);
+    const env = this.readEnv();
     const baseUrl = (
       this.opts.config?.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
     )?.replace(/\/+$/, "");
@@ -349,26 +391,53 @@ export class IntelligenceAdapter implements PlatformAdapter {
     await this.source?.stop();
   }
 
+  /**
+   * Process one inbound delivery: run the turn, then ack/nack it. The turn and
+   * the ack are two DISTINCT phases with distinct failure semantics — a failed
+   * turn nacks (so the transport redelivers), but a failed ack must NOT, because
+   * the Channel path reprocesses redeliveries (`skipIngressDedup = true`), so
+   * nacking an already-processed turn would rerun it end to end (duplicate agent
+   * run / duplicate posts). Conflating the two (ack inside the turn's `try`) is
+   * the OSS-491 Finding-2 bug this split fixes.
+   */
   private async dispatch(env: ChannelIngressEnvelope): Promise<void> {
     // Reset the per-turn sequence so egress ids are deterministic across
     // redelivery (same turn id -> same op id sequence). Assumes the
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
-    this.seq.set(env.turnId, 0);
+    this.renderState.set(env.turnId, {
+      nextSeq: 0,
+      needsFinalize: this.renderSink !== undefined,
+    });
+    let turnProcessed = false;
     try {
       await this.dispatchTo(env);
-      await this.requireSource().ack(env.deliveryId);
+      await this.finalizeRenderedTurn(env);
+      turnProcessed = true;
     } catch (err) {
       await this.requireSource().nack(
         env.deliveryId,
         err instanceof Error ? err.message : String(err),
       );
     } finally {
-      // Drop the per-turn counter once the turn is fully processed (renderer
+      // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
-      this.seq.delete(env.turnId);
+      this.renderState.delete(env.turnId);
+    }
+    if (!turnProcessed) return;
+    // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
+    // turn failure and must never nack (that would redeliver and rerun the whole
+    // turn). Log it and move on — the lease simply lapses and the transport may
+    // redeliver, but we never actively re-enqueue a completed turn.
+    try {
+      await this.requireSource().ack(env.deliveryId);
+    } catch (ackErr) {
+      this.opts.config?.log?.(
+        `intelligence ack failed for delivery ${env.deliveryId} after a successful turn; not nacking (turn already processed)`,
+        ackErr,
+      );
     }
   }
 
@@ -516,9 +585,67 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * renderer and discrete post/update so all of a turn's render frames land on
    * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
   private nextFrameSeq(turnId: string): number {
-    const seq = this.seq.get(turnId) ?? 0;
-    this.seq.set(turnId, seq + 1);
+    const state = this.renderState.get(turnId);
+    if (!state) {
+      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      return 0;
+    }
+    const seq = state.nextSeq;
+    state.nextSeq += 1;
     return seq;
+  }
+
+  /**
+   * Records the terminal state only after the render sink durably accepts a
+   * frame. A later post/update/file/delete after an agent-run finalize flips
+   * the turn back to non-terminal so dispatch emits one final finalize.
+   */
+  private recordAcceptedRenderEvent(
+    turnId: string,
+    event: ChannelRenderEvent,
+  ): void {
+    const state = this.renderState.get(turnId);
+    if (!state) return;
+    state.needsFinalize = event.kind !== "finalize";
+  }
+
+  /**
+   * Pushes one realtime frame immediately and records its accepted terminal
+   * state. Sequence allocation stays deterministic across delivery retries.
+   */
+  private async pushRenderFrame(
+    target: ChannelReplyTarget,
+    event: ChannelRenderEvent,
+  ): Promise<{ receipt: RenderAccepted; seq: number }> {
+    const seq = this.nextFrameSeq(target.turnId);
+    const receipt = await this.requireRenderSink().push({
+      deliveryId: target.deliveryId,
+      turnId: target.turnId,
+      slot: "main",
+      seq,
+      event,
+    });
+    this.recordAcceptedRenderEvent(target.turnId, event);
+    return { receipt, seq };
+  }
+
+  /**
+   * Closes a successfully handled delivery's realtime render lane when a
+   * discrete post/update/file/delete was its last accepted frame. Agent runs
+   * already finish themselves, so their terminal frame is not duplicated.
+   */
+  private async finalizeRenderedTurn(
+    env: ChannelIngressEnvelope,
+  ): Promise<void> {
+    if (!this.renderState.get(env.turnId)?.needsFinalize) return;
+    await this.pushRenderFrame(
+      {
+        route: env.route,
+        turnId: env.turnId,
+        deliveryId: env.deliveryId,
+      },
+      { kind: "finalize" },
+    );
   }
 
   private mintOp(target: ChannelReplyTarget, op: EgressOp): EgressOperation {
@@ -542,14 +669,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
-    const seq = this.nextFrameSeq(target.turnId);
-    const receipt = await this.requireRenderSink().push({
-      deliveryId: target.deliveryId,
-      turnId: target.turnId,
-      slot: "main",
-      seq,
-      event,
-    });
+    const { receipt, seq } = await this.pushRenderFrame(target, event);
     return {
       id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
       __route: target.route,
@@ -720,6 +840,22 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const acc = new Map<string, string>();
     const order: string[] = [];
     let interrupted = false;
+    // Flush any message that never received a text_end (interrupt / run_error
+    // path) so buffered partial output still reaches the channel, then reset the
+    // buffers. Shared by `finalize` and `run_error`.
+    const flushPending = async (): Promise<void> => {
+      for (const id of order) {
+        const txt = acc.get(id) ?? "";
+        if (txt.length > 0) {
+          await emit({
+            kind: "post",
+            ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
+          });
+        }
+      }
+      acc.clear();
+      order.length = 0;
+    };
     return {
       push: async (frame: RenderFrame): Promise<RenderAccepted> => {
         const e = frame.event;
@@ -738,22 +874,34 @@ export class IntelligenceAdapter implements PlatformAdapter {
           await emit({ kind: "post", ir: e.content });
         } else if (e.kind === "update") {
           await emit({ kind: "update", ref: e.ref, ir: e.content });
+        } else if (e.kind === "run_error") {
+          // On the realtime path this branch never runs (renderSinkFor returns
+          // the injected renderSink, and the Connector Outbox renders run_error
+          // live). Here, on the HTTP-fallback path, there is no Outbox: without
+          // this branch the error would be dropped, the run would resolve, and
+          // dispatch() would ack a text-less turn as success — the bot goes
+          // silent on every error with nothing logged (OSS-491 Finding 1).
+          //
+          // Surface it loudly: log the raw error for operators, flush any
+          // buffered partial text, then post a generic user-visible error. We
+          // post + log + ack (NOT nack): a run_error is frequently a
+          // deterministic agent failure (model error, tool crash), and the
+          // Channel path reprocesses redeliveries (skipIngressDedup), so nacking
+          // would livelock (redeliver → same failure → nack, forever). A genuine
+          // transient failure of the error POST itself still nacks, because
+          // `emit` throws on egress failure → the push chain rejects → drain()
+          // rejects → the delivery is nacked and retried.
+          this.opts.config?.log?.(
+            "intelligence run_error on HTTP-fallback render path",
+            e.message,
+          );
+          await flushPending();
+          await emit({ kind: "post", ir: textNode(RUN_ERROR_POST_TEXT) });
         } else if (e.kind === "finalize") {
-          // Flush any message that never received a text_end (interrupt path).
-          for (const id of order) {
-            const txt = acc.get(id) ?? "";
-            if (txt.length > 0) {
-              await emit({
-                kind: "post",
-                ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
-              });
-            }
-          }
-          acc.clear();
-          order.length = 0;
+          await flushPending();
         }
-        // run_started / tool_start / tool_end / run_error: no provider-visible
-        // effect in the plain-text fallback (the Outbox renders those live).
+        // run_started / tool_start / tool_end: no provider-visible effect in the
+        // plain-text fallback (the realtime Outbox renders those live).
         return {
           idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
           acceptance: "accepted",
@@ -780,6 +928,16 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
     let chain: Promise<void> = Promise.resolve();
     let pushError: unknown;
+    // OSS-648: time each push so the per-frame round-trip cost of this serial
+    // chain is measurable. This is the one point every frame passes through, so
+    // it covers the HTTP render-accept and realtime-gateway transports alike.
+    // Off (and not allocated) unless COPILOTKIT_CHANNELS_RENDER_METRICS is set.
+    const metrics = createRenderTurnMetrics({
+      mode: resolveRenderMetricsMode(this.readEnv()),
+      turnId: t.turnId,
+      deliveryId: t.deliveryId,
+      log: (message, meta) => this.diagnosticLog(message, meta),
+    });
 
     const enqueue = (event: ChannelRenderEvent): void => {
       const frame: RenderFrame = {
@@ -791,16 +949,30 @@ export class IntelligenceAdapter implements PlatformAdapter {
       };
       chain = chain.then(async () => {
         if (pushError !== undefined) return;
+        const pushStartedAt = metrics ? Date.now() : 0;
         try {
           await sink.push(frame);
+          this.recordAcceptedRenderEvent(t.turnId, event);
         } catch (err) {
           pushError = err;
+        } finally {
+          // Record failed pushes too: a push that blocked for seconds before
+          // throwing still spent that time on the wire, and hiding it would
+          // flatter the numbers this instrumentation exists to expose.
+          metrics?.recordPush(
+            event.kind,
+            pushStartedAt,
+            Date.now(),
+            event.kind === "text_delta" ? event.delta.length : 0,
+          );
         }
       });
     };
 
     const drain = async (): Promise<void> => {
       await chain;
+      // Summarize before rethrowing so a failed turn still reports its profile.
+      metrics?.finish();
       if (pushError !== undefined) {
         const err = pushError;
         throw err instanceof Error ? err : new Error(String(err));
@@ -880,6 +1052,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
       },
       onRunErrorEvent({ event }) {
         if (aborted) return;
+        // Ensure a run_started precedes the error frame even when the run fails
+        // before any text/tool event — parity with the text/tool handlers, so
+        // the frame stream is always a well-formed run lifecycle (OSS-491).
+        ensureRunStarted();
         enqueue({
           kind: "run_error",
           message: event.message ?? "unknown error",

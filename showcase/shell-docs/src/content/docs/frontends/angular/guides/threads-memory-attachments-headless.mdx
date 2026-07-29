@@ -238,8 +238,13 @@ Add error handling around `runAgent` in production and disable repeated sends
 while `isRunning()` is true. The store tears down its agent subscription with
 the owning injector.
 
+The runnable Showcase factors that flow into this signal-first controller:
+
+<AngularSnippet region="headless-chat-controller" />
+
 ## Next steps
 
+- [injectThreads API](/reference/angular/functions/injectThreads)
 - [injectAgentStore API](/reference/angular/functions/injectAgentStore)
 - [CopilotChat attachments input](/reference/angular/components/CopilotChat)
 - [Runnable headless example](/angular/features#headless-simple)

@@ -3,7 +3,8 @@
 import * as React from "react";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import * as ToastPrimitives from "@radix-ui/react-toast";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
@@ -31,8 +32,11 @@ const toastVariants = cva(
       variant: {
         default:
           "border bg-white text-neutral-950 dark:bg-neutral-950 dark:text-neutral-50",
+        // red-600 rather than red-500: near-white text on red-500 lands at
+        // ~4:1, under the 4.5:1 floor for body-size text. red-600 clears it
+        // while reading the same at a glance.
         destructive:
-          "destructive group border-red-500 bg-red-500 text-neutral-50 dark:border-red-900 dark:bg-red-900 dark:text-neutral-50",
+          "destructive group border-red-600 bg-red-600 text-neutral-50 dark:border-red-900 dark:bg-red-900 dark:text-neutral-50",
       },
     },
     defaultVariants: {

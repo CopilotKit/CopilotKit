@@ -1,9 +1,8 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
-import {
-  OpenAIChatCompletionsTextAdapter,
-  type OpenAIChatCompletionsProviderOptions,
-} from "@tanstack/ai-openai";
+import { openaiText } from "@tanstack/ai-openai";
 import { baseServerTools } from "./server-tools";
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
@@ -14,111 +13,209 @@ import { forwardingFetch } from "../header-forwarding";
 /**
  * Reasoning model used by all three reasoning demos.
  *
- * GPT-5.2 is a reasoning-capable variant; OpenAI's chat completions API
- * accepts the `reasoning_effort` parameter for it. If GPT-5.2 isn't
- * accessible in your environment swap to another reasoning-capable model
- * such as `o3` or `gpt-5-thinking`.
+ * GPT-5.2 is a reasoning-capable model exposed through OpenAI's *Responses*
+ * API, which streams a natural-language reasoning summary when asked with
+ * `reasoning: { effort, summary }`. Swap via the `REASONING_MODEL` env var to
+ * another Responses-API reasoning model (e.g. `o3`, `gpt-5-thinking`) if
+ * GPT-5.2 isn't accessible in your environment.
  */
 const REASONING_MODEL = process.env.REASONING_MODEL ?? "gpt-5.2";
 
 /**
- * Chat-completions adapter that surfaces the model's reasoning trace.
- *
- * Why a custom subclass instead of `openaiText`:
- *   - `openaiText` uses TanStack's OpenAI *Responses*-API adapter. On the
- *     reasoning path it emits the trace as `STEP_STARTED` / `STEP_FINISHED`
- *     (`stepType: "thinking"`) chunks. The `@copilotkit/runtime` tanstack
- *     converter only maps upstream `REASONING_*` chunks to AG-UI
- *     `REASONING_MESSAGE_*` events — it has no `STEP_*` handler — so the
- *     reasoning is silently dropped and the `<ReasoningBlock>` never mounts.
- *   - The base chat-completions adapter DOES emit the proper
- *     `REASONING_START` / `REASONING_MESSAGE_START` (role `"reasoning"`) /
- *     `REASONING_MESSAGE_CONTENT` lifecycle — but only when
- *     `extractReasoning()` returns text, and its default returns `undefined`
- *     because the vanilla OpenAI chat-completions chunk shape has no
- *     reasoning field.
- *
- * OpenAI's chat-completions streaming places reasoning on
- * `choices[0].delta.reasoning_content` (the same field aimock emits for the
- * reasoning fixtures). Overriding `extractReasoning` to read it makes the
- * adapter emit `REASONING_MESSAGE_*`, which the runtime converter forwards
- * to the frontend as AG-UI reasoning events.
+ * Reasoning effort for the summary. Must be `high`: at `low`/`medium`, real
+ * OpenAI (verified) frequently completes the turn WITHOUT emitting any
+ * reasoning summary part for short prompts, so the `<ReasoningBlock>` never
+ * mounts. `high` reliably streams `response.reasoning_summary_text.delta`
+ * events for the demo prompts.
  */
-/**
- * Provider options for the chat-completions reasoning path.
- *
- * TanStack's exported `OpenAIChatCompletionsProviderOptions` only models the
- * *Responses*-API reasoning shape (`reasoning: { effort, summary }`) and has
- * no flat `reasoning_effort` field. But `mapOptionsToRequest` spreads
- * `modelOptions` verbatim into the `/v1/chat/completions` body, where OpenAI
- * expects the flat scalar `reasoning_effort` — the nested `reasoning` object
- * is a Responses-API construct that chat-completions rejects/ignores. We
- * widen the provider-options type with the correct chat-completions field so
- * the body carries `reasoning_effort` and the literal type-checks.
- */
-type ReasoningProviderOptions = OpenAIChatCompletionsProviderOptions & {
-  reasoning_effort?: "minimal" | "low" | "medium" | "high";
-};
+const REASONING_EFFORT: "low" | "medium" | "high" =
+  (process.env.REASONING_EFFORT as "low" | "medium" | "high") ?? "high";
 
-class ReasoningChatCompletionsAdapter extends OpenAIChatCompletionsTextAdapter<
-  "gpt-5.2",
-  ReasoningProviderOptions
-> {
-  protected override extractReasoning(
-    chunk: unknown,
-  ): { text: string } | undefined {
-    const delta = (
-      chunk as {
-        choices?: Array<{
-          delta?: { reasoning_content?: string; reasoning?: string };
-        }>;
-      }
-    )?.choices?.[0]?.delta;
-    const text = delta?.reasoning_content ?? delta?.reasoning;
-    return text ? { text } : undefined;
+function randomUUID(): string {
+  return crypto.randomUUID();
+}
+
+/**
+ * Convert a TanStack AI (Responses-API) stream to AG-UI events, mapping the
+ * model's reasoning summary into AG-UI `REASONING_MESSAGE_*` events.
+ *
+ * Why this custom converter instead of `type: "tanstack"`:
+ *   - `openaiText` (TanStack's OpenAI *Responses*-API adapter) surfaces the
+ *     reasoning summary as `STEP_STARTED` (`stepType: "thinking"`) followed by
+ *     a run of `STEP_FINISHED` chunks that each carry a `delta` of summary
+ *     text — NOT as upstream `REASONING_*` chunks.
+ *   - The runtime's built-in `convertTanStackStream` only maps `REASONING_*`
+ *     chunks to AG-UI reasoning events; it has no `STEP_*` handler, so the
+ *     whole trace is silently dropped and `<ReasoningBlock>` never mounts.
+ *   - Chat-completions streaming (the previous approach) places reasoning on
+ *     `choices[0].delta.reasoning_content`, which real OpenAI does NOT emit
+ *     (only aimock did) — so that path produced no trace against a real key.
+ *
+ * This converter translates the thinking STEP chunks into a
+ * REASONING_START → REASONING_MESSAGE_START → REASONING_MESSAGE_CONTENT* →
+ * REASONING_MESSAGE_END → REASONING_END lifecycle, closes the reasoning block
+ * as soon as text or a tool call begins, and forwards text + tool-call events
+ * (de-duplicated across TanStack's multi-turn re-announcements, like
+ * tanstack-factory's converter).
+ */
+async function* convertReasoningStream(
+  stream: AsyncIterable<unknown>,
+  abortSignal: AbortSignal,
+): AsyncGenerator<BaseEvent> {
+  const messageId = randomUUID();
+  let reasoningMessageId = randomUUID();
+  let reasoningOpen = false;
+  const completedToolCalls = new Set<string>();
+
+  function* openReasoningIfNeeded(): Generator<BaseEvent> {
+    if (reasoningOpen) return;
+    reasoningOpen = true;
+    reasoningMessageId = randomUUID();
+    yield { type: EventType.REASONING_START, messageId: reasoningMessageId };
+    yield {
+      type: EventType.REASONING_MESSAGE_START,
+      messageId: reasoningMessageId,
+      role: "reasoning",
+    };
   }
-}
 
-function createReasoningAdapter() {
-  const apiKey = process.env.OPENAI_API_KEY ?? "";
-  // REASONING_MODEL is read from env (string); the adapter's generic is
-  // pinned to a concrete reasoning-capable chat model for typing.
-  return new ReasoningChatCompletionsAdapter(
-    { apiKey, fetch: forwardingFetch },
-    REASONING_MODEL as "gpt-5.2",
-  );
+  function* closeReasoningIfOpen(): Generator<BaseEvent> {
+    if (!reasoningOpen) return;
+    reasoningOpen = false;
+    yield {
+      type: EventType.REASONING_MESSAGE_END,
+      messageId: reasoningMessageId,
+    };
+    yield { type: EventType.REASONING_END, messageId: reasoningMessageId };
+  }
+
+  for await (const chunk of stream) {
+    if (abortSignal.aborted) break;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = chunk as any;
+    const type = raw.type as string;
+
+    if (type === "RUN_STARTED" || type === "RUN_FINISHED") continue;
+
+    if (type === "RUN_ERROR") {
+      throw new Error(
+        typeof raw.message === "string" ? raw.message : "TanStack AI run error",
+      );
+    }
+
+    // Reasoning summary: STEP_STARTED(stepType:"thinking") begins the trace;
+    // subsequent STEP_STARTED/STEP_FINISHED chunks carry summary text on
+    // `delta`. Only treat STEPs as reasoning while a thinking step is active.
+    if (type === "STEP_STARTED" || type === "STEP_FINISHED") {
+      const isThinking = raw.stepType === "thinking" || reasoningOpen;
+      if (isThinking) {
+        yield* openReasoningIfNeeded();
+        const delta = raw.delta;
+        if (typeof delta === "string" && delta.length > 0) {
+          yield {
+            type: EventType.REASONING_MESSAGE_CONTENT,
+            messageId: reasoningMessageId,
+            delta,
+          };
+        }
+      }
+      continue;
+    }
+
+    if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
+      yield* closeReasoningIfOpen();
+      if ((raw.delta as string).length === 0) continue;
+      yield {
+        type: EventType.TEXT_MESSAGE_CHUNK,
+        role: "assistant",
+        messageId,
+        delta: raw.delta as string,
+      };
+    } else if (type === "TOOL_CALL_START") {
+      const toolCallId = raw.toolCallId as string;
+      if (completedToolCalls.has(toolCallId)) continue;
+      yield* closeReasoningIfOpen();
+      yield {
+        type: EventType.TOOL_CALL_START,
+        parentMessageId: messageId,
+        toolCallId,
+        toolCallName: raw.toolCallName as string,
+      };
+    } else if (type === "TOOL_CALL_ARGS") {
+      const toolCallId = raw.toolCallId as string;
+      if (completedToolCalls.has(toolCallId)) continue;
+      yield {
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId,
+        delta: raw.delta as string,
+      };
+    } else if (type === "TOOL_CALL_END") {
+      const toolCallId = raw.toolCallId as string;
+      if (completedToolCalls.has(toolCallId)) continue;
+      completedToolCalls.add(toolCallId);
+      yield { type: EventType.TOOL_CALL_END, toolCallId };
+    } else if (type === "TOOL_CALL_RESULT") {
+      const toolCallId = raw.toolCallId as string;
+      const rawPayload = raw.content ?? raw.result;
+      let serializedContent: string;
+      if (typeof rawPayload === "string") {
+        serializedContent = rawPayload;
+      } else {
+        try {
+          serializedContent = JSON.stringify(rawPayload ?? null);
+        } catch {
+          serializedContent = "[Unserializable tool result]";
+        }
+      }
+      yield {
+        type: EventType.TOOL_CALL_RESULT,
+        role: "tool",
+        messageId: randomUUID(),
+        toolCallId,
+        content: serializedContent,
+      };
+    }
+  }
+
+  yield* closeReasoningIfOpen();
 }
 
 /**
- * Built-in agent for `reasoning-custom` — visible thinking chain
- * during normal conversation. Uses the shared server tools so the model
- * can interleave tool calls with reasoning naturally.
+ * Built-in agent for `reasoning-custom` — visible thinking chain during
+ * normal conversation. Uses the shared server tools so the model can
+ * interleave tool calls with reasoning naturally.
  */
 export function createAgenticChatReasoningAgent() {
   return new BuiltInAgent({
-    type: "tanstack",
+    // `custom` (not `tanstack`) so our converter can map the Responses-API
+    // thinking STEPs to REASONING_MESSAGE_* — the built-in tanstack converter
+    // drops STEP_* chunks.
+    type: "custom",
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
-      return chat({
-        adapter: createReasoningAdapter(),
+      const stream = chat({
+        adapter: openaiText(REASONING_MODEL as "gpt-5.2", {
+          fetch: forwardingFetch,
+        }),
         messages,
         systemPrompts,
         tools: [...baseServerTools],
         modelOptions: {
-          reasoning_effort: "low",
+          reasoning: { effort: REASONING_EFFORT, summary: "auto" },
         },
         abortController,
       });
+      return convertReasoningStream(stream, abortController.signal);
     },
   });
 }
 
 /**
- * Built-in agent for `reasoning-default` — same backend behaviour
- * as `reasoning-custom`; the demo's value is that the frontend
- * passes NO custom `reasoningMessage` slot, so CopilotKit's built-in
- * `CopilotChatReasoningMessage` renders the chain. Kept as its own
- * factory for clarity even though the body is identical today.
+ * Built-in agent for `reasoning-default` — same backend behaviour as
+ * `reasoning-custom`; the demo's value is that the frontend passes NO custom
+ * `reasoningMessage` slot, so CopilotKit's built-in
+ * `CopilotChatReasoningMessage` renders the chain.
  */
 export function createReasoningDefaultRenderAgent() {
   return createAgenticChatReasoningAgent();

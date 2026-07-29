@@ -1875,7 +1875,10 @@ export function buildBreadcrumbs(
         .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
-    crumbs.push({ label, href: isLast ? null : href });
+    const hasLandingPage =
+      (mdxFile && fs.existsSync(mdxFile)) ||
+      (indexFile && fs.existsSync(indexFile));
+    crumbs.push({ label, href: isLast || !hasLandingPage ? null : href });
   }
 
   return crumbs;

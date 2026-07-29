@@ -9,7 +9,7 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 
 ## The 30-second version
 
-- **OSS is enough for** building a working agentic React app with hooks, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
+- **OSS is enough for** building a working agentic application with framework-native APIs, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
 - **Enterprise Intelligence Platform adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, hosted inspection, and an admin console.
 - **Enterprise Intelligence Platform runs two ways** — as [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
 - **Your app code doesn't change** between OSS-only, cloud-hosted, and self-hosted. The boundary is a runtime config switch.
@@ -19,20 +19,26 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 | Agent chat, frontend tools, agent state, gen-UI | Yes | |
 | Any AG-UI integration (LangGraph, Mastra, Built-in, custom) | Yes | |
 | Conversation history that survives reloads / devices | | Yes |
-| `useThreads` + realtime sync across tabs / devices | | Yes |
+| Frontend thread API + realtime sync across tabs / devices | | Yes |
 | Hosted inspector, admin console, multi-tenancy | | Yes |
 | Hosted thread inspection and admin console | | Yes |
 
 ## What's in the open-source core
 
-Everything you need to build a working agentic React app, with no external service from CopilotKit:
+Everything you need to build a working agentic app, with no external service from CopilotKit:
 
-- **Frontend SDK** — `@copilotkit/react-core`, exporting both hooks (`useAgent`, `useFrontendTool`, `useAgentContext`, `useThreads`, etc.) and prebuilt components (`CopilotChat`, `CopilotSidebar`, `CopilotPopup`).
+<FrontendOnly frontend="react">
+- **Frontend SDK** — `@copilotkit/react-core`, exporting hooks and prebuilt components for chat, tools, state, threads, and generative UI.
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+- **Frontend SDK** — `@copilotkit/angular`, exporting standalone components, signal-based agent and thread APIs, typed tool registration, context, interrupts, and generative UI.
+</FrontendOnly>
 - **Runtime** — `@copilotkit/runtime`, the request handler that mounts in your application server. Framework-agnostic core plus thin adapters for Express, Hono, Bun, Deno, Cloudflare Workers.
 - **AG-UI protocol** — open standard for agent ↔ frontend communication. 16 standardized event types, transport-agnostic.
 - **Built-in Agent** — `BuiltInAgent` runs an in-process agent loop (OpenAI / Anthropic / Google / any AI-SDK model) without requiring an external framework.
 - **Integrations** — first-party adapters for LangGraph (Python / TypeScript / FastAPI), Mastra, CrewAI, Pydantic AI, Microsoft Agent Framework, AWS Strands, Google ADK, and others.
-- **Generative UI primitives** — tool rendering, state rendering, headless hooks, Slots-based theming.
+- **Generative UI primitives** — tool rendering, state rendering, headless APIs, and framework-native theming.
 
 Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
 
@@ -52,7 +58,7 @@ Same Enterprise Intelligence Platform — you pick where it runs:
 - **[Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
 - **Self-Hosted** installs the `copilot-intelligence` Helm chart into your own Kubernetes cluster. Pick this for data residency, on-prem requirements, or compliance control. You operate the workload (Postgres, Redis, ingress, OIDC, secret rotation); the chart and the same Enterprise Intelligence Platform image power the install.
 
-Application code doesn't change between cloud-hosted and self-hosted — same SDK, same runtime, same hooks. Just a different platform endpoint and credential set.
+Application code doesn't change between cloud-hosted and self-hosted — same frontend SDK and runtime APIs. Only the platform endpoint and credential set change.
 
 ## Where the boundary lives
 

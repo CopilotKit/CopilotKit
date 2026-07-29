@@ -1,24 +1,22 @@
 "use client";
 
-// Tool Rendering — REASONING CHAIN variant for built-in-agent.
+// Tool Rendering — REASONING CHAIN variant.
 //
-// Combines two patterns in a single cell:
-//   1. Reasoning tokens via a custom `reasoningMessage` slot — same
-//      approach as `reasoning-custom`.
+// A single cell that composes two previously-separate patterns:
+//
+//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
 //        *               → <CustomCatchallRenderer />
-//
-// Backed by the shared reasoning runtime
-// (`/api/copilotkit-reasoning`, agent `tool-rendering-reasoning-chain`)
-// using gpt-5.2 with `reasoning_effort: "low"`.
+//      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import {
   CopilotKit,
   CopilotChat,
-  CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
@@ -26,11 +24,11 @@ import {
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard, type Flight } from "./flight-list-card";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { FlightListCard } from "./flight-list-card";
+import type { Flight } from "./flight-list-card";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -46,19 +44,10 @@ interface FlightSearchResult {
   flights?: Flight[];
 }
 
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
-}
-
 export default function ToolRenderingReasoningChainDemo() {
   return (
     <CopilotKit
-      runtimeUrl="/api/copilotkit-reasoning"
+      runtimeUrl="/api/copilotkit"
       agent="tool-rendering-reasoning-chain"
     >
       <div className="flex justify-center items-center h-screen w-full">
@@ -133,14 +122,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
+      {
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
       {
         title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

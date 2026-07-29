@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
+    "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
     "dev": "next dev --port 3003",
-    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts && next build",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start -p 3003",
     "lint": "oxlint .",
     "pretest": "npm run pretypecheck",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pretypecheck": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
+    "pretypecheck": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

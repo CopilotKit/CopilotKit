@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -60,6 +61,16 @@ describe("d5-gen-ui-agent script", () => {
     expect(turns[0]!.input).toContain("Plan a product launch");
     expect(turns[1]!.input).toContain("team offsite");
     expect(turns[2]!.input).toContain("top competitor");
+    expect(
+      turns.every(
+        (turn) =>
+          JSON.stringify(turn.completeOnMount) ===
+          JSON.stringify({
+            testIds: ["agent-state-card"],
+            minNewMounts: 0,
+          }),
+      ),
+    ).toBe(true);
   });
 
   it("GEN_UI_AGENT_PILLS lists three tags with expected markers", () => {

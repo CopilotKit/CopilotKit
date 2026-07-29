@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   CopilotSidebar,
   useCopilotChatConfiguration,
@@ -10,22 +10,42 @@ import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
 import { IDENTITY } from "@/lib/identity";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
+import { useChatInbox } from "./chat-inbox-context";
+import { DemoSuggestionsView } from "./demo-suggestions";
 
-/** Docked panel width on desktop (px). Mobile falls back to full width.
+/** Conversation column width on desktop (px). Mobile falls back to full width.
  * Sized so the always-on suggestion pills flow two-per-row instead of
  * stacking into a single tall column. */
-const PANEL_WIDTH = 560;
+const PANEL_WIDTH = 480;
+/** Deliberately narrower than ChatGPT's own ~260px sidebar: here the rail is
+ * one of THREE columns competing with the banking app for width, and thread
+ * titles are short. 200px still fits "Over-Limit Pending Charges…" truncated
+ * without the rail dominating the viewport. */
+const RAIL_WIDTH = 200;
 
 /**
- * The docked chat experience: a right-side `CopilotSidebar` that pushes page
- * content aside (CopilotSidebarView manages the body margin) plus an
- * inbox-style conversation list that paints over the chat area.
+ * The docked chat experience, arranged like ChatGPT and docked to the LEFT:
+ *
+ *   [ thread rail 260 ][ conversation 480 ][ the banking app ]
+ *
+ * `CopilotSidebar` renders a `position="left"` fixed `<aside>` pinned to
+ * `left: 0` whose width comes from the `width` prop, and it pushes page content
+ * over by setting `document.body`'s `margin-inline-start` to that same width.
+ * So we hand it the width of BOTH columns (rail + conversation) and then inset
+ * its own contents past the rail with `--nw-rail-offset` (see the
+ * `[data-copilot-sidebar][data-position="left"]` rule in globals.css). The rail
+ * itself paints into the strip that inset frees up, as a sibling fixed at
+ * `left: 0`. Net effect: the thread list sits to the LEFT of the conversation
+ * (ChatGPT's arrangement) and the app starts after both.
+ *
+ * Collapsing the rail (header toggle) drops the sidebar back to just the
+ * conversation width, so the app reclaims that 260px instead of leaving a gap.
  *
  * Why `CopilotSidebar` directly (no license bypass): the OSS demo ships no
  * license token, so `CopilotKitProvider` wires `createLicenseContextValue(null)`
  * whose `checkFeature` returns `true` for every feature. `CopilotSidebar`'s
  * `checkFeature("sidebar")` therefore passes — no `InlineFeatureWarning` banner
- * and no console warning. Verified visually as well.
+ * and no console warning.
  *
  * `threadId` is threaded through to `CopilotSidebar` (which forwards it to the
  * underlying `CopilotChat`) so frontend-tool round-trips keep their thread
@@ -41,26 +61,33 @@ export function ChatPanel({ threadId }: { threadId: string }) {
   const configuration = useCopilotChatConfiguration();
   const panelOpen = configuration?.isModalOpen ?? false;
 
-  // Start the docked panel CLOSED for a clean dashboard first impression.
-  //
-  // `CopilotSidebar` accepts `defaultOpen={false}`, but it cannot win here: the
-  // v1 `CopilotKit` bridge (this app uses the v1 export) mounts its own
-  // top-level `CopilotChatConfigurationProvider` with `isModalDefaultOpen`
-  // hard-commented-out, so it defaults the modal OPEN (true) and that value
-  // cascades DOWN through every nested chat provider via their parent→child
-  // sync. There is no bridge prop to change that default, so we correct it once
-  // on mount. `ChatPanel` reads the wrapper-level provider, which has no
-  // explicit default and therefore delegates its setter to the bridge — so this
-  // one call flips the root closed and the change cascades to the sidebar. A ref
-  // guard makes it a one-time action; the floating toggle still opens the panel
-  // freely afterward, and `useLayoutEffect` runs before paint so it never
-  // flashes open.
+  const { isInboxOpen } = useChatInbox();
+  const railVisible = isInboxOpen && panelOpen;
+
+  // Inset the sidebar's own chrome past the rail. Driven by a CSS custom
+  // property rather than a className because the `<aside>` is created inside
+  // CopilotSidebarView and takes no consumer className.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty(
+      "--nw-rail-offset",
+      railVisible ? `${RAIL_WIDTH}px` : "0px",
+    );
+    return () => {
+      root.style.removeProperty("--nw-rail-offset");
+    };
+  }, [railVisible]);
+
+  // Start the docked panel OPEN so the copilot (and its suggestion bubbles) is
+  // front-and-center the moment the app loads. Force it once on mount via the
+  // configuration setter (the provider chain's default can be inconsistent); a
+  // ref guard keeps it one-time so the user can still close it freely after.
   const setModalOpen = configuration?.setModalOpen;
-  const didCloseRef = useRef(false);
+  const didInitRef = useRef(false);
   useLayoutEffect(() => {
-    if (didCloseRef.current) return;
-    didCloseRef.current = true;
-    setModalOpen?.(false);
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    setModalOpen?.(true);
   }, [setModalOpen]);
 
   return (
@@ -68,9 +95,9 @@ export function ChatPanel({ threadId }: { threadId: string }) {
       <CopilotSidebar
         agentId="default"
         threadId={threadId}
-        position="right"
-        width={PANEL_WIDTH}
-        defaultOpen={false}
+        position="left"
+        width={railVisible ? RAIL_WIDTH + PANEL_WIDTH : PANEL_WIDTH}
+        defaultOpen={true}
         // The `header` slot is typed as `SlotValue<typeof CopilotModalHeader>`,
         // which expects a component carrying CopilotModalHeader's namespace
         // statics (Title/CloseButton). A plain replacement component does not
@@ -78,6 +105,29 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         // own slot tests use for custom headers. `renderSlot` renders any
         // component reference at runtime.
         header={ChatPanelHeader as CopilotSidebarProps["header"]}
+        // Custom suggestion pills: same seven registered via
+        // useConfigureSuggestions, but this slot owns what each click does —
+        // #3 (change PIN) navigates to the app's own dialog instead of the
+        // agent, and #6 (Q2 report) rides a real PDF attachment so the model
+        // reads the invoice. The other five delegate to the framework's normal
+        // suggestion send. See demo-suggestions.tsx.
+        suggestionView={
+          DemoSuggestionsView as CopilotSidebarProps["suggestionView"]
+        }
+        // Multimodal attachments: officers can drop a PDF (e.g. a vendor
+        // invoice) or an image into the composer. With no custom onUpload the
+        // built-in handler base64-encodes the file and sends it as a document
+        // part on the message, so gpt-5.4 can read it — e.g. "prep the Q2
+        // report" then augments the report with the uploaded invoice's figures.
+        attachments={{
+          enabled: true,
+          accept: "application/pdf,image/*",
+          maxSize: 20 * 1024 * 1024,
+        }}
+        // Drop the "AI can make mistakes…" line under the composer. A plain
+        // object in a slot position is treated as a props override by
+        // renderSlot, so this reaches CopilotChatInput's own showDisclaimer.
+        input={{ showDisclaimer: false }}
         labels={{
           modalHeaderTitle: IDENTITY.assistant,
           welcomeMessageText: IDENTITY.greeting,
@@ -87,7 +137,7 @@ export function ChatPanel({ threadId }: { threadId: string }) {
         panelOpen={panelOpen}
         showArchived={showArchived}
         onShowArchivedChange={setShowArchived}
-        width={PANEL_WIDTH}
+        width={RAIL_WIDTH}
       />
     </>
   );

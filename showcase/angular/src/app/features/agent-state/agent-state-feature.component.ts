@@ -8,7 +8,7 @@ import {
 import { ActivatedRoute } from "@angular/router";
 import { injectAgentStore, registerRenderToolCall } from "@copilotkit/angular";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import {
@@ -100,9 +100,10 @@ export class AgentStateFeatureComponent {
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ??
     "gen-ui-agent";
-  private readonly agentId = agentIdForRoute(this.feature, this.route);
+  private readonly agentId = agentIdForCurrentIntegration(this.feature);
   protected readonly plannerTranscriptChildren =
     AgentStateTranscriptChildrenComponent;
+  // @region[subagent-delegation-state]
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly delegations = computed(() =>
     readDelegations(this.agentStore().state()),
@@ -119,4 +120,5 @@ export class AgentStateFeatureComponent {
   private registerSubAgent(name: SubAgentName): void {
     registerRenderToolCall(subAgentRendererConfig(name));
   }
+  // @endregion[subagent-delegation-state]
 }

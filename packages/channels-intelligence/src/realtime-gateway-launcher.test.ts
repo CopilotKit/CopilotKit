@@ -76,8 +76,26 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
   throw new Error("waitFor: condition not met within the poll window");
 }
 
+/** Read the semantic render kind from a recorded gateway push. */
+function renderKind(push: { event: string; payload: unknown }) {
+  if (push.event !== "channel.render_event.v1") return undefined;
+  if (!isObject(push.payload) || !isObject(push.payload.payload)) {
+    return undefined;
+  }
+  const event = push.payload.payload.event;
+  return isObject(event) && typeof event.kind === "string"
+    ? event.kind
+    : undefined;
+}
+
+function isObject(value: unknown): value is {
+  readonly [key: string]: unknown;
+} {
+  return value !== null && typeof value === "object";
+}
+
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
-  it("runs a delivered turn end-to-end: handler → render frame → completion intent, never self-ack", async () => {
+  it("finalizes a direct post before requesting completion and never self-acks", async () => {
     const fake = makeFakeSession();
     let ran = false;
     const bot = createChannel({
@@ -103,10 +121,79 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
     );
 
     const events = fake.pushes.map((p) => p.event);
+    const renderKinds = fake.pushes
+      .filter((p) => p.event === "channel.render_event.v1")
+      .map(renderKind);
     expect(ran).toBe(true); // the Channel handler ran off a gateway-delivered turn
-    expect(events).toContain("channel.render_event.v1"); // rendered over the gateway session
+    expect(renderKinds).toEqual(["post", "finalize"]); // every rendered delivery has a terminal frame
     expect(events).toContain("channel.delivery.complete_requested.v1"); // completion INTENT
     expect(events).not.toContain("channel.delivery.ack.v1"); // SDK never commits the ack
+    expect(
+      fake.pushes.findIndex((p) => renderKind(p) === "finalize"),
+    ).toBeLessThan(
+      fake.pushes.findIndex(
+        (p) => p.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    await handle.stop();
+  });
+
+  it("finalizes an output-free turn so completion has an accepted pointer", async () => {
+    const fake = makeFakeSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (push) => push.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual(["finalize"]);
+
+    await handle.stop();
+  });
+
+  it("adds one trailing finalize when a direct post follows an agent finalize", async () => {
+    const fake = makeFakeSession();
+    const bot = createChannel({
+      name: "opentag",
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+      await thread.post(Section({ children: "after run" }));
+    });
+
+    const handle = await startChannelsWithGatewaySession([bot], {
+      session: fake.session,
+      scope,
+      runtimeInstanceId: "rti_1",
+    });
+
+    deliverText(fake.handlers);
+    await waitFor(() =>
+      fake.pushes.some(
+        (push) => push.event === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    expect(fake.pushes.map(renderKind).filter(Boolean)).toEqual([
+      "finalize",
+      "post",
+      "finalize",
+    ]);
 
     await handle.stop();
   });
@@ -159,7 +246,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope: { ...scope, channelId: "bot_1" },
         runtimeInstanceId: "rti_1",
@@ -185,7 +272,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -211,7 +298,7 @@ describe("startChannelsOverRealtimeGateway — fail-fast validation (OSS-406)", 
 
     await expect(
       startChannelsOverRealtimeGateway([a, b], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -406,7 +493,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -428,7 +515,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -459,7 +546,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
 
     await expect(
       startChannelsOverRealtimeGateway([bot], {
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         scope,
         runtimeInstanceId: "rti_1",
@@ -484,7 +571,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       scope,
       runtimeInstanceId: "rti_1",
@@ -512,7 +599,7 @@ describe("startChannelsOverRealtimeGateway — onClose drop notification (OSS-47
     });
 
     const handle = await startChannelsOverRealtimeGateway([bot], {
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       scope,
       runtimeInstanceId: "rti_1",

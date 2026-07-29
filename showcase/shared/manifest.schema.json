@@ -223,6 +223,11 @@
       ],
       "description": "Implementation pattern used by this integration for the `auth` feature. Set only when the feature is wired. `langgraph` = LangGraph Platform `@auth.authenticate` decorator OR self-hosted `langgraph_config['configurable']` (frontend uses `properties.authorization`); `ag2-context-variables` = AG2 backend reads the Authorization header on `/chat` and threads ContextVariables to tools (frontend uses `properties.authorization`); `microsoft-agent-framework` = ASP.NET Core JwtBearer or FastAPI middleware (frontend uses `headers={{Authorization}}`); `runtime-onrequest` = generic V2 runtime `onRequest` hook validates the Bearer header injected by `<CopilotKit headers={{Authorization}}>`. Consumed by docs `<WhenFrameworkHas>`."
     },
+    "voice_backend_pattern": {
+      "type": ["string", "null"],
+      "enum": ["adk-fastapi-agent-path", null],
+      "description": "Implementation pattern used by this integration for the `voice` feature. Set only when docs need framework-specific prose about the backend voice endpoint. `adk-fastapi-agent-path` = the Next.js voice runtime forwards agent runs to an ADK FastAPI endpoint mounted from the agent name. Consumed by docs `<WhenFrameworkHas>`."
+    },
     "starter": {
       "type": "object",
       "properties": {

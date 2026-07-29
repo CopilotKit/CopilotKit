@@ -73,11 +73,22 @@ export interface OpsPlatformCTAProps {
   href?: string;
   /** PostHog event captured on click. Defaults to the Enterprise Intelligence signup event. */
   analyticsEvent?: OpsPlatformCTAAnalyticsEvent;
+  /** Frontend selected by the docs route. Included in outbound and PostHog attribution. */
+  frontend?: string;
+  /** Agent backend selected by the docs route, when one is active. */
+  backend?: string;
+  /** Originating docs path. Server-rendered pages inject this explicitly. */
+  fromPath?: string;
   /** Optional className override for the outermost element */
   className?: string;
 }
 
-function buildHref(surface: string, hrefOverride?: string): string {
+function buildHref(
+  surface: string,
+  hrefOverride?: string,
+  frontend?: string,
+  backend?: string,
+): string {
   // Signup URL is read at render time from the runtime config injected
   // by the root layout — see signup-link.tsx and lib/runtime-config.ts
   // for the full plumbing rationale. Keeps a single artifact retargetable
@@ -90,6 +101,8 @@ function buildHref(surface: string, hrefOverride?: string): string {
   url.searchParams.set("utm_medium", "cta");
   url.searchParams.set("utm_campaign", "intelligence");
   url.searchParams.set("utm_content", surface);
+  if (frontend) url.searchParams.set("utm_frontend", frontend);
+  if (backend) url.searchParams.set("utm_backend", backend);
   return url.toString();
 }
 
@@ -101,16 +114,24 @@ export function OpsPlatformCTA({
   ctaLabel = "Get Enterprise Intelligence free",
   href: hrefOverride,
   analyticsEvent = "try_for_free_clicked",
+  frontend,
+  backend,
+  fromPath,
   className,
 }: OpsPlatformCTAProps) {
-  const href = buildHref(surface, hrefOverride);
+  const href = buildHref(surface, hrefOverride, frontend, backend);
   const handleClick = useCallback(() => {
     try {
-      posthog.capture(analyticsEvent, { location: surface });
+      posthog.capture(analyticsEvent, {
+        location: surface,
+        frontend,
+        backend,
+        from_path: fromPath,
+      });
     } catch {
       // PostHog may be blocked by ad blockers; navigation should still work.
     }
-  }, [analyticsEvent, surface]);
+  }, [analyticsEvent, backend, frontend, fromPath, surface]);
 
   if (variant === "info") {
     return (

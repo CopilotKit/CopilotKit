@@ -8,9 +8,12 @@ import {
   firstStrikeConfig,
   D4_FIRST_STRIKE_THRESHOLD,
   classifyRung,
-  type RawRung,
-  type RungKind,
-  type ContributionKind,
+  foldFamily,
+} from "./cell-model.contribution.js";
+import type {
+  RawRung,
+  RungKind,
+  ContributionKind,
 } from "./cell-model.contribution.js";
 import { E2E_STALE_AFTER_MS, FUTURE_SKEW_TOLERANCE_MS } from "./staleness.js";
 
@@ -50,7 +53,6 @@ function raw(
     rows,
     mapped: opts.mapped ?? true,
     anyExpectedMissing: opts.anyExpectedMissing ?? false,
-    signalKnown: opts.signalKnown ?? true,
   };
 }
 
@@ -178,13 +180,60 @@ describe("classifyRung — §3 rules", () => {
     ).toBe("INFRA_RED_FRESH");
   });
 
-  it("red with stripped signal → NO_DATA, never product-red (rule 4 / §D)", () => {
+  // FAIL-SAFE POLARITY. This used to assert NO_DATA — a genuinely-failing rung
+  // was reported as "no data" (gray) whenever the bulk projection had stripped
+  // `signal`, because infra-ness could not be determined. That hid ~94% of real
+  // reds to suppress ~6% infra false alarms, for up to a full probe period (~60
+  // min for the hourly writers) on every load. Graying now requires POSITIVE
+  // infra evidence; a stripped blob is the absence of evidence, so the red
+  // survives.
+  //
+  // The 94/6 split is a MEASURED SNAPSHOT, not a constant: 336 product-class vs
+  // 21 infra-class of 357 `state = "red"` production rows on 2026-07-24,
+  // partitioned by `signalHasInfraErrorClass`. Query and caveats are recorded at
+  // the fail-safe-polarity note in `cell-model.contribution.ts`; the polarity
+  // argument only needs product reds to outnumber infra reds.
+  it("red with stripped signal → FAIL_FRESH, never grayed away (rule 4 / §D)", () => {
+    expect(
+      classifyRung(raw("D3", [row("red", { signal: undefined })]), NOW)
+        .contribution,
+    ).toBe("FAIL_FRESH");
+  });
+
+  // The other half of the polarity: a stripped `signal` must not let an
+  // otherwise-infra red be grayed either. `signalHasInfraErrorClass` already
+  // returns false for a missing blob, and `redSignalKnown` is a second explicit
+  // precondition on the INFRA_RED_FRESH branch, so the two cannot disagree.
+  it("stripped signal never reaches INFRA_RED_FRESH even with an infra sibling", () => {
     expect(
       classifyRung(
-        raw("D3", [row("red", { signal: undefined })], { signalKnown: false }),
+        raw("D3", [
+          row("red", { signal: { errorClass: "driver-error" } }),
+          row("red", { signal: undefined }),
+        ]),
         NOW,
       ).contribution,
-    ).toBe("NO_DATA");
+    ).toBe("FAIL_FRESH");
+  });
+
+  // §D SCOPE. The gray precondition is about the RED rows' provenance ONLY. A
+  // GREEN sibling whose `signal` the cold-load projection stripped says nothing
+  // about the red row's attribution, and must not suppress the gray — the
+  // supplemental fetch covers `state != "green"`, so this mixed shape is what
+  // EVERY multi-row family looks like in the browser on first paint.
+  it("a projected-away GREEN sibling does not block the infra gray (red-row scope)", () => {
+    const contribution = classifyRung(
+      raw("D4", [
+        row("green", { signal: undefined }),
+        row("red", {
+          signal: { errorClass: "driver-error" },
+          failCount: 2, // ≥ D4 first-strike threshold: amber is not the answer
+        }),
+      ]),
+      NOW,
+    ).contribution;
+    expect(contribution).toBe("INFRA_RED_FRESH");
+    expect(contributionToColor(contribution)).toBe("gray");
   });
 
   it("anyExpectedMissing + green fold → NO_DATA (strict collapse)", () => {
@@ -334,5 +383,66 @@ describe("classifyRung — §3 rules", () => {
     const c = classifyRung(raw("starter", [soft5, soft1]), NOW);
     expect(c.contribution).toBe("FAIL_FRESH");
     expect(contributionToColor(c.contribution)).toBe("red");
+  });
+});
+
+// ── `redSignalKnown` is RED-ROW-scoped ───────────────────────────────────────
+// The infra-gray precondition guards evidence read off the RED rows, so it must
+// be answerable only by those rows. `classifyRung` cannot cover this on its own:
+// `signalHasInfraErrorClass(undefined)` is already false, so today
+// `!hasNonInfraRed` implies `redSignalKnown` and the conjunct has no observable
+// effect through the classifier. The flag is nonetheless the explicit
+// masks-real-red precondition, so its SCOPE is pinned here, directly on the fold
+// — otherwise a family-wide reading could be reintroduced with the whole suite
+// staying green, which is exactly how the previous scope bug shipped.
+describe("foldFamily — `redSignalKnown` scope", () => {
+  const W = E2E_STALE_AFTER_MS;
+
+  it("is TRUE when only a GREEN sibling was projected away (green rows are irrelevant)", () => {
+    const fold = foldFamily(
+      [
+        row("green", { signal: undefined }),
+        row("red", { signal: { errorClass: "driver-error" } }),
+      ],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(true);
+    expect(fold.hasNonInfraRed).toBe(false);
+  });
+
+  it("is FALSE when a RED row was projected away", () => {
+    const fold = foldFamily(
+      [row("green"), row("red", { signal: undefined })],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(false);
+  });
+
+  it("is FALSE when ANY of several red rows was projected away", () => {
+    const fold = foldFamily(
+      [
+        row("red", { signal: { errorClass: "driver-error" } }),
+        row("red", { signal: undefined }),
+      ],
+      W,
+      NOW,
+    );
+    expect(fold.redSignalKnown).toBe(false);
+  });
+
+  it("is vacuously TRUE for a family with no red rows at all", () => {
+    expect(
+      foldFamily([row("green", { signal: undefined })], W, NOW).redSignalKnown,
+    ).toBe(true);
+  });
+
+  it("a `null` signal on a red row is DELIVERED, not projected away", () => {
+    // PB omits the key only under a `fields=` projection; a genuinely
+    // signal-less row arrives as `null`. `null !== undefined`.
+    expect(
+      foldFamily([row("red", { signal: null })], W, NOW).redSignalKnown,
+    ).toBe(true);
   });
 });

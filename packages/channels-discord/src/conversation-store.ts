@@ -30,6 +30,8 @@ export interface DiscordHistoryMessage {
  * message is part of the reconstructed history, so the app passes NO prompt.
  */
 export class DiscordConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
+
   constructor(
     private deps: {
       /** Channel history, OLDEST→NEWEST. */

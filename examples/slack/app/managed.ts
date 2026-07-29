@@ -13,10 +13,10 @@
  * IDENTICAL to the native bot; only the transport changes. Instead of a
  * launcher, the managed path now goes through the NORMAL runtime handler: you
  * hand your `createChannel(...)` to `new CopilotRuntime({ …, channels })` and
- * mount it with `createCopilotNodeListener`. Creating the listener activates
- * the managed Channel (the runtime derives every infra id — project, adapter,
- * channel — from the Intelligence config + the channel `name`, so the developer
- * supplies NONE of them):
+ * mount it with `createCopilotNodeListener`, then `await
+ * listener.channels.ready()` to activate the managed Channel (the runtime
+ * derives every infra id — project, adapter, channel — from the Intelligence
+ * config + the channel `name`, so the developer supplies NONE of them):
  *
  *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })   // index.ts
  *   managed:  new CopilotRuntime({ intelligence, identifyUser, channels })     // this file
@@ -50,14 +50,6 @@ const required = (name: string): string => {
   }
   return v;
 };
-
-/**
- * Derive the Intelligence websocket base URL from the API base URL when it
- * isn't set explicitly: `http(s)://…` → `ws(s)://…`. The runner + client socket
- * URLs are derived from this by the client.
- */
-const deriveWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
 
 /**
  * The managed Channel `name` is chosen HERE, in code — it is the project-unique
@@ -133,10 +125,13 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  const apiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL ?? deriveWsUrl(apiUrl),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 
@@ -151,27 +146,26 @@ async function main() {
     channels: [support],
   });
 
-  // Mounting the NORMAL handler is what starts the managed Channel: the Node
-  // listener creates the runtime handler (which activates the Channel over the
-  // Intelligence transport) and exposes `.channels` for shutdown. There is no
-  // public Slack ingress on this port — Intelligence owns the Slack edge — but
-  // the server keeps the lifecycle-owning process alive.
+  // The NORMAL handler is what runs the managed Channel: the Node listener
+  // creates the runtime handler and exposes `.channels` for activation +
+  // shutdown. Mounting it opens NO connection — `ready()` below activates the
+  // Channel over the Intelligence transport. There is no public Slack ingress on
+  // this port — Intelligence owns the Slack edge — but the server keeps the
+  // lifecycle-owning process alive.
   const listener = createCopilotNodeListener({
     runtime,
     basePath: "/api/copilotkit",
   });
   const port = Number(process.env.PORT ?? 8300);
   createServer(listener).listen(port, () => {
-    console.log(
-      `[channel] started managed Channel "${channelName}" (listener on :${port})`,
-    );
+    console.log(`[channel] listener on :${port}`);
   });
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
     let exitCode = 0;
     try {
-      await listener.channels?.stop();
+      await listener.channels.stop();
     } catch (err) {
       console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;
@@ -193,8 +187,16 @@ async function main() {
       process.exit(1);
     });
   };
+  // Registered BEFORE activation on purpose: `ready()` below can take up to its
+  // timeout, and a Ctrl-C inside that window must still tear the Channel down
+  // rather than hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
+
+  // Required: this is the call that connects the managed Channel to the Realtime
+  // Gateway. Bound it so a wedged connect can't hang startup forever.
+  await listener.channels.ready({ timeoutMs: 30_000 });
+  console.log(`[channel] started managed Channel "${channelName}"`);
 }
 
 // Fail loud, not silent: surface any stray async error instead of letting it

@@ -23,8 +23,6 @@ using System.ClientModel;
 // to book a call or schedule a meeting.
 public sealed class InterruptAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly IConfiguration _configuration;
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
@@ -38,21 +36,13 @@ public sealed class InterruptAgentFactory
         _logger = loggerFactory.CreateLogger<InterruptAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = _configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(_configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
-        _logger.LogInformation(
-            "InterruptAgentFactory using OpenAI endpoint: {Endpoint} (from OPENAI_BASE_URL: {HasEnv})",
-            endpoint,
-            !string.IsNullOrEmpty(endpointEnv));
+        var endpoint = ApiKeyResolver.ResolveEndpoint(_configuration);
+        _logger.LogInformation("InterruptAgentFactory using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -67,7 +57,7 @@ public sealed class InterruptAgentFactory
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "InterruptAgent",
-            description: @"You are a scheduling assistant. Whenever the user asks you to book a call
+            instructions: @"You are a scheduling assistant. Whenever the user asks you to book a call
 or schedule a meeting, you MUST call the `schedule_meeting` tool. Pass a short `topic`
 describing the purpose and `attendee` describing who the meeting is with. After the tool
 returns, confirm briefly whether the meeting was scheduled and at what time, or that the

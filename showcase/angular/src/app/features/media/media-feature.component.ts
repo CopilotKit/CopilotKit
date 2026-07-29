@@ -18,7 +18,7 @@ import {
 } from "@copilotkit/angular";
 import { z } from "zod";
 
-import { agentIdForRoute } from "../../feature-agent";
+import { agentIdForCurrentIntegration } from "../../feature-agent";
 import { FeatureHeaderComponent } from "../feature-header.component";
 import { ShowcaseChatHostComponent } from "../showcase-chat-host.component";
 import { WeatherToolCard } from "../tools/tool-cards";
@@ -36,6 +36,7 @@ const VOICE_SAMPLE_TEXT = "What is the weather in Tokyo?";
 type VoiceWeatherArgs = Record<string, unknown>;
 
 /** Exact backend weather tools rendered by the voice demo. */
+// @region[voice-tool-renderers]
 export const voiceWeatherRendererConfigs: readonly RenderToolCallConfig<VoiceWeatherArgs>[] =
   VOICE_WEATHER_TOOL_NAMES.map((name) => ({
     name,
@@ -43,6 +44,7 @@ export const voiceWeatherRendererConfigs: readonly RenderToolCallConfig<VoiceWea
     component:
       WeatherToolCard as unknown as RenderToolCallConfig<VoiceWeatherArgs>["component"],
   }));
+// @endregion[voice-tool-renderers]
 
 const SAMPLES: readonly SampleSpec[] = [
   {
@@ -63,11 +65,13 @@ const SAMPLES: readonly SampleSpec[] = [
   },
 ];
 
+// @region[multimodal-attachments]
 const MULTIMODAL_ATTACHMENTS: AttachmentsConfig = {
   enabled: true,
   accept: "image/*,application/pdf",
   maxSize: 10 * 1024 * 1024,
 };
+// @endregion[multimodal-attachments]
 
 @Component({
   selector: "showcase-media-feature",
@@ -205,7 +209,7 @@ export class MediaFeatureComponent {
   private readonly chatHost = viewChild.required(ShowcaseChatHostComponent);
   protected readonly feature =
     (this.route.snapshot.data["feature"] as string | undefined) ?? "voice";
-  protected readonly agentId = agentIdForRoute(this.feature, this.route);
+  protected readonly agentId = agentIdForCurrentIntegration(this.feature);
   private readonly agentStore = injectAgentStore(this.agentId);
   protected readonly voiceSampleText = VOICE_SAMPLE_TEXT;
   protected readonly samples = SAMPLES;
