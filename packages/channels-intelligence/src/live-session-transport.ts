@@ -19,6 +19,7 @@ const DELIVERY_EVENT = "channel.delivery.v1";
 const EFFECT_EVENT = "channel.effect.v1";
 const RUN_OPEN_EVENT = "channel.run.open.v1";
 const RUN_CLOSE_EVENT = "channel.run.close.v1";
+const RUN_CANCEL_EVENT = "channel.run.cancel.v1";
 const COMPLETE_EVENT = "channel.delivery.complete.v1";
 const FAIL_EVENT = "channel.delivery.fail.v1";
 const HEARTBEAT_EVENT = "channel.session.heartbeat.v1";
@@ -82,6 +83,8 @@ export interface LiveSessionRun {
   runId: string;
   runnerToken: string;
   runnerTokenExpiresAt: string;
+  /** Aborts when Gateway cancels this exact delivery/call pair. */
+  abortSignal: AbortSignal;
 }
 
 type ProviderEffectInput = ChannelProviderEffect extends infer Effect
@@ -95,6 +98,7 @@ export class LiveDeliverySession {
   private nextSeq = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private readonly heartbeat: ReturnType<typeof setInterval>;
+  private readonly runAbortControllers = new Map<string, AbortController>();
 
   constructor(
     readonly delivery: LiveSessionDelivery,
@@ -103,6 +107,12 @@ export class LiveDeliverySession {
     private readonly files?: LiveSessionFileClient,
     heartbeatIntervalMs = HEARTBEAT_INTERVAL_MS,
   ) {
+    this.channel.on(RUN_CANCEL_EVENT, (value) => {
+      if (!isRunCancellation(value, this.delivery.deliveryId)) return;
+      this.runAbortControllers
+        .get(value.callId)
+        ?.abort("gateway_drain_timeout");
+    });
     this.heartbeat = setInterval(() => {
       void this.channel
         .push(HEARTBEAT_EVENT, { protocol: CHANNEL_SESSION_PROTOCOL })
@@ -169,23 +179,33 @@ export class LiveDeliverySession {
   }
 
   /** Open one standard AgentRunner invocation within this delivery. */
-  openRun(args: {
+  async openRun(args: {
     callId: string;
     responseId: string;
     agentId: string;
   }): Promise<LiveSessionRun> {
-    return this.channel.push(RUN_OPEN_EVENT, {
-      protocol: CHANNEL_SESSION_PROTOCOL,
-      deliveryId: this.delivery.deliveryId,
-      runtimeInstanceId: this.runtimeInstanceId,
-      ...args,
-    }) as Promise<LiveSessionRun>;
+    const controller = new AbortController();
+    this.runAbortControllers.set(args.callId, controller);
+
+    try {
+      const opened = (await this.channel.push(RUN_OPEN_EVENT, {
+        protocol: CHANNEL_SESSION_PROTOCOL,
+        deliveryId: this.delivery.deliveryId,
+        runtimeInstanceId: this.runtimeInstanceId,
+        ...args,
+      })) as Omit<LiveSessionRun, "abortSignal">;
+      return { ...opened, abortSignal: controller.signal };
+    } catch (error) {
+      this.runAbortControllers.delete(args.callId);
+      throw error;
+    }
   }
 
   /** Close the active standard AgentRunner invocation. */
   async closeRun(callId: string, status: "complete" | "failed"): Promise<void> {
     await this.tail;
     await this.channel.push(RUN_CLOSE_EVENT, { callId, status });
+    this.runAbortControllers.delete(callId);
   }
 
   /** Mark a handled delivery complete, including a direct-only handler. */
@@ -356,5 +376,24 @@ function isLiveSessionDelivery(value: unknown): value is LiveSessionDelivery {
     (delivery.adapter === "slack" || delivery.adapter === "teams") &&
     typeof delivery.turn === "object" &&
     delivery.turn !== null
+  );
+}
+
+function isRunCancellation(
+  value: unknown,
+  deliveryId: string,
+): value is {
+  protocol: typeof CHANNEL_SESSION_PROTOCOL;
+  deliveryId: string;
+  callId: string;
+  reason: "gateway_drain_timeout";
+} {
+  if (typeof value !== "object" || value === null) return false;
+  const cancellation = value as Record<string, unknown>;
+  return (
+    cancellation.protocol === CHANNEL_SESSION_PROTOCOL &&
+    cancellation.deliveryId === deliveryId &&
+    typeof cancellation.callId === "string" &&
+    cancellation.reason === "gateway_drain_timeout"
   );
 }

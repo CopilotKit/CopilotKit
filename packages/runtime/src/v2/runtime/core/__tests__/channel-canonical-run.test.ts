@@ -2,7 +2,7 @@ import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentSubscriber, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { createChannel } from "@copilotkit/channels";
 import { EMPTY, Observable, of, throwError } from "rxjs";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { AgentRunner } from "../../runner/agent-runner";
 import type {
@@ -35,6 +35,9 @@ class TestRunner extends AgentRunner {
     private readonly runFactory: (
       request: AgentRunnerRunRequest,
     ) => Observable<BaseEvent>,
+    private readonly stopRun: (
+      request: AgentRunnerStopRequest,
+    ) => Promise<boolean> = async () => false,
   ) {
     super();
   }
@@ -51,8 +54,8 @@ class TestRunner extends AgentRunner {
     return Promise.resolve(false);
   }
 
-  stop(_request: AgentRunnerStopRequest): Promise<boolean> {
-    return Promise.resolve(false);
+  stop(request: AgentRunnerStopRequest): Promise<boolean> {
+    return this.stopRun(request);
   }
 }
 
@@ -100,11 +103,13 @@ function runArgs(
     iterations: 1,
     interrupted: false,
   }),
+  abortSignal: AbortSignal = new AbortController().signal,
 ): Parameters<RunCanonical>[0] {
   return {
     agent: new NoopAgent(),
     ...canonicalIdentity,
     runnerToken: "runner-token",
+    abortSignal,
     tools: [],
     context: [],
     persistedInputMessages: [],
@@ -155,6 +160,50 @@ test("runCanonical passes canonical identity into the outer Channel loop", async
   expect(observedIdentity).toEqual(canonicalIdentity);
 });
 
+test("runCanonical stops and aborts only the signaled canonical runner", async () => {
+  const controller = new AbortController();
+  const inner = new NoopAgent();
+  const abortRun = vi.spyOn(inner, "abortRun");
+  let activeRequest: AgentRunnerRunRequest | undefined;
+  let completeRun: (() => void) | undefined;
+  const stopRun = vi.fn(async (request: AgentRunnerStopRequest) => {
+    if (request.threadId !== activeRequest?.threadId) return false;
+    activeRequest.agent.abortRun();
+    completeRun?.();
+    return true;
+  });
+  const runner = new TestRunner(
+    (request) =>
+      new Observable<BaseEvent>((observer) => {
+        activeRequest = request;
+        completeRun = () => observer.complete();
+      }),
+    stopRun,
+  );
+  const runCanonical = await captureRunCanonical(runner);
+  const running = runCanonical({
+    ...runArgs(undefined, controller.signal),
+    agent: inner,
+  });
+  const cancelled = expect(running).rejects.toThrow("gateway_drain_timeout");
+
+  await vi.waitFor(() => expect(activeRequest).toBeDefined());
+  controller.abort("gateway_drain_timeout");
+
+  try {
+    await vi.waitFor(() =>
+      expect(stopRun).toHaveBeenCalledWith({
+        threadId: canonicalIdentity.threadId,
+      }),
+    );
+    await cancelled;
+    expect(abortRun).toHaveBeenCalledOnce();
+  } finally {
+    completeRun?.();
+    await running.catch(() => undefined);
+  }
+});
+
 test("runCanonical rejects a runner join failure", async () => {
   const runner = new TestRunner(() =>
     throwError(() => new Error("runner join failed")),
@@ -176,6 +225,7 @@ test("runCanonical rejects an outer agent error completed by the standard runner
       threadId,
       runId,
       runnerToken: "runner-token",
+      abortSignal: new AbortController().signal,
       tools: [],
       context: [],
       persistedInputMessages: [],

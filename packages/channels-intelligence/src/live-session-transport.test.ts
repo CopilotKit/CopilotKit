@@ -136,6 +136,82 @@ test("run close waits until every accepted provider effect settles", async () =>
   session.leave();
 });
 
+test("run cancellation aborts only the active matching delivery and call", async () => {
+  const handlers = new Map<string, (payload: unknown) => void>();
+  const channel: RealtimeGatewayDeliveryChannel = {
+    push: vi.fn(async (event, payload) => {
+      if (event !== "channel.run.open.v1") return {};
+      const request = payload as { callId: string; responseId: string };
+      return {
+        deliveryId: "dlv_delivery",
+        callId: request.callId,
+        responseId: request.responseId,
+        threadId: "thread_01",
+        runId: `run_${request.callId}`,
+        runnerToken: "rnr_test",
+        runnerTokenExpiresAt: "2026-07-29T00:05:00.000Z",
+      };
+    }),
+    on: (event, handler) => {
+      handlers.set(event, handler);
+    },
+    leave: vi.fn(),
+  };
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    channel,
+    undefined,
+    60_000,
+  );
+
+  const first = await session.openRun({
+    callId: "call_first",
+    responseId: "response_first",
+    agentId: "support",
+  });
+  const cancel = handlers.get("channel.run.cancel.v1");
+  expect(cancel).toBeDefined();
+
+  cancel?.({
+    protocol: CHANNEL_SESSION_PROTOCOL,
+    deliveryId: "dlv_other",
+    callId: "call_first",
+    reason: "gateway_drain_timeout",
+  });
+  cancel?.({
+    protocol: CHANNEL_SESSION_PROTOCOL,
+    deliveryId: "dlv_delivery",
+    callId: "call_stale",
+    reason: "gateway_drain_timeout",
+  });
+  expect(first.abortSignal.aborted).toBe(false);
+
+  await session.closeRun("call_first", "complete");
+  const second = await session.openRun({
+    callId: "call_second",
+    responseId: "response_second",
+    agentId: "support",
+  });
+  cancel?.({
+    protocol: CHANNEL_SESSION_PROTOCOL,
+    deliveryId: "dlv_delivery",
+    callId: "call_first",
+    reason: "gateway_drain_timeout",
+  });
+  expect(second.abortSignal.aborted).toBe(false);
+
+  cancel?.({
+    protocol: CHANNEL_SESSION_PROTOCOL,
+    deliveryId: "dlv_delivery",
+    callId: "call_second",
+    reason: "gateway_drain_timeout",
+  });
+  expect(second.abortSignal.aborted).toBe(true);
+  expect(second.abortSignal.reason).toBe("gateway_drain_timeout");
+  session.leave();
+});
+
 test("delivery-topic join rejection is logged and does not reject transport stop", async () => {
   let notice: ((payload: unknown) => void) | undefined;
   const session: RealtimeGatewaySession = {

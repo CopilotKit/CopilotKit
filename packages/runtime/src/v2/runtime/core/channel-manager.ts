@@ -227,6 +227,7 @@ export interface ChannelsIntelligenceModule {
         threadId: string;
         runId: string;
         runnerToken: string;
+        abortSignal: AbortSignal;
         tools: readonly {
           name: string;
           description: string;
@@ -335,6 +336,7 @@ interface CanonicalRunArgs {
   threadId: string;
   runId: string;
   runnerToken: string;
+  abortSignal: AbortSignal;
   tools: readonly {
     name: string;
     description: string;
@@ -394,6 +396,10 @@ async function runCanonicalChannelAgent(
   runner: AgentRunner,
   args: CanonicalRunArgs,
 ): Promise<{ iterations: number; interrupted: boolean }> {
+  if (args.abortSignal.aborted) {
+    throw channelRunCancellationError(args.abortSignal);
+  }
+
   let result = { iterations: 0, interrupted: false };
   const outer = new ChannelOuterAgent(
     args.agent,
@@ -403,52 +409,89 @@ async function runCanonicalChannelAgent(
       return result;
     },
   );
-  await new Promise<void>((resolve, reject) => {
-    let terminalError: (Error & { code?: string }) | undefined;
-    runner
-      .run({
-        threadId: args.threadId,
-        agent: outer,
-        input: {
+  let stopPromise: Promise<boolean | undefined> | undefined;
+  const stopCanonicalRun = (): void => {
+    stopPromise ??= Promise.resolve()
+      .then(() => runner.stop({ threadId: args.threadId }))
+      .catch(() => false);
+  };
+  args.abortSignal.addEventListener("abort", stopCanonicalRun, { once: true });
+
+  try {
+    if (args.abortSignal.aborted) {
+      stopCanonicalRun();
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let terminalError: (Error & { code?: string }) | undefined;
+      runner
+        .run({
           threadId: args.threadId,
-          runId: args.runId,
-          messages: args.agent.messages,
-          state: args.agent.state,
-          tools: [...args.tools],
-          context: [...args.context],
-          forwardedProps: undefined,
-        },
-        persistedInputMessages: args.persistedInputMessages,
-        authToken: args.runnerToken,
-      })
-      .subscribe({
-        next: (event: BaseEvent) => {
-          if (event.type !== EventType.RUN_ERROR || terminalError) return;
-          const message =
-            "message" in event && typeof event.message === "string"
-              ? event.message
-              : "Canonical Channel agent run failed";
-          terminalError = new Error(message);
-          terminalError.name = "ChannelCanonicalRunError";
-          if (
-            "code" in event &&
-            typeof event.code === "string" &&
-            event.code.length > 0
-          ) {
-            terminalError.code = event.code;
-          }
-        },
-        error: reject,
-        complete: () => {
-          if (terminalError) {
-            reject(terminalError);
-          } else {
-            resolve();
-          }
-        },
-      });
-  });
+          agent: outer,
+          input: {
+            threadId: args.threadId,
+            runId: args.runId,
+            messages: args.agent.messages,
+            state: args.agent.state,
+            tools: [...args.tools],
+            context: [...args.context],
+            forwardedProps: undefined,
+          },
+          persistedInputMessages: args.persistedInputMessages,
+          authToken: args.runnerToken,
+        })
+        .subscribe({
+          next: (event: BaseEvent) => {
+            if (event.type !== EventType.RUN_ERROR || terminalError) return;
+            const message =
+              "message" in event && typeof event.message === "string"
+                ? event.message
+                : "Canonical Channel agent run failed";
+            terminalError = new Error(message);
+            terminalError.name = "ChannelCanonicalRunError";
+            if (
+              "code" in event &&
+              typeof event.code === "string" &&
+              event.code.length > 0
+            ) {
+              terminalError.code = event.code;
+            }
+          },
+          error: reject,
+          complete: () => {
+            if (terminalError) {
+              reject(terminalError);
+            } else {
+              resolve();
+            }
+          },
+        });
+    });
+  } catch (error) {
+    if (args.abortSignal.aborted) {
+      await stopPromise;
+      throw channelRunCancellationError(args.abortSignal);
+    }
+    throw error;
+  } finally {
+    args.abortSignal.removeEventListener("abort", stopCanonicalRun);
+  }
+
+  if (args.abortSignal.aborted) {
+    await stopPromise;
+    throw channelRunCancellationError(args.abortSignal);
+  }
   return result;
+}
+
+function channelRunCancellationError(signal: AbortSignal): Error {
+  const reason =
+    typeof signal.reason === "string" && signal.reason.length > 0
+      ? signal.reason
+      : "channel_run_cancelled";
+  const error = new Error(reason);
+  error.name = "ChannelCanonicalRunCancelledError";
+  return error;
 }
 
 /** Convert canonical Intelligence history into AG-UI messages. */

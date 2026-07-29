@@ -58,6 +58,7 @@ class ScriptedAgent extends AbstractAgent {
 
 class FakeGatewaySession implements RealtimeGatewaySession {
   readonly projectHandlers = new Map<string, (payload: unknown) => void>();
+  readonly deliveryHandlers = new Map<string, (payload: unknown) => void>();
   readonly pushes: Array<{ event: string; payload: unknown }> = [];
   readonly joined: Array<{ topic: string; payload: unknown }> = [];
   leaves = 0;
@@ -98,7 +99,9 @@ class FakeGatewaySession implements RealtimeGatewaySession {
         }
         return {};
       },
-      on: () => undefined,
+      on: (event, handler) => {
+        this.deliveryHandlers.set(event, handler);
+      },
       leave: () => {
         this.leaves += 1;
       },
@@ -110,6 +113,10 @@ class FakeGatewaySession implements RealtimeGatewaySession {
     await vi.waitFor(() => {
       expect(this.leaves).toBe(1);
     });
+  }
+
+  cancelRun(payload: unknown): void {
+    this.deliveryHandlers.get("channel.run.cancel.v1")?.(payload);
   }
 }
 
@@ -231,6 +238,79 @@ describe("live session launcher", () => {
       "slack.stream.stop",
     ]);
     expect(effects.map(({ seq }) => seq)).toEqual([0, 1, 2]);
+
+    await handle.stop();
+  });
+
+  it("forwards a matching Gateway run cancellation to the canonical run signal", async () => {
+    const gateway = new FakeGatewaySession();
+    let observedSignal: AbortSignal | undefined;
+    const runCanonical = vi.fn(
+      (args) =>
+        new Promise<never>((_resolve, reject) => {
+          observedSignal = args.abortSignal;
+          if (!observedSignal) return;
+          const rejectCancellation = () => {
+            reject(new Error(String(observedSignal?.reason)));
+          };
+          if (observedSignal.aborted) {
+            rejectCancellation();
+          } else {
+            observedSignal.addEventListener("abort", rejectCancellation, {
+              once: true,
+            });
+          }
+        }),
+    );
+    const channel = createChannel({
+      name: "support",
+      agent: () => new ScriptedAgent(),
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    const handle = await startChannelsWithGatewaySession([channel], {
+      session: gateway,
+      scope: { projectId: 1, channelName: "support" },
+      runtimeInstanceId: "rti_test",
+      runCanonical,
+      loadHistory: async () => [],
+    });
+    const delivered = gateway.deliver(delivery());
+
+    await vi.waitFor(() => expect(runCanonical).toHaveBeenCalledOnce());
+    expect(observedSignal).toBeDefined();
+    const open = gateway.pushes.find(
+      ({ event }) => event === "channel.run.open.v1",
+    );
+    const callId = (open?.payload as { callId?: string } | undefined)?.callId;
+    expect(callId).toEqual(expect.any(String));
+
+    gateway.cancelRun({
+      protocol: "channel_session_v1",
+      deliveryId: "dlv_test",
+      callId,
+      reason: "gateway_drain_timeout",
+    });
+    await delivered;
+
+    expect(observedSignal?.aborted).toBe(true);
+    expect(observedSignal?.reason).toBe("gateway_drain_timeout");
+    expect(gateway.pushes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event: "channel.run.close.v1",
+          payload: expect.objectContaining({ status: "failed" }),
+        }),
+        expect.objectContaining({
+          event: "channel.delivery.fail.v1",
+          payload: expect.objectContaining({
+            reason: "gateway_drain_timeout",
+          }),
+        }),
+      ]),
+    );
 
     await handle.stop();
   });

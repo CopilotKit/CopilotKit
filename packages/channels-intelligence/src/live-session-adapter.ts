@@ -58,6 +58,8 @@ export interface CanonicalChannelRunArgs {
   threadId: string;
   runId: string;
   runnerToken: string;
+  /** Cancels this exact Gateway delivery/call through the canonical runner. */
+  abortSignal: AbortSignal;
   tools: readonly AgentToolDescriptor[];
   context: readonly ContextEntry[];
   persistedInputMessages: Message[];
@@ -267,6 +269,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
         threadId: opened.threadId,
         runId: opened.runId,
         runnerToken: opened.runnerToken,
+        abortSignal: opened.abortSignal,
         tools: args.tools,
         context: args.context,
         persistedInputMessages: args.agent.messages.filter(
