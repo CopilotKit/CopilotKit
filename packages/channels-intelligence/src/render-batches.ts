@@ -8,7 +8,22 @@ import type {
 export const RENDER_BATCH_PROTOCOL_CAPABILITY = "render_batch_v1";
 export const RENDER_TEXT_MAX_DELTAS = 256;
 export const RENDER_TEXT_MAX_BYTES = 16 * 1024;
-export const RENDER_TEXT_TAIL_FLUSH_MS = 250;
+/**
+ * How long a paced text tail coalesces before the lane flushes it.
+ *
+ * Matched to the TIGHTEST provider throttle downstream, because every managed
+ * provider already rate-limits its own edits:
+ *   - Slack `chat.appendStream` 600ms (`channels-slack/src/native-stream.ts`)
+ *   - Teams `updateActivity`     700ms (`channels-teams/src/message-stream.ts`)
+ *   - Slack `chat.update`        800ms (`channels-slack/src/message-stream.ts`)
+ *
+ * One managed lane serves every provider a Channel has attached, so pacing below
+ * the fastest consumer (Slack's 600ms) buys no visible cadence — those batches
+ * pay the full durable-acceptance transaction and are then coalesced away by the
+ * provider throttle regardless. 600ms keeps the fastest consumer fully fed while
+ * roughly halving accepted batches per turn versus the previous 250ms.
+ */
+export const RENDER_TEXT_TAIL_FLUSH_MS = 600;
 
 /** Base render lane name, used when no attempt discriminator is available. */
 export const RENDER_LANE_BASE_SLOT = "main";

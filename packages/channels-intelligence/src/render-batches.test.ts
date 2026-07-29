@@ -7,6 +7,7 @@ import {
 } from "./in-memory-transports.js";
 import type { ChannelRenderEvent } from "./contracts.js";
 import type { RenderEventSink } from "./transports.js";
+import { RENDER_TEXT_TAIL_FLUSH_MS } from "./render-batches.js";
 
 interface AcceptedBatch {
   batchId: string;
@@ -221,7 +222,16 @@ describe("managed render batch compaction", () => {
     await renderer.finish?.();
   });
 
-  it("flushes a paced text tail after 250 ms without waiting for text_end", async () => {
+  it("pins the tail-flush window to the tightest provider throttle", () => {
+    // Slack `chat.appendStream` is the fastest managed consumer at 600ms (Teams
+    // `updateActivity` 700ms, Slack `chat.update` 800ms). Pacing below the
+    // fastest consumer pays a durable acceptance for a batch the provider
+    // throttle then coalesces away. Retuning this is a deliberate act, so it
+    // trips here rather than silently changing accepted-batch volume per turn.
+    expect(RENDER_TEXT_TAIL_FLUSH_MS).toBe(600);
+  });
+
+  it("flushes a paced text tail on the tail-flush window without waiting for text_end", async () => {
     vi.useFakeTimers();
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);
@@ -235,7 +245,7 @@ describe("managed render batch compaction", () => {
     await settle();
     expect(sink.batches).toHaveLength(2);
 
-    await vi.advanceTimersByTimeAsync(249);
+    await vi.advanceTimersByTimeAsync(RENDER_TEXT_TAIL_FLUSH_MS - 1);
     expect(sink.batches).toHaveLength(2);
     await vi.advanceTimersByTimeAsync(1);
     await settle();
