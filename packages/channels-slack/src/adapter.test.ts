@@ -29,6 +29,14 @@ const section = (text: string): ChannelNode => ({
   props: { children: [{ type: "text", props: { value: text } }] },
 });
 
+describe("SlackAdapter.conversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const { adapter } = makeAdapter();
+
+    expect(adapter.conversationStore.seedsInboundTurn).toBe(true);
+  });
+});
+
 describe("SlackAdapter.post", () => {
   it("posts blocks + fallback text to the target channel/thread and returns a MessageRef", async () => {
     const { adapter, chat } = makeAdapter();

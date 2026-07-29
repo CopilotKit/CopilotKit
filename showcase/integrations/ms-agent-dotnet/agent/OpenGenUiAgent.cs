@@ -81,6 +81,6 @@ rendered visualisation.";
         return new ChatClientAgent(
             chatClient,
             name: "OpenGenUiAgent",
-            description: SystemPrompt);
+            instructions: SystemPrompt);
     }
 }

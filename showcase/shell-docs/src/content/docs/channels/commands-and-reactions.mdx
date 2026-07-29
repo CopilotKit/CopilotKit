@@ -1,111 +1,201 @@
 ---
-title: Commands and Reactions
-icon: "lucide/SlashSquare"
-description: Slash commands and react-to-any-message handlers at the channel level.
+title: Commands and reactions
+icon: "lucide/Command"
+description: Route Slack slash commands, Teams slash-prefixed messages, and provider reactions into typed Channels handlers.
+doc_type: how-to
 ---
 
-Two channel-level shortcuts that are not tied to a message you rendered: slash
-commands the user types, and reactions on any message in the channel.
+Commands give users a deliberate entry point into a workflow. Reaction handlers
+let an agent respond to lightweight feedback without treating every emoji as a
+new chat message.
 
-## Slash commands
+## Register a command
 
-A command runs when the user types `/name`. Define it with
-`defineChannelCommand` and wire it into the channel.
+`defineChannelCommand` normalizes the command name by removing a leading slash
+and lowercasing it. Slack and Teams currently deliver command arguments as one
+free-text string, so read `ctx.text`.
 
-```ts
+```ts title="commands.ts"
 import { defineChannelCommand } from "@copilotkit/channels";
 
-export const commands = [
-  defineChannelCommand({
-    name: "ask", // no leading slash, matched case-insensitively
-    description: "Ask the agent anything, no mention needed.",
-    async handler({ thread, text, user }) {
-      if (!text) {
-        await thread.post("Usage: `/ask <your question>`");
-        return;
-      }
-      await thread.runAgent({ prompt: text });
-    },
-  }),
-];
-```
-
-```ts
-import { createChannel } from "@copilotkit/channels";
-import { agent } from "./agent";
-import { commands } from "./commands";
-
-const channel = createChannel({
-  name: "support-bot",
-  agent,
-  commands,
-});
-```
-
-The user's words after the command arrive as `text`:
-
-```
-/ask how do I reset my password
-        -> text = "how do I reset my password"
-```
-
-<Callout type="info" title="Slack needs the command declared too">
-On Slack, register the same command in your Slack app manifest so Slack sends
-it to your bot. The name in the manifest must match the `name` here.
-</Callout>
-
-### Typed arguments
-
-Platforms with native structured arguments (Discord) can parse args for you.
-Add an `options` schema, and read `options` in the handler:
-
-```ts
-import { z } from "zod";
-
-defineChannelCommand({
-  name: "weather",
-  description: "Get the weather for a city.",
-  options: z.object({ city: z.string() }),
-  async handler({ thread, options }) {
-    await thread.runAgent({ prompt: `What's the weather in ${options.city}?` });
+export const triage = defineChannelCommand({
+  name: "triage",
+  description: "Summarize the current conversation and suggest an owner.",
+  async handler({ thread, text, user, platform }) {
+    await thread.runAgent({
+      prompt: text
+        ? `Triage this conversation with this instruction: ${text}`
+        : "Triage this conversation.",
+      context: [
+        { description: "Command provider", value: platform },
+        {
+          description: "Invoking user",
+          value: user?.name ?? user?.id ?? "unknown",
+        },
+      ],
+    });
   },
 });
 ```
 
-On text-only surfaces `options` is empty and the raw string is in `text`, so
-handle both if a command targets several platforms.
+Register it at Channel creation:
 
-The command handler also has `thread.postEphemeral(...)` for a reply only the
-caller sees, and `openModal(...)` on platforms that support dialogs.
+<FrontendOnly frontend="slack">
 
-## Global reactions
-
-`channel.onReaction` fires when a user reacts to any message in the channel,
-not just a card you rendered. Use it for channel-wide shortcuts, like a
-refresh emoji that re-runs the last request.
-
-```ts
-channel.onReaction(async ({ added, emoji, thread, user }) => {
-  if (!added) return; // ignore un-reactions
-  if (emoji !== "refresh") return; // 🔄
-  await thread.post(`On it, ${user?.name ?? "there"}.`);
+```ts title="channel.ts"
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  commands: [triage],
 });
 ```
 
-Scope it to one emoji so you skip the check:
+</FrontendOnly>
 
-```ts
-channel.onReaction("fire", async ({ thread }) => {
-  await thread.post("🔥");
+<FrontendOnly frontend="teams">
+
+```ts title="channel.ts"
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  commands: [triage],
 });
 ```
 
-The event carries `emoji` (the canonical name), `rawEmoji` (the platform
-token), `added`, `user`, `thread`, and `messageRef` for
-`thread.update(messageRef, ...)`.
+</FrontendOnly>
 
-<Callout type="info">
-Want to handle a reaction on one specific card instead of the whole channel?
-Use the per-message [`<Message onReaction>`](/channels/interactive/reactions)
-handler.
+You can also add a command before the listener starts with
+`channel.onCommand(command)`. Unregistered command names are ignored.
+
+## Configure the native command entry point
+
+<FrontendOnly frontend="slack">
+
+The Intelligence-generated Slack manifest creates one slash command derived
+from the Channel Display name. The handler name must match the command shown in
+the Slack setup recap. For example, a generated `/support-agent` command needs:
+
+```ts title="commands.ts"
+export const supportAgent = defineChannelCommand({
+  name: "support-agent",
+  async handler({ thread, text }) {
+    await thread.runAgent({ prompt: text || "How can you help?" });
+  },
+});
+```
+
+If you add more command names in code, add the same slash commands to the Slack
+app configuration and reinstall the app when Slack changes its requested
+permissions. Socket Mode carries the invocation; your Channels runner does not
+host the Slack request URL.
+
+Slack supplies arguments as `ctx.text`. `ctx.options` remains empty on this
+managed path.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams has no separate slash-command registration in this integration. An
+addressed message whose text is exactly `/name` or `/name arguments` is routed
+to the matching command handler:
+
+```text title="Microsoft Teams"
+/triage focus on customer impact
+```
+
+The optional bot mention is stripped before command matching. Arguments arrive
+as `ctx.text`; `ctx.options` remains empty.
+
+</FrontendOnly>
+
+Managed command contexts do not expose modal opening. Use a posted card and a
+later interaction for structured follow-up.
+
+## Handle incoming reactions
+
+Known Slack shortcodes and Teams reaction tokens are normalized to portable
+names such as `eyes`, `thumbs_up`, and `heart`.
+
+```ts title="channel.ts"
+channel.onReaction("eyes", async ({ added, thread, user }) => {
+  await thread.post(
+    added
+      ? `${user?.name ?? "Someone"} marked this response for follow-up.`
+      : `${user?.name ?? "Someone"} removed the follow-up marker.`,
+  );
+});
+```
+
+Omit the emoji argument to receive every added and removed reaction:
+
+```ts title="channel.ts"
+channel.onReaction(async ({ emoji, rawEmoji, added, thread }) => {
+  audit.record({ emoji, rawEmoji, added });
+  await thread.post("Reaction recorded.");
+});
+```
+
+`emoji` is the normalized value when the SDK recognizes it. `rawEmoji` retains
+the provider token for custom or unmapped emoji.
+
+<Callout type="info" title="Output-free handlers are supported">
+  The SDK finalizes and acknowledges a managed turn even when its handler posts
+  no message. Managed delivery is still at-least-once, so make silent audit or
+  database writes idempotent.
 </Callout>
+
+<FrontendOnly frontend="slack">
+
+The generated Slack manifest subscribes to `reaction_added` and
+`reaction_removed`. Managed ingress routes reactions to messages authored by
+the configured bot; reactions on unrelated workspace messages are ignored.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams `messageReaction` activities are normalized through the same handler.
+Classic reactions such as Like and Heart, plus recognized modern emoji tokens,
+map to the SDK's portable names.
+
+</FrontendOnly>
+
+## Attach a reaction handler to one message
+
+Use `Message.onReaction` when only one posted component should react:
+
+```tsx title="feedback-card.tsx"
+import { Message, Section } from "@copilotkit/channels/ui";
+
+export function FeedbackCard({ answerId }: { answerId: string }) {
+  return (
+    <Message
+      onReaction={async (emoji, reaction) => {
+        if (reaction.added && emoji === "thumbs_up") {
+          await feedback.record(answerId, reaction.user?.id);
+          await reaction.thread.post("Thanks for the feedback.");
+          return;
+        }
+        await reaction.thread.post("Reaction update received.");
+      }}
+    >
+      <Section>React with 👍 if this solved the problem.</Section>
+    </Message>
+  );
+}
+```
+
+Register `FeedbackCard` in `createChannel({ components: [FeedbackCard] })`.
+Surviving a process restart also requires a durable `StateStore`, because the
+SDK must reload the component snapshot that owns the callback.
+
+Adding or removing the agent's own reactions with `thread.react()` and
+`thread.unreact()` is not supported by the managed Slack or Teams adapter
+today. Treat reactions as inbound signals.
+
+See the [command reference](/reference/channels/functions/defineChannelCommand)
+and [Message reference](/reference/channels/components/Message) for the complete
+handler shapes.

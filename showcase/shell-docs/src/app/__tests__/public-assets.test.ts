@@ -28,7 +28,7 @@ describe("public image assets", () => {
     }
   });
 
-  it("serves the slack early-access gate previews as real PNG files", () => {
+  it("serves the Slack generative UI previews as real PNG files", () => {
     for (const assetPath of [
       "images/slack-bot-generative-ui-light.png",
       "images/slack-bot-generative-ui-dark.png",
@@ -40,5 +40,16 @@ describe("public image assets", () => {
         "version https://git-lfs",
       );
     }
+  });
+
+  it("serves the Intelligence Channels overview as a real PNG file", () => {
+    const bytes = readPublicAsset(
+      "images/channels/intelligence-channels-overview.png",
+    );
+
+    expect(bytes.subarray(0, pngSignature.length)).toEqual(pngSignature);
+    expect(bytes.toString("utf8", 0, 32)).not.toContain(
+      "version https://git-lfs",
+    );
   });
 });

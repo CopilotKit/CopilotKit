@@ -9,8 +9,9 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
+  RenderBatch,
+  RenderBatchAccepted,
   RenderFrame,
-  RenderAccepted,
 } from "./contracts.js";
 
 /**
@@ -33,16 +34,26 @@ export class InMemoryEgressSink implements EgressSink {
  * the production sink is the Realtime Gateway client.
  */
 export class InMemoryRenderEventSink implements RenderEventSink {
-  readonly frames: RenderFrame[] = [];
-  async push(frame: RenderFrame): Promise<RenderAccepted> {
-    this.frames.push(frame);
-    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+  readonly batches: RenderBatch[] = [];
+  readonly frames: Array<
+    RenderFrame & Pick<RenderBatch, "deliveryId" | "turnId" | "slot">
+  > = [];
+
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    this.batches.push(batch);
+    this.frames.push(
+      ...batch.frames.map((frame) => ({
+        ...frame,
+        deliveryId: batch.deliveryId,
+        turnId: batch.turnId,
+        slot: batch.slot,
+      })),
+    );
     return {
-      idempotencyKey,
-      acceptance: "accepted",
-      ...(frame.event.kind === "finalize"
-        ? { egressOperationId: `eop_${frame.turnId}_${frame.seq}` }
-        : {}),
+      batchId: batch.batchId,
+      acceptedThroughSeq: batch.endSeq,
+      duplicate: false,
+      egressOperationId: `eop_${batch.turnId}`,
     };
   }
 }

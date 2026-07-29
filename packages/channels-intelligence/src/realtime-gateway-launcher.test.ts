@@ -15,7 +15,7 @@ const scope = {
   channelName: "opentag",
 };
 
-/** Fake gateway session: records pushes, replies `render_accepted`, and exposes
+/** Fake gateway session: records pushes, replies with batch receipts, and exposes
  * the server-push handlers so a test can simulate `delivery.available`. */
 function makeFakeSession() {
   const pushes: { event: string; payload: unknown }[] = [];
@@ -23,17 +23,16 @@ function makeFakeSession() {
   const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
-      if (event === "channel.render_event.v1") {
+      if (event === "channel.render_batch.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
-          type: "channel.render_accepted.v1",
+          type: "channel.render_batch_accepted.v1",
           occurredAt: "2026-07-09T00:00:00.000Z",
           payload: {
-            idempotencyKey: p.idempotencyKey,
-            acceptance: "accepted",
-            ...(p.event && (p.event as { kind: string }).kind === "finalize"
-              ? { egressOperationId: "eop_1" }
-              : {}),
+            batchId: p.batchId,
+            egressOperationId: "eop_1",
+            acceptedThroughSeq: p.endSeq,
+            duplicate: false,
           },
         };
       }
@@ -78,11 +77,13 @@ async function waitFor(pred: () => boolean, tries = 50): Promise<void> {
 
 /** Read the semantic render kind from a recorded gateway push. */
 function renderKind(push: { event: string; payload: unknown }) {
-  if (push.event !== "channel.render_event.v1") return undefined;
+  if (push.event !== "channel.render_batch.v1") return undefined;
   if (!isObject(push.payload) || !isObject(push.payload.payload)) {
     return undefined;
   }
-  const event = push.payload.payload.event;
+  const frames = push.payload.payload.frames;
+  const event =
+    Array.isArray(frames) && isObject(frames[0]) ? frames[0].event : undefined;
   return isObject(event) && typeof event.kind === "string"
     ? event.kind
     : undefined;
@@ -122,7 +123,7 @@ describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gate
 
     const events = fake.pushes.map((p) => p.event);
     const renderKinds = fake.pushes
-      .filter((p) => p.event === "channel.render_event.v1")
+      .filter((p) => p.event === "channel.render_batch.v1")
       .map(renderKind);
     expect(ran).toBe(true); // the Channel handler ran off a gateway-delivered turn
     expect(renderKinds).toEqual(["post", "finalize"]); // every rendered delivery has a terminal frame

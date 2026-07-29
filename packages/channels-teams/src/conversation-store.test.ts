@@ -8,6 +8,12 @@ function makeAgent(threadId: string): AbstractAgent {
 }
 
 describe("TeamsConversationStore", () => {
+  it("declares that it seeds the inbound turn", () => {
+    const store = new TeamsConversationStore();
+
+    expect(store.seedsInboundTurn).toBe(true);
+  });
+
   it("seeds a fresh agent with the accumulated transcript", async () => {
     const store = new TeamsConversationStore();
     store.recordUser("conv-1", "hello");

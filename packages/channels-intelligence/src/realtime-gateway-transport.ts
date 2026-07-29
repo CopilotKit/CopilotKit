@@ -29,8 +29,8 @@ import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
   EgressRoute,
-  RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
@@ -180,8 +180,8 @@ function withDeliveryTimeout<T>(
   });
 }
 
-const RENDER_EVENT = "channel.render_event.v1";
-const RENDER_ACCEPTED = "channel.render_accepted.v1";
+const RENDER_BATCH = "channel.render_batch.v1";
+const RENDER_BATCH_ACCEPTED = "channel.render_batch_accepted.v1";
 const DELIVERY_AVAILABLE = "channel.delivery.available.v1";
 const COMPLETE_REQUESTED = "channel.delivery.complete_requested.v1";
 const DELIVERY_FAIL = "channel.delivery.fail.v1";
@@ -520,21 +520,22 @@ export class RealtimeGatewayTransport
     }
   }
 
-  async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const state = this.deliveries.get(frame.deliveryId);
-    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    const state = this.deliveries.get(batch.deliveryId);
     const envelope = {
-      type: RENDER_EVENT,
+      type: RENDER_BATCH,
       occurredAt: this.now(),
       payload: {
         ...(state?.scope ?? this.scope),
-        deliveryId: frame.deliveryId,
-        turnId: frame.turnId,
+        deliveryId: batch.deliveryId,
+        turnId: batch.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
-        slot: frame.slot,
-        seq: frame.seq,
-        idempotencyKey,
-        event: frame.event,
+        slot: batch.slot,
+        batchId: batch.batchId,
+        contentDigest: batch.contentDigest,
+        startSeq: batch.startSeq,
+        endSeq: batch.endSeq,
+        frames: batch.frames,
         // Fence the render-accept on the lease token (OSS-446), matching the
         // fail path. Optional — omitted when no state (app-api falls back to
         // instance-id + expiry), present for a normally-leased delivery.
@@ -542,44 +543,47 @@ export class RealtimeGatewayTransport
         sentAt: this.now(),
       },
     };
-    const reply = await this.session.push(RENDER_EVENT, envelope);
-    const receipt = this.parseAccepted(reply, idempotencyKey);
+    const reply = await this.session.push(RENDER_BATCH, envelope);
+    const receipt = this.parseAccepted(reply, batch.batchId);
     // Record the completion high-water mark for this delivery/slot.
     if (state) {
-      const prev = state.accepted.get(frame.slot);
-      if (prev === undefined || frame.seq > prev) {
-        state.accepted.set(frame.slot, frame.seq);
+      const prev = state.accepted.get(batch.slot);
+      if (prev === undefined || batch.endSeq > prev) {
+        state.accepted.set(batch.slot, batch.endSeq);
       }
     }
     return receipt;
   }
 
-  private parseAccepted(
-    reply: unknown,
-    idempotencyKey: string,
-  ): RenderAccepted {
+  private parseAccepted(reply: unknown, batchId: string): RenderBatchAccepted {
     const r = reply as
       | {
           type?: string;
           payload?: {
-            acceptance?: RenderAccepted["acceptance"];
+            batchId?: string;
             egressOperationId?: string;
-            idempotencyKey?: string;
+            acceptedThroughSeq?: number;
+            duplicate?: boolean;
           };
         }
       | undefined;
     const payload = r?.payload;
-    if (r?.type !== RENDER_ACCEPTED || !payload?.acceptance) {
+    if (
+      r?.type !== RENDER_BATCH_ACCEPTED ||
+      payload?.batchId !== batchId ||
+      typeof payload.egressOperationId !== "string" ||
+      !Number.isSafeInteger(payload.acceptedThroughSeq) ||
+      typeof payload.duplicate !== "boolean"
+    ) {
       throw new Error(
-        `RealtimeGatewayTransport: expected ${RENDER_ACCEPTED} for ${idempotencyKey}, got ${r?.type ?? "no reply"}`,
+        `RealtimeGatewayTransport: expected ${RENDER_BATCH_ACCEPTED} for ${batchId}, got ${r?.type ?? "no reply"}`,
       );
     }
     return {
-      idempotencyKey: payload.idempotencyKey ?? idempotencyKey,
-      acceptance: payload.acceptance,
-      ...(payload.egressOperationId
-        ? { egressOperationId: payload.egressOperationId }
-        : {}),
+      batchId: payload.batchId,
+      egressOperationId: payload.egressOperationId,
+      acceptedThroughSeq: payload.acceptedThroughSeq!,
+      duplicate: payload.duplicate,
     };
   }
 

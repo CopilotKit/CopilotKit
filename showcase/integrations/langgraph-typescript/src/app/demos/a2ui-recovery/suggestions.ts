@@ -2,8 +2,10 @@ import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
 
 // Two pills exercise the recovery loop deterministically via aimock fixtures
 // (showcase/aimock/d6/langgraph-typescript/a2ui-recovery.json). Prompts are
-// unique within the langgraph-typescript context so they don't collide with the
-// declarative-gen-ui (a2ui_dynamic) fixtures.
+// UNIQUE per framework slug: the inner render_a2ui calls carry no
+// x-aimock-context, so identical prompts across frameworks would collide in the
+// shared aimock matcher. These langgraph-typescript strings mirror the probe
+// (harness/src/probes/scripts/d5-a2ui-recovery.ts PROMPTS["langgraph-typescript"]).
 //   - "heal":    inner render_a2ui returns free-form/sloppy args (components &
 //                data as JSON strings) -> middleware parse_and_fix heals them
 //                into a valid surface in a single pass -> painted.

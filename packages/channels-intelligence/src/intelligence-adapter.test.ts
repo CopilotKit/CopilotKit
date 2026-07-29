@@ -114,6 +114,28 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     expect(source.acked).toEqual([]);
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
   });
+
+  it("drops the per-turn render flusher after dispatch", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const adapter = intelligenceAdapter({ source, egress });
+    const renderLaneFlushers = (
+      adapter as unknown as {
+        renderLaneFlushers: Map<string, () => void>;
+      }
+    ).renderLaneFlushers;
+    renderLaneFlushers.set("t1", () => {});
+    const bot = createChannel({
+      adapters: [adapter],
+      agent: () => new FakeAgent(),
+    });
+    bot.onMessage(async () => {});
+    await bot.ɵruntime.start();
+
+    await source.deliver(envelope({ turnId: "t1" }));
+
+    expect(renderLaneFlushers.has("t1")).toBe(false);
+  });
 });
 
 describe("intelligenceAdapter — inbound file content parts", () => {
@@ -701,6 +723,15 @@ describe("intelligenceAdapter — conversation-history seeding", () => {
     turnId: "t1",
     deliveryId: "d1",
   };
+
+  it("declares that history excludes the inbound turn", () => {
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+    });
+
+    expect(adapter.conversationStore.seedsInboundTurn).toBe(false);
+  });
 
   it("seeds agent.messages from the source's getHistory", async () => {
     const source = new InMemoryDeliverySource();

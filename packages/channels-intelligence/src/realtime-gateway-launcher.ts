@@ -14,6 +14,7 @@ import {
 import type { ChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { EgressSink } from "./transports.js";
+import { RENDER_BATCH_PROTOCOL_CAPABILITY } from "./render-batches.js";
 
 /**
  * Realtime Gateway egress is vestigial: with a render sink wired (the transport
@@ -247,8 +248,7 @@ export async function startChannelsOverRealtimeGateway(
       declaredChannels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
-        // renderCapabilities: reserved — channels don't expose capabilities yet
-        // (tracked with the richer per-channel metadata in OSS-377).
+        renderCapabilities: [RENDER_BATCH_PROTOCOL_CAPABILITY],
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,

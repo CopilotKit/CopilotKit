@@ -1,37 +1,22 @@
 ---
-title: "Header"
-description: "Bold header / title row for a bot message."
+title: Header
+description: Render a portable title row in a Slack Block Kit message or Teams Adaptive Card.
 ---
 
-## Overview
-
-`Header` renders a bold title row — typically the first child of a [`Message`](/reference/channels/components/Message).
-
-## Import
+`Header` renders prominent text near the top of a message.
 
 ```tsx
-import { Header } from "@copilotkit/channels-ui";
-```
+import { Header, Message } from "@copilotkit/channels/ui";
 
-## Props
-
-<PropertyReference name="children" type="BotChildren">
-  The header text. Plain text only — markdown is not interpreted in headers.
-</PropertyReference>
-
-## Usage
-
-```tsx
 <Message>
-  <Header>Deploy v1.4.2</Header>
-</Message>
+  <Header>INC-421 · Investigating</Header>
+</Message>;
 ```
 
-## On Slack
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Text and nested portable content. |
 
-Renders as a `header` block, truncated at **150 characters** (`SLACK_LIMITS.headerText`).
-
-## Related
-
-- [Message](/reference/channels/components/Message) — the containing message
-- [Section](/reference/channels/components/Section) — markdown body text
+Managed Slack renders a plain-text header block. Managed Teams renders a large,
+bold, wrapping `TextBlock`. Keep the header short; each provider clamps text to
+its native payload budget.

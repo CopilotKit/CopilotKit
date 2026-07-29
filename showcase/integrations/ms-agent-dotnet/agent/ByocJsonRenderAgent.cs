@@ -166,12 +166,21 @@ Respond with the JSON object only.";
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
         // The frontend json-render-renderer.tsx buffers until the assistant
-        // content parses as a complete JSON object, then renders. The agent
-        // is steered to emit a single JSON object per reply by the
-        // SystemPrompt above.
+        // content parses as a complete JSON object, then renders. Force
+        // response_format=json_object (parity with LGP / built-in-agent) so
+        // the model cannot dump prose that falls through to the default
+        // text bubble. Instructions (not Description) carry the system prompt.
         return new ChatClientAgent(
             chatClient,
-            name: "ByocJsonRenderAgent",
-            description: SystemPrompt);
+            new ChatClientAgentOptions
+            {
+                Name = "ByocJsonRenderAgent",
+                Description = "json-render structured UI demo agent",
+                Instructions = SystemPrompt,
+                ChatOptions = new ChatOptions
+                {
+                    ResponseFormat = ChatResponseFormat.Json,
+                },
+            });
     }
 }
