@@ -9,6 +9,14 @@ export {
 } from "./intelligence-adapter.js";
 export type { IntelligenceAdapterOptions } from "./intelligence-adapter.js";
 
+export {
+  CHANNEL_SESSION_PROTOCOL,
+  PROVIDER_EFFECT_MAX_BYTES,
+  assertProviderEffect,
+  providerEffectByteLength,
+} from "./live-session-contracts.js";
+export type { ChannelProviderEffect } from "./live-session-contracts.js";
+
 export { IntelligenceStateStore } from "./intelligence-state-store.js";
 export type { IntelligenceStateStoreConfig } from "./intelligence-state-store.js";
 
