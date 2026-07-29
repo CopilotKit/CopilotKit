@@ -48,6 +48,9 @@ import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
+import { emitAggregate, sideEmit } from "../helpers/d6-emit.js";
+import { isSpecDriven } from "../helpers/spec-driven-slugs.js";
+import type { RunSpecDrivenD6Result } from "../../cli/e2e.js";
 import type playwright from "playwright";
 
 /**
@@ -310,6 +313,47 @@ export interface E2eFullDriverDeps {
    * across every feature-cell of that run, unique across runs.
    */
   idFactory?: () => string;
+  /**
+   * Injectable spec-driven verdict runner. Called only when `isSpecDriven(slug)`
+   * returns true. Signature matches `runSpecDrivenD6` from `cli/e2e.ts`, which
+   * cannot be statically imported here (circular dep: cli/e2e → d6-all-pills →
+   * cli/e2e). Production path uses a dynamic import resolved once per `run()`.
+   * Unit tests inject a stub that returns known verdicts without Playwright.
+   *
+   * Options subset passed by the driver:
+   *   backendUrl           — the resolved target URL.
+   *   integrationDir       — resolved from SHOWCASE_DIR / process.cwd().
+   *   timeoutMs            — from the driver's resolved outer-cap (guarded).
+   *   notSupportedFeatures — forwarded from input so NSF cells become SKIPPED.
+   *   signal               — the driver's wall-clock abort signal.
+   *   ctx                  — the probe context (writer + logger).
+   *
+   * @internal Injectable for testing; production relies on the dynamic-import default.
+   */
+  specDrivenRunner?: (
+    slug: string,
+    opts: {
+      backendUrl: string;
+      integrationDir: string;
+      timeoutMs?: number;
+      notSupportedFeatures?: string[];
+      signal?: AbortSignal;
+      ctx: ProbeContext;
+    },
+  ) => Promise<RunSpecDrivenD6Result>;
+  /**
+   * Injectable dynamic-import resolver for the spec-driven runner module.
+   * Production: `(specifier) => import(specifier)`. Injectable so tests can
+   * force the import path to throw (exercising the spec-driven-import-error
+   * catch block) without relying on a missing module on disk.
+   *
+   * Only consulted when `specDrivenRunner` is NOT provided — i.e. when the
+   * production dynamic-import path is active. When `specDrivenRunner` is
+   * injected directly, this dep is ignored.
+   *
+   * @internal Injectable for testing only.
+   */
+  specDrivenImportResolver?: (specifier: string) => Promise<unknown>;
 }
 
 /**
@@ -756,6 +800,28 @@ export const defaultScriptLoader: E2eFullScriptLoader = async (
   }
 };
 
+/**
+ * Derive `incapable[]` for a spec-driven aggregate exit from the intersection
+ * of `skipped` cells and `notSupportedFeatures`. Returns `undefined` when the
+ * intersection is empty (or when no NSF set was provided) so the field is
+ * absent from the signal rather than present as an empty array — mirrors the
+ * heuristic path convention and the J2-fix-1 normal-exit computation.
+ *
+ * Applied at EVERY spec-driven exit that carries a populated `skipped[]` so
+ * the "incapable ⊆ skipped" contract holds on interrupted (timeout/drain/
+ * mismatch) runs as well as on normal completion.
+ */
+function computeSdIncapable(
+  skipped: readonly string[],
+  notSupportedFeatures: readonly string[] | undefined,
+): string[] | undefined {
+  if (!notSupportedFeatures || notSupportedFeatures.length === 0)
+    return undefined;
+  const nsfSet = new Set<string>(notSupportedFeatures);
+  const intersection = skipped.filter((cell) => nsfSet.has(cell));
+  return intersection.length > 0 ? intersection : undefined;
+}
+
 export function createE2eFullDriver(
   deps: E2eFullDriverDeps = {},
 ): ProbeDriver<E2eFullDriverInput, E2eFullAggregateSignal> {
@@ -776,6 +842,15 @@ export function createE2eFullDriver(
   // are resolved here so the per-feature sessions persist + buffer.
   const cvdiagPbWriter = deps.cvdiagPbWriter;
   const cvdiagBufferDir = deps.cvdiagBufferDir ?? defaultCvdiagBufferDir();
+  // Spec-driven runner injectable. Production default resolved once per
+  // run() via dynamic import to avoid the static d6-all-pills ↔ cli/e2e
+  // circular dep. Unit tests inject a stub.
+  const specDrivenRunner = deps.specDrivenRunner;
+  // Import resolver for the spec-driven runner module. Production default
+  // uses the native dynamic import. Injectable so tests can force import
+  // failures without needing a missing module on disk.
+  const specDrivenImportResolver =
+    deps.specDrivenImportResolver ?? ((specifier: string) => import(specifier));
 
   return {
     kind: "e2e_d6",
@@ -787,6 +862,467 @@ export function createE2eFullDriver(
       const observedAt = ctx.now().toISOString();
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+
+      // ── Spec-driven verdict branch ────────────────────────────────────────
+      // When `isSpecDriven(slug)` returns true (Phase 0: always false because
+      // spec-driven-slugs.json ships empty), delegate verdict computation to
+      // the shared `runSpecDrivenD6` pipeline instead of the heuristic
+      // conversation runner. The D5 take-one path (rowPrefix="d5") always
+      // keeps the heuristic regardless — spec-driven verdicts are D6-only.
+      //
+      // Production uses a dynamic import of cli/e2e.ts to avoid the static
+      // circular dep (cli/e2e → d6-all-pills → cli/e2e). Tests inject a stub
+      // via deps.specDrivenRunner.
+      if (isSpecDriven(slug) && input.rowPrefix !== "d5") {
+        // ── F5: Resolve and guard the outer timeout cap ─────────────────────
+        // Apply the same Number.isFinite + >0 guard and DEFAULT_TIMEOUT_MS
+        // fallback used by the heuristic path so a bad/missing timeout_ms
+        // falls through to the driver default instead of being passed raw.
+        const sdInputTimeoutMs =
+          typeof input.timeout_ms === "number" &&
+          Number.isFinite(input.timeout_ms) &&
+          input.timeout_ms > 0
+            ? input.timeout_ms
+            : NaN;
+        const sdTimeoutMs = Number.isFinite(sdInputTimeoutMs)
+          ? sdInputTimeoutMs
+          : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+        // ── F6: Wall-clock abort controller for the spec-driven runner ──────
+        // Mirrors the heuristic path: set a hard wall-clock cap so a hung
+        // runner is bounded, and thread ctx.abortSignal so external drains
+        // also cancel the runner.
+        const sdAbort = new AbortController();
+        let sdTimedOut = false;
+        const sdTimeoutHandle = setTimeout(() => {
+          sdTimedOut = true;
+          sdAbort.abort();
+        }, sdTimeoutMs);
+        const sdExternalAbort = ctx.abortSignal;
+        const onSdExternalAbort = (): void => {
+          sdAbort.abort();
+        };
+        if (sdExternalAbort) {
+          if (sdExternalAbort.aborted) sdAbort.abort();
+          else
+            sdExternalAbort.addEventListener("abort", onSdExternalAbort, {
+              once: true,
+            });
+        }
+
+        // rowPrefix is always "d6" in the spec-driven branch (the "d5" guard is
+        // at the outer if above), but resolve it for emitAggregate consistency.
+        const sdRowPrefix = input.rowPrefix ?? "d6";
+
+        try {
+          // Resolve the integration directory: showcase/integrations/<slug>.
+          // Mirrors the same resolution used by registerE2eCommand in cli/e2e.ts.
+          const showcaseDir =
+            ctx.env["SHOWCASE_DIR"] ??
+            process.env["SHOWCASE_DIR"] ??
+            path.join(process.cwd(), "showcase");
+          const integrationDir = path.join(showcaseDir, "integrations", slug);
+
+          // ── F7: Wrap dynamic import failure in a caught path ──────────────
+          // A throw from the dynamic import (or from resolving the runner)
+          // propagates out of run() with no aggregate → stale dashboard row.
+          // Catch here and emit a RED aggregate instead (mirrors how the
+          // heuristic path converts launcher errors to red).
+          //
+          // R2.4: The import resolver is injectable (specDrivenImportResolver)
+          // so tests can force a real import-path failure without a missing
+          // module on disk, giving the catch block earned coverage.
+          let runner: NonNullable<typeof specDrivenRunner>;
+          try {
+            runner =
+              specDrivenRunner ??
+              (await specDrivenImportResolver("../../cli/e2e.js").then(
+                (m) =>
+                  (
+                    m as {
+                      runSpecDrivenD6: NonNullable<typeof specDrivenRunner>;
+                    }
+                  ).runSpecDrivenD6,
+              ));
+          } catch (importErr) {
+            const msg =
+              importErr instanceof Error
+                ? importErr.message
+                : String(importErr);
+            ctx.logger.warn("probe.e2e-full.spec-driven-import-error", {
+              slug,
+              err: msg,
+            });
+            const importErrAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                // R2.2: total is 0 here because no runner was resolved and no
+                // verdicts were produced — there is no expected-cell count
+                // derivable at this point (the spec manifest hasn't been read).
+                total: 0,
+                passed: 0,
+                failed: [],
+                skipped: [],
+                errorDesc: "spec-driven-import-error",
+                failureSummary: msg,
+              },
+              observedAt,
+            };
+            // F1: Always emit the aggregate so the dashboard row is never stale.
+            await emitAggregate(ctx, slug, importErrAggregate, sdRowPrefix);
+            return importErrAggregate;
+          }
+
+          // ── F7 (cont.) + F8: Pass notSupportedFeatures per contract ─────
+          // Also catch runner CALL failures — a runner that throws after
+          // the import resolved (e.g. a injected stub that throws) still
+          // must NOT escape run() without an aggregate emit.
+          let sdResult: Awaited<ReturnType<typeof runner>>;
+          try {
+            sdResult = await runner(slug, {
+              backendUrl,
+              integrationDir,
+              timeoutMs: sdTimeoutMs,
+              notSupportedFeatures: input.notSupportedFeatures,
+              signal: sdAbort.signal,
+              ctx,
+            });
+          } catch (runnerCallErr) {
+            const msg =
+              runnerCallErr instanceof Error
+                ? runnerCallErr.message
+                : String(runnerCallErr);
+            ctx.logger.warn("probe.e2e-full.spec-driven-runner-error", {
+              slug,
+              err: msg,
+            });
+            const runnerErrAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                // R2.2: total is 0 here because the runner threw before
+                // returning any verdicts or counters — no cell count is
+                // derivable (the runner never completed its manifest scan).
+                total: 0,
+                passed: 0,
+                failed: [],
+                skipped: [],
+                errorDesc: "spec-driven-runner-error",
+                failureSummary: msg,
+              },
+              observedAt,
+            };
+            // F1: Always emit the aggregate so the dashboard row is never stale.
+            await emitAggregate(ctx, slug, runnerErrAggregate, sdRowPrefix);
+            return runnerErrAggregate;
+          }
+
+          // ── R2.1: Wall-clock timeout forces red aggregate ─────────────────
+          // If sdTimedOut is true the runner's abort signal was already fired.
+          // The runner may have returned partial all-green verdicts for the
+          // cells it completed before aborting — those must NOT yield a GREEN
+          // aggregate. Mirror the heuristic path's abort semantics: treat a
+          // timed-out run as unconditionally red with a "timeout" errorClass
+          // regardless of the returned verdicts.
+          if (sdTimedOut) {
+            const completedCount = sdResult.verdicts.size;
+            ctx.logger.warn("probe.e2e-full.spec-driven-timeout", {
+              slug,
+              completedCount,
+            });
+            // R5-K2: Carry actual known counts from the runner's verdict map so
+            // the timeout aggregate is machine-readable (a red slug's progress is
+            // visible to monitors). Partition the partial verdicts into
+            // passed/failed[]/skipped[] so the SUM INVARIANT holds.
+            let sdTimedOutPassed = 0;
+            const sdTimedOutFailed: string[] = [];
+            const sdTimedOutSkipped: string[] = [];
+            for (const [cell, verdict] of sdResult.verdicts) {
+              if (verdict === "GREEN") sdTimedOutPassed++;
+              else if (verdict === "SKIPPED") sdTimedOutSkipped.push(cell);
+              else sdTimedOutFailed.push(cell);
+            }
+            // R7-M1: state/failed[]-same-reduction invariant. A timeout exit
+            // is unconditionally red. If all completed cells were GREEN/SKIPPED,
+            // failed[] would be empty — violating the invariant that state=red
+            // implies failed.length > 0. Inject a sentinel for the un-run cells
+            // (those not yet returned before abort) so the invariant holds. The
+            // sentinel is distinguishable from real cell names in diagnostics.
+            // Total grows by 1 to account for the sentinel so the sum invariant
+            // (passed+failed+skipped===total) is preserved.
+            let sdTimedOutTotal = completedCount;
+            if (sdTimedOutFailed.length === 0) {
+              sdTimedOutFailed.push("<unrun-by-timeout>");
+              sdTimedOutTotal += 1;
+            }
+            const timeoutAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                // SUM INVARIANT: passed+failed+skipped === total.
+                total: sdTimedOutTotal,
+                passed: sdTimedOutPassed,
+                failed: sdTimedOutFailed,
+                skipped: sdTimedOutSkipped,
+                incapable: computeSdIncapable(
+                  sdTimedOutSkipped,
+                  input.notSupportedFeatures,
+                ),
+                errorDesc: "timeout",
+                note: `spec-driven: wall-clock timeout (${sdTimeoutMs}ms) — ${completedCount} cells returned before abort`,
+              },
+              observedAt,
+            };
+            await emitAggregate(ctx, slug, timeoutAggregate, sdRowPrefix);
+            return timeoutAggregate;
+          }
+
+          // ── H1: External drain abort forces non-green aggregate ───────────
+          // When ctx.abortSignal fired (external drain/redeploy) AND the
+          // wall-clock timer did NOT fire (sdTimedOut is false), the runner
+          // received sdAbort via the external chain and may have returned
+          // partial all-green verdicts. Those must NOT produce a GREEN
+          // aggregate — a drained run is not a passing run. Mirror the
+          // heuristic path's drainReason==="shutdown" semantics: emit a
+          // drain-suppressed outcome so the dashboard row stays neutral
+          // (not mass-red, not false-green). The errorClass "drain" matches
+          // the heuristic path's drain-suppressed intent.
+          const sdExternalDrained =
+            sdExternalAbort?.aborted === true && !sdTimedOut;
+          if (sdExternalDrained) {
+            const completedCount = sdResult.verdicts.size;
+            ctx.logger.warn("probe.e2e-full.spec-driven-drain", {
+              slug,
+              completedCount,
+            });
+            // R5-K2: Carry actual known counts from the runner's verdict map so
+            // the drain aggregate is machine-readable. Partition partial verdicts
+            // so the SUM INVARIANT holds.
+            let sdDrainPassed = 0;
+            const sdDrainFailed: string[] = [];
+            const sdDrainSkipped: string[] = [];
+            for (const [cell, verdict] of sdResult.verdicts) {
+              if (verdict === "GREEN") sdDrainPassed++;
+              else if (verdict === "SKIPPED") sdDrainSkipped.push(cell);
+              else sdDrainFailed.push(cell);
+            }
+            // R7-M1: state/failed[]-same-reduction invariant. A drain exit is
+            // unconditionally red. If all completed cells were GREEN/SKIPPED,
+            // failed[] would be empty — violating the invariant that state=red
+            // implies failed.length > 0. Inject a sentinel for the un-run cells
+            // so the invariant holds. Total grows by 1 to preserve the sum
+            // invariant (passed+failed+skipped===total).
+            let sdDrainTotal = completedCount;
+            if (sdDrainFailed.length === 0) {
+              sdDrainFailed.push("<unrun-by-drain>");
+              sdDrainTotal += 1;
+            }
+            const drainAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                // SUM INVARIANT: passed+failed+skipped === total.
+                total: sdDrainTotal,
+                passed: sdDrainPassed,
+                failed: sdDrainFailed,
+                skipped: sdDrainSkipped,
+                incapable: computeSdIncapable(
+                  sdDrainSkipped,
+                  input.notSupportedFeatures,
+                ),
+                errorDesc: "drain",
+                note: `spec-driven: external abort (drain/redeploy) — ${completedCount} cells returned before abort; aggregate suppressed`,
+              },
+              observedAt,
+            };
+            await emitAggregate(ctx, slug, drainAggregate, sdRowPrefix);
+            return drainAggregate;
+          }
+
+          // ── F3: Empty verdict map must be red/UNKNOWN, never green ────────
+          if (sdResult.verdicts.size === 0) {
+            // R2.2: total derives from the runner counters when the verdict
+            // map is empty but the runner counters are non-zero (the runner
+            // completed its scan but produced no verdicts — e.g. every cell
+            // was filtered out). If the counters are also zero the total is
+            // genuinely 0 (no cells registered in the manifest).
+            const derivedTotal =
+              sdResult.greenCount +
+              sdResult.cellsFailed +
+              sdResult.skippedCount;
+            // J2-fix-2 SUM INVARIANT: passed+failed+skipped must === total.
+            // With no verdicts returned, there are no cell names to partition
+            // by category. Treat all derivedTotal slots as failed so the
+            // invariant holds and the aggregate is correctly red. The failed[]
+            // entries use a synthetic sentinel so they are distinguishable from
+            // real cell names in diagnostics.
+            const emptyFailed: string[] =
+              derivedTotal > 0
+                ? Array.from(
+                    { length: derivedTotal },
+                    (_, i) => `<unknown-cell-${i}>`,
+                  )
+                : [];
+            const emptyAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                total: derivedTotal,
+                passed: 0,
+                // J2-fix-2: populate failed[] so sum invariant holds.
+                failed: emptyFailed,
+                skipped: [],
+                // J2-fix-2: greppable errorDesc mirrors sibling red exits.
+                errorDesc: "spec-driven-empty-verdicts",
+                note: "spec-driven: no verdicts produced — treating as UNKNOWN (red)",
+              },
+              observedAt,
+            };
+            // F1: Always emit the aggregate.
+            await emitAggregate(ctx, slug, emptyAggregate, sdRowPrefix);
+            return emptyAggregate;
+          }
+
+          // ── F2 + F4: Derive state AND failed[] from the SAME exhaustive
+          // verdict reduction. UNKNOWN counts as failed. Unrecognized values
+          // fall to the fail-closed default (treated as failed) so no verdict
+          // can silently drop. This guarantees state and failed[] can never
+          // disagree.
+          const sdFailed: string[] = [];
+          const sdSkipped: string[] = [];
+          let sdPassed = 0;
+          for (const [cell, verdict] of sdResult.verdicts) {
+            if (verdict === "GREEN") {
+              sdPassed++;
+            } else if (verdict === "SKIPPED") {
+              sdSkipped.push(cell);
+            } else {
+              // RED, UNKNOWN, or any unrecognized value → fail-closed (red).
+              sdFailed.push(cell);
+            }
+          }
+
+          // ── R2.3: Reconcile verdict-reduction counts vs runner counters ────
+          // The runner owns its own greenCount/failedCount/skippedCount. If
+          // those disagree per-category with the verdict reduction it means the
+          // runner returned a partial or inconsistent verdict map (it registered
+          // more cells than it produced verdicts for, or misclassified them —
+          // silently dropping cells). Treat any per-category disagreement as an
+          // inconsistency and fail-closed: emit red with a diagnostic so the
+          // dashboard doesn't show a false-green for a partial run.
+          //
+          // Per-category (not just total): a runner that, say, inflates
+          // greenCount by moving failures into green while total matches would
+          // still trigger a false-green if only totals were compared. Per-
+          // category catches any category-level drift.
+          const sdReducedTotal = sdPassed + sdFailed.length + sdSkipped.length;
+          const sdRunnerTotal =
+            sdResult.greenCount + sdResult.cellsFailed + sdResult.skippedCount;
+          const sdCategoryMismatch =
+            sdRunnerTotal > 0 &&
+            (sdResult.greenCount !== sdPassed ||
+              sdResult.cellsFailed !== sdFailed.length ||
+              sdResult.skippedCount !== sdSkipped.length);
+          if (sdCategoryMismatch) {
+            ctx.logger.warn("probe.e2e-full.spec-driven-count-mismatch", {
+              slug,
+              reducedTotal: sdReducedTotal,
+              runnerTotal: sdRunnerTotal,
+              reducedGreen: sdPassed,
+              runnerGreen: sdResult.greenCount,
+              reducedFailed: sdFailed.length,
+              runnerFailed: sdResult.cellsFailed,
+              reducedSkipped: sdSkipped.length,
+              runnerSkipped: sdResult.skippedCount,
+            });
+            const mismatchAggregate: ProbeResult<E2eFullAggregateSignal> = {
+              key: input.key,
+              state: "red",
+              signal: {
+                shape: "package",
+                slug,
+                backendUrl,
+                // SUM INVARIANT: use the verdict-reduction counts (which ARE
+                // internally consistent by construction) so that
+                // passed+failed+skipped===total. The runner's claimed counters
+                // (which disagree) are preserved in the note for diagnostics.
+                total: sdReducedTotal,
+                passed: sdPassed,
+                failed: sdFailed,
+                skipped: sdSkipped,
+                incapable: computeSdIncapable(
+                  sdSkipped,
+                  input.notSupportedFeatures,
+                ),
+                errorDesc: "spec-driven-count-mismatch",
+                note: `spec-driven: per-category mismatch — runner(green=${sdResult.greenCount},failed=${sdResult.cellsFailed},skipped=${sdResult.skippedCount}) vs reduction(green=${sdPassed},failed=${sdFailed.length},skipped=${sdSkipped.length}) — partial verdict map, treating as fail-closed`,
+              },
+              observedAt,
+            };
+            await emitAggregate(ctx, slug, mismatchAggregate, sdRowPrefix);
+            return mismatchAggregate;
+          }
+
+          const sdAggregateState = sdFailed.length === 0 ? "green" : "red";
+
+          // J2-fix-1: Derive incapable[] from the intersection of sdSkipped
+          // and input.notSupportedFeatures so architectural NSF skips are
+          // distinguishable from operational skips in the spec-driven path,
+          // mirroring the heuristic path (~line 1985-88). Uses the shared
+          // computeSdIncapable helper (also applied at timeout/drain/mismatch
+          // exits) so the "incapable ⊆ skipped" contract holds on every exit.
+          const sdIncapable = computeSdIncapable(
+            sdSkipped,
+            input.notSupportedFeatures,
+          );
+
+          // Return a synthetic aggregate result shaped identically to the
+          // heuristic path so callers (fleet worker, tests) see no difference.
+          const sdAggregateResult: ProbeResult<E2eFullAggregateSignal> = {
+            key: input.key,
+            state: sdAggregateState,
+            signal: {
+              shape: "package",
+              slug,
+              backendUrl,
+              total: sdResult.verdicts.size,
+              passed: sdPassed,
+              failed: sdFailed,
+              skipped: sdSkipped,
+              incapable: sdIncapable,
+            },
+            observedAt,
+          };
+          // F1: Always emit the aggregate on every exit of the spec-driven
+          // branch — mirrors the heuristic path so the dashboard d6:<slug> row
+          // is always updated even when the run fails.
+          await emitAggregate(ctx, slug, sdAggregateResult, sdRowPrefix);
+          return sdAggregateResult;
+        } finally {
+          clearTimeout(sdTimeoutHandle);
+          if (sdExternalAbort) {
+            sdExternalAbort.removeEventListener("abort", onSdExternalAbort);
+          }
+          // sdTimedOut is now consumed above in the R2.1 timeout check.
+        }
+      }
+      // ── End spec-driven branch ────────────────────────────────────────────
 
       // Resolve the outer-cap per `run()`. Fleet path: the enumerator conveys
       // the YAML cap in `input.timeout_ms` (the worker never runs the in-process
@@ -2397,65 +2933,6 @@ async function joinAimockJournal(opts: {
         }`,
       }),
     );
-  }
-}
-
-async function sideEmit(
-  ctx: ProbeContext,
-  result: ProbeResult<E2eFullFeatureSignal>,
-): Promise<void> {
-  if (!ctx.writer) {
-    ctx.logger.warn("probe.e2e-full.writer-missing", { key: result.key });
-    return;
-  }
-  try {
-    await ctx.writer.write(result);
-  } catch (err) {
-    ctx.logger.error("probe.e2e-full.side-emit-writer-failed", {
-      key: result.key,
-      err: err instanceof Error ? err.message : String(err),
-    });
-  }
-}
-
-/**
- * Emit the integration-scoped aggregate `d6:<slug>` side row consumed
- * by the showcase dashboard. The dashboard reads this exact key (see
- * `shell-dashboard/src/lib/live-status.ts` and
- * `shell-dashboard/src/components/depth-utils.ts`). The CLI driver path
- * (cli/targets.ts -> `key: d6:<slug>`) produces this shape as its
- * primary return; the cron path's primary key is
- * `d6-all-pills-e2e:<name>`, so without this explicit side-emit the
- * dashboard's D6 column stays permanently blank.
- *
- * Best-effort and isolated from primary-return semantics: failures here
- * are logged by `ctx.writer.write` but never propagate to the caller.
- */
-async function emitAggregate(
-  ctx: ProbeContext,
-  slug: string,
-  result: ProbeResult<E2eFullAggregateSignal>,
-  rowPrefix: "d5" | "d6",
-): Promise<void> {
-  const aggKey = `${rowPrefix}:${slug}`;
-  if (!ctx.writer) {
-    ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {
-      key: aggKey,
-    });
-    return;
-  }
-  try {
-    await ctx.writer.write({
-      key: aggKey,
-      state: result.state,
-      signal: result.signal,
-      observedAt: result.observedAt,
-    });
-  } catch (err) {
-    ctx.logger.error("probe.e2e-full.aggregate-emit-failed", {
-      key: aggKey,
-      err: err instanceof Error ? err.message : String(err),
-    });
   }
 }
 

@@ -1,0 +1,85 @@
+{
+  "suites": [
+    {
+      "title": "errored.spec.ts",
+      "file": "errored.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "would run if setup succeeded",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 0,
+                  "error": {
+                    "message": "Error: Simulated collection/setup error",
+                    "stack": "Error: Simulated collection/setup error\n    at /private/tmp/pw-fixture-gen/tests/errored.spec.ts:5:9",
+                    "location": {
+                      "file": "/private/tmp/pw-fixture-gen/tests/errored.spec.ts",
+                      "column": 9,
+                      "line": 5
+                    },
+                    "snippet": "  3 | // Actually let's use a runtime throw inside beforeAll\n  4 | test.beforeAll(async () => {\n> 5 |   throw new Error(\"Simulated collection/setup error\");\n    |         ^\n  6 | });\n  7 |\n  8 | test(\"would run if setup succeeded\", async () => {"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/pw-fixture-gen/tests/errored.spec.ts",
+                        "column": 9,
+                        "line": 5
+                      },
+                      "message": "Error: Simulated collection/setup error\n\n  3 | // Actually let's use a runtime throw inside beforeAll\n  4 | test.beforeAll(async () => {\n> 5 |   throw new Error(\"Simulated collection/setup error\");\n    |         ^\n  6 | });\n  7 |\n  8 | test(\"would run if setup succeeded\", async () => {\n    at /private/tmp/pw-fixture-gen/tests/errored.spec.ts:5:9"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-07T22:22:42.345Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/pw-fixture-gen/test-results/errored-would-run-if-setup-succeeded/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/pw-fixture-gen/tests/errored.spec.ts",
+                    "column": 9,
+                    "line": 5
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "5930d5a60da87ae98bdf-0e2b56066a0b3c976e9d",
+          "file": "errored.spec.ts",
+          "line": 8,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-07T22:22:42.014Z",
+    "duration": 368.743,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

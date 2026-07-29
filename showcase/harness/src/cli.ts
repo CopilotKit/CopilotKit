@@ -19,6 +19,7 @@ import { doctor } from "./cli/doctor.js";
 import { aimockRebuild } from "./cli/aimock-rebuild.js";
 import type { TestLevel } from "./cli/targets.js";
 import { registerEvalCommand } from "./cli/eval/index.js";
+import { registerE2eCommand } from "./cli/e2e.js";
 
 const program = new Command();
 
@@ -255,6 +256,9 @@ program
 
 // ── eval ───────────────────────────────────────────────────────────────
 registerEvalCommand(program);
+
+// ── e2e ────────────────────────────────────────────────────────────────
+registerE2eCommand(program);
 
 // ── error handling & entry point ────────────────────────────────────────
 process.on("unhandledRejection", (err) => {

@@ -1,0 +1,55 @@
+{
+  "langgraph-python": {
+    "tests/e2e/a2ui-fixed-schema.spec.ts": ["gen-ui-a2ui-fixed"],
+    "tests/e2e/a2ui-recovery.spec.ts": ["a2ui-recovery"],
+    "tests/e2e/agent-config.spec.ts": ["agent-config"],
+    "tests/e2e/agentic-chat.spec.ts": ["agentic-chat"],
+    "tests/e2e/auth.spec.ts": ["auth"],
+    "tests/e2e/beautiful-chat.spec.ts": [
+      "beautiful-chat-toggle-theme",
+      "beautiful-chat-pie-chart",
+      "beautiful-chat-bar-chart",
+      "beautiful-chat-search-flights",
+      "beautiful-chat-schedule-meeting"
+    ],
+    "tests/e2e/chat-customization-css.spec.ts": ["chat-css"],
+    "tests/e2e/chat-slots.spec.ts": ["chat-slots"],
+    "tests/e2e/declarative-gen-ui.spec.ts": ["gen-ui-declarative"],
+    "tests/e2e/declarative-hashbrown.spec.ts": ["byoc"],
+    "tests/e2e/declarative-json-render.spec.ts": ["byoc"],
+    "tests/e2e/frontend-tools.spec.ts": ["frontend-tools"],
+    "tests/e2e/frontend-tools-async.spec.ts": ["frontend-tools-async"],
+    "tests/e2e/gen-ui-agent.spec.ts": ["gen-ui-agent"],
+    "tests/e2e/gen-ui-tool-based.spec.ts": ["gen-ui-custom"],
+    "tests/e2e/headless-complete.spec.ts": ["gen-ui-headless-complete"],
+    "tests/e2e/headless-simple.spec.ts": ["headless-simple"],
+    "tests/e2e/hitl-in-app.spec.ts": ["hitl-approve-deny"],
+    "tests/e2e/hitl-in-chat.spec.ts": ["hitl-text-input"],
+    "tests/e2e/mcp-apps.spec.ts": ["mcp-apps"],
+    "tests/e2e/multimodal.spec.ts": ["multimodal"],
+    "tests/e2e/open-gen-ui.spec.ts": ["gen-ui-open"],
+    "tests/e2e/open-gen-ui-advanced.spec.ts": ["gen-ui-open-advanced"],
+    "tests/e2e/prebuilt-popup.spec.ts": ["prebuilt-popup"],
+    "tests/e2e/prebuilt-sidebar.spec.ts": ["prebuilt-sidebar"],
+    "tests/e2e/readonly-state-agent-context.spec.ts": [
+      "readonly-state-context"
+    ],
+    "tests/e2e/reasoning-custom.spec.ts": ["reasoning-display"],
+    "tests/e2e/reasoning-default.spec.ts": ["reasoning-display"],
+    "tests/e2e/shared-state-read.spec.ts": ["shared-state-read"],
+    "tests/e2e/shared-state-read-write.spec.ts": ["shared-state-write"],
+    "tests/e2e/shared-state-streaming.spec.ts": ["shared-state-streaming"],
+    "tests/e2e/subagents.spec.ts": ["subagents"],
+    "tests/e2e/tool-rendering.spec.ts": ["tool-rendering"],
+    "tests/e2e/tool-rendering-custom-catchall.spec.ts": [
+      "tool-rendering-custom-catchall"
+    ],
+    "tests/e2e/tool-rendering-default-catchall.spec.ts": [
+      "tool-rendering-default-catchall"
+    ],
+    "tests/e2e/tool-rendering-reasoning-chain.spec.ts": [
+      "tool-rendering-reasoning-chain"
+    ],
+    "tests/e2e/voice.spec.ts": ["voice"]
+  }
+}

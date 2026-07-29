@@ -13,6 +13,7 @@
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
+    "showcase/harness/src/probes/helpers/spec-cell-mapping.base.json",
     "**/package.json"
   ]
 }

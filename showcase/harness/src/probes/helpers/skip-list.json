@@ -1,0 +1,3 @@
+{
+  "langgraph-python": ["gen-ui-interrupt", "interrupt-headless"]
+}

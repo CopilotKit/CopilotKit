@@ -1,0 +1,125 @@
+{
+  "suites": [
+    {
+      "title": "all-skipped.spec.ts",
+      "file": "all-skipped.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "skipped test one",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "location": {
+                    "file": "/private/tmp/pw-fixture-gen/tests/all-skipped.spec.ts",
+                    "line": 4,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": -1,
+                  "parallelIndex": -1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-07T23:02:49.160Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/private/tmp/pw-fixture-gen/tests/all-skipped.spec.ts",
+                        "line": 4,
+                        "column": 6
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "02f97264a50367c7703a-1b42793e3c0702e6281f",
+          "file": "all-skipped.spec.ts",
+          "line": 4,
+          "column": 6
+        },
+        {
+          "title": "skipped test two",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "location": {
+                    "file": "/private/tmp/pw-fixture-gen/tests/all-skipped.spec.ts",
+                    "line": 8,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": -1,
+                  "parallelIndex": -1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-07T23:02:49.160Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/private/tmp/pw-fixture-gen/tests/all-skipped.spec.ts",
+                        "line": 8,
+                        "column": 6
+                      }
+                    }
+                  ],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "02f97264a50367c7703a-a0a9cb95755dccb19f5a",
+          "file": "all-skipped.spec.ts",
+          "line": 8,
+          "column": 6
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-07T23:02:49.123Z",
+    "duration": 37.251000000000005,
+    "expected": 0,
+    "skipped": 2,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

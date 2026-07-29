@@ -1,0 +1,27 @@
+{
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: Collection-time error: this file cannot be collected",
+      "stack": "Error: Collection-time error: this file cannot be collected\n    at Object.<anonymous> (/private/tmp/pw-fixture-gen/tests/collection-error.spec.ts:3:7)",
+      "location": {
+        "file": "/private/tmp/pw-fixture-gen/tests/collection-error.spec.ts",
+        "column": 7,
+        "line": 3
+      },
+      "snippet": "\u001b[90m   at \u001b[39mcollection-error.spec.ts:3\n\n  1 | import { test, expect } from \"@playwright/test\";\n  2 | // Force a syntax/collection-time error via invalid top-level throw\n> 3 | throw new Error(\"Collection-time error: this file cannot be collected\");\n    |       ^\n  4 |\n  5 | test(\"unreachable\", async () => {\n  6 |   expect(1).toBe(1);"
+    },
+    {
+      "message": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments.",
+      "stack": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments."
+    }
+  ],
+  "stats": {
+    "startTime": "2026-07-07T22:22:43.074Z",
+    "duration": 33.78800000000001,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

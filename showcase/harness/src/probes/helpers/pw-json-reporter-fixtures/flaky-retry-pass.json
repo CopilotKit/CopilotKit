@@ -1,0 +1,98 @@
+{
+  "suites": [
+    {
+      "title": "flaky-retry.spec.ts",
+      "file": "flaky-retry.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "flaky test that passes on retry",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 3,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /private/tmp/pw-fixture-gen/tests/flaky-retry.spec.ts:17:15",
+                    "location": {
+                      "file": "/private/tmp/pw-fixture-gen/tests/flaky-retry.spec.ts",
+                      "column": 15,
+                      "line": 17
+                    },
+                    "snippet": "  15 |   if (count === 1) {\n  16 |     // First attempt: fail\n> 17 |     expect(1).toBe(2);\n     |               ^\n  18 |   } else {\n  19 |     // Subsequent attempts: pass\n  20 |     expect(1).toBe(1);"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/private/tmp/pw-fixture-gen/tests/flaky-retry.spec.ts",
+                        "column": 15,
+                        "line": 17
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  15 |   if (count === 1) {\n  16 |     // First attempt: fail\n> 17 |     expect(1).toBe(2);\n     |               ^\n  18 |   } else {\n  19 |     // Subsequent attempts: pass\n  20 |     expect(1).toBe(1);\n    at /private/tmp/pw-fixture-gen/tests/flaky-retry.spec.ts:17:15"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-07-07T23:02:55.434Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/private/tmp/pw-fixture-gen/test-results/flaky-retry-flaky-test-that-passes-on-retry/error-context.md"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/private/tmp/pw-fixture-gen/tests/flaky-retry.spec.ts",
+                    "column": 15,
+                    "line": 17
+                  }
+                },
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2026-07-07T23:02:55.666Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "flaky"
+            }
+          ],
+          "id": "1243b8fe58ea8fda091b-05d79b8a93fede523b92",
+          "file": "flaky-retry.spec.ts",
+          "line": 8,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-07T23:02:55.156Z",
+    "duration": 536.961,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 1
+  }
+}
