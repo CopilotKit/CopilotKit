@@ -420,6 +420,17 @@ export class RealtimeGatewayTransport
       });
       return undefined;
     }
+    if (state.terminal !== undefined && operation === "render") {
+      this.log?.(
+        "realtime gateway render: terminal attempt cannot emit more output",
+        {
+          deliveryId,
+          attemptCount: state.attempt.attemptCount,
+          terminalKind: state.terminal.kind,
+        },
+      );
+      return undefined;
+    }
     return state;
   }
 

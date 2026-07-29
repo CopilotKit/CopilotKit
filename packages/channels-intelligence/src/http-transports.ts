@@ -253,11 +253,13 @@ interface DeliveryLeaseIdentity {
   turnId: string;
   runtimeInstanceId: string;
   leaseToken: string;
+  scope: ChannelDeliveryScope;
 }
 
 interface DeliveryLeaseIdentitySource {
   leaseIdentityFor(
     attempt: DeliveryAttemptRef,
+    operation?: "egress" | "render",
   ): DeliveryLeaseIdentity | undefined;
 }
 
@@ -404,6 +406,20 @@ export class HttpDeliverySource implements DeliverySource {
       });
       return undefined;
     }
+    if (
+      lease.terminal !== undefined &&
+      (operation === "render" || operation === "egress")
+    ) {
+      this.cfg.log?.(
+        `intelligence ${operation}: terminal attempt cannot emit more output`,
+        {
+          deliveryId,
+          attemptCount: lease.attempt.attemptCount,
+          terminalKind: lease.terminal.kind,
+        },
+      );
+      return undefined;
+    }
     return lease;
   }
 
@@ -533,13 +549,15 @@ export class HttpDeliverySource implements DeliverySource {
   /** Exact live lease identity for attempt-fenced direct HTTP egress. */
   leaseIdentityFor(
     attempt: DeliveryAttemptRef,
+    operation: "egress" | "render" = "egress",
   ): DeliveryLeaseIdentity | undefined {
-    const lease = this.resolveLease(attempt, "egress");
+    const lease = this.resolveLease(attempt, operation);
     return lease
       ? {
           turnId: lease.turnId,
           runtimeInstanceId: this.cfg.runtimeInstanceId,
           leaseToken: lease.leaseToken,
+          scope: lease.scope,
         }
       : undefined;
   }
@@ -896,14 +914,37 @@ export class HttpRenderEventSink implements RenderEventSink {
     private readonly scopeSource: {
       scopeFor(attempt: DeliveryAttemptInput): ChannelDeliveryScope | undefined;
       leaseTokenFor(attempt: DeliveryAttemptInput): string | undefined;
+      leaseIdentityFor?(
+        attempt: DeliveryAttemptRef,
+        operation?: "egress" | "render",
+      ): DeliveryLeaseIdentity | undefined;
     },
   ) {
     this.http = new IntelligenceHttp(cfg);
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const attempt = frame.deliveryAttempt ?? frame.deliveryId;
-    const scope = this.scopeSource.scopeFor(attempt);
+    let scope: ChannelDeliveryScope | undefined;
+    let leaseToken: string | undefined;
+    if (frame.deliveryAttempt) {
+      // Resolve scope + token from one lease record. Separate lookups allow a
+      // newer attempt to supersede the old one between calls, retaining the
+      // old scope but dropping its token and accidentally sending an unfenced
+      // render accept.
+      const lease =
+        frame.deliveryAttempt.deliveryId === frame.deliveryId
+          ? this.scopeSource.leaseIdentityFor?.(frame.deliveryAttempt, "render")
+          : undefined;
+      if (lease?.turnId === frame.turnId) {
+        scope = lease.scope;
+        leaseToken = lease.leaseToken;
+      }
+    } else {
+      // Compatibility path for legacy injected frames that carry only a
+      // delivery id. Live mapped frames always take the atomic path above.
+      scope = this.scopeSource.scopeFor(frame.deliveryId);
+      leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
+    }
     if (!scope) {
       throw new Error(
         frame.deliveryAttempt
@@ -912,10 +953,9 @@ export class HttpRenderEventSink implements RenderEventSink {
       );
     }
     // Fence the render-accept on the delivery's lease token (OSS-446), the same
-    // way ack/fail already do. Optional: app-api falls back to instance-id +
-    // expiry when it's absent, so an older lease record without a token still
-    // renders — but supplying it lets app-api reject a stale/rotated lease.
-    const leaseToken = this.scopeSource.leaseTokenFor(attempt);
+    // way ack/fail already do. Exact-attempt frames require the atomic snapshot
+    // above; only legacy delivery-id-only frames retain app-api's tokenless
+    // instance-id + expiry fallback.
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const res = await this.http.post<RenderAcceptedResponse>(
       `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,

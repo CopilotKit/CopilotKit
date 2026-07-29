@@ -662,6 +662,23 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     await expect(t.nack(attempt, "first reason", false)).rejects.toThrow(
       /response lost/,
     );
+    // Selecting a terminal intent freezes the attempt's accepted-through
+    // boundary immediately. Even though the terminal response was lost and the
+    // same payload remains retryable, no later frame may extend that boundary.
+    await expect(
+      t.push({
+        deliveryId: attempt.deliveryId,
+        deliveryAttempt: attempt,
+        turnId: "turn_replayed",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toThrow(/stale delivery attempt/);
+    expect(
+      fake.pushes.filter((push) => push.event === "channel.render_event.v1"),
+    ).toHaveLength(0);
+
     now = "2026-07-01T00:01:00.000Z";
     fake.handlers.get("channel.delivery.available.v1")?.(available);
     await vi.waitFor(() =>

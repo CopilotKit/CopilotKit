@@ -1499,11 +1499,16 @@ describe("HttpRenderEventSink", () => {
     );
     const conf = cfg({ fetch });
     const src = new HttpDeliverySource(conf);
-    await src.claimOnce(); // populates per-delivery scope
+    const claim = await src.claimOnce(); // populates per-delivery scope
+    if (!("env" in claim)) throw new Error("expected a claim");
     const sink = new HttpRenderEventSink(conf, src);
+    const atomicIdentity = vi.spyOn(src, "leaseIdentityFor");
+    const separateScope = vi.spyOn(src, "scopeFor");
+    const separateToken = vi.spyOn(src, "leaseTokenFor");
 
     const receipt = await sink.push({
       deliveryId: "dlv_9",
+      deliveryAttempt: claim.env.deliveryAttempt,
       turnId: "turn_9",
       slot: "main",
       seq: 0,
@@ -1533,6 +1538,9 @@ describe("HttpRenderEventSink", () => {
     });
     // The accept route rejects a body that also carries deliveryId.
     expect("deliveryId" in accept.body).toBe(false);
+    expect(atomicIdentity).toHaveBeenCalledOnce();
+    expect(separateScope).not.toHaveBeenCalled();
+    expect(separateToken).not.toHaveBeenCalled();
   });
 
   it("throws when no leased scope exists for the delivery", async () => {
@@ -1548,6 +1556,56 @@ describe("HttpRenderEventSink", () => {
         event: { kind: "run_started" },
       }),
     ).rejects.toThrow(/no leased scope/);
+  });
+
+  it("rejects render work after a terminal intent wins, even when its response is lost", async () => {
+    const { fetch, calls } = fakeFetch((c) => {
+      if (c.url.endsWith("/claim")) {
+        return { body: { claimed: true, delivery: claimedDelivery() } };
+      }
+      if (c.url.endsWith("/ack")) {
+        return {
+          ok: false,
+          status: 503,
+          body: {
+            error: {
+              code: "INTERNAL_SERVER_ERROR",
+              message: "completion response lost",
+              retryable: true,
+            },
+          },
+        };
+      }
+      return {
+        body: {
+          idempotencyKey: "turn_9:main:0",
+          acceptance: "accepted",
+        },
+      };
+    });
+    const conf = cfg({ fetch });
+    const src = new HttpDeliverySource(conf);
+    const claim = await src.claimOnce();
+    if (!("env" in claim)) throw new Error("expected a claim");
+    const sink = new HttpRenderEventSink(conf, src);
+
+    await expect(src.ack(claim.env.deliveryAttempt)).rejects.toThrow(
+      /completion response lost/,
+    );
+    await expect(
+      sink.push({
+        deliveryId: "dlv_9",
+        deliveryAttempt: claim.env.deliveryAttempt,
+        turnId: "turn_9",
+        slot: "main",
+        seq: 0,
+        event: { kind: "run_started" },
+      }),
+    ).rejects.toThrow(/stale delivery attempt/);
+
+    expect(
+      calls.filter((c) => c.url.endsWith("/render-events/accept")),
+    ).toHaveLength(0);
   });
 
   it("rejects a stale attempt frame instead of fencing it with the active attempt's token", async () => {
