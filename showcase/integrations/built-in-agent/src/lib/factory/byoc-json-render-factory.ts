@@ -96,6 +96,30 @@ Respond with the JSON object only.
 `;
 
 /**
+ * Responses-API JSON mode, the equivalent of Chat Completions'
+ * `response_format: { type: "json_object" }`.
+ *
+ * `modelOptions` is spread verbatim into the `client.responses.create()` body
+ * by `@tanstack/openai-base`'s `mapOptionsToRequest` (verified against the
+ * pinned `@tanstack/ai-openai@0.15.6` → `@tanstack/openai-base@0.9.2`), and its
+ * `validateTextProviderOptions` only inspects `metadata` / `conversation` /
+ * `previous_response_id`, so `text` passes through untouched. The adapter sets
+ * `text.format` itself ONLY when an `outputSchema` is passed to `chat()`; none
+ * is here, so there is nothing to clobber.
+ *
+ * Deliberately `json_object` (syntactic validity) rather than a strict
+ * `json_schema`: the spec is a recursive element map keyed by arbitrary element
+ * ids, which `strict: true` cannot express without an `additionalProperties`
+ * escape hatch. Syntactic validity is the whole defect — the model's *content*
+ * was always right, only its final brace was missing — and it is exactly what
+ * the reference enforces. `parseSpec` in `json-render-renderer.tsx` still
+ * validates the shape on the client.
+ */
+const JSON_OBJECT_FORMAT = {
+  text: { format: { type: "json_object" } },
+} as const;
+
+/**
  * Convert a TanStack AI stream to AG-UI events for a tool-free agent.
  *
  * Uses `type: "custom"` instead of `type: "tanstack"` to bypass the
@@ -137,12 +161,17 @@ async function* convertStream(
  * runtime's `convertTanStackStream` runFinished-flag issue, matching the
  * pattern used by the main built-in-agent factory (tanstack-factory.ts).
  *
- * NOTE: `response_format: { type: "json_object" }` was removed from
- * modelOptions because TanStack AI's OpenAI adapter v0.8.x uses the
- * Responses API (`client.responses.create()`), not the Chat Completions
- * API. The Responses API does not support `response_format` — it uses
- * `text.format` instead. The system prompt already enforces JSON-only
- * output.
+ * JSON validity is enforced at the MODEL, via the Responses API's
+ * `text.format` (see `JSON_OBJECT_FORMAT` below) — not by the system prompt
+ * alone. `response_format: { type: "json_object" }` was once removed from
+ * modelOptions on the grounds that the Responses API doesn't accept it and
+ * "the system prompt already enforces JSON-only output". It does not: without
+ * model-level enforcement the model reliably under-closed the object by one
+ * brace on any prompt it couldn't crib from the worked example below, and
+ * `<Renderer />` — correctly requiring a balanced object — fell back to
+ * dumping the raw JSON into the chat bubble. The reference keeps the same
+ * enforcement (`byoc_json_render_agent.py`:
+ * `model_kwargs={"response_format": {"type": "json_object"}}`).
  */
 export function createByocJsonRenderAgent() {
   return new BuiltInAgent({
@@ -157,6 +186,7 @@ export function createByocJsonRenderAgent() {
         tools: [],
         modelOptions: {
           temperature: 0.2,
+          ...JSON_OBJECT_FORMAT,
         },
         abortController,
       });

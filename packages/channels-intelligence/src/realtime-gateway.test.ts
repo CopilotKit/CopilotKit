@@ -3,6 +3,7 @@ import {
   connectRealtimeGateway,
   RealtimeGatewayChannelStateError,
   RealtimeGatewaySetupRequiredError,
+  RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
@@ -17,6 +18,9 @@ type JoinMode =
   // `channel_declaration_unavailable` with NO channels array — the defensive
   // fallback path (nothing to classify) degrades to setup_required.
   | "error-setup-required-no-channels"
+  // `channel_declaration_unavailable` where the declared channel does not exist
+  // in the project at all (OSS-622) → setup_required, not a hard failure.
+  | "error-channel-not-declared"
   // `channel_declaration_unavailable` where a non-live channel is a hard-error
   // state (`runtime_conflict`) → must NOT downgrade to setup_required.
   | "error-conflict"
@@ -61,6 +65,11 @@ function makeFakeWebSocket(mode: JoinMode) {
         };
       case "error-setup-required-no-channels":
         return { reason: "channel_declaration_unavailable" };
+      case "error-channel-not-declared":
+        return {
+          reason: "channel_declaration_unavailable",
+          channels: [{ state: "channel_not_declared" }],
+        };
       case "error-conflict":
         return {
           reason: "channel_declaration_unavailable",
@@ -220,7 +229,7 @@ describe("connectRealtimeGateway", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 0,
         join: {
@@ -243,7 +252,7 @@ describe("connectRealtimeGateway", () => {
     };
 
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join,
@@ -266,7 +275,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires a registered onClose callback exactly once when the socket drops unexpectedly", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -293,7 +302,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("fires onClose again for a second drop after the socket reopens", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -337,7 +346,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("does not fire onClose when the drop is our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -362,7 +371,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
   it("still fires later onClose callbacks when an earlier one throws", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -394,7 +403,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -417,7 +426,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -437,7 +446,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
 
     await expect(
       connectRealtimeGateway({
-        wsUrl: "wss://gateway.example/socket",
+        wsUrl: "wss://gateway.example/runner",
         apiKey: "cpk-test",
         projectId: 7,
         join: {
@@ -462,7 +471,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     );
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -493,13 +502,49 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     expect(instances[0]!.closed).toBe(true);
   });
 
+  it("classifies channel_not_declared as SETUP_REQUIRED (OSS-622)", async () => {
+    // app-api reports `channel_not_declared` when the declared channel name does
+    // not exist in the project. Creating the channel and attaching credentials is
+    // the setup step every new channel goes through, so this is the first-run
+    // path — it must resolve `ready()` as setup_required, not crash startup.
+    const { FakeWebSocket, instances } = makeFakeWebSocket(
+      "error-channel-not-declared",
+    );
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/socket",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "never-created", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    expect((err as RealtimeGatewaySetupRequiredError).code).toBe(
+      "SETUP_REQUIRED",
+    );
+    // Preserved so an operator can tell this apart from the other ways a channel
+    // reaches setup_required.
+    expect((err as RealtimeGatewaySetupRequiredError).channelStates).toEqual([
+      "channel_not_declared",
+    ]);
+    expect(instances[0]!.closed).toBe(true);
+  });
+
   it("degrades to SETUP_REQUIRED when channel_declaration_unavailable carries no channel detail", async () => {
     const { FakeWebSocket } = makeFakeWebSocket(
       "error-setup-required-no-channels",
     );
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -523,7 +568,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     const { FakeWebSocket, instances } = makeFakeWebSocket("error-conflict");
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -554,7 +599,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     const { FakeWebSocket } = makeFakeWebSocket("error-mixed");
 
     const err = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -589,7 +634,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on an unexpected drop and back to online on a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -618,7 +663,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("transitions to reconnecting on a channel-level error while the socket stays open, then back to online on channel rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -652,7 +697,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("surfaces a superseded listener as fenced instead of pretending Phoenix will rejoin it", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -681,7 +726,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("gives up (emits gave_up) when the reconnect window elapses without a successful rejoin", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -712,7 +757,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -749,7 +794,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       "give-up-then-recover",
     );
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -800,7 +845,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
   it("does not emit a connection-state transition for our own disconnect()", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const session = await connectRealtimeGateway({
-      wsUrl: "wss://gateway.example/socket",
+      wsUrl: "wss://gateway.example/runner",
       apiKey: "cpk-test",
       projectId: 7,
       join: {
@@ -818,5 +863,457 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
 
     expect(instances[0]!.closed).toBe(true);
     expect(states).toEqual([]);
+  });
+});
+
+/**
+ * How the WebSocket transport reports a connect that never opened. Verified
+ * against the real implementations on 2026-07-28:
+ *
+ * - `undici` — Node's GLOBAL WebSocket, and therefore the production default.
+ *   Dispatches the SAME detail-free `ErrorEvent` for every underlying cause
+ *   (nonexistent host, refused port, HTTPS host with no socket mounted): message
+ *   `"Received network error or non-101 status code."`, no `code`, and an inner
+ *   `Error` carrying nothing more. This is why the cause has to come from the
+ *   HTTP diagnosis instead of from the socket.
+ * - `coded` — the `ws` package / custom transports, which DO expose the OS error
+ *   (an `Error` with `code`). Those are trusted directly, with no probe.
+ * - `opaque` — a browser-style bare `Event`.
+ * - `silent` — nothing at all: no open, no error (black-holed IP, dropped SYN).
+ */
+type TransportFailure = "undici" | "coded" | "opaque" | "silent";
+
+/** The `error` event a real WebSocket surfaces for `failure`. */
+function transportErrorEvent(
+  failure: TransportFailure,
+  code?: string,
+): unknown {
+  switch (failure) {
+    case "undici":
+      return {
+        type: "error",
+        message: "Received network error or non-101 status code.",
+        error: new Error("Received network error or non-101 status code."),
+      };
+    case "coded":
+      return {
+        type: "error",
+        message: "connection error",
+        error: Object.assign(
+          new Error(`connect ${code ?? "ECONNREFUSED"} 127.0.0.1:4001`),
+          { code: code ?? "ECONNREFUSED" },
+        ),
+      };
+    default:
+      return { type: "error" };
+  }
+}
+
+/**
+ * The failure `fetch` throws for `cause`, matching Node's shape exactly (a
+ * `TypeError("fetch failed")` whose `cause` is the coded OS error) — verified
+ * against the real `fetch` on 2026-07-28.
+ */
+function fetchFailure(code: string, detail: string): TypeError {
+  return new TypeError("fetch failed", {
+    cause: Object.assign(new Error(detail), { code }),
+  });
+}
+
+/** A `fetch` seam that always throws `error`, recording the URLs it was asked for. */
+function makeFailingFetch(error: unknown): {
+  fetchImpl: typeof globalThis.fetch;
+  urls: string[];
+} {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    urls.push(String(url));
+    throw error;
+  }) as unknown as typeof globalThis.fetch;
+  return { fetchImpl, urls };
+}
+
+/** A `fetch` seam that answers with `status`, recording the URLs it was asked for. */
+function makeRespondingFetch(status: number): {
+  fetchImpl: typeof globalThis.fetch;
+  urls: string[];
+} {
+  const urls: string[] = [];
+  const fetchImpl = (async (url: string | URL | Request) => {
+    urls.push(String(url));
+    return new Response(null, { status });
+  }) as unknown as typeof globalThis.fetch;
+  return { fetchImpl, urls };
+}
+
+/**
+ * A WebSocket whose first `openAfter - 1` connection attempts fail with
+ * `failure`; the attempt at `openAfter` (default: never) opens normally and
+ * replies `ok` to the channel join, modeling a gateway that was still booting.
+ */
+function makeFailingWebSocket(
+  failure: TransportFailure,
+  opts: { openAfter?: number; code?: string } = {},
+) {
+  const instances: FailingWebSocket[] = [];
+
+  class FailingWebSocket {
+    static readonly CONNECTING = 0;
+    static readonly OPEN = 1;
+    static readonly CLOSING = 2;
+    static readonly CLOSED = 3;
+    readyState = 0;
+    onopen: ((ev?: unknown) => void) | null = null;
+    onmessage: ((ev: { data: string }) => void) | null = null;
+    onerror: ((ev?: unknown) => void) | null = null;
+    onclose: ((ev?: unknown) => void) | null = null;
+    closed = false;
+
+    constructor(public readonly url: string) {
+      instances.push(this);
+      const attempt = instances.length;
+      queueMicrotask(() => {
+        if (opts.openAfter !== undefined && attempt >= opts.openAfter) {
+          this.readyState = 1;
+          this.onopen?.();
+          return;
+        }
+        if (failure === "silent") return;
+        this.readyState = 3;
+        this.onerror?.(transportErrorEvent(failure, opts.code));
+        // A failed connect closes uncleanly (1006), which is what drives
+        // Phoenix's reconnect timer — the retry-forever behavior under test.
+        this.onclose?.({ code: 1006, wasClean: false });
+      });
+    }
+
+    send(data: string): void {
+      let frame: unknown;
+      try {
+        frame = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(frame)) return;
+      const [joinRef, ref, topic, event] = frame as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      if (event !== "phx_join") return;
+      queueMicrotask(() =>
+        this.onmessage?.({
+          data: JSON.stringify([
+            joinRef,
+            ref,
+            topic,
+            "phx_reply",
+            { status: "ok", response: {} },
+          ]),
+        }),
+      );
+    }
+
+    close(): void {
+      this.closed = true;
+      this.readyState = 3;
+      this.onclose?.();
+    }
+  }
+  return { FailingWebSocket, instances };
+}
+
+const JOIN = {
+  runtimeInstanceId: "rti_1",
+  declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+  observedAt: "2026-07-10T00:00:00.000Z",
+};
+
+describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => {
+  it("fails immediately when the HTTP diagnosis shows the host does not resolve", async () => {
+    // The socket reports nothing useful (undici's shape), so the verdict has to
+    // come from the probe — which is exactly the production arrangement.
+    const { FailingWebSocket, instances } = makeFailingWebSocket("undici");
+    const { fetchImpl, urls } = makeFailingFetch(
+      fetchFailure("ENOTFOUND", "getaddrinfo ENOTFOUND realtime.copilotkit.ai"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://realtime.copilotkit.ai/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      // Generous window: a host that does not exist must NOT burn it, because
+      // no amount of retrying will make the name resolve.
+      connectTimeoutMs: 5_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(elapsed).toBeLessThan(1_000);
+    // The probe targets the same host AND path over http(s) — the path is what
+    // separates "wrong host" from "no socket mounted here".
+    expect(urls).toEqual(["https://realtime.copilotkit.ai/runner"]);
+    // The message names the endpoint and the real cause, not a stopwatch.
+    expect((err as Error).message).toMatch(/wss:\/\/realtime\.copilotkit\.ai/);
+    expect((err as Error).message).toMatch(/does not resolve/);
+    expect((err as Error).message).toMatch(/ENOTFOUND/);
+    expect((err as RealtimeGatewayUnreachableError).endpoint).toBe(
+      "wss://realtime.copilotkit.ai/runner",
+    );
+    expect((err as RealtimeGatewayUnreachableError).code).toBe(
+      "GATEWAY_UNREACHABLE",
+    );
+    // The underlying failure is preserved for a caller that wants to inspect it.
+    expect(
+      (err as { cause?: { cause?: { code?: string } } }).cause?.cause?.code,
+    ).toBe("ENOTFOUND");
+    // A misconfigured host is NOT a setup-waiting condition: it must reject
+    // `ready()`, never resolve as `setup_required` (coordinated with OSS-622).
+    expect(err).not.toBeInstanceOf(RealtimeGatewaySetupRequiredError);
+    expect((err as { code?: string }).code).not.toBe("SETUP_REQUIRED");
+    // The socket must not be left retrying a host that will never resolve.
+    expect(instances.every((instance) => instance.closed)).toBe(true);
+  });
+
+  it("waits out the connect window when the host merely refuses the connection", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+    const { fetchImpl } = makeFailingFetch(
+      fetchFailure("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:4001"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    const elapsed = Date.now() - started;
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    // A refusal may just be a gateway that has not booted yet, so it is given
+    // the full window rather than failing on the first error.
+    expect(elapsed).toBeGreaterThanOrEqual(140);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    expect((err as Error).message).toMatch(/refused the connection/);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  });
+
+  it("reports a host that answers HTTP as a handshake/path problem, not a missing host", async () => {
+    // The split-plane trap: the host is up and serving HTTP, but there is no
+    // Phoenix socket at the wsUrl path.
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+    const { fetchImpl, urls } = makeRespondingFetch(404);
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://api.intelligence.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(urls).toEqual(["https://api.intelligence.example/runner"]);
+    expect((err as Error).message).toMatch(/answered HTTP 404/);
+    expect((err as Error).message).toMatch(/handshake/);
+  });
+
+  it("trusts a transport that exposes the OS code, without probing", async () => {
+    // The `ws` package and custom transports DO surface the cause, so an
+    // NXDOMAIN there needs no HTTP probe at all.
+    const { FailingWebSocket } = makeFailingWebSocket("coded", {
+      code: "ENOTFOUND",
+    });
+    const { fetchImpl, urls } = makeFailingFetch(
+      new Error("must not be called"),
+    );
+
+    const started = Date.now();
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 5_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(urls).toEqual([]);
+    expect((err as Error).message).toMatch(/ENOTFOUND/);
+  });
+
+  it("rejects at the connect deadline when the connect hangs with no transport event at all", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("silent");
+    const { fetchImpl, urls } = makeFailingFetch(
+      fetchFailure("ETIMEDOUT", "connect ETIMEDOUT 10.0.0.1:443"),
+    );
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+      // Far larger than the connect window: a black-holed connect must be
+      // bounded by the CONNECT budget, not by the join timeout.
+      timeoutMs: 60_000,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example/);
+    // Nothing arrived from the socket, so the deadline itself starts the probe
+    // and the reported cause still comes from it.
+    expect(urls).toEqual(["https://gateway.example/runner"]);
+    expect((err as Error).message).toMatch(/ETIMEDOUT/);
+  });
+
+  it("still names the endpoint when neither the transport nor the probe yields a cause", async () => {
+    const { FailingWebSocket } = makeFailingWebSocket("opaque");
+    // A probe that itself yields nothing usable (no message, no code).
+    const { fetchImpl } = makeFailingFetch({});
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 150,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/wss:\/\/gateway\.example\/runner/);
+    expect((err as Error).message).toMatch(/no transport error within 150ms/);
+    expect(
+      (err as RealtimeGatewayUnreachableError).transportError,
+    ).toBeUndefined();
+  });
+
+  it("diagnoses a real closed port through the default fetch", async () => {
+    // No seam, no fake: exercises the SHIPPED probe against a port nothing is
+    // listening on (loopback only — no DNS, no network egress).
+    const { FailingWebSocket } = makeFailingWebSocket("undici");
+
+    const err = await connectRealtimeGateway({
+      wsUrl: "ws://127.0.0.1:45999/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      connectTimeoutMs: 1_500,
+    }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+
+    expect(err).toBeInstanceOf(RealtimeGatewayUnreachableError);
+    expect((err as Error).message).toMatch(/refused the connection/);
+    expect((err as Error).message).toMatch(/ECONNREFUSED/);
+  }, 10_000);
+
+  it("does not fail a gateway that is merely still booting", async () => {
+    // The first connect attempt fails; the second succeeds — the boot race a
+    // fail-on-first-error rule would turn into a permanent activation failure
+    // (the manager does not retry activation).
+    const { FailingWebSocket, instances } = makeFailingWebSocket("undici", {
+      openAfter: 2,
+    });
+    const { fetchImpl } = makeFailingFetch(
+      fetchFailure("ECONNREFUSED", "connect ECONNREFUSED 127.0.0.1:4001"),
+    );
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FailingWebSocket,
+      diagnosticFetch: fetchImpl,
+      connectTimeoutMs: 2_000,
+    });
+
+    expect(instances.length).toBeGreaterThanOrEqual(2);
+    session.disconnect();
+  });
+
+  it("issues no diagnostic request at all when the connect succeeds", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok");
+    const { fetchImpl, urls } = makeFailingFetch(
+      new Error("must not be called"),
+    );
+
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+      diagnosticFetch: fetchImpl,
+    });
+
+    expect(urls).toEqual([]);
+    session.disconnect();
+  });
+
+  it("disarms the connect deadline once connected — a later drop is a reconnect, not an unreachable host", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: JOIN,
+      webSocket: FakeWebSocket,
+      connectTimeoutMs: 30,
+    });
+
+    const states: RealtimeGatewayConnectionState[] = [];
+    session.onStateChange((s) => states.push(s));
+
+    // Drop AFTER a successful connect, then wait past the (already elapsed)
+    // connect deadline: the session must treat this as a reconnect episode and
+    // must not tear itself down as "never connected".
+    instances[0]!.onclose?.();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    expect(states).toContain("reconnecting");
+    await waitUntil(() => states.includes("online"));
+    expect(states[states.length - 1]).toBe("online");
+
+    session.disconnect();
   });
 });

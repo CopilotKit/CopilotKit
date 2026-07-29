@@ -512,6 +512,181 @@ function createGenUiAgent() {
   return agent;
 }
 
+/**
+ * Extract the (possibly still-streaming, unterminated) value of the
+ * `document` string argument from a partial `write_document` tool-args
+ * buffer. OpenAI streams tool-call args as raw JSON deltas, so mid-stream
+ * the buffer looks like `{"document":"Autumn lea` — not parseable by
+ * `JSON.parse`. To stream `state.document` per-token we decode the string
+ * value ourselves, honoring JSON escape sequences and stopping cleanly at
+ * the point the buffer currently ends (an in-progress escape or `\u` code
+ * simply waits for the next delta).
+ */
+function extractStreamingDocument(argsBuffer: string): string | undefined {
+  // Fast path: the whole args JSON has arrived.
+  try {
+    const parsed = JSON.parse(argsBuffer);
+    if (parsed && typeof parsed.document === "string") return parsed.document;
+  } catch {
+    // Fall through to partial extraction while the buffer is incomplete.
+  }
+
+  const keyMatch = argsBuffer.match(/"document"\s*:\s*"/);
+  if (!keyMatch || keyMatch.index === undefined) return undefined;
+
+  const start = keyMatch.index + keyMatch[0].length;
+  let result = "";
+  for (let i = start; i < argsBuffer.length; i++) {
+    const ch = argsBuffer[i];
+    if (ch === "\\") {
+      const next = argsBuffer[i + 1];
+      // Escape started but its payload hasn't streamed yet — wait for more.
+      if (next === undefined) break;
+      switch (next) {
+        case "n":
+          result += "\n";
+          break;
+        case "t":
+          result += "\t";
+          break;
+        case "r":
+          result += "\r";
+          break;
+        case "b":
+          result += "\b";
+          break;
+        case "f":
+          result += "\f";
+          break;
+        case '"':
+          result += '"';
+          break;
+        case "\\":
+          result += "\\";
+          break;
+        case "/":
+          result += "/";
+          break;
+        case "u": {
+          const hex = argsBuffer.slice(i + 2, i + 6);
+          // Incomplete \uXXXX escape — wait for the rest of the code point.
+          if (hex.length < 4) return result;
+          result += String.fromCharCode(parseInt(hex, 16));
+          i += 4;
+          break;
+        }
+        default:
+          result += next;
+      }
+      i += 1;
+      continue;
+    }
+    // Unescaped closing quote — the string value is complete.
+    if (ch === '"') break;
+    result += ch;
+  }
+  return result;
+}
+
+// Shared State (Streaming) — per-token bridge for the .NET
+// `write_document` tool. The backend agent (D5ParityAgentFactory
+// .CreateSharedStateStreamingAgent) streams the tool's `document` string
+// argument as TOOL_CALL_ARGS deltas and commits a final authoritative
+// STATE_SNAPSHOT via SnapshotAfterRunAgent. This shim mirrors
+// `createGenUiAgent`: it buffers those arg deltas and, per delta, emits an
+// incremental `STATE_SNAPSHOT { document }` so the UI's DocumentView
+// (subscribed to `agent.state.document`) grows token-by-token instead of
+// jumping once at the end. The write_document tool-call events themselves
+// are swallowed (like set_steps) — the document lives in state, not in a
+// chat tool-call bubble. The backend's final STATE_SNAPSHOT still passes
+// through as the authoritative commit.
+function createSharedStateStreamingAgent() {
+  const agent = createAgent("/shared-state-streaming");
+
+  agent.use(
+    new FunctionMiddleware((input, next) => {
+      return new Observable<BaseEvent>((subscriber) => {
+        const writeDocumentToolCallIds = new Set<string>();
+        const argsByToolCallId = new Map<string, string>();
+        const lastEmittedByToolCallId = new Map<string, string>();
+
+        const emitStateSnapshotFromArgs = (toolCallId: string) => {
+          const args = argsByToolCallId.get(toolCallId);
+          if (args === undefined) return;
+
+          const document = extractStreamingDocument(args);
+          if (document === undefined) return;
+
+          // Only emit when the decoded document actually grew/changed, so
+          // token deltas that don't advance the string (e.g. structural
+          // JSON chars) don't spam redundant snapshots.
+          if (lastEmittedByToolCallId.get(toolCallId) === document) return;
+          lastEmittedByToolCallId.set(toolCallId, document);
+
+          subscriber.next({
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: { document },
+          } as BaseEvent);
+        };
+
+        const subscription = next.run(input).subscribe({
+          next(event) {
+            if (
+              event.type === EventType.TOOL_CALL_START &&
+              (event as { toolCallName?: string }).toolCallName ===
+                "write_document"
+            ) {
+              const toolCallId = (event as { toolCallId?: string }).toolCallId;
+              if (toolCallId) writeDocumentToolCallIds.add(toolCallId);
+              return;
+            }
+
+            if (event.type === EventType.TOOL_CALL_ARGS) {
+              const toolCallId = (event as { toolCallId?: string }).toolCallId;
+              if (toolCallId && writeDocumentToolCallIds.has(toolCallId)) {
+                const delta = String((event as { delta?: string }).delta ?? "");
+                argsByToolCallId.set(
+                  toolCallId,
+                  `${argsByToolCallId.get(toolCallId) ?? ""}${delta}`,
+                );
+                emitStateSnapshotFromArgs(toolCallId);
+                return;
+              }
+            }
+
+            if (
+              event.type === EventType.TOOL_CALL_END ||
+              event.type === EventType.TOOL_CALL_RESULT
+            ) {
+              const toolCallId = (event as { toolCallId?: string }).toolCallId;
+              if (toolCallId && writeDocumentToolCallIds.has(toolCallId)) {
+                if (event.type === EventType.TOOL_CALL_RESULT) {
+                  writeDocumentToolCallIds.delete(toolCallId);
+                  argsByToolCallId.delete(toolCallId);
+                  lastEmittedByToolCallId.delete(toolCallId);
+                }
+                return;
+              }
+            }
+
+            subscriber.next(event);
+          },
+          error(error) {
+            subscriber.error(error);
+          },
+          complete() {
+            subscriber.complete();
+          },
+        });
+
+        return () => subscription.unsubscribe();
+      });
+    }),
+  );
+
+  return agent;
+}
+
 function createReadonlyContextAgent() {
   const agent = createAgent("/readonly-state-agent-context");
 
@@ -715,10 +890,13 @@ agents["gen-ui-agent"] = createGenUiAgent();
 // system prompt that picks the right chart type for the user's request.
 agents["gen-ui-tool-based"] = createAgent("/gen-ui-tool-based");
 
-// Shared State (Streaming) — `write_document` tool with `predict_state_config`
-// that streams the tool's `document` arg into `state.document` per-token.
-// See `src/agents/shared_state_streaming.py`.
-agents["shared-state-streaming"] = createAgent("/shared-state-streaming");
+// Shared State (Streaming) — `write_document` tool whose `document` string
+// arg streams into `state.document` per-token. The shim buffers the tool's
+// TOOL_CALL_ARGS deltas and emits an incremental STATE_SNAPSHOT on each,
+// mirroring `createGenUiAgent`'s set_steps bridge (the .NET host has no
+// `predict_state_config`, so per-token emission is done here on the route).
+// See `src/agents/shared_state_streaming.py` for the Python reference.
+agents["shared-state-streaming"] = createSharedStateStreamingAgent();
 
 // Readonly state via `useAgentContext` — minimal agent, no tools, reads
 // frontend-provided context entries on every turn.
@@ -734,6 +912,12 @@ agents["shared-state-read-write"] = createSharedStateReadWriteAgent();
 // writing / critique sub-agents and surfaces a live `delegations` log to the
 // UI via shared state.
 agents["subagents"] = createAgent("/subagents");
+
+// Thread-ID frontend-tool round-trip — reuses the default frontend_tools
+// passthrough agent (no dedicated backend). The demo exercises thread-id
+// persistence across a frontend tool round-trip; it mirrors langgraph-python's
+// mapping of this demo name onto the frontend_tools agent.
+agents["threadid-frontend-tool-roundtrip"] = createAgent();
 
 agents["default"] = createAgent();
 

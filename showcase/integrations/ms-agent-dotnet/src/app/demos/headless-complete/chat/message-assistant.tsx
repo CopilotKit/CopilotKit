@@ -13,6 +13,7 @@ import { Bot } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
+// @region[custom-bubbles]
 export function AssistantBubble({
   content,
   children,
@@ -115,3 +116,4 @@ export function AssistantBubble({
     </div>
   );
 }
+// @endregion[custom-bubbles]

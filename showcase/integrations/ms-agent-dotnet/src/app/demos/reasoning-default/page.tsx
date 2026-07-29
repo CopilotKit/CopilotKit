@@ -15,6 +15,7 @@
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { useReasoningDefaultSuggestions } from "./suggestions";
 
+// @region[default-reasoning-zero-config]
 const AGENT_ID = "reasoning-default";
 
 export default function ReasoningDefaultDemo() {
@@ -33,3 +34,4 @@ function Chat() {
   useReasoningDefaultSuggestions();
   return <CopilotChat agentId={AGENT_ID} className="h-full rounded-2xl" />;
 }
+// @endregion[default-reasoning-zero-config]

@@ -13,13 +13,13 @@
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
- * example needs an Intelligence key (free tier: `COPILOTKIT_INTELLIGENCE_URL` +
- * `COPILOTKIT_API_KEY`). The platform adapters stay DIRECT (they keep their own
+ * example needs an Intelligence key (free tier: `COPILOTKIT_API_KEY`; the
+ * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * four platforms stay on the ONE Channel — you declare it on
  * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })`, mount a
- * node listener, and drive `listener.channels?.ready()` / `.stop()`. There is no
+ * node listener, and drive `listener.channels.ready()` / `.stop()`. There is no
  * `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
@@ -76,13 +76,6 @@ const required = (name: string): string => {
 /** True only when every named env var is set and non-empty. */
 const have = (...names: string[]): boolean =>
   names.every((n) => Boolean(process.env[n]));
-
-/**
- * Derive the Intelligence websocket base URL from the API base URL when it
- * isn't set explicitly: `http(s)://…` → `ws(s)://…` (same host + port).
- */
-const deriveWsUrl = (apiUrl: string): string =>
-  apiUrl.replace(/^http(s?):\/\//, "ws$1://");
 
 async function main() {
   const agentUrl = required("AGENT_URL");
@@ -287,12 +280,13 @@ async function main() {
   // The Intelligence client the Channel-owning runtime is configured with. A
   // Channel runs only through the Intelligence runtime — the direct adapters
   // keep their own platform credentials, but the runtime is what starts them.
-  const intelligenceApiUrl = required("COPILOTKIT_INTELLIGENCE_URL");
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: intelligenceApiUrl,
-    wsUrl:
-      process.env.COPILOTKIT_INTELLIGENCE_WS_URL ??
-      deriveWsUrl(intelligenceApiUrl),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
     apiKey: required("COPILOTKIT_API_KEY"),
   });
 
@@ -310,9 +304,10 @@ async function main() {
     channels: [bot],
   });
 
-  // Mounting the Node listener creates the runtime handler, which activates the
-  // Channel (starting all its direct adapters) and exposes `.channels` for
-  // readiness + shutdown. This listener holds the Intelligence key and needs no
+  // Mounting the Node listener creates the runtime handler and exposes
+  // `.channels` for readiness + shutdown. It opens NO connection yet — the
+  // `ready()` call below is what activates the Channel (starting all its direct
+  // adapters). This listener holds the Intelligence key and needs no
   // public ingress (each platform adapter has its own — e.g. WhatsApp's webhook
   // on $PORT); it only owns the Channel lifecycle and keeps the process alive.
   const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
@@ -326,26 +321,50 @@ async function main() {
     );
   });
 
-  // Drive readiness through the runtime's Channel control instead of a
-  // (now-removed) bot.start(): resolves once every direct adapter's transport is
-  // up across all active platforms.
+  const shutdown = async (signal: string) => {
+    console.log(`\n[channel] received ${signal}, stopping…`);
+    let exitCode = 0;
+    try {
+      // Stop through the runtime's Channel control, which tears down every direct
+      // adapter it started.
+      await listener.channels.stop();
+    } catch (err) {
+      console.error("[channel] error stopping Channel", err);
+      exitCode = 1;
+    }
+    // Tear down the shared headless browser used for chart/diagram rendering.
+    // Best-effort, but surface a failure rather than swallow it.
+    await closeBrowser().catch((err: unknown) =>
+      console.error(
+        "[channel] browser cleanup failed (continuing shutdown)",
+        err,
+      ),
+    );
+    process.exit(exitCode);
+  };
+  // A failed shutdown must not vanish, and must not leave the process alive: a
+  // rejection here would otherwise skip `process.exit` entirely and hang Ctrl-C.
+  const runShutdown = (signal: string): void => {
+    shutdown(signal).catch((err: unknown) => {
+      console.error(`[channel] fatal during ${signal} shutdown`, err);
+      process.exit(1);
+    });
+  };
+  // Registered BEFORE activation on purpose: `ready()` below can take up to its
+  // timeout, and a Ctrl-C inside that window must still tear the Channel down
+  // rather than hit Node's default handler and skip teardown.
+  process.on("SIGINT", () => runShutdown("SIGINT"));
+  process.on("SIGTERM", () => runShutdown("SIGTERM"));
+
+  // Activate through the runtime's Channel control instead of a (now-removed)
+  // bot.start(): this is what connects the Channel, and it resolves once every
+  // direct adapter's transport is up across all active platforms. Required —
+  // skip it and the process serves HTTP with nothing connected.
   // Bound startup so a wedged adapter connect can't hang readiness forever.
-  await listener.channels?.ready({ timeoutMs: 30_000 });
+  await listener.channels.ready({ timeoutMs: 30_000 });
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
-
-  const shutdown = async (signal: string) => {
-    console.log(`\n[channel] received ${signal}, stopping…`);
-    // Stop through the runtime's Channel control, which tears down every direct
-    // adapter it started.
-    await listener.channels?.stop();
-    // Tear down the shared headless browser used for chart/diagram rendering.
-    await closeBrowser();
-    process.exit(0);
-  };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
 // Fail loud, not silent: surface any stray async error (e.g. a throw deep in an

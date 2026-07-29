@@ -4,6 +4,15 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+// Per-demo system prompts, ported from the reference's dedicated graphs. The
+// demos below that pass one are those whose behaviour the model has to be told
+// (walk a plan, invent sample chart data, delegate to sub-agents); the rest are
+// genuinely prompt-neutral. See demo-prompts.ts.
+import {
+  GEN_UI_AGENT_PROMPT,
+  GEN_UI_TOOL_BASED_PROMPT,
+  SUBAGENTS_PROMPT,
+} from "@/lib/factory/demo-prompts";
 import { createAgenticChatAgent } from "@/lib/factory/agentic-chat-factory";
 import {
   createAgenticChatReasoningAgent,
@@ -46,8 +55,10 @@ const runtime = new CopilotRuntime({
     "tool-rendering-default-catchall": createBuiltInAgent(),
     "tool-rendering-custom-catchall": createBuiltInAgent(),
 
-    "gen-ui-agent": createBuiltInAgent(),
-    "gen-ui-tool-based": createBuiltInAgent(),
+    "gen-ui-agent": createBuiltInAgent({ systemPrompt: GEN_UI_AGENT_PROMPT }),
+    "gen-ui-tool-based": createBuiltInAgent({
+      systemPrompt: GEN_UI_TOOL_BASED_PROMPT,
+    }),
     "gen-ui-interrupt": createBuiltInAgent(),
     "interrupt-headless": createBuiltInAgent(),
 
@@ -60,7 +71,7 @@ const runtime = new CopilotRuntime({
     "shared-state-streaming": createBuiltInAgent(),
     "readonly-state-agent-context": createBuiltInAgent(),
 
-    subagents: createBuiltInAgent(),
+    subagents: createBuiltInAgent({ systemPrompt: SUBAGENTS_PROMPT }),
     "threadid-frontend-tool-roundtrip": createBuiltInAgent(),
 
     // Reasoning demos — visible chain-of-thought via the reasoning adapter.

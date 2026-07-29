@@ -49,7 +49,7 @@ public sealed class HitlInChatAgentFactory
         return new ChatClientAgent(
             chatClient,
             name: "HitlInChatAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

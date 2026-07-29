@@ -27,6 +27,9 @@ export const D5_REPRESENTATIVES: Readonly<
   "beautiful-chat-search-flights": "beautiful-chat.json",
   "beautiful-chat-toggle-theme": "beautiful-chat.json",
   "background-agents": "background-agents.json",
+  // Navigation-only probe: the sentinel file keeps D5 eligibility explicit;
+  // no fixture request is made because the script has no conversation turns.
+  "browser-use-smoke": "_from-feature-parity.json",
   byoc: "_from-feature-parity.json",
   "chat-css": "chat-css.json",
   "chat-slots": "chat-slots.json",

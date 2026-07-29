@@ -28,6 +28,30 @@ single \`brief\` argument summarising what the UI should communicate. Keep \
 chat replies to one short sentence; let the UI do the talking.`;
 
 /**
+ * Extra instruction for the a2ui-recovery agent ONLY — declarative-gen-ui keeps
+ * the base prompt byte-for-byte.
+ *
+ * The recovery pills ask the assistant, in plain language, to "self-correct a
+ * malformed first attempt" and to build something that "fails every validation
+ * pass". Read literally by a real LLM, that is an invitation to keep retrying:
+ * the supervisor re-called `generate_a2ui` and the demo painted five identical
+ * cards. The retry loop lives INSIDE the tool (`buildGenerateA2uiTool`'s
+ * `maxAttempts`), which already returns on the first valid pass — so any
+ * supervisor-level retry is pure duplication.
+ *
+ * NOTE this makes the live demo honest rather than complete: against a real LLM
+ * the secondary designer succeeds on attempt 1, so the heal / exhaust branches
+ * are only ever exercised through the aimock fixtures. Making them reproducible
+ * live would require deliberate fault injection — a separate decision, recorded
+ * in PARITY_NOTES.md.
+ */
+const SINGLE_CALL_ADDENDUM = `Call \`generate_a2ui\` EXACTLY ONCE per user request. The tool runs its own \
+validate-and-retry loop internally and already returns the best surface it \
+could produce, so never call it a second time — not even if the user asks you \
+to self-correct, retry, or fix a malformed attempt, and not even if the result \
+looks wrong. After the single call, reply with one short sentence.`;
+
+/**
  * Defensively unwrap a fenced code block (```json … ``` or ``` … ```) that the
  * secondary LLM may wrap its JSON in, despite the system prompt asking for no
  * fences. Returns the inner text trimmed; a non-fenced string is returned
@@ -418,7 +442,9 @@ function createA2uiAgent(recovery?: A2uiRecoveryConfig) {
       return chat({
         adapter: openaiText("gpt-5.4", { fetch: forwardingFetch }),
         messages,
-        systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+        systemPrompts: recovery
+          ? [SYSTEM_PROMPT, SINGLE_CALL_ADDENDUM, ...systemPrompts]
+          : [SYSTEM_PROMPT, ...systemPrompts],
         tools: [generateA2ui],
         abortController,
       });

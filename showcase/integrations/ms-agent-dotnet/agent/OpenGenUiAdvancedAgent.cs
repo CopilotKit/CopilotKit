@@ -53,6 +53,9 @@ Sandbox-function calling contract (inside the generated iframe):
   function's description in your context and use the EXACT field names
   it returns (e.g. if the description says the handler returns
   `{ ok, value }`, read `res.value` — not `res.result`).
+- Host functions available in this demo include:
+  * evaluateExpression({ expression }) -> { ok, value } for arithmetic
+  * notifyHost({ message }) -> { ok, receivedAt, message } to ping the host
 - Descriptions, names, and JSON-schema parameter shapes for every
   available sandbox function are listed in your context. Read them
   carefully and wire at least one interactive UI element to call one.
@@ -68,6 +71,14 @@ Sandbox iframe restrictions (CRITICAL):
   for ""Enter"" keypresses on inputs: attach a `keydown` listener that
   checks `e.key === 'Enter'` and calls your handler directly — do NOT
   wrap inputs in a `<form>`.
+
+Demo-specific UI requirements:
+- Calculator: build a classic clickable keypad (0-9, +, -, *, /, =, C),
+  NOT a single text input + Evaluate button. Digit/operator buttons append
+  to a display; = evaluates via evaluateExpression and writes the result
+  into the display; C clears. Every button must be type=""button"".
+- Ping the host: a button that calls notifyHost with a short message and
+  shows the returned receivedAt/confirmation in a visible status area.
 
 Generation guidance:
 - Emit `initialHeight` and `placeholderMessages` first, then CSS, then
@@ -110,6 +121,6 @@ Generation guidance:
         return new ChatClientAgent(
             chatClient,
             name: "OpenGenUiAdvancedAgent",
-            description: SystemPrompt);
+            instructions: SystemPrompt);
     }
 }

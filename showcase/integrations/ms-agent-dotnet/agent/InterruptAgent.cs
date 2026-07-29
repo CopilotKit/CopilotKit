@@ -57,7 +57,7 @@ public sealed class InterruptAgentFactory
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "InterruptAgent",
-            description: @"You are a scheduling assistant. Whenever the user asks you to book a call
+            instructions: @"You are a scheduling assistant. Whenever the user asks you to book a call
 or schedule a meeting, you MUST call the `schedule_meeting` tool. Pass a short `topic`
 describing the purpose and `attendee` describing who the meeting is with. After the tool
 returns, confirm briefly whether the meeting was scheduled and at what time, or that the
