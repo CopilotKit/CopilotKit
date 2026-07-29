@@ -1,9 +1,10 @@
 # Vue Showcase host
 
 This project is the static Vue host for CopilotKit Showcase journeys. The
-current foundation implements only the `agentic-chat` route and remains
-fail-closed until Vue is activated in the frontend registry and staged into
-the integration hosts.
+host implements the runnable `agentic-chat` route. Its canonical browser build
+is staged into each integration image at `/vue/`, with same-origin runtime
+configuration identifying the current integration. Every other Vue feature
+and malformed or unconfigured route remains fail-closed.
 
 Run project checks through Nx from the repository root:
 
