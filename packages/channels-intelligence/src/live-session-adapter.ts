@@ -25,13 +25,13 @@ import type {
 import {
   createRunRenderer as createSlackRunRenderer,
   renderSlackMessage,
-} from "@copilotkit/channels-slack";
+} from "@copilotkit/channels-slack/render";
 import {
   createRunRenderer as createTeamsRunRenderer,
   isPlainText,
   renderAdaptiveCard,
   renderTeamsMarkdown,
-} from "@copilotkit/channels-teams";
+} from "@copilotkit/channels-teams/render";
 import type {
   LiveDeliverySession,
   LiveSessionDelivery,
