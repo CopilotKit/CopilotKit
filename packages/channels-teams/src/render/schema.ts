@@ -55,12 +55,196 @@ export function assertAdaptiveCardPayload(
       "Adaptive Card payload contains Action.Execute, which is not supported by the Teams-native Channels surface.",
     );
   }
+  validateAdaptiveCardStructure(payload);
   const bytes = new TextEncoder().encode(JSON.stringify(payload)).byteLength;
   if (bytes > TEAMS_CARD_MAX_BYTES) {
     throw new Error(
       `Adaptive Card payload is ${bytes} bytes; Teams allows at most ${TEAMS_CARD_MAX_BYTES} bytes.`,
     );
   }
+}
+
+const CARD_ELEMENTS = new Set([
+  "ActionSet",
+  "Column",
+  "ColumnSet",
+  "Container",
+  "FactSet",
+  "Image",
+  "ImageSet",
+  "Input.ChoiceSet",
+  "Input.Date",
+  "Input.Number",
+  "Input.Text",
+  "Input.Time",
+  "Input.Toggle",
+  "Media",
+  "RichTextBlock",
+  "Table",
+  "TextBlock",
+]);
+const ACTIONS = new Set([
+  "Action.OpenUrl",
+  "Action.ShowCard",
+  "Action.Submit",
+  "Action.ToggleVisibility",
+]);
+const CERTIFIED_ELEMENTS = new Set([
+  "ActionSet",
+  "Column",
+  "ColumnSet",
+  "Container",
+  "FactSet",
+  "Image",
+  "ImageSet",
+  "Input.ChoiceSet",
+  "Input.Date",
+  "Input.Number",
+  "Input.Text",
+  "Input.Time",
+  "Input.Toggle",
+  "RichTextBlock",
+  "Table",
+  "TextBlock",
+  "Action.OpenUrl",
+  "Action.Submit",
+]);
+
+/**
+ * Validate the part of the pinned Teams host profile that changes tree shape.
+ * This prevents malformed raw payloads from reaching Teams while retaining the
+ * raw-card escape hatch for known-but-not-yet-certified Adaptive Card features.
+ */
+function validateAdaptiveCardStructure(card: Record<string, unknown>): void {
+  validateElementArray(card.body, "card.body");
+  if (card.actions !== undefined)
+    validateActionArray(card.actions, "card.actions");
+}
+
+function validateElementArray(value: unknown, path: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`Adaptive Card ${path} must be an array.`);
+  }
+  value.forEach((element, index) =>
+    validateElement(element, `${path}[${index}]`),
+  );
+}
+
+function validateActionArray(value: unknown, path: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`Adaptive Card ${path} must be an array.`);
+  }
+  value.forEach((action, index) => validateAction(action, `${path}[${index}]`));
+}
+
+function validateElement(value: unknown, path: string): void {
+  const element = requireTypedRecord(value, path);
+  const type = requireType(element, path, CARD_ELEMENTS);
+  warnUncertified(type, path);
+
+  switch (type) {
+    case "ActionSet":
+      validateActionArray(element.actions, `${path}.actions`);
+      return;
+    case "Column":
+    case "Container":
+      validateOptionalElementArray(element.items, `${path}.items`);
+      return;
+    case "ColumnSet":
+      validateOptionalTypedArray(element.columns, `${path}.columns`, "Column");
+      return;
+    case "ImageSet":
+      validateOptionalTypedArray(element.images, `${path}.images`, "Image");
+      return;
+    case "RichTextBlock":
+      validateOptionalTypedArray(element.inlines, `${path}.inlines`, "TextRun");
+      return;
+    case "Table":
+      validateOptionalTypedArray(element.rows, `${path}.rows`, "TableRow");
+      return;
+    case "FactSet":
+      validateOptionalTypedArray(element.facts, `${path}.facts`, "Fact");
+      return;
+    case "TextBlock":
+      if (typeof element.text !== "string") {
+        throw new Error(`Adaptive Card ${path}.text must be a string.`);
+      }
+      return;
+    case "Image":
+      if (typeof element.url !== "string") {
+        throw new Error(`Adaptive Card ${path}.url must be a string.`);
+      }
+      return;
+    default:
+      if (type.startsWith("Input.") && typeof element.id !== "string") {
+        throw new Error(`Adaptive Card ${path}.id must be a string.`);
+      }
+  }
+}
+
+function validateAction(value: unknown, path: string): void {
+  const action = requireTypedRecord(value, path);
+  const type = requireType(action, path, ACTIONS);
+  warnUncertified(type, path);
+  if (type === "Action.OpenUrl" && typeof action.url !== "string") {
+    throw new Error(`Adaptive Card ${path}.url must be a string.`);
+  }
+}
+
+function validateOptionalElementArray(value: unknown, path: string): void {
+  if (value !== undefined) validateElementArray(value, path);
+}
+
+function validateOptionalTypedArray(
+  value: unknown,
+  path: string,
+  expectedType: string,
+): void {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    throw new Error(`Adaptive Card ${path} must be an array.`);
+  }
+  value.forEach((entry, index) => {
+    const item = requireTypedRecord(entry, `${path}[${index}]`);
+    if (item.type !== expectedType) {
+      throw new Error(
+        `Adaptive Card ${path}[${index}] must have type ${expectedType}.`,
+      );
+    }
+  });
+}
+
+function requireTypedRecord(
+  value: unknown,
+  path: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new Error(`Adaptive Card ${path} must be an object.`);
+  }
+  return value;
+}
+
+function requireType(
+  value: Record<string, unknown>,
+  path: string,
+  allowed: ReadonlySet<string>,
+): string {
+  const type = value.type;
+  if (typeof type !== "string" || !allowed.has(type)) {
+    throw new Error(
+      `Adaptive Card ${path} has an unsupported type ${String(type)}.`,
+    );
+  }
+  return type;
+}
+
+function warnUncertified(type: string, path: string): void {
+  if (CERTIFIED_ELEMENTS.has(type) || process.env.NODE_ENV === "production") {
+    return;
+  }
+  console.warn(
+    `[channels-teams] ${type} at ${path} is schema-valid but not yet certified for the Teams host profile.`,
+  );
 }
 
 function assertJsonData(

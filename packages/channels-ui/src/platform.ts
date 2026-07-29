@@ -36,6 +36,32 @@ export interface PlatformNodeVisit {
   path: readonly (string | number)[];
 }
 
+/**
+ * Dialect packages register their structural validator when their UI entrypoint
+ * is imported. Keeping this registry in the shared IR layer lets action binding
+ * reject invalid native trees before it persists any callbacks, without making
+ * channels-core depend on every platform package.
+ */
+export type PlatformUiValidator = (root: PlatformNode) => void;
+
+const platformUiValidators = new Map<string, PlatformUiValidator>();
+
+/** Register the structural validator for one platform-native UI dialect. */
+export function registerPlatformUiValidator(
+  platform: string,
+  dialect: string,
+  validator: PlatformUiValidator,
+): void {
+  const key = platformUiValidatorKey(platform, dialect);
+  const existing = platformUiValidators.get(key);
+  if (existing && existing !== validator) {
+    throw new Error(
+      `A platform UI validator is already registered for ${platform}/${dialect}.`,
+    );
+  }
+  platformUiValidators.set(key, validator);
+}
+
 /** Create a platform-native node without exposing the reserved IR marker. */
 export function platformNode(props: PlatformNodeProps): PlatformNode {
   return { type: "$platform", props };
@@ -186,6 +212,18 @@ export function validatePlatformUi(
       path: first.path,
     });
   }
+
+  const validator = platformUiValidators.get(
+    platformUiValidatorKey(expectedPlatform, dialect),
+  );
+  if (!validator) {
+    throw new UnsupportedUiNodeError({
+      element: first.node.props.element,
+      path: first.path,
+      reason: `no validator is registered for ${expectedPlatform}/${dialect}`,
+    });
+  }
+  validator(root[0]! as PlatformNode);
 }
 
 export function formatPlatformPath(path: readonly (string | number)[]): string {
@@ -196,4 +234,8 @@ export function formatPlatformPath(path: readonly (string | number)[]): string {
         : `${result}.${segment}`,
     "root",
   );
+}
+
+function platformUiValidatorKey(platform: string, dialect: string): string {
+  return `${platform}\u0000${dialect}`;
 }

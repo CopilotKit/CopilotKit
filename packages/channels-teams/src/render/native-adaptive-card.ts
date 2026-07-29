@@ -1,5 +1,6 @@
 import {
   isPlatformNode,
+  registerPlatformUiValidator,
   UnsupportedUiNodeError,
   validatePlatformUi,
 } from "@copilotkit/channels-ui";
@@ -35,13 +36,38 @@ const BODY_ELEMENTS = new Set([
 ]);
 interface RenderState {
   inputIds: Set<string>;
+  allowUnboundSubmitHandlers: boolean;
 }
+
+/** Internal platform-node marker for the data-only raw-card escape hatch. */
+export const RAW_ADAPTIVE_CARD_ELEMENT = "RawAdaptiveCard";
 
 /** Serialize a platform-native Teams IR tree directly to Adaptive Card JSON. */
 export function renderNativeAdaptiveCard(
   root: PlatformNode,
 ): AdaptiveCardPayload {
   validatePlatformUi([root], "teams");
+  return serializeNativeAdaptiveCard(root, false);
+}
+
+/**
+ * Structural validation used during action-registry preflight. Submit handlers
+ * have not been bound yet at that point, so a temporary id is used only while
+ * validating the resulting payload shape.
+ */
+function validateNativeAdaptiveCard(root: PlatformNode): void {
+  void serializeNativeAdaptiveCard(root, true);
+}
+
+function serializeNativeAdaptiveCard(
+  root: PlatformNode,
+  allowUnboundSubmitHandlers: boolean,
+): AdaptiveCardPayload {
+  if (root.props.element === RAW_ADAPTIVE_CARD_ELEMENT) {
+    requireNoChildren(root.props.element, root.props.children ?? [], [0]);
+    assertAdaptiveCardPayload(root.props.attributes);
+    return root.props.attributes as unknown as AdaptiveCardPayload;
+  }
   if (root.props.element !== "AdaptiveCard") {
     throw new UnsupportedUiNodeError({
       element: root.props.element,
@@ -49,7 +75,10 @@ export function renderNativeAdaptiveCard(
       reason: "a Teams-native post must have one AdaptiveCard root",
     });
   }
-  const payload = renderNode(root, [0], { inputIds: new Set() });
+  const payload = renderNode(root, [0], {
+    inputIds: new Set(),
+    allowUnboundSubmitHandlers,
+  });
   assertAdaptiveCardPayload(payload);
   return payload as AdaptiveCardPayload;
 }
@@ -181,7 +210,17 @@ function renderNode(
       return { ...attributes, type: element };
     case "Action.Submit": {
       requireNoChildren(element, children, path);
-      const actionId = actionIdFrom(node.props.onSubmit);
+      let actionId = actionIdFrom(node.props.onSubmit);
+      if (!actionId) {
+        if (typeof node.props.onSubmit !== "function") {
+          throw new UnsupportedUiNodeError({
+            element,
+            path,
+            reason: "Action.Submit must have an onSubmit handler",
+          });
+        }
+        if (state.allowUnboundSubmitHandlers) actionId = "ck:preflight";
+      }
       if (!actionId) {
         throw new UnsupportedUiNodeError({
           element,
@@ -351,3 +390,9 @@ function formatPath(path: (string | number)[]): string {
     "root",
   );
 }
+
+registerPlatformUiValidator(
+  "teams",
+  "adaptive-card",
+  validateNativeAdaptiveCard,
+);

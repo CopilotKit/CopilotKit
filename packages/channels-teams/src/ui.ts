@@ -30,6 +30,7 @@ import type {
   JsonObject,
   PlatformNode,
 } from "@copilotkit/channels-ui";
+import { RAW_ADAPTIVE_CARD_ELEMENT } from "./render/native-adaptive-card.js";
 import { assertAdaptiveCardPayload } from "./render/schema.js";
 import type { AdaptiveCardPayload } from "./render/schema.js";
 
@@ -238,9 +239,14 @@ export const Action = {
  * Escape hatch for an already-authored card. It is deliberately data-only:
  * callbacks must use `Action.Submit` JSX so Channels can bind them durably.
  */
-export function rawAdaptiveCard(payload: unknown): {
-  raw: AdaptiveCardPayload;
-} {
+export function rawAdaptiveCard(payload: unknown): PlatformNode {
   assertAdaptiveCardPayload(payload);
-  return { raw: payload };
+  return platformNode({
+    protocol: 1,
+    platform: TEAMS_PLATFORM,
+    dialect: ADAPTIVE_CARD_DIALECT,
+    dialectVersion: TEAMS_ADAPTIVE_CARD_VERSION,
+    element: RAW_ADAPTIVE_CARD_ELEMENT,
+    attributes: payload as unknown as JsonObject,
+  });
 }

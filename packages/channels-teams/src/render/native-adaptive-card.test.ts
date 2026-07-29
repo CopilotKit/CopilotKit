@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { renderToIR } from "@copilotkit/channels-ui";
+import {
+  renderToIR,
+  PlatformUiMismatchError,
+  validatePlatformUi,
+} from "@copilotkit/channels-ui";
 import type { PlatformNode } from "@copilotkit/channels-ui";
+import { ActionRegistry } from "@copilotkit/channels-core";
 import {
   Action,
   AdaptiveCard,
@@ -90,15 +95,63 @@ describe("Teams-native Adaptive Cards", () => {
       version: "1.5",
       body: [],
     };
-    expect(rawAdaptiveCard(card).raw).toBe(card);
+    expect(renderAdaptiveCard(renderToIR(rawAdaptiveCard(card)))).toBe(card);
     expect(() => rawAdaptiveCard({ ...card, version: "1.6" })).toThrow(
       /at most 1.5/,
     );
     expect(() =>
       rawAdaptiveCard({
         ...card,
+        body: [{ type: "NotAnAdaptiveCardElement" }],
+      }),
+    ).toThrow(/unsupported type/);
+    expect(() =>
+      rawAdaptiveCard({
+        ...card,
         actions: [{ type: "Action.Execute", verb: "nope" }],
       }),
     ).toThrow(/Action.Execute/);
+  });
+
+  it("marks raw cards as Teams-native before they can reach another platform", () => {
+    const card = rawAdaptiveCard({
+      type: "AdaptiveCard",
+      $schema: "http://adaptivecards.io/schemas/adaptive-card.json",
+      version: "1.5",
+      body: [],
+    });
+
+    expect(() => validatePlatformUi(renderToIR(card), "slack")).toThrow(
+      PlatformUiMismatchError,
+    );
+  });
+
+  it("validates native structure before persisting submit handlers", async () => {
+    const writes: string[] = [];
+    const registry = new ActionRegistry({
+      store: {
+        async put(id) {
+          writes.push(id);
+        },
+        async get() {
+          return undefined;
+        },
+        async delete() {},
+      },
+    });
+    const invalid = AdaptiveCard({
+      children: [
+        Input.Text({ id: "environment" }),
+        Input.Text({ id: "environment" }),
+        Action.Submit({ title: "Deploy", onSubmit: async () => undefined }),
+      ],
+    });
+
+    await expect(
+      registry.bindRenderable(invalid, "conversation", {
+        preflight: (root) => validatePlatformUi(root, "teams"),
+      }),
+    ).rejects.toThrow(/duplicate input id/);
+    expect(writes).toEqual([]);
   });
 });
