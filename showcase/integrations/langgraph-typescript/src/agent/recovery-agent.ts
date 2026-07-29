@@ -65,9 +65,11 @@ const SYSTEM_PROMPT =
 
 /**
  * ALS-bound snapshot of the inbound `x-*` headers for the current graph run.
- * Populated by `headerForwardingMiddleware.beforeAgent` (which has the config)
- * and read by `forwardingFetch` on every outbound OpenAI call — including the
- * config-less inner `render_a2ui` sub-agent stream.
+ * Populated by `headerForwardingMiddleware`'s `wrapModelCall` / `wrapToolCall`
+ * hooks (which read the config and run the handler inside `store.run(...)`; note
+ * there is deliberately no `beforeAgent` binding — see below) and read by
+ * `forwardingFetch` on every outbound OpenAI call — including the config-less
+ * inner `render_a2ui` sub-agent stream.
  */
 const forwardedHeadersStore = new AsyncLocalStorage<Record<string, string>>();
 
