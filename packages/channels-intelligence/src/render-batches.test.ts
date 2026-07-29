@@ -158,10 +158,12 @@ describe("managed render batch compaction", () => {
     await renderer.finish?.();
   });
 
-  it("keeps equal 20-delta and 200-delta answers within one durable batch of each other", async () => {
+  it("keeps equal 20-delta and 200-delta answers within 10% modeled acceptance latency", async () => {
     vi.useFakeTimers();
 
-    const run = async (count: number): Promise<number> => {
+    const run = async (
+      count: number,
+    ): Promise<{ batches: number; modeledAcceptanceMs: number }> => {
       const sink = new RecordingBatchSink();
       const { renderer, subscriber } = createRenderer(sink);
       for (let index = 0; index < count; index += 1) {
@@ -173,13 +175,22 @@ describe("managed render batch compaction", () => {
         event: { messageId: "m1" },
       });
       await renderer.finish?.();
-      return sink.batches.length;
+      return {
+        batches: sink.batches.length,
+        modeledAcceptanceMs: sink.batches.length * 50,
+      };
     };
 
     const twenty = await run(20);
     const twoHundred = await run(200);
 
-    expect(Math.abs(twenty - twoHundred)).toBeLessThanOrEqual(1);
+    expect(Math.abs(twenty.batches - twoHundred.batches)).toBeLessThanOrEqual(
+      1,
+    );
+    expect(
+      Math.abs(twenty.modeledAcceptanceMs - twoHundred.modeledAcceptanceMs) /
+        Math.max(twenty.modeledAcceptanceMs, 1),
+    ).toBeLessThanOrEqual(0.1);
   });
 
   it("keeps one batch in flight while later batches wait in order", async () => {
