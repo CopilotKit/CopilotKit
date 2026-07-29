@@ -61,27 +61,9 @@ export function readVueRuntimeConfig(): VueRuntimeConfig | undefined {
   };
 }
 
-const RUNTIME_PATHS: Readonly<Record<string, string>> = {
-  "a2ui-fixed-schema": "/api/copilotkit-a2ui-fixed-schema",
-  "a2ui-recovery": "/api/copilotkit-a2ui-recovery",
-  "agent-config": "/api/copilotkit-agent-config",
-  auth: "/api/copilotkit-auth",
-  "background-agents": "/api/copilotkit-background-agents",
-  "beautiful-chat": "/api/copilotkit-beautiful-chat",
-  "browser-use": "/api/copilotkit-browser-use",
-  "declarative-gen-ui": "/api/copilotkit-declarative-gen-ui",
-  "headless-complete": "/api/copilotkit-mcp-apps",
-  "mcp-apps": "/api/copilotkit-mcp-apps",
-  multimodal: "/api/copilotkit-multimodal",
-  "observational-memory": "/api/copilotkit-observational-memory",
-  "open-gen-ui": "/api/copilotkit-ogui",
-  "open-gen-ui-advanced": "/api/copilotkit-ogui",
-  voice: "/api/copilotkit-voice",
-};
-
-/** Resolve the existing same-origin runtime route for one feature. */
-export function runtimePathForFeature(feature: string): string {
-  return RUNTIME_PATHS[feature] ?? "/api/copilotkit";
+/** Resolve the same-origin runtime route for the implemented Vue feature. */
+export function runtimePathForFeature(feature: string): string | undefined {
+  return feature === "agentic-chat" ? "/api/copilotkit" : undefined;
 }
 
 /** Resolve one exact Vue browser cell without decoding or accepting aliases. */
@@ -134,12 +116,22 @@ export function resolveBrowserCell(
         `This ${cell.frontend_status} frontend and ${cell.backend_status} backend intersection is not runnable.`,
     };
   }
+  const runtimeUrl = runtimePathForFeature(feature);
+  if (runtimeUrl === undefined) {
+    return {
+      kind: "unavailable",
+      cellId,
+      integration,
+      feature,
+      reason: `Feature "${feature}" does not have a Vue runtime route.`,
+    };
+  }
 
   return {
     kind: "runnable",
     cellId,
     integration,
     feature,
-    runtimeUrl: runtimePathForFeature(feature),
+    runtimeUrl,
   };
 }
