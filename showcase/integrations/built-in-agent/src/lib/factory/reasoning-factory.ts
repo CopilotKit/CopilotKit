@@ -9,6 +9,7 @@ import { baseServerTools } from "./server-tools";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 /**
  * Reasoning model used by all three reasoning demos.
@@ -98,11 +99,7 @@ async function* convertReasoningStream(
 
     if (type === "RUN_STARTED" || type === "RUN_FINISHED") continue;
 
-    if (type === "RUN_ERROR") {
-      throw new Error(
-        typeof raw.message === "string" ? raw.message : "TanStack AI run error",
-      );
-    }
+    throwOnRunError(raw);
 
     // Reasoning summary: STEP_STARTED(stepType:"thinking") begins the trace;
     // subsequent STEP_STARTED/STEP_FINISHED chunks carry summary text on
@@ -205,6 +202,7 @@ export function createAgenticChatReasoningAgent() {
           reasoning: { effort: REASONING_EFFORT, summary: "auto" },
         },
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
       return convertReasoningStream(stream, abortController.signal);
     },

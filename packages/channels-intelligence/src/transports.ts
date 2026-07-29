@@ -4,8 +4,8 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
-  RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
 
 /**
@@ -39,6 +39,23 @@ export interface DeliverySource {
   ack(deliveryId: string): Promise<void>;
   /** Negatively acknowledge — the work will be redelivered (at-least-once). */
   nack(deliveryId: string, reason: string): Promise<void>;
+  /**
+   * Retire this delivery's local lease state WITHOUT sending any terminal intent
+   * — the third outcome alongside ack and nack, for a delivery this runtime can
+   * no longer speak for (its lease was revoked, so app-api owns redelivery and
+   * every intent we could send is fenced anyway; see {@link isLeaseRevoked}).
+   *
+   * Synchronous and wire-free by design: there is nothing to send, and the point
+   * is that ack/nack — the only other branches that drop the lease record — are
+   * both deliberately skipped on the fenced path, so without this the token,
+   * scope and accepted-seq high-water marks accumulate until shutdown. Callers
+   * own the diagnostic log (they know the cause); this is pure state retirement
+   * and a no-op for an unknown/already-terminal delivery.
+   *
+   * Optional so an existing {@link DeliverySource} implementation stays valid;
+   * sources that keep no per-delivery state simply omit it.
+   */
+  abandon?(deliveryId: string, reason: string): void;
   /**
    * Fetch an inbound file's bytes by handle (Channel multimodal content).
    * Optional: sources without a file-serve backing omit it and the adapter
@@ -95,5 +112,27 @@ export interface EgressSink {
  * replies.
  */
 export interface RenderEventSink {
-  push(frame: RenderFrame): Promise<RenderAccepted>;
+  pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted>;
+}
+
+/**
+ * app-api's lease fence: another owner holds this delivery. Every intent — render
+ * batch, complete, fail — is validated against `leased_until > now()` AND the
+ * lease-token hash, so once a lease is revoked (the listener was released under a
+ * gateway restart, or a replacement runtime re-leased the work) NOTHING can be
+ * sent for that delivery. Redelivery is app-api's job.
+ *
+ * Lives here rather than in a transport module because BOTH transports surface
+ * it: the realtime path as a push reject and the HTTP path as a 409 body
+ * (OSS-670).
+ */
+export const LEASE_REVOKED_CODE = "CHANNEL_DELIVERY_LEASE_INVALID";
+
+/** Whether an error is app-api's revoked-lease fence (see {@link LEASE_REVOKED_CODE}). */
+export function isLeaseRevoked(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === LEASE_REVOKED_CODE
+  );
 }

@@ -144,7 +144,7 @@ export type EgressResult =
 
 /** One semantic render frame the agent run emits. Matches the frozen kinds. */
 export type ChannelRenderEvent =
-  | { kind: "run_started" }
+  | { kind: "run_started"; showToolStatus?: boolean }
   | { kind: "text_delta"; messageId: string; delta: string }
   | { kind: "text_end"; messageId: string }
   | { kind: "tool_start"; toolCallId: string; toolName: string }
@@ -188,26 +188,43 @@ export type ChannelRenderEventKind = ChannelRenderEvent["kind"];
  * per-`(turn, slot)` `seq`, and the semantic `event`.
  */
 export interface RenderFrame {
-  deliveryId: string;
-  turnId: string;
-  /** Render lane; a single turn uses `"main"` for V1. */
-  slot: string;
+  /**
+   * @deprecated Frame identity moved to {@link RenderBatch}; accepted only in
+   * local construction helpers during the batch-only cutover.
+   */
+  deliveryId?: string;
+  /** @deprecated See {@link RenderFrame.deliveryId}. */
+  turnId?: string;
+  /** @deprecated See {@link RenderFrame.deliveryId}. */
+  slot?: string;
   /** Zero-based, monotonic within `(turnId, slot)`. */
   seq: number;
   event: ChannelRenderEvent;
 }
 
-/** Durable-acceptance receipt echoed back for each pushed {@link RenderFrame}. */
-export interface RenderAccepted {
-  /** `${turnId}:${slot}:${seq}` — the frame's idempotency key. */
-  idempotencyKey: string;
-  /**
-   * `accepted` — first durable write; `duplicate_accepted` — same
-   * (idempotency-key, payload) re-pushed (benign, at-least-once retry). A
-   * payload MISMATCH for an existing key is a 409 conflict on the transport, not
-   * an acceptance value, and surfaces as a thrown render error (turn nack).
-   */
-  acceptance: "accepted" | "duplicate_accepted";
-  /** Present only on an accepted `finalize` frame — links to the egress op. */
-  egressOperationId?: string;
+/** One immutable, ordered render batch sent on the managed realtime path. */
+export interface RenderBatch {
+  deliveryId: string;
+  turnId: string;
+  /** Render lane; a single turn uses `"main"` for V1. */
+  slot: string;
+  /** Stable identifier retained unchanged across transport retries. */
+  batchId: string;
+  /** Lowercase SHA-256 digest of the canonical ordered frame payload. */
+  contentDigest: string;
+  /** First frame sequence in this contiguous batch. */
+  startSeq: number;
+  /** Last frame sequence in this contiguous batch. */
+  endSeq: number;
+  /** Ordered compacted frames. */
+  frames: readonly RenderFrame[];
+}
+
+/** Durable high-water receipt echoed for one pushed {@link RenderBatch}. */
+export interface RenderBatchAccepted {
+  batchId: string;
+  egressOperationId: string;
+  acceptedThroughSeq: number;
+  /** True only when App API had already committed this exact batch. */
+  duplicate: boolean;
 }

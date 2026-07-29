@@ -1,5 +1,0 @@
-{
-  "title": "Interactive flows",
-  "icon": "lucide/MousePointerClick",
-  "pages": ["index", "human-in-the-loop", "reactions", "modals"]
-}

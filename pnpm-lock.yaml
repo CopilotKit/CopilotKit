@@ -2472,6 +2472,9 @@ importers:
         specifier: ^1.8.4
         version: 1.8.4
     devDependencies:
+      '@ag-ui/core':
+        specifier: 0.0.57
+        version: 0.0.57
       '@copilotkit/typescript-config':
         specifier: workspace:^
         version: link:../typescript-config

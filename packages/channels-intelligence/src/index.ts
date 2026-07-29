@@ -29,8 +29,18 @@ export type {
   ChannelRenderEvent,
   ChannelRenderEventKind,
   RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
+
+export {
+  RENDER_BATCH_PROTOCOL_CAPABILITY,
+  RENDER_TEXT_MAX_DELTAS,
+  RENDER_TEXT_MAX_BYTES,
+  RENDER_BATCH_MAX_FRAMES,
+  RENDER_BATCH_MAX_BYTES,
+  RENDER_LANE_MAX_PENDING_BYTES,
+} from "./render-batches.js";
 
 export {
   InMemoryDeliverySource,

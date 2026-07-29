@@ -13,6 +13,7 @@ import { buildSubagentTools } from "./subagent-tools";
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+import { DEMO_AGENT_LOOP_STRATEGY, throwOnRunError } from "./demo-stream";
 
 /**
  * Convert a JSON Schema object to a Zod schema (shallow — handles the
@@ -109,6 +110,9 @@ export async function* convertStream(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const raw = chunk as any;
     const type = raw.type as string;
+
+    // Fail loud on an upstream rejection — see ./demo-stream.
+    throwOnRunError(raw);
 
     // Skip RUN_FINISHED from TanStack's adapter — the Agent class emits
     // its own lifecycle events.
@@ -442,6 +446,7 @@ export function createBuiltInAgent(options: BuiltInAgentOptions = {}) {
           : systemPrompts,
         tools: [...serverTools, ...frontendTools],
         abortController,
+        agentLoopStrategy: DEMO_AGENT_LOOP_STRATEGY,
       });
 
       return convertStream(stream, abortController.signal);

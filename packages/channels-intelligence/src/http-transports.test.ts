@@ -4,6 +4,7 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   HttpDeliverySource,
   HttpEgressSink,
+  IntelligenceHttpError,
   HttpRenderEventSink,
   resolveTransportConfig,
 } from "./http-transports.js";
@@ -12,7 +13,8 @@ import type {
   IntelligenceTransportConfig,
 } from "./http-transports.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
-import type { EgressOperation } from "./contracts.js";
+import type { ChannelRenderEvent, EgressOperation } from "./contracts.js";
+import { createRenderBatch } from "./render-batches.js";
 
 interface Call {
   url: string;
@@ -549,6 +551,35 @@ describe("HttpDeliverySource", () => {
     });
   });
 
+  it("abandon retires the lease record without posting anything", async () => {
+    // The fenced path (OSS-670): the adapter swallows the revoked-lease error, so
+    // runLoop sees a successful turn and neither ack nor nack — the only other
+    // branches that drop the lease — ever runs. `abandon` must free the record
+    // itself, and must not put an intent the fence would reject on the wire.
+    const logs: string[] = [];
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: {} },
+    );
+    const src = new HttpDeliverySource(
+      cfg({ fetch, log: (m) => logs.push(m) }),
+    );
+    await src.claimOnce();
+    expect(src.leaseTokenFor("dlv_9")).toBe("lease_z");
+
+    src.abandon("dlv_9", "lease revoked mid-turn");
+
+    expect(src.leaseTokenFor("dlv_9")).toBeUndefined();
+    expect(src.scopeFor("dlv_9")).toBeUndefined();
+    expect(calls.filter((c) => c.url.includes("/deliveries/"))).toHaveLength(0);
+    // With the record gone, a later ack/nack for the same delivery is a no-op
+    // rather than a doomed intent — proof the state was retired, not orphaned.
+    await src.nack("dlv_9", "boom");
+    expect(calls.filter((c) => c.url.includes("/deliveries/"))).toHaveLength(0);
+    expect(logs.some((m) => m.includes("nack: no lease"))).toBe(true);
+  });
+
   it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
@@ -1032,14 +1063,37 @@ describe("HttpDeliverySource.getHistory", () => {
 });
 
 describe("HttpRenderEventSink", () => {
-  it("streams a render frame to the accept route with echoed scope (no deliveryId in body)", async () => {
+  const pushOne = (
+    sink: HttpRenderEventSink,
+    input: {
+      deliveryId: string;
+      turnId: string;
+      slot: string;
+      seq: number;
+      event: ChannelRenderEvent;
+    },
+  ) =>
+    sink.pushBatch(
+      createRenderBatch(
+        {
+          deliveryId: input.deliveryId,
+          turnId: input.turnId,
+          slot: input.slot,
+        },
+        [{ seq: input.seq, event: input.event }],
+      ),
+    );
+
+  it("streams a render batch to the accept route with echoed scope (no deliveryId in body)", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
         ? { body: { claimed: true, delivery: claimedDelivery() } }
         : {
             body: {
-              idempotencyKey: "turn_9:main:0",
-              acceptance: "accepted",
+              batchId: "rb_0_0_test",
+              egressOperationId: "eop_1",
+              acceptedThroughSeq: 0,
+              duplicate: false,
             },
           },
     );
@@ -1048,7 +1102,7 @@ describe("HttpRenderEventSink", () => {
     await src.claimOnce(); // populates per-delivery scope
     const sink = new HttpRenderEventSink(conf, src);
 
-    const receipt = await sink.push({
+    const receipt = await pushOne(sink, {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       slot: "main",
@@ -1057,11 +1111,13 @@ describe("HttpRenderEventSink", () => {
     });
 
     expect(receipt).toEqual({
-      idempotencyKey: "turn_9:main:0",
-      acceptance: "accepted",
+      batchId: "rb_0_0_test",
+      egressOperationId: "eop_1",
+      acceptedThroughSeq: 0,
+      duplicate: false,
     });
     const accept = calls.find((c) =>
-      c.url.endsWith("/api/channels/deliveries/dlv_9/render-events/accept"),
+      c.url.endsWith("/api/channels/deliveries/dlv_9/render-batches/accept"),
     )!;
     expect(accept.body).toMatchObject({
       organizationId: "org_1",
@@ -1071,9 +1127,14 @@ describe("HttpRenderEventSink", () => {
       turnId: "turn_9",
       runtimeInstanceId: "rti_test",
       slot: "main",
-      seq: 0,
-      idempotencyKey: "turn_9:main:0",
-      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+      startSeq: 0,
+      endSeq: 0,
+      frames: [
+        {
+          seq: 0,
+          event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+        },
+      ],
       // OSS-446: the render-accept is fenced on the claim's lease token.
       leaseToken: "lease_z",
     });
@@ -1086,7 +1147,7 @@ describe("HttpRenderEventSink", () => {
     const src = new HttpDeliverySource(cfg({ fetch }));
     const sink = new HttpRenderEventSink(cfg({ fetch }), src);
     await expect(
-      sink.push({
+      pushOne(sink, {
         deliveryId: "dlv_unknown",
         turnId: "turn_9",
         slot: "main",
@@ -1094,6 +1155,41 @@ describe("HttpRenderEventSink", () => {
         event: { kind: "run_started" },
       }),
     ).rejects.toThrow(/no leased scope/);
+  });
+
+  it("preserves the REST error code and status on a rejected render batch", async () => {
+    const { fetch } = fakeFetch((call) =>
+      call.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            ok: false,
+            status: 409,
+            body: {
+              error: {
+                code: "CHANNEL_RENDER_BATCH_CONFLICT",
+                message: "batch content changed",
+              },
+            },
+          },
+    );
+    const conf = cfg({ fetch });
+    const source = new HttpDeliverySource(conf);
+    await source.claimOnce();
+    const sink = new HttpRenderEventSink(conf, source);
+
+    const rejected = pushOne(sink, {
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+
+    await expect(rejected).rejects.toBeInstanceOf(IntelligenceHttpError);
+    await expect(rejected).rejects.toMatchObject({
+      status: 409,
+      code: "CHANNEL_RENDER_BATCH_CONFLICT",
+    });
   });
 });
 

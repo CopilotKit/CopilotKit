@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
+import type { AgentSubscriber } from "@ag-ui/client";
+import { EventType } from "@ag-ui/core";
+import type { RunAgentInput } from "@ag-ui/core";
+import { FakeAgent } from "@copilotkit/channels-core";
 import type { ReplyTarget } from "@copilotkit/channels-core";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
@@ -11,19 +15,75 @@ import {
   coerceWireProjectId,
 } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
-import type { ChannelIngressEnvelope } from "./contracts.js";
+import type {
+  ChannelIngressEnvelope,
+  ChannelRenderEvent,
+} from "./contracts.js";
+import { createRenderBatch } from "./render-batches.js";
 
 const target = {
-  route: { channel: "C1", threadTs: "100.0" },
+  route: { adapter: "slack", channel: "C1", threadTs: "100.0" },
   turnId: "turn_t1",
   deliveryId: "dlv_d1",
-} as unknown as ReplyTarget;
+};
 
-/** Drive a subscriber handler that may be sync or async. */
 type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
 
+function makeSubscriberContext() {
+  return {
+    messages: [],
+    state: {},
+    agent: new FakeAgent(),
+    input: {
+      threadId: "thread_test",
+      runId: "run_test",
+      state: {},
+      messages: [],
+      tools: [],
+      context: [],
+    } satisfies RunAgentInput,
+  };
+}
+
+function emitTextContent(
+  subscriber: AgentSubscriber,
+  messageId: string,
+  delta: string,
+) {
+  return subscriber.onTextMessageContentEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta },
+    textMessageBuffer: "",
+  });
+}
+
+function emitTextEnd(subscriber: AgentSubscriber, messageId: string) {
+  return subscriber.onTextMessageEndEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TEXT_MESSAGE_END, messageId },
+    textMessageBuffer: "",
+  });
+}
+
+async function emitToolCall(subscriber: AgentSubscriber) {
+  await subscriber.onToolCallStartEvent?.({
+    ...makeSubscriberContext(),
+    event: {
+      type: EventType.TOOL_CALL_START,
+      toolCallId: "tc1",
+      toolCallName: "search",
+    },
+  });
+  await subscriber.onToolCallEndEvent?.({
+    ...makeSubscriberContext(),
+    event: { type: EventType.TOOL_CALL_END, toolCallId: "tc1" },
+    toolCallName: "search",
+    toolCallArgs: {},
+  });
+}
+
 describe("run renderer — render-event streaming (OSS-402)", () => {
-  it("mints ordered render frames with monotonic seq per (turn, slot) and a finalize", async () => {
+  it("always emits ordered tool frames while leaving the display preference omitted", async () => {
     const renderSink = new InMemoryRenderEventSink();
     const adapter = intelligenceAdapter({
       source: new InMemoryDeliverySource(),
@@ -31,23 +91,12 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
+    const sub = renderer.subscriber;
 
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onToolCallStartEvent?.({
-      event: { toolCallId: "tc1", toolCallName: "search" },
-    });
-    await sub.onToolCallEndEvent?.({
-      event: { toolCallId: "tc1" },
-      toolCallName: "search",
-      toolCallArgs: {},
-    } as never);
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitToolCall(sub);
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -60,10 +109,65 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "text_end",
       "finalize",
     ]);
+    expect(renderSink.frames[0]?.event).toEqual({ kind: "run_started" });
     // seq is monotonic and zero-based within (turn, slot).
     expect(renderSink.frames.map((f) => f.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(renderSink.frames.every((f) => f.slot === "main")).toBe(true);
     expect(renderSink.frames.every((f) => f.turnId === "turn_t1")).toBe(true);
+  });
+
+  it("attaches an explicit tool-status opt-in to run_started", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: true,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber;
+
+    await emitToolCall(sub);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: true,
+    });
+  });
+
+  it("attaches an explicit hidden preference without filtering tool frames", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: false,
+    });
+    const renderer = adapter.createRunRenderer({
+      ...target,
+      route: { opaque: "route" },
+    });
+
+    await emitToolCall(renderer.subscriber);
+    await renderer.finish?.();
+
+    expect(renderSink.frames.map((f) => f.event.kind)).toEqual([
+      "run_started",
+      "tool_start",
+      "tool_end",
+      "finalize",
+    ]);
+    expect(renderSink.frames[0]?.event).toEqual({
+      kind: "run_started",
+      showToolStatus: false,
+    });
   });
 
   it("markInterrupted emits an interrupt frame then a finalize", async () => {
@@ -74,10 +178,8 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       renderSink,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "partial" },
-    });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "partial");
     await renderer.markInterrupted();
 
     const kinds = renderSink.frames.map((f) => f.event.kind);
@@ -86,6 +188,23 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       "text_delta",
       "interrupt",
       "finalize",
+    ]);
+  });
+
+  it("emits run_started before finalize for a terminal-only run", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+      showToolStatus: false,
+    });
+
+    await adapter.createRunRenderer(target).finish?.();
+
+    expect(renderSink.frames.map((f) => f.event)).toEqual([
+      { kind: "run_started", showToolStatus: false },
+      { kind: "finalize" },
     ]);
   });
 
@@ -108,6 +227,35 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     expect(
       (postFrame?.event as { kind: "post"; content: unknown }).content,
     ).toEqual(card);
+  });
+
+  it("returns the frame key for each post so a later update addresses the right message", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const firstCard = [
+      { type: "section", props: { children: "first" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+    const secondCard = [
+      { type: "section", props: { children: "second" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    const firstRef = await adapter.post(target, firstCard);
+    const secondRef = await adapter.post(target, secondCard);
+    await adapter.update(secondRef, secondCard);
+
+    expect(firstRef.id).toMatch(/^turn_[A-Za-z0-9_-]+:main:\d+$/);
+    expect(secondRef.id).toMatch(/^turn_[A-Za-z0-9_-]+:main:\d+$/);
+    expect(secondRef.id).not.toBe(firstRef.id);
+    const updateFrame = renderSink.frames.find(
+      (frame) => frame.event.kind === "update",
+    );
+    expect((updateFrame?.event as { kind: "update"; ref: string }).ref).toBe(
+      secondRef.id,
+    );
   });
 
   it("routes a delete through a delete render frame when a renderSink is wired (OSS-420)", async () => {
@@ -140,14 +288,10 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
       egress,
     });
     const renderer = adapter.createRunRenderer(target);
-    const sub = renderer.subscriber as unknown as Sub;
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "hello " },
-    });
-    sub.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: "world" },
-    });
-    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    const sub = renderer.subscriber;
+    await emitTextContent(sub, "m1", "hello ");
+    await emitTextContent(sub, "m1", "world");
+    await emitTextEnd(sub, "m1");
     await renderer.finish?.();
 
     expect(egress.ops).toHaveLength(1);
@@ -155,24 +299,35 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
   });
 });
 
-/** A fake Realtime Gateway session that records pushes and replies with render_accepted. */
-function makeFakeSession() {
+/**
+ * A fake Realtime Gateway session that records pushes and replies with batch
+ * receipts. `failEvents` makes the named pushes reject with a coded error (the
+ * shape app-api's fences arrive in), so a test can fence part of a turn.
+ */
+function makeFakeSession(options?: {
+  failEvents?: readonly string[];
+  code?: string;
+}) {
   const pushes: { event: string; payload: unknown }[] = [];
   const handlers = new Map<string, (payload: unknown) => void>();
   const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
-      if (event === "channel.render_event.v1") {
+      if (options?.failEvents?.includes(event)) {
+        throw Object.assign(new Error("realtime gateway push failed"), {
+          code: options.code ?? "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      }
+      if (event === "channel.render_batch.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
-          type: "channel.render_accepted.v1",
+          type: "channel.render_batch_accepted.v1",
           occurredAt: "2026-07-01T00:00:00.000Z",
           payload: {
-            idempotencyKey: p.idempotencyKey,
-            acceptance: "accepted",
-            ...(p.event && (p.event as { kind: string }).kind === "finalize"
-              ? { egressOperationId: "eop_1" }
-              : {}),
+            batchId: p.batchId,
+            egressOperationId: "eop_1",
+            acceptedThroughSeq: p.endSeq,
+            duplicate: false,
           },
         };
       }
@@ -184,6 +339,27 @@ function makeFakeSession() {
   };
   return { session, pushes, handlers };
 }
+
+const pushOne = (
+  transport: RealtimeGatewayTransport,
+  input: {
+    deliveryId: string;
+    turnId: string;
+    slot: string;
+    seq: number;
+    event: ChannelRenderEvent;
+  },
+) =>
+  transport.pushBatch(
+    createRenderBatch(
+      {
+        deliveryId: input.deliveryId,
+        turnId: input.turnId,
+        slot: input.slot,
+      },
+      [{ seq: input.seq, event: input.event }],
+    ),
+  );
 
 describe("coerceWireProjectId", () => {
   it("accepts a positive integer number and a numeric string, rejects the rest", () => {
@@ -217,6 +393,28 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     now: () => "2026-07-01T00:00:00.000Z",
   });
 
+  /** A `delivery.available` payload for one leased text turn. */
+  const makeDeliveryPayload = (input: {
+    deliveryId: string;
+    turnId: string;
+    leaseToken: string;
+  }) => ({
+    payload: {
+      delivery: {
+        id: input.deliveryId,
+        leaseToken: input.leaseToken,
+        adapter: "slack",
+        channel: { id: "channel_1", name: "support" },
+        turn: {
+          id: input.turnId,
+          eventId: "evt_1",
+          replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+          input: { kind: "text", text: "hi" },
+        },
+      },
+    },
+  });
+
   it("streams render frames, awaits receipts, then sends complete_requested (not ack)", async () => {
     const fake = makeFakeSession();
     const t = new RealtimeGatewayTransport(cfg(fake.session));
@@ -246,17 +444,17 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     await Promise.resolve();
     expect(delivered).toBe(true);
 
-    const r1 = await t.push({
+    const r1 = await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
       seq: 0,
       event: { kind: "run_started" },
     });
-    expect(r1.acceptance).toBe("accepted");
-    expect(r1.idempotencyKey).toBe("turn_t1:main:0");
+    expect(r1.duplicate).toBe(false);
+    expect(r1.acceptedThroughSeq).toBe(0);
 
-    const rFinal = await t.push({
+    const rFinal = await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -270,8 +468,8 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     const events = fake.pushes.map((p) => p.event);
     // render frames first, then the completion INTENT.
     expect(events).toEqual([
-      "channel.render_event.v1",
-      "channel.render_event.v1",
+      "channel.render_batch.v1",
+      "channel.render_batch.v1",
       "channel.delivery.complete_requested.v1",
     ]);
     // The SDK must NEVER emit a committed delivery ack.
@@ -290,7 +488,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(completion.payload.runtimeInstanceId).toBe("rti_1");
     // OSS-446: render-accept + completion intent are both fenced on the lease.
     const render = fake.pushes.find(
-      (p) => p.event === "channel.render_event.v1",
+      (p) => p.event === "channel.render_batch.v1",
     )!.payload as { payload: { leaseToken?: string } };
     expect(render.payload.leaseToken).toBe("lease_l1");
     expect(completion.payload.leaseToken).toBe("lease_l1");
@@ -323,7 +521,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
     await Promise.resolve();
 
-    await t.push({
+    await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -332,7 +530,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
 
     const render = fake.pushes.find(
-      (p) => p.event === "channel.render_event.v1",
+      (p) => p.event === "channel.render_batch.v1",
     )!.payload as { payload: { projectId: number } };
     expect(render.payload.projectId).toBe(9);
   });
@@ -346,14 +544,14 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     };
     const t = new RealtimeGatewayTransport(cfg(session));
     await expect(
-      t.push({
+      pushOne(t, {
         deliveryId: "dlv_d1",
         turnId: "turn_t1",
         slot: "main",
         seq: 0,
         event: { kind: "run_started" },
       }),
-    ).rejects.toThrow(/render_accepted/);
+    ).rejects.toThrow(/render_batch_accepted/);
   });
 
   it("nack sends a fail event, never an ack", async () => {
@@ -698,6 +896,133 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
   });
 
+  it("abandons a delivery whose lease was revoked instead of nacking it", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {
+      throw Object.assign(new Error("push failed"), {
+        code: "CHANNEL_DELIVERY_LEASE_INVALID",
+      });
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d1",
+        turnId: "turn_t1",
+        leaseToken: "lease_l1",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(logs.some((m) => m.includes("lease revoked; abandoning"))).toBe(
+      true,
+    );
+    expect(fake.pushes.map((p) => p.event)).not.toContain(
+      "channel.delivery.fail.v1",
+    );
+    expect(logs.some((m) => m.includes("nack after turn failure failed"))).toBe(
+      false,
+    );
+  });
+
+  it("abandons a fenced delivery from the adapter's dispatch, sending no fail intent", async () => {
+    const fake = makeFakeSession({
+      failEvents: ["channel.render_batch.v1", "channel.delivery.fail.v1"],
+    });
+    const logs: string[] = [];
+    const transport = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    const adapter = intelligenceAdapter({
+      source: transport,
+      egress: new InMemoryEgressSink(),
+      renderSink: transport,
+      config: { log: (m: string) => logs.push(m) },
+    } as unknown as Parameters<typeof intelligenceAdapter>[0]);
+
+    // Go through the REAL `start()`, so the delivery is handled by
+    // `source.start(env => dispatch(env))`. Every other test in this file drives
+    // `createRunRenderer` directly and therefore never exercises `dispatch`'s
+    // catch — which is exactly how the fenced-lease gap stayed invisible.
+    await adapter.start({
+      onTurn: async (turn: { replyTarget: ReplyTarget }) => {
+        const renderer = adapter.createRunRenderer(turn.replyTarget);
+        const sub = renderer.subscriber as unknown as Sub;
+        sub.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "hi" },
+        });
+        await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+        await renderer.finish?.();
+      },
+    } as unknown as Parameters<typeof adapter.start>[0]);
+
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d3",
+        turnId: "turn_t3",
+        leaseToken: "lease_l3",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+
+    const events = fake.pushes.map((p) => p.event);
+    expect(events).toContain("channel.render_batch.v1");
+    expect(events).not.toContain("channel.delivery.fail.v1");
+    expect(
+      logs.some((m) => m.includes("lease revoked mid-turn; abandoning")),
+    ).toBe(true);
+
+    // ...and the transport's own DeliveryState is GONE. `dispatch` swallowing
+    // the fence means the transport saw a successful onDelivery, so neither its
+    // revoked-lease catch nor `ack` ran — only the explicit `abandon` retires
+    // the lease token / scope / accepted map. Probe it through `nack`, which
+    // needs that state to build a fail intent: if it were still retained the
+    // fence would leak one record per fenced delivery until shutdown.
+    const pushesBefore = fake.pushes.length;
+    await transport.nack("dlv_d3", "probe");
+    expect(fake.pushes).toHaveLength(pushesBefore);
+    expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
+  });
+
+  it("swallows a fail intent that is itself fenced by a revoked lease", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    // Reject only the fail intent, the way app-api's 409 arrives on the wire.
+    const session: RealtimeGatewaySession = {
+      ...fake.session,
+      push: async (event, payload) => {
+        if (event === "channel.delivery.fail.v1") {
+          throw Object.assign(new Error("push failed"), {
+            code: "CHANNEL_DELIVERY_LEASE_INVALID",
+          });
+        }
+        return fake.session.push(event, payload);
+      },
+    };
+    const t = new RealtimeGatewayTransport({
+      ...cfg(session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {});
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d2",
+        turnId: "turn_t2",
+        leaseToken: "lease_l2",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    await expect(t.nack("dlv_d2", "boom")).resolves.toBeUndefined();
+    expect(logs.some((m) => m.includes("fenced by a revoked lease"))).toBe(
+      true,
+    );
+  });
+
   it("stamps the delivery's authoritative scope (not the transport default) on render + fail", async () => {
     const fake = makeFakeSession();
     // Transport default scope is org_1 / 7 / channel_1; the delivery carries a
@@ -724,7 +1049,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
     await Promise.resolve();
 
-    await t.push({
+    await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -740,7 +1065,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         }
       ).payload;
     for (const p of [
-      inner("channel.render_event.v1"),
+      inner("channel.render_batch.v1"),
       inner("channel.delivery.fail.v1"),
     ]) {
       expect(p.organizationId).toBe("org_OTHER");
@@ -805,5 +1130,120 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(typeof withHttp.fetchFile).toBe("function");
     expect(typeof withHttp.getHistory).toBe("function");
     expect(typeof withHttp.uploadFile).toBe("function");
+  });
+});
+
+describe("run renderer — push instrumentation (OSS-648)", () => {
+  /** Drive a two-token reply through the renderer and return the log spy. */
+  const runInstrumentedTurn = async (
+    metricsEnv: string | undefined,
+  ): Promise<ReturnType<typeof vi.fn>> => {
+    const log = vi.fn();
+    if (metricsEnv === undefined) {
+      vi.stubEnv("COPILOTKIT_CHANNELS_RENDER_METRICS", "");
+    } else {
+      vi.stubEnv("COPILOTKIT_CHANNELS_RENDER_METRICS", metricsEnv);
+    }
+    try {
+      const adapter = intelligenceAdapter({
+        source: new InMemoryDeliverySource(),
+        egress: new InMemoryEgressSink(),
+        renderSink: new InMemoryRenderEventSink(),
+        config: { log },
+      });
+      const renderer = adapter.createRunRenderer(target);
+      await emitTextContent(renderer.subscriber, "m1", "hel");
+      await emitTextContent(renderer.subscriber, "m1", "lo");
+      await renderer.finish?.();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    return log;
+  };
+
+  it("stays silent unless COPILOTKIT_CHANNELS_RENDER_METRICS is set", async () => {
+    const log = await runInstrumentedTurn(undefined);
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it("summarizes frame count, text volume and blocked time for the turn", async () => {
+    const log = await runInstrumentedTurn("summary");
+
+    const summaries = log.mock.calls.filter(
+      (c) => c[0] === "channel render metrics",
+    );
+    expect(summaries).toHaveLength(1);
+    // run_started + 2 text_delta + finalize.
+    expect(summaries[0]?.[1]).toMatchObject({
+      turnId: "turn_t1",
+      deliveryId: "dlv_d1",
+      batches: 3,
+      frames: 4,
+      textDeltaFrames: 2,
+      textDeltaChars: 5,
+      charsPerTextFrame: 2.5,
+      framesByKind: { run_started: 1, text_delta: 2, finalize: 1 },
+    });
+  });
+
+  it("logs one line per batch in frames mode, plus the summary", async () => {
+    const log = await runInstrumentedTurn("frames");
+
+    const perBatch = log.mock.calls.filter(
+      (c) => c[0] === "channel render batch pushed",
+    );
+    expect(perBatch).toHaveLength(3);
+    expect(perBatch.map((c) => c[1])).toMatchObject([
+      {
+        batchSeq: 0,
+        frameCount: 1,
+        framesByKind: { run_started: 1 },
+      },
+      {
+        batchSeq: 1,
+        frameCount: 1,
+        framesByKind: { text_delta: 1 },
+        textDeltaChars: 3,
+      },
+      {
+        batchSeq: 2,
+        frameCount: 2,
+        framesByKind: { text_delta: 1, finalize: 1 },
+        textDeltaChars: 2,
+      },
+    ]);
+    expect(
+      log.mock.calls.filter((c) => c[0] === "channel render metrics"),
+    ).toHaveLength(1);
+  });
+});
+
+describe("render-batch retry policy (OSS-670)", () => {
+  it("does not retry a batch whose lease was revoked", async () => {
+    let calls = 0;
+    const renderSink = {
+      pushBatch: async () => {
+        calls += 1;
+        throw Object.assign(new Error("realtime gateway session push failed"), {
+          code: "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      },
+    };
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hi" },
+    });
+    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    // The transport error surfaces here; its shape is not what this test pins.
+    await renderer.finish?.().catch(() => undefined);
+
+    expect(calls).toBe(1);
   });
 });

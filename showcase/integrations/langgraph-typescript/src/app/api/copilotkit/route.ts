@@ -40,7 +40,6 @@ function createAgent(graphId: string = "starterAgent") {
 const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "gen-ui-tool-based",
   "shared-state-read",
   "shared-state-write",
   // Chat-UI demos — all reuse the default starterAgent.
@@ -81,15 +80,22 @@ const demoAgents: Record<string, string> = {
   "shared-state-streaming": "shared_state_streaming",
   subagents: "subagents",
   "gen-ui-agent": "gen_ui_agent",
-  // Reasoning demos — use dedicated reasoning agent graph.
-  "agentic-chat-reasoning": "agentic-chat-reasoning",
+  // Tool-Based Generative UI — dedicated data-viz graph; the frontend
+  // registers render_bar_chart / render_pie_chart via useComponent.
+  "gen-ui-tool-based": "gen_ui_tool_based",
+  // Thread-id frontend-tool roundtrip — reuses the frontend_tools graph
+  // (non-manifest demo, kept for frontend byte-parity with langgraph-python).
+  "threadid-frontend-tool-roundtrip": "frontend_tools",
+  // Reasoning demos (reasoning-custom + reasoning-default) share one dedicated
+  // reasoning graph — the only frontend difference is the reasoningMessage slot.
   "reasoning-custom": "agentic-chat-reasoning",
   "reasoning-default": "agentic-chat-reasoning",
-  "reasoning-default-render": "reasoning-default-render",
-  // Tool rendering variants — each has its own graph in langgraph.json.
+  // Tool rendering variants all share the ONE tool_rendering graph (same
+  // backend tools); the cells differ only in the frontend renderer wiring.
+  // Mirrors langgraph-python, which maps all three cells to `tool_rendering`.
   "tool-rendering": "tool_rendering",
-  "tool-rendering-default-catchall": "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall": "tool-rendering-custom-catchall",
+  "tool-rendering-default-catchall": "tool_rendering",
+  "tool-rendering-custom-catchall": "tool_rendering",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 for (const [agentName, graphId] of Object.entries(demoAgents)) {

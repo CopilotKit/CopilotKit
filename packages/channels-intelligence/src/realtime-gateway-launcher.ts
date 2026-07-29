@@ -14,6 +14,7 @@ import {
 import type { ChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { EgressSink } from "./transports.js";
+import { RENDER_BATCH_PROTOCOL_CAPABILITY } from "./render-batches.js";
 
 /**
  * Realtime Gateway egress is vestigial: with a render sink wired (the transport
@@ -90,6 +91,8 @@ export interface StartChannelsWithGatewaySessionOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
+  /** Override managed provider tool-call visibility; omission is forwarded. */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -123,6 +126,7 @@ export async function startChannelsWithGatewaySession(
       renderSink: transport,
       egress: realtimeGatewayEgress,
     }),
+    showToolStatus: opts.showToolStatus,
     // The required runtimeInstanceId is authoritative: merge it in LAST so
     // `handle.metadata` reports the same id the transport stamps on every
     // envelope, regardless of any `env` overrides (which cannot carry it).
@@ -137,7 +141,10 @@ export async function startChannelsWithGatewaySession(
   const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
     onStateChange(
-      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+      cb: (
+        state: "online" | "reconnecting" | "gave_up" | "fenced",
+        detail?: { reason?: string; code?: string },
+      ) => void,
     ): void;
   }>;
   // Call the seams ON the session (not via detached references) so a
@@ -155,6 +162,7 @@ export async function startChannelsWithGatewaySession(
             onStateChange: (
               cb: (
                 state: "online" | "reconnecting" | "gave_up" | "fenced",
+                detail?: { reason?: string; code?: string },
               ) => void,
             ) => observableSession.onStateChange!(cb),
           }
@@ -201,6 +209,8 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   webSocket?: unknown;
   /** Diagnostic sink for dropped deliveries / transport events. */
   log?: (message: string, meta?: unknown) => void;
+  /** Override managed provider tool-call visibility; omission is forwarded. */
+  showToolStatus?: boolean;
 }
 
 /**
@@ -247,8 +257,7 @@ export async function startChannelsOverRealtimeGateway(
       declaredChannels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
-        // renderCapabilities: reserved — channels don't expose capabilities yet
-        // (tracked with the richer per-channel metadata in OSS-377).
+        renderCapabilities: [RENDER_BATCH_PROTOCOL_CAPABILITY],
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,
@@ -294,6 +303,7 @@ export async function startChannelsOverRealtimeGateway(
       // so forward only the caller's overrides here (they cannot carry the id).
       ...(config.env ? { env: config.env } : {}),
       ...(config.log ? { log: config.log } : {}),
+      showToolStatus: config.showToolStatus,
     });
   } catch (err) {
     session.disconnect();
@@ -306,7 +316,10 @@ export async function startChannelsOverRealtimeGateway(
     // so they stay correct even if that helper's internals change.
     onClose: (cb: () => void) => session.onClose(cb),
     onStateChange: (
-      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+      cb: (
+        state: "online" | "reconnecting" | "gave_up" | "fenced",
+        detail?: { reason?: string; code?: string },
+      ) => void,
     ) => session.onStateChange(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the

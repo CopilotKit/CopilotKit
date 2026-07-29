@@ -1,153 +1,285 @@
 ---
-title: Tools and Context
+title: Tools and context
 icon: "lucide/Wrench"
-description: Give the agent channel-level tools it can call, and context it sees every turn.
+description: Give a Slack or Teams agent typed application actions and the right context for each managed turn.
+doc_type: how-to
 ---
 
-Two things you configure on the channel shape what the agent can do:
+Channel tools let your agent call application code while it works in Slack or
+Teams. Context gives the agent information it should consider without exposing
+another callable action.
 
-- **Tools** the agent can call, defined with `defineChannelTool`.
-- **Context** the agent sees every turn, as `{ description, value }` entries.
+Install the schema library used in these examples:
 
-The channel forwards both to the agent on each run, alongside the agent's own
-tools and any [MCP servers](/channels/mcp).
+```bash title="Terminal"
+npm install zod
+```
 
-## Define a tool
+## Add a channel-level tool
 
-A tool is a name, a description, a parameters schema (Zod or any Standard
-Schema), and a handler. The handler's `args` are typed from the schema.
+Use `defineChannelTool` for actions that are available in every conversation.
+The parameter schema becomes the tool's JSON schema and types the handler.
 
-```tsx
+```ts title="tools.ts"
 import { defineChannelTool } from "@copilotkit/channels";
 import { z } from "zod";
-import { Message, Header, Section } from "@copilotkit/channels/ui";
 
-export const issueCard = defineChannelTool({
-  name: "issue_card",
-  description: "Show a single Linear issue as a card.",
+export const getIncident = defineChannelTool({
+  name: "get_incident",
+  description: "Read the current status of an incident by its id.",
   parameters: z.object({
-    title: z.string(),
-    status: z.string(),
-    url: z.string(),
+    incidentId: z.string().describe("Incident id, for example INC-421"),
   }),
-  async handler({ title, status, url }, { thread }) {
-    await thread.post(
-      <Message accent="#5E6AD2">
-        <Header>{title}</Header>
-        <Section>{`Status: ${status}`}</Section>
-      </Message>,
-    );
-    return "Displayed the issue card to the user.";
+  async handler({ incidentId }) {
+    const incident = await incidents.get(incidentId);
+    return incident; // objects are serialized for the model
   },
 });
 ```
 
-Register tools on the channel:
+Register it when you create the Channel:
 
-```ts
+<FrontendOnly frontend="slack">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+import { getIncident } from "./tools.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
 const channel = createChannel({
-  name: "support-bot",
-  agent,
-  tools: [issueCard],
-});
-
-// or add one later
-channel.tool(issueCard);
-```
-
-## The handler context
-
-The second argument gives you the conversation and the caller.
-
-| Field | Type | Description |
-| --- | --- | --- |
-| `thread` | `Thread` | Post UI, run the agent, block on a choice. See the [Thread API](/channels/reference/thread). |
-| `message` | `IncomingMessage?` | The message that triggered this turn, when there is one. |
-| `user` | `PlatformUser?` | The requesting user, when known. |
-| `platform` | `string` | The platform the call came from. |
-| `signal` | `AbortSignal?` | Aborts if the run is superseded or cancelled. |
-
-## What to return
-
-The return value is read by the **model**, not shown to the user. The SDK
-serializes it for you.
-
-| Return | The model sees |
-| --- | --- |
-| a `string` | the string as-is |
-| `null` / `undefined` | an empty string |
-| any object or array | the value, JSON-stringified automatically |
-
-Return something meaningful:
-
-- A **render tool** (one that posts a card with `thread.post`) should return a
-  short confirmation like `"Displayed the issue card."`, so the model gives a
-  brief acknowledgement instead of restating the card as text.
-- A **data tool** should return the raw object or array. Do not hand-stringify
-  it, and do not return boilerplate like `{ ok: true }`.
-- A **failure** should return the actual error text, so the model can repair
-  and retry.
-
-```ts
-export const listOpenIssues = defineChannelTool({
-  name: "list_open_issues",
-  description: "List the open issues for a team.",
-  parameters: z.object({ team: z.string() }),
-  async handler({ team }) {
-    const issues = await api.issues({ team, state: "open" });
-    return issues; // returned raw; the SDK serializes it for the model
-  },
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  tools: [getIncident],
 });
 ```
 
-## Context
+</FrontendOnly>
 
-Context entries are forwarded to the agent every turn as background it can
-rely on: app identity, policy, formatting rules, anything stable.
+<FrontendOnly frontend="teams">
 
-```ts
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+import { getIncident } from "./tools.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
 const channel = createChannel({
-  name: "support-bot",
-  agent,
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  tools: [getIncident],
+});
+```
+
+</FrontendOnly>
+
+Return information the model can act on:
+
+- Return raw objects or arrays for data tools.
+- Return a short confirmation when the handler already posted UI.
+- Return or throw the real failure reason so the model can recover.
+- Do not manually `JSON.stringify` successful data.
+
+## Add stable context
+
+Channel context is sent on every agent run:
+
+<FrontendOnly frontend="slack">
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
   context: [
-    { description: "Assistant policy", value: "Be concise. Never share secrets." },
-    { description: "Product", value: "Acme Cloud, a managed hosting platform." },
+    {
+      description: "Support policy",
+      value:
+        "Never disclose credentials. Escalate Sev-1 incidents immediately.",
+    },
+    {
+      description: "Response style",
+      value: "Use short paragraphs and put the next action first.",
+    },
   ],
 });
 ```
 
-## Per-run tools and context
+</FrontendOnly>
 
-Pass tools or context for a single run through `thread.runAgent`. They add to
-the channel-level ones for that turn only.
+<FrontendOnly frontend="teams">
 
-```ts
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "teams",
+  agent: makeAgent,
+  context: [
+    {
+      description: "Support policy",
+      value:
+        "Never disclose credentials. Escalate Sev-1 incidents immediately.",
+    },
+    {
+      description: "Response style",
+      value: "Use short paragraphs and put the next action first.",
+    },
+  ],
+});
+```
+
+</FrontendOnly>
+
+Keep this list stable and small. Fetch frequently changing data through a tool
+instead of embedding stale snapshots in every prompt.
+
+## Use provider and user context for one turn
+
+On a managed Channel, the native origin is on `message.platform`
+(`"slack"` or `"teams"`). `thread.platform` and a channel-level tool's
+`ctx.platform` identify the managed adapter as `"intelligence"`, so do not use
+them to branch on the native provider.
+
+Add native context when you run the agent:
+
+```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
   await thread.runAgent({
-    prompt: message.text,
-    context: [{ description: "Requester", value: message.user.email ?? "" }],
-    tools: [oneOffTool],
+    prompt: message.contentParts?.length
+      ? [
+          ...(message.text
+            ? [{ type: "text" as const, text: message.text }]
+            : []),
+          ...message.contentParts,
+        ]
+      : message.text,
+    context: [
+      { description: "Originating platform", value: message.platform },
+      {
+        description: "Requesting user",
+        value: message.user.name ?? message.user.id,
+      },
+    ],
   });
 });
 ```
 
-## How tools reach the agent
+If a tool must be scoped to the current person, define it inside the handler and
+pass it for that run. Its closure captures the trusted inbound identity:
 
-The channel's tools and context travel in the run input. In [TanStack factory
-mode](/channels/quickstart), `convertInputToTanStackAI(ctx.input)` returns the
-tools as `tools` and folds context into `systemPrompts`, which you hand to
-`chat()`. So the model can call your channel tools next to the agent's own
-tools and MCP:
-
-```ts
-factory: (ctx) => {
-  const { messages, systemPrompts, tools } = convertInputToTanStackAI(ctx.input);
-  return chat({
-    adapter: openaiText("gpt-5.5"),
-    messages,
-    systemPrompts,
-    tools, // your channel tools, forwarded here
-    abortController: ctx.abortController,
+```ts title="channel.ts"
+channel.onMessage(async ({ thread, message }) => {
+  const listMyApprovals = defineChannelTool({
+    name: "list_my_approvals",
+    description: "List approvals assigned to the requesting user.",
+    parameters: z.object({}),
+    async handler() {
+      return approvals.forPlatformUser(message.platform, message.user.id);
+    },
   });
-};
+
+  await thread.runAgent({
+    prompt: message.text,
+    tools: [listMyApprovals],
+  });
+});
 ```
+
+Treat platform user ids as external identifiers. Resolve them to an authenticated
+application identity before allowing a consequential write.
+
+## Render a tool result as native UI
+
+A tool can post a portable JSX message and return a short acknowledgement to
+the model:
+
+```tsx title="tools.tsx"
+import { defineChannelTool } from "@copilotkit/channels";
+import { Header, Message, Section } from "@copilotkit/channels/ui";
+import { z } from "zod";
+
+export const showIncident = defineChannelTool({
+  name: "show_incident",
+  description: "Display an incident summary in the conversation.",
+  parameters: z.object({
+    id: z.string(),
+    status: z.string(),
+    summary: z.string(),
+  }),
+  async handler({ id, status, summary }, { thread }) {
+    await thread.post(
+      <Message>
+        <Header>{`${id} · ${status}`}</Header>
+        <Section>{summary}</Section>
+      </Message>,
+    );
+    return `Displayed ${id}.`;
+  },
+});
+```
+
+Enable Channels JSX before using this example:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels"
+  }
+}
+```
+
+<FrontendOnly frontend="slack">
+
+The portable message is rendered as Slack Block Kit before Intelligence sends
+it to the conversation.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+The portable message is rendered as a Microsoft Teams Adaptive Card before
+Intelligence sends it to the conversation.
+
+</FrontendOnly>
+
+## Where MCP belongs
+
+Connect MCP servers to the selected agent backend. The Channels SDK forwards
+channel tools over AG-UI alongside the tools already exposed by that agent, so
+you do not need a second channel-specific MCP transport. Start with
+[MCP tools](/agentic-protocols/mcp), then use `defineChannelTool` only for
+actions that need the current channel conversation.
+
+Continue with [interactive messages and approvals](/channels/interactive), or
+use the [Channel API reference](/reference/channels/classes/Channel).

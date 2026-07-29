@@ -1,4 +1,6 @@
 import frontendRegistryData from "@/data/frontend-registry.json";
+import { CHANNEL_FRONTENDS, isChannelGuideSlug } from "./channel-guide-routes";
+import type { ChannelFrontend } from "./channel-guide-routes";
 
 export type FrontendId =
   | "react"
@@ -81,8 +83,8 @@ export function getFrontendSupport(
   return frontendRegistry.feature_support[featureId]?.[frontendId];
 }
 
-export function isFrontendEarlyAccess(id: FrontendId): boolean {
-  return id === "slack" || id === "teams";
+export function isChannelFrontend(id: FrontendId): id is ChannelFrontend {
+  return CHANNEL_FRONTENDS.some((frontend) => frontend === id);
 }
 
 function normalizeSlugPath(slugPath: string): string {
@@ -141,6 +143,23 @@ function pathnameSegments(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
 }
 
+export function shouldNavigateFrontendSelection(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  pathname: string,
+  destinationPath: string,
+): boolean {
+  return id !== effectiveFrontendId && destinationPath !== pathname;
+}
+
+export function isFrontendOptionActive(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  _pathname: string,
+): boolean {
+  return id === effectiveFrontendId;
+}
+
 export function parseFrontendRoutePath(
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
@@ -172,26 +191,48 @@ export function backendFromPathname(
   return first && backendFrameworkSlugs.includes(first) ? first : null;
 }
 
+function targetQuickstartSlug(
+  id: FrontendId,
+  backendFrameworkSlug: string | null,
+): string {
+  return id === "angular" && backendFrameworkSlug !== null ? "quickstart" : "";
+}
+
 export function frontendPathForCurrentPath(
   id: FrontendId,
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
 ): string {
+  const targetIsChannel = isChannelFrontend(id);
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {
+    const currentIsChannel = isChannelFrontend(frontendRoute.frontend);
+    const shouldUseTargetQuickstart =
+      (targetIsChannel && !currentIsChannel) ||
+      (!targetIsChannel &&
+        currentIsChannel &&
+        (frontendRoute.slugPath === "" ||
+          isChannelGuideSlug(frontendRoute.slugPath)));
+
     return frontendPathForBackend(
       id,
-      frontendRoute.slugPath,
+      shouldUseTargetQuickstart
+        ? targetQuickstartSlug(id, frontendRoute.backend)
+        : frontendRoute.slugPath,
       frontendRoute.backend,
     );
   }
 
   const [first = "", ...rest] = pathnameSegments(pathname);
   if (backendFrameworkSlugs.includes(first)) {
-    return frontendPathForBackend(id, rest.join("/"), first);
+    return frontendPathForBackend(
+      id,
+      targetIsChannel ? "" : rest.join("/"),
+      first,
+    );
   }
 
-  return frontendPathFor(id, [first, ...rest].join("/"));
+  return frontendPathFor(id, targetIsChannel ? "" : [first, ...rest].join("/"));
 }
 
 export function backendPathForCurrentPath(
@@ -203,11 +244,13 @@ export function backendPathForCurrentPath(
   const backend = slug === defaultFrameworkSlug ? null : slug;
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {
-    return frontendPathForBackend(
-      frontendRoute.frontend,
-      frontendRoute.slugPath,
-      backend,
-    );
+    const isUnscopedFrontendRoot =
+      frontendRoute.backend === null && frontendRoute.slugPath === "";
+    const slugPath = isUnscopedFrontendRoot
+      ? targetQuickstartSlug(frontendRoute.frontend, backend)
+      : frontendRoute.slugPath;
+
+    return frontendPathForBackend(frontendRoute.frontend, slugPath, backend);
   }
 
   const [first = "", ...rest] = pathnameSegments(pathname);

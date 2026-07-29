@@ -500,6 +500,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             "sandbox",
             "allow-scripts allow-same-origin allow-forms",
           );
+          // Cross-frontend MCP-apps surface contract: the host-created sandbox
+          // iframe is the addressable render surface for the MCP app, and every
+          // frontend must expose it under the SAME testid so one shared probe
+          // (harness `d5-mcp-apps`) and one shared e2e spec can assert the
+          // surface mounted without per-frontend selectors. Angular declares
+          // the same pair on its `copilot-mcp-apps-widget` template iframe;
+          // Vue's renderer mirrors this block.
+          iframe.setAttribute("data-testid", "mcp-app-iframe");
+          iframe.setAttribute("title", "Interactive MCP application");
 
           // Wait for sandbox proxy to be ready
           const sandboxReady = new Promise<void>((resolve) => {

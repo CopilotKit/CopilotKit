@@ -133,6 +133,7 @@ describe("createRunRenderer — native streaming", () => {
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
+      showToolStatus: true,
     });
 
     sub.onTextMessageContentEvent!({
@@ -169,14 +170,13 @@ describe("createRunRenderer — native streaming", () => {
     ]);
   });
 
-  it("showToolStatus:false suppresses tool progress entirely (no chunks, no rows)", async () => {
+  it("suppresses tool progress by default (no chunks, no rows)", async () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();
     const { subscriber: sub, finish } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport },
-      showToolStatus: false,
     });
 
     sub.onTextMessageContentEvent!({
@@ -239,6 +239,7 @@ describe("createRunRenderer — native streaming", () => {
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
       nativeStreaming: { transport: nt.transport, onChunkFailure },
+      showToolStatus: true,
     });
 
     // First tool call tries a chunk, which fails and flips the degradation flag.

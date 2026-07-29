@@ -1,0 +1,149 @@
+---
+title: JSX callbacks
+description: Reference for portable component handlers and their managed Slack and Teams interaction context.
+---
+
+Portable Channels components can carry callbacks. Slack and Teams receive
+opaque action ids; the SDK resolves the original handler when the interaction
+returns.
+
+Slack renders the controls as Block Kit. With Slack app Interactivity enabled,
+clicks arrive as `block_actions` over the managed Socket Mode connection.
+
+Teams renders the controls in Adaptive Cards. Buttons use `Action.Submit`, and
+clicks return through the managed connection as message activities. A Teams
+`Action.Submit` activity can arrive without a source message ref; in that case,
+`message.ref.id` is empty.
+
+## Callback props
+
+| Component | Prop         | Handler value                                                                 |
+| --------- | ------------ | ----------------------------------------------------------------------------- |
+| `Button`  | `onClick`    | `InteractionContext<TValue>`; read the Button's `value` from `action.value`   |
+| `Select`  | `onSelect`   | `InteractionContext<string \| string[]>`; arrays are used when `multi` is set |
+| `Input`   | `onSubmit`   | `InteractionContext<string>` containing the submitted text                    |
+| `Message` | `onReaction` | `(emoji, reaction)`                                                           |
+
+<Callout type="warn" title="Managed Teams control boundary">
+  Managed Teams currently dispatches `Button` submissions. Its renderer can
+  display `Select` and `Input` fields, but the managed ingress does not route
+  their callbacks or expose their submitted values. Use `Button.value` for
+  required cross-provider workflow data.
+</Callout>
+
+## Portable component props
+
+Import these components from `@copilotkit/channels/ui`. Renderers may simplify
+or omit a component when the native provider has no equivalent.
+
+| Component                                             | Key props                                                                  |
+| ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| `Message`                                             | `accent?`, `onReaction?`, `children?`                                      |
+| `Header`, `Section`, `Markdown`, `Context`, `Actions` | `children?`                                                                |
+| `Fields` / `Field`                                    | `children?`; `Field` also accepts `label?`                                 |
+| `Button`                                              | `value?`, `onClick?`, `url?`, `style?: "primary" \| "danger"`, `children?` |
+| `Select`                                              | `options`, `placeholder?`, `multi?`, `onSelect?`                           |
+| `Input`                                               | `name?`, `placeholder?`, `multiline?`, `onSubmit?`                         |
+| `Image`                                               | `url`, `alt?`                                                              |
+| `Divider`                                             | No props or children                                                       |
+| `Table` / `Row` / `Cell`                              | `Table.columns?`; nested rows and cells are children                       |
+| `Chart`                                               | `data`, plus optional `type`, `title`, `xAxisTitle`, and `yAxisTitle`      |
+
+`Button.url` creates a link button and ignores `value` and `onClick`.
+`Select.options` is an array of `{ label, value }`. `Chart.data` is an array of
+`{ label, value }`; unsupported native chart surfaces omit the chart.
+
+## InteractionContext
+
+`Button`, `Select`, and `Input` callbacks receive:
+
+| Field          | Type                      | Description                                                                                                           |
+| -------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `thread`       | `Thread`                  | Post, update, run, or resume the conversation.                                                                        |
+| `message`      | `IncomingMessage`         | Message containing the control. Its ref is updateable only when the interaction carries a non-empty `message.ref.id`. |
+| `action.id`    | `string`                  | Opaque action identifier.                                                                                             |
+| `action.value` | `TValue \| undefined`     | The control's round-tripped value. Guard it before use even when the component declares `value`.                      |
+| `values`       | `Record<string, unknown>` | Submitted form values.                                                                                                |
+| `user`         | `PlatformUser`            | Person who interacted.                                                                                                |
+| `platform`     | `string`                  | Adapter id. Managed interactions currently report `"intelligence"`.                                                   |
+| `openModal`    | function or `undefined`   | Capability-gated modal opener. Not part of the managed Slack/Teams realtime path.                                     |
+
+```tsx title="decision.tsx"
+import { Actions, Button, Message, Section } from "@copilotkit/channels/ui";
+
+export function Decision({ id }: { id: string }) {
+  return (
+    <Message>
+      <Section>{`Approve ${id}?`}</Section>
+      <Actions>
+        <Button
+          value={{ id, approved: true }}
+          onClick={async ({ thread, message, action }) => {
+            const value = action.value;
+            if (value === undefined) return;
+
+            if (message.ref.id) {
+              try {
+                await thread.update(message.ref, `Approved ${value.id}.`);
+              } catch {
+                // Updating the card is best-effort; always resume the agent.
+              }
+            }
+            await thread.resume(value);
+          }}
+        >
+          Approve
+        </Button>
+      </Actions>
+    </Message>
+  );
+}
+```
+
+An interaction ref is updateable only when `message.ref.id` is non-empty.
+Always resume outside the update guard and error handler so an omitted ref or
+failed card update cannot strand the interrupted run.
+
+## Reaction callback
+
+`Message.onReaction` receives `(emoji, reaction)`. The reaction contains
+`added`, `user`, `messageId`, `messageRef`, and `thread`. Managed reaction
+delivery is provider-dependent; do not require it for a cross-platform
+approval. An output-free managed callback is finalized and acknowledged, but
+application side effects should remain idempotent because managed delivery is
+at-least-once.
+
+## Registration and persistence
+
+Register every named component that carries a callback:
+
+```tsx title="channel.tsx"
+import { createChannel } from "@copilotkit/channels";
+import { makeAgent } from "./agent.js";
+import { Decision } from "./decision.js";
+import { durableStateStore } from "./state-store.js";
+
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  components: [Decision],
+  store: { adapter: durableStateStore },
+});
+```
+
+Use `provider: "teams"` for the Microsoft Teams Channel.
+
+Registration allows the action registry to rebuild the callback from the
+component name and serializable props. A durable `StateStore` is still required
+for clicks on messages posted before a process restart.
+
+See the interactive messages and approvals guide for
+[Slack](/slack/interactive) or [Teams](/teams/interactive) for the full
+post-and-resume flow.

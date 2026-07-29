@@ -69,7 +69,7 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
   {
     name: "Channels SDK",
     description:
-      "Build chat-platform agents with createBot, JSX message components, and platform adapters.",
+      "API reference for managed Slack and Microsoft Teams agents built with @copilotkit/channels.",
     href: referenceVersionHref("channels"),
   },
 ];

@@ -11,8 +11,8 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
-  RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
 import { irToText } from "./ir-to-text.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
@@ -180,6 +180,33 @@ interface EgressResponse {
   error?: { code: string; message: string; retryable: boolean };
 }
 
+/** Typed non-success response from an Intelligence HTTP route. */
+export class IntelligenceHttpError extends Error {
+  constructor(
+    readonly path: string,
+    readonly status: number,
+    readonly code: string | undefined,
+    responseBody: string,
+  ) {
+    super(`intelligence ${path} -> ${status}: ${responseBody.slice(0, 300)}`);
+    this.name = "IntelligenceHttpError";
+  }
+}
+
+/** Read a REST error code without depending on its optional wrapper shape. */
+function parseHttpErrorCode(raw: string): string | undefined {
+  try {
+    const parsed = JSON.parse(raw) as {
+      code?: unknown;
+      error?: { code?: unknown };
+    };
+    const code = parsed.error?.code ?? parsed.code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** A `cpk-`-authenticated JSON POST helper against Intelligence app-api. */
 class IntelligenceHttp {
   constructor(private readonly cfg: IntelligenceTransportConfig) {}
@@ -206,8 +233,11 @@ class IntelligenceHttp {
     });
     const raw = await res.text();
     if (!res.ok) {
-      throw new Error(
-        `intelligence ${path} -> ${res.status}: ${raw.slice(0, 300)}`,
+      throw new IntelligenceHttpError(
+        path,
+        res.status,
+        parseHttpErrorCode(raw),
+        raw,
       );
     }
     return raw ? (JSON.parse(raw) as T) : ({} as T);
@@ -496,6 +526,21 @@ export class HttpDeliverySource implements DeliverySource {
     );
   }
 
+  /**
+   * Retire a delivery's lease record without POSTing anything — see
+   * {@link DeliverySource.abandon}. On the fenced path the adapter's `dispatch`
+   * resolves normally, so `runLoop` sees a successful turn and neither `ack` nor
+   * `nack` runs: this is the only thing that drops the record, and without it
+   * every fence leaks a lease token + scope for the process's lifetime.
+   */
+  abandon(deliveryId: string, reason: string): void {
+    if (!this.leases.delete(deliveryId)) {
+      this.cfg.log?.(
+        `intelligence abandon: no lease for delivery ${deliveryId} (${reason})`,
+      );
+    }
+  }
+
   // fetchFile / getHistory / uploadFile delegate to the shared
   // IntelligenceFileHistoryClient so the HTTP and realtime transports stay in
   // lockstep (OSS-476). See {@link IntelligenceFileHistoryClient}.
@@ -604,10 +649,11 @@ export class HttpEgressSink implements EgressSink {
 }
 
 /** Durable render-acceptance receipt (subset the sink reads). */
-interface RenderAcceptedResponse {
-  idempotencyKey?: string;
-  acceptance?: RenderAccepted["acceptance"];
-  egressOperationId?: string;
+interface RenderBatchAcceptedResponse {
+  batchId: string;
+  egressOperationId: string;
+  acceptedThroughSeq: number;
+  duplicate: boolean;
 }
 
 /**
@@ -636,42 +682,36 @@ export class HttpRenderEventSink implements RenderEventSink {
     this.http = new IntelligenceHttp(cfg);
   }
 
-  async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const scope = this.scopeSource.scopeFor(frame.deliveryId);
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    const scope = this.scopeSource.scopeFor(batch.deliveryId);
     if (!scope) {
       throw new Error(
-        `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
+        `intelligenceAdapter: no leased scope for delivery ${batch.deliveryId}`,
       );
     }
     // Fence the render-accept on the delivery's lease token (OSS-446), the same
     // way ack/fail already do. Optional: app-api falls back to instance-id +
     // expiry when it's absent, so an older lease record without a token still
     // renders — but supplying it lets app-api reject a stale/rotated lease.
-    const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
-    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
-    const res = await this.http.post<RenderAcceptedResponse>(
-      `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
+    const leaseToken = this.scopeSource.leaseTokenFor(batch.deliveryId);
+    return this.http.post<RenderBatchAcceptedResponse>(
+      `/api/channels/deliveries/${encodeURIComponent(batch.deliveryId)}/render-batches/accept`,
       {
         organizationId: scope.organizationId,
         projectId: scope.projectId,
         channelId: scope.channelId,
         channelName: scope.channelName,
-        turnId: frame.turnId,
+        turnId: batch.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
-        slot: frame.slot,
-        seq: frame.seq,
-        idempotencyKey,
-        event: frame.event,
+        slot: batch.slot,
+        batchId: batch.batchId,
+        contentDigest: batch.contentDigest,
+        startSeq: batch.startSeq,
+        endSeq: batch.endSeq,
+        frames: batch.frames,
         ...(leaseToken ? { leaseToken } : {}),
         sentAt: new Date().toISOString(),
       },
     );
-    return {
-      idempotencyKey: res.idempotencyKey ?? idempotencyKey,
-      acceptance: res.acceptance ?? "accepted",
-      ...(res.egressOperationId
-        ? { egressOperationId: res.egressOperationId }
-        : {}),
-    };
   }
 }

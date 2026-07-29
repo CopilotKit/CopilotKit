@@ -1,88 +1,214 @@
 ---
-title: Files and Multimodality
+title: Files and multimodal input
 icon: "lucide/Paperclip"
-description: Let users send images and files for the agent to read, and send files back.
+description: Pass managed Slack and Teams attachments to multimodal agents and post supported files back to the conversation.
+doc_type: how-to
 ---
 
-When a user drops an image, PDF, or other file into the chat, it arrives on
-the message as `contentParts`. Merge those parts into the agent's prompt and
-the agent can read them.
+Managed Channels can hydrate provider attachments into
+`message.contentParts`. The SDK carries text, images, audio, video, and PDF
+documents in one provider-neutral prompt shape.
 
-## Read an uploaded file
+## Pass attachments to the agent
 
-```ts
+Managed conversation history does not contain the current inbound turn.
+`runAgent()` automatically chooses the inbound text or attachment parts when
+`prompt` is omitted. Build a combined prompt when the same turn can contain
+both `message.text` and `message.contentParts`:
+
+```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
-  await thread.runAgent({
-    prompt: message.contentParts?.length
-      ? [
-          // the user's instruction, if any
-          ...(message.text ? [{ type: "text" as const, text: message.text }] : []),
-          // the uploaded files
-          ...message.contentParts,
-        ]
-      : message.text,
-  });
+  const prompt = message.contentParts?.length
+    ? [
+        ...(message.text
+          ? [{ type: "text" as const, text: message.text }]
+          : []),
+        ...message.contentParts,
+      ]
+    : message.text;
+
+  await thread.runAgent({ prompt });
 });
 ```
 
-<Callout type="warn" title="Merge the text and the files">
-The adapter builds `contentParts` from the **files only**, not the message
-text. If you pass `message.contentParts` alone, you drop the instruction and
-hand the model a bare file with no ask. Always merge the text back in, as
-above.
+If you pass only `message.text`, the model will not receive hydrated binary
+attachments. If `contentParts` exists, do not append it to managed history
+yourself; `runAgent` adds the explicit prompt for this turn.
+
+## Understand the content mapping
+
+| Provider file | `AgentContentPart` |
+| --- | --- |
+| Image MIME type | `{ type: "image", source: { type: "data", value, mimeType } }` |
+| Audio MIME type | `{ type: "audio", source: ... }` |
+| Video MIME type | `{ type: "video", source: ... }` |
+| PDF | `{ type: "document", source: ... }` |
+| `text/*` | UTF-8 `{ type: "text", text }` |
+| Other binary type | A text note naming the attachment and MIME type |
+
+The binary `value` is base64. Whether the agent actually understands a media
+part depends on its selected model and framework. Choose a multimodal model and
+test the exact media types you accept.
+
+File retrieval is best-effort. A provider-ingest failure can omit the
+attachment before the SDK receives a file handle. If Intelligence delivers a
+handle but the SDK cannot hydrate it, the SDK inserts a short failure note
+instead of failing the whole turn.
+
+<Callout type="info" title="Managed file-size ceiling">
+  Intelligence currently accepts individual inbound and outbound Channel files
+  up to 25 MiB. Provider limits can be lower.
 </Callout>
 
-## What a part looks like
+## Slack file access
 
-`message.contentParts` is an array of typed parts. File bytes come base64
-encoded on `source.value`.
+<FrontendOnly frontend="slack">
 
-```ts
-type AgentContentPart =
-  | { type: "text"; text: string }
-  | { type: "image"; source: { type: "data"; value: string; mimeType: string } }
-  | { type: "audio"; source: { type: "data"; value: string; mimeType: string } }
-  | { type: "video"; source: { type: "data"; value: string; mimeType: string } }
-  | { type: "document"; source: { type: "data"; value: string; mimeType: string } };
+Intelligence downloads files using the managed Slack bot token. The app must be
+in the conversation and have permission to read the file. Slack documents
+[`files:read`](https://api.slack.com/scopes/files%3Aread) as the scope that
+allows an app to download files from conversations it can access.
+
+The Intelligence-generated manifest does not currently request `files:read` or
+`files:write`. Before relying on files:
+
+1. Add `files:read` and `files:write` to the app's bot token scopes.
+2. Reinstall the app so the workspace grants the new scopes.
+3. Invite the app to the source conversation.
+4. Send a new file and verify the model receives it.
+
+If attachments are omitted or arrive as retrieval-failure notes:
+
+1. Confirm the reinstalled bot token includes `files:read`.
+2. Confirm the app is a member of the source conversation.
+3. Send a new file and inspect the real agent turn.
+
+</FrontendOnly>
+
+## Teams file access
+
+<FrontendOnly frontend="teams">
+
+Teams exposes files differently by surface:
+
+- Personal 1:1 chat uploads can arrive as downloadable `file.download.info`
+  attachments.
+- Inline media such as images, audio, video, and PDFs with a Bot Connector
+  `contentUrl` can hydrate in chats or channels through the connector token.
+  This path does not require Graph consent.
+- In team channels, SharePoint-reference uploads and inline pasted images use
+  Microsoft Graph. Intelligence reads the channel message, then resolves its
+  reference files or hosted content.
+- Other group-chat file-upload shapes remain unsupported. Test every
+  attachment shape your workflow accepts.
+
+The generated Teams package currently sets `supportsFiles` to `false` and does
+not request channel-message resource-specific consent. To enable the personal
+file picker and Graph-backed channel paths, edit the generated `manifest.json`
+before upload:
+
+```json title="manifest.json"
+{
+  "bots": [
+    {
+      "botId": "<your-azure-bot-app-id>",
+      "scopes": ["personal", "team", "groupChat"],
+      "supportsFiles": true,
+      "isNotificationOnly": false
+    }
+  ],
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChannelMessage.Read.Group",
+          "type": "Application"
+        }
+      ]
+    }
+  }
+}
 ```
 
-So "summarize this PDF" with an attached file arrives as a `text` part plus a
-`document` part. An image the agent should look at arrives as an `image` part.
+Merge those fields into the generated manifest rather than replacing the rest
+of it. Rebuild the zip with `manifest.json`, `color.png`, and `outline.png` at
+the archive root, then upload or reinstall it. A team owner grants the
+resource-specific permission during installation.
 
-<Callout type="info" title="The model has to support it">
-Reading images or documents needs a multimodal model. Use one in your agent's
-`chat()` adapter, for example `openaiText("gpt-5.5")`.
-</Callout>
+For Graph-backed team-channel messages:
 
-## Send a file back
+- The app manifest's `ChannelMessage.Read.Group` resource-specific consent lets
+  Intelligence read the channel message and inline hosted content. A team owner
+  grants it during installation; it does not need tenant-admin Graph consent.
+  Microsoft documents it as a
+  [resource-specific consent permission](https://learn.microsoft.com/en-us/microsoftteams/platform/graph-api/rsc/resource-specific-consent).
+- Add the `Files.Read.All` application permission to the Entra app when you
+  need SharePoint-reference uploads. This additional permission requires tenant
+  admin consent.
 
-Post a file to the thread with `thread.postFile`:
+Without the required consent, the text turn still runs but affected files are
+omitted or represented by a retrieval-failure note. Test personal chat, group
+chat, inline-media, pasted-image, and SharePoint-reference uploads separately.
 
-```ts
-await thread.postFile({
-  bytes: pngBuffer, // Buffer or Uint8Array
-  filename: "chart.png",
-  title: "Revenue by month",
-  altText: "A bar chart of revenue for the last 12 months",
+</FrontendOnly>
+
+## Post a file
+
+`thread.postFile()` takes bytes and returns a result instead of throwing for an
+unsupported provider capability:
+
+```ts title="export-report.ts"
+const csv = new TextEncoder().encode(
+  ["id,status", "INC-421,investigating"].join("\n"),
+);
+
+const result = await thread.postFile({
+  bytes: csv,
+  filename: "incident-report.csv",
+  title: "Incident report",
+  altText: "CSV export of the incident report",
 });
+
+if (!result.ok) {
+  await thread.post(`The report could not be attached: ${result.error}`);
+}
 ```
 
-This is how a bot returns a generated chart or report.
+On managed Channels, `result.ok` means Intelligence accepted the durable upload
+and render frame. Provider delivery happens later in the Connector Outbox, so
+`ok: true` is not proof that Slack or Teams displayed the attachment. Verify
+the real provider message and monitor Intelligence **Delivery failing** status.
 
-## Limit what comes in
+<FrontendOnly frontend="slack">
 
-Each direct adapter takes a `files` option (`FileDeliveryConfig`) to cap
-incoming files. A managed channel applies the platform's own limits.
-Pass `files` on the adapter when you connect a platform directly, and let your
-editor's types show the available caps:
+Managed Slack uses Slack's external-upload flow and can send general file types.
+The Slack app needs the `files:write` bot scope, which is absent from the
+generated manifest today. Reinstall after adding it. Check `result.ok`, then
+verify the real Slack message because provider upload happens asynchronously.
 
-```ts
-import { whatsapp } from "@copilotkit/channels/whatsapp";
+</FrontendOnly>
 
-whatsapp({
-  // ...credentials
-  files: {
-    /* caps for incoming files, see FileDeliveryConfig */
-  },
-});
-```
+<FrontendOnly frontend="teams">
+
+Managed Teams outbound file delivery currently supports images only. It posts
+the image as an inline Bot Connector attachment. For CSV, PDF, and other
+non-image files, Intelligence posts a visible “couldn't attach” notice and the
+SDK result may still reflect accepted managed delivery. Do not advertise a
+download until the real Teams message contains the expected attachment.
+
+</FrontendOnly>
+
+## Treat attachments as untrusted input
+
+- Validate declared MIME type and file signature before application-side
+  processing.
+- Put limits on decompression, parsing, page count, and extracted text.
+- Do not execute macros or uploaded code.
+- Resolve the provider user to an authenticated application identity before a
+  file can trigger a consequential write.
+- Avoid logging base64 content, signed download URLs, or document text.
+
+See the [`IncomingMessage`
+reference](/reference/channels/types/IncomingMessage) and
+[`AgentContentPart` reference](/reference/channels/types/AgentContentPart) for
+the exact public shapes.

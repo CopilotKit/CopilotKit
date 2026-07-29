@@ -165,6 +165,21 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * `{ useDefaultDenylist: false }` to restore the previous wide-open behavior.
    */
   forwardHeaders?: ForwardHeadersConfig;
+  /**
+   * Opt-in flag exposing the client-facing memory proxy routes
+   * (`/memories`, `/memories/recall`, `/memories/subscribe`, `/memories/:id`).
+   *
+   * Defaults to `false` — a **secure default**. When off, every `/memories/*`
+   * request 404s as if the route did not exist, so an un-opted-in deployment
+   * reveals nothing about memory even when Intelligence is configured. This does
+   * NOT affect the agent's own server-side memory tooling (`recall_memory` runs
+   * via the Intelligence MCP path, separate from this client REST proxy).
+   *
+   * Flip to `true` to power a client memory inspector (e.g. the dev console's
+   * Memory tab). Existing Intelligence deployments relying on the previously
+   * always-on Learning tab must set this to restore it.
+   */
+  exposeMemoryRoutes?: boolean;
 }
 
 export interface CopilotRuntimeUser {
@@ -241,6 +256,14 @@ export interface CopilotRuntimeLike {
    * (`resolveForwardHeadersPolicy(undefined)` — default-on denylist).
    */
   forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
+  /**
+   * Resolved opt-in flag for the client-facing memory proxy routes. Optional on
+   * the published interface so an external `CopilotRuntimeLike` implementor
+   * predating this field stays source-compatible; the dispatcher coalesces a
+   * missing value to `false` (secure default — routes hidden). Concrete runtimes
+   * (`BaseCopilotRuntime`) always resolve and set it.
+   */
+  exposeMemoryRoutes?: boolean;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -273,6 +296,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
+  public readonly exposeMemoryRoutes: boolean;
 
   /**
    * License token resolved once with the env fallback, so telemetry
@@ -332,6 +356,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
       options.forwardHeaders,
     );
+    // Secure default: the client-facing memory proxy routes stay hidden (404)
+    // unless a deployment explicitly opts in.
+    this.exposeMemoryRoutes = options.exposeMemoryRoutes ?? false;
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
       this.debugLogger = createLogger({
@@ -625,6 +652,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
     return this.delegate.forwardHeadersPolicy;
+  }
+
+  get exposeMemoryRoutes(): boolean | undefined {
+    return this.delegate.exposeMemoryRoutes;
   }
 }
 

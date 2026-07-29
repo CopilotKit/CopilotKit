@@ -9,8 +9,9 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
+  RenderBatch,
+  RenderBatchAccepted,
   RenderFrame,
-  RenderAccepted,
 } from "./contracts.js";
 
 /**
@@ -33,16 +34,26 @@ export class InMemoryEgressSink implements EgressSink {
  * the production sink is the Realtime Gateway client.
  */
 export class InMemoryRenderEventSink implements RenderEventSink {
-  readonly frames: RenderFrame[] = [];
-  async push(frame: RenderFrame): Promise<RenderAccepted> {
-    this.frames.push(frame);
-    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+  readonly batches: RenderBatch[] = [];
+  readonly frames: Array<
+    RenderFrame & Pick<RenderBatch, "deliveryId" | "turnId" | "slot">
+  > = [];
+
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    this.batches.push(batch);
+    this.frames.push(
+      ...batch.frames.map((frame) => ({
+        ...frame,
+        deliveryId: batch.deliveryId,
+        turnId: batch.turnId,
+        slot: batch.slot,
+      })),
+    );
     return {
-      idempotencyKey,
-      acceptance: "accepted",
-      ...(frame.event.kind === "finalize"
-        ? { egressOperationId: `eop_${frame.turnId}_${frame.seq}` }
-        : {}),
+      batchId: batch.batchId,
+      acceptedThroughSeq: batch.endSeq,
+      duplicate: false,
+      egressOperationId: `eop_${batch.turnId}`,
     };
   }
 }
@@ -55,6 +66,9 @@ export class InMemoryRenderEventSink implements RenderEventSink {
 export class InMemoryDeliverySource implements DeliverySource {
   readonly acked: string[] = [];
   readonly nacked: { deliveryId: string; reason: string }[] = [];
+  /** Every `abandon` call, in order — a fenced delivery must retire its lease
+   * state here rather than through ack/nack (see {@link DeliverySource.abandon}). */
+  readonly abandoned: { deliveryId: string; reason: string }[] = [];
   /** Seed by handle so a turn's file refs hydrate into content parts. */
   readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
   /**
@@ -94,6 +108,9 @@ export class InMemoryDeliverySource implements DeliverySource {
   }
   async nack(deliveryId: string, reason: string): Promise<void> {
     this.nacked.push({ deliveryId, reason });
+  }
+  abandon(deliveryId: string, reason: string): void {
+    this.abandoned.push({ deliveryId, reason });
   }
   async fetchFile(
     handle: string,

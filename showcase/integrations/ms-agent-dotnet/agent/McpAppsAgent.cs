@@ -73,7 +73,7 @@ public sealed class McpAppsAgentFactory
         return new ChatClientAgent(
             chatClient,
             name: "McpAppsAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

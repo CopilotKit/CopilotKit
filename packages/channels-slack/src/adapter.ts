@@ -79,7 +79,7 @@ export interface SlackAdapterOptions {
   logLevel?: LogLevel;
   /** Custom-event names treated as interrupts by the run renderer. */
   interruptEventNames?: ReadonlySet<string>;
-  /** Surface `:wrench:`/`:white_check_mark:` tool-status rows. Default true. */
+  /** Surface tool-call progress in Slack. Default false. */
   showToolStatus?: boolean;
   /**
    * Assistant-pane behavior ("Agents & AI Apps"). ON by default — the pane

@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / chat-css",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -86,5 +85,8 @@
         "content": "Agent context is a typed payload published from the frontend on every turn through the useAgentContext hook. The payload is forwarded into the agent's runtime context (LangGraph 0.6 introduced the `context` channel as the supported relay for per-run frontend-supplied data; legacy `properties` flowed via `forwardedProps` and did not land in `RunnableConfig`). On the Python side, CopilotKitMiddleware reads the value off the runtime context, then routes it into the system-prompt builder so the model sees the user's tone, expertise, and length preferences before each call. The result is per-turn behavior change without a model swap."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

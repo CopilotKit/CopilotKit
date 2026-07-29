@@ -84,6 +84,7 @@ const SECTION_ICONS: Record<string, string> = {
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
   "intelligence platform": "custom/copilotkit-kite",
+  channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
@@ -423,7 +424,18 @@ function parseMetaPages(
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
       const icon = readIcon(mdxFile);
-      nodes.push({ type: "page", title, slug, icon: icon ?? undefined });
+      // An explicitly listed nested index is a direct link to the folder
+      // root, not a separate `/index` route. This lets a section expose an
+      // Overview page without wrapping a one-page folder around it.
+      const pageSlug = slug.endsWith("/index")
+        ? slug.slice(0, -"/index".length)
+        : slug;
+      nodes.push({
+        type: "page",
+        title,
+        slug: pageSlug,
+        icon: icon ?? undefined,
+      });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
       if (subMeta?.root) continue;

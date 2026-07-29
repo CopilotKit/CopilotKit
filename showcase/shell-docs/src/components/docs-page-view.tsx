@@ -326,6 +326,7 @@ export async function DocsPageView({
                               ? resolveDocsHref(props.href, {
                                   slugHrefPrefix,
                                   frameworkOverride,
+                                  frontendOverride,
                                 })
                               : props.href;
                           return <CardComp {...props} href={href} />;
@@ -553,6 +554,7 @@ export async function DocsPageView({
                               resolveDocsHref(href, {
                                 slugHrefPrefix,
                                 frameworkOverride,
+                                frontendOverride,
                               }) ?? "#"
                             }
                             {...rest}
