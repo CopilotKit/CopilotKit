@@ -12,7 +12,8 @@ import type {
   IntelligenceTransportConfig,
 } from "./http-transports.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
-import type { EgressOperation } from "./contracts.js";
+import type { ChannelRenderEvent, EgressOperation } from "./contracts.js";
+import { createRenderBatch } from "./render-batches.js";
 
 interface Call {
   url: string;
@@ -1032,14 +1033,37 @@ describe("HttpDeliverySource.getHistory", () => {
 });
 
 describe("HttpRenderEventSink", () => {
-  it("streams a render frame to the accept route with echoed scope (no deliveryId in body)", async () => {
+  const pushOne = (
+    sink: HttpRenderEventSink,
+    input: {
+      deliveryId: string;
+      turnId: string;
+      slot: string;
+      seq: number;
+      event: ChannelRenderEvent;
+    },
+  ) =>
+    sink.pushBatch(
+      createRenderBatch(
+        {
+          deliveryId: input.deliveryId,
+          turnId: input.turnId,
+          slot: input.slot,
+        },
+        [{ seq: input.seq, event: input.event }],
+      ),
+    );
+
+  it("streams a render batch to the accept route with echoed scope (no deliveryId in body)", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
         ? { body: { claimed: true, delivery: claimedDelivery() } }
         : {
             body: {
-              idempotencyKey: "turn_9:main:0",
-              acceptance: "accepted",
+              batchId: "rb_0_0_test",
+              egressOperationId: "eop_1",
+              acceptedThroughSeq: 0,
+              duplicate: false,
             },
           },
     );
@@ -1048,7 +1072,7 @@ describe("HttpRenderEventSink", () => {
     await src.claimOnce(); // populates per-delivery scope
     const sink = new HttpRenderEventSink(conf, src);
 
-    const receipt = await sink.push({
+    const receipt = await pushOne(sink, {
       deliveryId: "dlv_9",
       turnId: "turn_9",
       slot: "main",
@@ -1057,11 +1081,13 @@ describe("HttpRenderEventSink", () => {
     });
 
     expect(receipt).toEqual({
-      idempotencyKey: "turn_9:main:0",
-      acceptance: "accepted",
+      batchId: "rb_0_0_test",
+      egressOperationId: "eop_1",
+      acceptedThroughSeq: 0,
+      duplicate: false,
     });
     const accept = calls.find((c) =>
-      c.url.endsWith("/api/channels/deliveries/dlv_9/render-events/accept"),
+      c.url.endsWith("/api/channels/deliveries/dlv_9/render-batches/accept"),
     )!;
     expect(accept.body).toMatchObject({
       organizationId: "org_1",
@@ -1071,9 +1097,14 @@ describe("HttpRenderEventSink", () => {
       turnId: "turn_9",
       runtimeInstanceId: "rti_test",
       slot: "main",
-      seq: 0,
-      idempotencyKey: "turn_9:main:0",
-      event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+      startSeq: 0,
+      endSeq: 0,
+      frames: [
+        {
+          seq: 0,
+          event: { kind: "text_delta", messageId: "m1", delta: "hi" },
+        },
+      ],
       // OSS-446: the render-accept is fenced on the claim's lease token.
       leaseToken: "lease_z",
     });
@@ -1086,7 +1117,7 @@ describe("HttpRenderEventSink", () => {
     const src = new HttpDeliverySource(cfg({ fetch }));
     const sink = new HttpRenderEventSink(cfg({ fetch }), src);
     await expect(
-      sink.push({
+      pushOne(sink, {
         deliveryId: "dlv_unknown",
         turnId: "turn_9",
         slot: "main",

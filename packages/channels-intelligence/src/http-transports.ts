@@ -11,8 +11,8 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
-  RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
 import { irToText } from "./ir-to-text.js";
 import { mapDeliveryToEnvelope } from "./claim-mapping.js";
@@ -604,10 +604,11 @@ export class HttpEgressSink implements EgressSink {
 }
 
 /** Durable render-acceptance receipt (subset the sink reads). */
-interface RenderAcceptedResponse {
-  idempotencyKey?: string;
-  acceptance?: RenderAccepted["acceptance"];
-  egressOperationId?: string;
+interface RenderBatchAcceptedResponse {
+  batchId: string;
+  egressOperationId: string;
+  acceptedThroughSeq: number;
+  duplicate: boolean;
 }
 
 /**
@@ -636,42 +637,36 @@ export class HttpRenderEventSink implements RenderEventSink {
     this.http = new IntelligenceHttp(cfg);
   }
 
-  async push(frame: RenderFrame): Promise<RenderAccepted> {
-    const scope = this.scopeSource.scopeFor(frame.deliveryId);
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    const scope = this.scopeSource.scopeFor(batch.deliveryId);
     if (!scope) {
       throw new Error(
-        `intelligenceAdapter: no leased scope for delivery ${frame.deliveryId}`,
+        `intelligenceAdapter: no leased scope for delivery ${batch.deliveryId}`,
       );
     }
     // Fence the render-accept on the delivery's lease token (OSS-446), the same
     // way ack/fail already do. Optional: app-api falls back to instance-id +
     // expiry when it's absent, so an older lease record without a token still
     // renders — but supplying it lets app-api reject a stale/rotated lease.
-    const leaseToken = this.scopeSource.leaseTokenFor(frame.deliveryId);
-    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
-    const res = await this.http.post<RenderAcceptedResponse>(
-      `/api/channels/deliveries/${encodeURIComponent(frame.deliveryId)}/render-events/accept`,
+    const leaseToken = this.scopeSource.leaseTokenFor(batch.deliveryId);
+    return this.http.post<RenderBatchAcceptedResponse>(
+      `/api/channels/deliveries/${encodeURIComponent(batch.deliveryId)}/render-batches/accept`,
       {
         organizationId: scope.organizationId,
         projectId: scope.projectId,
         channelId: scope.channelId,
         channelName: scope.channelName,
-        turnId: frame.turnId,
+        turnId: batch.turnId,
         runtimeInstanceId: this.cfg.runtimeInstanceId,
-        slot: frame.slot,
-        seq: frame.seq,
-        idempotencyKey,
-        event: frame.event,
+        slot: batch.slot,
+        batchId: batch.batchId,
+        contentDigest: batch.contentDigest,
+        startSeq: batch.startSeq,
+        endSeq: batch.endSeq,
+        frames: batch.frames,
         ...(leaseToken ? { leaseToken } : {}),
         sentAt: new Date().toISOString(),
       },
     );
-    return {
-      idempotencyKey: res.idempotencyKey ?? idempotencyKey,
-      acceptance: res.acceptance ?? "accepted",
-      ...(res.egressOperationId
-        ? { egressOperationId: res.egressOperationId }
-        : {}),
-    };
   }
 }

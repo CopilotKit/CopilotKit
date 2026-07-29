@@ -11,7 +11,11 @@ import {
   coerceWireProjectId,
 } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
-import type { ChannelIngressEnvelope } from "./contracts.js";
+import type {
+  ChannelIngressEnvelope,
+  ChannelRenderEvent,
+} from "./contracts.js";
+import { createRenderBatch } from "./render-batches.js";
 
 const target = {
   route: { channel: "C1", threadTs: "100.0" },
@@ -155,24 +159,23 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
   });
 });
 
-/** A fake Realtime Gateway session that records pushes and replies with render_accepted. */
+/** A fake Realtime Gateway session that records pushes and replies with batch receipts. */
 function makeFakeSession() {
   const pushes: { event: string; payload: unknown }[] = [];
   const handlers = new Map<string, (payload: unknown) => void>();
   const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
-      if (event === "channel.render_event.v1") {
+      if (event === "channel.render_batch.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
-          type: "channel.render_accepted.v1",
+          type: "channel.render_batch_accepted.v1",
           occurredAt: "2026-07-01T00:00:00.000Z",
           payload: {
-            idempotencyKey: p.idempotencyKey,
-            acceptance: "accepted",
-            ...(p.event && (p.event as { kind: string }).kind === "finalize"
-              ? { egressOperationId: "eop_1" }
-              : {}),
+            batchId: p.batchId,
+            egressOperationId: "eop_1",
+            acceptedThroughSeq: p.endSeq,
+            duplicate: false,
           },
         };
       }
@@ -184,6 +187,27 @@ function makeFakeSession() {
   };
   return { session, pushes, handlers };
 }
+
+const pushOne = (
+  transport: RealtimeGatewayTransport,
+  input: {
+    deliveryId: string;
+    turnId: string;
+    slot: string;
+    seq: number;
+    event: ChannelRenderEvent;
+  },
+) =>
+  transport.pushBatch(
+    createRenderBatch(
+      {
+        deliveryId: input.deliveryId,
+        turnId: input.turnId,
+        slot: input.slot,
+      },
+      [{ seq: input.seq, event: input.event }],
+    ),
+  );
 
 describe("coerceWireProjectId", () => {
   it("accepts a positive integer number and a numeric string, rejects the rest", () => {
@@ -246,17 +270,17 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     await Promise.resolve();
     expect(delivered).toBe(true);
 
-    const r1 = await t.push({
+    const r1 = await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
       seq: 0,
       event: { kind: "run_started" },
     });
-    expect(r1.acceptance).toBe("accepted");
-    expect(r1.idempotencyKey).toBe("turn_t1:main:0");
+    expect(r1.duplicate).toBe(false);
+    expect(r1.acceptedThroughSeq).toBe(0);
 
-    const rFinal = await t.push({
+    const rFinal = await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -270,8 +294,8 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     const events = fake.pushes.map((p) => p.event);
     // render frames first, then the completion INTENT.
     expect(events).toEqual([
-      "channel.render_event.v1",
-      "channel.render_event.v1",
+      "channel.render_batch.v1",
+      "channel.render_batch.v1",
       "channel.delivery.complete_requested.v1",
     ]);
     // The SDK must NEVER emit a committed delivery ack.
@@ -290,7 +314,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(completion.payload.runtimeInstanceId).toBe("rti_1");
     // OSS-446: render-accept + completion intent are both fenced on the lease.
     const render = fake.pushes.find(
-      (p) => p.event === "channel.render_event.v1",
+      (p) => p.event === "channel.render_batch.v1",
     )!.payload as { payload: { leaseToken?: string } };
     expect(render.payload.leaseToken).toBe("lease_l1");
     expect(completion.payload.leaseToken).toBe("lease_l1");
@@ -323,7 +347,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
     await Promise.resolve();
 
-    await t.push({
+    await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -332,7 +356,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
 
     const render = fake.pushes.find(
-      (p) => p.event === "channel.render_event.v1",
+      (p) => p.event === "channel.render_batch.v1",
     )!.payload as { payload: { projectId: number } };
     expect(render.payload.projectId).toBe(9);
   });
@@ -346,14 +370,14 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     };
     const t = new RealtimeGatewayTransport(cfg(session));
     await expect(
-      t.push({
+      pushOne(t, {
         deliveryId: "dlv_d1",
         turnId: "turn_t1",
         slot: "main",
         seq: 0,
         event: { kind: "run_started" },
       }),
-    ).rejects.toThrow(/render_accepted/);
+    ).rejects.toThrow(/render_batch_accepted/);
   });
 
   it("nack sends a fail event, never an ack", async () => {
@@ -724,7 +748,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     });
     await Promise.resolve();
 
-    await t.push({
+    await pushOne(t, {
       deliveryId: "dlv_d1",
       turnId: "turn_t1",
       slot: "main",
@@ -740,7 +764,7 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
         }
       ).payload;
     for (const p of [
-      inner("channel.render_event.v1"),
+      inner("channel.render_batch.v1"),
       inner("channel.delivery.fail.v1"),
     ]) {
       expect(p.organizationId).toBe("org_OTHER");

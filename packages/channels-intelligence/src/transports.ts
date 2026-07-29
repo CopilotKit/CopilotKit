@@ -4,8 +4,8 @@ import type {
   EgressRoute,
   EgressOperation,
   EgressResult,
-  RenderFrame,
-  RenderAccepted,
+  RenderBatch,
+  RenderBatchAccepted,
 } from "./contracts.js";
 
 /**
@@ -95,5 +95,5 @@ export interface EgressSink {
  * replies.
  */
 export interface RenderEventSink {
-  push(frame: RenderFrame): Promise<RenderAccepted>;
+  pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted>;
 }
