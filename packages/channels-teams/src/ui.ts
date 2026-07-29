@@ -32,7 +32,6 @@ import type {
 } from "@copilotkit/channels-ui";
 import { RAW_ADAPTIVE_CARD_ELEMENT } from "./render/native-adaptive-card.js";
 import { assertAdaptiveCardPayload } from "./render/schema.js";
-import type { AdaptiveCardPayload } from "./render/schema.js";
 
 export const TEAMS_PLATFORM = "teams";
 export const ADAPTIVE_CARD_DIALECT = "adaptive-card";
