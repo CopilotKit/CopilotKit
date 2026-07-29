@@ -14,9 +14,9 @@
  * distinct content block that the CopilotKit runtime translates to a
  * `role: "reasoning"` AG-UI event — which both reasoning demos render.
  *
- * Falls back to gpt-4o-mini (no reasoning stream) if `OPENAI_REASONING_MODEL`
- * is unset, so local dev without a reasoning-tier key still works (reasoning
- * slot just stays empty in that case).
+ * Falls back to gpt-5-mini (a reasoning-tier model) if `OPENAI_REASONING_MODEL`
+ * is unset, so the reasoning slot still lights up in local dev without extra
+ * configuration.
  *
  * Note: we use a custom StateGraph rather than `createReactAgent` so that the
  * per-invocation `config` (with `copilotkit_forwarded_headers`) reaches the
