@@ -94,6 +94,13 @@ export function providerEffectByteLength(effect: unknown): number {
   return new TextEncoder().encode(JSON.stringify(effect)).byteLength;
 }
 
+/** Assert that the full Gateway effect envelope fits the protocol byte limit. */
+export function assertProviderEffectEnvelopeSize(envelope: unknown): void {
+  if (providerEffectByteLength(envelope) > PROVIDER_EFFECT_MAX_BYTES) {
+    throw new RangeError("provider effect envelope exceeds 64 KiB");
+  }
+}
+
 /** Assert that an SDK effect is bounded and contains no trusted provider data. */
 export function assertProviderEffect(
   effect: unknown,

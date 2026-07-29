@@ -1,0 +1,131 @@
+import { expect, test, vi } from "vitest";
+import {
+  CHANNEL_SESSION_PROTOCOL,
+  PROVIDER_EFFECT_MAX_BYTES,
+  providerEffectByteLength,
+} from "./live-session-contracts.js";
+import {
+  LiveDeliverySession,
+  LiveSessionTransport,
+} from "./live-session-transport.js";
+import type { LiveSessionDelivery } from "./live-session-transport.js";
+import type {
+  RealtimeGatewayDeliveryChannel,
+  RealtimeGatewaySession,
+} from "./realtime-gateway.js";
+
+const delivery = (): LiveSessionDelivery => ({
+  protocol: CHANNEL_SESSION_PROTOCOL,
+  deliveryId: "dlv_delivery",
+  sessionTopic: "channel_session:dlv_delivery",
+  canonicalThreadId: "thread_01",
+  appUserId: "user_01",
+  channelId: "channel_01",
+  adapter: "slack",
+  turn: {
+    id: "turn_01",
+    eventId: "event_01",
+    receivedAt: "2026-07-29T00:00:00.000Z",
+    input: { kind: "text", text: "hello" },
+  },
+});
+
+const deliveryChannel = (
+  push: RealtimeGatewayDeliveryChannel["push"],
+): RealtimeGatewayDeliveryChannel => ({
+  push,
+  on: vi.fn(),
+  leave: vi.fn(),
+});
+
+test("effect retries the same envelope after an ambiguous push failure", async () => {
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockRejectedValueOnce(new Error("socket dropped"))
+    .mockResolvedValueOnce({ receivedThrough: 0, appliedThrough: 0 });
+  const channel = deliveryChannel(push);
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    channel,
+    undefined,
+    60_000,
+  );
+
+  const result = await session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "hello",
+  });
+
+  expect(result).toEqual({ receivedThrough: 0, appliedThrough: 0 });
+  expect(push).toHaveBeenCalledTimes(2);
+  expect(push.mock.calls[1]).toEqual(push.mock.calls[0]);
+  session.leave();
+});
+
+test("effect rejects a wrapped envelope over 64 KiB before pushing", async () => {
+  const representativeEffect = {
+    kind: "slack.message.create" as const,
+    effectId: `eff_${"a".repeat(32)}`,
+    seq: 0,
+    responseId: "response_01",
+    payloadDigest: "a".repeat(64),
+    text: "",
+  };
+  const text = "x".repeat(
+    PROVIDER_EFFECT_MAX_BYTES -
+      providerEffectByteLength(representativeEffect) -
+      10,
+  );
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockResolvedValue({ receivedThrough: 0, appliedThrough: 0 });
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text,
+    }),
+  ).rejects.toThrow("provider effect envelope exceeds 64 KiB");
+
+  expect(push).not.toHaveBeenCalled();
+  session.leave();
+});
+
+test("delivery-topic join rejection is logged and does not reject transport stop", async () => {
+  let notice: ((payload: unknown) => void) | undefined;
+  const session: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: (_event, handler) => {
+      notice = handler;
+    },
+    join: vi.fn().mockRejectedValue(new Error("join denied")),
+  };
+  const log = vi.fn();
+  const handler = vi.fn();
+  const transport = new LiveSessionTransport({
+    session,
+    runtimeInstanceId: "runtime_01",
+    log,
+  });
+  transport.start(handler);
+
+  notice?.(delivery());
+  await transport.stop();
+
+  expect(handler).not.toHaveBeenCalled();
+  expect(log).toHaveBeenCalledWith(
+    "channel delivery topic join failed",
+    expect.objectContaining({
+      deliveryId: "dlv_delivery",
+      error: "join denied",
+    }),
+  );
+});

@@ -6,12 +6,14 @@ import type {
 } from "./realtime-gateway.js";
 import {
   CHANNEL_SESSION_PROTOCOL,
+  assertProviderEffectEnvelopeSize,
   assertProviderEffect,
 } from "./live-session-contracts.js";
 import type { ChannelProviderEffect } from "./live-session-contracts.js";
 import { LiveSessionFileClient } from "./live-session-files.js";
 import type { ChannelFileRef } from "./live-session-files.js";
 import { buildContentParts } from "./content-parts.js";
+import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 
 const DELIVERY_EVENT = "channel.delivery.v1";
 const EFFECT_EVENT = "channel.effect.v1";
@@ -126,7 +128,7 @@ export class LiveDeliverySession {
           .digest("hex"),
       };
       assertProviderEffect(effect);
-      const result = (await this.channel.push(EFFECT_EVENT, {
+      const eventPayload = {
         occurredAt: new Date().toISOString(),
         payload: {
           protocol: CHANNEL_SESSION_PROTOCOL,
@@ -134,11 +136,32 @@ export class LiveDeliverySession {
           runtimeInstanceId: this.runtimeInstanceId,
           effect,
         },
-      })) as { receivedThrough: number; appliedThrough: number };
+      };
+      assertProviderEffectEnvelopeSize({
+        type: EFFECT_EVENT,
+        ...eventPayload,
+      });
+      const push = async (): Promise<{
+        receivedThrough: number;
+        appliedThrough: number;
+      }> =>
+        (await this.channel.push(EFFECT_EVENT, eventPayload)) as {
+          receivedThrough: number;
+          appliedThrough: number;
+        };
+      let result: { receivedThrough: number; appliedThrough: number };
+      try {
+        result = await push();
+      } catch (error) {
+        if (error instanceof RealtimeGatewayPushError) {
+          throw error;
+        }
+        result = await push();
+      }
       this.nextSeq += 1;
       return result;
     });
-    this.tail = operation;
+    this.tail = operation.catch(() => undefined);
     return operation;
   }
 
@@ -271,10 +294,19 @@ export class LiveSessionTransport {
         "Realtime Gateway session does not support delivery topics",
       );
     }
-    const channel = await this.options.session.join(delivery.sessionTopic, {
-      protocol: CHANNEL_SESSION_PROTOCOL,
-      runtimeInstanceId: this.options.runtimeInstanceId,
-    });
+    let channel: RealtimeGatewayDeliveryChannel;
+    try {
+      channel = await this.options.session.join(delivery.sessionTopic, {
+        protocol: CHANNEL_SESSION_PROTOCOL,
+        runtimeInstanceId: this.options.runtimeInstanceId,
+      });
+    } catch (error) {
+      this.options.log?.("channel delivery topic join failed", {
+        deliveryId: delivery.deliveryId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return;
+    }
     const session = new LiveDeliverySession(
       delivery,
       this.options.runtimeInstanceId,
