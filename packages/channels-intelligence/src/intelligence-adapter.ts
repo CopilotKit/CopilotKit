@@ -1122,6 +1122,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const drain = async (): Promise<void> => {
       flushPendingText();
       flushBatch();
+      if (enqueueError !== undefined) {
+        metrics?.finish();
+        throw enqueueError;
+      }
       await chain;
       // Summarize before rethrowing so a failed turn still reports its profile.
       metrics?.finish();

@@ -181,4 +181,64 @@ describe("managed render batch compaction", () => {
 
     expect(Math.abs(twenty - twoHundred)).toBeLessThanOrEqual(1);
   });
+
+  it("keeps one batch in flight while later batches wait in order", async () => {
+    let active = 0;
+    let maxActive = 0;
+    let calls = 0;
+    let releaseFirst: (() => void) | undefined;
+    const first = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const sink: RenderEventSink = {
+      pushBatch: async (batch) => {
+        calls += 1;
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        if (calls === 1) await first;
+        active -= 1;
+        return {
+          batchId: batch.batchId,
+          egressOperationId: "eop_serial",
+          acceptedThroughSeq: batch.endSeq,
+          duplicate: false,
+        };
+      },
+    };
+    const { renderer, subscriber } = createRenderer(sink);
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "first" },
+    });
+    subscriber.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m2", delta: "second" },
+    });
+    await settle();
+
+    expect(active).toBe(1);
+    expect(maxActive).toBe(1);
+    const finishing = renderer.finish?.();
+    releaseFirst?.();
+    await finishing;
+    expect(calls).toBeGreaterThan(1);
+    expect(maxActive).toBe(1);
+  });
+
+  it("fails the lane with a stable bounded-memory error while transport is stalled", async () => {
+    const sink: RenderEventSink = {
+      pushBatch: async () => new Promise(() => undefined),
+    };
+    const { renderer, subscriber } = createRenderer(sink);
+    const chunk = "x".repeat(16 * 1024);
+
+    for (let index = 0; index < 24; index += 1) {
+      subscriber.onTextMessageContentEvent?.({
+        event: { messageId: `m${index}`, delta: chunk },
+      });
+    }
+
+    await expect(renderer.finish?.()).rejects.toThrow(
+      /CHANNEL_RENDER_LANE_OVERLOAD: turn turn_dlv_batch exceeded 262144 pending bytes/,
+    );
+  });
 });
