@@ -66,6 +66,18 @@ export interface ThreadDeps {
   };
 }
 
+/** Stable rejection for surfaces that cannot hold one run open for a choice. */
+class ChannelAwaitChoiceNotSupportedError extends Error {
+  readonly code = "channel_await_choice_not_supported";
+
+  constructor() {
+    super(
+      "Managed Channels v1 does not support Thread.awaitChoice(); post the picker in an onInterrupt handler and call Thread.resume() from the later interaction delivery.",
+    );
+    this.name = "ChannelAwaitChoiceNotSupportedError";
+  }
+}
+
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
 export class Thread implements ThreadInterface {
   readonly platform: string;
@@ -280,6 +292,9 @@ export class Thread implements ThreadInterface {
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
   async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+    if (this.supportsBlockingChoice === false) {
+      throw new ChannelAwaitChoiceNotSupportedError();
+    }
     const p = new Promise<T>((resolve) =>
       this.deps.registerWaiter(
         this.deps.conversationKey,

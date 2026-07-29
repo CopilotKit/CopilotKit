@@ -87,6 +87,18 @@ export class ChannelAgentConcurrencyError extends Error {
   }
 }
 
+/** Stable managed-v1 rejection for Slack slash commands that request agent output. */
+class ChannelSlashCommandAgentNotSupportedError extends Error {
+  readonly code = "channel_slash_command_agent_not_supported";
+
+  constructor() {
+    super(
+      "Managed Slack slash commands cannot call Thread.runAgent() in Channels v1; send a discrete reply with Thread.post() instead.",
+    );
+    this.name = "ChannelSlashCommandAgentNotSupportedError";
+  }
+}
+
 /** Managed Channels adapter backed only by Gateway-owned delivery sessions. */
 export class LiveSessionAdapter implements PlatformAdapter {
   readonly platform = "intelligence";
@@ -221,6 +233,12 @@ export class LiveSessionAdapter implements PlatformAdapter {
     args: ChannelAgentLifecycleArgs,
   ): Promise<ChannelAgentLoopResult> {
     const target = asLiveTarget(args.replyTarget);
+    if (
+      target.delivery.adapter === "slack" &&
+      target.delivery.turn.input.kind === "command"
+    ) {
+      throw new ChannelSlashCommandAgentNotSupportedError();
+    }
     const threadId = target.delivery.canonicalThreadId;
     if (this.activeThreads.has(threadId)) {
       throw new ChannelAgentConcurrencyError(threadId);
