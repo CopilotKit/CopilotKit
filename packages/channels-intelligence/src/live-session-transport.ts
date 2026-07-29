@@ -183,6 +183,7 @@ export class LiveDeliverySession {
 
   /** Close the active standard AgentRunner invocation. */
   async closeRun(callId: string, status: "complete" | "failed"): Promise<void> {
+    await this.tail;
     await this.channel.push(RUN_CLOSE_EVENT, { callId, status });
   }
 

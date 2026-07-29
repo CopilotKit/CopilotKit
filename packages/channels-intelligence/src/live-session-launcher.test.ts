@@ -213,8 +213,8 @@ describe("live session launcher", () => {
     expect(gateway.pushes.map(({ event }) => event)).toEqual([
       "channel.run.open.v1",
       "channel.effect.v1",
-      "channel.run.close.v1",
       "channel.effect.v1",
+      "channel.run.close.v1",
       "channel.effect.v1",
       "channel.delivery.complete.v1",
     ]);

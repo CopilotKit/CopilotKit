@@ -100,6 +100,42 @@ test("effect rejects a wrapped envelope over 64 KiB before pushing", async () =>
   session.leave();
 });
 
+test("run close waits until every accepted provider effect settles", async () => {
+  let resolveEffect: ((value: unknown) => void) | undefined;
+  const effectResult = new Promise((resolve) => {
+    resolveEffect = resolve;
+  });
+  const events: string[] = [];
+  const push = vi.fn<RealtimeGatewayDeliveryChannel["push"]>(
+    async (event): Promise<unknown> => {
+      events.push(event);
+      if (event === "channel.effect.v1") return effectResult;
+      return {};
+    },
+  );
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+
+  const effect = session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "hello",
+  });
+  const close = session.closeRun("call_01", "complete");
+  await vi.waitFor(() => expect(events).toEqual(["channel.effect.v1"]));
+
+  resolveEffect?.({ receivedThrough: 0, appliedThrough: 0 });
+  await effect;
+  await close;
+
+  expect(events).toEqual(["channel.effect.v1", "channel.run.close.v1"]);
+  session.leave();
+});
+
 test("delivery-topic join rejection is logged and does not reject transport stop", async () => {
   let notice: ((payload: unknown) => void) | undefined;
   const session: RealtimeGatewaySession = {
