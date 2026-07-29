@@ -125,6 +125,8 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 **PDF turn is fragile.** Two-turn multimodal probe: if turn 2's message doesn't match the PDF fixture, the image fixture matches instead. The PDF fixture must be the most specific match.
 
+**`mcp-apps` probe hard-asserts a LIVE-only signal aimock can't supply → false-negative reds.** The D5/D6 probe (`harness/src/probes/scripts/d5-mcp-apps.ts`) hard-asserts a live MCP `iframe[sandbox]` within a 15s poll, but no aimock fixture emits the `create_view` tool call for the probe prompt ("Open Excalidraw and sketch a system diagram…"). So the iframe can only appear via the REAL Excalidraw MCP round-trip, which on Railway is regularly >90s and flaky. The integration's own Playwright test is `test.skip`-ped for exactly this (`integrations/<slug>/tests/e2e/mcp-apps.spec.ts`), but the probe has no such skip and only a 15s budget → the cell can sit red (`achievedDepth 4/6, d6Effective=null`) while the demo is actually fine. This is fleet-wide (hits langgraph-python identically; python green = live-MCP timing luck), NOT an integration defect. Fix is probe/fixture-side (a `create_view` turn-1 fixture, or a skip/longer budget). Tracked in OSS-658.
+
 ---
 
 ## Fixture Authoring Gotchas
