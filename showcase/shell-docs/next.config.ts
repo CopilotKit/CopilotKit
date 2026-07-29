@@ -1,5 +1,278 @@
 import type { NextConfig } from "next";
 
+interface PermanentRedirect {
+  readonly source: string;
+  readonly destination: string;
+  readonly permanent: true;
+}
+
+// Keep redirect configuration self-contained. Importing an application module
+// from next.config.ts causes Turbopack to trace the config into app-route NFT
+// output when that module is also used at runtime. The redirect tests iterate
+// the central channel registry, so omissions here fail the maintained-matrix
+// coverage instead of silently drifting.
+const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"] as const;
+
+const CHANNEL_REDIRECT_GUIDE_SLUGS = [
+  "intelligence",
+  "tools",
+  "rich-messages",
+  "interactive",
+  "commands-and-reactions",
+  "files-and-multimodality",
+  "threads-and-state",
+  "persistence-and-scaling",
+  "history-and-transcripts",
+  "deploy-and-operate",
+] as const;
+
+// A raw Markdown request reaches redirects before the `.md` / `.mdx` rewrite.
+// Keep suffix-specific wildcard rules first so a broad HTML rule cannot strip
+// the suffix before the LLM route handler receives the canonical URL.
+const REDIRECT_SUFFIXES = [".md", ".mdx", ""] as const;
+
+function permanentRedirectsWithSuffixes(
+  source: string,
+  destination: string,
+): PermanentRedirect[] {
+  return REDIRECT_SUFFIXES.map((suffix) => ({
+    source: `${source}${suffix}`,
+    destination: `${destination}${suffix}`,
+    permanent: true,
+  }));
+}
+
+function channelChildRedirects(
+  legacySlug: string,
+  canonicalSlug: string,
+  options: { collapseExplicitDefaultGuide?: boolean } = {},
+): PermanentRedirect[] {
+  const redirects: PermanentRedirect[] = [];
+
+  for (const frontend of CHANNEL_REDIRECT_FRONTENDS) {
+    redirects.push(
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/built-in-agent/channels/${legacySlug}`,
+        `/${frontend}/${canonicalSlug}`,
+      ),
+    );
+
+    if (options.collapseExplicitDefaultGuide) {
+      redirects.push(
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/${legacySlug}`,
+          `/${frontend}/${canonicalSlug}`,
+        ),
+      );
+    }
+
+    redirects.push(
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/:framework/channels/${legacySlug}`,
+        `/${frontend}/:framework/${canonicalSlug}`,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/${frontend}/channels/${legacySlug}`,
+        `/${frontend}/${canonicalSlug}`,
+      ),
+    );
+  }
+
+  redirects.push(
+    ...permanentRedirectsWithSuffixes(
+      `/built-in-agent/channels/${legacySlug}`,
+      `/slack/${canonicalSlug}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/:framework((?!reference)[^/]+)/channels/${legacySlug}`,
+      `/slack/:framework/${canonicalSlug}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/channels/${legacySlug}`,
+      `/slack/${canonicalSlug}`,
+    ),
+  );
+
+  return redirects;
+}
+
+const RETIRED_CHANNEL_GUIDES = [
+  ["quickstart", "intelligence"],
+  ["ui-library", "rich-messages"],
+  ["mcp", "tools"],
+  ["configuration", "intelligence"],
+  ["persistence", "persistence-and-scaling"],
+  ["transcripts", "history-and-transcripts"],
+] as const;
+
+const CHANNEL_REFERENCE_PATHS = [
+  ["reference/channel", "classes/Channel"],
+  ["reference/thread", "classes/Thread"],
+  ["reference/callbacks", "types/JSXCallbacks"],
+] as const;
+
+const CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] =
+  CHANNEL_REFERENCE_PATHS.flatMap(([legacyPath, referencePath]) => {
+    const destination = `/reference/channels/${referencePath}`;
+    return [
+      ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/channels/${legacyPath}`,
+          destination,
+        ),
+      ]),
+      ...permanentRedirectsWithSuffixes(`/channels/${legacyPath}`, destination),
+      ...permanentRedirectsWithSuffixes(
+        `/built-in-agent/channels/${legacyPath}`,
+        destination,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/:framework((?!reference)[^/]+)/channels/${legacyPath}`,
+        destination,
+      ),
+    ];
+  });
+
+const RENAMED_CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  ["functions/createBot", "functions/createChannel"],
+  ["functions/defineBotCommand", "functions/defineChannelCommand"],
+  ["functions/defineBotTool", "functions/defineChannelTool"],
+  ["types/BotNode", "types/ChannelNode"],
+].flatMap(([legacyPath, canonicalPath]) =>
+  permanentRedirectsWithSuffixes(
+    `/reference/channels/${legacyPath}`,
+    `/reference/channels/${canonicalPath}`,
+  ),
+);
+
+const DIRECT_PROVIDER_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  "slack",
+  "discord",
+].flatMap((provider) => [
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}/:path*`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+]);
+
+const MAINTAINED_CHANNEL_GUIDE_REDIRECTS = CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap(
+  (slug) =>
+    channelChildRedirects(slug, slug, {
+      collapseExplicitDefaultGuide: true,
+    }),
+);
+
+const RETIRED_CHANNEL_GUIDE_REDIRECTS = RETIRED_CHANNEL_GUIDES.flatMap(
+  ([legacySlug, canonicalSlug]) =>
+    channelChildRedirects(legacySlug, canonicalSlug),
+);
+
+const RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS = channelChildRedirects(
+  "interactive/:path+",
+  "interactive",
+);
+
+const BOTS_REDIRECTS: PermanentRedirect[] = [
+  ...CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap((slug) =>
+    permanentRedirectsWithSuffixes(`/bots/${slug}`, `/slack/${slug}`),
+  ),
+  ...RETIRED_CHANNEL_GUIDES.flatMap(([legacySlug, canonicalSlug]) =>
+    permanentRedirectsWithSuffixes(
+      `/bots/${legacySlug}`,
+      `/slack/${canonicalSlug}`,
+    ),
+  ),
+  ...permanentRedirectsWithSuffixes(
+    "/bots/interactive/:path+",
+    "/slack/interactive",
+  ),
+  ...permanentRedirectsWithSuffixes("/reference/bot", "/reference/channels"),
+  ...permanentRedirectsWithSuffixes(
+    "/reference/bot/:path*",
+    "/reference/channels",
+  ),
+  ...permanentRedirectsWithSuffixes("/bots", "/slack"),
+  ...permanentRedirectsWithSuffixes("/bots/:path*", "/slack"),
+];
+
+const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
+  ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/built-in-agent/channels`,
+      `/${frontend}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/built-in-agent`,
+      `/${frontend}`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/channels`,
+      `/${frontend}/:framework`,
+    ),
+    ...permanentRedirectsWithSuffixes(`/${frontend}/channels`, `/${frontend}`),
+  ]),
+  ...permanentRedirectsWithSuffixes("/built-in-agent/channels", "/slack"),
+  ...permanentRedirectsWithSuffixes(
+    "/:framework((?!reference)[^/]+)/channels",
+    "/slack/:framework",
+  ),
+  ...permanentRedirectsWithSuffixes("/channels", "/slack"),
+];
+
+const CHANNEL_PLATFORM_REDIRECTS: PermanentRedirect[] = [
+  ...permanentRedirectsWithSuffixes("/channels/platforms/slack", "/slack"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms/teams", "/teams"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms", "/slack"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/slack"),
+];
+
+const CHANNEL_REDIRECTS: PermanentRedirect[] = [
+  // Provider-scoped reference routes move back to the global SDK reference.
+  // Keep these before the broad legacy framework roots. Those roots also
+  // exclude the reserved `reference` segment so `/reference/channels` remains
+  // canonical.
+  ...CHANNEL_REFERENCE_REDIRECTS,
+  ...RENAMED_CHANNEL_REFERENCE_REDIRECTS,
+  ...DIRECT_PROVIDER_REFERENCE_REDIRECTS,
+  ...MAINTAINED_CHANNEL_GUIDE_REDIRECTS,
+  ...RETIRED_CHANNEL_GUIDE_REDIRECTS,
+  ...RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS,
+  ...BOTS_REDIRECTS,
+  ...CHANNEL_PLATFORM_REDIRECTS,
+  ...permanentRedirectsWithSuffixes("/slack/using-these-docs", "/slack"),
+  ...permanentRedirectsWithSuffixes("/teams/using-these-docs", "/teams"),
+  // Keep the broad legacy roots last. Child redirects are intentionally exact:
+  // an unknown `/channels/*` child must not become an accidental guide URL.
+  ...CHANNEL_ROOT_REDIRECTS,
+];
+
 // NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_SHELL_URL are read at REQUEST
 // time by the server `getRuntimeConfig()` reader and injected into the
 // client via `window.__SHOWCASE_CONFIG__` from the root layout. They
@@ -10,6 +283,18 @@ import type { NextConfig } from "next";
 // `console.error` from `runtime-config.ts` instead.
 
 const nextConfig: NextConfig = {
+  // The raw-MDX route intentionally traces runtime-readable content. Next
+  // 16.2.10 also reports this config file as an "unexpected" NFT entry even
+  // though the config has no application imports. Keep the filter exact so
+  // every other Turbopack issue remains visible.
+  turbopack: {
+    ignoreIssue: [
+      {
+        path: /showcase\/shell-docs\/next\.config\.ts$/,
+        title: "Encountered unexpected file in NFT list",
+      },
+    ],
+  },
   images: {
     // Bypass the Next.js image optimizer (`/_next/image`). The optimizer
     // requires `sharp` at runtime, which is missing from the Railway image
@@ -66,6 +351,9 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // OSS-615: legacy global, scoped, generated-reference, and Bots URLs
+      // resolve directly to the canonical Slack/Teams guide trees.
+      ...CHANNEL_REDIRECTS,
       {
         // Built-in agent is the default framework, so its overview page
         // is the docs root. Avoid surfacing a redundant "Introduction"
@@ -524,29 +812,6 @@ const nextConfig: NextConfig = {
       // pages at those paths (display-only, interactive). Framework-scoped
       // variants (`/:framework/generative-ui/your-components/*`) also
       // render directly.
-
-      // "Bots SDK" renamed to "Channels SDK" (OSS-438): docs moved from /bots to
-      // /channels and /reference/bot to /reference/channels. Preserve links + SEO.
-      {
-        source: "/bots",
-        destination: "/channels",
-        permanent: true,
-      },
-      {
-        source: "/bots/:path*",
-        destination: "/channels/:path*",
-        permanent: true,
-      },
-      {
-        source: "/reference/bot",
-        destination: "/reference/channels",
-        permanent: true,
-      },
-      {
-        source: "/reference/bot/:path*",
-        destination: "/reference/channels/:path*",
-        permanent: true,
-      },
     ];
   },
 };

@@ -28,7 +28,7 @@ import { getBaseUrl } from "@/lib/sitemap-helpers";
 export const revalidate = false;
 
 export function GET(): NextResponse {
-  const pages = getAllLlmPages();
+  const pages = getAllLlmPages({ channelGuideVariants: "all" });
   const body = renderLlmsIndex(pages, getBaseUrl());
   return new NextResponse(body, {
     headers: {

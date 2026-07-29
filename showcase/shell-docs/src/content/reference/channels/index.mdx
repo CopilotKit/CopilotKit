@@ -1,85 +1,110 @@
 ---
-title: "Channels SDK"
-description: "API reference for the CopilotKit Channels SDK — @copilotkit/channels, @copilotkit/channels-ui, @copilotkit/channels-slack, and @copilotkit/channels-discord."
+title: Channels SDK
+description: API reference for managed and direct provider agents built with @copilotkit/channels.
 ---
 
-The Channels SDK turns any [AG-UI](https://docs.ag-ui.com) agent into a chat-platform bot. Three packages, three jobs:
-
-| Package | Role |
-|---------|------|
-| `@copilotkit/channels` | The platform-agnostic engine: [`createBot`](/reference/channels/functions/createBot), handler registration, the agent run/tool/interrupt loop, and action binding. Re-exports the `@copilotkit/channels-ui` vocabulary. |
-| `@copilotkit/channels-ui` | A pure JSX runtime + cross-platform [component vocabulary](/reference/channels/components/Message) for rich messages — no React. |
-| `@copilotkit/channels-slack` | The Slack adapter: Socket Mode ingress, JSX → Block Kit via [`slack()`](/reference/channels/slack), `chat.update` streaming. |
-| `@copilotkit/channels-discord` | Discord PlatformAdapter for `@copilotkit/channels`: Gateway ingress via discord.js, Components V2 egress, streaming replies, and slash-command registration. |
+The Channels SDK connects an agent to chat providers through a long-running
+`@copilotkit/channels` process. In the managed Slack and Microsoft Teams path,
+CopilotKit Intelligence owns the provider connection while your process owns
+the agent, tools, approvals, state, and deployment. The package also exports
+developer-operated direct adapters for Slack, Teams, Discord, Telegram, and
+WhatsApp.
 
 ```sh
-pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack
-# or, for Discord:
-pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-discord
+npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
 ```
 
-<Callout type="info">
-  New to the stack? Start with the [Slack quickstart](/slack) — zero to a working bot, then come back here for the API surface.
-</Callout>
-
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="The APIs below let you own the adapter, runtime, platform credentials, tools, and storage. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams rollout, identity, durable state, approvals, observability, and release workflows."
-  ctaLabel="Join the waitlist"
-  surface="reference_bot_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
-/>
-
-## Setup
-
-The packages ship as **ES modules only** (`"type": "module"` required). To author messages as JSX, point the TypeScript JSX factory at `@copilotkit/channels-ui` and write `.tsx` files:
-
-```json title="tsconfig.json"
-{
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "@copilotkit/channels-ui"
-  }
-}
-```
-
-The package ships its own `JSX` namespace via `@copilotkit/channels-ui/jsx-runtime`, so JSX is statically type-checked: unknown attributes, wrong prop values, and bad children are compile-time errors.
-
-## Start here
+## API reference
 
 <Cards>
   <Card
-    title="createBot()"
-    description="Create the bot: adapters, agent, tools, context, commands, and the handler surface."
-    href="/reference/channels/functions/createBot"
+    title="createChannel"
+    description="Declare a managed provider or developer-operated direct adapter and attach the Channel to CopilotRuntime."
+    href="/reference/channels/functions/createChannel"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Channel"
+    description="Configure managed or direct delivery, register handlers and tools, configure storage, and inspect the Channel declaration."
+    href="/reference/channels/classes/Channel"
     icon={<LinkIcon />}
   />
   <Card
     title="Thread"
-    description="The per-conversation handle: post, stream, runAgent, awaitChoice, and capability-gated platform methods."
+    description="Post and update messages, run or resume the agent, read history, and manage conversation state."
     href="/reference/channels/classes/Thread"
     icon={<LinkIcon />}
   />
   <Card
-    title="Components"
-    description="The JSX vocabulary for rich messages: Message, Header, Section, Button, Select, Table, and friends."
-    href="/reference/channels/components/Message"
-    icon={<LinkIcon />}
-  />
-  <Card
-    title="slack()"
-    description="The Slack adapter: options, Block Kit budgets, streaming, and mrkdwn translation."
-    href="/reference/channels/slack"
+    title="StateStore"
+    description="Persist workflow state, callback snapshots, transcripts, locks, deduplication, and queues."
+    href="/reference/channels/types/StateStore"
     icon={<LinkIcon />}
   />
 </Cards>
 
-## How the pieces fit
+### Classes
 
-A turn flows through three stages. The adapter normalizes a platform event into a turn and hands it to your handler, which calls [`thread.runAgent()`](/reference/channels/classes/Thread). The engine drives the run loop — streaming text into the thread, executing [tools](/reference/channels/functions/defineBotTool) when the agent calls them, capturing interrupts. Anything you post is JSX lowered to the [BotNode](/reference/channels/types/BotNode) intermediate representation (plain serializable data), which the adapter translates to the platform's native format — with interactive handlers bound through the [ActionStore](/reference/channels/types/ActionStore).
+- [`Channel`](/reference/channels/classes/Channel)
+- [`Thread`](/reference/channels/classes/Thread)
+- [`MemoryStore`](/reference/channels/classes/MemoryStore)
+- [`Transcripts`](/reference/channels/classes/Transcripts)
 
-## Related
+### Functions
 
-- [Slack quickstart](/slack) — create the Slack app, install, and run your first bot
-- [On-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — a full bot over Linear + Notion MCP with HITL and slash commands
+- [`createChannel`](/reference/channels/functions/createChannel)
+- [`defineChannelTool`](/reference/channels/functions/defineChannelTool)
+- [`defineChannelCommand`](/reference/channels/functions/defineChannelCommand)
+- [`bind`](/reference/channels/functions/bind)
+- [`renderToIR`](/reference/channels/functions/renderToIR)
+
+### Message components
+
+- [`Message`](/reference/channels/components/Message)
+- [`Header`](/reference/channels/components/Header)
+- [`Section`](/reference/channels/components/Section) and
+  [`Markdown`](/reference/channels/components/Markdown)
+- [`Fields` and `Field`](/reference/channels/components/Fields)
+- [`Context`](/reference/channels/components/Context)
+- [`Image`](/reference/channels/components/Image) and
+  [`Divider`](/reference/channels/components/Divider)
+- [`Table`, `Row`, and `Cell`](/reference/channels/components/Table)
+- [`Chart`](/reference/channels/components/Chart)
+
+### Interactive components
+
+- [`Actions`](/reference/channels/components/Actions)
+- [`Button`](/reference/channels/components/Button)
+- [`Select`](/reference/channels/components/Select)
+- [`Input`](/reference/channels/components/Input)
+- [`Modal components`](/reference/channels/components/Modal) — exported for
+  direct adapters; unavailable on managed Slack and Teams
+- [`JSX callbacks`](/reference/channels/types/JSXCallbacks)
+
+### Types
+
+- [`IncomingMessage`](/reference/channels/types/IncomingMessage)
+- [`AgentContentPart`](/reference/channels/types/AgentContentPart)
+- [`InteractionContext`](/reference/channels/types/InteractionContext)
+- [`MessageRef`](/reference/channels/types/MessageRef)
+- [`StoreConfig`](/reference/channels/types/StoreConfig)
+- [`StateStore`](/reference/channels/types/StateStore)
+- [`ChannelNode`](/reference/channels/types/ChannelNode)
+- [`ActionStore`](/reference/channels/types/ActionStore) — deprecated migration
+  reference
+
+### Provider SDKs
+
+- [`Direct provider adapters`](/reference/channels/sdk/direct-adapters) —
+  public entry points, required options, and the boundary between managed and
+  developer-operated delivery
+
+## Provider guides
+
+Start with the provider and agent framework you are deploying:
+
+- [Slack quickstart](/slack)
+- [Microsoft Teams quickstart](/teams)
+
+The provider picker in those guides keeps the same task and selected agent
+framework when you switch between Slack and Teams.

@@ -39,13 +39,19 @@ interface SearchEntry {
   href: string;
 }
 
+interface FrontendSearchPage {
+  id: string;
+  name: string;
+  guidanceTitle?: "Docs status";
+}
+
 const FRONTEND_SEARCH_PAGES = [
   { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
   { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
-  { id: "slack", name: "Slack", guidanceTitle: "About early access" },
-  { id: "teams", name: "Teams", guidanceTitle: "About early access" },
-] as const;
+  { id: "slack", name: "Slack" },
+  { id: "teams", name: "Microsoft Teams" },
+] as const satisfies readonly FrontendSearchPage[];
 
 const FRONTEND_NAMES = new Map(
   FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
@@ -169,14 +175,7 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
 
   const slugPath = entry.href.slice(frontendPrefix.length);
   if (slugPath === "using-these-docs") {
-    return FRONTEND_SEARCH_PAGES.filter(
-      (frontend) => frontend.guidanceTitle === "About early access",
-    ).map((frontend) => ({
-      ...entry,
-      title: `${frontend.name}: ${frontend.guidanceTitle}`,
-      section: "Frontends",
-      href: `/${frontend.id}/using-these-docs`,
-    }));
+    return [];
   }
 
   if (slugPath === "docs-status") {

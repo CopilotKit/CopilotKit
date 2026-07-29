@@ -1,0 +1,179 @@
+---
+title: Rich messages and components
+icon: "lucide/LayoutTemplate"
+description: Build portable channel UI that renders as Slack Block Kit or Microsoft Teams Adaptive Cards, with explicit provider fallbacks.
+doc_type: how-to
+---
+
+Channels JSX lets application code describe a message once and lets the
+selected provider renderer turn it into native UI. The same component can
+produce Slack Block Kit or a Microsoft Teams Adaptive Card.
+
+## Enable Channels JSX
+
+Channels JSX does not use React at runtime. Point the TypeScript JSX transform
+at `@copilotkit/channels`:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels",
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["*.ts", "*.tsx"]
+}
+```
+
+Keep `"type": "module"` in `package.json` and use `.tsx` for files containing
+JSX.
+
+## Build a portable status card
+
+```tsx title="incident-card.tsx"
+import {
+  Context,
+  Divider,
+  Field,
+  Fields,
+  Header,
+  Message,
+  Section,
+} from "@copilotkit/channels/ui";
+
+export function IncidentCard(props: {
+  id: string;
+  summary: string;
+  owner: string;
+  status: string;
+}) {
+  return (
+    <Message>
+      <Header>{`${props.id} · ${props.status}`}</Header>
+      <Section>{props.summary}</Section>
+      <Divider />
+      <Fields>
+        <Field>{`Owner: ${props.owner}`}</Field>
+        <Field>{`Status: ${props.status}`}</Field>
+      </Fields>
+      <Context>Updated from the incident service</Context>
+    </Message>
+  );
+}
+```
+
+Post the component from a message handler or tool:
+
+```tsx title="channel.tsx"
+channel.onMessage(async ({ thread }) => {
+  await thread.post(
+    <IncidentCard
+      id="INC-421"
+      summary="Checkout latency is above the SLO."
+      owner="Payments"
+      status="Investigating"
+    />,
+  );
+});
+```
+
+Use named components with JSON-serializable props when they contain callbacks,
+then register them in `createChannel({ components: [...] })`. Pure display
+components do not need registration.
+
+## Know what each provider renders
+
+| Channels component | Slack | Microsoft Teams |
+| --- | --- | --- |
+| `Message` | Flattens to Block Kit; the current managed connector does not forward `accent` | Flattens into an Adaptive Card; `accent` has no native mapping |
+| `Header` | Header block | Large bold text block |
+| `Section`, `Markdown` | Slack `mrkdwn` section | Wrapped Adaptive Card text |
+| `Fields`, `Field` | Section fields; honors `Field.label` | Fact set; derives a label from `Label: value` text |
+| `Context` | Context block | Small, subtle text |
+| `Actions`, `Button` | Actions block and button | Top-level `Action.Submit` or `Action.OpenUrl` |
+| `Select`, `Input` | Native Block Kit controls | Adaptive Card inputs |
+| `Image`, `Divider` | Native image and divider blocks | Image and separator |
+| `Table`, `Row`, `Cell` | Native Slack table block | Adaptive Card 1.5 table |
+| `Chart` | Omitted by the Slack renderer | Teams chart extension where the client supports it |
+
+Unknown or unsupported nodes are omitted instead of failing the whole message.
+That makes portable rendering resilient, but it also means the text around an
+optional visual must still carry the important result.
+
+`Select` and `Input` currently have different interaction behavior by provider.
+Managed Slack dispatches those controls. Managed Teams renders their Adaptive
+Card fields, but its managed ingress currently routes only `Button`
+submissions and does not expose the other field values. Use `Button.value` for
+required cross-provider workflow data.
+
+<FrontendOnly frontend="slack">
+
+Slack text is translated from GitHub-flavored Markdown to `mrkdwn`. Collections
+and strings are clamped to Slack's native limits. If a message exceeds the
+top-level block budget, the renderer adds a truncation notice.
+
+Although the direct Slack renderer can return an attachment accent, the current
+managed Intelligence post and update path forwards only blocks. Do not rely on
+`Message.accent` in a managed Slack workflow.
+
+Do not put essential information only in `Chart`: the Slack renderer currently
+skips chart nodes. Pair a chart with a `Section`, `Fields`, or `Table`.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Teams renders Adaptive Card version 1.5. Chart nodes use Teams chart
+extensions; clients that do not support those extensions may omit the chart.
+Pair every chart with a text summary.
+
+Button style is translated to positive or destructive when possible. Exact
+spacing, colors, and typography remain provider-owned.
+
+</FrontendOnly>
+
+## Update a message safely
+
+`thread.post()` returns a `MessageRef` that can be updated during the current
+managed delivery:
+
+```tsx title="update.tsx"
+const ref = await thread.post(<IncidentCard {...incident} status="Loading" />);
+
+await thread.update(
+  ref,
+  <IncidentCard {...incident} status="Investigating" />,
+);
+```
+
+Do not persist that ref and assume it remains updateable in a later delivery.
+For a later button click, use the interaction's `message.ref`, check that
+`message.ref.id` is non-empty, and treat the update as best-effort.
+
+<FrontendOnly frontend="slack">
+
+Managed Slack supports post, update, and delete frames.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Managed Teams supports post and update frames. Delete is not implemented on the
+managed Teams connector today, so do not make workflow correctness depend on
+`thread.delete()`.
+
+</FrontendOnly>
+
+## Keep provider-specific payloads at the edge
+
+The `{ raw: nativePayload }` escape hatch is part of the low-level renderable
+type, but it is not portable: Slack accepts raw blocks while the Teams renderer
+skips unknown raw nodes. Prefer Channels components in shared managed code.
+
+Use [interactive messages and approvals](/channels/interactive) for callbacks,
+or browse the [Channels UI reference](/reference/channels/components/Message)
+for component props.
