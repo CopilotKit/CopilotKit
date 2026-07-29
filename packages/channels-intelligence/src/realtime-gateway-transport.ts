@@ -520,6 +520,15 @@ export class RealtimeGatewayTransport
     }
   }
 
+  /**
+   * The lease token registered for a leased delivery, so the adapter can key the
+   * render lane per ATTEMPT (see `renderLaneSlot`). Mirrors
+   * `HttpDeliverySource.leaseTokenFor` so both transports lane identically.
+   */
+  leaseTokenFor(deliveryId: string): string | undefined {
+    return this.deliveries.get(deliveryId)?.leaseToken;
+  }
+
   async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
     const state = this.deliveries.get(batch.deliveryId);
     const envelope = {

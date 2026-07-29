@@ -79,6 +79,13 @@ export class InMemoryDeliverySource implements DeliverySource {
    * `ChannelReplyTarget` to the raw route and threads `historyLimit` through. */
   readonly historyRequests: Array<{ replyTarget: EgressRoute; limit: number }> =
     [];
+  /**
+   * Lease token per delivery id. A leasing source mints a fresh token on every
+   * claim, so seeding a different token between two {@link deliver} calls for
+   * one delivery id models a REDELIVERY (attempt N+1) and lets a test assert the
+   * per-attempt render lane. Left empty, the adapter keeps the single base lane.
+   */
+  readonly leaseTokens = new Map<string, string>();
   private onDelivery?: (env: ChannelIngressEnvelope) => Promise<void>;
 
   async start(
@@ -100,6 +107,9 @@ export class InMemoryDeliverySource implements DeliverySource {
     await this.onDelivery(env);
   }
 
+  leaseTokenFor(deliveryId: string): string | undefined {
+    return this.leaseTokens.get(deliveryId);
+  }
   async ack(deliveryId: string): Promise<void> {
     this.acked.push(deliveryId);
   }

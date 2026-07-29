@@ -49,6 +49,8 @@ import {
 import {
   createRenderBatch,
   encodedJsonBytes,
+  renderLaneSlot,
+  RENDER_LANE_BASE_SLOT,
   RENDER_BATCH_MAX_BYTES,
   RENDER_BATCH_MAX_FRAMES,
   RENDER_LANE_MAX_PENDING_BYTES,
@@ -321,13 +323,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
-  /** Per-turn render state; reset at the start of each turn's processing so a
-   * redelivery reproduces the same operation ids. A realtime turn starts
+  /** Per-turn render state; reset at the start of each turn's processing so the
+   * frame sequence restarts at 0 for the attempt. A realtime turn starts
    * non-terminal: even an output-free handler must durably accept `finalize`
-   * before its delivery may complete. */
+   * before its delivery may complete. `slot` is the attempt's render lane
+   * (see {@link renderLaneSlot}) and is resolved ONCE per delivery so every
+   * batch identity and every minted {@link MessageRef} agree on it. */
   private readonly renderState = new Map<
     string,
-    { nextSeq: number; needsFinalize: boolean }
+    { nextSeq: number; needsFinalize: boolean; slot: string }
   >();
   /** Shared per-turn transport tail for renderer batches and discrete effects. */
   private readonly renderLaneTails = new Map<string, Promise<void>>();
@@ -445,14 +449,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * the OSS-491 Finding-2 bug this split fixes.
    */
   private async dispatch(env: ChannelIngressEnvelope): Promise<void> {
-    // Reset the per-turn sequence so egress ids are deterministic across
-    // redelivery (same turn id -> same op id sequence). Assumes the
+    // Reset the per-turn sequence. Each ATTEMPT streams into its own render lane
+    // (keyed off the attempt's lease token), so restarting the sequence at 0 no
+    // longer collides with a prior attempt's accepted high-water. Assumes the
     // DeliverySource delivers (and awaits) one envelope per turnId at a time —
     // true for at-least-once, lease-based delivery; overlapping redeliveries of
     // the same turnId would perturb the counter.
     this.renderState.set(env.turnId, {
       nextSeq: 0,
       needsFinalize: this.renderSink !== undefined,
+      slot: renderLaneSlot(
+        this.source?.leaseTokenFor?.(env.deliveryId) ?? undefined,
+      ),
     });
     let turnProcessed = false;
     try {
@@ -633,12 +641,26 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private nextFrameSeq(turnId: string): number {
     const state = this.renderState.get(turnId);
     if (!state) {
-      this.renderState.set(turnId, { nextSeq: 1, needsFinalize: false });
+      this.renderState.set(turnId, {
+        nextSeq: 1,
+        needsFinalize: false,
+        slot: RENDER_LANE_BASE_SLOT,
+      });
       return 0;
     }
     const seq = state.nextSeq;
     state.nextSeq += 1;
     return seq;
+  }
+
+  /**
+   * The render lane for a turn. Resolved once per delivery in {@link dispatch};
+   * falls back to the base slot for a turn with no registered state (a frame
+   * emitted outside a dispatched delivery — see {@link nextFrameSeq}), which
+   * keeps single-lane behavior rather than minting a lane mid-stream.
+   */
+  private slotFor(turnId: string): string {
+    return this.renderState.get(turnId)?.slot ?? RENDER_LANE_BASE_SLOT;
   }
 
   /**
@@ -695,7 +717,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           {
             deliveryId: target.deliveryId,
             turnId: target.turnId,
-            slot: "main",
+            slot: this.slotFor(target.turnId),
           },
           [{ seq, event }],
         ),
@@ -747,9 +769,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
+    // The ref MUST carry the same slot the frame was pushed under: the Connector
+    // Outbox resolves it as `${turnId}:${slot}:${seq}`, so a hardcoded lane here
+    // would stop resolving the moment the lane is attempt-keyed.
+    const slot = this.slotFor(target.turnId);
     const { seq } = await this.pushRenderFrame(target, event);
     return {
-      id: `${target.turnId}:main:${seq}`,
+      id: `${target.turnId}:${slot}:${seq}`,
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
@@ -1035,7 +1061,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         {
           deliveryId: t.deliveryId,
           turnId: t.turnId,
-          slot: "main",
+          slot: this.slotFor(t.turnId),
         },
         batchFrames,
       );

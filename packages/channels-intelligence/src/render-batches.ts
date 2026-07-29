@@ -9,6 +9,39 @@ export const RENDER_BATCH_PROTOCOL_CAPABILITY = "render_batch_v1";
 export const RENDER_TEXT_MAX_DELTAS = 256;
 export const RENDER_TEXT_MAX_BYTES = 16 * 1024;
 export const RENDER_TEXT_TAIL_FLUSH_MS = 250;
+
+/** Base render lane name, used when no attempt discriminator is available. */
+export const RENDER_LANE_BASE_SLOT = "main";
+
+/**
+ * Derive the render lane (`slot`) for one delivery ATTEMPT.
+ *
+ * The durable egress lane is keyed `${turnId}:${slot}` on the platform side, and
+ * `turnId` is a pure function of `deliveryId` — so every attempt of a delivery
+ * shares one lane and one `accepted_high_water`. That forces a replayed attempt
+ * to reproduce byte-identical batch boundaries: a re-cut batch is not found by
+ * `batchId`, falls through to the `startSeq === high_water + 1` check, and the
+ * turn dies on a sequence gap. Since a replayed agent run only reproduces
+ * identical frames when the agent itself is deterministic, that constraint
+ * protects a narrow case while breaking the common one.
+ *
+ * Giving each attempt its own lane removes the collision: attempt N+1 starts
+ * from an empty high-water and streams its own frames. The trade — a product
+ * decision, not a mechanical one — is that a redelivery now RE-RENDERS
+ * (duplicate provider output) where it previously failed closed on the gap.
+ *
+ * The lease token is hashed rather than embedded: `slot` is persisted on every
+ * render acceptance and is operator-readable, while the raw token is the lease
+ * capability the platform fences accept/ack/fail against.
+ *
+ * @param leaseToken - Lease token for this attempt, when the source leases.
+ * @returns A slot matching the platform's `[A-Za-z0-9_-]{1,64}` slot charset.
+ */
+export const renderLaneSlot = (leaseToken?: string): string => {
+  if (!leaseToken) return RENDER_LANE_BASE_SLOT;
+  const digest = createHash("sha256").update(leaseToken).digest("hex");
+  return `${RENDER_LANE_BASE_SLOT}-${digest.slice(0, 12)}`;
+};
 export const RENDER_BATCH_MAX_FRAMES = 64;
 export const RENDER_BATCH_MAX_BYTES = 128 * 1024;
 export const RENDER_LANE_MAX_PENDING_BYTES = 256 * 1024;

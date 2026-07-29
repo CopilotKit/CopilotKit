@@ -70,6 +70,19 @@ export interface DeliverySource {
    * rather than reject, since missing history should never fail the turn.
    */
   getHistory?(replyTarget: EgressRoute, limit: number): Promise<AgentMessage[]>;
+  /**
+   * The lease token held for a currently-leased delivery, or `undefined` when
+   * this source doesn't lease (in-memory) or the delivery isn't leased here.
+   *
+   * The adapter uses it only as an ATTEMPT DISCRIMINATOR for the render lane:
+   * app-api mints a fresh token per claim and keeps it for that lease's life, so
+   * it is the one value the SDK already receives that distinguishes attempt N
+   * from attempt N+1 of the same delivery (`deliveryId`/`turnId`/`eventId` are
+   * all stable across attempts). See {@link renderLaneSlot}.
+   *
+   * Optional so a source without leases keeps today's single-lane behavior.
+   */
+  leaseTokenFor?(deliveryId: string): string | undefined;
   stop(): Promise<void>;
 }
 
