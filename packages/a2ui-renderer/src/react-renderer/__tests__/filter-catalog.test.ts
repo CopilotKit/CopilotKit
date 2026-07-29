@@ -3,6 +3,12 @@ import { z } from "zod";
 import { Catalog, createFunctionImplementation } from "@a2ui/web_core/v0_9";
 import type { ComponentApi } from "@a2ui/web_core/v0_9";
 import { filterCatalog } from "../filter-catalog";
+// Namespace import of the package's SOURCE entry, used by the export test below.
+// Deliberately top-level: pulling in the root barrel transforms the whole
+// renderer graph (lit, markdown-it, zod), which takes longer than vitest's 5s
+// default testTimeout on a cold cache. At module scope that cost is paid during
+// collection, which is not bounded by testTimeout.
+import * as packageEntry from "../../index";
 
 function makeCatalog(): Catalog<ComponentApi> {
   const components: ComponentApi[] = [
@@ -94,17 +100,16 @@ describe("filterCatalog package export", () => {
   // src/index.ts -> react-renderer/index.ts -> ./filter-catalog. Adding the
   // function without the barrel line would leave callers unable to import it.
   //
-  // Imports the SOURCE entry, not "@copilotkit/a2ui-renderer": the package name
-  // resolves through node_modules to dist/, which `nx test` does not guarantee
-  // exists — nx.json sets test.dependsOn to ["^build"], and the caret means
-  // dependencies' builds, NOT this package's own. Self-importing the package
-  // name therefore passed or failed purely on whether a previous run had left
-  // dist/ populated. The package.json "exports" mapping is covered separately
-  // by this package's publint + attw targets.
-  it("is reachable from the package entry", async () => {
-    const mod = await import("../../index");
-    expect(typeof (mod as { filterCatalog?: unknown }).filterCatalog).toBe(
-      "function",
-    );
+  // Asserts against the SOURCE entry, not "@copilotkit/a2ui-renderer": the
+  // package name resolves through node_modules to dist/, which `nx test` does
+  // not guarantee exists — nx.json sets test.dependsOn to ["^build"], and the
+  // caret means dependencies' builds, NOT this package's own. Self-importing the
+  // package name therefore passed or failed purely on whether a previous run had
+  // left dist/ populated. The package.json "exports" mapping is covered
+  // separately by this package's publint + attw targets.
+  it("is reachable from the package entry", () => {
+    expect(
+      typeof (packageEntry as { filterCatalog?: unknown }).filterCatalog,
+    ).toBe("function");
   });
 });
