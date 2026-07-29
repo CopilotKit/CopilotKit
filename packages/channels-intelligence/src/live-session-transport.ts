@@ -97,6 +97,8 @@ type ProviderEffectInput = ChannelProviderEffect extends infer Effect
 export class LiveDeliverySession {
   private nextSeq = 0;
   private tail: Promise<unknown> = Promise.resolve();
+  private readonly trackedOperations = new Set<Promise<unknown>>();
+  private trackedOperationsSealed = false;
   private readonly heartbeat: ReturnType<typeof setInterval>;
   private readonly runAbortControllers = new Map<string, AbortController>();
 
@@ -119,6 +121,50 @@ export class LiveDeliverySession {
         .catch(() => undefined);
     }, heartbeatIntervalMs);
     this.heartbeat.unref?.();
+  }
+
+  /**
+   * Register one public Thread operation before it reaches its first await.
+   *
+   * Once the handler returns, already-active operations may register nested
+   * work until the set reaches quiescence. A later root operation is rejected.
+   */
+  trackOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.trackedOperationsSealed && this.trackedOperations.size === 0) {
+      const error = new Error(
+        `Channel delivery ${this.delivery.deliveryId} no longer accepts Thread operations`,
+      );
+      error.name = "ChannelDeliveryOperationsClosedError";
+      const rejected = Promise.reject<T>(error);
+      void rejected.catch(() => undefined);
+      return rejected;
+    }
+
+    let resolveTracked!: (value: T | PromiseLike<T>) => void;
+    let rejectTracked!: (reason?: unknown) => void;
+    const tracked = new Promise<T>((resolve, reject) => {
+      resolveTracked = resolve;
+      rejectTracked = reject;
+    });
+    this.trackedOperations.add(tracked);
+    void tracked.then(
+      () => this.trackedOperations.delete(tracked),
+      () => this.trackedOperations.delete(tracked),
+    );
+
+    try {
+      void operation().then(resolveTracked, rejectTracked);
+    } catch (error) {
+      rejectTracked(error);
+    }
+    return tracked;
+  }
+
+  private async sealAndWaitForTrackedOperations(): Promise<void> {
+    this.trackedOperationsSealed = true;
+    while (this.trackedOperations.size > 0) {
+      await Promise.allSettled(this.trackedOperations);
+    }
   }
 
   /** Apply one destination-free provider effect in strict sequence order. */
@@ -210,6 +256,7 @@ export class LiveDeliverySession {
 
   /** Mark a handled delivery complete, including a direct-only handler. */
   async complete(): Promise<void> {
+    await this.sealAndWaitForTrackedOperations();
     await this.tail;
     await this.channel.push(COMPLETE_EVENT, {
       protocol: CHANNEL_SESSION_PROTOCOL,
@@ -218,6 +265,7 @@ export class LiveDeliverySession {
 
   /** Settle a handler failure without waiting for owner-loss recovery. */
   async fail(reason: string): Promise<void> {
+    await this.sealAndWaitForTrackedOperations();
     await this.tail.catch(() => undefined);
     await this.channel.push(FAIL_EVENT, {
       protocol: CHANNEL_SESSION_PROTOCOL,

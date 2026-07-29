@@ -100,6 +100,14 @@ export class Thread implements ThreadInterface {
     return this.deps.registry.bindRenderable(ui, this.deps.conversationKey);
   }
 
+  private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (!this.deps.adapter.trackThreadOperation) return operation();
+    return this.deps.adapter.trackThreadOperation(
+      this.deps.replyTarget,
+      operation,
+    );
+  }
+
   /**
    * Wire a posted message's `onReaction` to its returned id: cache it for this
    * process and, when it came from a component, persist a durable snapshot so a
@@ -121,31 +129,40 @@ export class Thread implements ThreadInterface {
   }
 
   async post(ui: Renderable): Promise<MessageRef> {
-    const bound = await this.bindForPost(ui);
-    const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
-    await this.bindReaction(ref.id, bound);
-    return ref;
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      const ref = await this.deps.adapter.post(
+        this.deps.replyTarget,
+        bound.root,
+      );
+      await this.bindReaction(ref.id, bound);
+      return ref;
+    });
   }
 
   async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
-    const bound = await this.bindForPost(ui);
-    await this.deps.adapter.update(ref, bound.root);
-    await this.bindReaction(ref.id, bound);
-    return ref;
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      await this.deps.adapter.update(ref, bound.root);
+      await this.bindReaction(ref.id, bound);
+      return ref;
+    });
   }
 
   async delete(ref: MessageRef): Promise<void> {
-    await this.deps.adapter.delete(ref);
+    return this.trackOperation(() => this.deps.adapter.delete(ref));
   }
 
   async stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
-    const iter =
-      typeof src === "string"
-        ? (async function* () {
-            yield src;
-          })()
-        : src;
-    return this.deps.adapter.stream(this.deps.replyTarget, iter);
+    return this.trackOperation(() => {
+      const iter =
+        typeof src === "string"
+          ? (async function* () {
+              yield src;
+            })()
+          : src;
+      return this.deps.adapter.stream(this.deps.replyTarget, iter);
+    });
   }
 
   async postFile(args: {
@@ -154,14 +171,16 @@ export class Thread implements ThreadInterface {
     title?: string;
     altText?: string;
   }): Promise<{ ok: boolean; fileId?: string; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postFile) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support file upload`,
-      };
-    }
-    return adapter.postFile(this.deps.replyTarget, args);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.postFile) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support file upload`,
+        };
+      }
+      return adapter.postFile(this.deps.replyTarget, args);
+    });
   }
 
   /** Pin suggested prompts (returns `{ ok: false }` on surfaces without support). */
@@ -169,26 +188,30 @@ export class Thread implements ThreadInterface {
     prompts: ReadonlyArray<{ title: string; message: string }>,
     opts?: { title?: string },
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setSuggestedPrompts) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support suggested prompts`,
-      };
-    }
-    return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.setSuggestedPrompts) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support suggested prompts`,
+        };
+      }
+      return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+    });
   }
 
   /** Name this conversation (returns `{ ok: false }` on surfaces without support). */
   async setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setThreadTitle) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support thread titles`,
-      };
-    }
-    return adapter.setThreadTitle(this.deps.replyTarget, title);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.setThreadTitle) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support thread titles`,
+        };
+      }
+      return adapter.setThreadTitle(this.deps.replyTarget, title);
+    });
   }
 
   /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
@@ -196,14 +219,16 @@ export class Thread implements ThreadInterface {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.addReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.addReaction) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support reactions`,
+        };
+      }
+      return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+    });
   }
 
   /** Remove the channel's emoji reaction from a message (capability-gated). */
@@ -211,14 +236,16 @@ export class Thread implements ThreadInterface {
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.removeReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.removeReaction) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support reactions`,
+        };
+      }
+      return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+    });
   }
 
   /**
@@ -231,78 +258,99 @@ export class Thread implements ThreadInterface {
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postEphemeral) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support ephemeral messages`,
-      };
-    }
-    // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
-    // (stripped by bindForPost) rather than registered.
-    const { root } = await this.bindForPost(ui);
-    return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.postEphemeral) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support ephemeral messages`,
+        };
+      }
+      // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
+      // (stripped by bindForPost) rather than registered.
+      const { root } = await this.bindForPost(ui);
+      return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+    });
   }
 
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
 
   /** Record this conversation as subscribed (persisted in state). Proactive delivery to subscribed conversations is not yet wired. */
   async subscribe(): Promise<void> {
-    await this.store.kv.set(`sub:${this.deps.conversationKey}`, true);
+    return this.trackOperation(() =>
+      this.store.kv.set(`sub:${this.deps.conversationKey}`, true),
+    );
   }
 
   /** Remove the subscription for this conversation. */
   async unsubscribe(): Promise<void> {
-    await this.store.kv.delete(`sub:${this.deps.conversationKey}`);
+    return this.trackOperation(() =>
+      this.store.kv.delete(`sub:${this.deps.conversationKey}`),
+    );
   }
 
   /** Returns true if this conversation is currently subscribed. */
   async isSubscribed(): Promise<boolean> {
-    return (
-      (await this.store.kv.get<boolean>(`sub:${this.deps.conversationKey}`)) ===
-      true
+    return this.trackOperation(
+      async () =>
+        (await this.store.kv.get<boolean>(
+          `sub:${this.deps.conversationKey}`,
+        )) === true,
     );
   }
 
   /** Persist arbitrary per-thread state (e.g. workflow step). */
   async setState<T>(v: T): Promise<void> {
-    let value: unknown = v;
-    if (this.deps.stateSchema) {
-      const r = await validateSchema(this.deps.stateSchema, v);
-      if (!r.ok) throw new Error(`thread.setState: invalid state — ${r.error}`);
-      value = r.value;
-    }
-    await this.store.kv.set(`threadstate:${this.deps.conversationKey}`, value);
+    return this.trackOperation(async () => {
+      let value: unknown = v;
+      if (this.deps.stateSchema) {
+        const r = await validateSchema(this.deps.stateSchema, v);
+        if (!r.ok)
+          throw new Error(`thread.setState: invalid state — ${r.error}`);
+        value = r.value;
+      }
+      await this.store.kv.set(
+        `threadstate:${this.deps.conversationKey}`,
+        value,
+      );
+    });
   }
 
   /** Read back per-thread state previously written with `setState`. */
   async state<T>(): Promise<T | undefined> {
-    return this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`);
+    return this.trackOperation(() =>
+      this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`),
+    );
   }
 
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
   async getMessages(): Promise<ThreadMessage[]> {
-    return (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [];
+    return this.trackOperation(
+      async () =>
+        (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [],
+    );
   }
 
   /** Resolve a platform user by free-form query (returns `undefined` when unsupported). */
   async lookupUser(query: string): Promise<PlatformUser | undefined> {
-    return this.deps.adapter.lookupUser?.({ query });
+    return this.trackOperation(() => this.deps.adapter.lookupUser({ query }));
   }
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
   async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
-    if (this.supportsBlockingChoice === false) {
-      throw new ChannelAwaitChoiceNotSupportedError();
-    }
-    const p = new Promise<T>((resolve) =>
-      this.deps.registerWaiter(
-        this.deps.conversationKey,
-        resolve as (value: unknown) => void,
-      ),
-    );
-    await this.post(ui);
-    return p;
+    return this.trackOperation(async () => {
+      if (this.supportsBlockingChoice === false) {
+        throw new ChannelAwaitChoiceNotSupportedError();
+      }
+      const p = new Promise<T>((resolve) =>
+        this.deps.registerWaiter(
+          this.deps.conversationKey,
+          resolve as (value: unknown) => void,
+        ),
+      );
+      await this.post(ui);
+      return p;
+    });
   }
 
   async runAgent(input?: {
@@ -330,27 +378,29 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
-    const message = this.deps.message;
-    const defaultPrompt =
-      message?.contentParts && message.contentParts.length > 0
-        ? message.contentParts
-        : message?.text;
-    const implicitPrompt =
-      input?.prompt === undefined &&
-      !this.deps.adapter.conversationStore.seedsInboundTurn &&
-      (!this.deps.adapter.injectInboundTurnOnce ||
-        !this.implicitInboundConsumed);
-    if (implicitPrompt && defaultPrompt) {
-      this.implicitInboundConsumed = true;
-    }
-    return this.run(undefined, {
-      ...input,
-      prompt: input?.prompt ?? (!implicitPrompt ? undefined : defaultPrompt),
+    return this.trackOperation(async () => {
+      const message = this.deps.message;
+      const defaultPrompt =
+        message?.contentParts && message.contentParts.length > 0
+          ? message.contentParts
+          : message?.text;
+      const implicitPrompt =
+        input?.prompt === undefined &&
+        !this.deps.adapter.conversationStore.seedsInboundTurn &&
+        (!this.deps.adapter.injectInboundTurnOnce ||
+          !this.implicitInboundConsumed);
+      if (implicitPrompt && defaultPrompt) {
+        this.implicitInboundConsumed = true;
+      }
+      return this.run(undefined, {
+        ...input,
+        prompt: input?.prompt ?? (!implicitPrompt ? undefined : defaultPrompt),
+      });
     });
   }
 
   async resume(value: unknown): Promise<MessageRef | undefined> {
-    return this.run({ resume: value });
+    return this.trackOperation(() => this.run({ resume: value }));
   }
 
   private async run(

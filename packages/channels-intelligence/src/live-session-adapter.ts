@@ -157,6 +157,13 @@ export class LiveSessionAdapter implements PlatformAdapter {
     return this.options.transport.stop();
   }
 
+  trackThreadOperation<T>(
+    targetValue: ReplyTarget,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return asLiveTarget(targetValue).session.trackOperation(operation);
+  }
+
   private async dispatch(
     session: LiveDeliverySession,
     delivery: LiveSessionDelivery,

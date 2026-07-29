@@ -306,6 +306,15 @@ export interface PlatformAdapter {
   runAgentLifecycle?(
     args: ChannelAgentLifecycleArgs,
   ): Promise<ChannelAgentLoopResult>;
+  /**
+   * Optional delivery-lifecycle hook. {@link Thread} invokes this synchronously
+   * when a public operation starts so a managed transport can keep the delivery
+   * open even when a handler intentionally does not await that operation.
+   */
+  trackThreadOperation?<T>(
+    target: ReplyTarget,
+    operation: () => Promise<T>,
+  ): Promise<T>;
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
