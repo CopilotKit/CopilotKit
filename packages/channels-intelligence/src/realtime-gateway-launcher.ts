@@ -1,6 +1,6 @@
 import type { Channel } from "@copilotkit/channels-core";
 import {
-  startChannels,
+  startChannelsInternal,
   assertValidChannelNames,
   buildChannelActivationMetadata,
   resolveChannelActivationEnv,
@@ -15,6 +15,11 @@ import type { ChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { EgressSink } from "./transports.js";
 import { RENDER_BATCH_PROTOCOL_CAPABILITY } from "./render-batches.js";
+import { isChannelsTerminalBatchingEnabled } from "./operations-feature-flags.js";
+
+const MANAGED_PRODUCTION_GATEWAY_URL =
+  "wss://realtime.intelligence.copilotkit.ai/runner";
+const MANAGED_PRODUCTION_APP_API_URL = "https://api.intelligence.copilotkit.ai";
 
 /**
  * Realtime Gateway egress is vestigial: with a render sink wired (the transport
@@ -108,6 +113,14 @@ export async function startChannelsWithGatewaySession(
   channels: Channel[],
   opts: StartChannelsWithGatewaySessionOptions,
 ): Promise<ChannelsHandle> {
+  return startChannelsWithGatewaySessionInternal(channels, opts, false);
+}
+
+async function startChannelsWithGatewaySessionInternal(
+  channels: Channel[],
+  opts: StartChannelsWithGatewaySessionOptions,
+  terminalBatchingEnabled: boolean,
+): Promise<ChannelsHandle> {
   assertScopeMatchesChannel(channels, opts.scope);
   const transport = new RealtimeGatewayTransport({
     scope: opts.scope,
@@ -117,18 +130,21 @@ export async function startChannelsWithGatewaySession(
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
-  const handle = await startChannels({
-    channels,
-    resolveTransport: () => ({
-      source: transport,
-      renderSink: transport,
-      egress: realtimeGatewayEgress,
-    }),
-    // The required runtimeInstanceId is authoritative: merge it in LAST so
-    // `handle.metadata` reports the same id the transport stamps on every
-    // envelope, regardless of any `env` overrides (which cannot carry it).
-    env: { ...opts.env, runtimeInstanceId: opts.runtimeInstanceId },
-  });
+  const handle = await startChannelsInternal(
+    {
+      channels,
+      resolveTransport: () => ({
+        source: transport,
+        renderSink: transport,
+        egress: realtimeGatewayEgress,
+      }),
+      // The required runtimeInstanceId is authoritative: merge it in LAST so
+      // `handle.metadata` reports the same id the transport stamps on every
+      // envelope, regardless of any `env` overrides (which cannot carry it).
+      env: { ...opts.env, runtimeInstanceId: opts.runtimeInstanceId },
+    },
+    terminalBatchingEnabled,
+  );
   // This variant does not own the socket (the caller passed an
   // already-joined session), so it neither connects nor disconnects it. Still
   // pass through drop notification when the session supports it (it does not
@@ -238,6 +254,12 @@ export async function startChannelsOverRealtimeGateway(
     channels,
     resolveChannelActivationEnv(envOverrides),
   );
+  const terminalBatchingEnabled =
+    config.wsUrl === MANAGED_PRODUCTION_GATEWAY_URL &&
+    config.appApiBaseUrl === MANAGED_PRODUCTION_APP_API_URL &&
+    activation.runtimeEnv === "production"
+      ? await isChannelsTerminalBatchingEnabled(config.scope.projectId)
+      : false;
 
   const session = await connectRealtimeGateway({
     wsUrl: config.wsUrl,
@@ -281,20 +303,26 @@ export async function startChannelsOverRealtimeGateway(
   // handle — so disconnect the socket here rather than leak it, then rethrow.
   let handle: ChannelsHandle;
   try {
-    handle = await startChannelsWithGatewaySession(channels, {
-      session,
-      scope: config.scope,
-      runtimeInstanceId: config.runtimeInstanceId,
-      // File/history parity is HTTP-only; forward the app-api coordinates (the
-      // apiKey is the same one used as the socket authToken) so the transport
-      // can reach the file/history REST endpoints directly.
-      ...(config.appApiBaseUrl ? { appApiBaseUrl: config.appApiBaseUrl } : {}),
-      apiKey: config.apiKey,
-      // The session-start helper re-merges the authoritative runtimeInstanceId,
-      // so forward only the caller's overrides here (they cannot carry the id).
-      ...(config.env ? { env: config.env } : {}),
-      ...(config.log ? { log: config.log } : {}),
-    });
+    handle = await startChannelsWithGatewaySessionInternal(
+      channels,
+      {
+        session,
+        scope: config.scope,
+        runtimeInstanceId: config.runtimeInstanceId,
+        // File/history parity is HTTP-only; forward the app-api coordinates (the
+        // apiKey is the same one used as the socket authToken) so the transport
+        // can reach the file/history REST endpoints directly.
+        ...(config.appApiBaseUrl
+          ? { appApiBaseUrl: config.appApiBaseUrl }
+          : {}),
+        apiKey: config.apiKey,
+        // The session-start helper re-merges the authoritative runtimeInstanceId,
+        // so forward only the caller's overrides here (they cannot carry the id).
+        ...(config.env ? { env: config.env } : {}),
+        ...(config.log ? { log: config.log } : {}),
+      },
+      terminalBatchingEnabled,
+    );
   } catch (err) {
     session.disconnect();
     throw err;

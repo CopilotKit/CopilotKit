@@ -4,7 +4,10 @@ import type {
   EgressSink,
   RenderEventSink,
 } from "./transports.js";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
+import {
+  intelligenceAdapter,
+  intelligenceAdapterInternal,
+} from "./intelligence-adapter.js";
 
 /** Lowercase kebab-case Channel name, 3–64 characters. */
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -164,6 +167,17 @@ export interface ChannelsHandle {
 export async function startChannels(
   opts: StartChannelsOptions,
 ): Promise<ChannelsHandle> {
+  return startChannelsInternal(opts, false);
+}
+
+/**
+ * Managed-activation seam for carrying private Operations decisions to adapter
+ * construction without widening the public runtime or adapter options.
+ */
+export async function startChannelsInternal(
+  opts: StartChannelsOptions,
+  terminalBatchingEnabled: boolean,
+): Promise<ChannelsHandle> {
   assertValidChannelNames(opts.channels);
   if (opts.channels.length === 0) {
     console.warn(
@@ -186,7 +200,12 @@ export async function startChannels(
         channel.name!,
       );
       channel.ɵruntime.addAdapter(
-        intelligenceAdapter({ source, egress, renderSink, store }),
+        terminalBatchingEnabled
+          ? intelligenceAdapterInternal(
+              { source, egress, renderSink, store },
+              { terminalBatchingEnabled: true },
+            )
+          : intelligenceAdapter({ source, egress, renderSink, store }),
       );
       await channel.ɵruntime.start();
       startedChannels.push(channel);

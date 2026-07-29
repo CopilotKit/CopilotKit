@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReplyTarget } from "@copilotkit/channels-core";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
+import {
+  intelligenceAdapter,
+  intelligenceAdapterInternal,
+} from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
@@ -53,6 +56,23 @@ const createRenderer = (sink: RenderEventSink) => {
   });
   const renderer = adapter.createRunRenderer(target);
   return {
+    renderer,
+    subscriber: renderer.subscriber as unknown as Subscriber,
+  };
+};
+
+const createTerminalBatchingRenderer = (sink: RenderEventSink) => {
+  const adapter = intelligenceAdapterInternal(
+    {
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink: sink,
+    },
+    { terminalBatchingEnabled: true },
+  );
+  const renderer = adapter.createRunRenderer(target);
+  return {
+    adapter,
     renderer,
     subscriber: renderer.subscriber as unknown as Subscriber,
   };
@@ -157,7 +177,7 @@ describe("managed render batch compaction", () => {
     expect(attempts).toHaveLength(1);
   });
 
-  it("flushes the first non-empty text immediately with contiguous post-compaction sequence numbers", async () => {
+  it("keeps eager first-text streaming when terminal batching is disabled", async () => {
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);
 
@@ -184,6 +204,188 @@ describe("managed render batch compaction", () => {
         },
       ],
     });
+  });
+
+  it("holds a bounded effect-free run and submits one ordered terminal batch on success", async () => {
+    const sink = new RecordingBatchSink();
+    const { renderer, subscriber } = createTerminalBatchingRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hello " },
+    });
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "world" },
+    });
+    subscriber.onToolCallStartEvent?.({
+      event: { toolCallId: "tc1", toolCallName: "search" },
+    });
+    subscriber.onToolCallEndEvent?.({
+      event: { toolCallId: "tc1" },
+      toolCallName: "search",
+      toolCallArgs: {},
+    } as never);
+    subscriber.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    await settle();
+
+    expect(sink.batches).toHaveLength(0);
+    await renderer.finish?.();
+
+    expect(sink.batches).toHaveLength(1);
+    expect(sink.batches[0]?.frames).toEqual([
+      { seq: 0, event: { kind: "run_started" } },
+      {
+        seq: 1,
+        event: {
+          kind: "text_delta",
+          messageId: "m1",
+          delta: "hello world",
+        },
+      },
+      {
+        seq: 2,
+        event: {
+          kind: "tool_start",
+          toolCallId: "tc1",
+          toolName: "search",
+        },
+      },
+      {
+        seq: 3,
+        event: {
+          kind: "tool_end",
+          toolCallId: "tc1",
+          toolName: "search",
+        },
+      },
+      { seq: 4, event: { kind: "text_end", messageId: "m1" } },
+      { seq: 5, event: { kind: "finalize" } },
+    ]);
+  });
+
+  it.each([
+    {
+      name: "interrupt",
+      drive: async (
+        renderer: ReturnType<typeof createTerminalBatchingRenderer>["renderer"],
+        subscriber: Subscriber,
+      ) => {
+        subscriber.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "partial" },
+        });
+        await renderer.markInterrupted();
+      },
+      expected: ["run_started", "text_delta", "interrupt", "finalize"],
+    },
+    {
+      name: "run_error",
+      drive: async (
+        renderer: ReturnType<typeof createTerminalBatchingRenderer>["renderer"],
+        subscriber: Subscriber,
+      ) => {
+        subscriber.onRunErrorEvent?.({
+          event: { message: "failed" },
+        });
+        await renderer.finish?.();
+      },
+      expected: ["run_started", "run_error", "finalize"],
+    },
+  ])(
+    "submits one complete ordered terminal history for $name",
+    async ({ drive, expected }) => {
+      const sink = new RecordingBatchSink();
+      const { renderer, subscriber } = createTerminalBatchingRenderer(sink);
+
+      await drive(renderer, subscriber);
+
+      expect(sink.batches).toHaveLength(1);
+      expect(sink.batches[0]?.frames.map((frame) => frame.event.kind)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it("flushes the buffered prefix before an explicit effect and streams the rest contiguously", async () => {
+    const sink = new RecordingBatchSink();
+    const { adapter, renderer, subscriber } =
+      createTerminalBatchingRenderer(sink);
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "before" },
+    });
+    await adapter.post(target, card);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: " after" },
+    });
+    subscriber.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    await settle();
+
+    expect(
+      sink.batches.map((batch) =>
+        batch.frames.map((frame) => frame.event.kind),
+      ),
+    ).toEqual([
+      ["run_started", "text_delta"],
+      ["post"],
+      ["text_delta", "text_end"],
+    ]);
+    expect(
+      sink.batches.flatMap((batch) => batch.frames.map((frame) => frame.seq)),
+    ).toEqual([0, 1, 2, 3, 4]);
+
+    await renderer.finish?.();
+    expect(sink.batches.at(-1)?.frames).toEqual([
+      { seq: 5, event: { kind: "finalize" } },
+    ]);
+  });
+
+  it("flushes a full 64-frame prefix and permanently falls back to streaming", async () => {
+    const sink = new RecordingBatchSink();
+    const { renderer, subscriber } = createTerminalBatchingRenderer(sink);
+
+    for (let index = 0; index < 64; index += 1) {
+      subscriber.onToolCallStartEvent?.({
+        event: { toolCallId: `tc${index}`, toolCallName: "search" },
+      });
+    }
+    await settle();
+
+    expect(sink.batches.map((batch) => batch.frames.length)).toEqual([64, 1]);
+    subscriber.onToolCallStartEvent?.({
+      event: { toolCallId: "tc64", toolCallName: "search" },
+    });
+    await settle();
+    expect(sink.batches.at(-1)?.frames).toHaveLength(1);
+
+    await renderer.finish?.();
+  });
+
+  it("flushes a byte-bounded prefix and permanently falls back to streaming", async () => {
+    const sink = new RecordingBatchSink();
+    const { renderer, subscriber } = createTerminalBatchingRenderer(sink);
+    const largeToolName = "x".repeat(40 * 1024);
+
+    for (let index = 0; index < 3; index += 1) {
+      subscriber.onToolCallStartEvent?.({
+        event: { toolCallId: `tc${index}`, toolCallName: largeToolName },
+      });
+    }
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "x".repeat(16 * 1024) },
+    });
+    await settle();
+
+    expect(sink.batches.map((batch) => batch.frames.length)).toEqual([4, 1]);
+    subscriber.onToolCallStartEvent?.({
+      event: { toolCallId: "tc4", toolCallName: "small" },
+    });
+    await settle();
+    expect(sink.batches.at(-1)?.frames).toHaveLength(1);
+
+    await renderer.finish?.();
   });
 
   it("flushes later adjacent text at a deterministic delta count and before a semantic boundary", async () => {

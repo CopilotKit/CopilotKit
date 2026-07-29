@@ -175,6 +175,18 @@ export interface IntelligenceAdapterOptions {
   historyLimit?: number;
 }
 
+const INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS = Symbol(
+  "internal-intelligence-adapter-options",
+);
+
+interface InternalIntelligenceAdapterOptions {
+  terminalBatchingEnabled: boolean;
+}
+
+type IntelligenceAdapterConstructionOptions = IntelligenceAdapterOptions & {
+  [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]?: InternalIntelligenceAdapterOptions;
+};
+
 /**
  * @internal Not a publicly documented API.
  *
@@ -321,6 +333,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
   /** Streaming render transport — injected via opts (realtime path). When unset,
    * the run renderer translates frames to `post` ops on {@link egress}. */
   private renderSink?: RenderEventSink;
+  /** Activation-scoped managed-path brownout decision. Never public config. */
+  private readonly terminalBatchingEnabled: boolean;
   /** Per-turn render state; reset at the start of each turn's processing so a
    * redelivery reproduces the same operation ids. A realtime turn starts
    * non-terminal: even an output-free handler must durably accept `finalize`
@@ -335,6 +349,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private readonly renderLaneFlushers = new Map<string, () => void>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
+    this.terminalBatchingEnabled =
+      (opts as IntelligenceAdapterConstructionOptions)[
+        INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS
+      ]?.terminalBatchingEnabled ?? false;
     this.source = opts.source;
     this.egress = opts.egress;
     this.renderSink = opts.renderSink;
@@ -830,6 +848,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
         error: "Channel adapter: outbound file upload is not available",
       };
     }
+    // The upload is asynchronous, but invoking a file effect is still a
+    // semantic boundary for the run renderer. Drain its prefix and permanently
+    // enter streaming before bytes leave this process, so renderer callbacks
+    // that arrive while the upload is in flight cannot overtake the effect.
+    this.renderLaneFlushers.get(channelTarget.turnId)?.();
     try {
       // Stream bytes to app-api first (durable in S3), then emit a `file` frame
       // referencing the handle; the Connector Outbox does the Slack uploadV2.
@@ -1011,6 +1034,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
       | undefined;
     let pendingTextDeltaCount = 0;
     let firstTextFlushed = false;
+    let rendererTextSeen = false;
+    let streaming = !this.terminalBatchingEnabled;
     let tailFlushTimer: ReturnType<typeof setTimeout> | undefined;
     let lanePendingBytes = 0;
     // OSS-648: time each push so the per-frame round-trip cost of this serial
@@ -1102,19 +1127,25 @@ export class IntelligenceAdapter implements PlatformAdapter {
       });
     };
 
+    const wouldOverflowBatch = (frame: RenderFrame): boolean => {
+      const nextFrames = [...batchFrames, frame];
+      return (
+        batchFrames.length > 0 &&
+        (nextFrames.length > RENDER_BATCH_MAX_FRAMES ||
+          encodedJsonBytes(nextFrames) > RENDER_BATCH_MAX_BYTES)
+      );
+    };
+
     const addFrame = (event: ChannelRenderEvent): void => {
       if (transportError !== undefined || enqueueError !== undefined) return;
       const frame: RenderFrame = {
         seq: this.nextFrameSeq(t.turnId),
         event,
       };
-      const nextFrames = [...batchFrames, frame];
-      if (
-        batchFrames.length > 0 &&
-        (nextFrames.length > RENDER_BATCH_MAX_FRAMES ||
-          encodedJsonBytes(nextFrames) > RENDER_BATCH_MAX_BYTES)
-      ) {
+      if (wouldOverflowBatch(frame)) {
         flushBatch();
+        streaming = true;
+        firstTextFlushed ||= rendererTextSeen;
       }
       if (encodedJsonBytes([frame]) > RENDER_BATCH_MAX_BYTES) {
         enqueueError = new Error(
@@ -1144,6 +1175,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
       flushBatch();
     };
 
+    const flushForDiscreteEffect = (): void => {
+      if (!streaming) {
+        flushPendingText();
+        flushBatch();
+        streaming = true;
+        firstTextFlushed ||= rendererTextSeen;
+        return;
+      }
+      flushPendingTextBatch();
+    };
+
     const scheduleTailFlush = (): void => {
       if (tailFlushTimer !== undefined || pendingText === undefined) return;
       tailFlushTimer = setTimeout(() => {
@@ -1152,9 +1194,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
       }, RENDER_TEXT_TAIL_FLUSH_MS);
     };
 
-    this.renderLaneFlushers.set(t.turnId, flushPendingTextBatch);
+    this.renderLaneFlushers.set(t.turnId, flushForDiscreteEffect);
 
-    const enqueue = (event: ChannelRenderEvent): void => {
+    const enqueueStreaming = (event: ChannelRenderEvent): void => {
       if (transportError !== undefined || enqueueError !== undefined) return;
       if (event.kind === "text_delta") {
         if (!firstTextFlushed) {
@@ -1197,6 +1239,51 @@ export class IntelligenceAdapter implements PlatformAdapter {
       flushBatch();
     };
 
+    const enqueue = (event: ChannelRenderEvent): void => {
+      if (transportError !== undefined || enqueueError !== undefined) return;
+      if (streaming) {
+        enqueueStreaming(event);
+        return;
+      }
+
+      if (event.kind === "text_delta") {
+        rendererTextSeen = true;
+        if (
+          pendingText &&
+          (pendingText.messageId !== event.messageId ||
+            Buffer.byteLength(pendingText.delta + event.delta, "utf8") >
+              RENDER_TEXT_MAX_BYTES ||
+            pendingTextDeltaCount >= RENDER_TEXT_MAX_DELTAS)
+        ) {
+          flushPendingText();
+          if (streaming) {
+            flushBatch();
+            enqueueStreaming(event);
+            return;
+          }
+        }
+        pendingText = pendingText
+          ? { ...pendingText, delta: pendingText.delta + event.delta }
+          : event;
+        pendingTextDeltaCount += 1;
+        const pendingFrame: RenderFrame = {
+          seq: this.renderState.get(t.turnId)?.nextSeq ?? 0,
+          event: pendingText,
+        };
+        if (wouldOverflowBatch(pendingFrame)) {
+          flushBatch();
+          streaming = true;
+          firstTextFlushed = true;
+          flushPendingTextBatch();
+        }
+        return;
+      }
+
+      flushPendingText();
+      addFrame(event);
+      if (streaming) flushBatch();
+    };
+
     const drain = async (): Promise<void> => {
       flushPendingTextBatch();
       try {
@@ -1214,7 +1301,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         }
       } finally {
         clearTailFlushTimer();
-        if (this.renderLaneFlushers.get(t.turnId) === flushPendingTextBatch) {
+        if (this.renderLaneFlushers.get(t.turnId) === flushForDiscreteEffect) {
           this.renderLaneFlushers.delete(t.turnId);
         }
       }
@@ -1354,4 +1441,18 @@ export function intelligenceAdapter(
   opts: IntelligenceAdapterOptions = {},
 ): IntelligenceAdapter {
   return new IntelligenceAdapter(opts);
+}
+
+/**
+ * Activation-only construction seam. Intentionally not re-exported from the
+ * package root: terminal batching is an Operations brownout, not public config.
+ */
+export function intelligenceAdapterInternal(
+  opts: IntelligenceAdapterOptions,
+  internal: InternalIntelligenceAdapterOptions,
+): IntelligenceAdapter {
+  return new IntelligenceAdapter({
+    ...opts,
+    [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]: internal,
+  } as IntelligenceAdapterConstructionOptions);
 }

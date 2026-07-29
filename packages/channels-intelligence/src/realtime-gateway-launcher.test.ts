@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { createChannel, FakeAgent } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import {
@@ -94,6 +94,10 @@ function isObject(value: unknown): value is {
 } {
   return value !== null && typeof value === "object";
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("startChannelsWithGatewaySession — Channel runtime over Realtime Gateway (OSS-406)", () => {
   it("finalizes a direct post before requesting completion and never self-acks", async () => {
@@ -485,6 +489,66 @@ function makeFakeWebSocket(mode: JoinMode) {
 }
 
 describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406)", () => {
+  it("evaluates terminal batching once only for the exact managed production activation", async () => {
+    const evaluateFlag = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        flags: { "channels-terminal-batching": { enabled: true } },
+      }),
+    }));
+    vi.stubGlobal("fetch", evaluateFlag);
+    const { FakeWebSocket } = makeFakeWebSocket("ok");
+    const makeBot = () =>
+      createChannel({
+        name: "opentag",
+        agent: () => new FakeAgent(),
+      });
+
+    const managed = await startChannelsOverRealtimeGateway([makeBot()], {
+      wsUrl: "wss://realtime.intelligence.copilotkit.ai/runner",
+      appApiBaseUrl: "https://api.intelligence.copilotkit.ai",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_managed",
+      env: { runtimeEnv: "production" },
+      webSocket: FakeWebSocket,
+    });
+    expect(evaluateFlag).toHaveBeenCalledTimes(1);
+    await managed.stop();
+
+    const custom = await startChannelsOverRealtimeGateway([makeBot()], {
+      wsUrl: "wss://gateway.example/runner",
+      appApiBaseUrl: "https://api.example",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_custom",
+      env: { runtimeEnv: "production" },
+      webSocket: FakeWebSocket,
+    });
+    await custom.stop();
+
+    const development = await startChannelsOverRealtimeGateway([makeBot()], {
+      wsUrl: "wss://realtime.intelligence.copilotkit.ai/runner",
+      appApiBaseUrl: "https://api.intelligence.copilotkit.ai",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_development",
+      env: { runtimeEnv: "development" },
+      webSocket: FakeWebSocket,
+    });
+    await development.stop();
+
+    const callerOwned = await startChannelsWithGatewaySession([makeBot()], {
+      session: makeFakeSession().session,
+      scope,
+      runtimeInstanceId: "rti_caller_owned",
+      env: { runtimeEnv: "production" },
+    });
+    await callerOwned.stop();
+
+    expect(evaluateFlag).toHaveBeenCalledTimes(1);
+  });
+
   it("disconnects the socket when the channel join times out", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("never");
     const bot = createChannel({
