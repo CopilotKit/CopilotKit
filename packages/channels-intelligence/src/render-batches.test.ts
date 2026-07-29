@@ -59,8 +59,9 @@ const createRenderer = (sink: RenderEventSink) => {
 };
 
 const settle = async (): Promise<void> => {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
 };
 
 afterEach(() => {
@@ -91,7 +92,7 @@ describe("managed render batch compaction", () => {
     });
     await renderer.finish?.();
 
-    expect(attempts).toHaveLength(3);
+    expect(attempts).toHaveLength(4);
     expect(attempts[1]).toBe(attempts[0]);
   });
 
@@ -128,6 +129,34 @@ describe("managed render batch compaction", () => {
     expect(attempts[1]).toBe(attempts[0]);
   });
 
+  it("does not retry a batch rejected with a permanent transport code", async () => {
+    vi.useFakeTimers();
+    const attempts: AcceptedBatch[] = [];
+    const sink: RenderEventSink = {
+      pushBatch: async (batch) => {
+        attempts.push(batch);
+        throw Object.assign(new Error("render batch rejected"), {
+          code: "CHANNEL_RENDER_BATCH_CONFLICT",
+        });
+      },
+    };
+    const { renderer, subscriber } = createRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hello" },
+    });
+    const finishing = renderer.finish?.();
+    await settle();
+
+    expect(attempts).toHaveLength(1);
+    const rejected = expect(finishing).rejects.toMatchObject({
+      code: "CHANNEL_RENDER_BATCH_CONFLICT",
+    });
+    await vi.runAllTimersAsync();
+    await rejected;
+    expect(attempts).toHaveLength(1);
+  });
+
   it("flushes the first non-empty text immediately with contiguous post-compaction sequence numbers", async () => {
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);
@@ -137,19 +166,24 @@ describe("managed render batch compaction", () => {
     });
     await settle();
 
-    expect(sink.batches).toHaveLength(1);
+    expect(sink.batches).toHaveLength(2);
     expect(sink.batches[0]).toMatchObject({
       startSeq: 0,
+      endSeq: 0,
+      frames: [{ seq: 0, event: { kind: "run_started" } }],
+    });
+    await renderer.finish?.();
+
+    expect(sink.batches[1]).toMatchObject({
+      startSeq: 1,
       endSeq: 1,
       frames: [
-        { seq: 0, event: { kind: "run_started" } },
         {
           seq: 1,
           event: { kind: "text_delta", messageId: "m1", delta: "hello" },
         },
       ],
     });
-    await renderer.finish?.();
   });
 
   it("flushes later adjacent text at a deterministic delta count and before a semantic boundary", async () => {
@@ -166,22 +200,22 @@ describe("managed render batch compaction", () => {
       });
     }
     await settle();
-    expect(sink.batches).toHaveLength(1);
+    expect(sink.batches).toHaveLength(2);
 
     subscriber.onTextMessageContentEvent?.({
       event: { messageId: "m1", delta: " 255" },
     });
     await settle();
-    expect(sink.batches).toHaveLength(2);
+    expect(sink.batches).toHaveLength(3);
 
     subscriber.onTextMessageEndEvent?.({
       event: { messageId: "m1" },
     });
     await settle();
 
-    expect(sink.batches).toHaveLength(3);
-    expect(sink.batches[1]?.frames[0]?.event.kind).toBe("text_delta");
-    expect(sink.batches[2]?.frames).toEqual([
+    expect(sink.batches).toHaveLength(4);
+    expect(sink.batches[2]?.frames[0]?.event.kind).toBe("text_delta");
+    expect(sink.batches[3]?.frames).toEqual([
       { seq: 3, event: { kind: "text_end", messageId: "m1" } },
     ]);
     await renderer.finish?.();
@@ -262,6 +296,49 @@ describe("managed render batch compaction", () => {
     await finishing;
     expect(calls).toBeGreaterThan(1);
     expect(maxActive).toBe(1);
+  });
+
+  it("keeps a concurrent discrete post behind the active renderer batch", async () => {
+    const batches: AcceptedBatch[] = [];
+    let releaseFirst: (() => void) | undefined;
+    const firstPush = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const sink: RenderEventSink = {
+      pushBatch: async (batch) => {
+        batches.push(batch);
+        if (batches.length === 1) await firstPush;
+        return {
+          batchId: batch.batchId,
+          egressOperationId: "eop_shared_lane",
+          acceptedThroughSeq: batch.endSeq,
+          duplicate: false,
+        };
+      },
+    };
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink: sink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const subscriber = renderer.subscriber as unknown as Subscriber;
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hello" },
+    });
+    await settle();
+    const posting = adapter.post(target, card);
+    await settle();
+
+    expect(batches).toHaveLength(1);
+    releaseFirst?.();
+    await posting;
+    await renderer.finish?.();
+    expect(batches.map((batch) => batch.startSeq)).toEqual([0, 1, 2, 3]);
   });
 
   it("fails the lane with a stable bounded-memory error while transport is stalled", async () => {

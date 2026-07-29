@@ -107,6 +107,35 @@ describe("createRenderTurnMetrics", () => {
     expect(s.pushBlockedPct).toBe(50);
   });
 
+  it("counts every frame in a batch but records its round-trip latency once", () => {
+    const log = vi.fn();
+    const m = createRenderTurnMetrics({
+      mode: "summary",
+      turnId: "turn_1",
+      deliveryId: "dlv_1",
+      log,
+      now: clockOf([0, 100]),
+    });
+    if (!m) throw new Error("expected metrics");
+
+    m.recordBatch(
+      [
+        { kind: "run_started", deltaChars: 0 },
+        { kind: "text_delta", deltaChars: 5 },
+        { kind: "text_delta", deltaChars: 7 },
+      ],
+      10,
+      40,
+    );
+    const s = m.finish();
+
+    expect(s.batches).toBe(1);
+    expect(s.frames).toBe(3);
+    expect(s.framesByKind).toEqual({ run_started: 1, text_delta: 2 });
+    expect(s.textDeltaChars).toBe(12);
+    expect(s.pushMsTotal).toBe(30);
+  });
+
   it("emits exactly one summary log line even if finish is called twice", () => {
     const log = vi.fn();
     const m = createRenderTurnMetrics({

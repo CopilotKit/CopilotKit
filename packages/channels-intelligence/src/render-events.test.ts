@@ -910,6 +910,7 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
     expect(summaries[0]?.[1]).toMatchObject({
       turnId: "turn_t1",
       deliveryId: "dlv_d1",
+      batches: 3,
       frames: 4,
       textDeltaFrames: 2,
       textDeltaChars: 5,
@@ -918,20 +919,32 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
     });
   });
 
-  it("logs one line per frame in frames mode, plus the summary", async () => {
+  it("logs one line per batch in frames mode, plus the summary", async () => {
     const log = await runInstrumentedTurn("frames");
 
-    const perFrame = log.mock.calls.filter(
-      (c) => c[0] === "channel render frame pushed",
+    const perBatch = log.mock.calls.filter(
+      (c) => c[0] === "channel render batch pushed",
     );
-    expect(perFrame).toHaveLength(4);
-    expect(perFrame.map((c) => (c[1] as { kind: string }).kind)).toEqual([
-      "run_started",
-      "text_delta",
-      "text_delta",
-      "finalize",
+    expect(perBatch).toHaveLength(3);
+    expect(perBatch.map((c) => c[1])).toMatchObject([
+      {
+        batchSeq: 0,
+        frameCount: 1,
+        framesByKind: { run_started: 1 },
+      },
+      {
+        batchSeq: 1,
+        frameCount: 1,
+        framesByKind: { text_delta: 1 },
+        textDeltaChars: 3,
+      },
+      {
+        batchSeq: 2,
+        frameCount: 2,
+        framesByKind: { text_delta: 1, finalize: 1 },
+        textDeltaChars: 2,
+      },
     ]);
-    expect(perFrame[1]?.[1]).toMatchObject({ seq: 1, deltaChars: 3 });
     expect(
       log.mock.calls.filter((c) => c[0] === "channel render metrics"),
     ).toHaveLength(1);

@@ -4,6 +4,7 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   HttpDeliverySource,
   HttpEgressSink,
+  IntelligenceHttpError,
   HttpRenderEventSink,
   resolveTransportConfig,
 } from "./http-transports.js";
@@ -1125,6 +1126,41 @@ describe("HttpRenderEventSink", () => {
         event: { kind: "run_started" },
       }),
     ).rejects.toThrow(/no leased scope/);
+  });
+
+  it("preserves the REST error code and status on a rejected render batch", async () => {
+    const { fetch } = fakeFetch((call) =>
+      call.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : {
+            ok: false,
+            status: 409,
+            body: {
+              error: {
+                code: "CHANNEL_RENDER_BATCH_CONFLICT",
+                message: "batch content changed",
+              },
+            },
+          },
+    );
+    const conf = cfg({ fetch });
+    const source = new HttpDeliverySource(conf);
+    await source.claimOnce();
+    const sink = new HttpRenderEventSink(conf, source);
+
+    const rejected = pushOne(sink, {
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      slot: "main",
+      seq: 0,
+      event: { kind: "run_started" },
+    });
+
+    await expect(rejected).rejects.toBeInstanceOf(IntelligenceHttpError);
+    await expect(rejected).rejects.toMatchObject({
+      status: 409,
+      code: "CHANNEL_RENDER_BATCH_CONFLICT",
+    });
   });
 });
 

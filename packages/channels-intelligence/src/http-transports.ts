@@ -180,6 +180,33 @@ interface EgressResponse {
   error?: { code: string; message: string; retryable: boolean };
 }
 
+/** Typed non-success response from an Intelligence HTTP route. */
+export class IntelligenceHttpError extends Error {
+  constructor(
+    readonly path: string,
+    readonly status: number,
+    readonly code: string | undefined,
+    responseBody: string,
+  ) {
+    super(`intelligence ${path} -> ${status}: ${responseBody.slice(0, 300)}`);
+    this.name = "IntelligenceHttpError";
+  }
+}
+
+/** Read a REST error code without depending on its optional wrapper shape. */
+function parseHttpErrorCode(raw: string): string | undefined {
+  try {
+    const parsed = JSON.parse(raw) as {
+      code?: unknown;
+      error?: { code?: unknown };
+    };
+    const code = parsed.error?.code ?? parsed.code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** A `cpk-`-authenticated JSON POST helper against Intelligence app-api. */
 class IntelligenceHttp {
   constructor(private readonly cfg: IntelligenceTransportConfig) {}
@@ -206,8 +233,11 @@ class IntelligenceHttp {
     });
     const raw = await res.text();
     if (!res.ok) {
-      throw new Error(
-        `intelligence ${path} -> ${res.status}: ${raw.slice(0, 300)}`,
+      throw new IntelligenceHttpError(
+        path,
+        res.status,
+        parseHttpErrorCode(raw),
+        raw,
       );
     }
     return raw ? (JSON.parse(raw) as T) : ({} as T);

@@ -230,6 +230,20 @@ export class RealtimeGatewayUnreachableError extends Error {
   }
 }
 
+/** Typed rejection returned by a joined realtime gateway channel push. */
+export class RealtimeGatewayPushError extends Error {
+  constructor(
+    readonly event: string,
+    readonly code: string | undefined,
+    reason: unknown,
+  ) {
+    super(
+      `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
+    );
+    this.name = "RealtimeGatewayPushError";
+  }
+}
+
 /**
  * Error codes that mean the configured host CANNOT come up on its own, so the
  * initial connect fails immediately instead of waiting out
@@ -822,8 +836,10 @@ export async function connectRealtimeGateway(
           .receive("ok", (reply: unknown) => resolve(reply))
           .receive("error", (reason: unknown) =>
             reject(
-              new Error(
-                `realtime gateway session push ${event} failed: ${safeReason(reason)}`,
+              new RealtimeGatewayPushError(
+                event,
+                extractReasonCode(reason),
+                reason,
               ),
             ),
           )

@@ -56,6 +56,21 @@ import {
   RENDER_TEXT_MAX_BYTES,
 } from "./render-batches.js";
 
+const PERMANENT_RENDER_BATCH_ERROR_CODES = new Set([
+  "CHANNEL_RENDER_BATCH_CONFLICT",
+  "CHANNEL_RENDER_SEQUENCE_GAP",
+]);
+
+/** Return whether retrying the same render batch cannot succeed. */
+function isPermanentRenderBatchError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const coded = error as { code?: unknown };
+  return (
+    typeof coded.code === "string" &&
+    PERMANENT_RENDER_BATCH_ERROR_CODES.has(coded.code)
+  );
+}
+
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
   route: unknown;
@@ -313,6 +328,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
     string,
     { nextSeq: number; needsFinalize: boolean }
   >();
+  /** Shared per-turn transport tail for renderer batches and discrete effects. */
+  private readonly renderLaneTails = new Map<string, Promise<void>>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -449,6 +466,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
       this.renderState.delete(env.turnId);
+      this.renderLaneTails.delete(env.turnId);
     }
     if (!turnProcessed) return;
     // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
@@ -634,6 +652,30 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   /**
+   * Serializes every durable render request for one turn/slot lane.
+   *
+   * Renderer batches and discrete post/update/file/delete effects share the
+   * same sequence allocator, so they must also share one transport queue. The
+   * stored tail absorbs a failed operation only for queue continuity; callers
+   * still receive the original rejection.
+   */
+  private enqueueRenderLane<T>(
+    turnId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const previous = this.renderLaneTails.get(turnId) ?? Promise.resolve();
+    const result = previous.then(operation);
+    this.renderLaneTails.set(
+      turnId,
+      result.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return result;
+  }
+
+  /**
    * Pushes one realtime frame immediately and records its accepted terminal
    * state. Sequence allocation stays deterministic across delivery retries.
    */
@@ -642,18 +684,20 @@ export class IntelligenceAdapter implements PlatformAdapter {
     event: ChannelRenderEvent,
   ): Promise<{ receipt: RenderBatchAccepted; seq: number }> {
     const seq = this.nextFrameSeq(target.turnId);
-    const receipt = await this.requireRenderSink().pushBatch(
-      createRenderBatch(
-        {
-          deliveryId: target.deliveryId,
-          turnId: target.turnId,
-          slot: "main",
-        },
-        [{ seq, event }],
-      ),
-    );
-    this.recordAcceptedRenderEvent(target.turnId, event);
-    return { receipt, seq };
+    return this.enqueueRenderLane(target.turnId, async () => {
+      const receipt = await this.requireRenderSink().pushBatch(
+        createRenderBatch(
+          {
+            deliveryId: target.deliveryId,
+            turnId: target.turnId,
+            slot: "main",
+          },
+          [{ seq, event }],
+        ),
+      );
+      this.recordAcceptedRenderEvent(target.turnId, event);
+      return { receipt, seq };
+    });
   }
 
   /**
@@ -999,7 +1043,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         lanePendingBytes -= batchBytes;
         return;
       }
-      chain = chain.then(async () => {
+      chain = this.enqueueRenderLane(t.turnId, async () => {
         if (transportError !== undefined) {
           lanePendingBytes -= batchBytes;
           return;
@@ -1012,12 +1056,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
               receipt = await sink.pushBatch(batch);
               break;
             } catch (err) {
-              const message = err instanceof Error ? err.message : String(err);
-              const permanent =
-                message.includes("CHANNEL_RENDER_BATCH_CONFLICT") ||
-                message.includes("CHANNEL_RENDER_SEQUENCE_GAP") ||
-                message.includes("-> 409");
-              if (permanent || attempt === 3) throw err;
+              if (isPermanentRenderBatchError(err) || attempt === 3) throw err;
               await waitForRenderBatchRetry(attempt);
             }
           }
@@ -1042,14 +1081,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
         } finally {
           lanePendingBytes -= batchBytes;
           const pushFinishedAt = Date.now();
-          for (const frame of batch.frames) {
-            metrics?.recordPush(
-              frame.event.kind,
-              pushStartedAt,
-              pushFinishedAt,
-              frame.event.kind === "text_delta" ? frame.event.delta.length : 0,
-            );
-          }
+          metrics?.recordBatch(
+            batch.frames.map((frame) => ({
+              kind: frame.event.kind,
+              deltaChars:
+                frame.event.kind === "text_delta"
+                  ? frame.event.delta.length
+                  : 0,
+            })),
+            pushStartedAt,
+            pushFinishedAt,
+          );
         }
       });
     };
@@ -1117,6 +1159,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
 
       if (event.kind === "run_started") {
         addFrame(event);
+        flushBatch();
         return;
       }
 
