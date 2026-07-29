@@ -74,7 +74,9 @@ async function rewritePart(part: unknown): Promise<unknown> {
     const url =
       typeof iu === "string"
         ? iu
-        : iu && typeof iu === "object" && typeof (iu as { url?: unknown }).url === "string"
+        : iu &&
+            typeof iu === "object" &&
+            typeof (iu as { url?: unknown }).url === "string"
           ? (iu as { url: string }).url
           : undefined;
     if (typeof url === "string" && url.startsWith("data:")) {

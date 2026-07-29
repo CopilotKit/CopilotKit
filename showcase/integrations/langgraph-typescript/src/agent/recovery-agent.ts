@@ -115,11 +115,17 @@ function extractXHeaders(
  */
 const headerForwardingMiddleware = createMiddleware({
   name: "a2ui-recovery-header-forwarding",
-  wrapModelCall: (request: { runtime?: { configurable?: Record<string, unknown> } }, handler: (req: any) => any) => {
+  wrapModelCall: (
+    request: { runtime?: { configurable?: Record<string, unknown> } },
+    handler: (req: any) => any,
+  ) => {
     const headers = extractXHeaders(request?.runtime?.configurable);
     return forwardedHeadersStore.run(headers, () => handler(request));
   },
-  wrapToolCall: (request: { runtime?: { configurable?: Record<string, unknown> } }, handler: (req: any) => any) => {
+  wrapToolCall: (
+    request: { runtime?: { configurable?: Record<string, unknown> } },
+    handler: (req: any) => any,
+  ) => {
     const headers = extractXHeaders(request?.runtime?.configurable);
     return forwardedHeadersStore.run(headers, () => handler(request));
   },
