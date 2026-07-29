@@ -17,9 +17,11 @@ vi.mock("@copilotkit/web-components/threads-drawer", () => {
 });
 
 describe("@copilotkit/vue SSR import safety", () => {
+  // Importing the full package barrel is a correctness/SSR-safety assertion,
+  // not a performance assertion, and can exceed Vitest's 5s default under full-suite load.
   it("does not eagerly evaluate the Lit element module when the package entry is imported", async () => {
     const mod = await import("../../../../index");
     expect(mod.CopilotThreadsDrawer).toBeDefined();
     expect(evaluated.current).toBe(false);
-  });
+  }, 15_000);
 });
