@@ -13,6 +13,7 @@
     "showcase/aimock/shared/**",
     "showcase/aimock/d4/**",
     "showcase/aimock/d6/**",
-    "**/package.json"
+    "**/package.json",
+    "showcase/scripts/__tests__/fixtures/imagetools/**"
   ]
 }

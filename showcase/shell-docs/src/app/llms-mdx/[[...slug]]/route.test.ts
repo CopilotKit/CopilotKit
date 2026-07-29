@@ -242,28 +242,28 @@ describe("llms-mdx route", () => {
     expect(renderPageToLlmTextMock).not.toHaveBeenCalled();
   });
 
-  it("serves frontend quickstart markdown from the frontend guide content", async () => {
+  it("serves channel connection markdown from the frontend guide content", async () => {
     loadDocMock.mockImplementation((slug: string) =>
       slug === "frontends/slack"
         ? {
             source: "",
             filePath: "frontends/slack.mdx",
             fm: {
-              title: "Slack Quickstart",
+              title: "Connect and run your agent in Slack",
               description: "Slack frontend docs.",
             },
           }
         : null,
     );
 
-    const response = await callLlmsMdxRoute(["slack"]);
+    const response = await callLlmsMdxRoute(["slack", "connect"]);
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe("rendered markdown");
     expect(loadDocMock).toHaveBeenCalledWith("frontends/slack");
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "slack",
+        url: "slack/connect",
         filePath: "frontends/slack.mdx",
         loadSlug: "frontends/slack",
         framework: "built-in-agent",
@@ -338,27 +338,31 @@ describe("llms-mdx route", () => {
     );
   });
 
-  it("keeps the selected framework while expanding a Slack quickstart", async () => {
+  it("keeps the selected framework while expanding a Slack connection guide", async () => {
     loadDocMock.mockImplementation((slug: string) =>
       slug === "frontends/slack"
         ? {
             source: "",
             filePath: "frontends/slack.mdx",
             fm: {
-              title: "Slack Quickstart",
+              title: "Connect and run your agent in Slack",
               description: "Slack frontend docs.",
             },
           }
         : null,
     );
 
-    const response = await callLlmsMdxRoute(["slack", "langgraph-python"]);
+    const response = await callLlmsMdxRoute([
+      "slack",
+      "langgraph-python",
+      "connect",
+    ]);
 
     expect(response.status).toBe(200);
     expect(loadDocMock).toHaveBeenCalledWith("frontends/slack");
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "slack/langgraph-python",
+        url: "slack/langgraph-python/connect",
         loadSlug: "frontends/slack",
         framework: "langgraph-python",
         frontend: "slack",

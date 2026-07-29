@@ -3,6 +3,7 @@ import { expect, test, vi } from "vitest";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
   channelGuideHref,
 } from "@/lib/channel-guide-routes";
 import { getAllLlmPages, renderPageToLlmText } from "@/lib/llm-text";
@@ -22,7 +23,7 @@ vi.mock("@/lib/llm-text", async (importOriginal) => {
   };
 });
 
-test("renders every channel quickstart and one shared guide body per provider", async () => {
+test("renders every channel connection guide and one shared guide body per provider", async () => {
   const response = GET();
   const body = await response.text();
   const baseUrl = getBaseUrl();
@@ -36,12 +37,10 @@ test("renders every channel quickstart and one shared guide body per provider", 
 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const integration of visibleFrameworks) {
-      const quickstartUrl = channelGuideHref(
-        frontend,
-        integration.slug,
-        "",
-      ).slice(1);
-      expect(body).toContain(`## Source: ${baseUrl}/${quickstartUrl}\n`);
+      const connectUrl = channelConnectHref(frontend, integration.slug).slice(
+        1,
+      );
+      expect(body).toContain(`## Source: ${baseUrl}/${connectUrl}\n`);
     }
 
     for (const guide of CHANNEL_GUIDE_ROUTES) {

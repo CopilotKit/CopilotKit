@@ -138,6 +138,8 @@ describe("FrameworkSelector", () => {
     );
 
     expect(markup).toContain("Slack");
+    expect(markup).toContain("Channel");
+    expect(markup).not.toContain(">Frontend<");
     expect(markup).not.toContain("Production ready");
     expect(markup).not.toContain("px-1 py-0 text-[8px]");
     expect(markup).not.toContain("leading-[10px]");

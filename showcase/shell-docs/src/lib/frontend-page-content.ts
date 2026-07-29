@@ -184,22 +184,30 @@ export function getFrontendReferenceSlug(id: FrontendPageId): string {
   return FRONTEND_REFERENCE_SLUGS[id];
 }
 
-function getChannelGuidePages(section: ChannelGuideSection): NavNode[] {
-  return CHANNEL_GUIDE_ROUTES.filter((route) => route.section === section).map(
-    (route) => ({
-      type: "page",
-      title: route.navTitle,
-      slug: route.slug,
-    }),
-  );
+function getChannelGuidePages(
+  section: ChannelGuideSection,
+  excludeSlugs: readonly string[] = [],
+): NavNode[] {
+  return CHANNEL_GUIDE_ROUTES.filter(
+    (route) => route.section === section && !excludeSlugs.includes(route.slug),
+  ).map((route) => ({
+    type: "page",
+    title: route.navTitle,
+    slug: route.slug,
+  }));
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   if (isChannelFrontend(id)) {
     return [
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
-      { type: "page", title: "Quickstart", slug: "" },
-      ...getChannelGuidePages("getting-started"),
+      { type: "page", title: "Overview", slug: "" },
+      ...getChannelGuidePages("getting-started", ["overview"]),
+      {
+        type: "page",
+        title: "Connect and run your agent",
+        slug: "connect",
+      },
       { type: "section", title: "Build", icon: "lucide/Wand2" },
       ...getChannelGuidePages("build"),
       { type: "section", title: "Production", icon: "lucide/ServerCog" },

@@ -14,7 +14,9 @@ interface PermanentRedirect {
 const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"] as const;
 
 const CHANNEL_REDIRECT_GUIDE_SLUGS = [
+  "overview",
   "intelligence",
+  "connect",
   "tools",
   "rich-messages",
   "interactive",
@@ -48,12 +50,14 @@ function channelChildRedirects(
   options: { collapseExplicitDefaultGuide?: boolean } = {},
 ): PermanentRedirect[] {
   const redirects: PermanentRedirect[] = [];
+  const canonicalSuffix =
+    canonicalSlug === "overview" ? "" : `/${canonicalSlug}`;
 
   for (const frontend of CHANNEL_REDIRECT_FRONTENDS) {
     redirects.push(
       ...permanentRedirectsWithSuffixes(
         `/${frontend}/built-in-agent/channels/${legacySlug}`,
-        `/${frontend}/${canonicalSlug}`,
+        `/${frontend}${canonicalSuffix}`,
       ),
     );
 
@@ -61,7 +65,7 @@ function channelChildRedirects(
       redirects.push(
         ...permanentRedirectsWithSuffixes(
           `/${frontend}/built-in-agent/${legacySlug}`,
-          `/${frontend}/${canonicalSlug}`,
+          `/${frontend}${canonicalSuffix}`,
         ),
       );
     }
@@ -69,11 +73,11 @@ function channelChildRedirects(
     redirects.push(
       ...permanentRedirectsWithSuffixes(
         `/${frontend}/:framework/channels/${legacySlug}`,
-        `/${frontend}/:framework/${canonicalSlug}`,
+        `/${frontend}/:framework${canonicalSuffix}`,
       ),
       ...permanentRedirectsWithSuffixes(
         `/${frontend}/channels/${legacySlug}`,
-        `/${frontend}/${canonicalSlug}`,
+        `/${frontend}${canonicalSuffix}`,
       ),
     );
   }
@@ -81,15 +85,15 @@ function channelChildRedirects(
   redirects.push(
     ...permanentRedirectsWithSuffixes(
       `/built-in-agent/channels/${legacySlug}`,
-      `/slack/${canonicalSlug}`,
+      `/slack${canonicalSuffix}`,
     ),
     ...permanentRedirectsWithSuffixes(
       `/:framework((?!reference)[^/]+)/channels/${legacySlug}`,
-      `/slack/:framework/${canonicalSlug}`,
+      `/slack/:framework${canonicalSuffix}`,
     ),
     ...permanentRedirectsWithSuffixes(
       `/channels/${legacySlug}`,
-      `/slack/${canonicalSlug}`,
+      `/slack${canonicalSuffix}`,
     ),
   );
 
@@ -97,7 +101,7 @@ function channelChildRedirects(
 }
 
 const RETIRED_CHANNEL_GUIDES = [
-  ["quickstart", "intelligence"],
+  ["quickstart", "connect"],
   ["ui-library", "rich-messages"],
   ["mcp", "tools"],
   ["configuration", "intelligence"],
@@ -198,7 +202,10 @@ const RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS = channelChildRedirects(
 
 const BOTS_REDIRECTS: PermanentRedirect[] = [
   ...CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap((slug) =>
-    permanentRedirectsWithSuffixes(`/bots/${slug}`, `/slack/${slug}`),
+    permanentRedirectsWithSuffixes(
+      `/bots/${slug}`,
+      slug === "overview" ? "/slack" : `/slack/${slug}`,
+    ),
   ),
   ...RETIRED_CHANNEL_GUIDES.flatMap(([legacySlug, canonicalSlug]) =>
     permanentRedirectsWithSuffixes(
@@ -221,6 +228,19 @@ const BOTS_REDIRECTS: PermanentRedirect[] = [
 
 const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
   ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/quickstart`,
+      `/${frontend}/connect`,
+    ),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/quickstart`,
+      `/${frontend}/:framework/connect`,
+    ),
+    ...permanentRedirectsWithSuffixes(`/${frontend}/overview`, `/${frontend}`),
+    ...permanentRedirectsWithSuffixes(
+      `/${frontend}/:framework/overview`,
+      `/${frontend}/:framework`,
+    ),
     ...permanentRedirectsWithSuffixes(
       `/${frontend}/built-in-agent/channels`,
       `/${frontend}`,

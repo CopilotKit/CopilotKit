@@ -32,6 +32,12 @@ export interface ChannelGuideRouteResolution {
 
 export const CHANNEL_GUIDE_ROUTES = [
   {
+    slug: "overview",
+    sourceSlug: "channels",
+    navTitle: "Overview",
+    section: "getting-started",
+  },
+  {
     slug: "intelligence",
     sourceSlug: "channels/intelligence",
     navTitle: "Configure the Channel in Intelligence",
@@ -156,13 +162,22 @@ export function channelGuideHref(
 ): string {
   const normalizedFramework = normalizeSlugPath(framework ?? "");
   const normalizedSlugPath = normalizeSlugPath(slugPath);
+  const publicSlugPath =
+    normalizedSlugPath === "overview" ? "" : normalizedSlugPath;
   const segments = [
     frontend,
     normalizedFramework === DEFAULT_CHANNEL_FRAMEWORK
       ? ""
       : normalizedFramework,
-    normalizedSlugPath,
+    publicSlugPath,
   ].filter(Boolean);
 
   return `/${segments.join("/")}`;
+}
+
+export function channelConnectHref(
+  frontend: ChannelFrontend,
+  framework: string | null | undefined,
+): string {
+  return channelGuideHref(frontend, framework, "connect");
 }
