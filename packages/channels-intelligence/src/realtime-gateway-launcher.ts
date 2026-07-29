@@ -138,7 +138,10 @@ export async function startChannelsWithGatewaySession(
   const observableSession = opts.session as Partial<{
     onClose(cb: () => void): void;
     onStateChange(
-      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+      cb: (
+        state: "online" | "reconnecting" | "gave_up" | "fenced",
+        detail?: { reason?: string; code?: string },
+      ) => void,
     ): void;
   }>;
   // Call the seams ON the session (not via detached references) so a
@@ -156,6 +159,7 @@ export async function startChannelsWithGatewaySession(
             onStateChange: (
               cb: (
                 state: "online" | "reconnecting" | "gave_up" | "fenced",
+                detail?: { reason?: string; code?: string },
               ) => void,
             ) => observableSession.onStateChange!(cb),
           }
@@ -306,7 +310,10 @@ export async function startChannelsOverRealtimeGateway(
     // so they stay correct even if that helper's internals change.
     onClose: (cb: () => void) => session.onClose(cb),
     onStateChange: (
-      cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+      cb: (
+        state: "online" | "reconnecting" | "gave_up" | "fenced",
+        detail?: { reason?: string; code?: string },
+      ) => void,
     ) => session.onStateChange(cb),
     stop: async () => {
       // Always close the connection even if stopping the channels throws — the

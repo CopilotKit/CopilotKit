@@ -123,7 +123,10 @@ export interface ChannelsHandle {
    * `handle.onStateChange?.(cb)`.
    */
   onStateChange?(
-    cb: (state: "online" | "reconnecting" | "gave_up" | "fenced") => void,
+    cb: (
+      state: "online" | "reconnecting" | "gave_up" | "fenced",
+      detail?: { reason?: string; code?: string },
+    ) => void,
   ): void;
 }
 

@@ -106,6 +106,20 @@ export type RealtimeGatewayConnectionState =
   | "gave_up"
   | "fenced";
 
+/**
+ * Why a connection-health transition happened. Present on `reconnecting` and
+ * `gave_up` when the transport (or the endpoint probe in
+ * {@link connectRealtimeGateway}) reported something; absent on `online` and
+ * whenever nothing was reported. Contains no secrets — the auth token travels as
+ * a WebSocket subprotocol, never in a URL or an error message.
+ */
+export interface RealtimeGatewayConnectionDetail {
+  /** Rendered cause, phrased for whoever operates the runtime. */
+  reason?: string;
+  /** OS-level code behind the failure, when the transport exposed one. */
+  code?: string;
+}
+
 const LISTENER_FENCED_EVENT = "channel.listener_fenced.v1";
 
 /**
@@ -461,7 +475,12 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
    * {@link onClose}, which is a single per-episode drop breadcrumb; this observer
    * tracks the full health lifecycle so a manager's `status()` can reflect it.
    */
-  onStateChange(cb: (state: RealtimeGatewayConnectionState) => void): void;
+  onStateChange(
+    cb: (
+      state: RealtimeGatewayConnectionState,
+      detail?: RealtimeGatewayConnectionDetail,
+    ) => void,
+  ): void;
 }
 
 /**
@@ -536,6 +555,10 @@ export async function connectRealtimeGateway(
   let lastTransportError: string | undefined;
   let lastTransportCode: string | undefined;
   let lastTransportRaw: unknown;
+  // Set by the per-outage endpoint probe (see `probeOutage`), which can explain
+  // a refused reconnect the WebSocket layer reports without detail. Preferred
+  // over `lastTransportError` when present, and cleared when the outage ends.
+  let lastOutageDiagnosis: string | undefined;
   let connectDeadline: ReturnType<typeof setTimeout> | undefined;
   // The initial connect settles from several places (the join push's reply
   // hooks, a non-retryable transport error, the connect deadline), so the
@@ -608,10 +631,16 @@ export async function connectRealtimeGateway(
     clearConnectDeadline();
   });
   socket.onError((error, _transport, establishedConnections) => {
-    // A drop after a successful connect belongs to the reconnect path.
-    if (everConnected || establishedConnections > 0) return;
-    lastTransportRaw = error;
     const detail = describeTransportError(error);
+    // A drop after a successful connect belongs to the reconnect path — but it
+    // must still be RECORDED, or the health observer reports an outage with no
+    // cause at all (the `{ meta: undefined }` give-up log, OSS-670).
+    if (everConnected || establishedConnections > 0) {
+      lastTransportError = detail.text ?? lastTransportError;
+      lastTransportCode = detail.code ?? lastTransportCode;
+      return;
+    }
+    lastTransportRaw = error;
     lastTransportError = detail.text ?? lastTransportError;
     lastTransportCode = detail.code ?? lastTransportCode;
     // A host that does not exist cannot start existing: fail now rather than
@@ -654,7 +683,12 @@ export async function connectRealtimeGateway(
   // (`closingIntentionally` is declared with the connect watchdog above, which
   // also tears the socket down and must mark that teardown intentional.)
   let connectionState: RealtimeGatewayConnectionState = "online";
-  const stateCallbacks: Array<(s: RealtimeGatewayConnectionState) => void> = [];
+  const stateCallbacks: Array<
+    (
+      s: RealtimeGatewayConnectionState,
+      detail?: RealtimeGatewayConnectionDetail,
+    ) => void
+  > = [];
   let giveUpTimer: ReturnType<typeof setTimeout> | undefined;
   // Set true when the give-up window fires; suppresses further `reconnecting`
   // emissions until a successful rejoin (`enterOnline`) clears it.
@@ -669,14 +703,26 @@ export async function connectRealtimeGateway(
       giveUpTimer = undefined;
     }
   };
+  /** Build the cause attached to a non-`online` transition, or `undefined`. */
+  const currentDetail = (): RealtimeGatewayConnectionDetail | undefined => {
+    const reason = lastOutageDiagnosis ?? lastTransportError;
+    if (reason === undefined && lastTransportCode === undefined) {
+      return undefined;
+    }
+    return {
+      ...(reason !== undefined ? { reason } : {}),
+      ...(lastTransportCode !== undefined ? { code: lastTransportCode } : {}),
+    };
+  };
   const emitState = (next: RealtimeGatewayConnectionState): void => {
     if (closingIntentionally || connectionState === next) {
       return;
     }
     connectionState = next;
+    const detail = next === "online" ? undefined : currentDetail();
     for (const cb of stateCallbacks) {
       try {
-        cb(next);
+        cb(next, detail);
       } catch {
         // Isolate observers: a throwing callback must not skip later ones or
         // propagate back into Phoenix's socket/join dispatch.

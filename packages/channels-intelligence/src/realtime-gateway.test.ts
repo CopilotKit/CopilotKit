@@ -1368,3 +1368,40 @@ describe("connectRealtimeGateway — unreachable gateway host (OSS-623)", () => 
     session.disconnect();
   });
 });
+
+describe("connection-health detail (OSS-670)", () => {
+  it("reports the drop cause alongside reconnecting/gave_up", async () => {
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok-then-silent");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+      reconnectGiveUpMs: 40,
+    });
+
+    const seen: {
+      state: RealtimeGatewayConnectionState;
+      detail?: { reason?: string; code?: string };
+    }[] = [];
+    session.onStateChange((state, detail) => seen.push({ state, detail }));
+
+    // A transport error with an OS code, then the drop it belongs to.
+    instances[0]!.onerror?.(
+      Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" }),
+    );
+    instances[0]!.onclose?.();
+    await waitUntil(() => seen.some((s) => s.state === "gave_up"));
+
+    const gaveUp = seen.find((s) => s.state === "gave_up")!;
+    expect(gaveUp.detail?.code).toBe("ECONNRESET");
+    expect(gaveUp.detail?.reason).toContain("ECONNRESET");
+
+    session.disconnect();
+  });
+});
