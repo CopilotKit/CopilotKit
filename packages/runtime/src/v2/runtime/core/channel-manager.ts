@@ -148,6 +148,13 @@ export interface ChannelManagerArgs {
    * activation engine is used, so transport-level drops surface in the managed
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
+  /**
+   * How often (ms) to repeat a "still down" log while a managed session is
+   * disconnected. A dropped session was previously silent for as long as the
+   * outage lasted, which made a dead bot indistinguishable from an idle one
+   * (OSS-670). Injectable so tests need no fake timers. Default 30000.
+   */
+  reconnectLogIntervalMs?: number;
   /** Per-handle deadline (ms) for `handle.stop()` during {@link ChannelManager.stop}
    * so a wedged stop can't hang SIGTERM shutdown. Default 5000. */
   stopHandleTimeoutMs?: number;
@@ -166,6 +173,10 @@ interface ChannelEntry {
    * once.
    */
   handleStopped: boolean;
+  /** Epoch ms this outage episode began; unset while the session is healthy. */
+  downSince?: number;
+  /** Repeating "still down" logger for this outage; cleared on recovery/teardown. */
+  reconnectLogTimer?: ReturnType<typeof setInterval>;
 }
 
 /**
@@ -288,6 +299,9 @@ export function isModuleNotFound(err: unknown): boolean {
 /** Default deadline (ms) for a single `handle.stop()` during teardown. */
 const DEFAULT_STOP_HANDLE_TIMEOUT_MS = 5_000;
 
+/** Default cadence (ms) for the "still down" log while a session is dropped. */
+const DEFAULT_RECONNECT_LOG_INTERVAL_MS = 30_000;
+
 /**
  * Reject with `timeoutMessage` after `timeoutMs` if `inner` has not settled,
  * otherwise pass `inner` through. When `timeoutMs` is undefined, `inner` is
@@ -366,6 +380,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
   private readonly stopHandleTimeoutMs: number;
+  private readonly reconnectLogIntervalMs: number;
 
   private readonly entries = new Map<string, ChannelEntry>();
   private activated = false;
@@ -389,6 +404,8 @@ export class ChannelManager implements ChannelsControl {
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
     this.stopHandleTimeoutMs =
       args.stopHandleTimeoutMs ?? DEFAULT_STOP_HANDLE_TIMEOUT_MS;
+    this.reconnectLogIntervalMs =
+      args.reconnectLogIntervalMs ?? DEFAULT_RECONNECT_LOG_INTERVAL_MS;
   }
 
   /**
@@ -823,31 +840,78 @@ export class ChannelManager implements ChannelsControl {
    * @param entry - The Channel's activation entry.
    */
   private registerConnectionObserver(name: string, entry: ChannelEntry): void {
-    entry.handle?.onStateChange?.((state) => {
+    entry.handle?.onStateChange?.((state, detail) => {
       // A stopped manager (or a stopped entry) ignores late connection events.
       if (this.stopped || entry.status === "stopped") {
         return;
       }
+      const cause = detail?.reason ?? detail?.code;
+      const because = cause !== undefined ? ` — ${cause}` : "";
       if (state === "reconnecting") {
         entry.status = "reconnecting";
+        entry.downSince ??= Date.now();
         this.log?.(
-          `channel "${name}" managed session dropped; reconnecting (Phoenix auto-rejoin)`,
+          `channel "${name}" managed session dropped; reconnecting (Phoenix auto-rejoin)${because}`,
         );
+        this.startReconnectLog(name, entry);
       } else if (state === "online") {
         entry.status = "online";
+        this.clearReconnectLog(entry);
+        entry.downSince = undefined;
         this.log?.(`channel "${name}" managed session back online`);
       } else if (state === "gave_up") {
+        // `error` here means "not sendable", NOT "dead": Phoenix keeps retrying
+        // underneath and a successful rejoin restores `online`. Say so, or the
+        // line reads as terminal (OSS-670). The repeat keeps running.
         entry.status = "error";
         this.log?.(
-          `channel "${name}" managed session gave up reconnecting; marking error`,
+          `channel "${name}" managed session gave up reconnecting after ${this.downFor(entry)}; ` +
+            `marking error (still retrying — a successful rejoin restores online)${because}`,
         );
       } else {
         entry.status = "error";
+        this.clearReconnectLog(entry);
         this.log?.(
           `channel "${name}" managed session was generation-fenced by a replacement; marking error`,
         );
       }
     });
+  }
+
+  /** Rendered downtime for this outage episode (`"45s"`), or `"unknown"`. */
+  private downFor(entry: ChannelEntry): string {
+    return entry.downSince === undefined
+      ? "unknown"
+      : `${Math.round((Date.now() - entry.downSince) / 1000)}s`;
+  }
+
+  /**
+   * Repeat a "still down" line for as long as this outage lasts. Runs THROUGH
+   * `gave_up` on purpose: that transition is where the old behavior went quiet,
+   * and an operator watching a silent process cannot tell a dead bot from an
+   * idle one.
+   */
+  private startReconnectLog(name: string, entry: ChannelEntry): void {
+    if (entry.reconnectLogTimer !== undefined) return;
+    const timer = setInterval(() => {
+      if (this.stopped || entry.status === "stopped") {
+        this.clearReconnectLog(entry);
+        return;
+      }
+      this.log?.(
+        `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying`,
+      );
+    }, this.reconnectLogIntervalMs);
+    (timer as unknown as { unref?: () => void }).unref?.();
+    entry.reconnectLogTimer = timer;
+  }
+
+  /** Stop this entry's "still down" repeat, if one is running. */
+  private clearReconnectLog(entry: ChannelEntry): void {
+    if (entry.reconnectLogTimer !== undefined) {
+      clearInterval(entry.reconnectLogTimer);
+      entry.reconnectLogTimer = undefined;
+    }
   }
 
   /**
@@ -887,6 +951,9 @@ export class ChannelManager implements ChannelsControl {
    */
   private async stopEntry(entry: ChannelEntry): Promise<void> {
     entry.status = "stopped";
+    // An unref'd interval would not hold the process open, but a stopped
+    // manager must not keep logging about a session it no longer owns.
+    this.clearReconnectLog(entry);
     if (entry.handle && !entry.handleStopped) {
       entry.handleStopped = true;
       const handle = entry.handle;
