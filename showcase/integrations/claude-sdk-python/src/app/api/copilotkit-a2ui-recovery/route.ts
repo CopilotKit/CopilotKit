@@ -57,9 +57,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    return internalRuntimeErrorResponse(
-      "/api/copilotkit-a2ui-recovery",
-      error,
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-a2ui-recovery", error);
   }
 };
