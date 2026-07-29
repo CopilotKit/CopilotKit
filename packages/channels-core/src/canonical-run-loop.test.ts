@@ -117,8 +117,10 @@ function setupRenderer(
 ): {
   renderer: RunRenderer;
   renderedEvents: BaseEvent[];
+  renderedFinishMetadata: unknown[];
 } {
   const renderedEvents: BaseEvent[] = [];
+  const renderedFinishMetadata: unknown[] = [];
   const toolCalls: CapturedToolCall[] = [];
   const subscriber: AgentSubscriber = {
     onRunStartedEvent: ({ event }) => {
@@ -126,6 +128,7 @@ function setupRenderer(
     },
     onRunFinishedEvent: ({ event }) => {
       renderedEvents.push(event);
+      renderedFinishMetadata.push(event.metadata);
       if (options.failOnFinish) {
         throw new Error("renderer finalization failed");
       }
@@ -156,6 +159,7 @@ function setupRenderer(
       clearPendingInterrupt: () => {},
     },
     renderedEvents,
+    renderedFinishMetadata,
   };
 }
 
@@ -252,7 +256,7 @@ test("managed runAgentLoop emits one canonical lifecycle and shares stamped even
   );
 });
 
-test("renderer failure does not stop the same canonical event from reaching ingestion", async () => {
+test("managed renderer failure is deferred until canonical RUN_FINISHED reaches ingestion", async () => {
   let agent!: FakeAgent;
   agent = new FakeAgent([
     (subscriber) =>
@@ -262,32 +266,49 @@ test("renderer failure does not stop the same canonical event from reaching inge
   ]);
   const { renderer } = setupRenderer({ failOnContent: true });
   const ingestedByTypedCallback: BaseEvent[] = [];
+  const ingestedLifecycle: BaseEvent[] = [];
 
-  await expect(
-    runAgentLoop({
-      agent,
-      renderer,
-      tools: new Map(),
-      toolDescriptors: [],
-      context: [],
-      makeToolCtx: () => {
-        throw new Error("no tool calls are expected");
+  const result = await runAgentLoop({
+    agent,
+    renderer,
+    tools: new Map(),
+    toolDescriptors: [],
+    context: [],
+    makeToolCtx: () => {
+      throw new Error("no tool calls are expected");
+    },
+    subscriber: {
+      onEvent: ({ event }) => {
+        if (
+          event.type === EventType.RUN_STARTED ||
+          event.type === EventType.RUN_FINISHED ||
+          event.type === EventType.RUN_ERROR
+        ) {
+          ingestedLifecycle.push(event);
+        }
       },
-      subscriber: {
-        onTextMessageContentEvent: ({ event }) => {
-          ingestedByTypedCallback.push(event);
-        },
+      onTextMessageContentEvent: ({ event }) => {
+        ingestedByTypedCallback.push(event);
       },
-      canonicalRun,
-    }),
-  ).rejects.toThrow("renderer failed");
+    },
+    canonicalRun,
+  });
 
+  expect(result).toMatchObject({
+    iterations: 1,
+    interrupted: false,
+    deliveryError: { message: "renderer failed" },
+  });
   expect(ingestedByTypedCallback).toEqual([
     expect.objectContaining({
       ...canonicalRun,
       type: EventType.TEXT_MESSAGE_CONTENT,
       messageId: "message-1",
     }),
+  ]);
+  expect(ingestedLifecycle.map(({ type }) => type)).toEqual([
+    EventType.RUN_STARTED,
+    EventType.RUN_FINISHED,
   ]);
 });
 
@@ -358,33 +379,45 @@ test("inner RUN_ERROR becomes one canonical outer RUN_ERROR", async () => {
   ).toEqual(expectedLifecycle);
 });
 
-test("renderer finalization failure replaces RUN_FINISHED with one canonical RUN_ERROR", async () => {
+test("managed renderer finalization sees runner metadata without replacing canonical RUN_FINISHED", async () => {
   let agent!: FakeAgent;
   agent = new FakeAgent([
     (subscriber) => emitBatch(subscriber, agent, "inner-run", []),
   ]);
-  const { renderer } = setupRenderer({ failOnFinish: true });
+  const { renderer, renderedFinishMetadata } = setupRenderer({
+    failOnFinish: true,
+  });
   const ingestedEvents: BaseEvent[] = [];
+  const runnerMetadata = {
+    cpki_event_id: "runner-event-finished",
+    cpki_event_seq: 1,
+  };
 
-  await expect(
-    runAgentLoop({
-      agent,
-      renderer,
-      tools: new Map(),
-      toolDescriptors: [],
-      context: [],
-      makeToolCtx: () => {
-        throw new Error("no tool calls are expected");
+  const result = await runAgentLoop({
+    agent,
+    renderer,
+    tools: new Map(),
+    toolDescriptors: [],
+    context: [],
+    makeToolCtx: () => {
+      throw new Error("no tool calls are expected");
+    },
+    subscriber: {
+      onEvent: ({ event }) => {
+        if (event.type === EventType.RUN_FINISHED) {
+          event.metadata = runnerMetadata;
+        }
+        ingestedEvents.push(event);
       },
-      subscriber: {
-        onEvent: ({ event }) => {
-          ingestedEvents.push(event);
-        },
-      },
-      canonicalRun,
-    }),
-  ).rejects.toThrow("renderer finalization failed");
+    },
+    canonicalRun,
+  });
 
+  expect(result).toMatchObject({
+    iterations: 1,
+    interrupted: false,
+    deliveryError: { message: "renderer finalization failed" },
+  });
   expect(
     ingestedEvents
       .filter(
@@ -394,5 +427,6 @@ test("renderer finalization failure replaces RUN_FINISHED with one canonical RUN
           type === EventType.RUN_ERROR,
       )
       .map(({ type }) => type),
-  ).toEqual([EventType.RUN_STARTED, EventType.RUN_ERROR]);
+  ).toEqual([EventType.RUN_STARTED, EventType.RUN_FINISHED]);
+  expect(renderedFinishMetadata).toEqual([runnerMetadata]);
 });

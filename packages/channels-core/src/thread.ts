@@ -29,6 +29,8 @@ import type { StandardSchemaV1 } from "./standard-schema.js";
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
+  /** Source provider for this ingress event; falls back to the adapter identity. */
+  platform?: string;
   replyTarget: ReplyTarget;
   conversationKey: string;
   registry: ActionRegistry;
@@ -89,7 +91,7 @@ export class Thread implements ThreadInterface {
   private implicitInboundConsumed = false;
 
   constructor(private deps: ThreadDeps) {
-    this.platform = deps.adapter.platform;
+    this.platform = deps.platform ?? deps.adapter.platform;
     this.conversationKey = deps.conversationKey;
     this.supportsBlockingChoice =
       deps.adapter.capabilities.supportsBlockingChoice;
@@ -338,10 +340,10 @@ export class Thread implements ThreadInterface {
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
   async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+    if (this.supportsBlockingChoice === false) {
+      throw new ChannelAwaitChoiceNotSupportedError();
+    }
     return this.trackOperation(async () => {
-      if (this.supportsBlockingChoice === false) {
-        throw new ChannelAwaitChoiceNotSupportedError();
-      }
       const p = new Promise<T>((resolve) =>
         this.deps.registerWaiter(
           this.deps.conversationKey,
@@ -378,6 +380,7 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
+    this.deps.adapter.assertRunAgentSupported?.(this.deps.replyTarget);
     return this.trackOperation(async () => {
       const message = this.deps.message;
       const defaultPrompt =
@@ -417,167 +420,173 @@ export class Thread implements ThreadInterface {
       this.deps.replyTarget,
       this.deps.agentFactory,
     );
-    // Inject an explicit user message when the input isn't in the adapter's
-    // reconstructed history (e.g. a slash command's args, or inbound image/file
-    // attachments built into multimodal content parts). A non-empty array is
-    // truthy, so this guard also admits multimodal prompts.
-    if (extra?.prompt) {
-      session.agent.addMessage({
-        id: globalThis.crypto.randomUUID(),
-        role: "user",
-        // AG-UI types `content` as `string`, but multimodal works at runtime by
-        // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
-        // converts the parts to the provider's multimodal format. We cast to
-        // satisfy the string-typed field (channels-slack parity — it does the same
-        // when assigning multimodal `content` to its reconstructed messages).
-        content: extra.prompt as unknown as string,
-      });
-    }
-    const renderer = this.deps.adapter.createRunRenderer(this.deps.replyTarget);
-
-    // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
-    // as a context entry, then append the current user turn. This flag owns the
-    // bridge — see `runAgent`'s `transcript` doc. No-ops with one warning when
-    // identity/transcripts aren't configured.
-    const transcripts = this.deps.transcripts;
-    const userKey = this.deps.userKey;
-    let transcriptContext: ContextEntry | undefined;
-    if (extra?.transcript) {
-      if (transcripts && userKey) {
-        const limit =
-          typeof extra.transcript === "object"
-            ? (extra.transcript.limit ?? 20)
-            : 20;
-        // List BEFORE appending the current user turn so the current message
-        // isn't counted as its own "prior history".
-        const prior = await transcripts.list({ userKey, limit });
-        if (prior.length > 0) {
-          transcriptContext = {
-            description: `Prior cross-platform conversation history with this user. Current channel: ${this.platform}.`,
-            value: prior
-              .map((e) => `[${e.platform}] ${e.role}: ${e.text}`)
-              .join("\n"),
-          };
-        }
-        if (this.deps.message) {
-          await transcripts.append(this, this.deps.message, { userKey });
-        }
-      } else {
-        warnTranscriptIgnored();
-      }
-    }
-
-    // Merge per-run context/tools (this run only) on top of the channel-level deps.
-    const extraTools = extra?.tools ?? [];
-    let tools = this.deps.tools;
-    let toolDescriptors = this.deps.toolDescriptors;
-    if (extraTools.length > 0) {
-      tools = new Map(this.deps.tools);
-      for (const t of extraTools) tools.set(t.name, t);
-      toolDescriptors = [
-        ...this.deps.toolDescriptors,
-        ...toAgentToolDescriptors(extraTools),
-      ];
-    }
-    const context: ContextEntry[] = [
-      ...this.deps.context,
-      ...(transcriptContext ? [transcriptContext] : []),
-      ...(extra?.context ?? []),
-    ];
-
-    // Snapshot the message count BEFORE the loop so we can isolate the
-    // assistant messages this run produced (step 4).
-    const messagesBefore = session.agent.messages.length;
-
-    const startedAt = Date.now();
-    let loopResult: { iterations: number; interrupted: boolean };
-    // Telemetry stage: "agent" while the run loop runs, "finalize" for the
-    // transcript-append + renderer.finish() steps below. A throw in either is
-    // reported as agent_run_failed (with the right stage) instead of being
-    // hidden behind an already-sent success event.
-    let stage: "agent" | "finalize" = "agent";
     try {
-      const loopArgs: RunLoopArgs = {
-        agent: session.agent,
-        renderer,
-        tools,
-        toolDescriptors,
-        context,
-        makeToolCtx: (): ChannelToolContext => ({
-          thread: this,
-          platform: this.platform,
-        }),
-        handleInterrupt: async (interrupt) => {
-          const h = this.deps.interruptHandlers.get(interrupt.eventName);
-          if (h) await h({ payload: interrupt.value, thread: this });
-        },
-        initialResume,
-      };
-      loopResult = this.deps.adapter.runAgentLifecycle
-        ? await this.deps.adapter.runAgentLifecycle({
-            replyTarget: this.deps.replyTarget,
-            agent: session.agent,
-            renderer,
-            tools: toolDescriptors,
-            context,
-            execute: (subscriber, canonicalRun) =>
-              runAgentLoop({
-                ...loopArgs,
-                subscriber,
-                ...(canonicalRun ? { canonicalRun } : {}),
-              }),
-          })
-        : await runAgentLoop(loopArgs);
-      stage = "finalize";
-      // Transcript auto-bridge (step 4): capture the assistant text this run
-      // produced and append it. Only when the bridge actually applied (transcripts
-      // + userKey both present and `transcript` was requested).
-      if (extra?.transcript && transcripts && userKey) {
-        const produced = session.agent.messages.slice(messagesBefore);
-        const text = produced
-          .filter(
-            (m) =>
-              m.role === "assistant" &&
-              typeof m.content === "string" &&
-              m.content.trim().length > 0,
-          )
-          .map((m) => m.content as string)
-          .join("\n\n");
-        if (text.length > 0) {
-          await transcripts.append(
-            this,
-            { role: "assistant", text },
-            { userKey },
-          );
+      // Inject an explicit user message when the input isn't in the adapter's
+      // reconstructed history (e.g. a slash command's args, or inbound image/file
+      // attachments built into multimodal content parts). A non-empty array is
+      // truthy, so this guard also admits multimodal prompts.
+      if (extra?.prompt) {
+        session.agent.addMessage({
+          id: globalThis.crypto.randomUUID(),
+          role: "user",
+          // AG-UI types `content` as `string`, but multimodal works at runtime by
+          // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
+          // converts the parts to the provider's multimodal format. We cast to
+          // satisfy the string-typed field (channels-slack parity — it does the same
+          // when assigning multimodal `content` to its reconstructed messages).
+          content: extra.prompt as unknown as string,
+        });
+      }
+      const renderer = this.deps.adapter.createRunRenderer(
+        this.deps.replyTarget,
+      );
+
+      // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
+      // as a context entry, then append the current user turn. This flag owns the
+      // bridge — see `runAgent`'s `transcript` doc. No-ops with one warning when
+      // identity/transcripts aren't configured.
+      const transcripts = this.deps.transcripts;
+      const userKey = this.deps.userKey;
+      let transcriptContext: ContextEntry | undefined;
+      if (extra?.transcript) {
+        if (transcripts && userKey) {
+          const limit =
+            typeof extra.transcript === "object"
+              ? (extra.transcript.limit ?? 20)
+              : 20;
+          // List BEFORE appending the current user turn so the current message
+          // isn't counted as its own "prior history".
+          const prior = await transcripts.list({ userKey, limit });
+          if (prior.length > 0) {
+            transcriptContext = {
+              description: `Prior cross-platform conversation history with this user. Current channel: ${this.platform}.`,
+              value: prior
+                .map((e) => `[${e.platform}] ${e.role}: ${e.text}`)
+                .join("\n"),
+            };
+          }
+          if (this.deps.message) {
+            await transcripts.append(this, this.deps.message, { userKey });
+          }
+        } else {
+          warnTranscriptIgnored();
         }
       }
 
-      // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
-      // open across runAgent iterations (e.g. a native streaming message). A
-      // no-op for renderers whose per-message streams already self-terminate, and
-      // for runs that were interrupted (the renderer guards that internally).
-      await renderer.finish?.();
-    } catch (err) {
-      // A throw is a run failure — in the agent loop (tool-handler errors are
-      // swallowed inside the loop, so a throw is agent-level) or in finalization.
-      // `stage` distinguishes the two.
-      this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
+      // Merge per-run context/tools (this run only) on top of the channel-level deps.
+      const extraTools = extra?.tools ?? [];
+      let tools = this.deps.tools;
+      let toolDescriptors = this.deps.toolDescriptors;
+      if (extraTools.length > 0) {
+        tools = new Map(this.deps.tools);
+        for (const t of extraTools) tools.set(t.name, t);
+        toolDescriptors = [
+          ...this.deps.toolDescriptors,
+          ...toAgentToolDescriptors(extraTools),
+        ];
+      }
+      const context: ContextEntry[] = [
+        ...this.deps.context,
+        ...(transcriptContext ? [transcriptContext] : []),
+        ...(extra?.context ?? []),
+      ];
+
+      // Snapshot the message count BEFORE the loop so we can isolate the
+      // assistant messages this run produced (step 4).
+      const messagesBefore = session.agent.messages.length;
+
+      const startedAt = Date.now();
+      let loopResult: { iterations: number; interrupted: boolean };
+      // Telemetry stage: "agent" while the run loop runs, "finalize" for the
+      // transcript-append + renderer.finish() steps below. A throw in either is
+      // reported as agent_run_failed (with the right stage) instead of being
+      // hidden behind an already-sent success event.
+      let stage: "agent" | "finalize" = "agent";
+      try {
+        const loopArgs: RunLoopArgs = {
+          agent: session.agent,
+          renderer,
+          tools,
+          toolDescriptors,
+          context,
+          makeToolCtx: (): ChannelToolContext => ({
+            thread: this,
+            platform: this.platform,
+          }),
+          handleInterrupt: async (interrupt) => {
+            const h = this.deps.interruptHandlers.get(interrupt.eventName);
+            if (h) await h({ payload: interrupt.value, thread: this });
+          },
+          initialResume,
+        };
+        loopResult = this.deps.adapter.runAgentLifecycle
+          ? await this.deps.adapter.runAgentLifecycle({
+              replyTarget: this.deps.replyTarget,
+              agent: session.agent,
+              renderer,
+              tools: toolDescriptors,
+              context,
+              execute: (subscriber, canonicalRun) =>
+                runAgentLoop({
+                  ...loopArgs,
+                  subscriber,
+                  ...(canonicalRun ? { canonicalRun } : {}),
+                }),
+            })
+          : await runAgentLoop(loopArgs);
+        stage = "finalize";
+        // Transcript auto-bridge (step 4): capture the assistant text this run
+        // produced and append it. Only when the bridge actually applied (transcripts
+        // + userKey both present and `transcript` was requested).
+        if (extra?.transcript && transcripts && userKey) {
+          const produced = session.agent.messages.slice(messagesBefore);
+          const text = produced
+            .filter(
+              (m) =>
+                m.role === "assistant" &&
+                typeof m.content === "string" &&
+                m.content.trim().length > 0,
+            )
+            .map((m) => m.content as string)
+            .join("\n\n");
+          if (text.length > 0) {
+            await transcripts.append(
+              this,
+              { role: "assistant", text },
+              { userKey },
+            );
+          }
+        }
+
+        // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
+        // open across runAgent iterations (e.g. a native streaming message). A
+        // no-op for renderers whose per-message streams already self-terminate, and
+        // for runs that were interrupted (the renderer guards that internally).
+        await renderer.finish?.();
+      } catch (err) {
+        // A throw is a run failure — in the agent loop (tool-handler errors are
+        // swallowed inside the loop, so a throw is agent-level) or in finalization.
+        // `stage` distinguishes the two.
+        this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
+          platform: normalizePlatform(this.platform),
+          errorClass: errorClass(err),
+          stage,
+        });
+        throw err;
+      }
+      // Emit success ONLY after the loop AND finalization both completed, so a
+      // late transcript/finish rejection can never follow a success event.
+      this.deps.telemetry?.capture("oss.channel.agent_run", {
         platform: normalizePlatform(this.platform),
-        errorClass: errorClass(err),
-        stage,
+        durationMs: Date.now() - startedAt,
+        toolCallCount: renderer.getCapturedToolCalls().length,
+        iterations: loopResult.iterations,
+        interrupted: loopResult.interrupted,
       });
-      throw err;
+      return undefined;
+    } finally {
+      await session.release?.();
     }
-    // Emit success ONLY after the loop AND finalization both completed, so a
-    // late transcript/finish rejection can never follow a success event.
-    this.deps.telemetry?.capture("oss.channel.agent_run", {
-      platform: normalizePlatform(this.platform),
-      durationMs: Date.now() - startedAt,
-      toolCallCount: renderer.getCapturedToolCalls().length,
-      iterations: loopResult.iterations,
-      interrupted: loopResult.interrupted,
-    });
-    return undefined;
   }
 }
 

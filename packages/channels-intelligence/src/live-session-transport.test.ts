@@ -39,6 +39,38 @@ const deliveryChannel = (
   leave: vi.fn(),
 });
 
+type ObservedPromiseState =
+  | { status: "pending" }
+  | { status: "resolved" }
+  | { status: "rejected"; error: unknown };
+
+const deferred = <T>(): {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+} => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+};
+
+const observePromiseState = async (
+  promise: Promise<unknown>,
+): Promise<ObservedPromiseState> => {
+  let state: ObservedPromiseState = { status: "pending" };
+  void promise.then(
+    () => {
+      state = { status: "resolved" };
+    },
+    (error: unknown) => {
+      state = { status: "rejected", error };
+    },
+  );
+  await Promise.resolve();
+  return state;
+};
+
 test("effect retries the same envelope after an ambiguous push failure", async () => {
   const push = vi
     .fn<RealtimeGatewayDeliveryChannel["push"]>()
@@ -121,6 +153,149 @@ test("effect rejects a provider kind that does not match the admitted adapter", 
 
   expect(push).not.toHaveBeenCalled();
   session.leave();
+});
+
+test("effect rejects the 257th pending provider effect with a stable backpressure error", async () => {
+  const firstPush = deferred<unknown>();
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockImplementation(async () => firstPush.promise);
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+  const accepted = Array.from({ length: 256 }, (_, index) =>
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text: `message ${index}`,
+    }),
+  );
+
+  const overflow = session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "one too many",
+  });
+  const admissionOutcome = await observePromiseState(overflow);
+
+  firstPush.resolve({ receivedThrough: 0, appliedThrough: 0 });
+  await Promise.all(accepted);
+  session.leave();
+
+  expect(admissionOutcome).toMatchObject({
+    status: "rejected",
+    error: {
+      name: "ChannelDeliveryBackpressureError",
+      code: "delivery_backpressure_exceeded",
+      message: "channel delivery provider-effect backpressure exceeded",
+    },
+  });
+  expect(push).toHaveBeenCalledTimes(256);
+});
+
+test("effect admits a replacement after one pending operation settles", async () => {
+  const firstPush = deferred<unknown>();
+  const secondPush = deferred<unknown>();
+  const cursor = { receivedThrough: 0, appliedThrough: 0 };
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockImplementationOnce(async () => firstPush.promise)
+    .mockImplementationOnce(async () => secondPush.promise)
+    .mockResolvedValue(cursor);
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+  const accepted = Array.from({ length: 256 }, (_, index) =>
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text: `message ${index}`,
+    }),
+  );
+  const overflow = session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "blocked while full",
+  });
+  await expect(overflow).rejects.toMatchObject({
+    code: "delivery_backpressure_exceeded",
+  });
+
+  firstPush.resolve(cursor);
+  await accepted[0];
+  await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(2));
+  const replacement = session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "accepted after one settles",
+  });
+  const admissionOutcome = await observePromiseState(replacement);
+
+  secondPush.resolve(cursor);
+  const settlements = await Promise.allSettled([...accepted, replacement]);
+  session.leave();
+
+  expect(admissionOutcome.status).toBe("pending");
+  expect(settlements.at(-1)).toEqual({ status: "fulfilled", value: cursor });
+});
+
+test("effect caps pending encoded envelope bytes and releases them after settle", async () => {
+  const firstPush = deferred<unknown>();
+  const secondPush = deferred<unknown>();
+  const cursor = { receivedThrough: 0, appliedThrough: 0 };
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockImplementationOnce(async () => firstPush.promise)
+    .mockImplementationOnce(async () => secondPush.promise)
+    .mockResolvedValue(cursor);
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+  const text = "x".repeat(64_000);
+  const accepted = Array.from({ length: 4 }, () =>
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text,
+    }),
+  );
+
+  const overflow = session.effect("response_01", {
+    kind: "slack.message.create",
+    text,
+  });
+  const overflowAdmissionOutcome = await observePromiseState(overflow);
+
+  firstPush.resolve(cursor);
+  await accepted[0];
+  await vi.waitFor(() => expect(push).toHaveBeenCalledTimes(2));
+  const replacement = session.effect("response_01", {
+    kind: "slack.message.create",
+    text,
+  });
+  const replacementAdmissionOutcome = await observePromiseState(replacement);
+
+  secondPush.resolve(cursor);
+  const settlements = await Promise.allSettled([
+    ...accepted,
+    overflow,
+    replacement,
+  ]);
+  session.leave();
+
+  expect(overflowAdmissionOutcome.status).toBe("rejected");
+  expect(settlements.at(-2)).toMatchObject({
+    status: "rejected",
+    reason: { code: "delivery_backpressure_exceeded" },
+  });
+  expect(replacementAdmissionOutcome.status).toBe("pending");
+  expect(settlements.at(-1)).toEqual({ status: "fulfilled", value: cursor });
 });
 
 test("run close waits until every accepted provider effect settles", async () => {

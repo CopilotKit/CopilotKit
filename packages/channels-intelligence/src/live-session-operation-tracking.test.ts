@@ -61,7 +61,7 @@ function admittedDelivery(): LiveSessionDelivery {
   };
 }
 
-function setup() {
+function setup(options: { effectError?: Error } = {}) {
   const binding = deferred();
   const handlerReturned = deferred();
   const events: string[] = [];
@@ -69,6 +69,9 @@ function setup() {
   const deliveryChannel: RealtimeGatewayDeliveryChannel = {
     push: vi.fn(async (event) => {
       events.push(event);
+      if (event === "channel.effect.v1" && options.effectError) {
+        throw options.effectError;
+      }
       return event === "channel.effect.v1"
         ? { receivedThrough: 0, appliedThrough: 0 }
         : {};
@@ -116,7 +119,7 @@ function setup() {
     };
     const thread = new Thread(deps);
 
-    void thread.post("late response");
+    void thread.post("late response").catch(() => undefined);
     handlerReturned.resolve();
   });
 
@@ -152,5 +155,23 @@ test("delivery completion waits for a fire-and-forget Thread post that is still 
   }
 
   expect(events).toEqual(["channel.effect.v1", "channel.delivery.complete.v1"]);
+  expect(deliveryChannel.leave).toHaveBeenCalledOnce();
+});
+
+test("a rejected fire-and-forget Thread post fails the delivery instead of completing it", async () => {
+  const { binding, deliveryChannel, events, transport, deliver } = setup({
+    effectError: new Error("provider effect rejected"),
+  });
+
+  deliver();
+  binding.resolve();
+  await transport.stop();
+
+  expect(events).toEqual([
+    "channel.effect.v1",
+    "channel.effect.v1",
+    "channel.delivery.fail.v1",
+  ]);
+  expect(events).not.toContain("channel.delivery.complete.v1");
   expect(deliveryChannel.leave).toHaveBeenCalledOnce();
 });

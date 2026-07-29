@@ -12,6 +12,7 @@ import type {
   CapturedToolCall,
   CapturedInterrupt,
   CanonicalRunIdentity,
+  ChannelAgentLoopResult,
 } from "./platform-adapter.js";
 import type {
   ChannelTool,
@@ -49,6 +50,7 @@ export interface RunLoopArgs {
 interface SubscriberFanoutOptions {
   canonicalRun?: CanonicalRunIdentity;
   onInnerRunError?: (event: RunErrorEvent) => void;
+  onRendererError?: (error: unknown) => void;
 }
 
 type SubscriberCallback = (value: unknown) => unknown;
@@ -91,6 +93,7 @@ async function invokeSubscriberPair(
   rendererCallback: SubscriberCallback | undefined,
   ingestionCallback: SubscriberCallback | undefined,
   params: unknown,
+  onRendererError?: (error: unknown) => void,
 ): Promise<unknown> {
   let rendererResult: unknown;
   let ingestionResult: unknown;
@@ -113,33 +116,11 @@ async function invokeSubscriberPair(
   }
 
   if (ingestionFailed) throw ingestionError;
-  if (rendererFailed) throw rendererError;
-  return mergeSubscriberResults(rendererResult, ingestionResult);
-}
-
-/**
- * Invoke every callback in order and throw the first failure after all of them
- * had a chance to run.
- */
-async function invokeCallbacksInOrder(
-  callbacks: ReadonlyArray<{
-    callback: SubscriberCallback | undefined;
-    params: unknown;
-  }>,
-): Promise<void> {
-  let firstError: unknown;
-  let failed = false;
-  for (const { callback, params } of callbacks) {
-    try {
-      await callback?.(params);
-    } catch (error) {
-      if (!failed) {
-        failed = true;
-        firstError = error;
-      }
-    }
+  if (rendererFailed) {
+    if (!onRendererError) throw rendererError;
+    onRendererError(rendererError);
   }
-  if (failed) throw firstError;
+  return mergeSubscriberResults(rendererResult, ingestionResult);
 }
 
 /**
@@ -225,6 +206,7 @@ export function mergeAgentSubscribers(
             ? (secondCallback as SubscriberCallback)
             : undefined,
           canonicalParams,
+          options.onRendererError,
         );
       };
     },
@@ -247,6 +229,7 @@ async function emitCanonicalLifecycleEvent(
   event: BaseEvent,
   result: { iterations: number; interrupted: boolean } | undefined,
   args: RunLoopArgs,
+  onRendererError: (error: unknown) => void,
 ): Promise<void> {
   const canonicalRun = args.canonicalRun;
   if (!canonicalRun) return;
@@ -269,42 +252,11 @@ async function emitCanonicalLifecycleEvent(
   const renderer = args.renderer.subscriber;
   const eventParams = { ...baseParams, event };
 
-  if (event.type === EventType.RUN_FINISHED) {
-    const finishedParams = {
-      ...baseParams,
-      event,
-      outcome: "success",
-      result,
-    };
-    await invokeCallbacksInOrder([
-      {
-        callback: renderer.onEvent as SubscriberCallback | undefined,
-        params: eventParams,
-      },
-      {
-        callback: renderer.onRunFinishedEvent as SubscriberCallback | undefined,
-        params: finishedParams,
-      },
-    ]);
-    await invokeCallbacksInOrder([
-      {
-        callback: ingestion.onEvent as SubscriberCallback | undefined,
-        params: eventParams,
-      },
-      {
-        callback: ingestion.onRunFinishedEvent as
-          | SubscriberCallback
-          | undefined,
-        params: finishedParams,
-      },
-    ]);
-    return;
-  }
-
   await invokeSubscriberPair(
     renderer.onEvent as SubscriberCallback | undefined,
     ingestion.onEvent as SubscriberCallback | undefined,
     eventParams,
+    onRendererError,
   );
 
   if (event.type === EventType.RUN_STARTED) {
@@ -312,12 +264,26 @@ async function emitCanonicalLifecycleEvent(
       renderer.onRunStartedEvent as SubscriberCallback | undefined,
       ingestion.onRunStartedEvent as SubscriberCallback | undefined,
       eventParams,
+      onRendererError,
+    );
+  } else if (event.type === EventType.RUN_FINISHED) {
+    await invokeSubscriberPair(
+      renderer.onRunFinishedEvent as SubscriberCallback | undefined,
+      ingestion.onRunFinishedEvent as SubscriberCallback | undefined,
+      {
+        ...baseParams,
+        event,
+        outcome: "success",
+        result,
+      },
+      onRendererError,
     );
   } else if (event.type === EventType.RUN_ERROR) {
     await invokeSubscriberPair(
       renderer.onRunErrorEvent as SubscriberCallback | undefined,
       ingestion.onRunErrorEvent as SubscriberCallback | undefined,
       eventParams,
+      onRendererError,
     );
   }
 }
@@ -331,7 +297,7 @@ async function emitCanonicalLifecycleEvent(
  */
 export async function runAgentLoop(
   args: RunLoopArgs,
-): Promise<{ iterations: number; interrupted: boolean }> {
+): Promise<ChannelAgentLoopResult> {
   const {
     agent,
     renderer,
@@ -344,6 +310,13 @@ export async function runAgentLoop(
     initialResume,
   } = args;
   let innerRunError: Error | undefined;
+  let hasDeliveryError = false;
+  let deliveryError: unknown;
+  const deferRendererError = (error: unknown): void => {
+    if (hasDeliveryError) return;
+    hasDeliveryError = true;
+    deliveryError = error;
+  };
   const subscriber =
     args.subscriber || args.canonicalRun
       ? mergeAgentSubscribers(
@@ -355,6 +328,7 @@ export async function runAgentLoop(
                 onInnerRunError: (event) => {
                   innerRunError ??= errorFromInnerRun(event);
                 },
+                onRendererError: deferRendererError,
               }
             : {},
         )
@@ -436,15 +410,25 @@ export async function runAgentLoop(
     runId: args.canonicalRun.runId,
   };
   try {
-    await emitCanonicalLifecycleEvent(startEvent, undefined, args);
+    await emitCanonicalLifecycleEvent(
+      startEvent,
+      undefined,
+      args,
+      deferRendererError,
+    );
     const result = await executeIterations();
     const finishedEvent: BaseEvent = {
       type: EventType.RUN_FINISHED,
       threadId: args.canonicalRun.threadId,
       runId: args.canonicalRun.runId,
     };
-    await emitCanonicalLifecycleEvent(finishedEvent, result, args);
-    return result;
+    await emitCanonicalLifecycleEvent(
+      finishedEvent,
+      result,
+      args,
+      deferRendererError,
+    );
+    return hasDeliveryError ? { ...result, deliveryError } : result;
   } catch (error) {
     const runError: RunErrorEvent = {
       type: EventType.RUN_ERROR,
@@ -459,7 +443,12 @@ export async function runAgentLoop(
         : {}),
     };
     try {
-      await emitCanonicalLifecycleEvent(runError, undefined, args);
+      await emitCanonicalLifecycleEvent(
+        runError,
+        undefined,
+        args,
+        deferRendererError,
+      );
     } catch {
       // Preserve the original run failure after canonical ingestion got its
       // chance to record the terminal error.

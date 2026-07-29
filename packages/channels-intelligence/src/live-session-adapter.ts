@@ -128,13 +128,22 @@ export class LiveSessionAdapter implements PlatformAdapter {
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const target = asLiveTarget(replyTarget);
       const agent = makeAgent(conversationKey);
-      const history = await this.options.loadHistory({
-        threadId: target.delivery.canonicalThreadId,
-        appUserId: target.delivery.appUserId,
-      });
-      agent.messages = [...history];
-      this.historyIds.set(agent, new Set(history.map((message) => message.id)));
-      return { agent };
+      const release = await this.acquireAgent(agent);
+      try {
+        const history = await this.options.loadHistory({
+          threadId: target.delivery.canonicalThreadId,
+          appUserId: target.delivery.appUserId,
+        });
+        agent.messages = [...history];
+        this.historyIds.set(
+          agent,
+          new Set(history.map((message) => message.id)),
+        );
+        return { agent, release };
+      } catch (error) {
+        release();
+        throw error;
+      }
     },
   };
 
@@ -144,10 +153,39 @@ export class LiveSessionAdapter implements PlatformAdapter {
     AbstractAgent,
     ReadonlySet<string>
   >();
+  private readonly agentTails = new WeakMap<AbstractAgent, Promise<void>>();
   private readonly activeThreads = new Set<string>();
 
   constructor(private readonly options: LiveSessionAdapterOptions) {
     this.stateStore = options.store;
+  }
+
+  /**
+   * Hold one mutable agent instance for exactly one managed canonical thread.
+   *
+   * Agent factories still run concurrently because they return distinct
+   * objects. A configured agent instance queues here through history loading,
+   * prompt injection, execution, cancellation, and finalization.
+   */
+  private async acquireAgent(agent: AbstractAgent): Promise<() => void> {
+    const previous = this.agentTails.get(agent) ?? Promise.resolve();
+    let releaseCurrent!: () => void;
+    const current = new Promise<void>((resolve) => {
+      releaseCurrent = resolve;
+    });
+    const tail = previous.then(() => current);
+    this.agentTails.set(agent, tail);
+    await previous;
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      releaseCurrent();
+      if (this.agentTails.get(agent) === tail) {
+        this.agentTails.delete(agent);
+      }
+    };
   }
 
   async start(sink: IngressSink): Promise<void> {
@@ -181,6 +219,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
       eventId: delivery.turn.eventId,
       turnId: delivery.turn.id,
       deliveryId: delivery.deliveryId,
+      platform: delivery.adapter,
       user: delivery.turn.actor
         ? {
             id: delivery.turn.actor.externalUserId,
@@ -207,7 +246,6 @@ export class LiveSessionAdapter implements PlatformAdapter {
                 ],
               }
             : {}),
-          platform: delivery.adapter,
         });
         return;
       }
@@ -218,7 +256,6 @@ export class LiveSessionAdapter implements PlatformAdapter {
           text: input.text ?? "",
           ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
           ...(input.triggerId ? { triggerId: input.triggerId } : {}),
-          platform: delivery.adapter,
         });
         return;
       case "interaction":
@@ -242,9 +279,19 @@ export class LiveSessionAdapter implements PlatformAdapter {
           messageId: input.messageRef.id,
           messageRef: inboundMessageRef(replyTarget, input.messageRef),
           ...(input.postedRef ? { postedMessageId: input.postedRef } : {}),
-          platform: delivery.adapter,
           raw: input,
         });
+    }
+  }
+
+  /** Reject managed surface-policy violations before operation tracking starts. */
+  assertRunAgentSupported(targetValue: ReplyTarget): void {
+    const target = asLiveTarget(targetValue);
+    if (
+      target.delivery.adapter === "slack" &&
+      target.delivery.turn.input.kind === "command"
+    ) {
+      throw new ChannelSlashCommandAgentNotSupportedError();
     }
   }
 
@@ -252,12 +299,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
     args: ChannelAgentLifecycleArgs,
   ): Promise<ChannelAgentLoopResult> {
     const target = asLiveTarget(args.replyTarget);
-    if (
-      target.delivery.adapter === "slack" &&
-      target.delivery.turn.input.kind === "command"
-    ) {
-      throw new ChannelSlashCommandAgentNotSupportedError();
-    }
+    this.assertRunAgentSupported(args.replyTarget);
     const threadId = target.delivery.canonicalThreadId;
     if (this.activeThreads.has(threadId)) {
       throw new ChannelAgentConcurrencyError(threadId);

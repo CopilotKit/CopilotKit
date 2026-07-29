@@ -160,6 +160,71 @@ test("runCanonical passes canonical identity into the outer Channel loop", async
   expect(observedIdentity).toEqual(canonicalIdentity);
 });
 
+test("runCanonical surfaces a deferred delivery error only after the runner records RUN_FINISHED", async () => {
+  const recordedEvents: BaseEvent[] = [];
+  let runnerCompleted = false;
+  const runner = new TestRunner(
+    (request) =>
+      new Observable<BaseEvent>((observer) => {
+        void request.agent
+          .runAgent(request.input, {
+            onEvent: ({ event }) => {
+              recordedEvents.push(event);
+              observer.next(event);
+            },
+          })
+          .then(
+            () => {
+              runnerCompleted = true;
+              observer.complete();
+            },
+            (error: unknown) => observer.error(error),
+          );
+      }),
+  );
+  const runCanonical = await captureRunCanonical(runner);
+  const deliveryError = new Error("provider delivery failed");
+
+  await expect(
+    runCanonical(
+      runArgs(async (subscriber, identity) => {
+        if (!identity) throw new Error("canonical identity is missing");
+        const input: RunAgentInput = {
+          ...identity,
+          messages: [],
+          state: {},
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        };
+        for (const type of [
+          EventType.RUN_STARTED,
+          EventType.RUN_FINISHED,
+        ] as const) {
+          await subscriber.onEvent?.({
+            event: { type, ...identity },
+            messages: [],
+            state: {},
+            agent: new NoopAgent(),
+            input,
+          });
+        }
+        return {
+          iterations: 1,
+          interrupted: false,
+          deliveryError,
+        };
+      }),
+    ),
+  ).rejects.toBe(deliveryError);
+
+  expect(runnerCompleted).toBe(true);
+  expect(recordedEvents.map(({ type }) => type)).toEqual([
+    EventType.RUN_STARTED,
+    EventType.RUN_FINISHED,
+  ]);
+});
+
 test("runCanonical stops and aborts only the signaled canonical runner", async () => {
   const controller = new AbortController();
   const inner = new NoopAgent();

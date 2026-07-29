@@ -241,8 +241,13 @@ export interface ChannelsIntelligenceModule {
         ): Promise<{
           iterations: number;
           interrupted: boolean;
+          deliveryError?: unknown;
         }>;
-      }): Promise<{ iterations: number; interrupted: boolean }>;
+      }): Promise<{
+        iterations: number;
+        interrupted: boolean;
+        deliveryError?: unknown;
+      }>;
       loadHistory(args: {
         threadId: string;
         appUserId: string;
@@ -350,6 +355,7 @@ interface CanonicalRunArgs {
   ): Promise<{
     iterations: number;
     interrupted: boolean;
+    deliveryError?: unknown;
   }>;
 }
 
@@ -395,7 +401,11 @@ class ChannelOuterAgent extends AbstractAgent {
 async function runCanonicalChannelAgent(
   runner: AgentRunner,
   args: CanonicalRunArgs,
-): Promise<{ iterations: number; interrupted: boolean }> {
+): Promise<{
+  iterations: number;
+  interrupted: boolean;
+  deliveryError?: unknown;
+}> {
   if (args.abortSignal.aborted) {
     throw channelRunCancellationError(args.abortSignal);
   }
@@ -480,6 +490,9 @@ async function runCanonicalChannelAgent(
   if (args.abortSignal.aborted) {
     await stopPromise;
     throw channelRunCancellationError(args.abortSignal);
+  }
+  if ("deliveryError" in result) {
+    throw result.deliveryError;
   }
   return result;
 }

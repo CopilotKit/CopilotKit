@@ -75,6 +75,12 @@ export interface RunRenderer {
 export interface ChannelAgentLoopResult {
   iterations: number;
   interrupted: boolean;
+  /**
+   * Managed renderer/provider failure deferred until the AgentRunner records
+   * its canonical terminal event. The managed lifecycle wrapper rejects the
+   * delivery with this error after the runner settles.
+   */
+  deliveryError?: unknown;
 }
 
 /** Canonical thread/run ownership opened by the managed AgentRunner. */
@@ -109,6 +115,11 @@ export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
   user?: PlatformUser;
+  /**
+   * Provider that produced this event when it differs from the transport
+   * adapter identity. Multiplexing adapters set it per event.
+   */
+  platform?: string;
 }
 
 /**
@@ -190,15 +201,6 @@ export interface IncomingReaction extends IngressEventBase {
   messageRef?: MessageRef;
   /** Containing thread/conversation id, when distinct from the message. */
   threadId?: string;
-  /**
-   * Source provider a managed delivery originated from (e.g. `"teams"`,
-   * `"slack"`). Direct adapters omit it — core then normalizes by
-   * {@link PlatformAdapter.platform}. The Intelligence adapter (whose own
-   * `platform` is `"intelligence"`, not an emoji platform) sets it to the
-   * delivery's source provider so central normalization runs on the managed
-   * path.
-   */
-  readonly platform?: string;
   /** Native payload. */
   raw: unknown;
 }
@@ -260,6 +262,13 @@ export interface UserQuery {
 /** A resolved agent session for a conversation (the adapter may build the agent's history from its own state). */
 export interface AgentSession {
   agent: AbstractAgent;
+  /**
+   * Optional exclusive-session release hook.
+   *
+   * Managed adapters use it when an application supplied one mutable agent
+   * instance for more than one canonical thread.
+   */
+  release?(): void | Promise<void>;
 }
 
 /** Adapter-owned conversation state; the adapter resolves (or creates) the agent session for a conversation. */
@@ -303,6 +312,14 @@ export interface PlatformAdapter {
   ): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   createRunRenderer(target: ReplyTarget): RunRenderer;
+  /**
+   * Optional synchronous preflight for a public `Thread.runAgent()` call.
+   *
+   * Surface-policy rejections happen before delivery-operation tracking so a
+   * handler may catch them and use a supported fallback without failing the
+   * containing delivery.
+   */
+  assertRunAgentSupported?(target: ReplyTarget): void;
   runAgentLifecycle?(
     args: ChannelAgentLifecycleArgs,
   ): Promise<ChannelAgentLoopResult>;
