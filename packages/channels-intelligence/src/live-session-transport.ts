@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 import type {
   RealtimeGatewayDeliveryChannel,
@@ -8,6 +8,7 @@ import {
   CHANNEL_SESSION_PROTOCOL,
   assertProviderEffectEnvelopeSize,
   assertProviderEffect,
+  providerEffectPayloadDigest,
 } from "./live-session-contracts.js";
 import type { ChannelProviderEffect } from "./live-session-contracts.js";
 import { LiveSessionFileClient } from "./live-session-files.js";
@@ -173,6 +174,9 @@ export class LiveDeliverySession {
     body: ProviderEffectInput,
   ): Promise<{ receivedThrough: number; appliedThrough: number }> {
     const operation = this.tail.then(async () => {
+      if (!body.kind.startsWith(`${this.delivery.adapter}.`)) {
+        throw new TypeError("provider effect adapter does not match delivery");
+      }
       const seq = this.nextSeq;
       const unsigned = {
         ...body,
@@ -182,9 +186,7 @@ export class LiveDeliverySession {
       };
       const effect = {
         ...unsigned,
-        payloadDigest: createHash("sha256")
-          .update(JSON.stringify(unsigned))
-          .digest("hex"),
+        payloadDigest: providerEffectPayloadDigest(unsigned),
       };
       assertProviderEffect(effect);
       const eventPayload = {

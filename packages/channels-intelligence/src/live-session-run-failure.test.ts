@@ -184,11 +184,13 @@ test("managed Slack keeps a partial run error in one native stream", async () =>
 
   try {
     expect(effects.map((effect) => effect.kind)).toEqual([
+      "slack.status",
       "slack.stream.start",
+      "slack.status",
       "slack.stream.append",
       "slack.stream.stop",
     ]);
-    expect(effects[1]?.delta).toBe(
+    expect(effects[3]?.delta).toBe(
       "Partial answer\n\n_(response interrupted)_",
     );
     expect(

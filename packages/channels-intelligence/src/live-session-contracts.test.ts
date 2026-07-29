@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   CHANNEL_SESSION_PROTOCOL,
@@ -6,19 +7,36 @@ import {
 } from "./live-session-contracts.js";
 import type { ChannelProviderEffect } from "./live-session-contracts.js";
 
-const slackAppendEffect = (): ChannelProviderEffect => ({
-  kind: "slack.stream.append",
-  effectId: "eff_01",
-  seq: 1,
-  responseId: "response_01",
-  payloadDigest:
-    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  delta: "Hello",
-  beforeTextDigest:
-    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  afterTextDigest:
-    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-});
+const canonicalJson = (value: unknown): string =>
+  JSON.stringify(
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.fromEntries(
+          Object.entries(value).sort(([left], [right]) =>
+            left.localeCompare(right),
+          ),
+        )
+      : value,
+  );
+
+const slackAppendEffect = (): ChannelProviderEffect => {
+  const unsigned = {
+    kind: "slack.stream.append" as const,
+    effectId: "eff_01",
+    seq: 1,
+    responseId: "response_01",
+    delta: "Hello",
+    beforeTextDigest:
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    afterTextDigest:
+      "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  };
+  return {
+    ...unsigned,
+    payloadDigest: createHash("sha256")
+      .update(canonicalJson(unsigned))
+      .digest("hex"),
+  };
+};
 
 describe("Live Sessions provider-effect contract", () => {
   it("uses the one stable V1 protocol name", () => {
@@ -41,6 +59,39 @@ describe("Live Sessions provider-effect contract", () => {
 
     expect(() => assertProviderEffect(forgedEffect)).toThrow(
       "provider effect contains a trusted field",
+    );
+  });
+
+  it("rejects missing required fields and unknown provider identifiers", () => {
+    const missingFinalDigest = {
+      kind: "slack.stream.stop",
+      effectId: "eff_01",
+      seq: 2,
+      responseId: "response_01",
+      payloadDigest:
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    };
+    const rawMessageId = {
+      ...slackAppendEffect(),
+      messageId: "1712345678.123456",
+    };
+
+    expect(() => assertProviderEffect(missingFinalDigest)).toThrow(
+      "provider effect payload is invalid",
+    );
+    expect(() => assertProviderEffect(rawMessageId)).toThrow(
+      "provider effect payload is invalid",
+    );
+  });
+
+  it("rejects a payload changed after its digest was signed", () => {
+    const tampered = {
+      ...slackAppendEffect(),
+      delta: "Changed after signing",
+    };
+
+    expect(() => assertProviderEffect(tampered)).toThrow(
+      "provider effect payload digest is invalid",
     );
   });
 

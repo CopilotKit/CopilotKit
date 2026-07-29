@@ -223,6 +223,7 @@ describe("live session launcher", () => {
       "channel.effect.v1",
       "channel.run.close.v1",
       "channel.effect.v1",
+      "channel.effect.v1",
       "channel.delivery.complete.v1",
     ]);
     const effects = gateway.pushes
@@ -234,10 +235,11 @@ describe("live session launcher", () => {
       );
     expect(effects.map(({ kind }) => kind)).toEqual([
       "slack.stream.start",
+      "slack.status",
       "slack.stream.append",
       "slack.stream.stop",
     ]);
-    expect(effects.map(({ seq }) => seq)).toEqual([0, 1, 2]);
+    expect(effects.map(({ seq }) => seq)).toEqual([0, 1, 2, 3]);
 
     await handle.stop();
   });

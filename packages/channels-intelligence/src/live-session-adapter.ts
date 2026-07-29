@@ -40,6 +40,10 @@ import type {
   LiveSessionTransport,
 } from "./live-session-transport.js";
 import { assertProviderReference } from "./live-session-contracts.js";
+import {
+  managedImageBytesMatch,
+  managedImageMimeType,
+} from "./live-session-files.js";
 
 interface LiveReplyTarget {
   session: LiveDeliverySession;
@@ -389,18 +393,38 @@ export class LiveSessionAdapter implements PlatformAdapter {
     },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     const target = asLiveTarget(targetValue);
-    if (target.delivery.adapter !== "slack") {
-      return { ok: false, error: "Teams general file upload is not supported" };
+    if (target.delivery.adapter === "teams") {
+      const mimeType = managedImageMimeType(args.filename);
+      if (!mimeType) {
+        return {
+          ok: false,
+          error: "Teams general file upload is not supported",
+        };
+      }
+      if (!managedImageBytesMatch(args.bytes, mimeType)) {
+        return {
+          ok: false,
+          error: "Teams image bytes do not match the filename",
+        };
+      }
     }
     try {
       const handle = await target.session.uploadFile(args);
       const responseId = mintId("response_");
-      await target.session.effect(responseId, {
-        kind: "slack.file.create",
-        fileHandle: handle,
-        ...(args.title ? { title: args.title } : {}),
-        ...(args.altText ? { altText: args.altText } : {}),
-      });
+      if (target.delivery.adapter === "slack") {
+        await target.session.effect(responseId, {
+          kind: "slack.file.create",
+          fileHandle: handle,
+          ...(args.title ? { title: args.title } : {}),
+          ...(args.altText ? { altText: args.altText } : {}),
+        });
+      } else {
+        await target.session.effect(responseId, {
+          kind: "teams.image.create",
+          fileHandle: handle,
+          altText: args.altText ?? args.title ?? args.filename,
+        });
+      }
       return { ok: true, fileId: handle };
     } catch (error) {
       return {
@@ -428,9 +452,15 @@ export class LiveSessionAdapter implements PlatformAdapter {
     let text = "";
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
+      status: { threadTs: "managed", isPane: false },
       showToolStatus: this.options.showToolStatus ?? false,
       transport: {
-        setStatus: async () => undefined,
+        setStatus: async ({ status }) => {
+          await session.effect(responseId, {
+            kind: "slack.status",
+            status,
+          });
+        },
         postMessage: async ({ text: message }) => {
           await session.effect(responseId, {
             kind: "slack.message.create",
@@ -494,6 +524,15 @@ export class LiveSessionAdapter implements PlatformAdapter {
     responseId: string,
   ): RunRenderer {
     return createTeamsRunRenderer({
+      typing: async () => {
+        try {
+          await session.effect(responseId, {
+            kind: "teams.typing",
+          });
+        } catch (error) {
+          this.options.log?.("managed Teams typing failed", error);
+        }
+      },
       post: async (text) => {
         await session.effect(responseId, {
           kind: "teams.message.create",

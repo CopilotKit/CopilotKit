@@ -100,6 +100,29 @@ test("effect rejects a wrapped envelope over 64 KiB before pushing", async () =>
   session.leave();
 });
 
+test("effect rejects a provider kind that does not match the admitted adapter", async () => {
+  const push = vi
+    .fn<RealtimeGatewayDeliveryChannel["push"]>()
+    .mockResolvedValue({ receivedThrough: 0, appliedThrough: 0 });
+  const session = new LiveDeliverySession(
+    delivery(),
+    "runtime_01",
+    deliveryChannel(push),
+    undefined,
+    60_000,
+  );
+
+  await expect(
+    session.effect("response_01", {
+      kind: "teams.message.create",
+      text: "forged cross-provider effect",
+    }),
+  ).rejects.toThrow("provider effect adapter does not match delivery");
+
+  expect(push).not.toHaveBeenCalled();
+  session.leave();
+});
+
 test("run close waits until every accepted provider effect settles", async () => {
   let resolveEffect: ((value: unknown) => void) | undefined;
   const effectResult = new Promise((resolve) => {

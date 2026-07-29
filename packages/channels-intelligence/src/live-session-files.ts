@@ -9,6 +9,59 @@ export interface ChannelFileRef {
 /** Hard cap on one inbound file download. */
 const MAX_INBOUND_FILE_BYTES = 64 * 1024 * 1024;
 
+type ManagedImageMime = "image/gif" | "image/jpeg" | "image/png" | "image/webp";
+
+/** Infer one safe managed image MIME from its filename. */
+export function managedImageMimeType(
+  filename: string,
+): ManagedImageMime | undefined {
+  const extension = filename.split(".").pop()?.toLowerCase();
+  switch (extension) {
+    case "gif":
+      return "image/gif";
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    default:
+      return undefined;
+  }
+}
+
+/** Verify that image bytes match the allowlisted MIME inferred from the name. */
+export function managedImageBytesMatch(
+  bytes: Uint8Array,
+  mimeType: ManagedImageMime,
+): boolean {
+  switch (mimeType) {
+    case "image/png":
+      return startsWith(bytes, [137, 80, 78, 71, 13, 10, 26, 10]);
+    case "image/jpeg":
+      return startsWith(bytes, [255, 216, 255]);
+    case "image/gif":
+      return (
+        startsWith(bytes, [71, 73, 70, 56, 55, 97]) ||
+        startsWith(bytes, [71, 73, 70, 56, 57, 97])
+      );
+    case "image/webp":
+      return (
+        startsWith(bytes, [82, 73, 70, 70]) &&
+        bytes.length >= 12 &&
+        startsWith(bytes.subarray(8), [87, 69, 66, 80])
+      );
+  }
+}
+
+function startsWith(bytes: Uint8Array, prefix: readonly number[]): boolean {
+  return (
+    bytes.length >= prefix.length &&
+    prefix.every((value, index) => bytes[index] === value)
+  );
+}
+
 async function readCapped(
   response: Response,
   cap: number,
@@ -113,7 +166,8 @@ export class LiveSessionFileClient {
         method: "POST",
         headers: {
           authorization: `Bearer ${this.config.apiKey}`,
-          "content-type": "application/octet-stream",
+          "content-type":
+            managedImageMimeType(args.filename) ?? "application/octet-stream",
         },
         body: args.bytes as unknown as string,
       },
