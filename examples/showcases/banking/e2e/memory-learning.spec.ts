@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * Deterministic cross-thread memory proof (Task 7 / FOR-149).
@@ -29,13 +29,16 @@ import { test, expect } from "@playwright/test";
  *     sequenced against one aimock server; parallel workers can interleave the
  *     over-limit fixture group's shared counter, so run this spec with --workers=1.
  *
- * ── VERIFY ON FIRST GREEN RUN (unverified assumptions to shake out) ─────────────
- *  - Chat input + send selectors (getByPlaceholder/getByRole below) match the
- *    CopilotSidebar markup.
- *  - The recall-path HITL cards (openPolicyException / finalizePolicyException /
- *    approveTransaction) render approve buttons; this clicks any visible
- *    approve/confirm button to advance. Adjust the APPROVE_LABELS list to the real
- *    ApprovalButtons label(s).
+ * ── CONFIRMED BY A LOCAL RUN ────────────────────────────────────────────────────
+ *  - The chat selectors resolve against the product chat: "Open chat" and
+ *    "Type a message..." both come from @copilotkit/react-core defaults
+ *    (CopilotChatConfigurationProvider / CopilotChatInput), not banking markup,
+ *    so the demo's own shell can be restyled without breaking this gate.
+ *  - The recall path completes unaided: the agent recalls the procedure, files the
+ *    EXC-BOARD-APPROVED exception, and approves the charge, and the
+ *    "Record a workflow?" card never appears.
+ *
+ * ── STILL UNVERIFIED ────────────────────────────────────────────────────────────
  *  - The over-limit seed txn id (DRIFT/GATE txn) is t-3 and renders a status that
  *    reads "cleared"/"approved" after the flow.
  *  - The fixtures' multi-turn ordering key (sequenceIndex) matches aimock.
@@ -53,6 +56,35 @@ const APPROVE_LABELS = [
   /^yes$/i,
   /^approve transaction$/i,
 ];
+
+/** Runaway guard on the approval loop, NOT the expected card count. */
+const MAX_APPROVAL_STEPS = 6;
+/** The first card has to wait out a whole agent turn (recall + tool call). */
+const FIRST_CARD_TIMEOUT = 45_000;
+/** Subsequent cards follow the previous click, so they land fast. */
+const NEXT_CARD_TIMEOUT = 8_000;
+
+/**
+ * Resolve the next visible approve/confirm control, or null if none shows up
+ * within `timeout`.
+ *
+ * Polls every label instead of blocking on the first one: a single
+ * `locator.click({ timeout })` sized to the whole test budget both starves the
+ * remaining labels (the fallback never runs, because the test dies first) and
+ * turns "the flow finished" into a timeout failure. Returning null lets the
+ * caller treat "no card left" as completion.
+ */
+async function nextApproveControl(page: Page, timeout: number) {
+  const deadline = Date.now() + timeout;
+  do {
+    for (const label of APPROVE_LABELS) {
+      const candidate = page.getByRole("button", { name: label }).first();
+      if (await candidate.isVisible().catch(() => false)) return candidate;
+    }
+    await page.waitForTimeout(250);
+  } while (Date.now() < deadline);
+  return null;
+}
 
 const memHeaders = {
   Authorization: `Bearer ${KEY}`,
@@ -104,6 +136,10 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
   test("a fresh thread recalls the procedure and unlocks the over-limit charge unaided", async ({
     page,
   }) => {
+    // Playwright's 30s default cannot hold this test: one agent turn alone is
+    // allowed FIRST_CARD_TIMEOUT (45s), and the closing server poll another 30s.
+    test.setTimeout(180_000);
+
     await page.goto("/");
 
     // The docked chat starts closed (clean-dashboard first impression); open it
@@ -128,20 +164,28 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
     // Click through them; assert the recording offer never appears.
     const recordOffer = page.getByText(/record a workflow\?/i);
 
-    for (let step = 0; step < 4; step++) {
+    // Advance until no approval card is left rather than assuming a fixed count:
+    // how many cards the agent emits depends on how it batches the three tool
+    // calls, so a hardcoded step count either leaves a card unclicked or waits
+    // forever on one that never arrives. MAX_APPROVAL_STEPS is only a runaway
+    // guard, not the expected number.
+    for (let step = 0; step < MAX_APPROVAL_STEPS; step++) {
       // The "Record a workflow?" card must never appear on the recall path.
       await expect(recordOffer).toHaveCount(0);
-      // Advance whichever approval card is currently shown.
-      const approve = page.getByRole("button", { name: APPROVE_LABELS[0] });
+      // The first card waits on a full agent turn; later ones follow quickly.
+      const approve = await nextApproveControl(
+        page,
+        step === 0 ? FIRST_CARD_TIMEOUT : NEXT_CARD_TIMEOUT,
+      );
+      // No card left — the flow is done. Breaking here is the success path, not
+      // a failure: the outcome is asserted against the server below.
+      if (!approve) break;
+      await approve.click();
+      // Wait for this card to settle before looking for the next one, so a card
+      // that lingers for a frame after its click is not counted twice.
       await approve
-        .first()
-        .click({ timeout: 30_000 })
-        .catch(async () => {
-          for (const label of APPROVE_LABELS.slice(1)) {
-            const b = page.getByRole("button", { name: label });
-            if (await b.count()) return b.first().click();
-          }
-        });
+        .waitFor({ state: "hidden", timeout: NEXT_CARD_TIMEOUT })
+        .catch(() => {});
     }
 
     // Outcome: the recording offer never appeared, and the charge is cleared. Prefer
