@@ -147,17 +147,28 @@ describe("Vue host browser cell context", () => {
     });
   });
 
-  it("uses only existing relative same-origin runtime paths", () => {
+  it("exposes only the agentic-chat same-origin runtime path", () => {
     expect(runtimePathForFeature("agentic-chat")).toBe("/api/copilotkit");
-    expect(runtimePathForFeature("a2ui-recovery")).toBe(
-      "/api/copilotkit-a2ui-recovery",
-    );
-    expect(runtimePathForFeature("open-gen-ui")).toBe("/api/copilotkit-ogui");
-    expect(runtimePathForFeature("javascript:alert(1)")).toBe(
-      "/api/copilotkit",
-    );
-    expect(runtimePathForFeature("../../provider-secret")).toBe(
-      "/api/copilotkit",
-    );
+    expect(runtimePathForFeature("frontend-tools")).toBeUndefined();
+    expect(runtimePathForFeature("javascript:alert(1)")).toBeUndefined();
+  });
+
+  it("fails closed when a runnable catalog row has no Vue runtime route", () => {
+    expect(
+      resolveBrowserCell(
+        "/vue/frontend-tools",
+        catalogWith({
+          id: "vue/langgraph-python/frontend-tools",
+          feature: "frontend-tools",
+        }),
+        runtimeConfig,
+      ),
+    ).toEqual({
+      kind: "unavailable",
+      cellId: "vue/langgraph-python/frontend-tools",
+      integration: "langgraph-python",
+      feature: "frontend-tools",
+      reason: 'Feature "frontend-tools" does not have a Vue runtime route.',
+    });
   });
 });

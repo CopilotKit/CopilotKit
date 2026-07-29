@@ -4,11 +4,7 @@ import type {
   VueRuntimeConfig,
 } from "./cell-context";
 import { resolveBrowserCell } from "./cell-context";
-import {
-  agentIdForFeature,
-  suggestionsForFeature,
-  threadIdForFeature,
-} from "./feature-contracts";
+import { agentIdForFeature, suggestionsForFeature } from "./feature-contracts";
 import type { StaticSuggestion } from "./feature-contracts";
 import { resolveFeatureComponentKey } from "./feature-map";
 import type { FeatureComponentKey } from "./feature-map";
@@ -57,9 +53,9 @@ export function resolveHostConfiguration(
       integration: cell.integration,
       feature: cell.feature,
       runtimeUrl: cell.runtimeUrl,
-      agentId: agentIdForFeature(cell.feature, cell.integration),
-      threadId: threadIdForFeature(cell.feature),
-      suggestions: suggestionsForFeature(cell.feature),
+      agentId: agentIdForFeature(componentKey),
+      threadId: undefined,
+      suggestions: suggestionsForFeature(componentKey),
       componentKey,
     },
   };
