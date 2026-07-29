@@ -864,6 +864,17 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(
       logs.some((m) => m.includes("lease revoked mid-turn; abandoning")),
     ).toBe(true);
+
+    // ...and the transport's own DeliveryState is GONE. `dispatch` swallowing
+    // the fence means the transport saw a successful onDelivery, so neither its
+    // revoked-lease catch nor `ack` ran — only the explicit `abandon` retires
+    // the lease token / scope / accepted map. Probe it through `nack`, which
+    // needs that state to build a fail intent: if it were still retained the
+    // fence would leak one record per fenced delivery until shutdown.
+    const pushesBefore = fake.pushes.length;
+    await transport.nack("dlv_d3", "probe");
+    expect(fake.pushes).toHaveLength(pushesBefore);
+    expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
   });
 
   it("swallows a fail intent that is itself fenced by a revoked lease", async () => {

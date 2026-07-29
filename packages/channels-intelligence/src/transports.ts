@@ -40,6 +40,23 @@ export interface DeliverySource {
   /** Negatively acknowledge — the work will be redelivered (at-least-once). */
   nack(deliveryId: string, reason: string): Promise<void>;
   /**
+   * Retire this delivery's local lease state WITHOUT sending any terminal intent
+   * — the third outcome alongside ack and nack, for a delivery this runtime can
+   * no longer speak for (its lease was revoked, so app-api owns redelivery and
+   * every intent we could send is fenced anyway; see {@link isLeaseRevoked}).
+   *
+   * Synchronous and wire-free by design: there is nothing to send, and the point
+   * is that ack/nack — the only other branches that drop the lease record — are
+   * both deliberately skipped on the fenced path, so without this the token,
+   * scope and accepted-seq high-water marks accumulate until shutdown. Callers
+   * own the diagnostic log (they know the cause); this is pure state retirement
+   * and a no-op for an unknown/already-terminal delivery.
+   *
+   * Optional so an existing {@link DeliverySource} implementation stays valid;
+   * sources that keep no per-delivery state simply omit it.
+   */
+  abandon?(deliveryId: string, reason: string): void;
+  /**
    * Fetch an inbound file's bytes by handle (Channel multimodal content).
    * Optional: sources without a file-serve backing omit it and the adapter
    * skips content-part hydration (text-only turn).

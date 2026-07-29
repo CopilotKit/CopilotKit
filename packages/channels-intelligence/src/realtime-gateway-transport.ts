@@ -392,7 +392,7 @@ export class RealtimeGatewayTransport
         // second 409 is what used to surface as "nack after turn failure
         // failed" followed by "no delivery state". Drop the state and report
         // the real condition once.
-        this.deliveries.delete(env.deliveryId);
+        this.abandon(env.deliveryId, "lease revoked mid-turn");
         this.log?.(
           "realtime gateway delivery lease revoked; abandoning (app-api owns redelivery)",
           {
@@ -722,6 +722,23 @@ export class RealtimeGatewayTransport
         "realtime gateway fail intent fenced by a revoked lease; dropping",
         { deliveryId, reason },
       );
+    }
+  }
+
+  /**
+   * Retire a delivery's {@link DeliveryState} without sending anything — see
+   * {@link DeliverySource.abandon}. Reached when the lease was revoked mid-turn,
+   * whether the fence surfaced here (a direct-source run) or was swallowed by
+   * `IntelligenceAdapter.dispatch` (production, where `dispatch` resolves
+   * normally on the fenced path so neither the catch below nor `ack` runs and
+   * this is the ONLY thing that frees the lease token, scope and accepted map).
+   */
+  abandon(deliveryId: string, reason: string): void {
+    if (!this.deliveries.delete(deliveryId)) {
+      this.log?.("realtime gateway abandon: no delivery state", {
+        deliveryId,
+        reason,
+      });
     }
   }
 

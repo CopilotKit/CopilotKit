@@ -472,6 +472,19 @@ export class IntelligenceAdapter implements PlatformAdapter {
         // same fence rejects — the doomed intent whose 409 used to be reported
         // as a turn failure, with a generic error reaching the end user
         // (OSS-670). Stay quiet; this is not the user's problem.
+        //
+        // Retire the source's lease state explicitly. Swallowing the error here
+        // means the source sees a SUCCESSFUL onDelivery, so neither its own
+        // revoked-lease branch nor `ack` below runs — and those are the only
+        // other places the lease record is dropped. Without this the lease
+        // token, delivery scope and accepted-seq high-water marks are retained
+        // for a delivery we can never speak for again (app-api may already have
+        // handed it to another runtime, so the id may never be seen here again),
+        // leaking once per fence until the process exits.
+        this.requireSource().abandon?.(
+          env.deliveryId,
+          "lease revoked mid-turn",
+        );
         this.opts.config?.log?.(
           `intelligence delivery ${env.deliveryId} lease revoked mid-turn; abandoning (app-api owns redelivery)`,
         );
