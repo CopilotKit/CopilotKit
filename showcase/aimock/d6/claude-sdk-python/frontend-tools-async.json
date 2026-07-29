@@ -41,6 +41,7 @@
       "_comment": "frontend-tools-async \u2014 project-planning pill. 1st turn: query_notes tool call. Specific match wins over the broad 'plan' fixture in feature-parity.json (d5-all.json loads first).",
       "match": {
         "userMessage": "Find my notes about project planning",
+        "hasToolResult": false,
         "context": "claude-sdk-python"
       },
       "response": {
@@ -68,6 +69,7 @@
       "_comment": "frontend-tools-async \u2014 auth pill. 1st turn: query_notes tool call. Beats the showcase-assistant catch-all in feature-parity.json by virtue of d5-all.json's load order and a longer specific substring match.",
       "match": {
         "userMessage": "Search my notes for anything related to auth",
+        "hasToolResult": false,
         "context": "claude-sdk-python"
       },
       "response": {
@@ -95,6 +97,7 @@
       "_comment": "frontend-tools-async \u2014 reading pill. 1st turn: query_notes tool call.",
       "match": {
         "userMessage": "Do I have any notes tagged reading",
+        "hasToolResult": false,
         "context": "claude-sdk-python"
       },
       "response": {
@@ -111,6 +114,7 @@
       "match": {
         "userMessage": "project planning",
         "turnIndex": 0,
+        "hasToolResult": false,
         "context": "claude-sdk-python"
       },
       "response": {

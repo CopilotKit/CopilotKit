@@ -94,6 +94,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Build a report that fails every validation pass so I can preview the fallback.",
   },
+  "claude-sdk-python": {
+    heal: "Build my Q2 revenue summary and self-correct a malformed first attempt.",
+    exhaust:
+      "Build a report that fails every validation pass so I can preview the fallback.",
+  },
   "google-adk": {
     heal: "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     exhaust:
