@@ -1,12 +1,10 @@
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Subscription } from "rxjs";
-import { defer, firstValueFrom, merge, Observable, of } from "rxjs";
+import { defer, EMPTY, firstValueFrom, merge, Observable, of } from "rxjs";
 import {
   catchError,
   filter,
   map,
   mergeMap,
-  share,
   shareReplay,
   switchMap,
   take,
@@ -29,18 +27,15 @@ import {
 import type { Reducer, Store } from "./utils/micro-redux";
 import {
   ɵphoenixChannel$,
-  ɵphoenixSocket$,
   ɵobservePhoenixEvent$,
   ɵobservePhoenixJoinOutcome$,
-  ɵobservePhoenixSocketHealth$,
-  ɵobservePhoenixSocketSignals$,
 } from "./utils/phoenix-observable";
 import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
+import type { ɵMetadataSocket } from "./core/metadata-realtime";
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
 const THREAD_RUN_ACTIVITY_CHANNEL_EVENT = "thread_run_activity";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
-const MAX_SOCKET_RETRIES = 5;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 interface ThreadRecord {
@@ -58,10 +53,26 @@ interface ThreadRecord {
 interface ThreadRuntimeContext {
   runtimeUrl: string;
   headers: Record<string, string>;
-  wsUrl?: string;
   agentId: string;
   includeArchived?: boolean;
   limit?: number;
+  /**
+   * Resolves the SHARED, credential-agnostic metadata socket for a given
+   * `joinToken` (the store fetches its own `/threads/subscribe` credentials and
+   * hands the resulting `joinToken` here). Owned by `CopilotKitCore` and shared
+   * with the memory store: threads join their own `user_meta:<joinCode>` channel
+   * off the returned socket instead of opening one of their own. Returns `null`
+   * when no shared socket is available yet (e.g. the runtime is not connected) —
+   * the store then simply never joins its channel and realtime silently stays
+   * absent.
+   *
+   * Resolves the shared metadata socket for the given joinToken (seed-once; see
+   * core.ɵgetMetadataSocket). Core DISPOSES the shared socket on disconnect,
+   * header change, and health give-up — so a binding MUST re-dispatch setContext
+   * on return-to-Connected (and header change) to re-resolve a fresh socket,
+   * else the store is stranded on a disposed socket.
+   */
+  getMetadataSocket: (joinToken: string) => ɵMetadataSocket | null;
 }
 
 type ThreadMetadataEvent =
@@ -232,8 +243,6 @@ const threadRestEvents = createActionGroup("Thread REST", {
 });
 
 const threadSocketEvents = createActionGroup("Thread Socket", {
-  opened: props<{ sessionId: number }>(),
-  errored: props<{ sessionId: number }>(),
   joinFailed: props<{ sessionId: number }>(),
   joinTimedOut: props<{ sessionId: number }>(),
   metadataReceived: props<{
@@ -443,9 +452,10 @@ const threadReducer = createReducer(
       // channel. A failure means realtime won't connect, but the fetched list
       // is still valid — so we do NOT write `state.error` (which would replace
       // the whole list with a "couldn't load" panel). The failure is surfaced
-      // as a diagnostic warning instead (socketDiagnosticsEffect), mirroring the
-      // stay-stale handling of a realtime channel join failure. Clear the
-      // request latch so a later list refresh can retry realtime setup.
+      // as a diagnostic warning instead (the B5 warn in
+      // `createThreadMetadataCredentialsObservable`), mirroring the stay-stale
+      // handling of a realtime channel join failure. Clear the request latch so
+      // a later list refresh can retry realtime setup.
       return {
         ...state,
         metadataCredentialsRequested: false,
@@ -896,6 +906,15 @@ function createThreadMetadataCredentialsObservable(
         });
       }),
       catchError((error) => {
+        // B5: a genuine credentials-fetch failure degrades realtime silently
+        // for the list — `metadataCredentialsFailed` deliberately does NOT write
+        // `state.error` or touch the fetched list (see its reducer case). But
+        // the degrade should be VISIBLE so operators can see that live updates
+        // won't arrive; mirror the join-failure warn (and memory.ts's B5 warn).
+        console.warn(
+          "[threads] realtime subscribe failed; the thread list will not receive live updates",
+          error,
+        );
         return of(
           threadRestEvents.metadataCredentialsFailed({
             sessionId,
@@ -1015,7 +1034,6 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           return (
             action.sessionId === state.sessionId &&
             !state.metadataCredentialsRequested &&
-            Boolean(state.context?.wsUrl) &&
             Boolean(state.metadataJoinCode)
           );
         }),
@@ -1059,21 +1077,29 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       ),
   );
 
+  // Joins `user_meta:<joinCode>` off the SHARED metadata socket (resolved via
+  // `context.getMetadataSocket(joinToken)`, owned by `CopilotKitCore` and shared
+  // with the memory store) instead of opening its own socket. The store still
+  // fetches its OWN `/threads/subscribe` credentials (see
+  // `metadataCredentialsFetchEffect`) and reads the `joinCode` from the LIST
+  // response — only the socket SOURCE changed. Socket lifecycle/health is the
+  // shared socket's concern (it warns internally on fatal give-up); this store
+  // only cares about the channel join outcome (surfaced via
+  // `joinFailed`/`joinTimedOut`, warned by `socketDiagnosticsEffect` below) and
+  // the two channel events it maps.
   const socketEffect = createEffect(
     (actions$, state$: Observable<ThreadState>) =>
       actions$.pipe(
         ofType(threadRestEvents.metadataCredentialsSucceeded),
         withLatestFrom(state$),
         filter(([action, state]) => {
-          return (
-            action.sessionId === state.sessionId &&
-            Boolean(state.context?.wsUrl)
-          );
+          return action.sessionId === state.sessionId && Boolean(state.context);
         }),
         switchMap(([action, state]) => {
           const context = state.context as ThreadRuntimeContext;
-          const joinToken = action.joinToken as string;
+          const { joinToken } = action;
           const joinCode = state.metadataJoinCode as string;
+          const sessionId = action.sessionId;
           const shutdown$ = actions$.pipe(
             ofType(
               threadAdapterEvents.contextChanged,
@@ -1081,93 +1107,72 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             ),
           );
 
-          return defer(() => {
-            const socket$ = ɵphoenixSocket$({
-              url: context.wsUrl!,
-              options: {
-                params: { join_token: joinToken },
-                reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-                rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-              },
-            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-            const channel$ = ɵphoenixChannel$({
-              socket$,
-              topic: `user_meta:${joinCode}`,
-            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-            const socketSignals$ =
-              ɵobservePhoenixSocketSignals$(socket$).pipe(share());
-            const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
-              socketSignals$,
-              MAX_SOCKET_RETRIES,
-            ).pipe(
-              catchError(() => {
-                console.warn(
-                  `[threads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
-                );
-                return of(undefined);
-              }),
-              share(),
+          // Resolve the SHARED socket for this joinToken. `null` here is reached
+          // AFTER a successful `/threads/subscribe`, so the runtime is connected
+          // but has no shared metadata socket (e.g. connected without a ws URL;
+          // the threads context is not gated on wsUrl). Rather than silently
+          // dropping live updates with no signal, warn so operators can see that
+          // the list will not receive live updates. The (already fetched) REST
+          // list is unaffected. This branch only runs after a successful
+          // subscribe, so it can't false-positive on the normal not-connected
+          // path.
+          const socket = context.getMetadataSocket(joinToken);
+          if (!socket) {
+            console.warn(
+              "[threads] realtime unavailable: no shared metadata socket (runtime connected without a ws URL?); the thread list will not receive live updates",
             );
-            const socketLifecycle$ = socketSignals$.pipe(
-              map((signal) =>
-                signal.type === "open"
-                  ? threadSocketEvents.opened({ sessionId: action.sessionId })
-                  : threadSocketEvents.errored({ sessionId: action.sessionId }),
-              ),
-            );
-            const metadata$ = channel$.pipe(
-              switchMap(({ channel }: ɵPhoenixChannelSession) =>
-                ɵobservePhoenixEvent$<ThreadMetadataEvent>(
-                  channel,
-                  THREADS_CHANNEL_EVENT,
-                ),
-              ),
-              map((payload) =>
-                threadSocketEvents.metadataReceived({
-                  sessionId: action.sessionId,
-                  payload,
-                }),
-              ),
-            );
-            const runActivity$ = channel$.pipe(
-              switchMap(({ channel }: ɵPhoenixChannelSession) =>
-                ɵobservePhoenixEvent$<ThreadRunActivityGatewayPayload>(
-                  channel,
-                  THREAD_RUN_ACTIVITY_CHANNEL_EVENT,
-                ),
-              ),
-              map((payload) => normalizeThreadRunActivityNotification(payload)),
-              filter(
-                (notification): notification is ThreadRunActivityNotification =>
-                  notification !== null,
-              ),
-              map((notification) =>
-                threadSocketEvents.runActivityReceived({
-                  sessionId: action.sessionId,
-                  notification,
-                }),
-              ),
-            );
-            const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
-              filter((outcome) => outcome.type !== "joined"),
-              map((outcome) =>
-                outcome.type === "timeout"
-                  ? threadSocketEvents.joinTimedOut({
-                      sessionId: action.sessionId,
-                    })
-                  : threadSocketEvents.joinFailed({
-                      sessionId: action.sessionId,
-                    }),
-              ),
-            );
+            return EMPTY;
+          }
 
-            return merge(
-              socketLifecycle$,
-              metadata$,
-              runActivity$,
-              joinOutcome$,
-            ).pipe(takeUntil(merge(shutdown$, fatalSocketShutdown$)));
-          });
+          const channel$ = ɵphoenixChannel$({
+            socket$: socket.socket$,
+            topic: `user_meta:${joinCode}`,
+          }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+
+          const metadata$ = channel$.pipe(
+            switchMap(({ channel }: ɵPhoenixChannelSession) =>
+              ɵobservePhoenixEvent$<ThreadMetadataEvent>(
+                channel,
+                THREADS_CHANNEL_EVENT,
+              ),
+            ),
+            map((payload) =>
+              threadSocketEvents.metadataReceived({ sessionId, payload }),
+            ),
+          );
+
+          const runActivity$ = channel$.pipe(
+            switchMap(({ channel }: ɵPhoenixChannelSession) =>
+              ɵobservePhoenixEvent$<ThreadRunActivityGatewayPayload>(
+                channel,
+                THREAD_RUN_ACTIVITY_CHANNEL_EVENT,
+              ),
+            ),
+            map((payload) => normalizeThreadRunActivityNotification(payload)),
+            filter(
+              (notification): notification is ThreadRunActivityNotification =>
+                notification !== null,
+            ),
+            map((notification) =>
+              threadSocketEvents.runActivityReceived({
+                sessionId,
+                notification,
+              }),
+            ),
+          );
+
+          const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
+            filter((outcome) => outcome.type !== "joined"),
+            map((outcome) =>
+              outcome.type === "timeout"
+                ? threadSocketEvents.joinTimedOut({ sessionId })
+                : threadSocketEvents.joinFailed({ sessionId }),
+            ),
+          );
+
+          return merge(metadata$, runActivity$, joinOutcome$).pipe(
+            takeUntil(shutdown$),
+          );
         }),
       ),
   );
@@ -1206,33 +1211,26 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       ),
   );
 
-  // Observability-only effect for realtime-join health. The socket effect
-  // dispatches `joinFailed`/`joinTimedOut`/`errored` but the reducer has no
-  // handler for them by design: a transient WS drop while the (already
-  // fetched) list is present must NOT become a hard list error — the user
-  // keeps the stale list. Previously these actions were silently swallowed,
-  // leaving a realtime-join failure with zero signal. This effect emits a
-  // non-fatal warning (mirroring the MAX_SOCKET_RETRIES warn) so the failure
-  // is diagnosable. Session-guarded so a superseded session stays quiet.
+  // Observability-only effect for realtime channel-join health. The socket
+  // effect dispatches `joinFailed`/`joinTimedOut` but the reducer has no
+  // handler for them by design: a transient channel-join failure while the
+  // (already fetched) list is present must NOT become a hard list error —
+  // the user keeps the stale list. Without this the actions would be
+  // silently swallowed, leaving a realtime-join failure with zero signal.
+  // Socket-level lifecycle/health is now the shared metadata socket's concern
+  // (it warns internally on fatal give-up), and the credentials-fetch failure
+  // warns itself (the B5 warn); this effect only covers the channel-level join
+  // outcome. Session-guarded so a superseded session stays quiet.
   const socketDiagnosticsEffect = createEffect(
     (actions$, state$: Observable<ThreadState>) =>
       actions$.pipe(
-        ofType(
-          threadSocketEvents.joinFailed,
-          threadSocketEvents.joinTimedOut,
-          threadSocketEvents.errored,
-          threadRestEvents.metadataCredentialsFailed,
-        ),
+        ofType(threadSocketEvents.joinFailed, threadSocketEvents.joinTimedOut),
         withLatestFrom(state$),
         filter(([action, state]) => action.sessionId === state.sessionId),
         tap(([action]) => {
           const reason = threadSocketEvents.joinTimedOut.match(action)
             ? "channel join timed out"
-            : threadSocketEvents.joinFailed.match(action)
-              ? "channel join was rejected"
-              : threadRestEvents.metadataCredentialsFailed.match(action)
-                ? "metadata credentials fetch failed"
-                : "socket errored";
+            : "channel join was rejected";
           console.warn(
             `[threads] realtime ${reason}; the thread list may be stale until reconnect`,
           );
@@ -1582,10 +1580,3 @@ export const ɵselectHasNextPage = selectHasNextPage;
 export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
 export const ɵselectIsMutating = selectIsMutating;
 export { createThreadStore as ɵcreateThreadStore };
-/**
- * Number of consecutive WebSocket connection failures after which the
- * threads channel tears itself down rather than retrying indefinitely.
- * Exposed for tests so they can assert teardown semantics without
- * hardcoding the threshold separately from production.
- */
-export const ɵMAX_SOCKET_RETRIES = MAX_SOCKET_RETRIES;

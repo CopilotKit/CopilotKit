@@ -361,11 +361,12 @@ export function useThreads({
     };
   }, [store]);
 
-  // Defer setting the context until the runtime reports Connected. Before
-  // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
-  // context early would issue a list fetch with `wsUrl: undefined`, then a
-  // second list fetch (and a `/threads/subscribe`) once the flag lands.
-  // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
+  // Defer setting the context until the runtime reports Connected. Before then
+  // the shared metadata socket isn't seeded, so the context's `getMetadataSocket`
+  // provider can't resolve one — dispatching early would fetch the list with
+  // realtime silently absent, then re-dispatch once Connected (a new session, so
+  // a second list fetch and a `/threads/subscribe`). Waiting lets the hook issue
+  // just one `/threads?…` + one `/threads/subscribe`.
   //
   // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
   // transient states (Disconnected/Connecting/Error with a URL still set) we
@@ -400,8 +401,9 @@ export function useThreads({
       return;
     }
 
-    // Wait for /info to land so we can include `wsUrl` in the initial
-    // context and avoid a redundant second list fetch.
+    // Wait for Connected so the shared metadata socket is seeded and the
+    // context's `getMetadataSocket` provider resolves it on the first dispatch —
+    // avoiding a redundant second list fetch (+ subscribe) on reconnect.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
       return;
     }
@@ -415,7 +417,8 @@ export function useThreads({
     const context: ɵThreadRuntimeContext = {
       runtimeUrl: copilotkit.runtimeUrl,
       headers: { ...copilotkit.headers },
-      wsUrl: copilotkit.intelligence?.wsUrl,
+      getMetadataSocket: (joinToken) =>
+        copilotkit.ɵgetMetadataSocket(joinToken) ?? null,
       agentId,
       includeArchived,
       limit,

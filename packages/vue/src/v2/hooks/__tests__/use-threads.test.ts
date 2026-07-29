@@ -27,7 +27,6 @@ type ThreadState = {
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
-    wsUrl?: string;
     agentId: string;
     includeArchived?: boolean;
     limit?: number;
@@ -383,6 +382,13 @@ const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
   realtimeMetadata: true,
 };
 
+// Stand-in for the shared, credential-agnostic socket returned by
+// `ɵgetMetadataSocket(joinToken)`. The mocked `@copilotkit/core` thread store
+// never consumes the socket (it opens its own MockSocket), so an opaque marker
+// is enough to prove the hook threaded `getMetadataSocket` into the dispatched
+// context.
+const metadataSocketStub = { ɵmetadataSocketStub: true } as const;
+
 type MockCopilotKit = {
   runtimeUrl: string | undefined;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
@@ -391,6 +397,11 @@ type MockCopilotKit = {
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
   unregisterThreadStore: ReturnType<typeof vi.fn>;
+  // Mirrors `CopilotKitCore.ɵgetMetadataSocket(joinToken)`: returns the shared
+  // socket while a realtime `wsUrl` is known, else `undefined`.
+  ɵgetMetadataSocket: (
+    joinToken: string,
+  ) => typeof metadataSocketStub | undefined;
 };
 
 function setupCopilotKit(
@@ -410,6 +421,9 @@ function setupCopilotKit(
     threadEndpoints: supportedThreadEndpoints,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
+    ɵgetMetadataSocket: function (this: MockCopilotKit, _joinToken: string) {
+      return this.intelligence?.wsUrl ? metadataSocketStub : undefined;
+    },
     ...overrides,
   });
   mockUseCopilotKit.mockReturnValue({ copilotkit });
@@ -938,17 +952,25 @@ describe("useThreads", () => {
       );
       expect(listCalls).toHaveLength(1);
 
-      // The dispatched context must carry wsUrl, otherwise the store would
-      // re-fetch once /info eventually populates it.
+      // The dispatched context must carry the shared realtime socket provider,
+      // otherwise the store would re-fetch once /info eventually populates it.
       const nonNullContexts = getDispatchedContexts().filter(
         (context) => context !== null,
       );
       expect(nonNullContexts).toHaveLength(1);
       expect(nonNullContexts[0]).toMatchObject({
         runtimeUrl: "http://localhost:4000",
-        wsUrl: "ws://localhost:4000/client",
+        getMetadataSocket: expect.any(Function),
         agentId: "agent-1",
       });
+      // The provider resolves to the shared socket for any join token.
+      expect(
+        (
+          nonNullContexts[0] as {
+            getMetadataSocket: (joinToken: string) => unknown;
+          }
+        ).getMetadataSocket("jt-1"),
+      ).toBe(metadataSocketStub);
 
       await vi.waitFor(() => {
         expect(getResult().isLoading.value).toBe(false);

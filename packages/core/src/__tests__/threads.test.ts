@@ -3,6 +3,13 @@ import type { Mock } from "vitest";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
 
+// Phoenix mock harness: the thread store joins its channel off the SHARED
+// metadata socket (mirrors `memory.test.ts`). The tests build a real
+// `ɵcreateMetadataSocket` per context (memoized so repeated
+// `getMetadataSocket(joinToken)` calls return the SAME shared socket), which
+// connects through the mocked `phoenix` module below. `phoenix.sockets`
+// captures every socket constructed so tests can reach the joined channel and
+// `serverPush` events onto it.
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocket[],
 }));
@@ -25,6 +32,8 @@ const {
   ɵselectIsFetchingNextPage,
   ɵselectIsMutating,
 } = await import("../threads");
+import { ɵcreateMetadataSocket } from "../core/metadata-realtime";
+import type { ɵMetadataSocket } from "../core/metadata-realtime";
 
 type ThreadRecord = import("../threads").ɵThread;
 
@@ -35,6 +44,26 @@ const flushEffects = async (): Promise<void> => {
   await Promise.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
+
+/**
+ * Builds a `getMetadataSocket` for a context that lazily creates ONE real
+ * (mock-phoenix-backed) shared metadata socket and memoizes it, so repeated
+ * `getMetadataSocket(joinToken)` calls return the SAME socket — exactly like the
+ * single `CopilotKitCore`-owned socket the store joins in production. Mirrors
+ * `memory.test.ts`'s `makeGetMetadataSocket`.
+ */
+function makeGetMetadataSocket(): (joinToken: string) => ɵMetadataSocket {
+  let socket: ɵMetadataSocket | null = null;
+  return (joinToken: string) => {
+    if (!socket) {
+      socket = ɵcreateMetadataSocket({
+        wsUrl: "wss://gw/client",
+        joinToken,
+      }).socket;
+    }
+    return socket;
+  };
+}
 
 const sampleThreads: ThreadRecord[] = [
   {
@@ -119,7 +148,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -129,6 +158,7 @@ describe("thread store", () => {
       "https://runtime.example.com/threads?agentId=agent-1",
       expect.objectContaining({ method: "GET" }),
     );
+    // The store fetches its OWN realtime join-token from /threads/subscribe.
     expect(fetchMock).toHaveBeenCalledWith(
       "https://runtime.example.com/threads/subscribe",
       expect.objectContaining({ method: "POST" }),
@@ -137,6 +167,7 @@ describe("thread store", () => {
       ["thread-2", "thread-1"],
     );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
+    // One SHARED socket, joined on the list response's join code.
     expect(phoenix.sockets).toHaveLength(1);
     expect(getChannel().topic).toBe("user_meta:jc-1");
   });
@@ -160,6 +191,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -199,7 +231,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -221,6 +253,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
+    // Two fetches: the list GET and the /threads/subscribe POST — no refetch.
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(ɵselectThreads(store.getState())[0]).toMatchObject({
       id: "thread-1",
@@ -252,7 +285,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -301,7 +334,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -374,7 +407,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -382,7 +415,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-2",
     });
 
@@ -432,7 +465,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -442,6 +475,7 @@ describe("thread store", () => {
     await store.archiveThread("thread-2");
     await store.deleteThread("thread-2");
 
+    // Fetch 0 = list GET, fetch 1 = /threads/subscribe POST, then the mutations.
     const renameCall = getFetchCall(fetchMock, 2);
     expect(renameCall[0]).toBe("https://runtime.example.com/threads/thread-1");
     expect(renameCall[1]).toMatchObject({ method: "PATCH" });
@@ -494,7 +528,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -526,7 +560,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -554,7 +588,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -586,7 +620,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       limit: 10,
     });
@@ -639,7 +673,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       limit: 2,
     });
@@ -815,7 +849,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -857,7 +891,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -946,7 +980,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -984,7 +1018,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1028,7 +1062,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1065,7 +1099,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1107,7 +1141,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1129,7 +1163,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1166,7 +1200,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1230,7 +1264,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1242,7 +1276,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-2",
     });
     await flushEffects();
@@ -1263,9 +1297,18 @@ describe("thread store", () => {
 
   it("isolates selector memo caches across concurrent stores", async () => {
     // Route a single stub by request host so both concurrent stores share the
-    // same deterministic environment fetch while receiving distinct lists.
+    // same deterministic environment fetch while receiving distinct lists. The
+    // /threads/subscribe POST is answered with a join token; the stores use a
+    // socket-less resolver (`() => null`) so the socket effect is a no-op —
+    // this test only exercises REST + selector isolation.
     const routedFetch = vi.fn(async (url: string | URL | Request) => {
       const href = String(url);
+      if (href.endsWith("/threads/subscribe")) {
+        return {
+          ok: true,
+          json: async () => ({ joinToken: "jt" }),
+        } as Response;
+      }
       const id = href.includes("a.example.com") ? "thread-a" : "thread-b";
       return {
         ok: true,
@@ -1288,11 +1331,13 @@ describe("thread store", () => {
       runtimeUrl: "https://a.example.com",
       headers: {},
       agentId: "agent-1",
+      getMetadataSocket: () => null,
     });
     storeB.setContext({
       runtimeUrl: "https://b.example.com",
       headers: {},
       agentId: "agent-1",
+      getMetadataSocket: () => null,
     });
     await flushEffects();
 
@@ -1336,7 +1381,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1355,7 +1400,7 @@ describe("thread store", () => {
     warnSpy.mockRestore();
   });
 
-  it("keeps the list and warns when the realtime metadata-credentials fetch fails", async () => {
+  it("keeps the list and warns (B5) when the realtime subscribe fetch fails", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi
       .fn()
@@ -1377,17 +1422,68 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
 
-    // Non-fatal: the realtime credential fetch ran after a successful list, so
-    // the already-loaded list survives, no hard list error is set, but the
-    // failure is surfaced as a diagnostic warning.
+    // Silent degrade for the list: the realtime credential fetch ran after a
+    // successful list, so the already-loaded list survives, no hard list error
+    // is set, the store did not crash, and no socket was opened.
+    expect(() => store.getState()).not.toThrow();
     expect(ɵselectThreads(store.getState()).length).toBeGreaterThan(0);
     expect(ɵselectThreadsError(store.getState())).toBeNull();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
+    expect(phoenix.sockets).toHaveLength(0);
+    // B5: the degrade is VISIBLE via a single, specific console.warn.
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[threads] realtime subscribe failed; the thread list will not receive live updates",
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  // SF1: the list loads and `/threads/subscribe` SUCCEEDS, but
+  // `getMetadataSocket` returns null (the runtime is connected without a ws URL;
+  // the threads context is not gated on wsUrl). Because this null is reached
+  // AFTER a successful subscribe, silently dropping live updates would leave no
+  // signal — so the socket effect must warn. The (already fetched) list survives
+  // intact, no socket is opened, and the store does not crash.
+  it("warns and keeps the list when getMetadataSocket returns null after a successful subscribe", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      // Connected (subscribe succeeds) but no shared socket available.
+      getMetadataSocket: () => null,
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // The list is intact, the store did not crash, and no socket was opened.
+    expect(() => store.getState()).not.toThrow();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(phoenix.sockets).toHaveLength(0);
+    // SF1: the missing shared socket is surfaced (not silently dropped).
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[threads] realtime unavailable: no shared metadata socket (runtime connected without a ws URL?); the thread list will not receive live updates",
+    );
 
     warnSpy.mockRestore();
   });
@@ -1421,7 +1517,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1437,13 +1533,15 @@ describe("thread store", () => {
       "https://runtime.example.com/threads/subscribe",
       "https://runtime.example.com/threads/subscribe",
     ]);
+    // Only the successful (second) credential fetch resolves a join token, so
+    // exactly one shared socket is opened and joined on jc-1.
     expect(phoenix.sockets).toHaveLength(1);
     expect(getChannel().topic).toBe("user_meta:jc-1");
 
     warnSpy.mockRestore();
   });
 
-  it("refreshes realtime metadata credentials when a refetch rotates the join code", async () => {
+  it("re-joins on the shared socket when a refetch rotates the join code", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1470,7 +1568,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      wsUrl: "ws://localhost:4000/client",
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1486,9 +1584,12 @@ describe("thread store", () => {
       "https://runtime.example.com/threads/subscribe",
       "https://runtime.example.com/threads/subscribe",
     ]);
-    expect(phoenix.sockets).toHaveLength(2);
+    // The metadata socket is SHARED (owned by CopilotKitCore), so a rotated join
+    // code re-joins a new channel off the SAME socket rather than opening a
+    // second one.
+    expect(phoenix.sockets).toHaveLength(1);
     expect(phoenix.sockets[0]?.channels[0]?.topic).toBe("user_meta:jc-1");
-    expect(phoenix.sockets[1]?.channels[0]?.topic).toBe("user_meta:jc-2");
+    expect(phoenix.sockets[0]?.channels[1]?.topic).toBe("user_meta:jc-2");
   });
 
   it("exposes a stable empty server snapshot for SSR", () => {

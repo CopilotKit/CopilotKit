@@ -3,6 +3,8 @@ import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
+  ɵcreateMetadataSocket,
+  type ɵMetadataSocket,
   type ɵThreadStore,
 } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
@@ -74,6 +76,11 @@ class CopilotKitStub {
     undefined,
   );
   readonly #intelligence = signal<{ wsUrl: string } | undefined>(undefined);
+  // Lazily-created shared, credential-agnostic socket, memoized to mirror
+  // `CopilotKitCore.ɵgetMetadataSocket()` (which returns one stable instance
+  // once seeded). The phoenix socket never connects under jsdom, so this is
+  // just a well-formed socket the thread store can subscribe to.
+  #metadataSocket: ɵMetadataSocket | undefined;
 
   readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
@@ -93,6 +100,15 @@ class CopilotKitStub {
     },
     get threadEndpoints() {
       return stub.threadEndpoints();
+    },
+    ɵgetMetadataSocket: (joinToken: string): ɵMetadataSocket | undefined => {
+      const wsUrl = stub.intelligence()?.wsUrl;
+      if (!wsUrl) return undefined;
+      stub.#metadataSocket ??= ɵcreateMetadataSocket({
+        wsUrl,
+        joinToken,
+      }).socket;
+      return stub.#metadataSocket;
     },
   };
 
@@ -480,6 +496,53 @@ describe("injectThreads", () => {
       String(url).includes("/threads?"),
     );
     expect(listCalls.length).toBe(2);
+  });
+
+  it("re-dispatches on a Disconnected→Connected cycle with unchanged primitives (B1)", async () => {
+    active!.fetchMock.mockResolvedValue(jsonResponse({ threads: [] }));
+
+    @Component({ standalone: true, template: "" })
+    class Host {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+
+    // Connect with a fixed wsUrl so the dispatched context's primitives are
+    // identical before and after the reconnect — isolating the B1 dedup reset
+    // (not a primitive change) as the sole reason a second dispatch fires.
+    active!.connect({ wsUrl: "wss://runtime.local/ws" });
+    fixture.detectChanges();
+    await active!.flush();
+
+    const listCallsBefore = active!.fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/threads?"),
+    );
+    expect(listCallsBefore.length).toBe(1);
+
+    // Runtime drops to Disconnected: core disposes the shared metadata socket.
+    active!.stub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    );
+    fixture.detectChanges();
+    await active!.flush();
+
+    // ...then back to Connected with IDENTICAL primitives.
+    active!.stub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+    await active!.flush();
+
+    // Leaving Connected reset the dedup signature (`lastDispatchedContext = null`),
+    // so the return to Connected re-dispatches `setContext` — re-resolving a
+    // fresh socket — instead of being deduped and stranded on the disposed one.
+    // Two list fetches total. Without the reset this stays at one.
+    const listCallsAfter = active!.fetchMock.mock.calls.filter(([url]) =>
+      String(url).includes("/threads?"),
+    );
+    expect(listCallsAfter.length).toBe(2);
   });
 
   it("does not re-dispatch when headers change key order only", async () => {

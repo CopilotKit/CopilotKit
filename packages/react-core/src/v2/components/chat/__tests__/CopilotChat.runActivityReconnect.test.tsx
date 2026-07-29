@@ -180,6 +180,15 @@ function createTestCore(
     ),
     headers: {},
     intelligence: options.intelligence,
+    // Mirrors `CopilotKitCore.ɵgetMetadataSocket(joinToken)`: the shared
+    // credential-agnostic socket while a realtime `wsUrl` is known, else
+    // undefined. The standalone run-activity store here is a vi.fn mock that
+    // never consumes the socket; the standalone test below asserts only that the
+    // chat threaded a `getMetadataSocket` provider (a function) into the
+    // dispatched context, not this return value.
+    ɵgetMetadataSocket: vi.fn((_joinToken: string) =>
+      options.intelligence?.wsUrl ? { ɵmetadataSocketStub: true } : undefined,
+    ),
     registerThreadStore: vi.fn(),
     runtimeConnectionStatus:
       options.runtimeConnectionStatus ??
@@ -278,6 +287,17 @@ test("standalone explicit Intelligence chat subscribes to run activity without a
     registeredStore: null,
   });
   await settleInitialConnect(rendered);
+
+  // Verifies the react-side wiring at CopilotChat.tsx: when the chat owns the
+  // standalone run-activity store it dispatches a context that threads a
+  // `getMetadataSocket` provider (a live closure over `core.ɵgetMetadataSocket`),
+  // so the store can re-resolve the shared metadata socket. We assert only that
+  // a function was threaded, not its return value.
+  await waitFor(() => {
+    expect(standaloneStore.setContext).toHaveBeenCalledWith(
+      expect.objectContaining({ getMetadataSocket: expect.any(Function) }),
+    );
+  });
 
   emitRunActivity(standaloneStore);
 

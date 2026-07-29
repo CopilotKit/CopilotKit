@@ -2,8 +2,8 @@ import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { ɵcreateMemoryStore } from "@copilotkit/core";
-import type { ɵMemoryStore } from "@copilotkit/core";
+import { ɵcreateMemoryStore, ɵcreateMetadataSocket } from "@copilotkit/core";
+import type { ɵMemoryStore, ɵMetadataSocket } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 import { injectMemories, type MemoriesController } from "./memories";
 
@@ -94,10 +94,22 @@ class CopilotKitStub {
    * dispatches a real runtime context, which fires the snapshot fetch through
    * the real reducer/effects/selectors.
    */
+  #metadataSocket: ɵMetadataSocket | undefined;
+
   activate(): void {
     this.store.setContext({
       runtimeUrl: RUNTIME_URL,
-      wsUrl: WS_URL,
+      // Mirror `CopilotKitCore.ɵgetMetadataSocket`: ONE credential-agnostic
+      // socket, memoized so repeated resolves return the same instance. The
+      // store fetches its own `/memories/subscribe` creds and hands the token
+      // here.
+      getMetadataSocket: (joinToken: string): ɵMetadataSocket => {
+        this.#metadataSocket ??= ɵcreateMetadataSocket({
+          wsUrl: WS_URL,
+          joinToken,
+        }).socket;
+        return this.#metadataSocket;
+      },
       headers: {},
     });
   }
