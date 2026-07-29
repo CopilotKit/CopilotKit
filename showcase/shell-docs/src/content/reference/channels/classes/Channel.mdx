@@ -198,7 +198,7 @@ await channels.stop();
 | Status           | Meaning                                                          |
 | ---------------- | ---------------------------------------------------------------- |
 | `connecting`     | `ready()` has not activated the Channel yet, or activation is in progress. |
-| `online`         | The managed session is currently sendable.                       |
+| `online`         | The managed session is healthy; this replica may be active or standby. |
 | `setup_required` | The runtime declaration exists but provider setup is incomplete. |
 | `reconnecting`   | The gateway connection dropped and is retrying.                  |
 | `error`          | Activation or bounded reconnect failed.                          |

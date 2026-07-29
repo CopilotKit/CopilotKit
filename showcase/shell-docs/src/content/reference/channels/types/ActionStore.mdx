@@ -1,0 +1,40 @@
+---
+title: ActionStore
+description: Deprecated callback snapshot store and migration path to the current StateStore configuration.
+---
+
+`ActionStore` and `InMemoryActionStore` remain exported for compatibility, but
+both are deprecated. New Channels code should configure
+`createChannel({ store: { adapter } })`; callback snapshots use the
+`StateStore.kv` facet.
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { durableStateStore } from "./state-store.js";
+
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  provider: "slack",
+  agent: makeAgent,
+  components: [ApprovalCard],
+  store: { adapter: durableStateStore },
+});
+```
+
+Use `provider: "teams"` for a Teams Channel. The registered component lets the
+SDK rebuild its callback, while the durable store preserves the snapshot across
+process restarts.
+
+## Deprecated contract
+
+```ts
+interface ActionStore {
+  put(id: string, snapshot: ActionSnapshot, ttlMs?: number): Promise<void>;
+  get(id: string): Promise<ActionSnapshot | undefined>;
+  delete(id: string): Promise<void>;
+}
+```
+
+`InMemoryActionStore` never survives a process restart. Do not introduce it in
+new managed Slack or Teams runners. See [`StateStore`](/reference/channels/types/StateStore)
+and [persistence and scaling](/slack/persistence-and-scaling).

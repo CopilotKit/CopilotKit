@@ -43,8 +43,9 @@ adapter rather than Slack or Teams.
 ## What Intelligence restores
 
 For each new turn, the managed transport reconstructs recent conversation
-history for the agent. The current in-flight message is not in that history, so
-pass it explicitly:
+history for the agent. The current in-flight message is not in that fetched
+history. `runAgent()` automatically injects it when `prompt` is omitted; pass
+an explicit combined prompt when a turn can contain both text and attachments:
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
@@ -69,6 +70,10 @@ environment, or form draft.
 
 Use `thread.state()` and `thread.setState()` for JSON-serializable state keyed
 by `conversationKey`. A Standard Schema makes reads typed and validates writes:
+
+```bash title="Terminal"
+npm install zod
+```
 
 <FrontendOnly frontend="slack">
 
@@ -171,8 +176,9 @@ The contract includes key/value, list, lock, deduplication, and queue
 operations. Values must round-trip through JSON.
 
 <Callout type="warn" title="Do not infer durability from Online status">
-  **Online** confirms that the managed listener can receive and send. It does
-  not prove your application workflow state survives a process restart. Test a
+  **Online** confirms a healthy managed connection; the runtime may be active or
+  standby. Send a real provider message to test delivery. This status does not
+  prove your application workflow state survives a process restart, so test a
   restart while an approval card is pending before shipping a durable workflow.
 </Callout>
 

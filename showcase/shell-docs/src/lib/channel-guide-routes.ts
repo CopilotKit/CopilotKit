@@ -4,7 +4,7 @@ export type ChannelFrontend = (typeof CHANNEL_FRONTENDS)[number];
 
 export const DEFAULT_CHANNEL_FRAMEWORK = "built-in-agent";
 
-export type ChannelGuideSection = "getting-started" | "build";
+export type ChannelGuideSection = "getting-started" | "build" | "production";
 
 export interface ChannelGuideRoute {
   readonly slug: string;
@@ -44,9 +44,27 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
+    slug: "rich-messages",
+    sourceSlug: "channels/rich-messages",
+    navTitle: "Rich messages and components",
+    section: "build",
+  },
+  {
     slug: "interactive",
     sourceSlug: "channels/interactive",
     navTitle: "Interactive messages and approvals",
+    section: "build",
+  },
+  {
+    slug: "commands-and-reactions",
+    sourceSlug: "channels/commands-and-reactions",
+    navTitle: "Commands and reactions",
+    section: "build",
+  },
+  {
+    slug: "files-and-multimodality",
+    sourceSlug: "channels/files-and-multimodality",
+    navTitle: "Files and multimodal input",
     section: "build",
   },
   {
@@ -54,6 +72,24 @@ export const CHANNEL_GUIDE_ROUTES = [
     sourceSlug: "channels/threads-and-state",
     navTitle: "Threads and state",
     section: "build",
+  },
+  {
+    slug: "persistence-and-scaling",
+    sourceSlug: "channels/persistence-and-scaling",
+    navTitle: "Persistence and scaling",
+    section: "production",
+  },
+  {
+    slug: "history-and-transcripts",
+    sourceSlug: "channels/history-and-transcripts",
+    navTitle: "History and transcripts",
+    section: "production",
+  },
+  {
+    slug: "deploy-and-operate",
+    sourceSlug: "channels/deploy-and-operate",
+    navTitle: "Deploy and operate",
+    section: "production",
   },
 ] as const satisfies readonly ChannelGuideRoute[];
 

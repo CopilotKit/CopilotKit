@@ -8,8 +8,14 @@ import { filterFrontendScopedBlocks } from "../toc";
 const maintainedChannelSlugs = [
   "channels/intelligence",
   "channels/tools",
+  "channels/rich-messages",
   "channels/interactive",
+  "channels/commands-and-reactions",
+  "channels/files-and-multimodality",
   "channels/threads-and-state",
+  "channels/persistence-and-scaling",
+  "channels/history-and-transcripts",
+  "channels/deploy-and-operate",
   "frontends/slack",
   "frontends/teams",
 ] as const;
@@ -18,7 +24,10 @@ const providerSensitiveSlugs = [
   "channels/intelligence",
   "channels/tools",
   "channels/interactive",
+  "channels/commands-and-reactions",
   "channels/threads-and-state",
+  "channels/persistence-and-scaling",
+  "channels/history-and-transcripts",
 ] as const;
 
 const providerQuickstartSlugs = ["frontends/slack", "frontends/teams"] as const;
@@ -26,6 +35,7 @@ const channelReferenceFiles = {
   channel: "../../content/reference/channels/classes/Channel.mdx",
   thread: "../../content/reference/channels/classes/Thread.mdx",
   callbacks: "../../content/reference/channels/types/JSXCallbacks.mdx",
+  directAdapters: "../../content/reference/channels/sdk/direct-adapters.mdx",
   index: "../../content/reference/channels/index.mdx",
 } as const;
 
@@ -87,19 +97,19 @@ describe("Channels documentation journey", () => {
     expect(slack?.fm.earlyAccess).toBeUndefined();
     expect(teams?.fm.earlyAccess).toBeUndefined();
     expect(slack?.source).toContain(
-      "Discord and WhatsApp support is coming soon.",
+      "Managed Intelligence support for Discord and WhatsApp is coming soon.",
     );
     expect(teams?.source).toContain(
-      "Discord and WhatsApp support is coming soon.",
+      "Managed Intelligence support for Discord and WhatsApp is coming soon.",
     );
     expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
   it("installs the exact stable Channels SDK pair in both provider quickstarts", () => {
     const testedInstall =
-      "npm install --save-exact @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0";
+      "npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1";
     const nonExactInstall =
-      "npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0";
+      "npm install @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1";
 
     for (const slug of providerQuickstartSlugs) {
       const source = bodyFor(slug);
@@ -139,10 +149,17 @@ describe("Channels documentation journey", () => {
       const source = bodyFor(slug);
 
       expect(source, slug).toContain(
-        'apiUrl: required("INTELLIGENCE_API_URL")',
+        "apiUrl: process.env.INTELLIGENCE_API_URL",
       );
       expect(source, slug).toContain(
-        'wsUrl: required("INTELLIGENCE_GATEWAY_WS_URL")',
+        "wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL",
+      );
+      expect(source, slug).toMatch(
+        /hosted Intelligence supplies both managed base URLs by default/i,
+      );
+      expect(source, slug).not.toContain('required("INTELLIGENCE_API_URL")');
+      expect(source, slug).not.toContain(
+        'required("INTELLIGENCE_GATEWAY_WS_URL")',
       );
       expect(source, slug).toContain("const channels = listener.channels");
       expect(source, slug).toMatch(/if \(!channels\)/);
@@ -178,7 +195,7 @@ describe("Channels documentation journey", () => {
     expect(source).toMatch(
       /Do not append\s+`\/api`,\s+`\/socket`,\s+`\/runner`,\s+or\s+`\/client`/i,
     );
-    expect(source).toMatch(/replace both bases together/i);
+    expect(source).toMatch(/replace both(?: bases)?\s+together/i);
   });
 
   it("publishes the Channels API under Reference instead of provider guides", () => {
@@ -187,8 +204,31 @@ describe("Channels documentation journey", () => {
     expect(index).toContain("/reference/channels/classes/Channel");
     expect(index).toContain("/reference/channels/classes/Thread");
     expect(index).toContain("/reference/channels/types/JSXCallbacks");
+    expect(index).toContain("/reference/channels/functions/createChannel");
+    expect(index).toContain("/reference/channels/components/Button");
+    expect(index).toContain("/reference/channels/types/StateStore");
+    expect(index).toContain("/reference/channels/sdk/direct-adapters");
     expect(index).toContain("[Slack quickstart](/slack)");
     expect(index).toContain("[Microsoft Teams quickstart](/teams)");
+
+    const directAdapters = referenceBodyFor("directAdapters");
+    for (const provider of [
+      "@copilotkit/channels/slack",
+      "@copilotkit/channels/teams",
+      "@copilotkit/channels/discord",
+      "@copilotkit/channels/telegram",
+      "@copilotkit/channels/whatsapp",
+    ]) {
+      expect(directAdapters).toContain(provider);
+    }
+    expect(directAdapters).toMatch(/Direct does not mean standalone/i);
+    expect(directAdapters).toMatch(
+      /Managed Intelligence support for Discord and WhatsApp is coming soon/i,
+    );
+    expect(directAdapters).toMatch(/does not traverse the managed Realtime/i);
+    expect(directAdapters).toContain("ESM-only");
+    expect(directAdapters).toContain("Message Content Intent");
+    expect(directAdapters).toContain("Server Members Intent");
   });
 
   it("renders only the selected provider declaration in every shared guide", () => {
@@ -280,15 +320,23 @@ describe("Channels documentation journey", () => {
     expect(teams).toContain("[Teams quickstart](/teams)");
   });
 
-  it("shows the Intelligence Channels area before the setup steps", () => {
+  it("shows the architecture and Intelligence Channels area before the setup steps", () => {
     const source = bodyFor("channels/intelligence");
+    const architectureIndex = source.indexOf(
+      'src="/images/channels/channels-architecture.svg"',
+    );
     const imageIndex = source.indexOf(
       'src="/images/channels/intelligence-channels-overview.png"',
     );
     const stepsIndex = source.indexOf("<Steps>");
 
+    expect(architectureIndex).toBeGreaterThan(-1);
+    expect(architectureIndex).toBeLessThan(imageIndex);
     expect(imageIndex).toBeGreaterThan(-1);
     expect(imageIndex).toBeLessThan(stepsIndex);
+    expect(source).toMatch(
+      /alt="[^"]*Managed Channels architecture[^"]*CopilotKit Intelligence[^"]*Channels SDK[^"]*"/i,
+    );
     expect(source).toMatch(
       /alt="[^"]*Intelligence[^"]*Channels[^"]*Slack[^"]*Teams[^"]*"/i,
     );
@@ -337,6 +385,104 @@ describe("Channels documentation journey", () => {
       expect(filtered).toContain("thread.resume(value)");
       expect(filtered).toContain("](/human-in-the-loop)");
     }
+  });
+
+  it("documents the current provider-specific rich UI and event boundaries", () => {
+    const rich = bodyFor("channels/rich-messages");
+    const commands = bodyFor("channels/commands-and-reactions");
+    const slackRich = filterFrontendScopedBlocks(rich, "slack");
+    const teamsRich = filterFrontendScopedBlocks(rich, "teams");
+    const slackCommands = filterFrontendScopedBlocks(commands, "slack");
+    const teamsCommands = filterFrontendScopedBlocks(commands, "teams");
+
+    expect(rich).toMatch(/managed Teams[\s\S]{0,240}routes only `Button`/i);
+    expect(slackRich).toMatch(/Slack renderer[\s\S]{0,160}skips chart nodes/i);
+    expect(slackRich).toMatch(/post, update, and delete/i);
+    expect(teamsRich).toContain("Adaptive Card version 1.5");
+    expect(teamsRich).toMatch(/Delete is not implemented/i);
+
+    expect(slackCommands).toMatch(
+      /generated Slack manifest[\s\S]{0,180}one slash command/i,
+    );
+    expect(slackCommands).toMatch(/messages authored by[\s\S]{0,40}bot/i);
+    expect(teamsCommands).toMatch(/exactly `\/name` or `\/name arguments`/i);
+    expect(teamsCommands).toContain("`messageReaction`");
+    expect(commands).toMatch(
+      /`thread\.react\(\)`[\s\S]{0,180}not supported by the managed Slack or Teams adapter/i,
+    );
+    expect(commands).toMatch(/Output-free handlers are supported/i);
+    expect(commands).toMatch(
+      /finalizes and acknowledges[\s\S]{0,140}posts\s+no message/i,
+    );
+    expect(commands).not.toContain("OSS-491");
+  });
+
+  it("documents the current Slack and Teams managed file behavior", () => {
+    const source = bodyFor("channels/files-and-multimodality");
+    const slack = filterFrontendScopedBlocks(source, "slack");
+    const teams = filterFrontendScopedBlocks(source, "teams");
+
+    expect(source).toContain("up to 25 MiB");
+    expect(source).toContain("`message.contentParts`");
+    expect(source).toMatch(/provider-ingest failure[\s\S]{0,100}omit/i);
+    expect(source).toMatch(
+      /delivers a\s+handle[\s\S]{0,120}short failure note/i,
+    );
+    expect(slack).toContain("`files:read`");
+    expect(slack).toMatch(/external-upload flow/i);
+    expect(teams).toContain("`ChannelMessage.Read.Group`");
+    expect(teams).toContain("`Files.Read.All`");
+    expect(teams).toMatch(
+      /Inline media[\s\S]{0,180}Bot Connector[\s\S]{0,140}does not require Graph consent/i,
+    );
+    expect(teams).toMatch(
+      /Other group-chat file-upload shapes remain unsupported/i,
+    );
+    expect(teams).toMatch(
+      /outbound file delivery currently supports images only/i,
+    );
+  });
+
+  it("separates managed history, SDK persistence, and runtime health", () => {
+    const persistence = bodyFor("channels/persistence-and-scaling");
+    const history = bodyFor("channels/history-and-transcripts");
+    const deploy = bodyFor("channels/deploy-and-operate");
+
+    expect(persistence).toContain("the SDK uses `MemoryStore`");
+    for (const facet of ["`kv`", "`list`", "`lock`", "`dedup`", "`queue`"]) {
+      expect(persistence).toContain(facet);
+    }
+    expect(persistence).toContain('from "@copilotkit/channels/testing"');
+    expect(persistence).toMatch(/one active owner[\s\S]{0,120}Channel Code/i);
+    expect(persistence).toMatch(
+      /same complete Channel declaration set[\s\S]{0,160}standbys/i,
+    );
+
+    expect(history).toMatch(/default history limit[\s\S]{0,80}20 messages/i);
+    expect(history).toMatch(/current inbound turn is not part/i);
+    expect(history).toMatch(
+      /`runAgent\(\)`[\s\S]{0,120}automatically injects/i,
+    );
+    expect(history).toContain("`thread.getMessages()`");
+    expect(history).toContain("`runAgent({ transcript: ... })`");
+    expect(history).toMatch(
+      /managed entries use the adapter platform `"intelligence"`/i,
+    );
+    expect(history).not.toContain('platforms: ["slack", "teams"]');
+
+    for (const status of [
+      "`connecting`",
+      "`online`",
+      "`setup_required`",
+      "`reconnecting`",
+      "`error`",
+      "`stopped`",
+    ]) {
+      expect(deploy).toContain(status);
+    }
+    expect(deploy).toMatch(
+      /Treat only `status\(\)\.overall === "online"` as a\s+healthy connected activation/i,
+    );
   });
 
   it("resumes approvals even when the interaction message cannot be updated", () => {
@@ -435,6 +581,9 @@ describe("Channels documentation journey", () => {
       expect(filteredThreads).toContain("`thread.conversationKey`");
       expect(filteredThreads).toMatch(/conversationKey[\s\S]{0,120}opaque/i);
       expect(filteredThreads).toContain("durable `StateStore`");
+      expect(filteredThreads).toMatch(
+        /\*\*Online\*\*[\s\S]{0,140}active or\s+standby/i,
+      );
     }
   });
 
@@ -470,7 +619,7 @@ describe("Channels documentation journey", () => {
       /(?:Slack|Teams)[^\n]{0,60}early access|early access[^\n]{0,60}(?:Slack|Teams)/i,
     );
     const proseWithoutTestedRuntimeVersion = combinedSource.replaceAll(
-      "@copilotkit/runtime@1.64.0",
+      "@copilotkit/runtime@1.64.1",
       "",
     );
     expect(proseWithoutTestedRuntimeVersion).not.toMatch(

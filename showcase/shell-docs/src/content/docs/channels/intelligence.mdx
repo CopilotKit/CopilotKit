@@ -9,6 +9,20 @@ doc_type: how-to
 This walkthrough starts with an Intelligence project and ends with a configured
 platform connection waiting for your Channels SDK runtime.
 
+{/* Replace channels-architecture.svg in place with Mike's final architecture diagram when it is available. */}
+
+<Image
+  src="/images/channels/channels-architecture.svg"
+  alt="Managed Channels architecture: Slack and Microsoft Teams connect through CopilotKit Intelligence to a long-running Channels SDK process that owns the AG-UI agent, tools, and state."
+  width={1440}
+  height={760}
+  className="my-8 w-full rounded-xl border border-fd-border"
+/>
+
+In the managed path, Intelligence owns the provider connection and durable
+delivery edge. Your long-running process owns the agent, application tools,
+interactive behavior, state, and deployment.
+
 <Image
   src="/images/channels/intelligence-channels-overview.png"
   alt="The Copilot Intelligence Channels area showing separate Slack and Teams Channels with their runtime statuses."
@@ -108,7 +122,9 @@ platform connection waiting for your Channels SDK runtime.
     Slack and Teams are production-ready managed providers. If a provider says
     **Not on your plan**, change the project entitlement before continuing.
 
-    Discord and WhatsApp show **Coming soon**.
+    Managed Intelligence support for Discord and WhatsApp shows **Coming
+    soon**. The Channels SDK already exports developer-operated direct adapters
+    for those providers.
 
   </Step>
 
@@ -203,25 +219,28 @@ platform connection waiting for your Channels SDK runtime.
     long-running Channels process with:
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_URL=https://api.intelligence.copilotkit.ai
-    INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.copilotkit.ai
     INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=<your-channel-code>
+
+    # Optional paired overrides for self-hosted or non-production Intelligence:
+    # INTELLIGENCE_API_URL=https://intelligence.example.com
+    # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Both Intelligence base URLs are required. The REST and realtime planes use
-    separate hosts, so do not derive the WebSocket URL by changing the API
-    URL's scheme. Pass bare base URLs: the client appends `/api/...`, `/runner`,
-    or `/client` itself. Do not append `/api`, `/socket`, `/runner`, or
-    `/client`. For self-hosted deployments, replace both bases together.
+    Hosted Intelligence supplies both managed base URLs by default. If you
+    override them for a self-hosted or non-production deployment, replace both
+    together. The REST and realtime planes use separate hosts, so do not derive
+    the WebSocket URL by changing the API URL's scheme. Pass bare base URLs:
+    the client appends `/api/...`, `/runner`, or `/client` itself. Do not append
+    `/api`, `/socket`, `/runner`, or `/client`.
 
     Open **API Keys** in the project sidebar to create and copy the
     project-scoped runtime key.
 
     You choose `CHANNEL_CODE` from the exact Code above, and the selected agent
     framework adds its own backend variables. The SDK receives the Intelligence
-    values through the explicit `apiUrl`, `wsUrl`, and `apiKey` constructor
-    properties shown in the platform quickstarts.
+    values through the `apiKey` constructor property and optional `apiUrl` /
+    `wsUrl` overrides shown in the platform quickstarts.
 
     Never expose the Intelligence key, Slack tokens, or Teams client secret in
     browser code or source control.
@@ -240,7 +259,7 @@ platform connection waiting for your Channels SDK runtime.
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
     | **Waiting for runtime** | Start the process, call `await channels.ready(...)` on the guarded control, and match its Code and provider to this Channel. |
-    | **Conflict** | Stop the duplicate runtime claiming the same Channel declaration. |
+    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
     | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
     | **Online** | The runtime is connected; send a real provider message to verify the full path. |

@@ -10,7 +10,8 @@ start a long-running Channels SDK listener, and verify a real Microsoft Teams
 message. CopilotKit Intelligence owns the public messaging endpoint and Teams
 credentials; your process owns the agent and application logic.
 
-Discord and WhatsApp support is coming soon.
+Managed Intelligence support for Discord and WhatsApp is coming soon. The SDK
+already exports developer-operated direct adapters for those providers.
 
 ## Before you start
 
@@ -38,7 +39,7 @@ Discord and WhatsApp support is coming soon.
     cd my-teams-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0
+    npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
     npm install -D tsx typescript @types/node
     ```
 
@@ -120,9 +121,11 @@ Discord and WhatsApp support is coming soon.
     });
 
     const intelligence = new CopilotKitIntelligence({
-      apiUrl: required("INTELLIGENCE_API_URL"),
-      wsUrl: required("INTELLIGENCE_GATEWAY_WS_URL"),
       apiKey: required("INTELLIGENCE_API_KEY"),
+      // Managed deployments use the hosted defaults. Override both URLs
+      // together only for self-hosted or non-production Intelligence.
+      apiUrl: process.env.INTELLIGENCE_API_URL,
+      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
     });
 
     const runtime = new CopilotRuntime({
@@ -176,20 +179,22 @@ Discord and WhatsApp support is coming soon.
     ### Configure secrets and start
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_URL=https://api.intelligence.copilotkit.ai
-    INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.copilotkit.ai
     INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-teams
     # Add the agent variables shown for your selected backend.
     PORT=3000
+
+    # Optional paired overrides for self-hosted or non-production Intelligence:
+    # INTELLIGENCE_API_URL=https://intelligence.example.com
+    # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
     ```
 
-    Both Intelligence base URLs are required. The REST and realtime planes use
-    separate hosts, so do not derive the WebSocket URL from the API URL. Pass
-    each as a bare base URL without `/api`, `/socket`, `/runner`, or `/client`.
-    For a self-hosted deployment, replace both bases together. Create the
-    project-scoped runtime key from **API Keys** in the Intelligence project
-    sidebar.
+    Hosted Intelligence supplies both managed base URLs by default. For a
+    self-hosted or non-production deployment, override both together. The REST
+    and realtime planes use separate hosts, so do not derive the WebSocket URL
+    from the API URL. Pass each as a bare base URL without `/api`, `/socket`,
+    `/runner`, or `/client`. Create the project-scoped runtime key from **API
+    Keys** in the Intelligence project sidebar.
 
     Start the selected agent backend, then run:
 
@@ -236,8 +241,9 @@ Discord and WhatsApp support is coming soon.
   </Accordion>
   <Accordion title="Startup settles but does not become Online">
     Inspect `channels.status()` after the guard in the runner. Finish any
-    **Setup incomplete** state in Intelligence and stop conflicting runtime
-    replicas before retrying.
+    **Setup incomplete** state in Intelligence. If Intelligence reports
+    **Conflict**, compare the complete Channel declaration set on every
+    replica; identical replicas should elect an active owner and standbys.
   </Accordion>
 </Accordions>
 

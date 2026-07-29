@@ -71,7 +71,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   vue: ["components", "hooks"],
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
-  channels: ["classes", "types"],
+  channels: ["components", "functions", "classes", "types", "sdk"],
 };
 
 const VERSION_TOP_LEVEL_PAGES: Partial<

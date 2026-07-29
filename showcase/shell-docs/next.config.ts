@@ -16,8 +16,14 @@ const CHANNEL_REDIRECT_FRONTENDS = ["slack", "teams"] as const;
 const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "intelligence",
   "tools",
+  "rich-messages",
   "interactive",
+  "commands-and-reactions",
+  "files-and-multimodality",
   "threads-and-state",
+  "persistence-and-scaling",
+  "history-and-transcripts",
+  "deploy-and-operate",
 ] as const;
 
 // A raw Markdown request reaches redirects before the `.md` / `.mdx` rewrite.
@@ -92,13 +98,11 @@ function channelChildRedirects(
 
 const RETIRED_CHANNEL_GUIDES = [
   ["quickstart", "intelligence"],
-  ["ui-library", "interactive"],
-  ["commands-and-reactions", "interactive"],
-  ["files-and-multimodality", "tools"],
+  ["ui-library", "rich-messages"],
   ["mcp", "tools"],
   ["configuration", "intelligence"],
-  ["persistence", "threads-and-state"],
-  ["transcripts", "threads-and-state"],
+  ["persistence", "persistence-and-scaling"],
+  ["transcripts", "history-and-transcripts"],
 ] as const;
 
 const CHANNEL_REFERENCE_PATHS = [
@@ -148,6 +152,32 @@ const CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] =
       ),
     ];
   });
+
+const RENAMED_CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  ["functions/createBot", "functions/createChannel"],
+  ["functions/defineBotCommand", "functions/defineChannelCommand"],
+  ["functions/defineBotTool", "functions/defineChannelTool"],
+  ["types/BotNode", "types/ChannelNode"],
+].flatMap(([legacyPath, canonicalPath]) =>
+  permanentRedirectsWithSuffixes(
+    `/reference/channels/${legacyPath}`,
+    `/reference/channels/${canonicalPath}`,
+  ),
+);
+
+const DIRECT_PROVIDER_REFERENCE_REDIRECTS: PermanentRedirect[] = [
+  "slack",
+  "discord",
+].flatMap((provider) => [
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+  ...permanentRedirectsWithSuffixes(
+    `/reference/channels/${provider}/:path*`,
+    "/reference/channels/sdk/direct-adapters",
+  ),
+]);
 
 const MAINTAINED_CHANNEL_GUIDE_REDIRECTS = CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap(
   (slug) =>
@@ -229,6 +259,8 @@ const CHANNEL_REDIRECTS: PermanentRedirect[] = [
   // exclude the reserved `reference` segment so `/reference/channels` remains
   // canonical.
   ...CHANNEL_REFERENCE_REDIRECTS,
+  ...RENAMED_CHANNEL_REFERENCE_REDIRECTS,
+  ...DIRECT_PROVIDER_REFERENCE_REDIRECTS,
   ...MAINTAINED_CHANNEL_GUIDE_REDIRECTS,
   ...RETIRED_CHANNEL_GUIDE_REDIRECTS,
   ...RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS,

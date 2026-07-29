@@ -38,8 +38,11 @@ In a later interaction, use the interaction-provided `message.ref`, which
 Intelligence stamps for that delivery. Only attempt an update when
 `message.ref.id` is non-empty, and treat that update as best-effort.
 
-Methods that are not available on a surface return a failed result or neutral
-fallback. Check the return value when the capability is required.
+Capability-result methods such as `postFile`, `react`, and
+`setSuggestedPrompts` can return `{ ok: false }` when unavailable. Message
+operations such as `update`, `delete`, and `stream` can reject when the current
+adapter or provider cannot perform them, so catch failures when they are not
+allowed to fail the workflow.
 
 ## Run and resume the agent
 
@@ -52,7 +55,7 @@ fallback. Check the return value when the capability is required.
 
 | Field        | Type                            | Description                                                                                    |
 | ------------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. Pass the inbound managed message because it is not in fetched history yet. |
+| `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. When omitted in a message handler, the SDK injects the inbound text or content parts automatically. |
 | `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
 | `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
 | `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.               |

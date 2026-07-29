@@ -202,6 +202,8 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       ...getChannelGuidePages("getting-started"),
       { type: "section", title: "Build", icon: "lucide/Wand2" },
       ...getChannelGuidePages("build"),
+      { type: "section", title: "Production", icon: "lucide/ServerCog" },
+      ...getChannelGuidePages("production"),
       {
         type: "page",
         title: "API reference",

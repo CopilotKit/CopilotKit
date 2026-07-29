@@ -17,8 +17,9 @@ On Slack, Channels JSX renders as Block Kit. Button clicks return as
 
 <Callout type="warn" title="Enable Slack Interactivity before testing buttons">
   Slack interactions require **Interactivity** to be enabled in the Slack app
-  configuration. The generated manifest currently may leave Interactivity
-  disabled, so verify that setting before expecting button callbacks.
+  configuration. The generated manifest currently sets Interactivity to
+  disabled. Enable it in Slack, then reinstall the app before expecting button
+  callbacks.
 </Callout>
 
 </FrontendOnly>
@@ -75,7 +76,10 @@ export function ApprovalCard({ summary }: { summary: string }) {
           value={{ approved: true }}
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
-            if (value === undefined) return;
+            if (value === undefined) {
+              await thread.post("The approval value was missing. Please try again.");
+              return;
+            }
 
             if (message.ref.id) {
               try {
@@ -100,7 +104,10 @@ export function ApprovalCard({ summary }: { summary: string }) {
           value={{ approved: false }}
           onClick={async ({ thread, message, action }) => {
             const value = action.value;
-            if (value === undefined) return;
+            if (value === undefined) {
+              await thread.post("The approval value was missing. Please try again.");
+              return;
+            }
 
             if (message.ref.id) {
               try {

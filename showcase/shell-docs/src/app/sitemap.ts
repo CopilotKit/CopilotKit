@@ -180,7 +180,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     }
   }
 
-  // Slack and Teams each expose the same four shared Channels guides for
+  // Slack and Teams each expose the maintained shared Channels guides for
   // every visible backend. Built-in Agent is the default and therefore
   // collapses to /<channel>; selected backends retain their slug segment.
   const visibleChannelFrameworks = getIntegrations().filter(

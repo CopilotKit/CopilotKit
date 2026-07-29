@@ -17,6 +17,10 @@ const visibleChannelFrameworks = getIntegrations().filter(
 const hiddenFrameworks = getIntegrations().filter(
   ({ slug }) => getDocsMode(slug) === "hidden",
 );
+const expectedChannelPathCount =
+  CHANNEL_FRONTENDS.length *
+  visibleChannelFrameworks.length *
+  (CHANNEL_GUIDE_ROUTES.length + 1);
 
 function expectedChannelPaths(): Set<string> {
   const paths = new Set<string>();
@@ -55,7 +59,7 @@ test("publishes exactly the canonical Channels URL matrix", () => {
   const expected = expectedChannelPaths();
   const actual = actualChannelPaths(paths);
 
-  expect(expected.size).toBe(190);
+  expect(expected.size).toBe(expectedChannelPathCount);
   expect([...actual].sort()).toEqual([...expected].sort());
   expect(paths).not.toContain("/channels");
   expect(paths.some((pathname) => pathname.startsWith("/channels/"))).toBe(
@@ -140,7 +144,7 @@ test("uses the exact quickstart and shared-guide source dates for channel pages"
     ]),
   );
 
-  expect(expectedSourceByPath.size).toBe(190);
+  expect(expectedSourceByPath.size).toBe(expectedChannelPathCount);
   for (const [pathname, sourcePath] of expectedSourceByPath) {
     const entry = entriesByPath.get(pathname);
     expect(entry, `missing ${pathname}`).toBeDefined();
@@ -162,7 +166,10 @@ test("omits the Channels overview and publishes the global SDK reference", () =>
       "/reference/channels",
       "/reference/channels/classes/Channel",
       "/reference/channels/classes/Thread",
+      "/reference/channels/components/Button",
+      "/reference/channels/functions/createChannel",
       "/reference/channels/types/JSXCallbacks",
+      "/reference/channels/types/StateStore",
     ]),
   );
 });

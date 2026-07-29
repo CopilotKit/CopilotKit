@@ -165,13 +165,11 @@ describe("canonical Channels guide redirects", () => {
 describe("retired Channels guide redirects", () => {
   const retiredGuides = [
     ["quickstart", "intelligence"],
-    ["ui-library", "interactive"],
-    ["commands-and-reactions", "interactive"],
-    ["files-and-multimodality", "tools"],
+    ["ui-library", "rich-messages"],
     ["mcp", "tools"],
     ["configuration", "intelligence"],
-    ["persistence", "threads-and-state"],
-    ["transcripts", "threads-and-state"],
+    ["persistence", "persistence-and-scaling"],
+    ["transcripts", "history-and-transcripts"],
   ] as const;
 
   it("retargets global and scoped aliases directly to final pages", async () => {
@@ -250,10 +248,47 @@ describe("Channels reference and Bots aliases", () => {
       "/reference/channels",
       "/reference/channels/classes/Channel",
       "/reference/channels/classes/Thread",
+      "/reference/channels/components/Button",
+      "/reference/channels/functions/createChannel",
       "/reference/channels/types/JSXCallbacks",
+      "/reference/channels/types/StateStore",
     ]) {
       for (const suffix of RAW_DOC_SUFFIXES) {
         expect(await resolveFirstRedirect(`${source}${suffix}`)).toBeNull();
+      }
+    }
+  });
+
+  it("preserves old reference links across the Channels API rename", async () => {
+    const renamedReferences = [
+      ["functions/createBot", "functions/createChannel"],
+      ["functions/defineBotCommand", "functions/defineChannelCommand"],
+      ["functions/defineBotTool", "functions/defineChannelTool"],
+      ["types/BotNode", "types/ChannelNode"],
+    ] as const;
+
+    for (const [legacyPath, canonicalPath] of renamedReferences) {
+      for (const suffix of RAW_DOC_SUFFIXES) {
+        await expectPermanentOneHop(
+          `/reference/channels/${legacyPath}${suffix}`,
+          `/reference/channels/${canonicalPath}${suffix}`,
+        );
+      }
+    }
+  });
+
+  it("retargets stale provider internals to the maintained direct-adapter inventory", async () => {
+    for (const source of [
+      "/reference/channels/slack",
+      "/reference/channels/slack/renderBlockKit",
+      "/reference/channels/discord",
+      "/reference/channels/discord/DISCORD_LIMITS",
+    ]) {
+      for (const suffix of RAW_DOC_SUFFIXES) {
+        await expectPermanentOneHop(
+          `${source}${suffix}`,
+          `/reference/channels/sdk/direct-adapters${suffix}`,
+        );
       }
     }
   });

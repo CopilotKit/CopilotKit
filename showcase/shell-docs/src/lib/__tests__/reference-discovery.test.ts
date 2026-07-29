@@ -59,16 +59,38 @@ test("publishes the maintained Channels SDK reference in its original surface", 
       "channels",
       "channels/classes/Channel",
       "channels/classes/Thread",
+      "channels/components/Button",
+      "channels/components/Chart",
+      "channels/functions/createChannel",
+      "channels/functions/defineChannelTool",
+      "channels/sdk/direct-adapters",
       "channels/types/JSXCallbacks",
+      "channels/types/StateStore",
     ]),
   );
   expect(referenceOverview).toContain('name: "Channels SDK"');
   expect(referenceOverview).toContain('href: referenceVersionHref("channels")');
 
   const navigationUrls = collectPageUrls(buildReferencePageTree("channels"));
-  expect(navigationUrls).toEqual([
-    "/reference/channels/classes/Channel",
-    "/reference/channels/classes/Thread",
-    "/reference/channels/types/JSXCallbacks",
-  ]);
+  expect(navigationUrls).toHaveLength(34);
+  expect(navigationUrls).toEqual(
+    expect.arrayContaining([
+      "/reference/channels/classes/Channel",
+      "/reference/channels/classes/MemoryStore",
+      "/reference/channels/classes/Thread",
+      "/reference/channels/classes/Transcripts",
+      "/reference/channels/components/Message",
+      "/reference/channels/components/Button",
+      "/reference/channels/components/Chart",
+      "/reference/channels/components/Modal",
+      "/reference/channels/functions/createChannel",
+      "/reference/channels/functions/defineChannelCommand",
+      "/reference/channels/functions/defineChannelTool",
+      "/reference/channels/sdk/direct-adapters",
+      "/reference/channels/types/ActionStore",
+      "/reference/channels/types/AgentContentPart",
+      "/reference/channels/types/JSXCallbacks",
+      "/reference/channels/types/StateStore",
+    ]),
+  );
 });

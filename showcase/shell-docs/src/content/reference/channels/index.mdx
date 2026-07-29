@@ -1,23 +1,31 @@
 ---
 title: Channels SDK
-description: API reference for managed Slack and Microsoft Teams agents built with @copilotkit/channels.
+description: API reference for managed and direct provider agents built with @copilotkit/channels.
 ---
 
-The Channels SDK connects an agent to Slack or Microsoft Teams through a
-long-running `@copilotkit/channels` process. CopilotKit Intelligence owns the
-provider connection, while your process owns the agent, tools, approvals,
-state, and deployment.
+The Channels SDK connects an agent to chat providers through a long-running
+`@copilotkit/channels` process. In the managed Slack and Microsoft Teams path,
+CopilotKit Intelligence owns the provider connection while your process owns
+the agent, tools, approvals, state, and deployment. The package also exports
+developer-operated direct adapters for Slack, Teams, Discord, Telegram, and
+WhatsApp.
 
 ```sh
-npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0
+npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
 ```
 
 ## API reference
 
 <Cards>
   <Card
+    title="createChannel"
+    description="Declare a managed provider or developer-operated direct adapter and attach the Channel to CopilotRuntime."
+    href="/reference/channels/functions/createChannel"
+    icon={<LinkIcon />}
+  />
+  <Card
     title="Channel"
-    description="Create a managed provider, register handlers and tools, configure storage, and control the runtime lifecycle."
+    description="Configure managed or direct delivery, register handlers and tools, configure storage, and inspect the Channel declaration."
     href="/reference/channels/classes/Channel"
     icon={<LinkIcon />}
   />
@@ -28,12 +36,68 @@ npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0
     icon={<LinkIcon />}
   />
   <Card
-    title="JSX callbacks"
-    description="Handle native Slack and Teams interactions from portable Channels components."
-    href="/reference/channels/types/JSXCallbacks"
+    title="StateStore"
+    description="Persist workflow state, callback snapshots, transcripts, locks, deduplication, and queues."
+    href="/reference/channels/types/StateStore"
     icon={<LinkIcon />}
   />
 </Cards>
+
+### Classes
+
+- [`Channel`](/reference/channels/classes/Channel)
+- [`Thread`](/reference/channels/classes/Thread)
+- [`MemoryStore`](/reference/channels/classes/MemoryStore)
+- [`Transcripts`](/reference/channels/classes/Transcripts)
+
+### Functions
+
+- [`createChannel`](/reference/channels/functions/createChannel)
+- [`defineChannelTool`](/reference/channels/functions/defineChannelTool)
+- [`defineChannelCommand`](/reference/channels/functions/defineChannelCommand)
+- [`bind`](/reference/channels/functions/bind)
+- [`renderToIR`](/reference/channels/functions/renderToIR)
+
+### Message components
+
+- [`Message`](/reference/channels/components/Message)
+- [`Header`](/reference/channels/components/Header)
+- [`Section`](/reference/channels/components/Section) and
+  [`Markdown`](/reference/channels/components/Markdown)
+- [`Fields` and `Field`](/reference/channels/components/Fields)
+- [`Context`](/reference/channels/components/Context)
+- [`Image`](/reference/channels/components/Image) and
+  [`Divider`](/reference/channels/components/Divider)
+- [`Table`, `Row`, and `Cell`](/reference/channels/components/Table)
+- [`Chart`](/reference/channels/components/Chart)
+
+### Interactive components
+
+- [`Actions`](/reference/channels/components/Actions)
+- [`Button`](/reference/channels/components/Button)
+- [`Select`](/reference/channels/components/Select)
+- [`Input`](/reference/channels/components/Input)
+- [`Modal components`](/reference/channels/components/Modal) — exported for
+  direct adapters; unavailable on managed Slack and Teams
+- [`JSX callbacks`](/reference/channels/types/JSXCallbacks)
+
+### Types
+
+- [`IncomingMessage`](/reference/channels/types/IncomingMessage)
+- [`AgentContentPart`](/reference/channels/types/AgentContentPart)
+- [`InteractionContext`](/reference/channels/types/InteractionContext)
+- [`MessageRef`](/reference/channels/types/MessageRef)
+- [`StoreConfig`](/reference/channels/types/StoreConfig)
+- [`StateStore`](/reference/channels/types/StateStore)
+- [`ChannelNode`](/reference/channels/types/ChannelNode)
+- [`ActionStore`](/reference/channels/types/ActionStore) — deprecated migration
+  reference
+
+### Provider SDKs
+
+- [`Direct provider adapters`](/reference/channels/sdk/direct-adapters) —
+  public entry points, required options, and the boundary between managed and
+  developer-operated delivery
 
 ## Provider guides
 

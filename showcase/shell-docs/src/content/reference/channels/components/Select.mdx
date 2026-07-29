@@ -1,0 +1,38 @@
+---
+title: Select
+description: Render a portable single- or multi-select control and understand its current managed-provider limits.
+---
+
+`Select` describes a list of string choices.
+
+```tsx
+import { Actions, Select } from "@copilotkit/channels/ui";
+
+<Actions>
+  <Select
+    placeholder="Choose an owner"
+    options={[
+      { label: "Payments", value: "payments" },
+      { label: "Identity", value: "identity" },
+    ]}
+    onSelect={async ({ action, thread }) => {
+      await thread.post(`Selected ${String(action.value)}.`);
+    }}
+  />
+</Actions>;
+```
+
+## Props
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `options` | `{ label: string; value: string }[]` | Required choices. |
+| `placeholder` | `string` | Native placeholder text. |
+| `multi` | `boolean` | Allows multiple selections where the provider supports them. |
+| `onSelect` | `ClickHandler<string \| string[]>` | Selection callback. `multi` selections use a string array. |
+
+Managed Slack emits a dispatching static select; `multi` becomes a
+`multi_static_select` input block. Managed Teams renders an Adaptive Card
+`Input.ChoiceSet`, but the managed Teams ingress currently routes only
+`Button` submissions and does not expose card field values. Do not use
+`Select.onSelect` as a required cross-provider managed workflow step today.

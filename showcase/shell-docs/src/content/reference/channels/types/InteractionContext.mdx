@@ -1,0 +1,61 @@
+---
+title: InteractionContext
+description: The thread, message reference, typed action value, user, and capabilities passed to a component callback.
+---
+
+Buttons, selects, and inputs receive an `InteractionContext<TValue>`.
+
+## Shape
+
+```ts
+interface InteractionContext<TValue = unknown> {
+  thread: Thread;
+  message: IncomingMessage;
+  action: {
+    id: string;
+    value?: TValue;
+  };
+  values: Record<string, unknown>;
+  user: PlatformUser;
+  platform: string;
+  openModal?(
+    view: ModalView,
+  ): Promise<{ ok: boolean; error?: string }>;
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `thread` | Post, update, or resume the current conversation. |
+| `message` | Message containing the control. Check `message.ref.id` before updating it. |
+| `action.id` | Opaque SDK action id. |
+| `action.value` | Round-tripped `Button.value`, selected value, or submitted text. Guard `undefined`. |
+| `values` | Other submitted form values. Managed callbacks currently provide an empty object. |
+| `user` | Provider user who interacted. |
+| `platform` | Managed callbacks currently report `"intelligence"`, not the native provider. |
+| `openModal` | Capability-gated and omitted on the managed Slack and Teams path. |
+
+```tsx
+<Button
+  value={{ approved: true }}
+  onClick={async ({ thread, message, action }) => {
+    if (action.value === undefined) return;
+
+    if (message.ref.id) {
+      try {
+        await thread.update(message.ref, "Approved");
+      } catch {
+        // Best-effort visual update.
+      }
+    }
+
+    await thread.resume(action.value);
+  }}
+>
+  Approve
+</Button>
+```
+
+Managed interactions arrive as a later delivery. Return after posting the
+original control and use `resume()` in its callback; do not block with
+`awaitChoice()`.

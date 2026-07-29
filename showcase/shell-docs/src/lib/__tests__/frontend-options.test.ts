@@ -544,12 +544,17 @@ test("gives Slack and Teams the maintained Channels journey", () => {
   const buildPages = CHANNEL_GUIDE_ROUTES.filter(
     (route) => route.section === "build",
   ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
+  const productionPages = CHANNEL_GUIDE_ROUTES.filter(
+    (route) => route.section === "production",
+  ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
   const expectedNav = [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Quickstart", slug: "" },
     ...gettingStartedPages,
     { type: "section", title: "Build", icon: "lucide/Wand2" },
     ...buildPages,
+    { type: "section", title: "Production", icon: "lucide/ServerCog" },
+    ...productionPages,
     {
       type: "page",
       title: "API reference",
@@ -601,20 +606,16 @@ test("builds the exact channel journey beneath every active prefix", () => {
   const pageUrls = collectPageUrls(navTreeToPageTree(navTree, "/slack"));
   expect(pageUrls).toEqual([
     "/slack",
-    "/slack/intelligence",
-    "/slack/tools",
-    "/slack/interactive",
-    "/slack/threads-and-state",
+    ...CHANNEL_GUIDE_ROUTES.map(({ slug }) => `/slack/${slug}`),
     "/reference/channels",
   ]);
   expect(
     collectPageUrls(navTreeToPageTree(navTree, "/slack/langgraph-fastapi")),
   ).toEqual([
     "/slack/langgraph-fastapi",
-    "/slack/langgraph-fastapi/intelligence",
-    "/slack/langgraph-fastapi/tools",
-    "/slack/langgraph-fastapi/interactive",
-    "/slack/langgraph-fastapi/threads-and-state",
+    ...CHANNEL_GUIDE_ROUTES.map(
+      ({ slug }) => `/slack/langgraph-fastapi/${slug}`,
+    ),
     "/reference/channels",
   ]);
   expect(
@@ -623,10 +624,7 @@ test("builds the exact channel journey beneath every active prefix", () => {
     ),
   ).toEqual([
     "/teams/mastra",
-    "/teams/mastra/intelligence",
-    "/teams/mastra/tools",
-    "/teams/mastra/interactive",
-    "/teams/mastra/threads-and-state",
+    ...CHANNEL_GUIDE_ROUTES.map(({ slug }) => `/teams/mastra/${slug}`),
     "/reference/channels",
   ]);
   expect(pageUrls).not.toEqual(

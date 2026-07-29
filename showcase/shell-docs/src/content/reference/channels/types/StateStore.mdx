@@ -1,0 +1,79 @@
+---
+title: StateStore
+description: The pluggable persistence contract for Channel state, callbacks, transcripts, locks, deduplication, and queues.
+---
+
+`StateStore` is the asynchronous persistence boundary used by the Channels
+runtime.
+
+## Interface
+
+```ts
+interface StateStore {
+  kv: {
+    get<T>(key: string): Promise<T | undefined>;
+    set<T>(key: string, value: T, ttlMs?: number): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+  list: {
+    append<T>(
+      key: string,
+      value: T,
+      options?: { maxLen?: number; ttlMs?: number },
+    ): Promise<number>;
+    range<T>(key: string, start?: number, stop?: number): Promise<T[]>;
+    trim(key: string, maxLen: number): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+  lock: {
+    acquire(
+      key: string,
+      options?: { ttlMs?: number },
+    ): Promise<{ token: string } | null>;
+    release(key: string, token: string): Promise<void>;
+  };
+  dedup: {
+    seen(key: string, ttlMs: number): Promise<boolean>;
+  };
+  queue: {
+    enqueue<T>(
+      key: string,
+      value: T,
+      options?: {
+        maxSize?: number;
+        onFull?: "drop-oldest" | "drop-newest";
+      },
+    ): Promise<number>;
+    dequeue<T>(key: string): Promise<T | undefined>;
+    depth(key: string): Promise<number>;
+  };
+}
+```
+
+## Semantics
+
+- `list.range` is oldest-first and uses non-negative, inclusive indices.
+- `list.append({ ttlMs })` sets the expiry for the whole list. An append without
+  `ttlMs` preserves an existing expiry.
+- `lock.acquire` returns `null` while another token holds an unexpired lock.
+- `lock.release` must not release a lock owned by another or newer token.
+- `dedup.seen` returns `false` for the first observation and `true` for a repeat
+  inside the TTL.
+- Queues are FIFO. The configured overflow policy must be deterministic.
+
+Remote stores must support JSON-serializable values. `MemoryStore` preserves
+objects by reference, but that behavior is not portable.
+
+## Conformance test
+
+```ts
+import { runStateStoreConformance } from "@copilotkit/channels/testing";
+
+runStateStoreConformance("postgres", () => createPostgresStateStore());
+```
+
+Locks, deduplication, and queues must be atomic across processes. Use
+project/Channel namespacing to prevent key collisions.
+
+Pass the adapter through `createChannel({ store: { adapter } })`. See
+[Persistence and scaling](/slack/persistence-and-scaling).
