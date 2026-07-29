@@ -214,7 +214,7 @@ export function getAllLlmPages(
     new Set(["integrations"]),
   )) {
     if (!slug) continue;
-    // Slack/Teams quickstarts and the seven shared Channels guide sources are
+    // Slack/Teams quickstarts and the four shared Channels guide sources are
     // emitted below as an explicit provider × framework matrix. Skipping them
     // here prevents the bare filesystem walk from claiming their canonical
     // URLs before the correctly annotated variants are pushed.

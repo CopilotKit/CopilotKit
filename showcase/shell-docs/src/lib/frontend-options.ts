@@ -143,28 +143,21 @@ function pathnameSegments(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
 }
 
-export function isChannelsOverviewPath(pathname: string): boolean {
-  return pathname === "/channels" || pathname === "/channels/";
-}
-
 export function shouldNavigateFrontendSelection(
   id: FrontendId,
   effectiveFrontendId: FrontendId,
   pathname: string,
   destinationPath: string,
 ): boolean {
-  return (
-    (isChannelsOverviewPath(pathname) || id !== effectiveFrontendId) &&
-    destinationPath !== pathname
-  );
+  return id !== effectiveFrontendId && destinationPath !== pathname;
 }
 
 export function isFrontendOptionActive(
   id: FrontendId,
   effectiveFrontendId: FrontendId,
-  pathname: string,
+  _pathname: string,
 ): boolean {
-  return !isChannelsOverviewPath(pathname) && id === effectiveFrontendId;
+  return id === effectiveFrontendId;
 }
 
 export function parseFrontendRoutePath(
@@ -210,10 +203,6 @@ export function frontendPathForCurrentPath(
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
 ): string {
-  if (isChannelsOverviewPath(pathname)) {
-    return frontendPathForBackend(id);
-  }
-
   const targetIsChannel = isChannelFrontend(id);
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {

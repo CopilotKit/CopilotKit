@@ -12,7 +12,6 @@ import {
   frontendPathForCurrentPath,
   getFrontendOption,
   isChannelFrontend,
-  isChannelsOverviewPath,
   isFrontendOptionActive,
   isFrontendId,
   parseFrontendRoutePath,
@@ -120,50 +119,6 @@ test("maps picker selections across frontend URL shapes", () => {
   ).toBe("/langgraph-python/concepts/architecture");
 });
 
-test("routes the global Channels overview to each surface quickstart", () => {
-  const backendSlugs = ["built-in-agent", "mastra"];
-
-  expect(isChannelsOverviewPath("/channels")).toBe(true);
-  expect(isChannelsOverviewPath("/channels/")).toBe(true);
-  expect(isChannelsOverviewPath("/channels/tools")).toBe(false);
-  expect(isChannelsOverviewPath("channels")).toBe(false);
-  expect(isChannelsOverviewPath("//channels//")).toBe(false);
-  expect(isChannelsOverviewPath("/channels//")).toBe(false);
-  expect(frontendPathForCurrentPath("react", "/channels", backendSlugs)).toBe(
-    "/",
-  );
-  expect(frontendPathForCurrentPath("vue", "/channels", backendSlugs)).toBe(
-    "/vue",
-  );
-  expect(
-    frontendPathForCurrentPath("react-native", "/channels", backendSlugs),
-  ).toBe("/react-native");
-  expect(frontendPathForCurrentPath("angular", "/channels", backendSlugs)).toBe(
-    "/angular",
-  );
-  expect(frontendPathForCurrentPath("slack", "/channels", backendSlugs)).toBe(
-    "/slack",
-  );
-  expect(frontendPathForCurrentPath("teams", "/channels", backendSlugs)).toBe(
-    "/teams",
-  );
-});
-
-test("navigates from the Channels overview to React when React is effective", () => {
-  const pathname = "/channels";
-  const destinationPath = frontendPathForCurrentPath("react", pathname);
-
-  expect(destinationPath).toBe("/");
-  expect(
-    shouldNavigateFrontendSelection(
-      "react",
-      "react",
-      pathname,
-      destinationPath,
-    ),
-  ).toBe(true);
-});
-
 test("keeps an active React selection on its current docs page", () => {
   const pathname = "/mastra/quickstart";
   const destinationPath = frontendPathForCurrentPath("react", pathname, [
@@ -181,15 +136,7 @@ test("keeps an active React selection on its current docs page", () => {
   ).toBe(false);
 });
 
-test("keeps every frontend option inactive on the Channels overview", () => {
-  expect(
-    FRONTEND_OPTIONS.map((option) =>
-      isFrontendOptionActive(option.id, "react", "/channels"),
-    ),
-  ).toEqual(FRONTEND_OPTIONS.map(() => false));
-});
-
-test("keeps the current frontend option active outside the Channels overview", () => {
+test("keeps the current frontend option active", () => {
   expect(isFrontendOptionActive("react", "react", "/mastra/quickstart")).toBe(
     true,
   );
@@ -204,10 +151,10 @@ test("keeps mapped channel guides when switching between Slack and Teams", () =>
   expect(
     frontendPathForCurrentPath(
       "slack",
-      "/teams/langgraph-fastapi/reference/thread",
+      "/teams/langgraph-fastapi/threads-and-state",
       backendSlugs,
     ),
-  ).toBe("/slack/langgraph-fastapi/reference/thread");
+  ).toBe("/slack/langgraph-fastapi/threads-and-state");
 });
 
 test("drops channel guides at each in-app frontend quickstart", () => {
@@ -395,11 +342,11 @@ test("parses and builds two-axis frontend/backend routes", () => {
   expect(
     backendPathForCurrentPath(
       "built-in-agent",
-      "/teams/mastra/reference/thread",
+      "/teams/mastra/threads-and-state",
       backendSlugs,
       "built-in-agent",
     ),
-  ).toBe("/teams/reference/thread");
+  ).toBe("/teams/threads-and-state");
 });
 
 test("maps every non-React frontend to an MDX guide page", () => {
@@ -583,9 +530,9 @@ test("routes frontend sidebars to the most specific reference docs available", (
   expect(getFrontendReferenceSlug("react-native")).toBe(
     "reference/react-native",
   );
-  expect(getFrontendReferenceSlug("slack")).toBe("reference/channel");
+  expect(getFrontendReferenceSlug("slack")).toBe("reference/channels");
   expect(getFrontendReferenceSlug("vue")).toBe("reference");
-  expect(getFrontendReferenceSlug("teams")).toBe("reference/channel");
+  expect(getFrontendReferenceSlug("teams")).toBe("reference/channels");
 });
 
 test("gives Slack and Teams the maintained Channels journey", () => {
@@ -597,22 +544,17 @@ test("gives Slack and Teams the maintained Channels journey", () => {
   const buildPages = CHANNEL_GUIDE_ROUTES.filter(
     (route) => route.section === "build",
   ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
-  const referencePages = CHANNEL_GUIDE_ROUTES.filter(
-    (route) => route.section === "reference",
-  ).map(({ navTitle: title, slug }) => ({ type: "page", title, slug }));
   const expectedNav = [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Quickstart", slug: "" },
     ...gettingStartedPages,
     { type: "section", title: "Build", icon: "lucide/Wand2" },
     ...buildPages,
-    { type: "section", title: "Reference", icon: "lucide/BookOpen" },
     {
-      type: "group",
+      type: "page",
       title: "API reference",
-      slug: "reference",
-      defaultOpen: true,
-      children: referencePages,
+      slug: "reference/channels",
+      href: "/reference/channels",
     },
   ];
 
@@ -663,9 +605,7 @@ test("builds the exact channel journey beneath every active prefix", () => {
     "/slack/tools",
     "/slack/interactive",
     "/slack/threads-and-state",
-    "/slack/reference/channel",
-    "/slack/reference/thread",
-    "/slack/reference/callbacks",
+    "/reference/channels",
   ]);
   expect(
     collectPageUrls(navTreeToPageTree(navTree, "/slack/langgraph-fastapi")),
@@ -675,9 +615,7 @@ test("builds the exact channel journey beneath every active prefix", () => {
     "/slack/langgraph-fastapi/tools",
     "/slack/langgraph-fastapi/interactive",
     "/slack/langgraph-fastapi/threads-and-state",
-    "/slack/langgraph-fastapi/reference/channel",
-    "/slack/langgraph-fastapi/reference/thread",
-    "/slack/langgraph-fastapi/reference/callbacks",
+    "/reference/channels",
   ]);
   expect(
     collectPageUrls(
@@ -689,9 +627,7 @@ test("builds the exact channel journey beneath every active prefix", () => {
     "/teams/mastra/tools",
     "/teams/mastra/interactive",
     "/teams/mastra/threads-and-state",
-    "/teams/mastra/reference/channel",
-    "/teams/mastra/reference/thread",
-    "/teams/mastra/reference/callbacks",
+    "/reference/channels",
   ]);
   expect(pageUrls).not.toEqual(
     expect.arrayContaining([

@@ -176,8 +176,8 @@ const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
   angular: "reference/angular",
-  slack: "reference/channel",
-  teams: "reference/channel",
+  slack: "reference/channels",
+  teams: "reference/channels",
 } satisfies Record<FrontendPageId, string>;
 
 export function getFrontendReferenceSlug(id: FrontendPageId): string {
@@ -202,13 +202,11 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       ...getChannelGuidePages("getting-started"),
       { type: "section", title: "Build", icon: "lucide/Wand2" },
       ...getChannelGuidePages("build"),
-      { type: "section", title: "Reference", icon: "lucide/BookOpen" },
       {
-        type: "group",
+        type: "page",
         title: "API reference",
-        slug: "reference",
-        defaultOpen: true,
-        children: getChannelGuidePages("reference"),
+        slug: "reference/channels",
+        href: "/reference/channels",
       },
     ];
   }

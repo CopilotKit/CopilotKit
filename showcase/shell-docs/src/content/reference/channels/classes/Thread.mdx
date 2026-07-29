@@ -1,9 +1,6 @@
 ---
-title: Thread API
-nav_title: Thread
-icon: "lucide/MessageSquareText"
+title: Thread
 description: Reference for replying, running and resuming agents, reading managed history, and storing per-conversation state.
-doc_type: reference
 ---
 
 A Channels `Thread` is the SDK handle for one native conversation. Handlers,
@@ -78,7 +75,8 @@ channel.onMessage(async ({ thread, message }) => {
 
 For managed approvals, post a registered component, return from the interrupt
 handler, and call `resume(value)` when a later click arrives. Do not call
-`awaitChoice`; see [interactive messages](/channels/interactive).
+`awaitChoice`; see the interactive messages guide for
+[Slack](/slack/interactive) or [Teams](/teams/interactive).
 
 ## Conversation history and users
 
@@ -95,8 +93,9 @@ handler, and call `resume(value)` when a later click arrives. Do not call
 | `setState<T>(value)` | `Promise<void>`           | Replace the full stored value. Validated when `store.state` is configured. |
 
 State uses the Channel's `StateStore`. Without a durable `store.adapter`, the
-default MemoryStore keeps it only in the current process. See
-[Threads and state](/channels/threads-and-state).
+default MemoryStore keeps it only in the current process. See the threads and
+state guide for [Slack](/slack/threads-and-state) or
+[Teams](/teams/threads-and-state).
 
 ## Provider-capability methods
 

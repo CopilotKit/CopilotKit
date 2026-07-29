@@ -136,12 +136,12 @@ describe("canonical Channels guide redirects", () => {
     }
   });
 
-  it("leaves the overview and canonical guide URLs alone", async () => {
+  it("redirects the removed overview and leaves canonical guide URLs alone", async () => {
     for (const suffix of RAW_DOC_SUFFIXES) {
-      expect(await resolveFirstRedirect(`/channels${suffix}`)).toBeNull();
+      await expectPermanentOneHop(`/channels${suffix}`, `/slack${suffix}`);
       expect(await resolveFirstRedirect(`/slack/tools${suffix}`)).toBeNull();
       expect(
-        await resolveFirstRedirect(`/teams/mastra/reference/thread${suffix}`),
+        await resolveFirstRedirect(`/teams/mastra/threads-and-state${suffix}`),
       ).toBeNull();
     }
   });
@@ -219,34 +219,48 @@ describe("retired Channels guide redirects", () => {
   });
 });
 
-describe("retired generated reference and Bots aliases", () => {
-  it("sends retired Channels references to the provider-neutral guide overview", async () => {
-    const generatedReferenceCases = [
-      ["/reference/channels/classes/Thread", "/channels"],
-      ["/reference/channels/types/InteractionContext", "/channels"],
-      ["/reference/channels/components/ApproveButton", "/channels"],
-      ["/reference/channels/classes/Channel", "/channels"],
-      ["/reference/channels/functions/createBot", "/channels"],
-      ["/reference/channels/functions/defineBotTool", "/channels"],
-      ["/reference/channels/types/ActionStore", "/channels"],
-      ["/reference/channels/slack/renderBlockKit", "/channels"],
-      ["/reference/channels/discord", "/channels"],
-      ["/reference/channels", "/channels"],
+describe("Channels reference and Bots aliases", () => {
+  it("moves provider-scoped API pages back to the global reference", async () => {
+    const referenceCases = [
+      ["reference/channel", "classes/Channel"],
+      ["reference/thread", "classes/Thread"],
+      ["reference/callbacks", "types/JSXCallbacks"],
     ] as const;
 
-    for (const [source, destination] of generatedReferenceCases) {
+    for (const [legacyPath, referencePath] of referenceCases) {
       for (const suffix of RAW_DOC_SUFFIXES) {
         await expectPermanentOneHop(
-          `${source}${suffix}`,
-          `${destination}${suffix}`,
+          `/slack/${legacyPath}${suffix}`,
+          `/reference/channels/${referencePath}${suffix}`,
         );
+        await expectPermanentOneHop(
+          `/teams/mastra/${legacyPath}${suffix}`,
+          `/reference/channels/${referencePath}${suffix}`,
+        );
+        await expectPermanentOneHop(
+          `/channels/${legacyPath}${suffix}`,
+          `/reference/channels/${referencePath}${suffix}`,
+        );
+      }
+    }
+  });
+
+  it("leaves the maintained global Channels reference canonical", async () => {
+    for (const source of [
+      "/reference/channels",
+      "/reference/channels/classes/Channel",
+      "/reference/channels/classes/Thread",
+      "/reference/channels/types/JSXCallbacks",
+    ]) {
+      for (const suffix of RAW_DOC_SUFFIXES) {
+        expect(await resolveFirstRedirect(`${source}${suffix}`)).toBeNull();
       }
     }
   });
 
   it("sends known Bots pages straight to their final canonical destinations", async () => {
     for (const suffix of RAW_DOC_SUFFIXES) {
-      await expectPermanentOneHop(`/bots${suffix}`, `/channels${suffix}`);
+      await expectPermanentOneHop(`/bots${suffix}`, `/slack${suffix}`);
       await expectPermanentOneHop(
         `/bots/tools${suffix}`,
         `/slack/tools${suffix}`,
@@ -257,23 +271,23 @@ describe("retired generated reference and Bots aliases", () => {
       );
       await expectPermanentOneHop(
         `/reference/bot${suffix}`,
-        `/channels${suffix}`,
+        `/reference/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/classes/Thread${suffix}`,
-        `/channels${suffix}`,
+        `/reference/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/types/InteractionContext${suffix}`,
-        `/channels${suffix}`,
+        `/reference/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/components/ApproveButton${suffix}`,
-        `/channels${suffix}`,
+        `/reference/channels${suffix}`,
       );
       await expectPermanentOneHop(
         `/reference/bot/classes/Bot${suffix}`,
-        `/channels${suffix}`,
+        `/reference/channels${suffix}`,
       );
     }
   });
@@ -283,9 +297,9 @@ describe("Channels roots and coming-soon platforms", () => {
   it("preserves platform roots and coming-soon fallbacks", async () => {
     await expectPermanentOneHop("/channels/platforms/slack", "/slack");
     await expectPermanentOneHop("/channels/platforms/teams", "/teams");
-    await expectPermanentOneHop("/channels/platforms/discord", "/channels");
-    await expectPermanentOneHop("/whatsapp", "/channels");
-    await expectPermanentOneHop("/whatsapp/quickstart", "/channels");
+    await expectPermanentOneHop("/channels/platforms/discord", "/slack");
+    await expectPermanentOneHop("/whatsapp", "/slack");
+    await expectPermanentOneHop("/whatsapp/quickstart", "/slack");
   });
 
   it("keeps specific roots ahead of broad legacy framework roots", async () => {

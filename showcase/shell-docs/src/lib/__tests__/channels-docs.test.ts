@@ -6,14 +6,10 @@ import type { NavNode } from "../docs-render";
 import { filterFrontendScopedBlocks } from "../toc";
 
 const maintainedChannelSlugs = [
-  "channels",
   "channels/intelligence",
   "channels/tools",
   "channels/interactive",
   "channels/threads-and-state",
-  "channels/reference/channel",
-  "channels/reference/thread",
-  "channels/reference/callbacks",
   "frontends/slack",
   "frontends/teams",
 ] as const;
@@ -23,11 +19,15 @@ const providerSensitiveSlugs = [
   "channels/tools",
   "channels/interactive",
   "channels/threads-and-state",
-  "channels/reference/channel",
-  "channels/reference/callbacks",
 ] as const;
 
 const providerQuickstartSlugs = ["frontends/slack", "frontends/teams"] as const;
+const channelReferenceFiles = {
+  channel: "../../content/reference/channels/classes/Channel.mdx",
+  thread: "../../content/reference/channels/classes/Thread.mdx",
+  callbacks: "../../content/reference/channels/types/JSXCallbacks.mdx",
+  index: "../../content/reference/channels/index.mdx",
+} as const;
 
 function bodyFor(slug: (typeof maintainedChannelSlugs)[number]): string {
   const doc = loadDoc(slug);
@@ -39,6 +39,21 @@ function navTitleFor(slug: (typeof maintainedChannelSlugs)[number]): string {
   const doc = loadDoc(slug);
   expect(doc, `missing maintained doc: ${slug}`).not.toBeNull();
   return readTitle(doc!.filePath) ?? "";
+}
+
+function referenceBodyFor(key: keyof typeof channelReferenceFiles): string {
+  return readFileSync(
+    new URL(channelReferenceFiles[key], import.meta.url),
+    "utf8",
+  ).replace(/^---[\s\S]*?---\n?/, "");
+}
+
+function referenceTitleFor(key: keyof typeof channelReferenceFiles): string {
+  const source = readFileSync(
+    new URL(channelReferenceFiles[key], import.meta.url),
+    "utf8",
+  );
+  return source.match(/^title:\s*(.+)$/m)?.[1] ?? "";
 }
 
 function fencedTypeScriptBlocks(source: string): string[] {
@@ -55,62 +70,28 @@ function sectionIndex(nodes: NavNode[], title: string): number {
 }
 
 describe("Channels documentation journey", () => {
-  it("keeps the authored journey intentionally small", () => {
-    const meta = JSON.parse(
-      readFileSync(
-        new URL("../../content/docs/channels/meta.json", import.meta.url),
-        "utf8",
-      ),
-    ) as { pages: string[] };
-
-    expect(meta.pages).toEqual(["index"]);
-  });
-
-  it("slots Channels into the root navigation before Deploy", () => {
+  it("keeps Channels out of the root docs navigation", () => {
     const nav = buildRootSurfaceNav("built-in-agent");
     const channelsIndex = sectionIndex(nav, "Channels");
-    const deployIndex = sectionIndex(nav, "Deploy");
-    const overview = nav[channelsIndex + 1];
 
-    expect(channelsIndex).toBeGreaterThan(-1);
-    expect(deployIndex).toBeGreaterThan(channelsIndex);
-    expect(overview).toMatchObject({
-      type: "page",
-      title: "Overview",
-      slug: "channels",
-    });
+    expect(channelsIndex).toBe(-1);
+    expect(loadDoc("channels")).toBeNull();
   });
 
   it("publishes only Slack and Teams setup routes", () => {
-    const overview = loadDoc("channels");
     const slack = loadDoc("frontends/slack");
     const teams = loadDoc("frontends/teams");
 
-    expect(overview?.source).toContain('title="Build for Slack"');
-    expect(overview?.source).toContain('title="Build for Microsoft Teams"');
-    expect(overview?.source).not.toContain("Production ready");
-    expect(overview?.source).toContain(
-      "Discord and WhatsApp support is coming soon.",
-    );
-    expect(overview?.source).not.toContain("GitHub");
-    expect(overview?.source).not.toContain("Linear");
-    expect(overview?.source).toContain("## Match your Channels configuration");
-    expect(overview?.source).not.toMatch(
-      /retired symbol|pre-0\.3 direct-adapter/i,
-    );
-    expect(overview?.source).toContain("[Slack](/slack)");
-    expect(overview?.source).toContain("[Teams](/teams)");
-    expect(overview?.source).toContain(
-      'src="/images/slack-bot-generative-ui-light.png"',
-    );
-    expect(overview?.source).toContain(
-      'src="/images/slack-bot-generative-ui-dark.png"',
-    );
-    expect(overview?.source).toContain(
-      "insert Mike's final Channels architecture diagram here",
-    );
+    expect(slack).not.toBeNull();
+    expect(teams).not.toBeNull();
     expect(slack?.fm.earlyAccess).toBeUndefined();
     expect(teams?.fm.earlyAccess).toBeUndefined();
+    expect(slack?.source).toContain(
+      "Discord and WhatsApp support is coming soon.",
+    );
+    expect(teams?.source).toContain(
+      "Discord and WhatsApp support is coming soon.",
+    );
     expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
@@ -200,17 +181,14 @@ describe("Channels documentation journey", () => {
     expect(source).toMatch(/replace both bases together/i);
   });
 
-  it("keeps the global Channels page overview-only", () => {
-    const overview = bodyFor("channels");
-    const cardHrefs = Array.from(
-      overview.matchAll(/<Card\b[^>]*\bhref="([^"]+)"/g),
-      (match) => match[1],
-    );
+  it("publishes the Channels API under Reference instead of provider guides", () => {
+    const index = referenceBodyFor("index");
 
-    expect(cardHrefs).toEqual(["/slack", "/teams"]);
-    expect(overview).not.toMatch(
-      /href="\/channels\/(?:intelligence|tools|interactive|threads-and-state|reference)/,
-    );
+    expect(index).toContain("/reference/channels/classes/Channel");
+    expect(index).toContain("/reference/channels/classes/Thread");
+    expect(index).toContain("/reference/channels/types/JSXCallbacks");
+    expect(index).toContain("[Slack quickstart](/slack)");
+    expect(index).toContain("[Microsoft Teams quickstart](/teams)");
   });
 
   it("renders only the selected provider declaration in every shared guide", () => {
@@ -321,7 +299,6 @@ describe("Channels documentation journey", () => {
       "channels/tools",
       "channels/interactive",
       "channels/threads-and-state",
-      "channels/reference/callbacks",
     ] as const) {
       for (const frontend of ["slack", "teams"] as const) {
         const blocks = fencedTypeScriptBlocks(
@@ -363,10 +340,7 @@ describe("Channels documentation journey", () => {
   });
 
   it("resumes approvals even when the interaction message cannot be updated", () => {
-    for (const slug of [
-      "channels/interactive",
-      "channels/reference/callbacks",
-    ] as const) {
+    for (const slug of ["channels/interactive"] as const) {
       const source = bodyFor(slug);
       const updates = Array.from(source.matchAll(/await thread\.update\(/g));
       const resumes = Array.from(
@@ -415,7 +389,7 @@ describe("Channels documentation journey", () => {
       "teams",
     );
     const teamsCallbacks = filterFrontendScopedBlocks(
-      bodyFor("channels/reference/callbacks"),
+      referenceBodyFor("callbacks"),
       "teams",
     );
 
@@ -427,7 +401,7 @@ describe("Channels documentation journey", () => {
   });
 
   it("limits managed message refs to the delivery that stamped them", () => {
-    const source = bodyFor("channels/reference/thread");
+    const source = referenceBodyFor("thread");
 
     expect(source).toMatch(
       /`MessageRef` returned by `thread\.post\(\)`[\s\S]{0,160}only\s+during the current managed delivery/i,
@@ -471,19 +445,22 @@ describe("Channels documentation journey", () => {
     expect(navTitleFor("channels/interactive")).toBe(
       "Interactive messages and approvals",
     );
-    expect(navTitleFor("channels/reference/channel")).toBe("Channel");
-    expect(navTitleFor("channels/reference/thread")).toBe("Thread");
-    expect(navTitleFor("channels/reference/callbacks")).toBe("JSX callbacks");
+    expect(referenceTitleFor("channel")).toBe("Channel");
+    expect(referenceTitleFor("thread")).toBe("Thread");
+    expect(referenceTitleFor("callbacks")).toBe("JSX callbacks");
   });
 
   it("uses the managed createChannel API throughout maintained pages", () => {
-    const combinedSource = maintainedChannelSlugs
-      .map((slug) => {
+    const combinedSource = [
+      ...maintainedChannelSlugs.map((slug) => {
         const doc = loadDoc(slug);
         expect(doc, `missing maintained doc: ${slug}`).not.toBeNull();
         return doc!.source;
-      })
-      .join("\n");
+      }),
+      ...Object.keys(channelReferenceFiles).map((key) =>
+        referenceBodyFor(key as keyof typeof channelReferenceFiles),
+      ),
+    ].join("\n");
 
     expect(combinedSource).toContain("createChannel");
     expect(combinedSource).not.toMatch(

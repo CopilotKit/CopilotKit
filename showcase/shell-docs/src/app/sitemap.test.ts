@@ -19,7 +19,7 @@ const hiddenFrameworks = getIntegrations().filter(
 );
 
 function expectedChannelPaths(): Set<string> {
-  const paths = new Set<string>(["/channels"]);
+  const paths = new Set<string>();
 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const framework of visibleChannelFrameworks) {
@@ -41,14 +41,11 @@ function sitemapPaths(): string[] {
 
 function actualChannelPaths(paths: readonly string[]): Set<string> {
   return new Set(
-    paths.filter(
-      (pathname) =>
-        pathname === "/channels" ||
-        pathname.startsWith("/channels/") ||
-        CHANNEL_FRONTENDS.some(
-          (frontend) =>
-            pathname === `/${frontend}` || pathname.startsWith(`/${frontend}/`),
-        ),
+    paths.filter((pathname) =>
+      CHANNEL_FRONTENDS.some(
+        (frontend) =>
+          pathname === `/${frontend}` || pathname.startsWith(`/${frontend}/`),
+      ),
     ),
   );
 }
@@ -58,9 +55,9 @@ test("publishes exactly the canonical Channels URL matrix", () => {
   const expected = expectedChannelPaths();
   const actual = actualChannelPaths(paths);
 
-  expect(expected.size).toBe(305);
+  expect(expected.size).toBe(190);
   expect([...actual].sort()).toEqual([...expected].sort());
-  expect(paths.filter((pathname) => pathname === "/channels")).toHaveLength(1);
+  expect(paths).not.toContain("/channels");
   expect(paths.some((pathname) => pathname.startsWith("/channels/"))).toBe(
     false,
   );
@@ -114,9 +111,6 @@ test("excludes every hidden framework from every sitemap surface", () => {
 
 test("uses the exact quickstart and shared-guide source dates for channel pages", () => {
   const expectedSourceByPath = new Map<string, string>();
-  const channelsOverview = loadDoc("channels");
-  expect(channelsOverview).not.toBeNull();
-  expectedSourceByPath.set("/channels", channelsOverview!.filePath);
 
   for (const frontend of CHANNEL_FRONTENDS) {
     const quickstart = loadDoc(getFrontendContentSlug(frontend));
@@ -146,7 +140,7 @@ test("uses the exact quickstart and shared-guide source dates for channel pages"
     ]),
   );
 
-  expect(expectedSourceByPath.size).toBe(305);
+  expect(expectedSourceByPath.size).toBe(190);
   for (const [pathname, sourcePath] of expectedSourceByPath) {
     const entry = entriesByPath.get(pathname);
     expect(entry, `missing ${pathname}`).toBeDefined();
@@ -157,15 +151,20 @@ test("uses the exact quickstart and shared-guide source dates for channel pages"
   }
 });
 
-test("publishes Channels overview only on its global canonical surface", () => {
+test("omits the Channels overview and publishes the global SDK reference", () => {
   const paths = sitemap().map(
     (entry) => new URL(entry.url, "http://localhost").pathname,
   );
 
-  expect(paths).toContain("/channels");
-  expect(
-    paths.filter((pathname) => pathname.split("/").indexOf("channels") > 1),
-  ).toEqual([]);
+  expect(paths).not.toContain("/channels");
+  expect(paths).toEqual(
+    expect.arrayContaining([
+      "/reference/channels",
+      "/reference/channels/classes/Channel",
+      "/reference/channels/classes/Thread",
+      "/reference/channels/types/JSXCallbacks",
+    ]),
+  );
 });
 
 test("publishes the Angular feature catalog at its canonical URL", () => {

@@ -697,7 +697,6 @@ const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
   "Intelligence Platform",
-  "Channels",
   "Deploy",
   "Platforms",
   "Other",

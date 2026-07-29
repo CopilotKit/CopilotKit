@@ -4,7 +4,7 @@
 // exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, MessagesSquare } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
@@ -17,7 +17,6 @@ import {
   frontendFromPathname,
   frontendPathForCurrentPath,
   isChannelFrontend,
-  isChannelsOverviewPath,
   isFrontendOptionActive,
   shouldNavigateFrontendSelection,
 } from "@/lib/frontend-options";
@@ -74,7 +73,6 @@ export function FrameworkSelector({
   const posthog = usePostHog();
   const { effectiveFramework, setStoredFramework } = useFramework();
   const urlFrontend = frontendFromPathname(pathname);
-  const isChannelsOverview = isChannelsOverviewPath(pathname);
   const [openMenu, setOpenMenu] = useState<"frontend" | "backend" | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +126,7 @@ export function FrameworkSelector({
       try {
         posthog?.capture("docs.frontend_selected", {
           frontend: id,
-          from_frontend: isChannelsOverview ? "channels" : effectiveFrontendId,
+          from_frontend: effectiveFrontendId,
           backend: effectiveFramework,
           from_path: pathname,
           destination_path: destinationPath,
@@ -180,12 +178,7 @@ export function FrameworkSelector({
 
   const topbarBtnClasses =
     "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
-  const frontendMenuLabel = isChannelsOverview
-    ? "Choose docs surface"
-    : "Choose frontend";
-  const frontendButtonLabel = isChannelsOverview
-    ? `${frontendMenuLabel}, current: Channels overview`
-    : frontendMenuLabel;
+  const frontendMenuLabel = "Choose frontend";
 
   const backendOptions = (
     includePinnedBIA: boolean,
@@ -262,77 +255,67 @@ export function FrameworkSelector({
               }
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
-              aria-label={frontendButtonLabel}
+              aria-label={frontendMenuLabel}
               className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
                 aria-hidden="true"
               >
-                {isChannelsOverview ? (
-                  <MessagesSquare className="h-[19px] w-[19px]" />
-                ) : (
-                  <FrontendLogo icon={selectedFrontend.icon} size={19} />
-                )}
+                <FrontendLogo icon={selectedFrontend.icon} size={19} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
-                  {isChannelsOverview ? "Docs surface" : "Frontend"}
+                  Frontend
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-semibold leading-tight text-[var(--text)]">
-                  {isChannelsOverview ? (
-                    <span className="truncate">Channels overview</span>
-                  ) : (
-                    <span className="truncate">{selectedFrontend.name}</span>
-                  )}
+                  <span className="truncate">{selectedFrontend.name}</span>
                 </span>
               </span>
               <SelectorAffordance active={openMenu === "frontend"} />
             </button>
 
-            {!isChannelsOverview && (
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenMenu((menu) => (menu === "backend" ? null : "backend"))
-                }
-                aria-haspopup="listbox"
-                aria-expanded={openMenu === "backend"}
-                aria-label="Choose agent backend"
-                className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            <button
+              type="button"
+              onClick={() =>
+                setOpenMenu((menu) => (menu === "backend" ? null : "backend"))
+              }
+              aria-haspopup="listbox"
+              aria-expanded={openMenu === "backend"}
+              aria-label="Choose agent backend"
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+            >
+              <span
+                className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                aria-hidden="true"
               >
-                <span
-                  className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
-                  aria-hidden="true"
-                >
-                  {current ? (
-                    <FrameworkLogo
-                      slug={current.slug}
-                      fallbackSrc={current.logo}
-                      size={17}
-                      className="text-[var(--accent)]"
-                    />
-                  ) : (
-                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70" />
-                  )}
+                {current ? (
+                  <FrameworkLogo
+                    slug={current.slug}
+                    fallbackSrc={current.logo}
+                    size={17}
+                    className="text-[var(--accent)]"
+                  />
+                ) : (
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
+                  Agent backend
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
-                    Agent backend
+                {current ? (
+                  <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
+                    {label}
                   </span>
-                  {current ? (
-                    <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
-                      {label}
-                    </span>
-                  ) : (
-                    <span className="mt-0.5 block truncate text-[13px] font-medium leading-tight text-[var(--text-muted)]">
-                      No backend selected
-                    </span>
-                  )}
-                </span>
-                <SelectorAffordance active={openMenu === "backend"} />
-              </button>
-            )}
+                ) : (
+                  <span className="mt-0.5 block truncate text-[13px] font-medium leading-tight text-[var(--text-muted)]">
+                    No backend selected
+                  </span>
+                )}
+              </span>
+              <SelectorAffordance active={openMenu === "backend"} />
+            </button>
           </div>
 
           {openMenu === "frontend" && (
@@ -387,7 +370,7 @@ export function FrameworkSelector({
             </div>
           )}
 
-          {!isChannelsOverview && openMenu === "backend" && (
+          {openMenu === "backend" && (
             <div
               role="listbox"
               aria-label="Choose agent backend"

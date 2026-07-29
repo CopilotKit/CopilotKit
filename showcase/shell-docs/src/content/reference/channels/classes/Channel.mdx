@@ -1,15 +1,10 @@
 ---
-title: Channel API
-nav_title: Channel
-icon: "lucide/Antenna"
+title: Channel
 description: Reference for createChannel options, managed providers, handlers, tools, storage, and runtime lifecycle.
-doc_type: reference
 ---
 
 `createChannel(options)` returns the Channel you declare on
 `CopilotRuntime({ channels })`.
-
-<FrontendOnly frontend="slack">
 
 ```ts title="channel.ts"
 import { createChannel } from "@copilotkit/channels";
@@ -22,22 +17,8 @@ const channel = createChannel({
 });
 ```
 
-</FrontendOnly>
-
-<FrontendOnly frontend="teams">
-
-```ts title="channel.ts"
-import { createChannel } from "@copilotkit/channels";
-import { makeAgent } from "./agent.js";
-
-const channel = createChannel({
-  name: "support-teams",
-  provider: "teams",
-  agent: makeAgent,
-});
-```
-
-</FrontendOnly>
+Use `provider: "teams"` and a project-unique Teams Channel Code when declaring
+the Microsoft Teams provider.
 
 ## createChannel options
 
@@ -173,8 +154,9 @@ channel.onMessage(async ({ thread, message }) => {
 | `onModalSubmit(callbackId, handler)` | Handle a modal form submission.                                    | Not delivered by the managed realtime path.                         |
 | `onModalClose(callbackId, handler)`  | Handle a modal dismissal.                                          | Not delivered by the managed realtime path.                         |
 
-See [interactive messages](/channels/interactive) and
-[JSX callbacks](/channels/reference/callbacks).
+See the [Slack interactive messages guide](/slack/interactive), the
+[Teams interactive messages guide](/teams/interactive), and the
+[JSX callback reference](/reference/channels/types/JSXCallbacks).
 
 ## Register a tool
 
@@ -184,7 +166,8 @@ Pass tools in `createChannel({ tools })`, or add one before activation:
 channel.tool(getIncident);
 ```
 
-See [Tools and context](/channels/tools).
+See [Tools and context for Slack](/slack/tools) or
+[Tools and context for Teams](/teams/tools).
 
 ## Runtime lifecycle
 

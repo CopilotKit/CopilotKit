@@ -88,14 +88,12 @@ describe("search href helpers", () => {
     ).toEqual({ folder: "mastra", topic: "quickstart" });
   });
 
-  it("parses only the global Channels overview and registered guide sources", () => {
-    expect(parseChannelDocsHref("/docs/channels")).toEqual({ topic: "" });
+  it("parses only registered shared Channels guide sources", () => {
+    expect(parseChannelDocsHref("/docs/channels")).toBeNull();
     expect(parseChannelDocsHref("/docs/channels/tools")).toEqual({
       topic: "tools",
     });
-    expect(parseChannelDocsHref("/docs/channels/reference/thread")).toEqual({
-      topic: "reference/thread",
-    });
+    expect(parseChannelDocsHref("/docs/channels/reference/thread")).toBeNull();
     expect(parseChannelDocsHref("/docs/channels/not-a-guide")).toBeNull();
     expect(parseChannelDocsHref("/docs/channels/tools/")).toBeNull();
     expect(parseChannelDocsHref("/docs/channels?view=all")).toBeNull();
@@ -116,14 +114,14 @@ describe("search href helpers", () => {
     ]);
     expect(
       resolveChannelSearchHrefs(
-        "reference/channel",
+        "threads-and-state",
         "langgraph-fastapi",
         "teams",
       ),
     ).toEqual([
       {
         frontend: "teams",
-        href: "/teams/langgraph-fastapi/reference/channel",
+        href: "/teams/langgraph-fastapi/threads-and-state",
       },
     ]);
   });
@@ -139,10 +137,8 @@ describe("search href helpers", () => {
     ]);
   });
 
-  it("keeps the overview global and collapses Built-in Agent guide URLs", () => {
-    expect(resolveChannelSearchHrefs("", "mastra", null)).toEqual([
-      { frontend: null, href: "/channels" },
-    ]);
+  it("omits the removed overview and collapses Built-in Agent guide URLs", () => {
+    expect(resolveChannelSearchHrefs("", "mastra", null)).toEqual([]);
     expect(
       resolveChannelSearchHrefs("interactive", "built-in-agent", null),
     ).toEqual([

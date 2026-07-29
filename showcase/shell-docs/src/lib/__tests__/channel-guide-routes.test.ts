@@ -54,24 +54,6 @@ describe("channel guide routes", () => {
         navTitle: "Threads and state",
         section: "build",
       },
-      {
-        slug: "reference/channel",
-        sourceSlug: "channels/reference/channel",
-        navTitle: "Channel",
-        section: "reference",
-      },
-      {
-        slug: "reference/thread",
-        sourceSlug: "channels/reference/thread",
-        navTitle: "Thread",
-        section: "reference",
-      },
-      {
-        slug: "reference/callbacks",
-        sourceSlug: "channels/reference/callbacks",
-        navTitle: "JSX callbacks",
-        section: "reference",
-      },
     ]);
   });
 
@@ -92,11 +74,11 @@ describe("channel guide routes", () => {
   });
 
   it("normalizes leading, trailing, and repeated slashes", () => {
-    expect(getChannelGuideSourceSlug("//reference///thread/")).toBe(
-      "channels/reference/thread",
+    expect(getChannelGuideSourceSlug("//threads-and-state/")).toBe(
+      "channels/threads-and-state",
     );
-    expect(getChannelGuidePublicSlug("/channels//reference///callbacks/")).toBe(
-      "reference/callbacks",
+    expect(getChannelGuidePublicSlug("/channels//interactive/")).toBe(
+      "interactive",
     );
     expect(isChannelGuideSlug("///threads-and-state//")).toBe(true);
   });
@@ -108,18 +90,18 @@ describe("channel guide routes", () => {
     expect(channelGuideHref("slack", "mastra", "tools")).toBe(
       "/slack/mastra/tools",
     );
-    expect(
-      channelGuideHref("teams", "built-in-agent", "reference/thread"),
-    ).toBe("/teams/reference/thread");
-    expect(
-      channelGuideHref("teams", "built-in-agent", "//reference///thread/"),
-    ).toBe("/teams/reference/thread");
+    expect(channelGuideHref("teams", "built-in-agent", "interactive")).toBe(
+      "/teams/interactive",
+    );
+    expect(channelGuideHref("teams", "built-in-agent", "//interactive/")).toBe(
+      "/teams/interactive",
+    );
   });
 
   it("treats null and undefined frameworks as implicit", () => {
     expect(channelGuideHref("slack", null, "tools")).toBe("/slack/tools");
-    expect(channelGuideHref("teams", undefined, "reference/thread")).toBe(
-      "/teams/reference/thread",
+    expect(channelGuideHref("teams", undefined, "threads-and-state")).toBe(
+      "/teams/threads-and-state",
     );
     expect(channelGuideHref("slack", null, "")).toBe("/slack");
     expect(channelGuideHref("teams", undefined, "///")).toBe("/teams");
@@ -147,15 +129,15 @@ describe("channel guide route resolution", () => {
       resolveGuide({
         frontend: "teams",
         framework: "mastra",
-        slugPath: "reference/thread",
+        slugPath: "threads-and-state",
         frameworkDocsMode: "generated",
       }),
     ).toEqual({
       frontend: "teams",
       framework: "mastra",
-      slugPath: "reference/thread",
-      sourceSlug: "channels/reference/thread",
-      canonicalPath: "/teams/mastra/reference/thread",
+      slugPath: "threads-and-state",
+      sourceSlug: "channels/threads-and-state",
+      canonicalPath: "/teams/mastra/threads-and-state",
     });
   });
 
@@ -164,14 +146,14 @@ describe("channel guide route resolution", () => {
       resolveGuide({
         frontend: "teams",
         framework: "built-in-agent",
-        slugPath: "reference/thread",
+        slugPath: "threads-and-state",
       }),
     ).toEqual({
       frontend: "teams",
       framework: "built-in-agent",
-      slugPath: "reference/thread",
-      sourceSlug: "channels/reference/thread",
-      canonicalPath: "/teams/reference/thread",
+      slugPath: "threads-and-state",
+      sourceSlug: "channels/threads-and-state",
+      canonicalPath: "/teams/threads-and-state",
     });
   });
 

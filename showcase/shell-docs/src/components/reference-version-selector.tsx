@@ -21,6 +21,7 @@ const VERSION_LABELS: Record<ReferenceVersion, string> = {
   vue: "Vue",
   angular: "Angular",
   core: "Core (TypeScript)",
+  channels: "Channels",
 };
 
 export function ReferenceVersionSelector({

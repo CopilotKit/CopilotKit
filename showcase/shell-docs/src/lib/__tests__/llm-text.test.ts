@@ -112,7 +112,8 @@ test("publishes the complete canonical channel discovery matrix", () => {
   );
   expect(new Set(urls).size).toBe(urls.length);
   expect(urls.filter((url) => url.startsWith("channels/"))).toEqual([]);
-  expect(urls.filter((url) => url === "channels")).toHaveLength(1);
+  expect(urls).not.toContain("channels");
+  expect(urls).toContain("reference/channels");
 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const integration of visibleFrameworks) {
@@ -197,7 +198,7 @@ test("renders selected channel guide axes and scopes prose links", () => {
   });
 
   expect(output).toContain("](/teams/mastra/interactive)");
-  expect(output).toContain("](/teams/mastra/reference/channel)");
+  expect(output).toContain("](/reference/channels/classes/Channel)");
   expect(output).toContain('provider: "teams"');
   expect(output).not.toContain('provider: "slack"');
 });
@@ -223,7 +224,7 @@ test("rewrites scoped prose links without changing backtick or tilde fences", ()
     tripleFence,
     longFence,
     tildeFence,
-    '<a href="/channels/reference/thread">rewrite this too</a>',
+    '<a href="/reference/channels/classes/Thread">leave this global</a>',
   ].join("\n");
 
   const output = rewriteScopedDocsLinks(body, {
@@ -237,7 +238,7 @@ test("rewrites scoped prose links without changing backtick or tilde fences", ()
 
   expect(output).toContain("[rewrite this](/slack/mastra/tools)");
   expect(output).toContain(
-    '<a href="/slack/mastra/reference/thread">rewrite this too</a>',
+    '<a href="/reference/channels/classes/Thread">leave this global</a>',
   );
   expect(output).toContain(tripleFence);
   expect(output).toContain(longFence);

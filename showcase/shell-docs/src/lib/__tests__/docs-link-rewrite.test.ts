@@ -139,12 +139,12 @@ describe("resolveDocsHref", () => {
       "/slack/mastra/interactive",
     );
     expect(
-      resolveDocsHref("/channels/reference/thread#state", {
+      resolveDocsHref("/reference/channels/classes/Thread#state", {
         ...mastraSlack,
         slugHrefPrefix: "/teams/mastra",
         frontendOverride: "teams",
       }),
-    ).toBe("/teams/mastra/reference/thread#state");
+    ).toBe("/reference/channels/classes/Thread#state");
     expect(
       resolveDocsHref("/channels/tools?view=compact#context", mastraSlack),
     ).toBe("/slack/mastra/tools?view=compact#context");
@@ -319,20 +319,19 @@ describe("resolveDocsHref", () => {
     }
   });
 
-  it("keeps the Channels overview and non-channel surfaces global", () => {
+  it("keeps the Channels reference and non-channel surfaces global", () => {
     const mastraSlack = {
       slugHrefPrefix: "/slack/mastra",
       frameworkOverride: "mastra",
       frontendOverride: "slack" as const,
     };
 
-    expect(resolveDocsHref("/channels", mastraSlack)).toBe("/channels");
-    expect(resolveDocsHref("/channels#architecture", mastraSlack)).toBe(
-      "/channels#architecture",
-    );
-    expect(resolveDocsHref("/channels?source=slack", mastraSlack)).toBe(
-      "/channels?source=slack",
-    );
+    expect(
+      resolveDocsHref("/reference/channels/classes/Channel", mastraSlack),
+    ).toBe("/reference/channels/classes/Channel");
+    expect(
+      resolveDocsHref("/reference/channels/types/JSXCallbacks", mastraSlack),
+    ).toBe("/reference/channels/types/JSXCallbacks");
     expect(resolveDocsHref("/channels/not-a-guide", mastraSlack)).toBe(
       "/channels/not-a-guide",
     );

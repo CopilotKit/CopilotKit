@@ -4,7 +4,7 @@ export type ChannelFrontend = (typeof CHANNEL_FRONTENDS)[number];
 
 export const DEFAULT_CHANNEL_FRAMEWORK = "built-in-agent";
 
-export type ChannelGuideSection = "getting-started" | "build" | "reference";
+export type ChannelGuideSection = "getting-started" | "build";
 
 export interface ChannelGuideRoute {
   readonly slug: string;
@@ -54,24 +54,6 @@ export const CHANNEL_GUIDE_ROUTES = [
     sourceSlug: "channels/threads-and-state",
     navTitle: "Threads and state",
     section: "build",
-  },
-  {
-    slug: "reference/channel",
-    sourceSlug: "channels/reference/channel",
-    navTitle: "Channel",
-    section: "reference",
-  },
-  {
-    slug: "reference/thread",
-    sourceSlug: "channels/reference/thread",
-    navTitle: "Thread",
-    section: "reference",
-  },
-  {
-    slug: "reference/callbacks",
-    sourceSlug: "channels/reference/callbacks",
-    navTitle: "JSX callbacks",
-    section: "reference",
   },
 ] as const satisfies readonly ChannelGuideRoute[];
 

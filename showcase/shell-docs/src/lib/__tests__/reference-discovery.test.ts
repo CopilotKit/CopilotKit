@@ -44,7 +44,7 @@ test("publishes Angular reference guides in navigation and LLM output", () => {
   );
 });
 
-test("reframes Channels as guides instead of a deleted SDK reference", () => {
+test("publishes the maintained Channels SDK reference in its original surface", () => {
   const staticReferenceSlugs = referenceStaticParams().map(({ slug }) =>
     slug.join("/"),
   );
@@ -53,13 +53,22 @@ test("reframes Channels as guides instead of a deleted SDK reference", () => {
     "utf8",
   );
 
-  expect(REFERENCE_VERSIONS).not.toContain("channels");
-  expect(
-    staticReferenceSlugs.some(
-      (slug) => slug === "channels" || slug.startsWith("channels/"),
-    ),
-  ).toBe(false);
-  expect(referenceOverview).toContain('title="Channels guides"');
-  expect(referenceOverview).toContain('href="/channels"');
-  expect(referenceOverview).not.toContain('href="/channels/reference/channel"');
+  expect(REFERENCE_VERSIONS).toContain("channels");
+  expect(staticReferenceSlugs).toEqual(
+    expect.arrayContaining([
+      "channels",
+      "channels/classes/Channel",
+      "channels/classes/Thread",
+      "channels/types/JSXCallbacks",
+    ]),
+  );
+  expect(referenceOverview).toContain('name: "Channels SDK"');
+  expect(referenceOverview).toContain('href: referenceVersionHref("channels")');
+
+  const navigationUrls = collectPageUrls(buildReferencePageTree("channels"));
+  expect(navigationUrls).toEqual([
+    "/reference/channels/classes/Channel",
+    "/reference/channels/classes/Thread",
+    "/reference/channels/types/JSXCallbacks",
+  ]);
 });

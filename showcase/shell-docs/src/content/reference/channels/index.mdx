@@ -1,0 +1,46 @@
+---
+title: Channels SDK
+description: API reference for managed Slack and Microsoft Teams agents built with @copilotkit/channels.
+---
+
+The Channels SDK connects an agent to Slack or Microsoft Teams through a
+long-running `@copilotkit/channels` process. CopilotKit Intelligence owns the
+provider connection, while your process owns the agent, tools, approvals,
+state, and deployment.
+
+```sh
+npm install @copilotkit/channels@0.3.0 @copilotkit/runtime@1.64.0
+```
+
+## API reference
+
+<Cards>
+  <Card
+    title="Channel"
+    description="Create a managed provider, register handlers and tools, configure storage, and control the runtime lifecycle."
+    href="/reference/channels/classes/Channel"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Thread"
+    description="Post and update messages, run or resume the agent, read history, and manage conversation state."
+    href="/reference/channels/classes/Thread"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="JSX callbacks"
+    description="Handle native Slack and Teams interactions from portable Channels components."
+    href="/reference/channels/types/JSXCallbacks"
+    icon={<LinkIcon />}
+  />
+</Cards>
+
+## Provider guides
+
+Start with the provider and agent framework you are deploying:
+
+- [Slack quickstart](/slack)
+- [Microsoft Teams quickstart](/teams)
+
+The provider picker in those guides keeps the same task and selected agent
+framework when you switch between Slack and Teams.

@@ -166,7 +166,7 @@ the default MemoryStore keeps these only in the current process:
 
 For production workflows that must survive a deploy, provide a durable
 application implementation of the
-[`StateStore` contract](/channels/reference/channel#statestore-contract).
+[`StateStore` contract](/reference/channels/classes/Channel#statestore-contract).
 The contract includes key/value, list, lock, deduplication, and queue
 operations. Values must round-trip through JSON.
 
@@ -187,5 +187,5 @@ operations. Values must round-trip through JSON.
 - Stop the listener on `SIGINT` and `SIGTERM` so Intelligence can release the
   runtime cleanly.
 
-See the [Thread API](/channels/reference/thread) for methods and
+See the [Thread API](/reference/channels/classes/Thread) for methods and
 [interactive approvals](/channels/interactive) for the managed resume flow.

@@ -18,9 +18,6 @@ const CHANNEL_REDIRECT_GUIDE_SLUGS = [
   "tools",
   "interactive",
   "threads-and-state",
-  "reference/channel",
-  "reference/thread",
-  "reference/callbacks",
 ] as const;
 
 // A raw Markdown request reaches redirects before the `.md` / `.mdx` rewrite.
@@ -81,7 +78,7 @@ function channelChildRedirects(
       `/slack/${canonicalSlug}`,
     ),
     ...permanentRedirectsWithSuffixes(
-      `/:framework/channels/${legacySlug}`,
+      `/:framework((?!reference)[^/]+)/channels/${legacySlug}`,
       `/slack/:framework/${canonicalSlug}`,
     ),
     ...permanentRedirectsWithSuffixes(
@@ -104,10 +101,53 @@ const RETIRED_CHANNEL_GUIDES = [
   ["transcripts", "threads-and-state"],
 ] as const;
 
-const GENERATED_CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] = [
-  ...permanentRedirectsWithSuffixes("/reference/channels", "/channels"),
-  ...permanentRedirectsWithSuffixes("/reference/channels/:path*", "/channels"),
-];
+const CHANNEL_REFERENCE_PATHS = [
+  ["reference/channel", "classes/Channel"],
+  ["reference/thread", "classes/Thread"],
+  ["reference/callbacks", "types/JSXCallbacks"],
+] as const;
+
+const CHANNEL_REFERENCE_REDIRECTS: PermanentRedirect[] =
+  CHANNEL_REFERENCE_PATHS.flatMap(([legacyPath, referencePath]) => {
+    const destination = `/reference/channels/${referencePath}`;
+    return [
+      ...CHANNEL_REDIRECT_FRONTENDS.flatMap((frontend) => [
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/built-in-agent/channels/${legacyPath}`,
+          destination,
+        ),
+        ...permanentRedirectsWithSuffixes(
+          `/${frontend}/:framework/channels/${legacyPath}`,
+          destination,
+        ),
+      ]),
+      ...permanentRedirectsWithSuffixes(`/channels/${legacyPath}`, destination),
+      ...permanentRedirectsWithSuffixes(
+        `/built-in-agent/channels/${legacyPath}`,
+        destination,
+      ),
+      ...permanentRedirectsWithSuffixes(
+        `/:framework((?!reference)[^/]+)/channels/${legacyPath}`,
+        destination,
+      ),
+    ];
+  });
 
 const MAINTAINED_CHANNEL_GUIDE_REDIRECTS = CHANNEL_REDIRECT_GUIDE_SLUGS.flatMap(
   (slug) =>
@@ -140,10 +180,13 @@ const BOTS_REDIRECTS: PermanentRedirect[] = [
     "/bots/interactive/:path+",
     "/slack/interactive",
   ),
-  ...permanentRedirectsWithSuffixes("/reference/bot", "/channels"),
-  ...permanentRedirectsWithSuffixes("/reference/bot/:path*", "/channels"),
-  ...permanentRedirectsWithSuffixes("/bots", "/channels"),
-  ...permanentRedirectsWithSuffixes("/bots/:path*", "/channels"),
+  ...permanentRedirectsWithSuffixes("/reference/bot", "/reference/channels"),
+  ...permanentRedirectsWithSuffixes(
+    "/reference/bot/:path*",
+    "/reference/channels",
+  ),
+  ...permanentRedirectsWithSuffixes("/bots", "/slack"),
+  ...permanentRedirectsWithSuffixes("/bots/:path*", "/slack"),
 ];
 
 const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
@@ -164,25 +207,28 @@ const CHANNEL_ROOT_REDIRECTS: PermanentRedirect[] = [
   ]),
   ...permanentRedirectsWithSuffixes("/built-in-agent/channels", "/slack"),
   ...permanentRedirectsWithSuffixes(
-    "/:framework/channels",
+    "/:framework((?!reference)[^/]+)/channels",
     "/slack/:framework",
   ),
+  ...permanentRedirectsWithSuffixes("/channels", "/slack"),
 ];
 
 const CHANNEL_PLATFORM_REDIRECTS: PermanentRedirect[] = [
   ...permanentRedirectsWithSuffixes("/channels/platforms/slack", "/slack"),
   ...permanentRedirectsWithSuffixes("/channels/platforms/teams", "/teams"),
-  ...permanentRedirectsWithSuffixes("/channels/platforms", "/channels"),
-  ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/channels"),
-  ...permanentRedirectsWithSuffixes("/whatsapp", "/channels"),
-  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/channels"),
-  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/channels"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms", "/slack"),
+  ...permanentRedirectsWithSuffixes("/channels/platforms/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp", "/slack"),
+  ...permanentRedirectsWithSuffixes("/whatsapp/:path*", "/slack"),
+  ...permanentRedirectsWithSuffixes("/frontends/whatsapp", "/slack"),
 ];
 
 const CHANNEL_REDIRECTS: PermanentRedirect[] = [
-  // Retired generated references must precede `/:framework/channels`; otherwise
-  // `/reference/channels/...` is interpreted as a framework-scoped legacy URL.
-  ...GENERATED_CHANNEL_REFERENCE_REDIRECTS,
+  // Provider-scoped reference routes move back to the global SDK reference.
+  // Keep these before the broad legacy framework roots. Those roots also
+  // exclude the reserved `reference` segment so `/reference/channels` remains
+  // canonical.
+  ...CHANNEL_REFERENCE_REDIRECTS,
   ...MAINTAINED_CHANNEL_GUIDE_REDIRECTS,
   ...RETIRED_CHANNEL_GUIDE_REDIRECTS,
   ...RETIRED_INTERACTIVE_SUBGUIDE_REDIRECTS,

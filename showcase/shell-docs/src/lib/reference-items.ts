@@ -32,6 +32,7 @@ export const REFERENCE_VERSIONS = [
   "vue",
   "angular",
   "core",
+  "channels",
 ] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
 
@@ -70,6 +71,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   vue: ["components", "hooks"],
   angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
+  channels: ["classes", "types"],
 };
 
 const VERSION_TOP_LEVEL_PAGES: Partial<

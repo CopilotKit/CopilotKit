@@ -24,7 +24,7 @@ const FRONTEND_IDS = new Set([
 type FrontendPageId = Exclude<FrontendId, "react">;
 
 export interface ChannelSearchHref {
-  frontend: ChannelFrontend | null;
+  frontend: ChannelFrontend;
   href: string;
 }
 
@@ -36,7 +36,7 @@ export interface ResolveChannelSearchResultsInput {
 }
 
 export interface ChannelSearchResult {
-  frontend: ChannelFrontend | null;
+  frontend: ChannelFrontend;
   groupKey: string;
   id: string;
   title: string;
@@ -129,7 +129,6 @@ export function isChannelDocsHref(href: string): boolean {
 }
 
 export function parseChannelDocsHref(href: string): { topic: string } | null {
-  if (href === CHANNEL_DOCS_HREF) return { topic: "" };
   if (!href.startsWith(`${CHANNEL_DOCS_HREF}/`)) return null;
 
   const sourceSlug = href.slice("/docs/".length);
@@ -146,9 +145,6 @@ export function resolveChannelSearchHrefs(
   selectedFramework: string,
   activeFrontend: FrontendPageId | null,
 ): ChannelSearchHref[] {
-  if (topic === "") {
-    return [{ frontend: null, href: "/channels" }];
-  }
   if (!getChannelGuideSourceSlug(topic)) return [];
 
   const frontends: readonly ChannelFrontend[] =
@@ -176,16 +172,6 @@ export function resolveChannelSearchResults({
   const labelProviders = destinations.length > 1;
 
   return destinations.map(({ frontend, href }) => {
-    if (frontend === null) {
-      return {
-        frontend,
-        groupKey: "channel:overview",
-        id: "docs:channel:overview",
-        title,
-        href,
-      };
-    }
-
     const providerLabel = frontend === "slack" ? "Slack" : "Microsoft Teams";
     return {
       frontend,

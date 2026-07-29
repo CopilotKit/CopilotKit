@@ -40,23 +40,23 @@ describe("Channels guide search results", () => {
   it("returns only the active provider without adding a redundant label", () => {
     expect(
       resolveChannelSearchResults({
-        topic: "reference/thread",
-        title: "Thread API",
+        topic: "threads-and-state",
+        title: "Threads and state",
         selectedFramework: "langgraph-fastapi",
         activeFrontend: "teams",
       }),
     ).toEqual([
       {
         frontend: "teams",
-        groupKey: "channel:teams:reference/thread",
-        id: "docs:channel:teams:reference/thread",
-        title: "Thread API",
-        href: "/teams/langgraph-fastapi/reference/thread",
+        groupKey: "channel:teams:threads-and-state",
+        id: "docs:channel:teams:threads-and-state",
+        title: "Threads and state",
+        href: "/teams/langgraph-fastapi/threads-and-state",
       },
     ]);
   });
 
-  it("keeps the Channels overview as one global canonical result", () => {
+  it("does not create a result for the removed Channels overview", () => {
     expect(
       resolveChannelSearchResults({
         topic: "",
@@ -64,15 +64,7 @@ describe("Channels guide search results", () => {
         selectedFramework: "mastra",
         activeFrontend: "slack",
       }),
-    ).toEqual([
-      {
-        frontend: null,
-        groupKey: "channel:overview",
-        id: "docs:channel:overview",
-        title: "Channels",
-        href: "/channels",
-      },
-    ]);
+    ).toEqual([]);
   });
 });
 

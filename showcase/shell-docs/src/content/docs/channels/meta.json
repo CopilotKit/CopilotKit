@@ -1,8 +1,0 @@
-{
-  "title": "Channels",
-  "icon": "lucide/MessagesSquare",
-  "frontend": {
-    "kind": "universal"
-  },
-  "pages": ["index"]
-}

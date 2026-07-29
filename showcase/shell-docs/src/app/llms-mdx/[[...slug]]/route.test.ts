@@ -305,13 +305,13 @@ describe("llms-mdx route", () => {
 
   it("serves a framework-scoped Teams guide from the shared Channels source", async () => {
     loadDocMock.mockImplementation((slug: string) =>
-      slug === "channels/reference/thread"
+      slug === "channels/threads-and-state"
         ? {
             source: "",
-            filePath: "channels/reference/thread.mdx",
+            filePath: "channels/threads-and-state.mdx",
             fm: {
-              title: "Thread",
-              description: "Thread API.",
+              title: "Threads and state",
+              description: "Conversation state.",
             },
           }
         : null,
@@ -320,18 +320,17 @@ describe("llms-mdx route", () => {
     const response = await callLlmsMdxRoute([
       "teams",
       "langgraph-python",
-      "reference",
-      "thread",
+      "threads-and-state",
     ]);
 
     expect(response.status).toBe(200);
-    expect(loadDocMock).toHaveBeenCalledWith("channels/reference/thread");
+    expect(loadDocMock).toHaveBeenCalledWith("channels/threads-and-state");
     expect(resolveFrontendDocPageMock).not.toHaveBeenCalled();
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "teams/langgraph-python/reference/thread",
-        filePath: "channels/reference/thread.mdx",
-        loadSlug: "channels/reference/thread",
+        url: "teams/langgraph-python/threads-and-state",
+        filePath: "channels/threads-and-state.mdx",
+        loadSlug: "channels/threads-and-state",
         framework: "langgraph-python",
         frontend: "teams",
       }),
