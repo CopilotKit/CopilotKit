@@ -470,6 +470,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       // long-running Channel Bot. A redelivery re-seeds it at the top.
       this.renderState.delete(env.turnId);
       this.renderLaneTails.delete(env.turnId);
+      this.renderLaneFlushers.delete(env.turnId);
     }
     if (!turnProcessed) return;
     // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
