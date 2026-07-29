@@ -78,7 +78,7 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
         {
             content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
                 _configuration,
-                "Generate a useful dashboard UI. Use catalogId='declarative-gen-ui-catalog'.",
+                BeautifulChatA2ui.DesignSystemPrompt(BeautifulChatA2ui.DeclarativeGenUiCatalogId),
                 userContent,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -104,6 +104,10 @@ should be rendered. Keep any textual reply to one short sentence — the UI spea
             return SalesAgentFactory.StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
         }
 
-        return SalesAgentFactory.BuildA2uiResponseFromContent(content, errorId, _logger);
+        return SalesAgentFactory.BuildA2uiResponseFromContent(
+            content,
+            errorId,
+            _logger,
+            forcedCatalogId: BeautifulChatA2ui.DeclarativeGenUiCatalogId);
     }
 }
