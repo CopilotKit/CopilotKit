@@ -45,10 +45,12 @@ export function resolveRenderMetricsMode(
   return "off";
 }
 
-/** One turn's push-latency profile. */
+/** One turn's batch-request latency and frame-volume profile. */
 export interface RenderTurnMetricsSummary {
   readonly turnId: string;
   readonly deliveryId: string;
+  /** Durable batch requests completed this turn. */
+  readonly batches: number;
   /** Total frames pushed this turn. */
   readonly frames: number;
   /** Frame count keyed by render-event kind. */
@@ -62,7 +64,7 @@ export interface RenderTurnMetricsSummary {
    * One round trip per token shows up here as a single-digit value.
    */
   readonly charsPerTextFrame: number | null;
-  /** Wall-clock ms spent blocked awaiting acceptance receipts. */
+  /** Sum of completed batch request latency in ms. */
   readonly pushMsTotal: number;
   readonly pushMsMean: number;
   readonly pushMsP50: number;
@@ -71,8 +73,8 @@ export interface RenderTurnMetricsSummary {
   /** Wall-clock ms from collector creation to {@link RenderTurnMetrics.finish}. */
   readonly turnWallMs: number;
   /**
-   * `pushMsTotal` as a percentage of `turnWallMs`. A high value means the turn
-   * is round-trip bound, which is the claim this instrumentation exists to test.
+   * `pushMsTotal` as a percentage of `turnWallMs`. Batches are serialized per
+   * lane, so this estimates the turn's acceptance round-trip share.
    */
   readonly pushBlockedPct: number;
 }
@@ -92,6 +94,19 @@ export interface RenderTurnMetrics {
     startedAt: number,
     endedAt: number,
     deltaChars: number,
+  ): void;
+  /**
+   * Record one completed batch request without multiplying its latency by the
+   * number of frames it carried.
+   *
+   * @param frames - Frame kinds and text sizes carried by the batch.
+   * @param startedAt - Clock reading taken before the batch request.
+   * @param endedAt - Clock reading taken after the receipt was awaited.
+   */
+  recordBatch(
+    frames: ReadonlyArray<{ kind: string; deltaChars: number }>,
+    startedAt: number,
+    endedAt: number,
   ): void;
   /**
    * Close the turn, log the summary once, and return it. Safe to call more than
@@ -139,20 +154,35 @@ export function createRenderTurnMetrics(
   const startedAt = now();
   const latencies: number[] = [];
   const framesByKind: Record<string, number> = {};
+  let frames = 0;
   let textDeltaFrames = 0;
   let textDeltaChars = 0;
   let summary: RenderTurnMetricsSummary | undefined;
 
+  const recordFrames = (
+    batchFrames: ReadonlyArray<{ kind: string; deltaChars: number }>,
+  ): void => {
+    for (const frame of batchFrames) {
+      frames += 1;
+      framesByKind[frame.kind] = (framesByKind[frame.kind] ?? 0) + 1;
+      if (frame.kind === "text_delta") {
+        textDeltaFrames += 1;
+        textDeltaChars += frame.deltaChars;
+      }
+    }
+  };
+
+  const recordLatency = (pushStartedAt: number, endedAt: number): number => {
+    const pushMs = Math.max(0, endedAt - pushStartedAt);
+    latencies.push(pushMs);
+    return pushMs;
+  };
+
   return {
     recordPush(kind, pushStartedAt, endedAt, deltaChars) {
-      const pushMs = Math.max(0, endedAt - pushStartedAt);
-      const seq = latencies.length;
-      latencies.push(pushMs);
-      framesByKind[kind] = (framesByKind[kind] ?? 0) + 1;
-      if (kind === "text_delta") {
-        textDeltaFrames += 1;
-        textDeltaChars += deltaChars;
-      }
+      const seq = frames;
+      const pushMs = recordLatency(pushStartedAt, endedAt);
+      recordFrames([{ kind, deltaChars }]);
       if (opts.mode === "frames") {
         opts.log("channel render frame pushed", {
           turnId: opts.turnId,
@@ -165,6 +195,32 @@ export function createRenderTurnMetrics(
       }
     },
 
+    recordBatch(batchFrames, pushStartedAt, endedAt) {
+      const batchSeq = latencies.length;
+      const pushMs = recordLatency(pushStartedAt, endedAt);
+      recordFrames(batchFrames);
+      if (opts.mode === "frames") {
+        const batchFramesByKind: Record<string, number> = {};
+        let batchTextDeltaChars = 0;
+        for (const frame of batchFrames) {
+          batchFramesByKind[frame.kind] =
+            (batchFramesByKind[frame.kind] ?? 0) + 1;
+          if (frame.kind === "text_delta") {
+            batchTextDeltaChars += frame.deltaChars;
+          }
+        }
+        opts.log("channel render batch pushed", {
+          turnId: opts.turnId,
+          deliveryId: opts.deliveryId,
+          batchSeq,
+          frameCount: batchFrames.length,
+          framesByKind: batchFramesByKind,
+          textDeltaChars: batchTextDeltaChars,
+          pushMs: round2(pushMs),
+        });
+      }
+    },
+
     finish() {
       if (summary) return summary;
       const turnWallMs = Math.max(0, now() - startedAt);
@@ -173,7 +229,8 @@ export function createRenderTurnMetrics(
       summary = {
         turnId: opts.turnId,
         deliveryId: opts.deliveryId,
-        frames: latencies.length,
+        batches: latencies.length,
+        frames,
         framesByKind,
         textDeltaFrames,
         textDeltaChars,

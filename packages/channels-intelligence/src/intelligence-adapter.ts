@@ -31,7 +31,7 @@ import type {
   EgressOperation,
   ChannelRenderEvent,
   RenderFrame,
-  RenderAccepted,
+  RenderBatchAccepted,
 } from "./contracts.js";
 import {
   HttpDeliverySource,
@@ -46,6 +46,31 @@ import {
   createRenderTurnMetrics,
   resolveRenderMetricsMode,
 } from "./render-metrics.js";
+import {
+  createRenderBatch,
+  encodedJsonBytes,
+  RENDER_BATCH_MAX_BYTES,
+  RENDER_BATCH_MAX_FRAMES,
+  RENDER_LANE_MAX_PENDING_BYTES,
+  RENDER_TEXT_MAX_DELTAS,
+  RENDER_TEXT_MAX_BYTES,
+  RENDER_TEXT_TAIL_FLUSH_MS,
+} from "./render-batches.js";
+
+const PERMANENT_RENDER_BATCH_ERROR_CODES = new Set([
+  "CHANNEL_RENDER_BATCH_CONFLICT",
+  "CHANNEL_RENDER_SEQUENCE_GAP",
+]);
+
+/** Return whether retrying the same render batch cannot succeed. */
+function isPermanentRenderBatchError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const coded = error as { code?: unknown };
+  return (
+    typeof coded.code === "string" &&
+    PERMANENT_RENDER_BATCH_ERROR_CODES.has(coded.code)
+  );
+}
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ChannelReplyTarget {
@@ -93,6 +118,21 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
  */
 const RUN_ERROR_POST_TEXT =
   "⚠️ The agent ran into an error and couldn't finish responding. Please try again.";
+
+const RENDER_BATCH_RETRY_BASE_MS = 100;
+
+/**
+ * Wait before retrying a transient render-batch rejection.
+ *
+ * @param attempt - The one-based attempt that just failed.
+ * @returns A promise that resolves after bounded exponential backoff.
+ */
+const waitForRenderBatchRetry = async (attempt: number): Promise<void> => {
+  const delayMs = RENDER_BATCH_RETRY_BASE_MS * 2 ** (attempt - 1);
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+};
 
 /**
  * Supported configuration for the Intelligence-delivered Channels adapter.
@@ -289,6 +329,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
     string,
     { nextSeq: number; needsFinalize: boolean }
   >();
+  /** Shared per-turn transport tail for renderer batches and discrete effects. */
+  private readonly renderLaneTails = new Map<string, Promise<void>>();
+  /** Flush buffered renderer text before a discrete effect claims its seq. */
+  private readonly renderLaneFlushers = new Map<string, () => void>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -425,6 +469,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a
       // long-running Channel Bot. A redelivery re-seeds it at the top.
       this.renderState.delete(env.turnId);
+      this.renderLaneTails.delete(env.turnId);
+      this.renderLaneFlushers.delete(env.turnId);
     }
     if (!turnProcessed) return;
     // Ack is its own phase: the turn already succeeded, so a failed ack is NOT a
@@ -610,23 +656,53 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   /**
+   * Serializes every durable render request for one turn/slot lane.
+   *
+   * Renderer batches and discrete post/update/file/delete effects share the
+   * same sequence allocator, so they must also share one transport queue. The
+   * stored tail absorbs a failed operation only for queue continuity; callers
+   * still receive the original rejection.
+   */
+  private enqueueRenderLane<T>(
+    turnId: string,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    const previous = this.renderLaneTails.get(turnId) ?? Promise.resolve();
+    const result = previous.then(operation);
+    this.renderLaneTails.set(
+      turnId,
+      result.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return result;
+  }
+
+  /**
    * Pushes one realtime frame immediately and records its accepted terminal
    * state. Sequence allocation stays deterministic across delivery retries.
    */
   private async pushRenderFrame(
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
-  ): Promise<{ receipt: RenderAccepted; seq: number }> {
+  ): Promise<{ receipt: RenderBatchAccepted; seq: number }> {
+    this.renderLaneFlushers.get(target.turnId)?.();
     const seq = this.nextFrameSeq(target.turnId);
-    const receipt = await this.requireRenderSink().push({
-      deliveryId: target.deliveryId,
-      turnId: target.turnId,
-      slot: "main",
-      seq,
-      event,
+    return this.enqueueRenderLane(target.turnId, async () => {
+      const receipt = await this.requireRenderSink().pushBatch(
+        createRenderBatch(
+          {
+            deliveryId: target.deliveryId,
+            turnId: target.turnId,
+            slot: "main",
+          },
+          [{ seq, event }],
+        ),
+      );
+      this.recordAcceptedRenderEvent(target.turnId, event);
+      return { receipt, seq };
     });
-    this.recordAcceptedRenderEvent(target.turnId, event);
-    return { receipt, seq };
   }
 
   /**
@@ -663,15 +739,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * Push a discrete render frame (post/update) through the realtime render sink
    * so the Connector Outbox renders it as Block Kit — preserving rich JSX/IR
    * instead of flattening to text. Returns a {@link MessageRef} keyed to the
-   * frame so a later update/delete can re-address it.
+   * Outbox frame (`turnId:slot:seq`) so a later update/delete can re-address
+   * it. The batch receipt's `egressOperationId` names the durable lane
+   * operation, not one provider message, so it must not become a message ref.
    */
   private async postRenderFrame(
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<MessageRef> {
-    const { receipt, seq } = await this.pushRenderFrame(target, event);
+    const { seq } = await this.pushRenderFrame(target, event);
     return {
-      id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
+      id: `${target.turnId}:main:${seq}`,
       __route: target.route,
       __turnId: target.turnId,
       __deliveryId: target.deliveryId,
@@ -857,54 +935,56 @@ export class IntelligenceAdapter implements PlatformAdapter {
       order.length = 0;
     };
     return {
-      push: async (frame: RenderFrame): Promise<RenderAccepted> => {
-        const e = frame.event;
-        if (e.kind === "text_delta") {
-          if (!acc.has(e.messageId)) order.push(e.messageId);
-          acc.set(e.messageId, (acc.get(e.messageId) ?? "") + e.delta);
-        } else if (e.kind === "text_end") {
-          const txt = acc.get(e.messageId) ?? "";
-          acc.delete(e.messageId);
-          const i = order.indexOf(e.messageId);
-          if (i >= 0) order.splice(i, 1);
-          if (txt.length > 0) await emit({ kind: "post", ir: textNode(txt) });
-        } else if (e.kind === "interrupt") {
-          interrupted = true;
-        } else if (e.kind === "post") {
-          await emit({ kind: "post", ir: e.content });
-        } else if (e.kind === "update") {
-          await emit({ kind: "update", ref: e.ref, ir: e.content });
-        } else if (e.kind === "run_error") {
-          // On the realtime path this branch never runs (renderSinkFor returns
-          // the injected renderSink, and the Connector Outbox renders run_error
-          // live). Here, on the HTTP-fallback path, there is no Outbox: without
-          // this branch the error would be dropped, the run would resolve, and
-          // dispatch() would ack a text-less turn as success — the bot goes
-          // silent on every error with nothing logged (OSS-491 Finding 1).
-          //
-          // Surface it loudly: log the raw error for operators, flush any
-          // buffered partial text, then post a generic user-visible error. We
-          // post + log + ack (NOT nack): a run_error is frequently a
-          // deterministic agent failure (model error, tool crash), and the
-          // Channel path reprocesses redeliveries (skipIngressDedup), so nacking
-          // would livelock (redeliver → same failure → nack, forever). A genuine
-          // transient failure of the error POST itself still nacks, because
-          // `emit` throws on egress failure → the push chain rejects → drain()
-          // rejects → the delivery is nacked and retried.
-          this.opts.config?.log?.(
-            "intelligence run_error on HTTP-fallback render path",
-            e.message,
-          );
-          await flushPending();
-          await emit({ kind: "post", ir: textNode(RUN_ERROR_POST_TEXT) });
-        } else if (e.kind === "finalize") {
-          await flushPending();
+      pushBatch: async (batch): Promise<RenderBatchAccepted> => {
+        for (const frame of batch.frames) {
+          const e = frame.event;
+          if (e.kind === "text_delta") {
+            if (!acc.has(e.messageId)) order.push(e.messageId);
+            acc.set(e.messageId, (acc.get(e.messageId) ?? "") + e.delta);
+          } else if (e.kind === "text_end") {
+            const txt = acc.get(e.messageId) ?? "";
+            acc.delete(e.messageId);
+            const i = order.indexOf(e.messageId);
+            if (i >= 0) order.splice(i, 1);
+            if (txt.length > 0) await emit({ kind: "post", ir: textNode(txt) });
+          } else if (e.kind === "interrupt") {
+            interrupted = true;
+          } else if (e.kind === "post") {
+            await emit({ kind: "post", ir: e.content });
+          } else if (e.kind === "update") {
+            await emit({ kind: "update", ref: e.ref, ir: e.content });
+          } else if (e.kind === "run_error") {
+            // On the realtime path this branch never runs (renderSinkFor returns
+            // the injected renderSink, and the Connector Outbox renders run_error
+            // live). Here, on the HTTP-fallback path, there is no Outbox: without
+            // this branch the error would be dropped, the run would resolve, and
+            // dispatch() would ack a text-less turn as success — the bot goes
+            // silent on every error with nothing logged (OSS-491 Finding 1).
+            //
+            // Surface it loudly: log the raw error for operators, flush any
+            // buffered partial text, then post a generic user-visible error. We
+            // post + log + ack (NOT nack): a run_error is frequently a
+            // deterministic agent failure (model error, tool crash), and the
+            // Channel path reprocesses redeliveries (skipIngressDedup), so nacking
+            // would livelock (redeliver → same failure → nack, forever). A genuine
+            // transient failure of the error POST itself still nacks, because
+            // `emit` throws on egress failure → the push chain rejects → drain()
+            // rejects → the delivery is nacked and retried.
+            this.opts.config?.log?.(
+              "intelligence run_error on HTTP-fallback render path",
+              e.message,
+            );
+            await flushPending();
+            await emit({ kind: "post", ir: textNode(RUN_ERROR_POST_TEXT) });
+          } else if (e.kind === "finalize") {
+            await flushPending();
+          }
         }
-        // run_started / tool_start / tool_end: no provider-visible effect in the
-        // plain-text fallback (the realtime Outbox renders those live).
         return {
-          idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
-          acceptance: "accepted",
+          batchId: batch.batchId,
+          egressOperationId: `eop_${batch.turnId}`,
+          acceptedThroughSeq: batch.endSeq,
+          duplicate: false,
         };
       },
     };
@@ -919,15 +999,20 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let aborted = false;
     let runStarted = false;
 
-    // ponytail: serial promise chain — AG-UI does not guarantee it awaits
-    // subscriber callbacks in order, so `seq` is assigned synchronously at
-    // enqueue time (preserving event order) and frames are pushed one at a
-    // time, awaiting each durable-acceptance receipt before the next. `finish`/
-    // `markInterrupted` await the drained chain. A rejected push is recorded
-    // and surfaced at drain (so it nacks the delivery) without wedging the
-    // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
+    // AG-UI does not guarantee it awaits subscriber callbacks. Compact and
+    // sequence synchronously, then serialize immutable batches so one lane has
+    // at most one durable request in flight.
     let chain: Promise<void> = Promise.resolve();
-    let pushError: unknown;
+    let transportError: unknown;
+    let enqueueError: unknown;
+    let batchFrames: RenderFrame[] = [];
+    let pendingText:
+      | Extract<ChannelRenderEvent, { kind: "text_delta" }>
+      | undefined;
+    let pendingTextDeltaCount = 0;
+    let firstTextFlushed = false;
+    let tailFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    let lanePendingBytes = 0;
     // OSS-648: time each push so the per-frame round-trip cost of this serial
     // chain is measurable. This is the one point every frame passes through, so
     // it covers the HTTP render-accept and realtime-gateway transports alike.
@@ -939,43 +1024,199 @@ export class IntelligenceAdapter implements PlatformAdapter {
       log: (message, meta) => this.diagnosticLog(message, meta),
     });
 
-    const enqueue = (event: ChannelRenderEvent): void => {
-      const frame: RenderFrame = {
-        deliveryId: t.deliveryId,
-        turnId: t.turnId,
-        slot: "main",
-        seq: this.nextFrameSeq(t.turnId),
-        event,
-      };
-      chain = chain.then(async () => {
-        if (pushError !== undefined) return;
+    const flushBatch = (): void => {
+      if (
+        batchFrames.length === 0 ||
+        transportError !== undefined ||
+        enqueueError !== undefined
+      )
+        return;
+      const batch = createRenderBatch(
+        {
+          deliveryId: t.deliveryId,
+          turnId: t.turnId,
+          slot: "main",
+        },
+        batchFrames,
+      );
+      batchFrames = [];
+      const batchBytes = encodedJsonBytes(batch);
+      lanePendingBytes += batchBytes;
+      if (lanePendingBytes > RENDER_LANE_MAX_PENDING_BYTES) {
+        enqueueError = new Error(
+          `CHANNEL_RENDER_LANE_OVERLOAD: turn ${t.turnId} exceeded ${RENDER_LANE_MAX_PENDING_BYTES} pending bytes`,
+        );
+        lanePendingBytes -= batchBytes;
+        return;
+      }
+      chain = this.enqueueRenderLane(t.turnId, async () => {
+        if (transportError !== undefined) {
+          lanePendingBytes -= batchBytes;
+          return;
+        }
         const pushStartedAt = metrics ? Date.now() : 0;
         try {
-          await sink.push(frame);
-          this.recordAcceptedRenderEvent(t.turnId, event);
+          let receipt: RenderBatchAccepted | undefined;
+          for (let attempt = 1; attempt <= 3; attempt += 1) {
+            try {
+              receipt = await sink.pushBatch(batch);
+              break;
+            } catch (err) {
+              if (isPermanentRenderBatchError(err) || attempt === 3) throw err;
+              await waitForRenderBatchRetry(attempt);
+            }
+          }
+          if (!receipt) {
+            throw new Error(
+              `CHANNEL_RENDER_ACCEPTANCE_FAILED: ${batch.batchId}`,
+            );
+          }
+          if (
+            receipt.batchId !== batch.batchId ||
+            receipt.acceptedThroughSeq !== batch.endSeq
+          ) {
+            throw new Error(
+              `CHANNEL_RENDER_RECEIPT_MISMATCH: expected ${batch.batchId} through ${batch.endSeq}`,
+            );
+          }
+          for (const frame of batch.frames) {
+            this.recordAcceptedRenderEvent(t.turnId, frame.event);
+          }
         } catch (err) {
-          pushError = err;
+          transportError = err;
         } finally {
-          // Record failed pushes too: a push that blocked for seconds before
-          // throwing still spent that time on the wire, and hiding it would
-          // flatter the numbers this instrumentation exists to expose.
-          metrics?.recordPush(
-            event.kind,
+          lanePendingBytes -= batchBytes;
+          const pushFinishedAt = Date.now();
+          metrics?.recordBatch(
+            batch.frames.map((frame) => ({
+              kind: frame.event.kind,
+              deltaChars:
+                frame.event.kind === "text_delta"
+                  ? frame.event.delta.length
+                  : 0,
+            })),
             pushStartedAt,
-            Date.now(),
-            event.kind === "text_delta" ? event.delta.length : 0,
+            pushFinishedAt,
           );
         }
       });
     };
 
+    const addFrame = (event: ChannelRenderEvent): void => {
+      if (transportError !== undefined || enqueueError !== undefined) return;
+      const frame: RenderFrame = {
+        seq: this.nextFrameSeq(t.turnId),
+        event,
+      };
+      const nextFrames = [...batchFrames, frame];
+      if (
+        batchFrames.length > 0 &&
+        (nextFrames.length > RENDER_BATCH_MAX_FRAMES ||
+          encodedJsonBytes(nextFrames) > RENDER_BATCH_MAX_BYTES)
+      ) {
+        flushBatch();
+      }
+      if (encodedJsonBytes([frame]) > RENDER_BATCH_MAX_BYTES) {
+        enqueueError = new Error(
+          `CHANNEL_RENDER_FRAME_TOO_LARGE: turn ${t.turnId} frame ${frame.seq} exceeds ${RENDER_BATCH_MAX_BYTES} bytes`,
+        );
+        return;
+      }
+      batchFrames.push(frame);
+    };
+
+    const clearTailFlushTimer = (): void => {
+      if (tailFlushTimer === undefined) return;
+      clearTimeout(tailFlushTimer);
+      tailFlushTimer = undefined;
+    };
+
+    const flushPendingText = (): void => {
+      if (!pendingText) return;
+      clearTailFlushTimer();
+      addFrame(pendingText);
+      pendingText = undefined;
+      pendingTextDeltaCount = 0;
+    };
+
+    const flushPendingTextBatch = (): void => {
+      flushPendingText();
+      flushBatch();
+    };
+
+    const scheduleTailFlush = (): void => {
+      if (tailFlushTimer !== undefined || pendingText === undefined) return;
+      tailFlushTimer = setTimeout(() => {
+        tailFlushTimer = undefined;
+        flushPendingTextBatch();
+      }, RENDER_TEXT_TAIL_FLUSH_MS);
+    };
+
+    this.renderLaneFlushers.set(t.turnId, flushPendingTextBatch);
+
+    const enqueue = (event: ChannelRenderEvent): void => {
+      if (transportError !== undefined || enqueueError !== undefined) return;
+      if (event.kind === "text_delta") {
+        if (!firstTextFlushed) {
+          firstTextFlushed = true;
+          pendingText = event;
+          pendingTextDeltaCount = 1;
+          flushPendingText();
+          flushBatch();
+          return;
+        }
+        if (
+          pendingText &&
+          (pendingText.messageId !== event.messageId ||
+            Buffer.byteLength(pendingText.delta + event.delta, "utf8") >
+              RENDER_TEXT_MAX_BYTES)
+        ) {
+          flushPendingText();
+          flushBatch();
+        }
+        pendingText = pendingText
+          ? { ...pendingText, delta: pendingText.delta + event.delta }
+          : event;
+        pendingTextDeltaCount += 1;
+        if (pendingTextDeltaCount >= RENDER_TEXT_MAX_DELTAS) {
+          flushPendingTextBatch();
+        } else {
+          scheduleTailFlush();
+        }
+        return;
+      }
+
+      if (event.kind === "run_started") {
+        addFrame(event);
+        flushBatch();
+        return;
+      }
+
+      flushPendingText();
+      addFrame(event);
+      flushBatch();
+    };
+
     const drain = async (): Promise<void> => {
-      await chain;
-      // Summarize before rethrowing so a failed turn still reports its profile.
-      metrics?.finish();
-      if (pushError !== undefined) {
-        const err = pushError;
-        throw err instanceof Error ? err : new Error(String(err));
+      flushPendingTextBatch();
+      try {
+        if (enqueueError !== undefined) {
+          metrics?.finish();
+          throw enqueueError;
+        }
+        await chain;
+        // Summarize before rethrowing so a failed turn still reports its profile.
+        metrics?.finish();
+        const pushError = enqueueError ?? transportError;
+        if (pushError !== undefined) {
+          const err = pushError;
+          throw err instanceof Error ? err : new Error(String(err));
+        }
+      } finally {
+        clearTailFlushTimer();
+        if (this.renderLaneFlushers.get(t.turnId) === flushPendingTextBatch) {
+          this.renderLaneFlushers.delete(t.turnId);
+        }
       }
     };
 

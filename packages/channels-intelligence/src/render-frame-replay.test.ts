@@ -1,138 +1,125 @@
-import { describe, it, expect } from "vitest";
-import type { ReplyTarget } from "@copilotkit/channels-core";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
-import {
-  InMemoryDeliverySource,
-  InMemoryEgressSink,
-} from "./in-memory-transports.js";
-import type { RenderFrame } from "./contracts.js";
+import { describe, expect, it } from "vitest";
+import type { RenderBatch, RenderBatchAccepted } from "./contracts.js";
+import { createRenderBatch } from "./render-batches.js";
 import type { RenderEventSink } from "./transports.js";
 
-/**
- * Replay stability of render frames (OSS-648).
- *
- * A turn's id is a pure function of its delivery id (`turn_<deliveryId>`, which
- * app-api enforces), and the adapter resets the per-turn seq counter for each
- * dispatch. So a redelivery — lease expiry, runtime crash mid-turn, gateway
- * disconnect — replays the SAME turn into the SAME seq space.
- *
- * app-api treats that space as an idempotency key: re-pushing `(turn, slot, seq)`
- * with a byte-identical payload is `duplicate_accepted`, but re-pushing it with a
- * DIFFERENT payload is `CHANNEL_RENDER_FRAME_CONFLICT` — a hard error that nacks
- * the delivery. So every frame the SDK pushes at a given seq must carry the same
- * payload on every attempt.
- *
- * This holds while frames stay 1:1 with AG-UI events, because seq k always
- * carries delta k no matter how the pushes are grouped or timed. It is a guard
- * on any future change to the send path: batching the TRANSPORT (many frames per
- * request) keeps it, whereas merging frame CONTENT breaks it, since merge
- * boundaries depend on wall-clock arrival and a replay cuts them differently.
- */
+class PlatformLikeBatchSink implements RenderEventSink {
+  private readonly rows = new Map<
+    string,
+    { digest: string; receipt: RenderBatchAccepted }
+  >();
 
-const target = {
-  route: { channel: "C1", threadTs: "100.0" },
-  turnId: "turn_dlv_replay",
-  deliveryId: "dlv_replay",
-} as unknown as ReplyTarget;
-
-type Sub = Record<string, (p: { event: Record<string, unknown> }) => unknown>;
-
-/** Stable stringify mirroring app-api's payload comparison. */
-const stable = (v: unknown): string =>
-  JSON.stringify(v, (_k, val) =>
-    val && typeof val === "object" && !Array.isArray(val)
-      ? Object.fromEntries(
-          Object.entries(val).sort(([a], [b]) => (a < b ? -1 : 1)),
-        )
-      : val,
-  );
-
-/**
- * Render sink enforcing app-api's real same-seq contract, with rows surviving
- * across attempts the way `cpki.channel_render_acceptances` does.
- */
-class PlatformLikeSink implements RenderEventSink {
-  constructor(
-    private readonly rows: Map<string, string>,
-    private readonly gate?: { promise: Promise<void>; pushes: number },
-  ) {}
-
-  async push(frame: RenderFrame) {
-    // Optionally block the FIRST push so later frames pile up behind it. That
-    // backlog is what any future send-path change (batching, grouping) acts on.
-    if (this.gate) {
-      this.gate.pushes += 1;
-      if (this.gate.pushes === 1) await this.gate.promise;
+  async pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted> {
+    const existing = this.rows.get(batch.batchId);
+    if (existing) {
+      if (existing.digest !== batch.contentDigest) {
+        throw new Error(`CHANNEL_RENDER_BATCH_CONFLICT at ${batch.batchId}`);
+      }
+      return { ...existing.receipt, duplicate: true };
     }
-    const key = `${frame.turnId}:${frame.slot}:${frame.seq}`;
-    const payload = stable(frame.event);
-    const existing = this.rows.get(key);
-    if (existing !== undefined && existing !== payload) {
-      throw new Error(
-        `CHANNEL_RENDER_FRAME_CONFLICT at ${key}: stored ${existing} but pushed ${payload}`,
-      );
-    }
-    this.rows.set(key, payload);
-    return { idempotencyKey: key, acceptance: "accepted" as const };
+    const receipt = {
+      batchId: batch.batchId,
+      egressOperationId: "eop_replay",
+      acceptedThroughSeq: batch.endSeq,
+      duplicate: false,
+    };
+    this.rows.set(batch.batchId, {
+      digest: batch.contentDigest,
+      receipt,
+    });
+    return receipt;
   }
 }
 
-/** Let the push pump finish whatever it is holding. */
-const settle = async (): Promise<void> => {
-  for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r, 0));
-};
+describe("render batch retry stability", () => {
+  it("keeps an unacknowledged batch immutable and returns the original high water on exact retry", async () => {
+    const sink = new PlatformLikeBatchSink();
+    const batch = createRenderBatch(
+      {
+        deliveryId: "dlv_replay",
+        turnId: "turn_dlv_replay",
+        slot: "main",
+      },
+      [
+        { seq: 0, event: { kind: "run_started" } },
+        {
+          seq: 1,
+          event: {
+            kind: "text_delta",
+            messageId: "m1",
+            delta: "stable",
+          },
+        },
+      ],
+    );
 
-const DELTAS = ["a", "b", "c", "d"];
+    const first = await sink.pushBatch(batch);
+    const retry = await sink.pushBatch(batch);
 
-describe("render frame replay stability (OSS-648)", () => {
-  it("does not reuse a seq with a different payload when a turn is redelivered", async () => {
-    // Durable rows outlive both attempts, like the platform table.
-    const rows = new Map<string, string>();
+    expect(Object.isFrozen(batch)).toBe(true);
+    expect(retry).toEqual({ ...first, duplicate: true });
+    expect(retry.acceptedThroughSeq).toBe(1);
+  });
 
-    // ATTEMPT 1 — slow first push, so all four deltas arrive while it is in
-    // flight and are sent as one backlog.
-    const release = { resolve: (): void => {}, pushes: 0 };
-    const gate = {
-      promise: new Promise<void>((r) => {
-        release.resolve = r;
-      }),
-      pushes: 0,
+  it("changes the stable batch identifier when compacted content changes", () => {
+    const identity = {
+      deliveryId: "dlv_replay",
+      turnId: "turn_dlv_replay",
+      slot: "main",
     };
-    const slow = intelligenceAdapter({
-      source: new InMemoryDeliverySource(),
-      egress: new InMemoryEgressSink(),
-      renderSink: new PlatformLikeSink(rows, gate),
-    });
-    const first = slow.createRunRenderer(target);
-    const firstSub = first.subscriber as unknown as Sub;
-    for (const delta of DELTAS) {
-      firstSub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta },
-      });
-    }
-    release.resolve();
-    await first.finish?.();
+    const first = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: { kind: "text_delta", messageId: "m1", delta: "a" },
+      },
+    ]);
+    const changed = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: { kind: "text_delta", messageId: "m1", delta: "b" },
+      },
+    ]);
 
-    // ATTEMPT 2 — the same delivery redelivered to a fresh runtime instance, so
-    // the seq counter restarts at 0 exactly as `dispatch()` resets it. This time
-    // each delta is pushed on its own, so the two attempts group differently.
-    const fast = intelligenceAdapter({
-      source: new InMemoryDeliverySource(),
-      egress: new InMemoryEgressSink(),
-      renderSink: new PlatformLikeSink(rows),
-    });
-    const second = fast.createRunRenderer(target);
-    const secondSub = second.subscriber as unknown as Sub;
-    for (const delta of DELTAS) {
-      secondSub.onTextMessageContentEvent?.({
-        event: { messageId: "m1", delta },
-      });
-      await settle();
-    }
+    expect(changed.contentDigest).not.toBe(first.contentDigest);
+    expect(changed.batchId).not.toBe(first.batchId);
+  });
 
-    // Different grouping, same seq->payload mapping, so every re-pushed frame is
-    // byte-identical and the platform accepts the replay. A send-path change that
-    // makes a frame's payload depend on grouping fails here with a conflict.
-    await expect(second.finish?.()).resolves.toBeUndefined();
+  it("keeps the digest stable when rich-content object keys are reordered", () => {
+    const identity = {
+      deliveryId: "dlv_replay",
+      turnId: "turn_dlv_replay",
+      slot: "main",
+    };
+    const first = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: {
+          kind: "post",
+          content: [
+            {
+              type: "section",
+              props: { beta: "b", alpha: { two: 2, one: 1 } },
+            },
+          ],
+        },
+      },
+    ]);
+    const reordered = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: {
+          kind: "post",
+          content: [
+            {
+              props: { alpha: { one: 1, two: 2 }, beta: "b" },
+              type: "section",
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(reordered.contentDigest).toBe(first.contentDigest);
+    expect(reordered.batchId).toBe(first.batchId);
   });
 });
