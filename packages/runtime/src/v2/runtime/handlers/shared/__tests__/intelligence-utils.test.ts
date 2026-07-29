@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  isValidAppUserId,
-  isValidIdentifier,
-} from "../intelligence-utils";
+import { isValidAppUserId, isValidIdentifier } from "../intelligence-utils";
 
 const TEAMS_APP_USER_ID = `teams:tenant1:29:1${"a".repeat(200)}`;
 

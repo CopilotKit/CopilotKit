@@ -61,7 +61,9 @@ export async function resolveIntelligenceUser(params: {
   const { runtime, request } = params;
 
   try {
-    const result = validateIntelligenceUser(await runtime.identifyUser(request));
+    const result = validateIntelligenceUser(
+      await runtime.identifyUser(request),
+    );
     if (isUserValidationError(result)) {
       return errorResponse(`identifyUser ${result.error}`, 400);
     }
