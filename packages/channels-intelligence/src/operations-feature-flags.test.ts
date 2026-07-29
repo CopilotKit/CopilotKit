@@ -16,7 +16,7 @@ test("requests the Operations flag for the Intelligence project identity", async
     async (_input: string | URL | Request, _init?: RequestInit) =>
       jsonResponse({
         flags: {
-          "unrelated-flag": { key: "unrelated-flag", enabled: true },
+          "unrelated-flag": { key: "unrelated-flag", enabled: false },
           [FLAG_KEY]: { key: FLAG_KEY, enabled: true },
         },
       }),
@@ -80,6 +80,18 @@ test("returns false for malformed JSON", async () => {
         headers: { "Content-Type": "application/json" },
       }),
   );
+
+  await expect(
+    isChannelsTerminalBatchingEnabled(123, fetch as typeof globalThis.fetch),
+  ).resolves.toBe(false);
+});
+
+test.each([
+  ["a non-record body", null],
+  ["a non-record flags value", { flags: [] }],
+  ["a non-record target flag", { flags: { [FLAG_KEY]: null } }],
+])("returns false for %s", async (_description, body) => {
+  const fetch = vi.fn(async () => jsonResponse(body));
 
   await expect(
     isChannelsTerminalBatchingEnabled(123, fetch as typeof globalThis.fetch),
