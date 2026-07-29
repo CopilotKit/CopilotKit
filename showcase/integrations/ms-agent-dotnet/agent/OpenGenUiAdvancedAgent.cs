@@ -121,6 +121,6 @@ Generation guidance:
         return new ChatClientAgent(
             chatClient,
             name: "OpenGenUiAdvancedAgent",
-            description: SystemPrompt);
+            instructions: SystemPrompt);
     }
 }

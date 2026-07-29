@@ -440,7 +440,7 @@ public class SalesAgentFactory
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "SalesAgent",
-            description: @"A helpful assistant that helps manage a sales pipeline.
+            instructions: @"A helpful assistant that helps manage a sales pipeline.
             You have tools available to get, update, and query sales data.
             You can search for flights and generate dynamic UI.
             When discussing deals or the pipeline, ALWAYS use the get_sales_todos tool to see the current state before mentioning, updating, or discussing deals with the user.",
@@ -486,7 +486,7 @@ public class SalesAgentFactory
         var inner = new ChatClientAgent(
             chatClient,
             name: "AgentConfigInner",
-            description: "You are a helpful assistant. Follow the tone, expertise, and response-length directives in the system message for each turn.",
+            instructions: "You are a helpful assistant. Follow the tone, expertise, and response-length directives in the system message for each turn.",
             tools: []);
         return new AgentConfigAgent(inner, _loggerFactory.CreateLogger<AgentConfigAgent>());
     }

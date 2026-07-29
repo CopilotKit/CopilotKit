@@ -57,6 +57,7 @@ features:
   - tool-rendering
   - tool-rendering-reasoning-chain
   - shared-state-read-write
+  - shared-state-streaming
   - subagents
   - readonly-state-agent-context
   - multimodal

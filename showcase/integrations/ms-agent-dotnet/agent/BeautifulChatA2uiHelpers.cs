@@ -19,9 +19,35 @@ internal static class BeautifulChatA2ui
     internal const string DeclarativeGenUiCatalogId = "declarative-gen-ui-catalog";
 
     /// <summary>
-    /// Secondary-LLM system prompt for the beautiful-chat / app-dashboard catalog.
+    /// Secondary-LLM system prompt for the beautiful-chat / app-dashboard catalog
+    /// (includes DashboardCard, FlightCard, Badge, …).
     /// </summary>
     internal static string DesignSystemPrompt(string catalogId) =>
+        BuildDesignSystemPrompt(
+            catalogId,
+            allowedTypes:
+            "Metric, PieChart, BarChart, Card, Row, Column, Text, DashboardCard, " +
+            "DataTable, Badge, StatusBadge, InfoRow, PrimaryButton, Button, FlightCard");
+
+    /// <summary>
+    /// Secondary-LLM system prompt for declarative-gen-ui catalog only.
+    /// DashboardCard / FlightCard are NOT registered here — inventing them
+    /// paints "Unknown component: DashboardCard" on the client.
+    /// </summary>
+    internal static string DeclarativeGenUiDesignSystemPrompt() =>
+        BuildDesignSystemPrompt(
+            DeclarativeGenUiCatalogId,
+            allowedTypes:
+            "Metric, PieChart, BarChart, Card, Row, Column, Text, DataTable, " +
+            "StatusBadge, InfoRow, PrimaryButton") +
+        "\nComposition guidance:\n" +
+        "- KPI / dashboard snapshot → root Column of Metric tiles + optional PieChart/BarChart.\n" +
+        "- Team performance / quota → DataTable.\n" +
+        "- Risk / health → StatusBadge + InfoRow inside Card.\n" +
+        "- Single account details → Card with InfoRow children.\n" +
+        "- Never emit DashboardCard, SummaryCard, FlightCard, or Chart.\n";
+
+    private static string BuildDesignSystemPrompt(string catalogId, string allowedTypes) =>
         "You are an A2UI v0.9 component designer. Emit a single tool call whose\n" +
         "arguments are a JSON object matching this exact shape (no code fences,\n" +
         "no prose outside the tool arguments):\n\n" +
@@ -34,13 +60,10 @@ internal static class BeautifulChatA2ui
         "CRITICAL:\n" +
         "- catalogId MUST be exactly \"" + catalogId + "\". Never invent another id.\n" +
         "- For each component: set \"id\" to a unique string and \"component\" to the\n" +
-        "  type name as a STRING (e.g. \"Metric\", \"PieChart\", \"BarChart\", \"Card\",\n" +
-        "  \"Row\", \"Column\", \"Text\", \"DashboardCard\", \"DataTable\", \"Badge\",\n" +
-        "  \"StatusBadge\", \"InfoRow\", \"PrimaryButton\", \"Button\", \"FlightCard\").\n" +
+        "  type name as a STRING. Allowed types ONLY: " + allowedTypes + ".\n" +
         "  Put all props as top-level keys next to id/component.\n" +
         "- Exactly ONE component MUST have id \"root\" (the surface entry point).\n" +
-        "- Do NOT invent types like SummaryCard / KPICard / Chart that are not\n" +
-        "  listed above. Compose with Card + Metric + PieChart + BarChart instead.\n" +
+        "- Do NOT invent types outside the allowed list.\n" +
         "- Pass prop values as inline literals only. Keep top-level \"data\" as {}.\n" +
         "- Example component:\n" +
         "  {\"id\":\"m1\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12%\"}\n";

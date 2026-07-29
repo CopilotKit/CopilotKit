@@ -138,7 +138,7 @@ internal sealed class BeautifulChatAgentFactory
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "BeautifulChatAgent",
-            description: @"You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
+            instructions: @"You are a polished, professional demo assistant. Keep responses to 1-2 sentences.
 
 Tool guidance:
 - Flights: call search_flights to show flight cards with a pre-built schema. Return exactly 2 flights.
