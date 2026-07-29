@@ -165,6 +165,10 @@ const REACT_HYDRATION_EXPRESSION = `
   })()
 `;
 
+const VUE_HYDRATION_EXPRESSION = `
+  Boolean(document.querySelector('#app')?.__vue_app__)
+`;
+
 /** Wait for the selected framework to hydrate its shell. */
 export async function waitForFrameworkHydration(
   page: HydrationPage,
@@ -174,7 +178,9 @@ export async function waitForFrameworkHydration(
   await page.waitForFunction(
     frontend === "angular"
       ? ANGULAR_HYDRATION_EXPRESSION
-      : REACT_HYDRATION_EXPRESSION,
+      : frontend === "vue"
+        ? VUE_HYDRATION_EXPRESSION
+        : REACT_HYDRATION_EXPRESSION,
     undefined,
     { timeout: timeoutMs },
   );

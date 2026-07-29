@@ -100,8 +100,8 @@ function nonNegativeInteger(value: string): number {
 }
 
 function frontend(value: string): RunnableFrontend {
-  if (value !== "react" && value !== "angular") {
-    throw new InvalidArgumentError('must be "react" or "angular"');
+  if (value !== "react" && value !== "angular" && value !== "vue") {
+    throw new InvalidArgumentError('must be "react", "angular", or "vue"');
   }
   return value;
 }

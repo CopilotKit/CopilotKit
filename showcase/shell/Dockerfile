@@ -16,6 +16,7 @@ COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
 COPY showcase/angular/src/ ./angular/src/
+COPY showcase/vue/src/ ./vue/src/
 COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # Bake commit info into Next.js build
@@ -37,6 +38,7 @@ RUN ln -s ../scripts/node_modules harness/node_modules
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
