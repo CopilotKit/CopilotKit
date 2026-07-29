@@ -376,9 +376,9 @@ const intelligenceEnabled = Boolean(
  * the identity with INTELLIGENCE_USER_ID / INTELLIGENCE_USER_NAME instead of
  * the derived per-role id.
  *
- * The id/name derivation lives in `@/lib/intelligence/user-id` so the Memory
- * panel proxy (api/memories) resolves the exact same per-user scope this
- * runtime asserts — the inspector and the agent stay one source of truth.
+ * The id/name derivation lives in `@/lib/intelligence/user-id` so the presenter
+ * reset's memory helpers resolve the exact same per-user scope this runtime
+ * asserts — the inspector's Memory tab and the agent stay one source of truth.
  */
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
   let role: string | undefined;
@@ -418,6 +418,11 @@ function createRuntime(): CopilotRuntime {
       agents: { default: bankingAgent },
       intelligence,
       identifyUser,
+      // Opt in to the client-facing /memories/* proxy routes (default off) so the
+      // product web-inspector's Memory tab can list + recall memories in this
+      // demo. Only meaningful in Intelligence mode; does not affect the agent's
+      // own server-side recall_memory (that runs via the MCP path).
+      exposeMemoryRoutes: true,
       licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       lockTtlSeconds: 30,
       lockKeyPrefix: "northwind-lock",

@@ -2,9 +2,9 @@
  * Resolve a stable end-user identity for Intelligence requests.
  *
  * Single source of truth shared by the CopilotKit runtime's `identifyUser`
- * (api/copilotkit route) AND the Memory-panel proxies (api/memories,
- * api/memories/recall), so the chat agent and the inspector always read/write
- * the same per-user memory scope.
+ * (api/copilotkit route) AND the presenter-reset memory helpers
+ * (forget-memories, seed-memories), so the chat agent, the inspector's Memory
+ * tab, and a booth reset all read/write the same per-user memory scope.
  *
  * Precedence: pinned env > mapped member id > role-derived > demo default.
  *  - Pinned `INTELLIGENCE_USER_ID` wins so CI (Playwright/aimock, smokes) stays

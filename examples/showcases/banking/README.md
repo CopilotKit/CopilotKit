@@ -246,9 +246,9 @@ these rather than using the pills:
 
 ### Presenter reset
 
-Set `PRESENTER_RESET_ENABLED=true` to expose a reset control (↺ in the icon rail,
-above the Glass Engine toggle) and enable `POST /api/v1/dev/reset`. Both are off
-by default, so a public deployment has neither.
+Set `PRESENTER_RESET_ENABLED=true` to expose a reset control (↺ in the icon rail)
+and enable `POST /api/v1/dev/reset`. Both are off by default, so a public
+deployment has neither.
 
 Reset restores the seeded transactions **and** rebuilds memory: it clears every
 seeded persona plus the default identity, then re-seeds the preferences and the
@@ -274,31 +274,28 @@ screen rather than wherever you happened to be.
   via the manual walkthrough above + the aimock E2E. Run after editing the prompt or
   teach tools.
 
-### Advanced mode — Glass Engine
+### Inspector (dev console)
 
-Glass Engine is a docked inspector (desktop-only) that exposes the copilot's
-internals. It is gated twice:
+The demo surfaces CopilotKit's **product web-inspector** — the same dev console
+that ships with `@copilotkit/react-core`. It is enabled via `showDevConsole` on
+the `<CopilotKitProvider>` (see `src/app/wrapper.tsx`); open it from the
+inspector launcher. It shows AG-UI events, the registered agent, and the
+frontend tools + capabilities the demo exposes.
 
-- **Availability (deployment):** set `GLASS_ENGINE_AVAILABLE=true` to expose the
-  rail's telescope toggle. Leave it unset on public deployments — Glass Engine
-  is then absent entirely and the `/api/memories*` routes return 404. (FDE/sales/
-  conference deployments set it; one image, per-deployment env.)
-- **Activation (presenter):** when available, the telescope toggles the pane on/off
-  per session (persisted in localStorage), so you can reveal it case-by-case during
-  a talk.
+Its **Memory** ("Learning") tab lists and recalls durable memory in Intelligence
+mode. That requires two things, both already set for this demo: the runtime runs
+in Intelligence mode (`INTELLIGENCE_*` set) and the runtime opts in to the
+client-facing memory proxy via `exposeMemoryRoutes: true` (see
+`src/app/api/copilotkit/[[...slug]]/route.ts`). Memory flows through the product
+path — the client memory store → the runtime's `/api/copilotkit/memories`
+handler — not any banking-local Next route. In OSS mode (no `INTELLIGENCE_*`) the
+Memory tab shows the store as empty/unavailable.
 
-Tabs:
-
-- **Timeline** — every AG-UI protocol event of each run, live (works in any mode).
-- **Memory** — "Stored memories (N)": a complete enumeration of what is stored,
-  read from app-api's `GET /api/memories` and aggregated across the demo's
-  identities so nothing is hidden just because it landed in another scope bucket.
-  A separate search box below it does top-k semantic recall.
-- **Learning** — the over-limit teach→save→recall procedure and live recall
-  activity (Intelligence mode only).
-
-In OSS mode (no `INTELLIGENCE_*`) the Memory and Learning tabs show a "Requires
-Intelligence mode" hint.
+Its **Capabilities** tab lists the frontend tools and A2UI catalog components the
+demo registers, each with a toggle that really enforces: a disabled tool is
+filtered out of the tool list sent to the agent, and a disabled catalog component
+is dropped from both the context and the render path. Useful on stage for showing
+that the agent's abilities are the app's to grant.
 
 ## Architecture at a glance
 
