@@ -152,8 +152,7 @@ describe("managed render batch compaction", () => {
     await renderer.finish?.();
   });
 
-  it("compacts later adjacent text for 250 ms and flushes before a semantic boundary", async () => {
-    vi.useFakeTimers();
+  it("flushes later adjacent text at a deterministic delta count and before a semantic boundary", async () => {
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);
 
@@ -161,31 +160,28 @@ describe("managed render batch compaction", () => {
       event: { messageId: "m1", delta: "first" },
     });
     await settle();
-    subscriber.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: " second" },
-    });
-    subscriber.onTextMessageContentEvent?.({
-      event: { messageId: "m1", delta: " third" },
-    });
-
-    await vi.advanceTimersByTimeAsync(249);
+    for (let index = 0; index < 255; index += 1) {
+      subscriber.onTextMessageContentEvent?.({
+        event: { messageId: "m1", delta: ` ${index}` },
+      });
+    }
+    await settle();
     expect(sink.batches).toHaveLength(1);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: " 255" },
+    });
+    await settle();
+    expect(sink.batches).toHaveLength(2);
 
     subscriber.onTextMessageEndEvent?.({
       event: { messageId: "m1" },
     });
     await settle();
 
-    expect(sink.batches).toHaveLength(2);
-    expect(sink.batches[1]?.frames).toEqual([
-      {
-        seq: 2,
-        event: {
-          kind: "text_delta",
-          messageId: "m1",
-          delta: " second third",
-        },
-      },
+    expect(sink.batches).toHaveLength(3);
+    expect(sink.batches[1]?.frames[0]?.event.kind).toBe("text_delta");
+    expect(sink.batches[2]?.frames).toEqual([
       { seq: 3, event: { kind: "text_end", messageId: "m1" } },
     ]);
     await renderer.finish?.();

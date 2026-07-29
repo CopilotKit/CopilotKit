@@ -83,4 +83,43 @@ describe("render batch retry stability", () => {
     expect(changed.contentDigest).not.toBe(first.contentDigest);
     expect(changed.batchId).not.toBe(first.batchId);
   });
+
+  it("keeps the digest stable when rich-content object keys are reordered", () => {
+    const identity = {
+      deliveryId: "dlv_replay",
+      turnId: "turn_dlv_replay",
+      slot: "main",
+    };
+    const first = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: {
+          kind: "post",
+          content: [
+            {
+              type: "section",
+              props: { beta: "b", alpha: { two: 2, one: 1 } },
+            },
+          ],
+        },
+      },
+    ]);
+    const reordered = createRenderBatch(identity, [
+      {
+        seq: 0,
+        event: {
+          kind: "post",
+          content: [
+            {
+              props: { alpha: { one: 1, two: 2 }, beta: "b" },
+              type: "section",
+            },
+          ],
+        },
+      },
+    ]);
+
+    expect(reordered.contentDigest).toBe(first.contentDigest);
+    expect(reordered.batchId).toBe(first.batchId);
+  });
 });

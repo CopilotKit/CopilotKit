@@ -6,14 +6,38 @@ import type {
 } from "./contracts.js";
 
 export const RENDER_BATCH_PROTOCOL_CAPABILITY = "render_batch_v1";
-export const RENDER_TEXT_FLUSH_MS = 250;
+export const RENDER_TEXT_MAX_DELTAS = 256;
 export const RENDER_TEXT_MAX_BYTES = 16 * 1024;
 export const RENDER_BATCH_MAX_FRAMES = 64;
 export const RENDER_BATCH_MAX_BYTES = 128 * 1024;
 export const RENDER_LANE_MAX_PENDING_BYTES = 256 * 1024;
 
+/**
+ * Encode JSON with object keys sorted recursively.
+ *
+ * @param value - JSON-compatible render data.
+ * @returns Stable JSON across JavaScript and gateway map round-trips.
+ */
+export const stableRenderJson = (value: unknown): string => {
+  if (value === null || typeof value !== "object") {
+    return JSON.stringify(value) ?? "null";
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableRenderJson).join(",")}]`;
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+    .filter(([, entryValue]) => entryValue !== undefined)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+  return `{${entries
+    .map(
+      ([key, entryValue]) =>
+        `${JSON.stringify(key)}:${stableRenderJson(entryValue)}`,
+    )
+    .join(",")}}`;
+};
+
 const canonicalFrames = (frames: readonly RenderFrame[]): string =>
-  JSON.stringify(
+  stableRenderJson(
     frames.map((frame) => ({
       seq: frame.seq,
       event: frame.event,

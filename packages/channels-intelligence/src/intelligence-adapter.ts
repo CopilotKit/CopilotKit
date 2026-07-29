@@ -52,7 +52,7 @@ import {
   RENDER_BATCH_MAX_BYTES,
   RENDER_BATCH_MAX_FRAMES,
   RENDER_LANE_MAX_PENDING_BYTES,
-  RENDER_TEXT_FLUSH_MS,
+  RENDER_TEXT_MAX_DELTAS,
   RENDER_TEXT_MAX_BYTES,
 } from "./render-batches.js";
 
@@ -960,7 +960,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let pendingText:
       | Extract<ChannelRenderEvent, { kind: "text_delta" }>
       | undefined;
-    let textFlushTimer: ReturnType<typeof setTimeout> | undefined;
+    let pendingTextDeltaCount = 0;
     let firstTextFlushed = false;
     let lanePendingBytes = 0;
     // OSS-648: time each push so the per-frame round-trip cost of this serial
@@ -1077,28 +1077,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
       batchFrames.push(frame);
     };
 
-    const clearTextFlushTimer = (): void => {
-      if (textFlushTimer !== undefined) {
-        clearTimeout(textFlushTimer);
-        textFlushTimer = undefined;
-      }
-    };
-
     const flushPendingText = (): void => {
-      clearTextFlushTimer();
       if (!pendingText) return;
       addFrame(pendingText);
       pendingText = undefined;
-    };
-
-    const scheduleTextFlush = (): void => {
-      if (textFlushTimer !== undefined) return;
-      textFlushTimer = setTimeout(() => {
-        textFlushTimer = undefined;
-        flushPendingText();
-        flushBatch();
-      }, RENDER_TEXT_FLUSH_MS);
-      textFlushTimer.unref?.();
+      pendingTextDeltaCount = 0;
     };
 
     const enqueue = (event: ChannelRenderEvent): void => {
@@ -1107,6 +1090,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         if (!firstTextFlushed) {
           firstTextFlushed = true;
           pendingText = event;
+          pendingTextDeltaCount = 1;
           flushPendingText();
           flushBatch();
           return;
@@ -1123,7 +1107,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
         pendingText = pendingText
           ? { ...pendingText, delta: pendingText.delta + event.delta }
           : event;
-        scheduleTextFlush();
+        pendingTextDeltaCount += 1;
+        if (pendingTextDeltaCount >= RENDER_TEXT_MAX_DELTAS) {
+          flushPendingText();
+          flushBatch();
+        }
         return;
       }
 
