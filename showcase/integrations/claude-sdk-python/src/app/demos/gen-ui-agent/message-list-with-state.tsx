@@ -1,8 +1,7 @@
 "use client";
 
 import React from "react";
-import { InlineAgentStateCard } from "./InlineAgentStateCard";
-import type { Step } from "./InlineAgentStateCard";
+import { InlineAgentStateCard, type Step } from "./InlineAgentStateCard";
 
 export function MessageListWithState({
   messageElements,

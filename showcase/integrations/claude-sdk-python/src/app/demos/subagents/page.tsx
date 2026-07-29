@@ -9,9 +9,11 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
-import type { Delegation } from "./delegation-log";
-import { SubAgentActivityCard } from "./subagent-activity-card";
-import type { SubAgentToolStatus } from "./subagent-activity-card";
+import { Delegation } from "./delegation-log";
+import {
+  SubAgentActivityCard,
+  type SubAgentToolStatus,
+} from "./subagent-activity-card";
 import { DemoLayout } from "./demo-layout";
 import { inferActiveSubAgent } from "./active-subagent";
 import { useSubagentsSuggestions } from "./suggestions";
