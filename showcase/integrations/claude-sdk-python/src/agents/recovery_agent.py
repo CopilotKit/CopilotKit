@@ -210,9 +210,7 @@ def _validate_a2ui_components(components: Any) -> dict[str, Any]:
                         }
                     )
 
-    if not any(
-        isinstance(c, dict) and c.get("id") == "root" for c in components
-    ):
+    if not any(isinstance(c, dict) and c.get("id") == "root" for c in components):
         errors.append(
             {
                 "code": "no_root",
@@ -225,9 +223,7 @@ def _validate_a2ui_components(components: Any) -> dict[str, Any]:
 
 
 def _format_validation_errors(errors: list[dict[str, str]]) -> str:
-    return "\n".join(
-        f"- [{e['code']}] {e['path']}: {e['message']}" for e in errors
-    )
+    return "\n".join(f"- [{e['code']}] {e['path']}: {e['message']}" for e in errors)
 
 
 def _augment_prompt_with_errors(prompt: str, errors: list[dict[str, str]]) -> str:
