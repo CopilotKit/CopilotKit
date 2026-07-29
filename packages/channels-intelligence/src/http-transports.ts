@@ -526,6 +526,21 @@ export class HttpDeliverySource implements DeliverySource {
     );
   }
 
+  /**
+   * Retire a delivery's lease record without POSTing anything — see
+   * {@link DeliverySource.abandon}. On the fenced path the adapter's `dispatch`
+   * resolves normally, so `runLoop` sees a successful turn and neither `ack` nor
+   * `nack` runs: this is the only thing that drops the record, and without it
+   * every fence leaks a lease token + scope for the process's lifetime.
+   */
+  abandon(deliveryId: string, reason: string): void {
+    if (!this.leases.delete(deliveryId)) {
+      this.cfg.log?.(
+        `intelligence abandon: no lease for delivery ${deliveryId} (${reason})`,
+      );
+    }
+  }
+
   // fetchFile / getHistory / uploadFile delegate to the shared
   // IntelligenceFileHistoryClient so the HTTP and realtime transports stay in
   // lockstep (OSS-476). See {@link IntelligenceFileHistoryClient}.

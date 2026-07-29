@@ -25,6 +25,7 @@ import type {
   RenderEventSink,
   AgentMessage,
 } from "./transports.js";
+import { isLeaseRevoked } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   EgressOp,
@@ -60,6 +61,11 @@ import {
 const PERMANENT_RENDER_BATCH_ERROR_CODES = new Set([
   "CHANNEL_RENDER_BATCH_CONFLICT",
   "CHANNEL_RENDER_SEQUENCE_GAP",
+  // A revoked/superseded lease can never accept another batch: app-api fences
+  // every intent on `leased_until > now() AND lease_token_hash`, so retrying
+  // only spends the backoff ladder against a lease that is already gone
+  // (OSS-670).
+  "CHANNEL_DELIVERY_LEASE_INVALID",
 ]);
 
 /** Return whether retrying the same render batch cannot succeed. */
@@ -460,10 +466,34 @@ export class IntelligenceAdapter implements PlatformAdapter {
       await this.finalizeRenderedTurn(env);
       turnProcessed = true;
     } catch (err) {
-      await this.requireSource().nack(
-        env.deliveryId,
-        err instanceof Error ? err.message : String(err),
-      );
+      if (isLeaseRevoked(err)) {
+        // This delivery's lease was revoked mid-turn, so another owner holds it
+        // now and app-api owns redelivery. A nack here would send a `fail` the
+        // same fence rejects — the doomed intent whose 409 used to be reported
+        // as a turn failure, with a generic error reaching the end user
+        // (OSS-670). Stay quiet; this is not the user's problem.
+        //
+        // Retire the source's lease state explicitly. Swallowing the error here
+        // means the source sees a SUCCESSFUL onDelivery, so neither its own
+        // revoked-lease branch nor `ack` below runs — and those are the only
+        // other places the lease record is dropped. Without this the lease
+        // token, delivery scope and accepted-seq high-water marks are retained
+        // for a delivery we can never speak for again (app-api may already have
+        // handed it to another runtime, so the id may never be seen here again),
+        // leaking once per fence until the process exits.
+        this.requireSource().abandon?.(
+          env.deliveryId,
+          "lease revoked mid-turn",
+        );
+        this.opts.config?.log?.(
+          `intelligence delivery ${env.deliveryId} lease revoked mid-turn; abandoning (app-api owns redelivery)`,
+        );
+      } else {
+        await this.requireSource().nack(
+          env.deliveryId,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
     } finally {
       // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a

@@ -188,13 +188,25 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
   });
 });
 
-/** A fake Realtime Gateway session that records pushes and replies with batch receipts. */
-function makeFakeSession() {
+/**
+ * A fake Realtime Gateway session that records pushes and replies with batch
+ * receipts. `failEvents` makes the named pushes reject with a coded error (the
+ * shape app-api's fences arrive in), so a test can fence part of a turn.
+ */
+function makeFakeSession(options?: {
+  failEvents?: readonly string[];
+  code?: string;
+}) {
   const pushes: { event: string; payload: unknown }[] = [];
   const handlers = new Map<string, (payload: unknown) => void>();
   const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
+      if (options?.failEvents?.includes(event)) {
+        throw Object.assign(new Error("realtime gateway push failed"), {
+          code: options.code ?? "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      }
       if (event === "channel.render_batch.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
@@ -268,6 +280,28 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     runtimeInstanceId: "rti_1",
     session,
     now: () => "2026-07-01T00:00:00.000Z",
+  });
+
+  /** A `delivery.available` payload for one leased text turn. */
+  const makeDeliveryPayload = (input: {
+    deliveryId: string;
+    turnId: string;
+    leaseToken: string;
+  }) => ({
+    payload: {
+      delivery: {
+        id: input.deliveryId,
+        leaseToken: input.leaseToken,
+        adapter: "slack",
+        channel: { id: "channel_1", name: "support" },
+        turn: {
+          id: input.turnId,
+          eventId: "evt_1",
+          replyTarget: { adapter: "slack", teamId: "T1", channel: "C1" },
+          input: { kind: "text", text: "hi" },
+        },
+      },
+    },
   });
 
   it("streams render frames, awaits receipts, then sends complete_requested (not ack)", async () => {
@@ -751,6 +785,133 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
   });
 
+  it("abandons a delivery whose lease was revoked instead of nacking it", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    const t = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {
+      throw Object.assign(new Error("push failed"), {
+        code: "CHANNEL_DELIVERY_LEASE_INVALID",
+      });
+    });
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d1",
+        turnId: "turn_t1",
+        leaseToken: "lease_l1",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(logs.some((m) => m.includes("lease revoked; abandoning"))).toBe(
+      true,
+    );
+    expect(fake.pushes.map((p) => p.event)).not.toContain(
+      "channel.delivery.fail.v1",
+    );
+    expect(logs.some((m) => m.includes("nack after turn failure failed"))).toBe(
+      false,
+    );
+  });
+
+  it("abandons a fenced delivery from the adapter's dispatch, sending no fail intent", async () => {
+    const fake = makeFakeSession({
+      failEvents: ["channel.render_batch.v1", "channel.delivery.fail.v1"],
+    });
+    const logs: string[] = [];
+    const transport = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    const adapter = intelligenceAdapter({
+      source: transport,
+      egress: new InMemoryEgressSink(),
+      renderSink: transport,
+      config: { log: (m: string) => logs.push(m) },
+    } as unknown as Parameters<typeof intelligenceAdapter>[0]);
+
+    // Go through the REAL `start()`, so the delivery is handled by
+    // `source.start(env => dispatch(env))`. Every other test in this file drives
+    // `createRunRenderer` directly and therefore never exercises `dispatch`'s
+    // catch — which is exactly how the fenced-lease gap stayed invisible.
+    await adapter.start({
+      onTurn: async (turn: { replyTarget: ReplyTarget }) => {
+        const renderer = adapter.createRunRenderer(turn.replyTarget);
+        const sub = renderer.subscriber as unknown as Sub;
+        sub.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "hi" },
+        });
+        await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+        await renderer.finish?.();
+      },
+    } as unknown as Parameters<typeof adapter.start>[0]);
+
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d3",
+        turnId: "turn_t3",
+        leaseToken: "lease_l3",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+
+    const events = fake.pushes.map((p) => p.event);
+    expect(events).toContain("channel.render_batch.v1");
+    expect(events).not.toContain("channel.delivery.fail.v1");
+    expect(
+      logs.some((m) => m.includes("lease revoked mid-turn; abandoning")),
+    ).toBe(true);
+
+    // ...and the transport's own DeliveryState is GONE. `dispatch` swallowing
+    // the fence means the transport saw a successful onDelivery, so neither its
+    // revoked-lease catch nor `ack` ran — only the explicit `abandon` retires
+    // the lease token / scope / accepted map. Probe it through `nack`, which
+    // needs that state to build a fail intent: if it were still retained the
+    // fence would leak one record per fenced delivery until shutdown.
+    const pushesBefore = fake.pushes.length;
+    await transport.nack("dlv_d3", "probe");
+    expect(fake.pushes).toHaveLength(pushesBefore);
+    expect(logs.some((m) => m.includes("no delivery state"))).toBe(true);
+  });
+
+  it("swallows a fail intent that is itself fenced by a revoked lease", async () => {
+    const fake = makeFakeSession();
+    const logs: string[] = [];
+    // Reject only the fail intent, the way app-api's 409 arrives on the wire.
+    const session: RealtimeGatewaySession = {
+      ...fake.session,
+      push: async (event, payload) => {
+        if (event === "channel.delivery.fail.v1") {
+          throw Object.assign(new Error("push failed"), {
+            code: "CHANNEL_DELIVERY_LEASE_INVALID",
+          });
+        }
+        return fake.session.push(event, payload);
+      },
+    };
+    const t = new RealtimeGatewayTransport({
+      ...cfg(session),
+      log: (m) => logs.push(m),
+    });
+    await t.start(async () => {});
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d2",
+        turnId: "turn_t2",
+        leaseToken: "lease_l2",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+
+    await expect(t.nack("dlv_d2", "boom")).resolves.toBeUndefined();
+    expect(logs.some((m) => m.includes("fenced by a revoked lease"))).toBe(
+      true,
+    );
+  });
+
   it("stamps the delivery's authoritative scope (not the transport default) on render + fail", async () => {
     const fake = makeFakeSession();
     // Transport default scope is org_1 / 7 / channel_1; the delivery carries a
@@ -948,5 +1109,35 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
     expect(
       log.mock.calls.filter((c) => c[0] === "channel render metrics"),
     ).toHaveLength(1);
+  });
+});
+
+describe("render-batch retry policy (OSS-670)", () => {
+  it("does not retry a batch whose lease was revoked", async () => {
+    let calls = 0;
+    const renderSink = {
+      pushBatch: async () => {
+        calls += 1;
+        throw Object.assign(new Error("realtime gateway session push failed"), {
+          code: "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      },
+    };
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hi" },
+    });
+    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    // The transport error surfaces here; its shape is not what this test pins.
+    await renderer.finish?.().catch(() => undefined);
+
+    expect(calls).toBe(1);
   });
 });

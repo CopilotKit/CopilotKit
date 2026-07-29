@@ -25,6 +25,7 @@ import type {
   RenderEventSink,
   AgentMessage,
 } from "./transports.js";
+import { isLeaseRevoked } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
@@ -386,6 +387,21 @@ export class RealtimeGatewayTransport
         `realtime gateway turn ${env.turnId} exceeded ${this.deliveryTimeoutMs}ms`,
       );
     } catch (err) {
+      if (isLeaseRevoked(err)) {
+        // Nacking here would send a `fail` the same fence rejects, and that
+        // second 409 is what used to surface as "nack after turn failure
+        // failed" followed by "no delivery state". Drop the state and report
+        // the real condition once.
+        this.abandon(env.deliveryId, "lease revoked mid-turn");
+        this.log?.(
+          "realtime gateway delivery lease revoked; abandoning (app-api owns redelivery)",
+          {
+            deliveryId: env.deliveryId,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        );
+        return;
+      }
       this.log?.("realtime gateway turn failed/timed out; nacking", {
         deliveryId: env.deliveryId,
         error: err instanceof Error ? err.message : String(err),
@@ -676,27 +692,54 @@ export class RealtimeGatewayTransport
     const lastAccepted = accepted[accepted.length - 1];
     // Claim the terminal signal BEFORE the wire call (XOR with ack) — see ack().
     this.deliveries.delete(deliveryId);
-    await this.session.push(DELIVERY_FAIL, {
-      type: DELIVERY_FAIL,
-      occurredAt: this.now(),
-      payload: {
-        ...state.scope,
-        deliveryId,
-        turnId: state.turnId,
-        runtimeInstanceId: this.runtimeInstanceId,
-        leaseToken: state.leaseToken,
-        ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
-        ...(lastAccepted ? { lastAccepted } : {}),
-        failedAt: this.now(),
-        // Bound the reason (parity with HttpDeliverySource.nack) so a long
-        // error/stack isn't sent verbatim over the gateway socket.
-        error: {
-          code: "runtime_error",
-          message: (reason || "runtime error").slice(0, 500),
-          retryable,
+    try {
+      await this.session.push(DELIVERY_FAIL, {
+        type: DELIVERY_FAIL,
+        occurredAt: this.now(),
+        payload: {
+          ...state.scope,
+          deliveryId,
+          turnId: state.turnId,
+          runtimeInstanceId: this.runtimeInstanceId,
+          leaseToken: state.leaseToken,
+          ...(retryable ? { deliveryStatus: "retry_wait" } : {}),
+          ...(lastAccepted ? { lastAccepted } : {}),
+          failedAt: this.now(),
+          // Bound the reason (parity with HttpDeliverySource.nack) so a long
+          // error/stack isn't sent verbatim over the gateway socket.
+          error: {
+            code: "runtime_error",
+            message: (reason || "runtime error").slice(0, 500),
+            retryable,
+          },
         },
-      },
-    });
+      });
+    } catch (err) {
+      if (!isLeaseRevoked(err)) throw err;
+      // The fence already moved this delivery to another owner; a fail we
+      // cannot land is not a caller error.
+      this.log?.(
+        "realtime gateway fail intent fenced by a revoked lease; dropping",
+        { deliveryId, reason },
+      );
+    }
+  }
+
+  /**
+   * Retire a delivery's {@link DeliveryState} without sending anything — see
+   * {@link DeliverySource.abandon}. Reached when the lease was revoked mid-turn,
+   * whether the fence surfaced here (a direct-source run) or was swallowed by
+   * `IntelligenceAdapter.dispatch` (production, where `dispatch` resolves
+   * normally on the fenced path so neither the catch below nor `ack` runs and
+   * this is the ONLY thing that frees the lease token, scope and accepted map).
+   */
+  abandon(deliveryId: string, reason: string): void {
+    if (!this.deliveries.delete(deliveryId)) {
+      this.log?.("realtime gateway abandon: no delivery state", {
+        deliveryId,
+        reason,
+      });
+    }
   }
 
   async stop(): Promise<void> {

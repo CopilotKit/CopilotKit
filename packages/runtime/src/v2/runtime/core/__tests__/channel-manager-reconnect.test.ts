@@ -17,6 +17,9 @@ import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
 
 type ConnectionState = "online" | "reconnecting" | "gave_up" | "fenced";
 
+/** The cause the session attaches to a non-`online` transition (OSS-670). */
+type ConnectionDetail = { reason?: string; code?: string };
+
 /** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
 function fakeIntelligence(): CopilotKitIntelligence {
   return new CopilotKitIntelligence({
@@ -29,17 +32,21 @@ function fakeIntelligence(): CopilotKitIntelligence {
 /** A fake ChannelsHandle whose connection-state observer can be driven on demand. */
 function observableHandle(): ChannelsHandle & {
   stop: ReturnType<typeof vi.fn>;
-  fireState: (state: ConnectionState) => void;
+  fireState: (state: ConnectionState, detail?: ConnectionDetail) => void;
 } {
-  let cb: ((state: ConnectionState) => void) | undefined;
+  let cb:
+    | ((state: ConnectionState, detail?: ConnectionDetail) => void)
+    | undefined;
   return {
     metadata: {},
     stop: vi.fn(async () => {}),
-    onStateChange(fn: (state: ConnectionState) => void) {
+    onStateChange(
+      fn: (state: ConnectionState, detail?: ConnectionDetail) => void,
+    ) {
       cb = fn;
     },
-    fireState(state: ConnectionState) {
-      cb?.(state);
+    fireState(state: ConnectionState, detail?: ConnectionDetail) {
+      cb?.(state, detail);
     },
   };
 }
@@ -146,5 +153,67 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     expect(mgr.status().channels.support).toBe("stopped");
     expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("logs the drop cause and keeps logging while the session is down (OSS-670)", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+    const logs: string[] = [];
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log: (m: string) => logs.push(m),
+      reconnectLogIntervalMs: 5,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    handle.fireState("reconnecting", {
+      reason: "read ECONNRESET",
+      code: "ECONNRESET",
+    });
+    expect(logs.some((m) => m.includes("ECONNRESET"))).toBe(true);
+
+    // Still down: the operator must keep hearing about it.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(logs.filter((m) => m.includes("still down")).length).toBeGreaterThan(
+      0,
+    );
+
+    const before = logs.length;
+    handle.fireState("online");
+    await new Promise((r) => setTimeout(r, 20));
+    // Recovery stops the repeat: only the "back online" line lands after it.
+    expect(
+      logs.slice(before).filter((m) => m.includes("still down")),
+    ).toHaveLength(0);
+    await mgr.stop();
+  });
+
+  it("says retries continue when the give-up window elapses (OSS-670)", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+    const logs: string[] = [];
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log: (m: string) => logs.push(m),
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    handle.fireState("reconnecting", { reason: "handshake refused" });
+    handle.fireState("gave_up", { reason: "handshake refused" });
+
+    const line = logs.find((m) => m.includes("gave up reconnecting"))!;
+    expect(line).toContain("handshake refused");
+    expect(line).toMatch(/still retrying/i);
+    // Status semantics are unchanged.
+    expect(mgr.status().channels.support).toBe("error");
+    await mgr.stop();
   });
 });

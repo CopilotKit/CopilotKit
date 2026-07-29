@@ -551,6 +551,35 @@ describe("HttpDeliverySource", () => {
     });
   });
 
+  it("abandon retires the lease record without posting anything", async () => {
+    // The fenced path (OSS-670): the adapter swallows the revoked-lease error, so
+    // runLoop sees a successful turn and neither ack nor nack — the only other
+    // branches that drop the lease — ever runs. `abandon` must free the record
+    // itself, and must not put an intent the fence would reject on the wire.
+    const logs: string[] = [];
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: {} },
+    );
+    const src = new HttpDeliverySource(
+      cfg({ fetch, log: (m) => logs.push(m) }),
+    );
+    await src.claimOnce();
+    expect(src.leaseTokenFor("dlv_9")).toBe("lease_z");
+
+    src.abandon("dlv_9", "lease revoked mid-turn");
+
+    expect(src.leaseTokenFor("dlv_9")).toBeUndefined();
+    expect(src.scopeFor("dlv_9")).toBeUndefined();
+    expect(calls.filter((c) => c.url.includes("/deliveries/"))).toHaveLength(0);
+    // With the record gone, a later ack/nack for the same delivery is a no-op
+    // rather than a doomed intent — proof the state was retired, not orphaned.
+    await src.nack("dlv_9", "boom");
+    expect(calls.filter((c) => c.url.includes("/deliveries/"))).toHaveLength(0);
+    expect(logs.some((m) => m.includes("nack: no lease"))).toBe(true);
+  });
+
   it("nacks (non-retryable) an unmappable delivery kind instead of wedging the loop", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/claim")
