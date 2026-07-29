@@ -950,3 +950,33 @@ describe("run renderer — push instrumentation (OSS-648)", () => {
     ).toHaveLength(1);
   });
 });
+
+describe("render-batch retry policy (OSS-670)", () => {
+  it("does not retry a batch whose lease was revoked", async () => {
+    let calls = 0;
+    const renderSink = {
+      pushBatch: async () => {
+        calls += 1;
+        throw Object.assign(new Error("realtime gateway session push failed"), {
+          code: "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      },
+    };
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const sub = renderer.subscriber as unknown as Sub;
+
+    sub.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hi" },
+    });
+    await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    // The transport error surfaces here; its shape is not what this test pins.
+    await renderer.finish?.().catch(() => undefined);
+
+    expect(calls).toBe(1);
+  });
+});

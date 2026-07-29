@@ -60,6 +60,11 @@ import {
 const PERMANENT_RENDER_BATCH_ERROR_CODES = new Set([
   "CHANNEL_RENDER_BATCH_CONFLICT",
   "CHANNEL_RENDER_SEQUENCE_GAP",
+  // A revoked/superseded lease can never accept another batch: app-api fences
+  // every intent on `leased_until > now() AND lease_token_hash`, so retrying
+  // only spends the backoff ladder against a lease that is already gone
+  // (OSS-670).
+  "CHANNEL_DELIVERY_LEASE_INVALID",
 ]);
 
 /** Return whether retrying the same render batch cannot succeed. */
