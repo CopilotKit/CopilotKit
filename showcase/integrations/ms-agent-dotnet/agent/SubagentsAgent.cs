@@ -396,7 +396,7 @@ public sealed class SubagentsAgentFactory
         var inner = new ChatClientAgent(
             chatClient,
             name: "SubagentsSupervisor",
-            description: SupervisorPrompt,
+            instructions: SupervisorPrompt,
             tools: [research, writing, critique]);
 
         return new SubagentsAgent(inner, _store, _loggerFactory.CreateLogger<SubagentsAgent>());

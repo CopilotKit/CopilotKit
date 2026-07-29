@@ -74,7 +74,7 @@ public sealed class HitlInAppAgentFactory
         return new ChatClientAgent(
             chatClient,
             name: "HitlInAppAgent",
-            description: SystemPrompt,
+            instructions: SystemPrompt,
             tools: []);
     }
 }

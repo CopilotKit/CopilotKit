@@ -672,8 +672,14 @@ public sealed class SharedStateReadWriteAgentFactory
 
         var inner = new ChatClientAgent(
             chatClient,
+            instructions:
+                "You are a helpful, concise assistant. User preferences are injected as a " +
+                "system message each turn — always respect them. When the user asks you to " +
+                "remember something (or shares a durable fact), call `set_notes` with the " +
+                "FULL updated list of short notes (existing + new). Keep each note short. " +
+                "Otherwise answer normally in one short paragraph.",
             name: "SharedStateReadWriteAgent",
-            description: "You read user preferences from shared state and write notes back via the set_notes tool.",
+            description: "Shared-state read/write demo agent",
             tools: [setNotes]);
 
         return new SharedStateReadWriteAgent(
