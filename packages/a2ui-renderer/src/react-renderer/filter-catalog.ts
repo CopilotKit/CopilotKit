@@ -24,5 +24,10 @@ export function filterCatalog<T extends ComponentApi>(
     }
   }
   const functions = Array.from(catalog.functions.values());
-  return new Catalog<T>(catalog.id, keptComponents, functions, catalog.themeSchema);
+  return new Catalog<T>(
+    catalog.id,
+    keptComponents,
+    functions,
+    catalog.themeSchema,
+  );
 }

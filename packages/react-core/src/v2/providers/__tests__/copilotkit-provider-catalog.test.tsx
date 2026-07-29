@@ -37,11 +37,18 @@ import type { CopilotKitCore } from "@copilotkit/core";
 
 function makeCatalog(): Catalog<ComponentApi> {
   const components: ComponentApi[] = [
-    { name: "PieChart", schema: z.object({ innerRadius: z.number().optional() }) },
+    {
+      name: "PieChart",
+      schema: z.object({ innerRadius: z.number().optional() }),
+    },
     { name: "FlightCard", schema: z.object({ airline: z.string() }) },
     { name: "Badge", schema: z.object({ text: z.string() }) },
   ];
-  return new Catalog<ComponentApi>("copilotkit://custom-catalog", components, []);
+  return new Catalog<ComponentApi>(
+    "copilotkit://custom-catalog",
+    components,
+    [],
+  );
 }
 
 let capturedCore: CopilotKitCore | null = null;

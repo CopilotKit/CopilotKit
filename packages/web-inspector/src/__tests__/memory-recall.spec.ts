@@ -32,7 +32,11 @@ describe("ɵmaxRecallScore", () => {
   });
   it("ignores non-finite scores", () => {
     expect(
-      ɵmaxRecallScore([mem("a", Number.NaN), mem("b", Infinity), mem("c", 0.3)]),
+      ɵmaxRecallScore([
+        mem("a", Number.NaN),
+        mem("b", Infinity),
+        mem("c", 0.3),
+      ]),
     ).toBe(0.3);
   });
 });

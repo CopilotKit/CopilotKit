@@ -619,9 +619,9 @@ describe("memory store realtime", () => {
     await flushEffects();
 
     expect(store.getState().memories.map((m) => m.id)).toEqual(["p1", "m1"]);
-    expect(
-      store.getState().memories.find((m) => m.id === "p1")?.scope,
-    ).toBe("project");
+    expect(store.getState().memories.find((m) => m.id === "p1")?.scope).toBe(
+      "project",
+    );
 
     // Invalidating the project memory on the project channel removes it.
     projectChannel.serverPush("memory_metadata", {
@@ -657,7 +657,10 @@ describe("memory store realtime", () => {
     // the reducer's session guard (the D4 landmine): the project channel shares
     // the user channel's session stamp, so neither stale delta leaks in.
     userChannel.serverPush("memory_metadata", createdEvent("m-stale"));
-    projectChannel.serverPush("memory_metadata", projectCreatedEvent("p-stale"));
+    projectChannel.serverPush(
+      "memory_metadata",
+      projectCreatedEvent("p-stale"),
+    );
     await flushEffects();
 
     expect(store.getState().memories).toEqual([]);
@@ -1911,7 +1914,10 @@ describe("memory store recall", () => {
         ok: true,
         json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
       })
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) });
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ memories: [] }),
+      });
     vi.stubGlobal("fetch", fetchMock);
     const store = createMemoryStore(memoryEnvironment(fetchMock));
     store.start();

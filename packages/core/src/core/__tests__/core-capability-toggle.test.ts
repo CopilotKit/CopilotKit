@@ -5,7 +5,11 @@ import { CopilotKitCore } from "../core";
 function createCore(): CopilotKitCore {
   return new CopilotKitCore({
     tools: [
-      { name: "chart", description: "renders a chart", parameters: z.object({}) },
+      {
+        name: "chart",
+        description: "renders a chart",
+        parameters: z.object({}),
+      },
       { name: "map", description: "renders a map", parameters: z.object({}) },
     ],
   });

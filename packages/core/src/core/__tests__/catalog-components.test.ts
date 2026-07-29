@@ -52,8 +52,8 @@ describe("CopilotKitCore catalog components", () => {
     expect(onCatalogComponentsChanged).toHaveBeenCalledTimes(2);
     const last = onCatalogComponentsChanged.mock.calls.at(-1)![0];
     expect(last.copilotkit).toBe(core);
-    expect(last.catalogComponents.map((c: { name: string }) => c.name)).toEqual([
-      "PieChart",
-    ]);
+    expect(last.catalogComponents.map((c: { name: string }) => c.name)).toEqual(
+      ["PieChart"],
+    );
   });
 });
