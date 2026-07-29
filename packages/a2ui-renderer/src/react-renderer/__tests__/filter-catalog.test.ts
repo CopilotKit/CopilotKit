@@ -90,8 +90,19 @@ describe("filterCatalog", () => {
 });
 
 describe("filterCatalog package export", () => {
-  it("is exported from the package entry", async () => {
-    const mod = await import("@copilotkit/a2ui-renderer");
+  // Guards the re-export chain that makes filterCatalog public:
+  // src/index.ts -> react-renderer/index.ts -> ./filter-catalog. Adding the
+  // function without the barrel line would leave callers unable to import it.
+  //
+  // Imports the SOURCE entry, not "@copilotkit/a2ui-renderer": the package name
+  // resolves through node_modules to dist/, which `nx test` does not guarantee
+  // exists — nx.json sets test.dependsOn to ["^build"], and the caret means
+  // dependencies' builds, NOT this package's own. Self-importing the package
+  // name therefore passed or failed purely on whether a previous run had left
+  // dist/ populated. The package.json "exports" mapping is covered separately
+  // by this package's publint + attw targets.
+  it("is reachable from the package entry", async () => {
+    const mod = await import("../../index");
     expect(typeof (mod as { filterCatalog?: unknown }).filterCatalog).toBe(
       "function",
     );
