@@ -1,12 +1,12 @@
 {
   "_meta": {
     "description": "D6 fixtures for claude-sdk-python / multimodal",
-    "sourceScript": "d5-multimodal.ts",
-    "created": "2026-05-22"
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
-      "_comment": "multimodal image turn \u2014 preFill clicks the sample-image button which auto-sends. The D5 script asserts the assistant transcript contains 'image'. The input text is descriptive only (skipSend=true in the script).",
       "match": {
         "userMessage": "can you tell me what is in this demo image I just attached",
         "turnIndex": 0,
@@ -17,7 +17,6 @@
       }
     },
     {
-      "_comment": "multimodal PDF turn \u2014 preFill clicks the sample-pdf button which auto-sends. The D5 script asserts the assistant transcript contains 'document'.",
       "match": {
         "userMessage": "can you tell me what is in this demo pdf I just attached",
         "turnIndex": 0,

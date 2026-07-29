@@ -2,11 +2,11 @@
   "_meta": {
     "description": "D6 fixtures for claude-sdk-python / agentic-chat",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
     {
+      "_comment": "agentic-chat turn 1 \u2014 goldfish name. No turnIndex gate: the probe sends 3 sequential turns in one thread; turnIndex would restrict this to the first turn only, causing turns 2-3 to fall through to proxy.",
       "match": {
         "userMessage": "good name for a goldfish",
         "context": "claude-sdk-python"
@@ -16,6 +16,7 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 2 \u2014 tank name. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "name for its tank",
         "context": "claude-sdk-python"
@@ -25,6 +26,7 @@
       }
     },
     {
+      "_comment": "agentic-chat turn 3 \u2014 recall. No turnIndex gate (multi-turn conversation).",
       "match": {
         "userMessage": "what we named the goldfish",
         "context": "claude-sdk-python"
