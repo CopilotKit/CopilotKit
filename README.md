@@ -104,11 +104,13 @@ One agent backend. Every frontend.
 | 🅰️ Angular                                  | ✅ Supported | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
 | 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
 | 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
-| 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                        |
+| 💬 Slack / MS Teams / Discord / WhatsApp / Google Chat / iMessage / Telegram / SMS | ✅ Supported      | [Quickstart](https://docs.copilotkit.ai/slack)                                        |
 
-Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
 
-## 💬 Beyond the Browser: Slack & Microsoft Teams (Discord, Google Chat coming soon...)
+## 💬 Beyond the Browser: Slack & Microsoft Teams (Discord, Google Chat, Telegram, iMessage, SMS, WhatsApp)
+
+<img width="1920" height="1080" alt="Write it once, run every channel" src="https://github.com/user-attachments/assets/883e5ede-0387-4ae8-a361-48da3adf8f22" />
+
 
 Your agents can run and generate Generative UI beyond the web app (**[Learn more](https://www.copilotkit.ai/integrations)**).
 
