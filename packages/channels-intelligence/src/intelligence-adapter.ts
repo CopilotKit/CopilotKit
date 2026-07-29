@@ -25,6 +25,7 @@ import type {
   RenderEventSink,
   AgentMessage,
 } from "./transports.js";
+import { isLeaseRevoked } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   EgressOp,
@@ -465,10 +466,21 @@ export class IntelligenceAdapter implements PlatformAdapter {
       await this.finalizeRenderedTurn(env);
       turnProcessed = true;
     } catch (err) {
-      await this.requireSource().nack(
-        env.deliveryId,
-        err instanceof Error ? err.message : String(err),
-      );
+      if (isLeaseRevoked(err)) {
+        // This delivery's lease was revoked mid-turn, so another owner holds it
+        // now and app-api owns redelivery. A nack here would send a `fail` the
+        // same fence rejects — the doomed intent whose 409 used to be reported
+        // as a turn failure, with a generic error reaching the end user
+        // (OSS-670). Stay quiet; this is not the user's problem.
+        this.opts.config?.log?.(
+          `intelligence delivery ${env.deliveryId} lease revoked mid-turn; abandoning (app-api owns redelivery)`,
+        );
+      } else {
+        await this.requireSource().nack(
+          env.deliveryId,
+          err instanceof Error ? err.message : String(err),
+        );
+      }
     } finally {
       // Drop the per-turn state once the turn is fully processed (renderer
       // chain drained inside dispatchTo) so the Map can't grow unbounded over a

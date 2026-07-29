@@ -275,6 +275,31 @@ const NON_RETRYABLE_TRANSPORT_CODES: ReadonlySet<string> = new Set([
   "EAI_NONAME",
 ]);
 
+/**
+ * Phrase a post-connect probe result for whoever operates the runtime.
+ *
+ * The probe is deliberately UNAUTHENTICATED (see {@link diagnoseEndpoint}), so a
+ * `401`/`403` from it says nothing about whether OUR key is still valid — an
+ * unauthenticated GET is refused either way. What the probe does establish is
+ * reachability: the host answered, so a socket that still will not open is
+ * failing at the handshake rather than in the network. Say exactly that, and
+ * separate "answered but unhealthy" (5xx — typically a gateway restart) from
+ * "answered fine, handshake refused", where a credential is worth checking.
+ */
+function describeRefusedUpgrade(result: EndpointDiagnosis): string | undefined {
+  if (result.status === undefined) return result.text;
+  if (result.status >= 500) {
+    return (
+      `the gateway host answered HTTP ${result.status}, so it is reachable but not healthy — ` +
+      "it may be restarting"
+    );
+  }
+  return (
+    `the gateway host answered HTTP ${result.status} but the WebSocket handshake was refused, ` +
+    "so this is not a network outage — verify the project API key"
+  );
+}
+
 /** What {@link diagnoseEndpoint} learned about an endpoint that would not connect. */
 interface EndpointDiagnosis {
   /** Human-readable cause, phrased for the person who set `wsUrl`. */
@@ -603,6 +628,9 @@ export async function connectRealtimeGateway(
   // memoised for the life of the connect, so reusing it would report a stale
   // verdict for a later, different outage. Reset by `enterOnline`.
   let outageProbe: Promise<void> | undefined;
+  // Counts healed outages, so a probe that resolves late can tell whether the
+  // episode it was investigating is still the current one.
+  let outageEpisode = 0;
   /**
    * Ask the endpoint over HTTP why it will not take us back. A refused upgrade
    * (a rejected/rotated project API key) is indistinguishable at the WebSocket
@@ -611,18 +639,18 @@ export async function connectRealtimeGateway(
    */
   const probeOutage = (): void => {
     if (outageProbe !== undefined) return;
+    // Stamp the episode this probe belongs to. A probe is slower than a
+    // reconnect can be, so its verdict may land AFTER the link healed; applying
+    // it then would latch this outage's cause onto the next, unrelated one.
+    const episode = outageEpisode;
     outageProbe = diagnoseEndpoint(
       config.wsUrl,
       probeTimeoutMs,
       config.diagnosticFetch,
     ).then(
       (result) => {
-        if (result === undefined) return;
-        lastOutageDiagnosis =
-          result.status !== undefined
-            ? `the gateway host answered HTTP ${result.status} but refused the WebSocket handshake — ` +
-              "the project API key may have been revoked or rotated"
-            : result.text;
+        if (result === undefined || episode !== outageEpisode) return;
+        lastOutageDiagnosis = describeRefusedUpgrade(result);
       },
       () => undefined,
     );
@@ -792,10 +820,15 @@ export async function connectRealtimeGateway(
     // can transition `reconnecting` → `gave_up` again.
     gaveUp = false;
     clearGiveUpTimer();
-    // The outage is over: drop its verdict so the NEXT one is diagnosed on its
-    // own evidence rather than reusing this one's.
+    // The outage is over: drop its evidence so the NEXT one is diagnosed on its
+    // own rather than inheriting this one's. Without clearing the transport
+    // fields too, a later clean drop that reports nothing would be attributed to
+    // this outage's error.
+    outageEpisode += 1;
     outageProbe = undefined;
     lastOutageDiagnosis = undefined;
+    lastTransportError = undefined;
+    lastTransportCode = undefined;
     emitState("online");
   };
 

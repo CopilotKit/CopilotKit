@@ -188,13 +188,25 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
   });
 });
 
-/** A fake Realtime Gateway session that records pushes and replies with batch receipts. */
-function makeFakeSession() {
+/**
+ * A fake Realtime Gateway session that records pushes and replies with batch
+ * receipts. `failEvents` makes the named pushes reject with a coded error (the
+ * shape app-api's fences arrive in), so a test can fence part of a turn.
+ */
+function makeFakeSession(options?: {
+  failEvents?: readonly string[];
+  code?: string;
+}) {
   const pushes: { event: string; payload: unknown }[] = [];
   const handlers = new Map<string, (payload: unknown) => void>();
   const session: RealtimeGatewaySession = {
     push: async (event, payload) => {
       pushes.push({ event, payload });
+      if (options?.failEvents?.includes(event)) {
+        throw Object.assign(new Error("realtime gateway push failed"), {
+          code: options.code ?? "CHANNEL_DELIVERY_LEASE_INVALID",
+        });
+      }
       if (event === "channel.render_batch.v1") {
         const p = (payload as { payload: Record<string, unknown> }).payload;
         return {
@@ -803,6 +815,55 @@ describe("RealtimeGatewayTransport — completion intent, never self-ack", () =>
     expect(logs.some((m) => m.includes("nack after turn failure failed"))).toBe(
       false,
     );
+  });
+
+  it("abandons a fenced delivery from the adapter's dispatch, sending no fail intent", async () => {
+    const fake = makeFakeSession({
+      failEvents: ["channel.render_batch.v1", "channel.delivery.fail.v1"],
+    });
+    const logs: string[] = [];
+    const transport = new RealtimeGatewayTransport({
+      ...cfg(fake.session),
+      log: (m) => logs.push(m),
+    });
+    const adapter = intelligenceAdapter({
+      source: transport,
+      egress: new InMemoryEgressSink(),
+      renderSink: transport,
+      config: { log: (m: string) => logs.push(m) },
+    } as unknown as Parameters<typeof intelligenceAdapter>[0]);
+
+    // Go through the REAL `start()`, so the delivery is handled by
+    // `source.start(env => dispatch(env))`. Every other test in this file drives
+    // `createRunRenderer` directly and therefore never exercises `dispatch`'s
+    // catch — which is exactly how the fenced-lease gap stayed invisible.
+    await adapter.start({
+      onTurn: async (turn: { replyTarget: ReplyTarget }) => {
+        const renderer = adapter.createRunRenderer(turn.replyTarget);
+        const sub = renderer.subscriber as unknown as Sub;
+        sub.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "hi" },
+        });
+        await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+        await renderer.finish?.();
+      },
+    } as unknown as Parameters<typeof adapter.start>[0]);
+
+    fake.handlers.get("channel.delivery.available.v1")?.(
+      makeDeliveryPayload({
+        deliveryId: "dlv_d3",
+        turnId: "turn_t3",
+        leaseToken: "lease_l3",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 50));
+
+    const events = fake.pushes.map((p) => p.event);
+    expect(events).toContain("channel.render_batch.v1");
+    expect(events).not.toContain("channel.delivery.fail.v1");
+    expect(
+      logs.some((m) => m.includes("lease revoked mid-turn; abandoning")),
+    ).toBe(true);
   });
 
   it("swallows a fail intent that is itself fenced by a revoked lease", async () => {

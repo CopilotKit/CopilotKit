@@ -97,3 +97,25 @@ export interface EgressSink {
 export interface RenderEventSink {
   pushBatch(batch: RenderBatch): Promise<RenderBatchAccepted>;
 }
+
+/**
+ * app-api's lease fence: another owner holds this delivery. Every intent — render
+ * batch, complete, fail — is validated against `leased_until > now()` AND the
+ * lease-token hash, so once a lease is revoked (the listener was released under a
+ * gateway restart, or a replacement runtime re-leased the work) NOTHING can be
+ * sent for that delivery. Redelivery is app-api's job.
+ *
+ * Lives here rather than in a transport module because BOTH transports surface
+ * it: the realtime path as a push reject and the HTTP path as a 409 body
+ * (OSS-670).
+ */
+export const LEASE_REVOKED_CODE = "CHANNEL_DELIVERY_LEASE_INVALID";
+
+/** Whether an error is app-api's revoked-lease fence (see {@link LEASE_REVOKED_CODE}). */
+export function isLeaseRevoked(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: unknown }).code === LEASE_REVOKED_CODE
+  );
+}

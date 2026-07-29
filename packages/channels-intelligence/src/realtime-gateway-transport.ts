@@ -25,6 +25,7 @@ import type {
   RenderEventSink,
   AgentMessage,
 } from "./transports.js";
+import { isLeaseRevoked } from "./transports.js";
 import type {
   ChannelIngressEnvelope,
   ChannelDeliveryScope,
@@ -185,26 +186,6 @@ const RENDER_BATCH_ACCEPTED = "channel.render_batch_accepted.v1";
 const DELIVERY_AVAILABLE = "channel.delivery.available.v1";
 const COMPLETE_REQUESTED = "channel.delivery.complete_requested.v1";
 const DELIVERY_FAIL = "channel.delivery.fail.v1";
-
-/**
- * app-api's lease fence: another owner holds this delivery. Every intent —
- * render batch, complete, fail — is validated against `leased_until > now()`
- * AND the lease-token hash, so once a lease is revoked (the listener was
- * released under a gateway restart, or a replacement runtime re-leased the
- * work) NOTHING this transport can send for that delivery will be accepted.
- * Redelivery is app-api's job, so the only correct move is to drop our state
- * quietly (OSS-670).
- */
-const LEASE_REVOKED_CODE = "CHANNEL_DELIVERY_LEASE_INVALID";
-
-/** Whether an error is app-api's revoked-lease fence (see {@link LEASE_REVOKED_CODE}). */
-function isLeaseRevoked(err: unknown): boolean {
-  return (
-    typeof err === "object" &&
-    err !== null &&
-    (err as { code?: unknown }).code === LEASE_REVOKED_CODE
-  );
-}
 
 /** Per-delivery state the transport needs to build completion/fail intents. */
 interface DeliveryState {
