@@ -9,25 +9,39 @@ doc_type: how-to
 This walkthrough starts with an Intelligence project and ends with a configured
 platform connection waiting for your Channels SDK runtime.
 
-{/* Replace channels-architecture.svg in place with Mike's final architecture diagram when it is available. */}
-
-<Image
-  src="/images/channels/channels-architecture.svg"
-  alt="Managed Channels architecture: Slack and Microsoft Teams connect through CopilotKit Intelligence to a long-running Channels SDK process that owns the AG-UI agent, tools, and state."
-  width={1440}
-  height={760}
-  className="my-8 w-full rounded-xl border border-fd-border"
-/>
-
 In the managed path, Intelligence owns the provider connection and durable
 delivery edge. Your long-running process owns the agent, application tools,
 interactive behavior, state, and deployment.
 
+## Create and configure your Channel
+
+<FrontendOnly frontend="slack">
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Get started with Enterprise Intelligence"
+  body="Create a free project to configure and manage your Slack Channel."
+  surface="docs:slack/quickstart:intelligence"
+/>
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Get started with Enterprise Intelligence"
+  body="Create a free project to configure and manage your Microsoft Teams Channel."
+  surface="docs:teams/quickstart:intelligence"
+/>
+
+</FrontendOnly>
+
 <Image
   src="/images/channels/intelligence-channels-overview.png"
-  alt="The Copilot Intelligence Channels area showing separate Slack and Teams Channels with their runtime statuses."
-  width={1440}
-  height={1100}
+  alt="The Copilot Intelligence channel creation wizard showing the channel name, Code, and Slack and Teams platform options."
+  width={3188}
+  height={1778}
   className="my-8 w-full rounded-xl border border-fd-border"
 />
 
@@ -184,26 +198,20 @@ interactive behavior, state, and deployment.
     ### Review and create
 
     In the **Review** phase, confirm the Display name, Code, and selected
-    platform, then click **Create channel**. Next, follow the matching
-    quickstart. It contains the complete supported listener and install command;
-    set `CHANNEL_CODE` to the exact Code you created above.
+    platform, then click **Create channel**.
 
     Credential validation is not an end-to-end message test.
 
     <FrontendOnly frontend="slack">
 
-    A valid but mismatched Slack token pair can still fail at runtime. Complete
-    the real provider-message check with the canonical Slack quickstart:
-    [Slack quickstart](/slack).
+    A valid but mismatched Slack token pair can still fail at runtime.
 
     </FrontendOnly>
 
     <FrontendOnly frontend="teams">
 
     A valid app registration can still fail if the Azure Bot or Teams app
-    package points at the wrong identity. Complete the real provider-message
-    check with the canonical Teams quickstart:
-    [Teams quickstart](/teams).
+    package points at the wrong identity.
 
     </FrontendOnly>
 
@@ -240,43 +248,28 @@ interactive behavior, state, and deployment.
     You choose `CHANNEL_CODE` from the exact Code above, and the selected agent
     framework adds its own backend variables. The SDK receives the Intelligence
     values through the `apiKey` constructor property and optional `apiUrl` /
-    `wsUrl` overrides shown in the platform quickstarts.
+    `wsUrl` overrides shown in the platform connection guides.
 
     Never expose the Intelligence key, Slack tokens, or Teams client secret in
     browser code or source control.
 
   </Step>
-
-  <Step>
-    ### Know the healthy state
-
-    After you start the process and call `await channels.ready(...)` on the
-    guarded control from the quickstart, the Channel should become **Online**.
-
-    | Status | What to check |
-    | --- | --- |
-    | **Disabled** | Enable the Channel before expecting delivery. |
-    | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
-    | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
-    | **Waiting for runtime** | Start the process, call `await channels.ready(...)` on the guarded control, and match its Code and provider to this Channel. |
-    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
-    | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
-    | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
-    | **Online** | The runtime is connected; send a real provider message to verify the full path. |
-
-    <FrontendOnly frontend="slack">
-
-    Continue with the [Slack quickstart](/slack) to start the process, activate
-    the listener with `ready()`, and verify a real message.
-
-    </FrontendOnly>
-
-    <FrontendOnly frontend="teams">
-
-    Continue with the [Teams quickstart](/teams) to start the process, activate
-    the listener with `ready()`, and verify a real message.
-
-    </FrontendOnly>
-
-  </Step>
 </Steps>
+
+## Next step
+
+<FrontendOnly frontend="slack">
+
+Your Slack Channel should now be **Waiting for runtime**. Continue to
+[Connect and run your agent](/slack/connect) with `CHANNEL_CODE` and
+`INTELLIGENCE_API_KEY`.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Your Microsoft Teams Channel should now be **Waiting for runtime**. Continue to
+[Connect and run your agent](/teams/connect) with `CHANNEL_CODE` and
+`INTELLIGENCE_API_KEY`.
+
+</FrontendOnly>

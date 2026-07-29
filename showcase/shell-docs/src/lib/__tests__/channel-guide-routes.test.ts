@@ -4,6 +4,7 @@ import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
   DEFAULT_CHANNEL_FRAMEWORK,
+  channelConnectHref,
   channelGuideHref,
   getChannelGuidePublicSlug,
   getChannelGuideSourceSlug,
@@ -30,6 +31,12 @@ describe("channel guide routes", () => {
 
   it("keeps the public guide order and source metadata explicit", () => {
     expect(CHANNEL_GUIDE_ROUTES).toEqual([
+      {
+        slug: "overview",
+        sourceSlug: "channels",
+        navTitle: "Overview",
+        section: "getting-started",
+      },
       {
         slug: "intelligence",
         sourceSlug: "channels/intelligence",
@@ -101,12 +108,18 @@ describe("channel guide routes", () => {
     }
   });
 
-  it("does not alias the channels overview or unknown paths", () => {
-    for (const slug of ["channels", "unknown", "", "/"]) {
+  it("does not alias unknown or empty paths", () => {
+    for (const slug of ["unknown", "", "/"]) {
       expect(getChannelGuideSourceSlug(slug)).toBeNull();
       expect(getChannelGuidePublicSlug(slug)).toBeNull();
       expect(isChannelGuideSlug(slug)).toBe(false);
     }
+  });
+
+  it("maps the shared Channels overview to provider-scoped routes", () => {
+    expect(getChannelGuideSourceSlug("overview")).toBe("channels");
+    expect(getChannelGuidePublicSlug("channels")).toBe("overview");
+    expect(isChannelGuideSlug("overview")).toBe(true);
   });
 
   it("normalizes leading, trailing, and repeated slashes", () => {
@@ -120,6 +133,12 @@ describe("channel guide routes", () => {
   });
 
   it("builds implicit and selected-backend guide hrefs", () => {
+    expect(channelGuideHref("slack", "built-in-agent", "overview")).toBe(
+      "/slack",
+    );
+    expect(channelGuideHref("teams", "mastra", "overview")).toBe(
+      "/teams/mastra",
+    );
     expect(channelGuideHref("slack", "built-in-agent", "tools")).toBe(
       "/slack/tools",
     );
@@ -146,6 +165,13 @@ describe("channel guide routes", () => {
   it("returns frontend and framework roots for an empty guide slug", () => {
     expect(channelGuideHref("slack", "built-in-agent", "")).toBe("/slack");
     expect(channelGuideHref("teams", "mastra", "///")).toBe("/teams/mastra");
+  });
+
+  it("keeps provider connection guides on explicit child routes", () => {
+    expect(channelConnectHref("slack", "built-in-agent")).toBe(
+      "/slack/connect",
+    );
+    expect(channelConnectHref("teams", "mastra")).toBe("/teams/mastra/connect");
   });
 });
 
@@ -190,6 +216,16 @@ describe("channel guide route resolution", () => {
       slugPath: "threads-and-state",
       sourceSlug: "channels/threads-and-state",
       canonicalPath: "/teams/threads-and-state",
+    });
+  });
+
+  it("canonicalizes the overview at the provider root", () => {
+    expect(resolveGuide({ slugPath: "overview" })).toEqual({
+      frontend: "slack",
+      framework: "built-in-agent",
+      slugPath: "overview",
+      sourceSlug: "channels",
+      canonicalPath: "/slack",
     });
   });
 

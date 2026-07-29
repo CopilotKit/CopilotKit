@@ -3,7 +3,7 @@ import { expect, test, vi } from "vitest";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
-  channelGuideHref,
+  channelConnectHref,
 } from "@/lib/channel-guide-routes";
 import { getAllLlmPages } from "@/lib/llm-text";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
@@ -32,7 +32,7 @@ test("publishes every channel/framework discovery URL from the all mode", async 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const integration of visibleFrameworks) {
       expect(body).toContain(
-        `/${channelGuideHref(frontend, integration.slug, "").slice(1)})`,
+        `/${channelConnectHref(frontend, integration.slug).slice(1)})`,
       );
     }
   }

@@ -53,6 +53,7 @@ import type { FrontendPageId } from "@/lib/frontend-page-content";
 import {
   frontendPathForBackend,
   getFrontendOption,
+  isChannelFrontend,
   isFrontendId,
   parseFrontendRoutePath,
 } from "@/lib/frontend-options";
@@ -145,6 +146,35 @@ function frontendMetadata(
   slugPath: string,
   activeBackendFramework: string | null = null,
 ): Metadata {
+  if (isChannelFrontend(frontend) && !slugPath) {
+    const doc = loadDoc("channels");
+    const frontendName =
+      frontend === "teams"
+        ? "Microsoft Teams"
+        : getFrontendOption(frontend).name;
+
+    return buildDocMetadata({
+      title: `${frontendName}: ${doc?.fm.title ?? "Channels"}`,
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(frontend, "", activeBackendFramework),
+    });
+  }
+
+  if (isChannelFrontend(frontend) && slugPath === "connect") {
+    const contentSlug = getFrontendContentSlug(frontend);
+    const doc = loadDoc(contentSlug);
+
+    return buildDocMetadata({
+      title: doc?.fm.title ?? "Connect and run your agent",
+      description: doc?.fm.description,
+      canonicalPath: frontendRoutePath(
+        frontend,
+        "connect",
+        activeBackendFramework,
+      ),
+    });
+  }
+
   if (!slugPath || slugPath === "quickstart") {
     const contentSlug = getFrontendContentSlug(frontend);
     const doc = loadDoc(contentSlug);
@@ -306,6 +336,14 @@ export async function generateMetadata({
     }
 
     if (isFrontendGuidanceSlug(activeFrontendSlugPath)) {
+      return frontendMetadata(
+        framework,
+        activeFrontendSlugPath,
+        activeBackendFramework,
+      );
+    }
+
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
       return frontendMetadata(
         framework,
         activeFrontendSlugPath,
@@ -513,6 +551,17 @@ export default async function FrameworkScopedDocsPage({
     }
 
     if (!activeFrontendSlugPath) {
+      if (isChannelFrontend(framework)) {
+        return (
+          <ChannelGuideDocsPage
+            frontend={framework}
+            activeBackendFramework={activeBackendFramework}
+            slugPath=""
+            contentSlugPath="channels"
+          />
+        );
+      }
+
       if (framework === "angular" && activeBackendFramework) {
         return (
           <FrameworkRootPage
@@ -539,6 +588,16 @@ export default async function FrameworkScopedDocsPage({
               ? getAngularDocsNavTree(activeBackendFramework)
               : undefined
           }
+        />
+      );
+    }
+
+    if (isChannelFrontend(framework) && activeFrontendSlugPath === "connect") {
+      return (
+        <FrontendQuickstartDocsPage
+          frontend={framework}
+          activeBackendFramework={activeBackendFramework}
+          routeSlugPath="connect"
         />
       );
     }

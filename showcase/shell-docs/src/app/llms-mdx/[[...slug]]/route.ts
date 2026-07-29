@@ -135,6 +135,45 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     }
 
     if (isChannelFrontend(frontend)) {
+      if (!frontendRest) {
+        const doc = loadDoc("channels");
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: "channels",
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
+      if (frontendRest === "connect") {
+        const contentSlug = getFrontendContentSlug(frontend);
+        const doc = loadDoc(contentSlug);
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: contentSlug,
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
       const channelGuide = resolveChannelGuideRoute({
         frontend,
         framework: selectedFramework,

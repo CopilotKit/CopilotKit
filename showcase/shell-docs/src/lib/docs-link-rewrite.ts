@@ -3,7 +3,10 @@ import {
   FRONTEND_PAGE_IDS,
   getFrontendCanonicalSlug,
 } from "@/lib/frontend-page-content";
-import { getChannelGuidePublicSlug } from "@/lib/channel-guide-routes";
+import {
+  channelGuideHref,
+  getChannelGuidePublicSlug,
+} from "@/lib/channel-guide-routes";
 import { isChannelFrontend } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 import {
@@ -109,8 +112,11 @@ export function resolveDocsHref(
 
       if (
         sameFrontendPath === "/" ||
+        sameFrontendPath === "/connect" ||
         sameFrontendPath.startsWith("/?") ||
-        sameFrontendPath.startsWith("/#")
+        sameFrontendPath.startsWith("/#") ||
+        sameFrontendPath.startsWith("/connect?") ||
+        sameFrontendPath.startsWith("/connect#")
       ) {
         return joinPrefixedPath(slugHrefPrefix, sameFrontendPath);
       }
@@ -128,7 +134,6 @@ export function resolveDocsHref(
     const channelPath = stripPathPrefix(href, "/channels");
     if (
       channelPath !== null &&
-      channelPath !== "/" &&
       !channelPath.startsWith("/?") &&
       !channelPath.startsWith("/#")
     ) {
@@ -136,10 +141,16 @@ export function resolveDocsHref(
       const pathname =
         suffixIndex === -1 ? channelPath : channelPath.slice(0, suffixIndex);
       const suffix = suffixIndex === -1 ? "" : channelPath.slice(suffixIndex);
-      const publicSlug = getChannelGuidePublicSlug(`channels${pathname}`);
+      const publicSlug = getChannelGuidePublicSlug(
+        pathname === "/" ? "channels" : `channels${pathname}`,
+      );
 
       if (publicSlug) {
-        return joinPrefixedPath(slugHrefPrefix, `/${publicSlug}${suffix}`);
+        return `${channelGuideHref(
+          frontendOverride,
+          frameworkOverride,
+          publicSlug,
+        )}${suffix}`;
       }
     }
 

@@ -108,6 +108,9 @@ export function FrameworkSelector({
   const selectedFrontend =
     FRONTEND_OPTIONS.find((option) => option.id === effectiveFrontendId) ??
     FRONTEND_OPTIONS[0];
+  const frontendTypeLabel = isChannelFrontend(effectiveFrontendId)
+    ? "Channel"
+    : "Frontend";
 
   function selectFrontend(id: FrontendId) {
     const destinationPath = frontendPathForCurrentPath(
@@ -266,7 +269,7 @@ export function FrameworkSelector({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
-                  Frontend
+                  {frontendTypeLabel}
                 </span>
                 <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-semibold leading-tight text-[var(--text)]">
                   <span className="truncate">{selectedFrontend.name}</span>

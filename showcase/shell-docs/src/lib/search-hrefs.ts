@@ -129,6 +129,10 @@ export function isChannelDocsHref(href: string): boolean {
 }
 
 export function parseChannelDocsHref(href: string): { topic: string } | null {
+  if (href === CHANNEL_DOCS_HREF) {
+    const topic = getChannelGuidePublicSlug("channels");
+    return topic ? { topic } : null;
+  }
   if (!href.startsWith(`${CHANNEL_DOCS_HREF}/`)) return null;
 
   const sourceSlug = href.slice("/docs/".length);

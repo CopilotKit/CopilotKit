@@ -89,7 +89,9 @@ describe("search href helpers", () => {
   });
 
   it("parses only registered shared Channels guide sources", () => {
-    expect(parseChannelDocsHref("/docs/channels")).toBeNull();
+    expect(parseChannelDocsHref("/docs/channels")).toEqual({
+      topic: "overview",
+    });
     expect(parseChannelDocsHref("/docs/channels/tools")).toEqual({
       topic: "tools",
     });
@@ -137,8 +139,12 @@ describe("search href helpers", () => {
     ]);
   });
 
-  it("omits the removed overview and collapses Built-in Agent guide URLs", () => {
+  it("routes the overview to provider roots and collapses Built-in Agent guide URLs", () => {
     expect(resolveChannelSearchHrefs("", "mastra", null)).toEqual([]);
+    expect(resolveChannelSearchHrefs("overview", "mastra", null)).toEqual([
+      { frontend: "slack", href: "/slack/mastra" },
+      { frontend: "teams", href: "/teams/mastra" },
+    ]);
     expect(
       resolveChannelSearchHrefs("interactive", "built-in-agent", null),
     ).toEqual([

@@ -138,6 +138,7 @@ describe("resolveDocsHref", () => {
     expect(resolveDocsHref("/channels/interactive", mastraSlack)).toBe(
       "/slack/mastra/interactive",
     );
+    expect(resolveDocsHref("/channels", mastraSlack)).toBe("/slack/mastra");
     expect(
       resolveDocsHref("/reference/channels/classes/Thread#state", {
         ...mastraSlack,
@@ -150,7 +151,7 @@ describe("resolveDocsHref", () => {
     ).toBe("/slack/mastra/tools?view=compact#context");
   });
 
-  it("preserves the active backend for same-channel quickstart links", () => {
+  it("preserves the active backend for same-channel connection links", () => {
     expect(
       resolveDocsHref("/slack", {
         slugHrefPrefix: "/slack/mastra",
@@ -165,9 +166,16 @@ describe("resolveDocsHref", () => {
         frontendOverride: "teams",
       }),
     ).toBe("/teams/mastra#verify");
+    expect(
+      resolveDocsHref("/slack/connect", {
+        slugHrefPrefix: "/slack/mastra",
+        frameworkOverride: "mastra",
+        frontendOverride: "slack",
+      }),
+    ).toBe("/slack/mastra/connect");
   });
 
-  it("keeps explicit cross-channel quickstart links unchanged", () => {
+  it("keeps explicit cross-channel root links unchanged", () => {
     expect(
       resolveDocsHref("/teams", {
         slugHrefPrefix: "/slack/mastra",

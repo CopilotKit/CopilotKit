@@ -6,6 +6,7 @@ import type { NavNode } from "../docs-render";
 import { filterFrontendScopedBlocks } from "../toc";
 
 const maintainedChannelSlugs = [
+  "channels",
   "channels/intelligence",
   "channels/tools",
   "channels/rich-messages",
@@ -80,12 +81,38 @@ function sectionIndex(nodes: NavNode[], title: string): number {
 }
 
 describe("Channels documentation journey", () => {
-  it("keeps Channels out of the root docs navigation", () => {
+  it("publishes the Channels overview only through provider navigation", () => {
     const nav = buildRootSurfaceNav("built-in-agent");
     const channelsIndex = sectionIndex(nav, "Channels");
+    const overview = loadDoc("channels");
 
     expect(channelsIndex).toBe(-1);
-    expect(loadDoc("channels")).toBeNull();
+    expect(overview).not.toBeNull();
+    expect(overview?.source).toContain(
+      'src="/images/channels/channels-architecture-light.png"',
+    );
+    expect(overview?.source).toContain(
+      'src="/images/channels/channels-architecture-dark.png"',
+    );
+    expect(overview?.source).not.toContain(
+      'src="/images/slack-bot-generative-ui-light.png"',
+    );
+    expect(overview?.source).not.toContain('title="Build for Slack"');
+    expect(overview?.source).not.toContain(
+      "Discord and WhatsApp support is coming soon.",
+    );
+    expect(overview?.source).not.toContain(
+      "## Match your Channels configuration",
+    );
+    expect(overview?.source).toContain("## Next step");
+    expect(overview?.source).toContain(
+      "[Configure the Channel in Intelligence](/channels/intelligence)",
+    );
+    expect(overview?.source).not.toContain("[Slack quickstart](/slack)");
+    expect(overview?.source).not.toContain(
+      "[Microsoft Teams quickstart](/teams)",
+    );
+    expect(overview?.source).not.toContain('<Callout type="info" title="Next:');
   });
 
   it("publishes only Slack and Teams setup routes", () => {
@@ -94,14 +121,43 @@ describe("Channels documentation journey", () => {
 
     expect(slack).not.toBeNull();
     expect(teams).not.toBeNull();
+    expect(slack?.fm.title).toBe("Connect and run your agent in Slack");
+    expect(teams?.fm.title).toBe(
+      "Connect and run your agent in Microsoft Teams",
+    );
     expect(slack?.fm.earlyAccess).toBeUndefined();
     expect(teams?.fm.earlyAccess).toBeUndefined();
-    expect(slack?.source).toContain(
-      "Managed Intelligence support for Discord and WhatsApp is coming soon.",
-    );
-    expect(teams?.source).toContain(
-      "Managed Intelligence support for Discord and WhatsApp is coming soon.",
-    );
+    for (const doc of [slack, teams]) {
+      expect(doc?.source).not.toContain(
+        "Managed Intelligence support for Discord and WhatsApp is coming soon.",
+      );
+      expect(doc?.source).not.toContain("production-ready");
+      expect(doc?.source).not.toContain("<OpsPlatformCTA");
+      expect(doc?.source).not.toContain(
+        'title="Run a persistent realtime listener"',
+      );
+      expect(doc?.source).toContain(
+        "The install command below uses an exact, tested SDK pair",
+      );
+      expect(doc?.source).toContain("`CHANNEL_CODE`");
+      expect(doc?.source).toContain("`INTELLIGENCE_API_KEY`");
+      expect(doc?.source).toContain("## Before you start");
+      expect(doc?.source).toContain("## Build and run your Channel");
+      expect(doc?.source).toContain("## Troubleshooting");
+      for (const status of [
+        "**Disabled**",
+        "**Setup incomplete**",
+        "**Setup failed**",
+        "**Waiting for runtime**",
+        "**Conflict**",
+        "**Offline**",
+        "**Delivery failing**",
+        "**Online**",
+      ]) {
+        expect(doc?.source).toContain(status);
+      }
+    }
+    expect(bodyFor("channels/intelligence")).toContain("<OpsPlatformCTA");
     expect(loadDoc("frontends/whatsapp")).toBeNull();
   });
 
@@ -208,8 +264,12 @@ describe("Channels documentation journey", () => {
     expect(index).toContain("/reference/channels/components/Button");
     expect(index).toContain("/reference/channels/types/StateStore");
     expect(index).toContain("/reference/channels/sdk/direct-adapters");
-    expect(index).toContain("[Slack quickstart](/slack)");
-    expect(index).toContain("[Microsoft Teams quickstart](/teams)");
+    expect(index).toContain(
+      "[Connect and run your agent in Slack](/slack/connect)",
+    );
+    expect(index).toContain(
+      "[Connect and run your agent in Microsoft Teams](/teams/connect)",
+    );
 
     const directAdapters = referenceBodyFor("directAdapters");
     for (const provider of [
@@ -279,8 +339,6 @@ describe("Channels documentation journey", () => {
       expect(filtered).toContain("**Name & platforms**");
       expect(filtered).toContain("**Setup**");
       expect(filtered).toContain("**Review**");
-      expect(filtered).toContain("**Setup incomplete**");
-      expect(filtered).toContain("**Online**");
     }
   });
 
@@ -302,7 +360,7 @@ describe("Channels documentation journey", () => {
     expect(teams).toContain('name: "support-teams"');
   });
 
-  it("hands off from Intelligence to the canonical provider quickstart", () => {
+  it("hands off from Intelligence to the provider runtime guide", () => {
     const source = bodyFor("channels/intelligence");
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");
@@ -314,31 +372,40 @@ describe("Channels documentation journey", () => {
     expect(source).toContain("### Configure the runtime handoff");
     expect(source).not.toContain("### Copy the runtime handoff");
 
-    expect(slack).toMatch(/canonical Slack quickstart/i);
-    expect(slack).toContain("[Slack quickstart](/slack)");
-    expect(teams).toMatch(/canonical Teams quickstart/i);
-    expect(teams).toContain("[Teams quickstart](/teams)");
+    expect(slack).toContain("Your Slack Channel should now be");
+    expect(slack).toContain("[Connect and run your agent](/slack/connect)");
+    expect(teams).toContain("Your Microsoft Teams Channel should now be");
+    expect(teams).toContain("[Connect and run your agent](/teams/connect)");
+    for (const filtered of [slack, teams]) {
+      expect(filtered).toContain("**Waiting for runtime**");
+      expect(filtered).toContain("`CHANNEL_CODE`");
+      expect(filtered).toContain("`INTELLIGENCE_API_KEY`");
+    }
   });
 
-  it("shows the architecture and Intelligence Channels area before the setup steps", () => {
+  it("shows the Intelligence Channels area before the setup steps", () => {
     const source = bodyFor("channels/intelligence");
-    const architectureIndex = source.indexOf(
-      'src="/images/channels/channels-architecture.svg"',
+    const setupHeadingIndex = source.indexOf(
+      "## Create and configure your Channel",
     );
     const imageIndex = source.indexOf(
       'src="/images/channels/intelligence-channels-overview.png"',
     );
     const stepsIndex = source.indexOf("<Steps>");
 
-    expect(architectureIndex).toBeGreaterThan(-1);
-    expect(architectureIndex).toBeLessThan(imageIndex);
+    expect(source).not.toContain(
+      'src="/images/channels/channels-architecture-light.png"',
+    );
+    expect(source).not.toContain(
+      'src="/images/channels/channels-architecture-dark.png"',
+    );
+    expect(setupHeadingIndex).toBeGreaterThan(-1);
+    expect(setupHeadingIndex).toBeLessThan(imageIndex);
     expect(imageIndex).toBeGreaterThan(-1);
     expect(imageIndex).toBeLessThan(stepsIndex);
+    expect(source).toContain("## Next step");
     expect(source).toMatch(
-      /alt="[^"]*Managed Channels architecture[^"]*CopilotKit Intelligence[^"]*Channels SDK[^"]*"/i,
-    );
-    expect(source).toMatch(
-      /alt="[^"]*Intelligence[^"]*Channels[^"]*Slack[^"]*Teams[^"]*"/i,
+      /alt="[^"]*Intelligence[^"]*channel creation[^"]*Slack[^"]*Teams[^"]*"/i,
     );
   });
 

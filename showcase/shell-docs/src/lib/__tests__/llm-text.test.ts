@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
   channelGuideHref,
 } from "../channel-guide-routes";
 import { loadDoc } from "../docs-render";
@@ -34,18 +35,18 @@ test("publishes canonical Angular URLs instead of source-tree URLs", () => {
   expect(urls.some((url) => url.startsWith("frontends/angular"))).toBe(false);
 });
 
-test("publishes channel quickstarts at canonical URLs with the default agent", () => {
+test("publishes channel connection guides at canonical URLs with the default agent", () => {
   const pages = getAllLlmPages({ channelGuideVariants: "all" });
 
   expect(pages).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
-        url: "slack",
+        url: "slack/connect",
         loadSlug: "frontends/slack",
         framework: "built-in-agent",
       }),
       expect.objectContaining({
-        url: "teams",
+        url: "teams/connect",
         loadSlug: "frontends/teams",
         framework: "built-in-agent",
       }),
@@ -117,12 +118,10 @@ test("publishes the complete canonical channel discovery matrix", () => {
 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const integration of visibleFrameworks) {
-      const quickstartUrl = channelGuideHref(
-        frontend,
-        integration.slug,
-        "",
-      ).slice(1);
-      expect(urls).toContain(quickstartUrl);
+      const connectUrl = channelConnectHref(frontend, integration.slug).slice(
+        1,
+      );
+      expect(urls).toContain(connectUrl);
 
       for (const guide of CHANNEL_GUIDE_ROUTES) {
         const guideUrl = channelGuideHref(
@@ -164,18 +163,17 @@ test("keeps only content-unique channel guide bodies in the compact corpus", () 
     const scopedPages = pages.filter(
       (page) => page.url === frontend || page.url.startsWith(`${frontend}/`),
     );
-    const quickstarts = scopedPages.filter((page) =>
+    const connectionGuides = scopedPages.filter((page) =>
       visibleFrameworks.some(
         (integration) =>
-          page.url ===
-          channelGuideHref(frontend, integration.slug, "").slice(1),
+          page.url === channelConnectHref(frontend, integration.slug).slice(1),
       ),
     );
     const guides = scopedPages.filter((page) =>
       CHANNEL_GUIDE_ROUTES.some((guide) => page.loadSlug === guide.sourceSlug),
     );
 
-    expect(quickstarts).toHaveLength(visibleFrameworks.length);
+    expect(connectionGuides).toHaveLength(visibleFrameworks.length);
     expect(guides).toHaveLength(CHANNEL_GUIDE_ROUTES.length);
     expect(guides.every((page) => page.framework === "built-in-agent")).toBe(
       true,

@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
   channelGuideHref,
 } from "@/lib/channel-guide-routes";
 import { loadDoc } from "@/lib/docs-render";
@@ -27,7 +28,7 @@ function expectedChannelPaths(): Set<string> {
 
   for (const frontend of CHANNEL_FRONTENDS) {
     for (const framework of visibleChannelFrameworks) {
-      paths.add(channelGuideHref(frontend, framework.slug, ""));
+      paths.add(channelConnectHref(frontend, framework.slug));
       for (const guide of CHANNEL_GUIDE_ROUTES) {
         paths.add(channelGuideHref(frontend, framework.slug, guide.slug));
       }
@@ -74,6 +75,7 @@ test("collapses Built-in Agent channel URLs and expands every selected framework
 
   for (const frontend of CHANNEL_FRONTENDS) {
     expect(paths).toContain(`/${frontend}`);
+    expect(paths).toContain(`/${frontend}/connect`);
     expect(paths).not.toContain(`/${frontend}/${ROOT_FRAMEWORK}`);
     expect(
       [...paths].some((pathname) =>
@@ -85,6 +87,7 @@ test("collapses Built-in Agent channel URLs and expands every selected framework
       ({ slug }) => slug !== ROOT_FRAMEWORK,
     )) {
       expect(paths).toContain(`/${frontend}/${framework.slug}`);
+      expect(paths).toContain(channelConnectHref(frontend, framework.slug));
       for (const guide of CHANNEL_GUIDE_ROUTES) {
         expect(paths).toContain(
           channelGuideHref(frontend, framework.slug, guide.slug),
@@ -113,17 +116,17 @@ test("excludes every hidden framework from every sitemap surface", () => {
   }
 });
 
-test("uses the exact quickstart and shared-guide source dates for channel pages", () => {
+test("uses the exact connection-guide and shared-guide source dates for channel pages", () => {
   const expectedSourceByPath = new Map<string, string>();
 
   for (const frontend of CHANNEL_FRONTENDS) {
-    const quickstart = loadDoc(getFrontendContentSlug(frontend));
-    expect(quickstart).not.toBeNull();
+    const connectionGuide = loadDoc(getFrontendContentSlug(frontend));
+    expect(connectionGuide).not.toBeNull();
 
     for (const framework of visibleChannelFrameworks) {
       expectedSourceByPath.set(
-        channelGuideHref(frontend, framework.slug, ""),
-        quickstart!.filePath,
+        channelConnectHref(frontend, framework.slug),
+        connectionGuide!.filePath,
       );
 
       for (const guide of CHANNEL_GUIDE_ROUTES) {
