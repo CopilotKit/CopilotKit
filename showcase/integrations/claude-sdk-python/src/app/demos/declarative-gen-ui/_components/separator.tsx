@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * ShadCN-flavoured Separator primitive.
+ * ShadCN-flavoured Separator primitive — uses the (already-installed)
+ * `@radix-ui/react-separator` accessibility primitive.
  */
 import React from "react";
-import { Separator as SeparatorPrimitive } from "radix-ui";
+import * as SeparatorPrimitive from "@radix-ui/react-separator";
 
 export function Separator({
   className = "",

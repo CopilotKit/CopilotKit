@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
   CopilotKit,
   useAgent,
   UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
 
-import type { Preferences } from "./preferences-card";
+import { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
 import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
@@ -53,11 +53,6 @@ function DemoContent() {
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
-  const latestNotesRef = useRef(notes);
-
-  useEffect(() => {
-    latestNotesRef.current = notes;
-  }, [notes]);
 
   // Seed initial preferences + empty notes into agent state once, so the
   // agent has something to read on the very first turn.
@@ -68,7 +63,8 @@ function DemoContent() {
         notes: [],
       } as RWAgentState);
     }
-  }, [agent, agentState?.preferences]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // @region[set-state]
   // @region[use-agent-write]
@@ -79,7 +75,7 @@ function DemoContent() {
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       preferences: next,
-      notes: latestNotesRef.current, // preserve what the agent has written
+      notes, // preserve what the agent has written
     } as RWAgentState);
   };
   // @endregion[use-agent-write]

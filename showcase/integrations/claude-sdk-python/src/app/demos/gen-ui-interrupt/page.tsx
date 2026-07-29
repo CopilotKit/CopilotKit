@@ -26,10 +26,11 @@ export default function GenUiInterruptDemo() {
 function Chat() {
   useGenUiInterruptSuggestions();
 
-  // The Claude backend surfaces a structured scheduling payload —
-  // `{ topic, attendee, slots }` — which we render inline in the chat as a
-  // message bubble. Calling `resolve(...)` sends the user's selection back
-  // through the AG-UI resume path.
+  // `useInterrupt` is the low-level primitive for handling LangGraph
+  // `interrupt(...)` events. The backend's `schedule_meeting` tool surfaces
+  // a structured payload — `{ topic, attendee, slots }` — which we render
+  // inline in the chat as a message bubble. Calling `resolve(...)` resumes
+  // the LangGraph run with the user's selection.
   useInterrupt({
     agentId: "gen-ui-interrupt",
     renderInChat: true,

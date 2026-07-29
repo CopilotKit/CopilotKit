@@ -1,14 +1,15 @@
 "use client";
 
 import React from "react";
-import type {
+import {
+  CopilotKit,
+  CopilotChat,
   CopilotChatAssistantMessage,
   CopilotChatUserMessage,
   CopilotChatReasoningMessage,
   CopilotChatView,
   CopilotChatInput,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import {
   CustomWelcomeScreen,
   CustomAssistantMessage,

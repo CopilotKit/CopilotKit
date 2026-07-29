@@ -12,8 +12,10 @@
  */
 
 import { useCallback } from "react";
-import { useAttachments } from "@copilotkit/react-core/v2";
-import type { UseAttachmentsReturn } from "@copilotkit/react-core/v2";
+import {
+  useAttachments,
+  type UseAttachmentsReturn,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;

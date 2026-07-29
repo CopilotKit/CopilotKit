@@ -1,7 +1,6 @@
 import { defineCatalog } from "@json-render/core";
 import { schema } from "@json-render/react/schema";
-// json-render 0.18 requires Zod 4; A2UI stays on Zod 3.
-import { z } from "zod4";
+import { z } from "zod";
 
 const dataPoint = z.object({ label: z.string(), value: z.number() });
 

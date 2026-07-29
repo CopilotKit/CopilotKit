@@ -26,7 +26,6 @@
 // sign-out path produces.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { SyntheticEvent } from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
@@ -40,19 +39,8 @@ interface AuthDemoErrorState {
 }
 
 interface AuthErrorEvent {
-  error?: {
-    message?: string;
-    code?: string;
-    extensions?: { code?: string };
-  } | null;
-  code?: CopilotKitCoreErrorCode | string;
-  context?: { response?: { status?: number | string } };
-}
-
-type AuthErrorInput = AuthErrorEvent | SyntheticEvent<HTMLDivElement>;
-
-function isAuthErrorEvent(event: AuthErrorInput): event is AuthErrorEvent {
-  return "error" in event || "code" in event || "context" in event;
+  error?: { message?: string } | null;
+  code: CopilotKitCoreErrorCode;
 }
 
 export default function AuthDemoPage() {
@@ -64,9 +52,8 @@ export default function AuthDemoPage() {
     signOut,
   } = useDemoAuth();
 
-  const headers = useMemo(
-    (): Record<string, string> =>
-      authorizationHeader ? { Authorization: authorizationHeader } : {},
+  const headers = useMemo<Record<string, string>>(
+    () => (authorizationHeader ? { Authorization: authorizationHeader } : {}),
     [authorizationHeader],
   );
 
@@ -74,19 +61,14 @@ export default function AuthDemoPage() {
 
   // Shared error handler wired to BOTH the provider-level and chat-level
   // `onError` channels (see the file header for why both are needed).
-  const handleAuthError = useCallback((event: AuthErrorInput) => {
-    if (!isAuthErrorEvent(event)) return;
-    const code =
-      event.code ??
-      event.error?.code ??
-      event.error?.extensions?.code ??
-      event.context?.response?.status?.toString() ??
-      "UNKNOWN";
+  const handleAuthError = useCallback((event: AuthErrorEvent) => {
     setAuthError({
       message:
         (event.error?.message && event.error.message.trim()) ||
-        (code ? `Request rejected (${code})` : "The request was rejected."),
-      code,
+        (event.code
+          ? `Request rejected (${event.code})`
+          : "The request was rejected."),
+      code: event.code,
     });
   }, []);
 

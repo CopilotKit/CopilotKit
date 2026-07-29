@@ -89,7 +89,7 @@ export function TodoCard({
         variant="ghost"
         size="icon"
         onClick={() => onDelete(todo)}
-        className="absolute top-3 right-3 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100"
+        className="absolute top-3 right-3 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Delete todo"
       >
         <X className="h-3.5 w-3.5" />

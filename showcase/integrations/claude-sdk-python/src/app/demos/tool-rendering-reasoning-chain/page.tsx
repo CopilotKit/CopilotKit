@@ -13,10 +13,10 @@
 //      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
-import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import {
   CopilotKit,
   CopilotChat,
+  CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
@@ -24,10 +24,11 @@ import {
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard } from "./flight-list-card";
-import type { Flight } from "./flight-list-card";
-import { CustomCatchallRenderer } from "./custom-catchall-renderer";
-import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import { FlightListCard, type Flight } from "./flight-list-card";
+import {
+  CustomCatchallRenderer,
+  type CatchallToolStatus,
+} from "./custom-catchall-renderer";
 import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
