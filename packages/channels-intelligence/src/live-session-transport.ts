@@ -41,8 +41,10 @@ export type LiveSessionTurnInput =
       kind: "reaction";
       rawEmoji: string;
       added: boolean;
+      /** Opaque Gateway-minted reacted-message capability; never a raw provider id. */
       messageId: string;
-      threadId?: string;
+      /** Update-capable form of the same opaque reacted-message capability. */
+      messageRef: { id: string };
       postedRef?: string;
     }
   | {

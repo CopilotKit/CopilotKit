@@ -162,6 +162,52 @@ async function setupRejectedInteractionReference() {
   };
 }
 
+async function setupReactionReferenceHandler() {
+  const gateway = new InteractionReferenceGatewaySession();
+  const channel = createChannel({ name: "support" });
+  let sourceRefId: string | undefined;
+  channel.onReaction(async ({ thread, messageRef }) => {
+    sourceRefId = messageRef.id;
+    await thread.update(
+      messageRef,
+      Section({ children: "Updated reacted message" }),
+    );
+  });
+  const handle = await startChannelsWithGatewaySession([channel], {
+    session: gateway,
+    scope: { projectId: 1, channelName: "support" },
+    runtimeInstanceId: "runtime-reaction-ref",
+    runCanonical: async (args) => args.execute({}),
+    loadHistory: async () => [],
+  });
+
+  return {
+    gateway,
+    getSourceRefId: () => sourceRefId,
+    teardown: () => handle.stop(),
+  };
+}
+
+async function setupRejectedReactionReference() {
+  const gateway = new InteractionReferenceGatewaySession();
+  const handler = vi.fn();
+  const channel = createChannel({ name: "support" });
+  channel.onReaction(handler);
+  const handle = await startChannelsWithGatewaySession([channel], {
+    session: gateway,
+    scope: { projectId: 1, channelName: "support" },
+    runtimeInstanceId: "runtime-reaction-ref",
+    runCanonical: async (args) => args.execute({}),
+    loadHistory: async () => [],
+  });
+
+  return {
+    gateway,
+    handler,
+    teardown: () => handle.stop(),
+  };
+}
+
 test("managed interaction update and delete preserve only the opaque provider reference", async () => {
   const providerReference = "pref_v1_opaqueReference_123";
   const { gateway, getSourceRefId, teardown } =
@@ -231,3 +277,57 @@ test.each(["1712345678.123456", "pref_v1_"])(
     }
   },
 );
+
+test("managed reaction update preserves only the opaque provider reference", async () => {
+  const providerReference = "pref_v1_opaqueReactionReference_123";
+  const { gateway, getSourceRefId, teardown } =
+    await setupReactionReferenceHandler();
+
+  try {
+    await gateway.deliver(
+      interactionDelivery({
+        kind: "reaction",
+        rawEmoji: "thumbsup",
+        added: true,
+        messageId: providerReference,
+        messageRef: { id: providerReference },
+      }),
+    );
+    const effects = gateway.pushes
+      .filter(({ event }) => event === "channel.effect.v1")
+      .map(({ payload }) => readEffect(payload));
+
+    expect(getSourceRefId()).toBe(providerReference);
+    expect(effects).toMatchObject([
+      {
+        kind: "slack.message.replace",
+        responseId: expect.stringMatching(/^response_/),
+        providerReference,
+      },
+    ]);
+  } finally {
+    await teardown();
+  }
+});
+
+test("managed reaction rejects a raw message id without a capability ref", async () => {
+  const { gateway, handler, teardown } = await setupRejectedReactionReference();
+
+  try {
+    await gateway.deliver(
+      interactionDelivery({
+        kind: "reaction",
+        rawEmoji: "thumbsup",
+        added: true,
+        messageId: "1712345678.123456",
+      } as LiveSessionTurnInput),
+    );
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(gateway.pushes.map(({ event }) => event)).toEqual([
+      "channel.delivery.fail.v1",
+    ]);
+  } finally {
+    await teardown();
+  }
+});
