@@ -8,4 +8,12 @@ export {
   collectPlainText,
   ADAPTIVE_CARD_CONTENT_TYPE,
 } from "./adaptive-card.js";
+export { renderNativeAdaptiveCard } from "./native-adaptive-card.js";
+export {
+  assertAdaptiveCardPayload,
+  TEAMS_SCHEMA_LOCK,
+  TEAMS_CARD_SCHEMA_URL,
+  TEAMS_CARD_VERSION,
+} from "./schema.js";
+export type { AdaptiveCardPayload } from "./schema.js";
 export { createRunRenderer } from "../event-renderer.js";

@@ -25,6 +25,7 @@ export type { AdaptiveCard } from "./render/adaptive-card.js";
 export { TEAMS_LIMITS, truncateText, clampArray } from "./render/budget.js";
 export { TeamsMessageStream } from "./message-stream.js";
 export type { TeamsMessageStreamConfig } from "./message-stream.js";
+export { teamsCodec } from "./codec.js";
 
 export { createTeamsServer } from "./listener.js";
 export type { TeamsServer, TeamsServerConfig } from "./listener.js";

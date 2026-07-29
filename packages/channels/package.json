@@ -52,6 +52,10 @@
       "types": "./dist/ui.d.ts",
       "import": "./dist/ui.js"
     },
+    "./ui/teams": {
+      "types": "./dist/ui/teams.d.ts",
+      "import": "./dist/ui/teams.js"
+    },
     "./slack": {
       "types": "./dist/slack.d.ts",
       "import": "./dist/slack.js"
@@ -71,6 +75,10 @@
     "./teams/render": {
       "types": "./dist/teams/render.d.ts",
       "import": "./dist/teams/render.js"
+    },
+    "./teams/codec": {
+      "types": "./dist/teams/codec.d.ts",
+      "import": "./dist/teams/codec.js"
     },
     "./intelligence": {
       "types": "./dist/intelligence.d.ts",

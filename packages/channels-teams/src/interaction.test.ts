@@ -26,11 +26,22 @@ describe("conversationKeyOf", () => {
 });
 
 describe("parseCardAction", () => {
-  it("decodes an Action.Submit carrying our ckActionId + value", () => {
+  it("decodes the reserved Action.Submit envelope and submitted input values", () => {
     const parsed = parseCardAction({
-      value: { ckActionId: "ck:approve-1", value: { confirmed: true } },
+      value: {
+        __copilotkit: {
+          version: 1,
+          actionId: "ck:approve-1",
+          value: { confirmed: true },
+        },
+        environment: "production",
+      },
     });
-    expect(parsed).toEqual({ id: "ck:approve-1", value: { confirmed: true } });
+    expect(parsed).toEqual({
+      id: "ck:approve-1",
+      value: { confirmed: true },
+      values: { environment: "production" },
+    });
   });
 
   it("returns undefined for an ordinary chat message (no value)", () => {
@@ -45,7 +56,7 @@ describe("parseCardAction", () => {
     ).toBeUndefined();
   });
 
-  it("passes through a falsy/absent button value", () => {
+  it("continues decoding legacy flat action envelopes", () => {
     expect(parseCardAction({ value: { ckActionId: "ck:x" } })).toEqual({
       id: "ck:x",
       value: undefined,

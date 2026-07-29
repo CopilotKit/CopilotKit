@@ -37,6 +37,14 @@
     "./render": {
       "types": "./dist/render/index.d.ts",
       "import": "./dist/render/index.js"
+    },
+    "./ui": {
+      "types": "./dist/ui.d.ts",
+      "import": "./dist/ui.js"
+    },
+    "./codec": {
+      "types": "./dist/codec.d.ts",
+      "import": "./dist/codec.js"
     }
   },
   "scripts": {
@@ -56,6 +64,7 @@
     "@copilotkit/shared": "workspace:^",
     "@microsoft/agents-activity": "^1.5.3",
     "@microsoft/agents-hosting": "^1.5.3",
+    "@microsoft/teams.cards": "2.0.14",
     "express": "^4.21.2",
     "rxjs": "^7.8.1",
     "zod": "^3.25.76",

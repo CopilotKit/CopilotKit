@@ -16,9 +16,17 @@ export interface TeamsActivityLike {
 }
 
 /** The `data` our buttons round-trip (see `render/adaptive-card.ts` `renderButton`). */
-interface CardActionData {
+interface LegacyCardActionData {
   ckActionId?: string;
   value?: unknown;
+}
+
+interface CardActionData extends LegacyCardActionData {
+  __copilotkit?: {
+    version?: unknown;
+    actionId?: unknown;
+    value?: unknown;
+  };
 }
 
 /**
@@ -40,14 +48,33 @@ export function conversationKeyOf(activity: TeamsActivityLike): string {
  */
 export function parseCardAction(
   activity: TeamsActivityLike,
-): { id: string; value: unknown } | undefined {
+):
+  | { id: string; value: unknown; values?: Record<string, unknown> }
+  | undefined {
   const data = activity.value as CardActionData | undefined;
-  if (
-    !data ||
-    typeof data !== "object" ||
-    typeof data.ckActionId !== "string"
-  ) {
+  if (!data || typeof data !== "object") {
     return undefined;
   }
-  return { id: data.ckActionId, value: data.value };
+  const metadata = data.__copilotkit;
+  if (
+    metadata &&
+    typeof metadata === "object" &&
+    metadata.version === 1 &&
+    typeof metadata.actionId === "string"
+  ) {
+    const { __copilotkit: _metadata, ...values } = data;
+    return {
+      id: metadata.actionId,
+      value: metadata.value,
+      ...(Object.keys(values).length > 0 ? { values } : {}),
+    };
+  }
+  // Cards posted before the reserved envelope shipped have this flat shape.
+  if (typeof data.ckActionId !== "string") return undefined;
+  const { ckActionId: _id, value, ...values } = data;
+  return {
+    id: data.ckActionId,
+    value,
+    ...(Object.keys(values).length > 0 ? { values } : {}),
+  };
 }

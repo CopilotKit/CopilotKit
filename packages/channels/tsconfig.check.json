@@ -6,7 +6,11 @@
     "types": ["node"],
     "jsx": "react-jsx",
     "jsxImportSource": "@copilotkit/channels",
-    "paths": { "@copilotkit/channels/jsx-runtime": ["./src/jsx-runtime.ts"] }
+    "paths": {
+      "@copilotkit/channels/jsx-runtime": ["./src/jsx-runtime.ts"],
+      "@copilotkit/channels/teams/codec": ["./src/teams/codec.ts"],
+      "@copilotkit/channels/ui/teams": ["./src/ui/teams.ts"]
+    }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["dist", "node_modules"]

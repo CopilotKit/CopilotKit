@@ -38,19 +38,22 @@ const buttonAction = () => {
 };
 
 describe("HITL button action envelope (contract)", () => {
-  it("emits a <Button> as Action.Submit carrying { ckActionId, value } in `data` — NOT Action.Execute", () => {
+  it("emits a <Button> as Action.Submit carrying reserved metadata in `data` — NOT Action.Execute", () => {
     const action = buttonAction();
 
     expect(action.type).toBe("Action.Submit");
     // It is a Submit, not an Execute: no `verb`, and the payload rides in `data`.
     expect(action).not.toHaveProperty("verb");
     expect(action.data).toEqual({
-      ckActionId: "ck:approve",
-      value: { decision: "yes" },
+      __copilotkit: {
+        version: 1,
+        actionId: "ck:approve",
+        value: { decision: "yes" },
+      },
     });
   });
 
-  it("round-trips: the emitted `data` is exactly Teams' inbound activity.value, decoding to { id, value }", () => {
+  it("round-trips action metadata and separate submitted form values", () => {
     const action = buttonAction();
 
     // Teams delivers a Button click as a *Message* activity whose `value` IS the
@@ -61,9 +64,18 @@ describe("HITL button action envelope (contract)", () => {
       conversation: { id: "conv-1" },
     };
 
-    expect(parseCardAction(inboundActivity)).toEqual({
+    expect(
+      parseCardAction({
+        ...inboundActivity,
+        value: {
+          ...(action.data as Record<string, unknown>),
+          environment: "production",
+        },
+      }),
+    ).toEqual({
       id: "ck:approve",
       value: { decision: "yes" },
+      values: { environment: "production" },
     });
     expect(conversationKeyOf(inboundActivity)).toBe("conv-1");
   });

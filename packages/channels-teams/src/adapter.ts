@@ -32,8 +32,7 @@ import { createTeamsServer } from "./listener.js";
 import type { TeamsServer } from "./listener.js";
 import { conversationKeyOf, parseCardAction } from "./interaction.js";
 import { createRunRenderer } from "./event-renderer.js";
-import { renderTeamsMarkdown } from "./render/markdown.js";
-import { renderAdaptiveCard, isPlainText } from "./render/adaptive-card.js";
+import { teamsCodec } from "./codec.js";
 import type { AdaptiveCard } from "./render/adaptive-card.js";
 import { TeamsMessageStream } from "./message-stream.js";
 import type { TeamsAdapterOptions, TeamsReplyTarget } from "./types.js";
@@ -152,6 +151,8 @@ export class TeamsAdapter implements PlatformAdapter {
             id: action.id,
             conversationKey,
             value: action.value,
+            values: action.values,
+            platform: "teams",
             user,
             replyTarget: {
               conversationKey,
@@ -387,9 +388,7 @@ export class TeamsAdapter implements PlatformAdapter {
    * or interactive UI becomes a card.)
    */
   render(ir: ChannelNode[]): TeamsActivityPayload {
-    return isPlainText(ir)
-      ? { text: renderTeamsMarkdown(ir) }
-      : { card: renderAdaptiveCard(ir) };
+    return teamsCodec.renderEgress(ir) as TeamsActivityPayload;
   }
 
   async post(target: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
@@ -532,6 +531,8 @@ export class TeamsAdapter implements PlatformAdapter {
       id: action.id,
       conversationKey,
       value: action.value,
+      values: action.values,
+      platform: "teams",
       user: from?.id ? { id: from.id, name: from.name } : undefined,
       replyTarget: { conversationKey, reference } satisfies TeamsReplyTarget,
       messageRef: {

@@ -81,7 +81,13 @@ describe("renderAdaptiveCard", () => {
       {
         type: "Action.Submit",
         title: "Approve",
-        data: { ckActionId: "ck:approve", value: { decision: "yes" } },
+        data: {
+          __copilotkit: {
+            version: 1,
+            actionId: "ck:approve",
+            value: { decision: "yes" },
+          },
+        },
         style: "positive",
       },
     ]);
@@ -152,7 +158,7 @@ describe("renderAdaptiveCard", () => {
     ]);
     const table = card.body[0] as Record<string, unknown>;
     expect(table.type).toBe("Table");
-    expect(table.firstRowAsHeader).toBe(true);
+    expect(table.firstRowAsHeaders).toBe(true);
     const rows = table.rows as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(2); // header + 1 data row
     expect(rows[0]!.type).toBe("TableRow");
@@ -166,9 +172,10 @@ describe("renderAdaptiveCard", () => {
     expect(card.actions).toHaveLength(6);
   });
 
-  it("skips unknown intrinsics without throwing", () => {
-    const card = renderAdaptiveCard([el("mystery", [text("x")])]);
-    expect(card.body).toHaveLength(0);
+  it("rejects unknown intrinsics instead of silently omitting them", () => {
+    expect(() => renderAdaptiveCard([el("mystery", [text("x")])])).toThrow(
+      /does not support this intrinsic/,
+    );
   });
 
   it("renders a vertical-bar <Chart> with title and axis titles", () => {

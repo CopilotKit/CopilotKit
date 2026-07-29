@@ -1,24 +1,29 @@
+import {
+  isPlatformNode,
+  UnsupportedUiNodeError,
+} from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import { TEAMS_LIMITS, truncateText, clampArray } from "./budget.js";
+import { renderNativeAdaptiveCard } from "./native-adaptive-card.js";
+import {
+  assertAdaptiveCardPayload,
+  TEAMS_CARD_SCHEMA_URL,
+  TEAMS_CARD_VERSION,
+} from "./schema.js";
+import type { AdaptiveCardPayload } from "./schema.js";
 
 /** Teams attachment content type for an Adaptive Card. */
 export const ADAPTIVE_CARD_CONTENT_TYPE =
   "application/vnd.microsoft.card.adaptive";
 
-/** A minimally-typed Adaptive Card (1.5). Elements/actions are open bags: the
- *  schema is large and we only emit a curated subset. */
-export interface AdaptiveCard {
-  type: "AdaptiveCard";
-  $schema: string;
-  version: string;
-  body: CardElement[];
-  actions?: CardAction[];
-}
+/** @deprecated Use {@link AdaptiveCardPayload}. */
+export type AdaptiveCard = AdaptiveCardPayload;
+export type { AdaptiveCardPayload } from "./schema.js";
 type CardElement = Record<string, unknown>;
 type CardAction = Record<string, unknown>;
 
-const SCHEMA = "http://adaptivecards.io/schemas/adaptive-card.json";
-const VERSION = "1.5";
+const SCHEMA = TEAMS_CARD_SCHEMA_URL;
+const VERSION = TEAMS_CARD_VERSION;
 
 /**
  * Render a cross-platform component IR tree (already expanded by `renderToIR`
@@ -34,16 +39,38 @@ const VERSION = "1.5";
  * registry-stamped opaque id in its `data`/`id` so a later interaction can be
  * decoded back into the engine (round-trip is a follow-up; rendering is here).
  *
- * The renderer is total: unknown intrinsics are skipped. Collections clamp and
- * text truncates to {@link TEAMS_LIMITS} so the card stays within Teams' payload
- * ceiling.
+ * Unknown intrinsics fail explicitly. Collections clamp and text truncates to
+ * {@link TEAMS_LIMITS} so the card stays within Teams' payload ceiling.
  */
-export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
+export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCardPayload {
+  const only = ir.length === 1 ? ir[0] : undefined;
+  if (only?.type === "raw") {
+    assertAdaptiveCardPayload(only.props.value);
+    return only.props.value;
+  }
+  if (ir.some(isPlatformNode)) {
+    if (!only || !isPlatformNode(only)) {
+      throw new UnsupportedUiNodeError({
+        element: "$platform",
+        path: [],
+        reason:
+          "portable and platform-native nodes cannot be mixed; a native post must have one native root",
+      });
+    }
+    return renderNativeAdaptiveCard(only);
+  }
   const body: CardElement[] = [];
   const actions: CardAction[] = [];
-  for (const node of ir) renderNode(node, body, actions);
+  for (const [index, node] of ir.entries())
+    renderNode(node, body, actions, [index]);
 
-  const card: AdaptiveCard = {
+  const card: {
+    type: "AdaptiveCard";
+    $schema: string;
+    version: string;
+    body: CardElement[];
+    actions?: CardAction[];
+  } = {
     type: "AdaptiveCard",
     $schema: SCHEMA,
     version: VERSION,
@@ -51,7 +78,7 @@ export function renderAdaptiveCard(ir: ChannelNode[]): AdaptiveCard {
   };
   const clampedActions = clampArray(actions, TEAMS_LIMITS.actions).items;
   if (clampedActions.length > 0) card.actions = clampedActions;
-  return card;
+  return card as unknown as AdaptiveCardPayload;
 }
 
 /** Render a single IR node, pushing body elements and/or top-level actions. */
@@ -59,13 +86,15 @@ function renderNode(
   node: ChannelNode,
   body: CardElement[],
   actions: CardAction[],
+  path: (string | number)[],
 ): void {
   if (typeof node.type !== "string") return; // non-intrinsic, already expanded
   const props = node.props ?? {};
   switch (node.type) {
     case "message":
       // The message container is not an element; flatten its children.
-      for (const child of childNodes(node)) renderNode(child, body, actions);
+      for (const [index, child] of childNodes(node).entries())
+        renderNode(child, body, actions, [...path, "children", index]);
       return;
     case "header":
       body.push({
@@ -124,7 +153,8 @@ function renderNode(
       body.push(renderChart(node));
       return;
     case "actions":
-      for (const child of childNodes(node)) renderNode(child, body, actions);
+      for (const [index, child] of childNodes(node).entries())
+        renderNode(child, body, actions, [...path, "children", index]);
       return;
     case "button":
       actions.push(renderButton(node));
@@ -136,8 +166,11 @@ function renderNode(
       body.push(renderInput(node));
       return;
     default:
-      // Unknown intrinsic: skip (total renderer).
-      return;
+      throw new UnsupportedUiNodeError({
+        element: String(node.type),
+        path,
+        reason: "the Teams portable renderer does not support this intrinsic",
+      });
   }
 }
 
@@ -181,12 +214,17 @@ function renderButton(node: ChannelNode): CardAction {
     type: "Action.Submit",
     title: truncateText(collectText(node), TEAMS_LIMITS.buttonText),
   };
-  // Forward-ready: carry the opaque action id + value so a later
-  // `decodeInteraction` can route the submit back into the engine.
+  // Keep Channels metadata under a reserved namespace so Teams can merge named
+  // form values at the top level without colliding with the action id/value.
   const id = idFromHandler(props.onClick);
   const data: Record<string, unknown> = {};
-  if (id) data.ckActionId = id;
-  if (props.value !== undefined) data.value = props.value;
+  if (id) {
+    data.__copilotkit = {
+      version: 1,
+      actionId: id,
+      ...(props.value === undefined ? {} : { value: props.value }),
+    };
+  }
   if (Object.keys(data).length > 0) action.data = data;
   if (props.style === "danger" || props.style === "destructive") {
     action.style = "destructive";
@@ -274,7 +312,7 @@ function renderTable(node: ChannelNode): CardElement {
         : {}),
     })),
     rows,
-    firstRowAsHeader: !!(columns && columns.length > 0),
+    firstRowAsHeaders: !!(columns && columns.length > 0),
     gridStyle: "default",
   };
   return table;
@@ -417,6 +455,7 @@ export function isPlainText(ir: ChannelNode[]): boolean {
     "context",
   ]);
   const visit = (node: ChannelNode): boolean => {
+    if (isPlatformNode(node)) return false;
     if (typeof node.type === "string" && RICH.has(node.type)) return false;
     return childNodes(node).every(visit);
   };

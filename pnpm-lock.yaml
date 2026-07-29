@@ -2566,6 +2566,9 @@ importers:
       '@microsoft/agents-hosting':
         specifier: ^1.5.3
         version: 1.6.1(@opentelemetry/api@1.9.0)
+      '@microsoft/teams.cards':
+        specifier: 2.0.14
+        version: 2.0.14
       express:
         specifier: '>=4.20.0'
         version: 5.2.1
@@ -8979,6 +8982,10 @@ packages:
   '@microsoft/m365agentsplayground@0.2.27':
     resolution: {integrity: sha512-8MdQyAdKv1H56IjI1iGosRwS1MZatpbp+9OZg77LWOCmmlWQXMofOAU3PrbIwgBfW75oejaUlXkqnZMVQVJjDQ==}
     hasBin: true
+
+  '@microsoft/teams.cards@2.0.14':
+    resolution: {integrity: sha512-qrWnjJVgMPO8vvbLEiTeBLrrRLsr4rletQnuP9fPMXTTcrNx+Dh0gYWtQAOBvpoAuFo5tTXR/waNFNUm8IZtBw==}
+    engines: {node: '>=20'}
 
   '@mintlify/cli@4.0.864':
     resolution: {integrity: sha512-xJDFBgvmUn3lplOr8q2roFncdRuI74x9NTg5Y8LthhDuvxKpThtC1bZFQjKJa8uFS/b7d4n+6vi73E41oUODGw==}
@@ -25375,8 +25382,8 @@ packages:
   vue-component-type-helpers@3.3.1:
     resolution: {integrity: sha512-pu58kqxmVyEH6VfNYW1UyEfR3XAnJ27ZXT3yzXxxpjLxVzAbyC35Zk/nm/RMs7ijWnJNSd9fWkeex2OhUsx3MA==}
 
-  vue-component-type-helpers@3.3.7:
-    resolution: {integrity: sha512-Skkhw9agYSgsWqv7bxSOGJZa9SaiJbZVGdXuFWnrzKaQYHnw9qbjD630rw6RyMqDbp54nfLCLw5SZA55if7JLg==}
+  vue-component-type-helpers@3.3.8:
+    resolution: {integrity: sha512-troqCMmQodQDqUqn63NQaFi+CDSclSe7sc8VEBFqf5GFLqmGR2Ph3P2WEC7qwpRVyEWsTi/aAr4vyOe/B1hU3g==}
 
   vue-devtools-stub@0.1.0:
     resolution: {integrity: sha512-RutnB7X8c5hjq39NceArgXg28WZtZpGc3+J16ljMiYnFhKvd8hITxSWQSQ5bvldxMDU6gG5mkxl1MTQLXckVSQ==}
@@ -34865,6 +34872,8 @@ snapshots:
 
   '@microsoft/m365agentsplayground@0.2.27': {}
 
+  '@microsoft/teams.cards@2.0.14': {}
+
   '@mintlify/cli@4.0.864(@radix-ui/react-popover@1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@types/node@25.6.0)(@types/react@19.1.8)(encoding@0.1.13)(react-dom@19.2.3(react@19.2.3))(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@25.6.0)(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
       '@inquirer/prompts': 7.9.0(@types/node@25.6.0)
@@ -39426,7 +39435,7 @@ snapshots:
       storybook: 10.1.11(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       type-fest: 2.19.0
       vue: 3.5.34(typescript@5.8.2)
-      vue-component-type-helpers: 3.3.7
+      vue-component-type-helpers: 3.3.8
 
   '@swc/core-darwin-arm64@1.15.8':
     optional: true
@@ -57289,7 +57298,7 @@ snapshots:
 
   vue-component-type-helpers@3.3.1: {}
 
-  vue-component-type-helpers@3.3.7: {}
+  vue-component-type-helpers@3.3.8: {}
 
   vue-devtools-stub@0.1.0: {}
 

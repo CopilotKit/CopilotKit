@@ -17,7 +17,14 @@ import { TeamsAdapter } from "./adapter.js";
 function cardClickContext(): TurnContext {
   const activity = {
     type: ActivityTypes.Message,
-    value: { ckActionId: "ck:abc123", value: { confirmed: true } },
+    value: {
+      __copilotkit: {
+        version: 1,
+        actionId: "ck:abc123",
+        value: { confirmed: true },
+      },
+      environment: "production",
+    },
     conversation: { id: "conv-1" },
     from: { id: "user-1", name: "Tester" },
     replyToId: "card-activity-1",
@@ -79,6 +86,8 @@ describe("TeamsAdapter card interactions", () => {
     const evt = sink.onInteraction.mock.calls[0]![0];
     expect(evt.id).toBe("ck:abc123");
     expect(evt.value).toEqual({ confirmed: true });
+    expect(evt.values).toEqual({ environment: "production" });
+    expect(evt.platform).toBe("teams");
     // The reply/edit context must be the proactive one, NOT the (anonymous)
     // inbound click context. That was the 401 bug.
     expect(evt.replyTarget.context).toBe(proactiveCtx);

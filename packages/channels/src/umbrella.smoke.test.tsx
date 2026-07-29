@@ -9,8 +9,34 @@ import { discord } from "@copilotkit/channels/discord";
 import { telegram } from "@copilotkit/channels/telegram";
 import { whatsapp } from "@copilotkit/channels/whatsapp";
 import { slackCodec } from "@copilotkit/channels/slack/codec";
+import { teamsCodec } from "@copilotkit/channels/teams/codec";
+import {
+  Action,
+  AdaptiveCard,
+  Input,
+  TextBlock,
+} from "@copilotkit/channels/ui/teams";
 import { renderSlackMessage } from "@copilotkit/channels/slack/render";
 import { renderAdaptiveCard } from "@copilotkit/channels/teams/render";
+
+// Compile-only coverage for the typed Teams-native JSX catalog through the
+// umbrella entrypoint. In particular, inputs require an `id` and submits
+// require a Channels callback.
+const typedTeamsCard = (
+  <AdaptiveCard>
+    <TextBlock text="Choose an environment" weight="Bolder" />
+    <Input.ChoiceSet
+      id="environment"
+      choices={[{ title: "Production", value: "production" }]}
+    />
+    <Action.Submit
+      title="Deploy"
+      data={{ intent: "deploy" }}
+      onSubmit={async () => undefined}
+    />
+  </AdaptiveCard>
+);
+void typedTeamsCard;
 
 describe("@copilotkit/channels umbrella", () => {
   it("exposes the existing engine, testing API, and JSX vocabulary", () => {
@@ -38,6 +64,8 @@ describe("@copilotkit/channels umbrella", () => {
       expect(typeof value).toBe("function");
     }
     expect(typeof slackCodec).toBe("object");
+    expect(typeof teamsCodec).toBe("object");
+    expect(typeof AdaptiveCard).toBe("function");
   });
 
   it("keeps Intelligence gateway and bootstrap internals private", () => {
