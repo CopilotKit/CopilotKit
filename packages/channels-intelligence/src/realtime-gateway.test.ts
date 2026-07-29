@@ -252,6 +252,7 @@ describe("connectRealtimeGateway", () => {
         apiKey: "cpk-test",
         projectId: 0,
         join: {
+          protocol: "channel_session_v1",
           runtimeInstanceId: "rti_1",
           declaredChannels: [],
           observedAt: "2026-07-10T00:00:00.000Z",
@@ -265,6 +266,7 @@ describe("connectRealtimeGateway", () => {
   it("joins the channel topic with declared channels and disconnects the gateway session", async () => {
     const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
     const join = {
+      protocol: "channel_session_v1" as const,
       runtimeInstanceId: "rti_1",
       declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
       observedAt: "2026-07-10T00:00:00.000Z",
@@ -298,6 +300,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -325,6 +328,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -369,6 +373,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -394,6 +399,7 @@ describe("connectRealtimeGateway — onClose drop notification (OSS-473)", () =>
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -426,6 +432,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_session_v1",
           runtimeInstanceId: "rti_1",
           declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
           observedAt: "2026-07-10T00:00:00.000Z",
@@ -449,6 +456,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_session_v1",
           runtimeInstanceId: "rti_1",
           declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
           observedAt: "2026-07-10T00:00:00.000Z",
@@ -469,6 +477,7 @@ describe("connectRealtimeGateway — join failure teardown (OSS-473)", () => {
         apiKey: "cpk-test",
         projectId: 7,
         join: {
+          protocol: "channel_session_v1",
           runtimeInstanceId: "rti_1",
           declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
           observedAt: "2026-07-10T00:00:00.000Z",
@@ -494,6 +503,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -535,6 +545,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "never-created", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -567,6 +578,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -591,6 +603,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -622,6 +635,7 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -653,6 +667,7 @@ describe("connectRealtimeGateway — structured push errors", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -689,6 +704,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -718,6 +734,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -752,6 +769,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -781,6 +799,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -812,6 +831,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -849,6 +869,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -900,6 +921,7 @@ describe("connectRealtimeGateway — connection-health state (OSS-473)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -1076,6 +1098,7 @@ function makeFailingWebSocket(
 }
 
 const JOIN = {
+  protocol: "channel_session_v1" as const,
   runtimeInstanceId: "rti_1",
   declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
   observedAt: "2026-07-10T00:00:00.000Z",

@@ -289,11 +289,11 @@ export async function startChannelsOverRealtimeGateway(
     apiKey: config.apiKey,
     projectId: config.scope.projectId,
     join: {
+      protocol: CHANNEL_SESSION_PROTOCOL,
       runtimeInstanceId: config.runtimeInstanceId,
       declaredChannels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
-        renderCapabilities: [CHANNEL_SESSION_PROTOCOL],
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,

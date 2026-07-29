@@ -1,5 +1,6 @@
 import { Socket } from "phoenix";
 import type { Channel } from "phoenix";
+import type { CHANNEL_SESSION_PROTOCOL } from "./live-session-contracts.js";
 
 /**
  * Minimal Realtime Gateway session surface used by the delivery/render
@@ -37,11 +38,12 @@ export interface ConnectRealtimeGatewayOptions {
   projectId: number;
   /** Listener declaration sent as the channel join payload. */
   join: {
+    /** Exact live-session protocol required by the Gateway project topic. */
+    protocol: typeof CHANNEL_SESSION_PROTOCOL;
     runtimeInstanceId: string;
     declaredChannels: ReadonlyArray<{
       channelName: string;
       adapter: string;
-      renderCapabilities?: readonly string[];
     }>;
     runtimeMetadata?: Record<string, unknown>;
     observedAt: string;
