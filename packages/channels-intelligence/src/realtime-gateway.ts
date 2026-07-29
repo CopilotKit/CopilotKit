@@ -1029,8 +1029,9 @@ function extractNonLiveChannelStates(reason: unknown): string[] {
 function extractReasonCode(reason: unknown): string | undefined {
   if (typeof reason === "string") return reason;
   if (typeof reason === "object" && reason !== null) {
-    const inner = (reason as { reason?: unknown }).reason;
-    if (typeof inner === "string") return inner;
+    const coded = reason as { code?: unknown; reason?: unknown };
+    if (typeof coded.code === "string") return coded.code;
+    if (typeof coded.reason === "string") return coded.reason;
   }
   return undefined;
 }

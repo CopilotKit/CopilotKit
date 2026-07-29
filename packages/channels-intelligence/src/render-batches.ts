@@ -8,6 +8,7 @@ import type {
 export const RENDER_BATCH_PROTOCOL_CAPABILITY = "render_batch_v1";
 export const RENDER_TEXT_MAX_DELTAS = 256;
 export const RENDER_TEXT_MAX_BYTES = 16 * 1024;
+export const RENDER_TEXT_TAIL_FLUSH_MS = 250;
 export const RENDER_BATCH_MAX_FRAMES = 64;
 export const RENDER_BATCH_MAX_BYTES = 128 * 1024;
 export const RENDER_LANE_MAX_PENDING_BYTES = 256 * 1024;

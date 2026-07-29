@@ -221,6 +221,38 @@ describe("managed render batch compaction", () => {
     await renderer.finish?.();
   });
 
+  it("flushes a paced text tail after 250 ms without waiting for text_end", async () => {
+    vi.useFakeTimers();
+    const sink = new RecordingBatchSink();
+    const { renderer, subscriber } = createRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "first" },
+    });
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: " second" },
+    });
+    await settle();
+    expect(sink.batches).toHaveLength(2);
+
+    await vi.advanceTimersByTimeAsync(249);
+    expect(sink.batches).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    await settle();
+
+    expect(sink.batches[2]?.frames).toEqual([
+      {
+        seq: 2,
+        event: {
+          kind: "text_delta",
+          messageId: "m1",
+          delta: " second",
+        },
+      },
+    ]);
+    await renderer.finish?.();
+  });
+
   it("keeps equal 20-delta and 200-delta answers within 10% modeled acceptance latency", async () => {
     vi.useFakeTimers();
 
@@ -339,6 +371,45 @@ describe("managed render batch compaction", () => {
     await posting;
     await renderer.finish?.();
     expect(batches.map((batch) => batch.startSeq)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("flushes buffered text before a concurrent discrete post", async () => {
+    const sink = new RecordingBatchSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink: sink,
+    });
+    const renderer = adapter.createRunRenderer(target);
+    const subscriber = renderer.subscriber as unknown as Subscriber;
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "first" },
+    });
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: " second" },
+    });
+    await adapter.post(target, card);
+    await renderer.finish?.();
+
+    expect(
+      sink.batches.flatMap((batch) =>
+        batch.frames.map((frame) =>
+          frame.event.kind === "text_delta"
+            ? `${frame.event.kind}:${frame.event.delta}`
+            : frame.event.kind,
+        ),
+      ),
+    ).toEqual([
+      "run_started",
+      "text_delta:first",
+      "text_delta: second",
+      "post",
+      "finalize",
+    ]);
   });
 
   it("fails the lane with a stable bounded-memory error while transport is stalled", async () => {

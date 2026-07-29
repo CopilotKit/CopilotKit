@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   connectRealtimeGateway,
   RealtimeGatewayChannelStateError,
+  RealtimeGatewayPushError,
   RealtimeGatewaySetupRequiredError,
   RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
@@ -42,7 +43,10 @@ interface FakeControl {
   recover: boolean;
 }
 
-function makeFakeWebSocket(mode: JoinMode) {
+function makeFakeWebSocket(
+  mode: JoinMode,
+  pushErrorResponse?: Record<string, unknown>,
+) {
   const instances: FakeWebSocket[] = [];
   const control: FakeControl = { recover: false };
   // Shared across the reconnect-spawned instances so `ok-then-silent` /
@@ -129,7 +133,22 @@ function makeFakeWebSocket(mode: JoinMode) {
         string,
         string,
       ];
-      if (event !== "phx_join") return;
+      if (event !== "phx_join") {
+        if (pushErrorResponse) {
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify([
+                joinRef,
+                ref,
+                topic,
+                "phx_reply",
+                { status: "error", response: pushErrorResponse },
+              ]),
+            }),
+          );
+        }
+        return;
+      }
       this.lastJoinRef = joinRef;
       this.lastTopic = topic;
       joinCount += 1;
@@ -619,6 +638,38 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
     expect((err as RealtimeGatewayChannelStateError).channelStates).toEqual([
       "runtime_conflict",
     ]);
+  });
+});
+
+describe("connectRealtimeGateway — structured push errors", () => {
+  it("preserves the app-api code from a managed render-batch rejection", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("ok", {
+      reason: "app_api_error",
+      status: 409,
+      code: "CHANNEL_RENDER_SEQUENCE_GAP",
+    });
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/runner",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        runtimeInstanceId: "rti_1",
+        declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
+        observedAt: "2026-07-10T00:00:00.000Z",
+      },
+      webSocket: FakeWebSocket,
+    });
+
+    const rejected = await session.push("channel.render_batch.v1", {}).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(rejected).toBeInstanceOf(RealtimeGatewayPushError);
+    expect(rejected).toMatchObject({
+      code: "CHANNEL_RENDER_SEQUENCE_GAP",
+    });
+    session.disconnect();
   });
 });
 

@@ -54,6 +54,7 @@ import {
   RENDER_LANE_MAX_PENDING_BYTES,
   RENDER_TEXT_MAX_DELTAS,
   RENDER_TEXT_MAX_BYTES,
+  RENDER_TEXT_TAIL_FLUSH_MS,
 } from "./render-batches.js";
 
 const PERMANENT_RENDER_BATCH_ERROR_CODES = new Set([
@@ -330,6 +331,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
   >();
   /** Shared per-turn transport tail for renderer batches and discrete effects. */
   private readonly renderLaneTails = new Map<string, Promise<void>>();
+  /** Flush buffered renderer text before a discrete effect claims its seq. */
+  private readonly renderLaneFlushers = new Map<string, () => void>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
@@ -683,6 +686,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<{ receipt: RenderBatchAccepted; seq: number }> {
+    this.renderLaneFlushers.get(target.turnId)?.();
     const seq = this.nextFrameSeq(target.turnId);
     return this.enqueueRenderLane(target.turnId, async () => {
       const receipt = await this.requireRenderSink().pushBatch(
@@ -1006,6 +1010,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       | undefined;
     let pendingTextDeltaCount = 0;
     let firstTextFlushed = false;
+    let tailFlushTimer: ReturnType<typeof setTimeout> | undefined;
     let lanePendingBytes = 0;
     // OSS-648: time each push so the per-frame round-trip cost of this serial
     // chain is measurable. This is the one point every frame passes through, so
@@ -1119,12 +1124,34 @@ export class IntelligenceAdapter implements PlatformAdapter {
       batchFrames.push(frame);
     };
 
+    const clearTailFlushTimer = (): void => {
+      if (tailFlushTimer === undefined) return;
+      clearTimeout(tailFlushTimer);
+      tailFlushTimer = undefined;
+    };
+
     const flushPendingText = (): void => {
       if (!pendingText) return;
+      clearTailFlushTimer();
       addFrame(pendingText);
       pendingText = undefined;
       pendingTextDeltaCount = 0;
     };
+
+    const flushPendingTextBatch = (): void => {
+      flushPendingText();
+      flushBatch();
+    };
+
+    const scheduleTailFlush = (): void => {
+      if (tailFlushTimer !== undefined || pendingText === undefined) return;
+      tailFlushTimer = setTimeout(() => {
+        tailFlushTimer = undefined;
+        flushPendingTextBatch();
+      }, RENDER_TEXT_TAIL_FLUSH_MS);
+    };
+
+    this.renderLaneFlushers.set(t.turnId, flushPendingTextBatch);
 
     const enqueue = (event: ChannelRenderEvent): void => {
       if (transportError !== undefined || enqueueError !== undefined) return;
@@ -1151,8 +1178,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
           : event;
         pendingTextDeltaCount += 1;
         if (pendingTextDeltaCount >= RENDER_TEXT_MAX_DELTAS) {
-          flushPendingText();
-          flushBatch();
+          flushPendingTextBatch();
+        } else {
+          scheduleTailFlush();
         }
         return;
       }
@@ -1169,19 +1197,25 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
 
     const drain = async (): Promise<void> => {
-      flushPendingText();
-      flushBatch();
-      if (enqueueError !== undefined) {
+      flushPendingTextBatch();
+      try {
+        if (enqueueError !== undefined) {
+          metrics?.finish();
+          throw enqueueError;
+        }
+        await chain;
+        // Summarize before rethrowing so a failed turn still reports its profile.
         metrics?.finish();
-        throw enqueueError;
-      }
-      await chain;
-      // Summarize before rethrowing so a failed turn still reports its profile.
-      metrics?.finish();
-      const pushError = enqueueError ?? transportError;
-      if (pushError !== undefined) {
-        const err = pushError;
-        throw err instanceof Error ? err : new Error(String(err));
+        const pushError = enqueueError ?? transportError;
+        if (pushError !== undefined) {
+          const err = pushError;
+          throw err instanceof Error ? err : new Error(String(err));
+        }
+      } finally {
+        clearTailFlushTimer();
+        if (this.renderLaneFlushers.get(t.turnId) === flushPendingTextBatch) {
+          this.renderLaneFlushers.delete(t.turnId);
+        }
       }
     };
 
