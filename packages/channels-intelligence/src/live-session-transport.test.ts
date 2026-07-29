@@ -17,6 +17,7 @@ import type {
 const delivery = (): LiveSessionDelivery => ({
   protocol: CHANNEL_SESSION_PROTOCOL,
   deliveryId: "dlv_delivery",
+  deliveryCode: "dcode_short_lived",
   sessionTopic: "channel_session:dlv_delivery",
   canonicalThreadId: "thread_01",
   appUserId: "user_01",
@@ -128,4 +129,30 @@ test("delivery-topic join rejection is logged and does not reject transport stop
       error: "join denied",
     }),
   );
+});
+
+test("delivery-topic join presents the short-lived admitted delivery code", async () => {
+  let notice: ((payload: unknown) => void) | undefined;
+  const channel = deliveryChannel(vi.fn().mockResolvedValue({}));
+  const session: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: (_event, handler) => {
+      notice = handler;
+    },
+    join: vi.fn().mockResolvedValue(channel),
+  };
+  const transport = new LiveSessionTransport({
+    session,
+    runtimeInstanceId: "runtime_01",
+  });
+  transport.start(async () => undefined);
+
+  notice?.({ ...delivery(), deliveryCode: "dcode_short_lived" });
+  await transport.stop();
+
+  expect(session.join).toHaveBeenCalledWith("channel_session:dlv_delivery", {
+    protocol: CHANNEL_SESSION_PROTOCOL,
+    runtimeInstanceId: "runtime_01",
+    deliveryCode: "dcode_short_lived",
+  });
 });

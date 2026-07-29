@@ -54,6 +54,8 @@ export type LiveSessionTurnInput =
 export interface LiveSessionDelivery {
   protocol: typeof CHANNEL_SESSION_PROTOCOL;
   deliveryId: string;
+  /** Gateway-minted code required for the first delivery-topic join. */
+  deliveryCode: string;
   sessionTopic: string;
   canonicalThreadId: string;
   appUserId: string;
@@ -299,6 +301,7 @@ export class LiveSessionTransport {
       channel = await this.options.session.join(delivery.sessionTopic, {
         protocol: CHANNEL_SESSION_PROTOCOL,
         runtimeInstanceId: this.options.runtimeInstanceId,
+        deliveryCode: delivery.deliveryCode,
       });
     } catch (error) {
       this.options.log?.("channel delivery topic join failed", {
@@ -342,6 +345,8 @@ function isLiveSessionDelivery(value: unknown): value is LiveSessionDelivery {
   return (
     delivery.protocol === CHANNEL_SESSION_PROTOCOL &&
     typeof delivery.deliveryId === "string" &&
+    typeof delivery.deliveryCode === "string" &&
+    delivery.deliveryCode.length > 0 &&
     typeof delivery.sessionTopic === "string" &&
     typeof delivery.canonicalThreadId === "string" &&
     typeof delivery.appUserId === "string" &&

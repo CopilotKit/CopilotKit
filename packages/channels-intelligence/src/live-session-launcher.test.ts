@@ -122,6 +122,7 @@ function delivery(
   return {
     protocol: "channel_session_v1",
     deliveryId: "dlv_test",
+    deliveryCode: "dcode_test",
     sessionTopic: "channel_session:dlv_test",
     canonicalThreadId: "thread-test",
     appUserId: "app-user-test",

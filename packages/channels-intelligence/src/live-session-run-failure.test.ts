@@ -18,6 +18,7 @@ import type {
 const delivery: LiveSessionDelivery = {
   protocol: "channel_session_v1",
   deliveryId: "delivery-test",
+  deliveryCode: "dcode_test",
   sessionTopic: "channel_session:delivery-test",
   canonicalThreadId: "canonical-thread",
   appUserId: "app-user-test",
