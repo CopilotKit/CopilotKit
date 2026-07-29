@@ -258,6 +258,56 @@ describe("createRunRenderer — native streaming", () => {
     expect(fake.posts.some((p) => p.text.includes(":wrench:"))).toBe(true);
   });
 
+  it("strict mode drops rejected task UI without posting a wrench row", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport({ failChunks: true });
+    const onChunkFailure = vi.fn();
+    const { subscriber: sub, finish } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: {
+        transport: nt.transport,
+        strict: true,
+        onChunkFailure,
+      },
+    });
+
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    await tick();
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t2", toolCallName: "lookup" },
+    } as never);
+    await finish!();
+
+    expect(onChunkFailure).toHaveBeenCalledOnce();
+    expect(fake.posts).toHaveLength(0);
+  });
+
+  it("strict mode appends an interruption marker and keeps one bubble on run error", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport();
+    const { subscriber: sub } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport, strict: true },
+    });
+
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "Partial answer" },
+    } as never);
+    await sub.onRunErrorEvent!({ event: { message: "boom" } } as never);
+
+    expect(fake.posts).toHaveLength(0);
+    expect(nt.messages).toHaveLength(1);
+    expect(nt.messages[0]!.stopped).toBe(true);
+    expect(textOf(nt.messages[0]!.events)).toBe(
+      "Partial answer\n\n_(response interrupted)_",
+    );
+    expect(nt.messages[0]!.stopBlocks).toBeUndefined();
+  });
+
   it("posts transformed fallback text and clears status after native start failure", async () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport({ failStart: true });

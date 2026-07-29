@@ -446,6 +446,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
         },
       },
       nativeStreaming: {
+        strict: true,
         minIntervalMs: 0,
         transport: {
           startStream: async () => {

@@ -129,3 +129,72 @@ test("LiveSessionAdapter closes the Gateway run as failed when runCanonical reje
     }),
   ]);
 });
+
+test("managed Slack keeps a partial run error in one native stream", async () => {
+  const effects: Array<Record<string, unknown>> = [];
+  const deliveryChannel: RealtimeGatewayDeliveryChannel = {
+    on: () => {},
+    leave: () => {},
+    push: async (event, payload) => {
+      if (
+        event === "channel.effect.v1" &&
+        typeof payload === "object" &&
+        payload !== null &&
+        "payload" in payload &&
+        typeof payload.payload === "object" &&
+        payload.payload !== null &&
+        "effect" in payload.payload &&
+        typeof payload.payload.effect === "object" &&
+        payload.payload.effect !== null
+      ) {
+        const effect = payload.payload.effect as Record<string, unknown>;
+        effects.push(effect);
+        const seq = effect.seq as number;
+        return { receivedThrough: seq, appliedThrough: seq };
+      }
+      return {};
+    },
+  };
+  const projectSession: RealtimeGatewaySession = {
+    on: () => {},
+    push: async () => ({}),
+  };
+  const transport = new LiveSessionTransport({
+    session: projectSession,
+    runtimeInstanceId: "runtime-test",
+  });
+  const session = new LiveDeliverySession(
+    delivery,
+    "runtime-test",
+    deliveryChannel,
+  );
+  const adapter = new LiveSessionAdapter({
+    transport,
+    loadHistory: async () => [],
+    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+  });
+  const renderer = adapter.createRunRenderer({ session, delivery });
+
+  renderer.subscriber.onTextMessageContentEvent?.({
+    event: { messageId: "message-1", delta: "Partial answer" },
+  } as never);
+  await renderer.subscriber.onRunErrorEvent?.({
+    event: { message: "agent failed" },
+  } as never);
+
+  try {
+    expect(effects.map((effect) => effect.kind)).toEqual([
+      "slack.stream.start",
+      "slack.stream.append",
+      "slack.stream.stop",
+    ]);
+    expect(effects[1]?.delta).toBe(
+      "Partial answer\n\n_(response interrupted)_",
+    );
+    expect(
+      effects.some((effect) => effect.kind === "slack.message.create"),
+    ).toBe(false);
+  } finally {
+    session.leave();
+  }
+});
