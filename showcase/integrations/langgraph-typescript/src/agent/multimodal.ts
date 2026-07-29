@@ -63,6 +63,53 @@ interface ContentPart {
 async function rewritePart(part: unknown): Promise<unknown> {
   if (!part || typeof part !== "object") return part;
   const p = part as ContentPart;
+  // The @ag-ui/langgraph converter collapses EVERY attachment (image AND
+  // document) into an `image_url` data-URL before it reaches here, so the real
+  // wire path is this branch — route on the data-URL MIME (mirrors the Python
+  // reference). Images pass through unchanged (gpt-4o consumes them natively);
+  // any non-image data URL (e.g. application/pdf) is flattened to text, because
+  // OpenAI 400s ("Only image types are supported") on a non-image image_url.
+  if (p.type === "image_url") {
+    const iu = (p as { image_url?: unknown }).image_url;
+    const url =
+      typeof iu === "string"
+        ? iu
+        : iu && typeof iu === "object" && typeof (iu as { url?: unknown }).url === "string"
+          ? (iu as { url: string }).url
+          : undefined;
+    if (typeof url === "string" && url.startsWith("data:")) {
+      const mime = url.slice(5).split(/[;,]/)[0];
+      if (mime && !mime.startsWith("image/")) {
+        const base64 = url.slice(url.indexOf(",") + 1);
+        if (mime === "application/pdf" && base64) {
+          try {
+            const parsed = await pdfParse(Buffer.from(base64, "base64"));
+            const text = parsed.text.trim();
+            if (text) {
+              return {
+                type: "text",
+                text:
+                  `[Attached PDF (${parsed.numpages} page${parsed.numpages === 1 ? "" : "s"}) — extracted text follows]\n\n` +
+                  text,
+              };
+            }
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            return {
+              type: "text",
+              text: `[Attached PDF — server-side extraction failed: ${message}]`,
+            };
+          }
+        }
+        return {
+          type: "text",
+          text: `[Attached document${mime ? ` (${mime})` : ""}: contents not extracted server-side.]`,
+        };
+      }
+    }
+    // Image (or non-data) image_url: pass through unchanged.
+    return part;
+  }
   if (p.type === "image" && p.source?.type === "data") {
     const mime = p.source.mimeType ?? "image/png";
     const value = p.source.value ?? "";
