@@ -937,7 +937,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // sequence synchronously, then serialize immutable batches so one lane has
     // at most one durable request in flight.
     let chain: Promise<void> = Promise.resolve();
-    let pushError: unknown;
+    let transportError: unknown;
+    let enqueueError: unknown;
     let batchFrames: RenderFrame[] = [];
     let pendingText:
       | Extract<ChannelRenderEvent, { kind: "text_delta" }>
@@ -957,7 +958,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     });
 
     const flushBatch = (): void => {
-      if (batchFrames.length === 0 || pushError !== undefined) return;
+      if (
+        batchFrames.length === 0 ||
+        transportError !== undefined ||
+        enqueueError !== undefined
+      )
+        return;
       const batch = createRenderBatch(
         {
           deliveryId: t.deliveryId,
@@ -970,16 +976,38 @@ export class IntelligenceAdapter implements PlatformAdapter {
       const batchBytes = encodedJsonBytes(batch);
       lanePendingBytes += batchBytes;
       if (lanePendingBytes > RENDER_LANE_MAX_PENDING_BYTES) {
-        pushError = new Error(
+        enqueueError = new Error(
           `CHANNEL_RENDER_LANE_OVERLOAD: turn ${t.turnId} exceeded ${RENDER_LANE_MAX_PENDING_BYTES} pending bytes`,
         );
+        lanePendingBytes -= batchBytes;
         return;
       }
       chain = chain.then(async () => {
-        if (pushError !== undefined) return;
+        if (transportError !== undefined) {
+          lanePendingBytes -= batchBytes;
+          return;
+        }
         const pushStartedAt = metrics ? Date.now() : 0;
         try {
-          const receipt = await sink.pushBatch(batch);
+          let receipt: RenderBatchAccepted | undefined;
+          for (let attempt = 1; attempt <= 3; attempt += 1) {
+            try {
+              receipt = await sink.pushBatch(batch);
+              break;
+            } catch (err) {
+              const message = err instanceof Error ? err.message : String(err);
+              const permanent =
+                message.includes("CHANNEL_RENDER_BATCH_CONFLICT") ||
+                message.includes("CHANNEL_RENDER_SEQUENCE_GAP") ||
+                message.includes("-> 409");
+              if (permanent || attempt === 3) throw err;
+            }
+          }
+          if (!receipt) {
+            throw new Error(
+              `CHANNEL_RENDER_ACCEPTANCE_FAILED: ${batch.batchId}`,
+            );
+          }
           if (
             receipt.batchId !== batch.batchId ||
             receipt.acceptedThroughSeq !== batch.endSeq
@@ -992,7 +1020,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
             this.recordAcceptedRenderEvent(t.turnId, frame.event);
           }
         } catch (err) {
-          pushError = err;
+          transportError = err;
         } finally {
           lanePendingBytes -= batchBytes;
           const pushFinishedAt = Date.now();
@@ -1009,7 +1037,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
 
     const addFrame = (event: ChannelRenderEvent): void => {
-      if (pushError !== undefined) return;
+      if (transportError !== undefined || enqueueError !== undefined) return;
       const frame: RenderFrame = {
         seq: this.nextFrameSeq(t.turnId),
         event,
@@ -1023,7 +1051,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         flushBatch();
       }
       if (encodedJsonBytes([frame]) > RENDER_BATCH_MAX_BYTES) {
-        pushError = new Error(
+        enqueueError = new Error(
           `CHANNEL_RENDER_FRAME_TOO_LARGE: turn ${t.turnId} frame ${frame.seq} exceeds ${RENDER_BATCH_MAX_BYTES} bytes`,
         );
         return;
@@ -1056,7 +1084,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
 
     const enqueue = (event: ChannelRenderEvent): void => {
-      if (pushError !== undefined) return;
+      if (transportError !== undefined || enqueueError !== undefined) return;
       if (event.kind === "text_delta") {
         if (!firstTextFlushed) {
           firstTextFlushed = true;
@@ -1097,6 +1125,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
       await chain;
       // Summarize before rethrowing so a failed turn still reports its profile.
       metrics?.finish();
+      const pushError = enqueueError ?? transportError;
       if (pushError !== undefined) {
         const err = pushError;
         throw err instanceof Error ? err : new Error(String(err));

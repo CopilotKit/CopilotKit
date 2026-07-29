@@ -45,11 +45,11 @@ class RecordingBatchSink {
   }
 }
 
-const createRenderer = (sink: RecordingBatchSink) => {
+const createRenderer = (sink: RenderEventSink) => {
   const adapter = intelligenceAdapter({
     source: new InMemoryDeliverySource(),
     egress: new InMemoryEgressSink(),
-    renderSink: sink as unknown as RenderEventSink,
+    renderSink: sink,
   });
   const renderer = adapter.createRunRenderer(target);
   return {
@@ -68,6 +68,33 @@ afterEach(() => {
 });
 
 describe("managed render batch compaction", () => {
+  it("retries the same immutable batch after a transient acceptance failure", async () => {
+    const attempts: AcceptedBatch[] = [];
+    const sink: RenderEventSink = {
+      pushBatch: async (batch) => {
+        attempts.push(batch);
+        if (attempts.length === 1) {
+          throw new Error("network reset");
+        }
+        return {
+          batchId: batch.batchId,
+          egressOperationId: "eop_retry",
+          acceptedThroughSeq: batch.endSeq,
+          duplicate: true,
+        };
+      },
+    };
+    const { renderer, subscriber } = createRenderer(sink);
+
+    subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "hello" },
+    });
+    await renderer.finish?.();
+
+    expect(attempts).toHaveLength(3);
+    expect(attempts[1]).toBe(attempts[0]);
+  });
+
   it("flushes the first non-empty text immediately with contiguous post-compaction sequence numbers", async () => {
     const sink = new RecordingBatchSink();
     const { renderer, subscriber } = createRenderer(sink);
