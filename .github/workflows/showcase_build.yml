@@ -20,7 +20,9 @@ on:
       - "packages/angular/**"
       - "packages/core/**"
       - "packages/shared/**"
+      - "packages/vue/**"
       - "packages/web-components/**"
+      - "packages/web-inspector/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
   workflow_dispatch:

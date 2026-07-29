@@ -87,9 +87,12 @@ test.each(["showcase_build.yml", "showcase_build_check.yml"])(
       resolve(repositoryRoot, ".github/workflows", workflowFile),
       "utf8",
     );
+    const eventTriggers = workflow.slice(0, workflow.indexOf("\njobs:"));
 
     expect(workflow).toContain("needs_angular");
     expect(workflow).toContain("needs_vue");
+    expect(eventTriggers).toContain('- "packages/vue/**"');
+    expect(eventTriggers).toContain('- "packages/web-inspector/**"');
     expect(workflow).toContain("- 'packages/angular/**'");
     expect(workflow).toContain('$changes | index("angular")');
     expect(workflow).toContain("Build canonical Angular browser artifact");
