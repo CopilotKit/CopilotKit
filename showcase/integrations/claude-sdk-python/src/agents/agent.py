@@ -574,6 +574,34 @@ GEN_UI_AGENT_SYSTEM_PROMPT = dedent("""
     Never call set_steps in parallel. Always pass the full step list.
 """).strip()
 
+# Tool-Based Generative UI. Mirrors langgraph-python's dedicated
+# `gen_ui_tool_based` graph: the backend exposes NO tools of its own
+# (`tools_override=[]`); the chart renderers `render_bar_chart` /
+# `render_pie_chart` arrive as FRONTEND tools (registered via `useComponent`
+# in the demo page) and are injected by `_build_frontend_tools`. Without this
+# dedicated prompt the demo falls through to the generic sales-assistant
+# SYSTEM_PROMPT, which steers the model toward `query_data` and never tells it
+# to invent illustrative data + render on the first turn -- the exact
+# GOTCHAS #8 masking failure ("plotted zeros" / "asked for the data").
+GEN_UI_TOOL_BASED_SYSTEM_PROMPT = dedent("""
+    You are a data visualization assistant.
+
+    When the user asks for a chart, call `render_bar_chart` or `render_pie_chart`
+    with a concise title, short description, and a `data` array of
+    `{label, value}` items. Pick bar for comparisons over a small set of
+    categories; pick pie for composition / share-of-whole.
+
+    If the user names a chart subject but does NOT supply concrete numbers
+    (e.g. "show me a pie chart of website traffic by source"), do NOT ask
+    them for data. Invent plausible illustrative sample values yourself,
+    call the appropriate `render_*` tool immediately, and briefly note in
+    the follow-up that the values are illustrative samples. Always render
+    the chart on the first turn -- never reply with a clarifying question
+    asking for the data.
+
+    Keep chat responses brief -- let the chart do the talking.
+""").strip()
+
 # @endregion[backend-demo-tool-sets]
 
 SYSTEM_PROMPT = dedent("""
