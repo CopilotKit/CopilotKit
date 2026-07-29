@@ -13,6 +13,7 @@
 // https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -73,9 +74,25 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
+    // Log full error details server-side with a correlation id, but only
+    // return the id (not the message or stack) to the client. Returning
+    // raw `err.message` / `err.stack` over the wire leaks internals
+    // (file paths, library versions, sometimes secrets in nested error
+    // messages) to anyone who can hit /api/copilotkit-mcp-apps.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        route: "/api/copilotkit-mcp-apps",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: e.message, stack: e.stack },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }
