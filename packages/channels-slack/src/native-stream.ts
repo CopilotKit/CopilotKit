@@ -184,6 +184,10 @@ export class NativeMessageStream implements TextStream {
   }
 
   private scheduleFlush(): void {
+    if (this.minIntervalMs <= 0) {
+      this.enqueueFlush();
+      return;
+    }
     if (this.flushTimer) return;
     const elapsed = Date.now() - this.lastFlushedAt;
     const delay = Math.max(0, this.minIntervalMs - elapsed);

@@ -5,13 +5,12 @@ import type { ChannelNode } from "@copilotkit/channels-ui";
  * the Intelligence side. It exists so platform *semantics* (how to render IR to
  * a native payload, and — later — how to normalize a native event to the
  * neutral ingress shape) live in ONE place, instead of being duplicated between
- * a credentialed local adapter (Bolt/discord.js) and the Connector Outbox /
- * webhook ingress.
+ * a credentialed local adapter and the Gateway-owned live delivery session.
  *
  * Only the two creds/connection-bound concerns stay per-side: the transport
  * (who holds the platform connection) and the credentialed send. The codec
  * excludes both — `renderEgress` is pure (IR → native payload); the actual
- * send happens in the Connector Outbox with Intelligence-owned credentials.
+ * send happens in the Gateway with Intelligence-owned credentials.
  *
  * TODO(OSS-363): add `normalizeIngress(raw): NeutralEvent` once the pure Slack
  * ingress mapping (mention stripping, stable event-id derivation, real-user

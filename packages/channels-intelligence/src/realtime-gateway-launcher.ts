@@ -1,51 +1,56 @@
 import type { Channel } from "@copilotkit/channels-core";
+import type { Message } from "@ag-ui/client";
 import {
-  startChannels,
   assertValidChannelNames,
   buildChannelActivationMetadata,
   resolveChannelActivationEnv,
 } from "./runtime.js";
 import type { ChannelsHandle, ChannelActivationEnv } from "./runtime.js";
 import { connectRealtimeGateway } from "./realtime-gateway.js";
-import {
-  RealtimeGatewayTransport,
-  assertValidChannelRealtimeScope,
-} from "./realtime-gateway-transport.js";
-import type { ChannelRealtimeScope } from "./realtime-gateway-transport.js";
 import type { RealtimeGatewaySession } from "./realtime-gateway.js";
-import type { EgressSink } from "./transports.js";
-import { RENDER_BATCH_PROTOCOL_CAPABILITY } from "./render-batches.js";
+import { CHANNEL_SESSION_PROTOCOL } from "./live-session-contracts.js";
+import { LiveSessionTransport } from "./live-session-transport.js";
+import { LiveSessionAdapter } from "./live-session-adapter.js";
+import type { CanonicalChannelRunArgs } from "./live-session-adapter.js";
+import { IntelligenceStateStore } from "./intelligence-state-store.js";
 
-/**
- * Realtime Gateway egress is vestigial: with a render sink wired (the transport
- * itself), the adapter routes every `post`/`update` and the run-render stream
- * through the render sink and never through the generic {@link EgressSink}. Fail
- * loud if that invariant is ever broken, rather than silently dropping an op.
- */
-const realtimeGatewayEgress: EgressSink = {
-  emit: async () => {
+/** Project and declared Channel used for the Gateway join. */
+export interface ChannelRealtimeScope {
+  projectId: number;
+  channelName: string;
+}
+
+const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+/** Validate the project-scoped live-session join before opening a socket. */
+export function assertValidChannelRealtimeScope(
+  scope: ChannelRealtimeScope,
+): void {
+  if (!Number.isSafeInteger(scope.projectId) || scope.projectId <= 0) {
     throw new Error(
-      "startChannelsOverRealtimeGateway: EgressSink.emit was called, but the Realtime Gateway " +
-        "path routes all egress through the render sink — this indicates a " +
-        "wiring bug (the render sink was not set on the adapter).",
+      "Realtime Gateway Channel scope requires a positive projectId",
     );
-  },
-};
+  }
+  if (
+    scope.channelName.length < 3 ||
+    scope.channelName.length > 64 ||
+    !CHANNEL_NAME_RE.test(scope.channelName)
+  ) {
+    throw new Error(
+      `Realtime Gateway Channel scope requires a lowercase kebab-case channelName, got ${JSON.stringify(scope.channelName)}`,
+    );
+  }
+}
 
 /**
  * Phase 1 runs exactly one framework {@link Channel} per gateway session.
- * {@link RealtimeGatewayTransport} is a single-delivery-callback object bound
- * to one session; attaching more than one Channel's `intelligenceAdapter` to the
- * same transport would make every delivery dispatch through the last Channel's
- * callback (and earlier Channels receive
- * nothing). Multi-Channel routing over a shared session is not implemented yet —
- * until then, run one Channel per gateway session/runner and fail loudly on more.
+ * Phase 1 joins one declared Channel per managed Gateway session.
  */
 function assertSingleChannelForPhase1(channels: readonly Channel[]): void {
   if (channels.length !== 1) {
     throw new Error(
       `Channel Realtime Gateway runtime supports exactly one Channel per gateway session, got ${channels.length} — ` +
-        "multi-Channel routing over a shared RealtimeGatewayTransport is not implemented yet (OSS-459); " +
+        "multi-Channel routing over one live session is not implemented; " +
         "run one Channel per gateway session/runner",
     );
   }
@@ -93,45 +98,67 @@ export interface StartChannelsWithGatewaySessionOptions {
   log?: (message: string, meta?: unknown) => void;
   /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
+  /** Execute one outer Channel run through the runtime's standard runner. */
+  runCanonical(
+    args: CanonicalChannelRunArgs,
+  ): ReturnType<CanonicalChannelRunArgs["execute"]>;
+  /** Load canonical Intelligence thread history before each public run. */
+  loadHistory(args: {
+    threadId: string;
+    appUserId: string;
+  }): Promise<Message[]>;
 }
 
 /**
- * Compose the Channel runtime over an already-connected gateway session: wrap
- * the session in a {@link RealtimeGatewayTransport} (delivery source + render
- * sink) and start the declared Channels against it via {@link startChannels}.
+ * Compose the Channel runtime over an already-connected gateway session.
  *
  * Split out from {@link startChannelsOverRealtimeGateway} so the composition —
  * the part with behavior — is unit-testable against a fake session, leaving the
- * connector as thin glue. `intelligenceAdapter` is exclusive, so the gateway
- * transport is each Channel's ONLY adapter; egress is served by the render sink,
- * not the generic {@link EgressSink} (see {@link realtimeGatewayEgress}).
+ * connector as thin glue. The live-session adapter is the Channel's only
+ * managed adapter.
  */
 export async function startChannelsWithGatewaySession(
   channels: Channel[],
   opts: StartChannelsWithGatewaySessionOptions,
 ): Promise<ChannelsHandle> {
   assertScopeMatchesChannel(channels, opts.scope);
-  const transport = new RealtimeGatewayTransport({
-    scope: opts.scope,
+  const transport = new LiveSessionTransport({
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
     ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
     ...(opts.log ? { log: opts.log } : {}),
   });
-  const handle = await startChannels({
-    channels,
-    resolveTransport: () => ({
-      source: transport,
-      renderSink: transport,
-      egress: realtimeGatewayEgress,
+  const store =
+    opts.appApiBaseUrl && opts.apiKey
+      ? new IntelligenceStateStore({
+          baseUrl: opts.appApiBaseUrl,
+          apiKey: opts.apiKey,
+        })
+      : undefined;
+  const channel = channels[0]!;
+  channel.ɵruntime.addAdapter(
+    new LiveSessionAdapter({
+      transport,
+      runCanonical: opts.runCanonical,
+      loadHistory: opts.loadHistory,
+      ...(store ? { store } : {}),
+      ...(opts.log ? { log: opts.log } : {}),
+      showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
     }),
-    showToolStatus: opts.showToolStatus,
-    // The required runtimeInstanceId is authoritative: merge it in LAST so
-    // `handle.metadata` reports the same id the transport stamps on every
-    // envelope, regardless of any `env` overrides (which cannot carry it).
-    env: { ...opts.env, runtimeInstanceId: opts.runtimeInstanceId },
-  });
+  );
+  await channel.ɵruntime.start();
+  const metadata = buildChannelActivationMetadata(
+    channels,
+    resolveChannelActivationEnv({
+      ...opts.env,
+      runtimeInstanceId: opts.runtimeInstanceId,
+    }),
+  );
+  const handle: ChannelsHandle = {
+    metadata,
+    stop: () => channel.ɵruntime.stop(),
+  };
   // This variant does not own the socket (the caller passed an
   // already-joined session), so it neither connects nor disconnects it. Still
   // pass through drop notification when the session supports it (it does not
@@ -211,6 +238,15 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   log?: (message: string, meta?: unknown) => void;
   /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
+  /** Execute one outer Channel run through the runtime's standard runner. */
+  runCanonical(
+    args: CanonicalChannelRunArgs,
+  ): ReturnType<CanonicalChannelRunArgs["execute"]>;
+  /** Load canonical Intelligence thread history before each public run. */
+  loadHistory(args: {
+    threadId: string;
+    appUserId: string;
+  }): Promise<Message[]>;
 }
 
 /**
@@ -257,7 +293,7 @@ export async function startChannelsOverRealtimeGateway(
       declaredChannels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
-        renderCapabilities: [RENDER_BATCH_PROTOCOL_CAPABILITY],
+        renderCapabilities: [CHANNEL_SESSION_PROTOCOL],
       })),
       runtimeMetadata: {
         runtimeEnv: activation.runtimeEnv,
@@ -299,6 +335,8 @@ export async function startChannelsOverRealtimeGateway(
       // can reach the file/history REST endpoints directly.
       ...(config.appApiBaseUrl ? { appApiBaseUrl: config.appApiBaseUrl } : {}),
       apiKey: config.apiKey,
+      runCanonical: config.runCanonical,
+      loadHistory: config.loadHistory,
       // The session-start helper re-merges the authoritative runtimeInstanceId,
       // so forward only the caller's overrides here (they cannot carry the id).
       ...(config.env ? { env: config.env } : {}),

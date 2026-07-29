@@ -5,6 +5,15 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { AbstractAgent } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  Message,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
+import { EMPTY } from "rxjs";
+import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
@@ -136,6 +145,8 @@ export interface ChannelManagerArgs {
   intelligence: CopilotKitIntelligence;
   /** The declared framework Channels to activate. */
   channels: Channel[];
+  /** Standard runtime AgentRunner used by managed Channel executions. */
+  runner?: AgentRunner;
   /**
    * Activation engine. Defaults to a wrapper over the channels-intelligence
    * Realtime Gateway launcher (`startChannelsOverRealtimeGateway`), reached via
@@ -210,6 +221,27 @@ export interface ChannelsIntelligenceModule {
        * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
        * silent in the managed path. */
       log?: (msg: string, meta?: unknown) => void;
+      runCanonical(args: {
+        agent: AbstractAgent;
+        threadId: string;
+        runId: string;
+        runnerToken: string;
+        tools: readonly {
+          name: string;
+          description: string;
+          parameters: Record<string, unknown>;
+        }[];
+        context: readonly { description: string; value: string }[];
+        persistedInputMessages: Message[];
+        execute(subscriber: AgentSubscriber): Promise<{
+          iterations: number;
+          interrupted: boolean;
+        }>;
+      }): Promise<{ iterations: number; interrupted: boolean }>;
+      loadHistory(args: {
+        threadId: string;
+        appUserId: string;
+      }): Promise<Message[]>;
     },
   ) => Promise<ChannelsHandle>;
 }
@@ -244,6 +276,10 @@ export async function defaultActivateChannel(
       CHANNELS_INTELLIGENCE_SPECIFIER
     ) as Promise<ChannelsIntelligenceModule>,
   log?: (msg: string, meta?: unknown) => void,
+  services?: {
+    runner: AgentRunner;
+    intelligence: CopilotKitIntelligence;
+  },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
   try {
@@ -256,6 +292,11 @@ export async function defaultActivateChannel(
       );
     }
     throw err;
+  }
+  if (!services) {
+    throw new Error(
+      "Managed Channels require the runtime AgentRunner and Intelligence client",
+    );
   }
   return mod.startChannelsOverRealtimeGateway([channel], {
     wsUrl: config.wsUrl,
@@ -274,7 +315,124 @@ export async function defaultActivateChannel(
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.
     ...(log ? { log } : {}),
+    runCanonical: (args) => runCanonicalChannelAgent(services.runner, args),
+    loadHistory: async ({ threadId, appUserId }) => {
+      const history = await services.intelligence.getThreadMessages({
+        threadId,
+        userId: appUserId,
+      });
+      return history.messages.map(toAgentMessage);
+    },
   });
+}
+
+interface CanonicalRunArgs {
+  agent: AbstractAgent;
+  threadId: string;
+  runId: string;
+  runnerToken: string;
+  tools: readonly {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }[];
+  context: readonly { description: string; value: string }[];
+  persistedInputMessages: Message[];
+  execute(subscriber: AgentSubscriber): Promise<{
+    iterations: number;
+    interrupted: boolean;
+  }>;
+}
+
+/** One outer agent that lets the standard runner own the whole local tool loop. */
+class ChannelOuterAgent extends AbstractAgent {
+  constructor(
+    private readonly inner: AbstractAgent,
+    private readonly executeLoop: CanonicalRunArgs["execute"],
+  ) {
+    super({
+      threadId: inner.threadId,
+      initialMessages: inner.messages,
+      initialState: inner.state,
+      ...(inner.agentId ? { agentId: inner.agentId } : {}),
+    });
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  override async runAgent(
+    _parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    const result = await this.executeLoop(subscriber ?? {});
+    return { result, newMessages: [] };
+  }
+
+  override abortRun(): void {
+    this.inner.abortRun();
+  }
+}
+
+/** Drive one public Channel run through the runtime's existing AgentRunner. */
+async function runCanonicalChannelAgent(
+  runner: AgentRunner,
+  args: CanonicalRunArgs,
+): Promise<{ iterations: number; interrupted: boolean }> {
+  let result = { iterations: 0, interrupted: false };
+  const outer = new ChannelOuterAgent(args.agent, async (subscriber) => {
+    result = await args.execute(subscriber);
+    return result;
+  });
+  await new Promise<void>((resolve, reject) => {
+    runner
+      .run({
+        threadId: args.threadId,
+        agent: outer,
+        input: {
+          threadId: args.threadId,
+          runId: args.runId,
+          messages: args.agent.messages,
+          state: args.agent.state,
+          tools: [...args.tools],
+          context: [...args.context],
+          forwardedProps: undefined,
+        },
+        persistedInputMessages: args.persistedInputMessages,
+        authToken: args.runnerToken,
+      })
+      .subscribe({
+        error: reject,
+        complete: resolve,
+      });
+  });
+  return result;
+}
+
+/** Convert canonical Intelligence history into AG-UI messages. */
+function toAgentMessage(message: {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
+}): Message {
+  return {
+    id: message.id,
+    role: message.role as Message["role"],
+    content: message.content ?? "",
+    ...(message.toolCalls
+      ? {
+          toolCalls: message.toolCalls.map((call) => ({
+            id: call.id,
+            type: "function" as const,
+            function: { name: call.name, arguments: call.args },
+          })),
+        }
+      : {}),
+    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+  } as Message;
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */
@@ -380,6 +538,7 @@ function withTimeout<T>(
  */
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
+  private readonly runner?: AgentRunner;
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
@@ -394,6 +553,7 @@ export class ChannelManager implements ChannelsControl {
   /** @param args - See {@link ChannelManagerArgs}. */
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
+    this.runner = args.runner;
     this.channels = args.channels;
     this.log = args.log;
     // When using the default engine, forward the manager's log DOWN to the
@@ -403,7 +563,15 @@ export class ChannelManager implements ChannelsControl {
     this.activateChannel =
       args.activateChannel ??
       ((config, channel) =>
-        defaultActivateChannel(config, channel, undefined, this.log));
+        defaultActivateChannel(
+          config,
+          channel,
+          undefined,
+          this.log,
+          this.runner
+            ? { runner: this.runner, intelligence: this.intelligence }
+            : undefined,
+        ));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);

@@ -76,9 +76,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
    * closeWasClean = true and reset the reconnect timer — permanently
    * killing retries.
    */
-  private createSocket(): Socket {
+  private createSocket(authToken = this.options.authToken): Socket {
     const socket = new Socket(this.options.url, {
-      ...(this.options.authToken ? { authToken: this.options.authToken } : {}),
+      ...(authToken ? { authToken } : {}),
       reconnectAfterMs: phoenixExponentialBackoff(
         100,
         this.options.maxReconnectMs ?? 10_000,
@@ -192,7 +192,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     }
 
     return new Observable((observer) => {
-      const socket = this.createSocket();
+      const socket = this.createSocket(request.authToken);
 
       const channel = socket.channel(`ingestion:${input.runId}`, {
         thread_id: threadId,

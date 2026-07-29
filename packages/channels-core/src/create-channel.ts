@@ -346,17 +346,15 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 }
 
 /**
- * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
- * (`intelligenceAdapter`) must be the only adapter on a Channel. Channel and direct delivery are
- * alternative modes on a Channel — Intelligence holds the platform creds, or
- * the runtime does, never both.
+ * Enforce managed Intelligence Channel exclusivity. Managed and direct
+ * delivery are alternative modes on a Channel: Intelligence holds provider
+ * credentials, or the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
   if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
     throw new Error(
-      "intelligenceAdapter() must be the only adapter on a Channel — Channel and " +
-        "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
-        "direct adapters (slack/discord/...), not both.",
+      "The managed Intelligence adapter must be the only adapter on a Channel — " +
+        "managed and direct delivery are alternative modes.",
     );
   }
 }

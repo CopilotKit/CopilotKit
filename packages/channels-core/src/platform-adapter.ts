@@ -10,6 +10,7 @@ import type {
 } from "@copilotkit/channels-ui";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
+import type { AgentToolDescriptor, ContextEntry } from "./tools.js";
 
 /** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -68,6 +69,26 @@ export interface RunRenderer {
    * run was already interrupted.
    */
   finish?(): Promise<void>;
+}
+
+/** Result of one public Channel agent invocation, including local tool steps. */
+export interface ChannelAgentLoopResult {
+  iterations: number;
+  interrupted: boolean;
+}
+
+/**
+ * Adapter hook for wrapping the whole local Channel tool loop in one canonical
+ * runner lifecycle. Managed Intelligence implements this; direct adapters omit
+ * it and keep calling the agent in process.
+ */
+export interface ChannelAgentLifecycleArgs {
+  replyTarget: ReplyTarget;
+  agent: AbstractAgent;
+  renderer: RunRenderer;
+  tools: readonly AgentToolDescriptor[];
+  context: readonly ContextEntry[];
+  execute(subscriber: AgentSubscriber): Promise<ChannelAgentLoopResult>;
 }
 
 /**
@@ -273,6 +294,9 @@ export interface PlatformAdapter {
   ): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   createRunRenderer(target: ReplyTarget): RunRenderer;
+  runAgentLifecycle?(
+    args: ChannelAgentLifecycleArgs,
+  ): Promise<ChannelAgentLoopResult>;
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
@@ -292,6 +316,8 @@ export interface PlatformAdapter {
    * a legitimate retry.
    */
   readonly skipIngressDedup?: boolean;
+  /** Inject the implicit inbound turn into only the first run in one handler. */
+  readonly injectInboundTurnOnce?: boolean;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,

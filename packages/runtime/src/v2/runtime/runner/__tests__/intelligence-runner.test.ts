@@ -192,6 +192,32 @@ describe("IntelligenceAgentRunner", () => {
     sub.unsubscribe();
   });
 
+  it("uses a per-run Phoenix authToken instead of the configured token", () => {
+    runner = new IntelligenceAgentRunner({
+      url: "ws://localhost:4000/runner",
+      authToken: "cpk_project_key",
+    });
+
+    const threadId = "t-runner-token";
+    const input = createRunInput({ threadId, runId: "r-runner-token" });
+    const agent = new MockAgent();
+
+    const sub = runner
+      .run({
+        threadId,
+        agent,
+        input,
+        authToken: "rnr_short_lived",
+      })
+      .subscribe();
+
+    expect(mockSockets[0]?.opts).toMatchObject({
+      authToken: "rnr_short_lived",
+    });
+
+    sub.unsubscribe();
+  });
+
   describe("run", () => {
     it("calls runAgent() and completes the Observable (events go to channel only)", async () => {
       const threadId = "t-1";

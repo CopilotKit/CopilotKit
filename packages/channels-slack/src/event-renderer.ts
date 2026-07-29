@@ -108,6 +108,8 @@ export function createRunRenderer(args: {
    */
   nativeStreaming?: {
     transport: NativeStreamTransport;
+    /** Override the native text flush floor. Managed sessions use `0`. */
+    minIntervalMs?: number;
     onStartFailure?: (err: unknown) => void;
     /**
      * Whether structured `task_update` chunks are known to work on this
@@ -260,6 +262,7 @@ export function createRunRenderer(args: {
       },
       fallback: makeLegacyStream,
       onStartFailure: ns.onStartFailure,
+      minIntervalMs: ns.minIntervalMs,
       onChunkFailure: () => {
         // Structured chunks unsupported on this workspace — degrade tool
         // progress to `:wrench:` rows for the rest of the run, and let the

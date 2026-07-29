@@ -642,11 +642,11 @@ describe("connectRealtimeGateway — per-channel state classification (OSS-473)"
 });
 
 describe("connectRealtimeGateway — structured push errors", () => {
-  it("preserves the app-api code from a managed render-batch rejection", async () => {
+  it("preserves the gateway code from a live-session effect rejection", async () => {
     const { FakeWebSocket } = makeFakeWebSocket("ok", {
       reason: "app_api_error",
       status: 409,
-      code: "CHANNEL_RENDER_SEQUENCE_GAP",
+      code: "CHANNEL_EFFECT_SEQUENCE_GAP",
     });
     const session = await connectRealtimeGateway({
       wsUrl: "wss://gateway.example/runner",
@@ -660,14 +660,14 @@ describe("connectRealtimeGateway — structured push errors", () => {
       webSocket: FakeWebSocket,
     });
 
-    const rejected = await session.push("channel.render_batch.v1", {}).then(
+    const rejected = await session.push("channel.effect.v1", {}).then(
       () => undefined,
       (error: unknown) => error,
     );
 
     expect(rejected).toBeInstanceOf(RealtimeGatewayPushError);
     expect(rejected).toMatchObject({
-      code: "CHANNEL_RENDER_SEQUENCE_GAP",
+      code: "CHANNEL_EFFECT_SEQUENCE_GAP",
     });
     session.disconnect();
   });

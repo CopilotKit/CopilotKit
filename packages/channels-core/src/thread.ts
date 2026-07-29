@@ -12,6 +12,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
+import type { RunLoopArgs } from "./run-loop.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
@@ -73,6 +74,7 @@ export class Thread implements ThreadInterface {
   /** Mirrors the adapter's `supportsBlockingChoice` capability (see SurfaceCapabilities). */
   readonly supportsBlockingChoice?: boolean;
   private readonly store: StateStore;
+  private implicitInboundConsumed = false;
 
   constructor(private deps: ThreadDeps) {
     this.platform = deps.adapter.platform;
@@ -318,13 +320,17 @@ export class Thread implements ThreadInterface {
       message?.contentParts && message.contentParts.length > 0
         ? message.contentParts
         : message?.text;
+    const implicitPrompt =
+      input?.prompt === undefined &&
+      !this.deps.adapter.conversationStore.seedsInboundTurn &&
+      (!this.deps.adapter.injectInboundTurnOnce ||
+        !this.implicitInboundConsumed);
+    if (implicitPrompt && defaultPrompt) {
+      this.implicitInboundConsumed = true;
+    }
     return this.run(undefined, {
       ...input,
-      prompt:
-        input?.prompt ??
-        (this.deps.adapter.conversationStore.seedsInboundTurn
-          ? undefined
-          : defaultPrompt),
+      prompt: input?.prompt ?? (!implicitPrompt ? undefined : defaultPrompt),
     });
   }
 
@@ -426,7 +432,7 @@ export class Thread implements ThreadInterface {
     // hidden behind an already-sent success event.
     let stage: "agent" | "finalize" = "agent";
     try {
-      loopResult = await runAgentLoop({
+      const loopArgs: RunLoopArgs = {
         agent: session.agent,
         renderer,
         tools,
@@ -441,7 +447,17 @@ export class Thread implements ThreadInterface {
           if (h) await h({ payload: interrupt.value, thread: this });
         },
         initialResume,
-      });
+      };
+      loopResult = this.deps.adapter.runAgentLifecycle
+        ? await this.deps.adapter.runAgentLifecycle({
+            replyTarget: this.deps.replyTarget,
+            agent: session.agent,
+            renderer,
+            tools: toolDescriptors,
+            context,
+            execute: (subscriber) => runAgentLoop({ ...loopArgs, subscriber }),
+          })
+        : await runAgentLoop(loopArgs);
       stage = "finalize";
       // Transcript auto-bridge (step 4): capture the assistant text this run
       // produced and append it. Only when the bridge actually applied (transcripts

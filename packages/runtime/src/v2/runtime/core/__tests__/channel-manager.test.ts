@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createChannel, FakeAdapter } from "@copilotkit/channels";
 import { startChannelsOverRealtimeGateway } from "@copilotkit/channels-intelligence";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
+import { InMemoryAgentRunner } from "../../runner/in-memory";
 import {
   ChannelManager,
   ChannelSetupRequiredError,
@@ -23,6 +24,13 @@ function fakeIntelligence(): CopilotKitIntelligence {
     wsUrl: "wss://runtime.example",
     apiKey: "cpk-42_short_long",
   });
+}
+
+function fakeServices() {
+  return {
+    runner: new InMemoryAgentRunner(),
+    intelligence: fakeIntelligence(),
+  };
 }
 
 /** A minimal fake ChannelsHandle whose `stop` is a spy. */
@@ -847,7 +855,13 @@ describe("defaultActivateChannel", () => {
     const { handle, start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({ name: "support" });
 
-    const result = await defaultActivateChannel(config, channel, importer);
+    const result = await defaultActivateChannel(
+      config,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
 
     expect(result).toBe(handle);
     expect(start).toHaveBeenCalledTimes(1);
@@ -859,6 +873,8 @@ describe("defaultActivateChannel", () => {
       scope: { projectId: 42, channelName: "support" },
       runtimeInstanceId: "rti_x",
       adapter: "slack",
+      runCanonical: expect.any(Function),
+      loadHistory: expect.any(Function),
       // The app-api HTTP base URL must reach the launcher so the transport wires
       // file/history on the NORMAL managed path (OSS-476) — not only manual
       // low-level callers.
@@ -909,7 +925,13 @@ describe("defaultActivateChannel", () => {
     const channel = createChannel({ name: "support" });
     const log = vi.fn();
 
-    await defaultActivateChannel(config, channel, importer, log);
+    await defaultActivateChannel(
+      config,
+      channel,
+      importer,
+      log,
+      fakeServices(),
+    );
 
     const [, opts] = start.mock.calls[0]!;
     expect(opts.log).toBe(log);
@@ -1020,7 +1042,13 @@ describe("ChannelManager — reachable setup_required over the REAL engine (OSS-
         }),
     });
     const engine: ActivateChannelEngine = (config, channel) =>
-      defaultActivateChannel(config, channel, importer);
+      defaultActivateChannel(
+        config,
+        channel,
+        importer,
+        undefined,
+        fakeServices(),
+      );
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),

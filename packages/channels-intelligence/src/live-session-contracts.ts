@@ -39,16 +39,14 @@ export type ChannelProviderEffect =
     })
   | (ProviderEffectBase & {
       kind: "slack.message.delete";
-      providerRef: string;
     })
   | (ProviderEffectBase & {
       kind: "teams.message.create" | "teams.message.replace";
       text: string;
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
-      providerRef?: string;
     })
   | (ProviderEffectBase & {
-      kind: "slack.file.create" | "teams.file.create";
+      kind: "slack.file.create";
       fileHandle: string;
       title?: string;
       altText?: string;
@@ -85,7 +83,6 @@ const PROVIDER_EFFECT_KINDS = new Set<ChannelProviderEffect["kind"]>([
   "teams.message.create",
   "teams.message.replace",
   "slack.file.create",
-  "teams.file.create",
   "slack.image.create",
   "teams.image.create",
 ]);

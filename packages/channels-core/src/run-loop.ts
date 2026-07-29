@@ -1,4 +1,4 @@
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type { Message } from "@ag-ui/core";
 import type {
   RunRenderer,
@@ -28,6 +28,62 @@ export interface RunLoopArgs {
   maxIterations?: number;
   /** When re-entering via thread.resume, the resume command to replay. */
   initialResume?: { resume: unknown };
+  /** Subscriber used for each underlying agent step. Defaults to the renderer. */
+  subscriber?: AgentSubscriber;
+}
+
+/**
+ * Fan one agent event stream out to both the provider renderer and a canonical
+ * runner subscriber. The proxy covers every current and future subscriber
+ * callback without keeping a second callback-name registry in Channels.
+ */
+export function mergeAgentSubscribers(
+  first: AgentSubscriber,
+  second: AgentSubscriber,
+): AgentSubscriber {
+  return new Proxy({} as AgentSubscriber, {
+    get(_target, property: keyof AgentSubscriber) {
+      const firstCallback = first[property];
+      const secondCallback = second[property];
+      if (
+        typeof firstCallback !== "function" &&
+        typeof secondCallback !== "function"
+      ) {
+        return undefined;
+      }
+
+      return async (params: unknown) => {
+        const firstResult =
+          typeof firstCallback === "function"
+            ? await (firstCallback as (value: unknown) => unknown)(params)
+            : undefined;
+        const secondResult =
+          typeof secondCallback === "function"
+            ? await (secondCallback as (value: unknown) => unknown)(params)
+            : undefined;
+
+        if (
+          (firstResult === undefined || firstResult === null) &&
+          (secondResult === undefined || secondResult === null)
+        ) {
+          return undefined;
+        }
+        return {
+          ...(typeof firstResult === "object" ? firstResult : {}),
+          ...(typeof secondResult === "object" ? secondResult : {}),
+          stopPropagation:
+            (typeof firstResult === "object" &&
+              firstResult !== null &&
+              "stopPropagation" in firstResult &&
+              firstResult.stopPropagation === true) ||
+            (typeof secondResult === "object" &&
+              secondResult !== null &&
+              "stopPropagation" in secondResult &&
+              secondResult.stopPropagation === true),
+        };
+      };
+    },
+  });
 }
 
 /**
@@ -51,21 +107,21 @@ export async function runAgentLoop(
     isAborted,
     initialResume,
   } = args;
+  const subscriber = args.subscriber
+    ? mergeAgentSubscribers(renderer.subscriber, args.subscriber)
+    : renderer.subscriber;
   const maxIterations = args.maxIterations ?? 6;
   const executed = new Set<string>();
   let resume = initialResume;
 
   for (let i = 0; i < maxIterations; i++) {
     if (resume) {
-      await agent.runAgent(
-        { forwardedProps: { command: resume } },
-        renderer.subscriber,
-      );
+      await agent.runAgent({ forwardedProps: { command: resume } }, subscriber);
       resume = undefined;
     } else {
       await agent.runAgent(
         { tools: toolDescriptors as never, context: context as never },
-        renderer.subscriber,
+        subscriber,
       );
     }
     if (isAborted?.()) return { iterations: i + 1, interrupted: false };
