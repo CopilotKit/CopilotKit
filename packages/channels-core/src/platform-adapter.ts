@@ -77,6 +77,12 @@ export interface ChannelAgentLoopResult {
   interrupted: boolean;
 }
 
+/** Canonical thread/run ownership opened by the managed AgentRunner. */
+export interface CanonicalRunIdentity {
+  threadId: string;
+  runId: string;
+}
+
 /**
  * Adapter hook for wrapping the whole local Channel tool loop in one canonical
  * runner lifecycle. Managed Intelligence implements this; direct adapters omit
@@ -88,7 +94,10 @@ export interface ChannelAgentLifecycleArgs {
   renderer: RunRenderer;
   tools: readonly AgentToolDescriptor[];
   context: readonly ContextEntry[];
-  execute(subscriber: AgentSubscriber): Promise<ChannelAgentLoopResult>;
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: CanonicalRunIdentity,
+  ): Promise<ChannelAgentLoopResult>;
 }
 
 /**

@@ -5,9 +5,10 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
-import { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
+  BaseEvent,
   Message,
   RunAgentParameters,
   RunAgentResult,
@@ -233,7 +234,10 @@ export interface ChannelsIntelligenceModule {
         }[];
         context: readonly { description: string; value: string }[];
         persistedInputMessages: Message[];
-        execute(subscriber: AgentSubscriber): Promise<{
+        execute(
+          subscriber: AgentSubscriber,
+          canonicalRun?: { threadId: string; runId: string },
+        ): Promise<{
           iterations: number;
           interrupted: boolean;
         }>;
@@ -338,7 +342,10 @@ interface CanonicalRunArgs {
   }[];
   context: readonly { description: string; value: string }[];
   persistedInputMessages: Message[];
-  execute(subscriber: AgentSubscriber): Promise<{
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: { threadId: string; runId: string },
+  ): Promise<{
     iterations: number;
     interrupted: boolean;
   }>;
@@ -348,6 +355,7 @@ interface CanonicalRunArgs {
 class ChannelOuterAgent extends AbstractAgent {
   constructor(
     private readonly inner: AbstractAgent,
+    private readonly canonicalThreadId: string,
     private readonly executeLoop: CanonicalRunArgs["execute"],
   ) {
     super({
@@ -363,10 +371,16 @@ class ChannelOuterAgent extends AbstractAgent {
   }
 
   override async runAgent(
-    _parameters?: RunAgentParameters,
+    parameters?: RunAgentParameters,
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
-    const result = await this.executeLoop(subscriber ?? {});
+    if (!parameters?.runId) {
+      throw new Error("Canonical Channel run requires a runId");
+    }
+    const result = await this.executeLoop(subscriber ?? {}, {
+      threadId: this.canonicalThreadId,
+      runId: parameters.runId,
+    });
     return { result, newMessages: [] };
   }
 
@@ -381,11 +395,16 @@ async function runCanonicalChannelAgent(
   args: CanonicalRunArgs,
 ): Promise<{ iterations: number; interrupted: boolean }> {
   let result = { iterations: 0, interrupted: false };
-  const outer = new ChannelOuterAgent(args.agent, async (subscriber) => {
-    result = await args.execute(subscriber);
-    return result;
-  });
+  const outer = new ChannelOuterAgent(
+    args.agent,
+    args.threadId,
+    async (subscriber, canonicalRun) => {
+      result = await args.execute(subscriber, canonicalRun);
+      return result;
+    },
+  );
   await new Promise<void>((resolve, reject) => {
+    let terminalError: (Error & { code?: string }) | undefined;
     runner
       .run({
         threadId: args.threadId,
@@ -403,8 +422,30 @@ async function runCanonicalChannelAgent(
         authToken: args.runnerToken,
       })
       .subscribe({
+        next: (event: BaseEvent) => {
+          if (event.type !== EventType.RUN_ERROR || terminalError) return;
+          const message =
+            "message" in event && typeof event.message === "string"
+              ? event.message
+              : "Canonical Channel agent run failed";
+          terminalError = new Error(message);
+          terminalError.name = "ChannelCanonicalRunError";
+          if (
+            "code" in event &&
+            typeof event.code === "string" &&
+            event.code.length > 0
+          ) {
+            terminalError.code = event.code;
+          }
+        },
         error: reject,
-        complete: resolve,
+        complete: () => {
+          if (terminalError) {
+            reject(terminalError);
+          } else {
+            resolve();
+          }
+        },
       });
   });
   return result;

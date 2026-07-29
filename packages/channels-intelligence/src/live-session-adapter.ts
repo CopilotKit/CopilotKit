@@ -7,6 +7,7 @@ import type {
   ThreadMessage,
 } from "@copilotkit/channels-ui";
 import type {
+  CanonicalRunIdentity,
   ChannelAgentLifecycleArgs,
   ChannelAgentLoopResult,
   ConversationStore,
@@ -58,7 +59,10 @@ export interface CanonicalChannelRunArgs {
   tools: readonly AgentToolDescriptor[];
   context: readonly ContextEntry[];
   persistedInputMessages: Message[];
-  execute(subscriber: AgentSubscriber): Promise<ChannelAgentLoopResult>;
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: CanonicalRunIdentity,
+  ): Promise<ChannelAgentLoopResult>;
 }
 
 export interface LiveSessionAdapterOptions {

@@ -46,6 +46,7 @@ export type {
   CapturedInterrupt,
   ChannelAgentLifecycleArgs,
   ChannelAgentLoopResult,
+  CanonicalRunIdentity,
   UserQuery,
   NativePayload,
 } from "./platform-adapter.js";

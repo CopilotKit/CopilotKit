@@ -117,11 +117,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
     event: BaseEvent,
     request: AgentRunnerRunRequest,
   ): BaseEvent {
-    return {
-      ...(event as BaseEvent & Record<string, unknown>),
-      threadId: request.threadId,
-      runId: request.input.runId,
-    } as BaseEvent;
+    const eventRecord = event as BaseEvent & Record<string, unknown>;
+    eventRecord.threadId = request.threadId;
+    eventRecord.runId = request.input.runId;
+    return eventRecord;
   }
 
   private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
@@ -141,17 +140,15 @@ export class IntelligenceAgentRunner extends AgentRunner {
 
     const eventSeq = state.nextEventSeq++;
 
-    return {
-      ...eventRecord,
-      metadata: {
-        ...existingMetadata,
-        cpki_event_id:
-          typeof existingMetadata.cpki_event_id === "string"
-            ? existingMetadata.cpki_event_id
-            : randomUUID(),
-        cpki_event_seq: eventSeq,
-      },
+    eventRecord.metadata = {
+      ...existingMetadata,
+      cpki_event_id:
+        typeof existingMetadata.cpki_event_id === "string"
+          ? existingMetadata.cpki_event_id
+          : randomUUID(),
+      cpki_event_seq: eventSeq,
     };
+    return eventRecord;
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
@@ -261,7 +258,9 @@ export class IntelligenceAgentRunner extends AgentRunner {
         .join()
         .receive("ok", () => {
           startupBoundary?.resolveStartup();
-          this.executeAgentRun(request, state, threadId).subscribe({
+          this.executeAgentRun(request, state, threadId, (event) => {
+            observer.next(event);
+          }).subscribe({
             complete: () => observer.complete(),
           });
         })
@@ -375,6 +374,7 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
     threadId: string,
+    onRunError: (event: BaseEvent) => void,
   ): Observable<unknown> {
     const { currentEvents, channel } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
@@ -402,24 +402,24 @@ export class IntelligenceAgentRunner extends AgentRunner {
     ): RunStartedEvent => {
       const baseInput = source?.input ?? request.input;
       const persistedInputMessages = getPersistedInputMessages();
-
-      return {
-        ...(source ?? {
+      const event =
+        source ??
+        ({
           type: EventType.RUN_STARTED,
           threadId: request.threadId,
           runId: request.input.runId,
-        }),
+        } as RunStartedEvent);
+      event.threadId = request.threadId;
+      event.runId = request.input.runId;
+      event.input = {
+        ...baseInput,
         threadId: request.threadId,
         runId: request.input.runId,
-        input: {
-          ...baseInput,
-          threadId: request.threadId,
-          runId: request.input.runId,
-          ...(persistedInputMessages !== undefined
-            ? { messages: persistedInputMessages }
-            : {}),
-        },
-      } as RunStartedEvent;
+        ...(persistedInputMessages !== undefined
+          ? { messages: persistedInputMessages }
+          : {}),
+      };
+      return event;
     };
 
     const ensureRunStarted = (): void => {
@@ -444,11 +444,19 @@ export class IntelligenceAgentRunner extends AgentRunner {
     ).pipe(
       catchError((error) => {
         ensureRunStarted();
+        const existingError = currentEvents.find(
+          (event) => event.type === EventType.RUN_ERROR,
+        );
+        if (existingError) {
+          onRunError(existingError);
+          return EMPTY;
+        }
         const errorEvent = {
           type: EventType.RUN_ERROR,
           message: error instanceof Error ? error.message : String(error),
         } as BaseEvent;
         pushCanonicalEvent(errorEvent);
+        onRunError(errorEvent);
         return EMPTY;
       }),
       finalize(() => {

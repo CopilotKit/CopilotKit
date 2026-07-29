@@ -455,7 +455,12 @@ export class Thread implements ThreadInterface {
             renderer,
             tools: toolDescriptors,
             context,
-            execute: (subscriber) => runAgentLoop({ ...loopArgs, subscriber }),
+            execute: (subscriber, canonicalRun) =>
+              runAgentLoop({
+                ...loopArgs,
+                subscriber,
+                ...(canonicalRun ? { canonicalRun } : {}),
+              }),
           })
         : await runAgentLoop(loopArgs);
       stage = "finalize";
