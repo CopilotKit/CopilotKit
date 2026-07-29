@@ -33,17 +33,97 @@ const WORKFLOW_PATH = join(
   "showcase_build.yml",
 );
 
+interface WorkflowStep {
+  name?: string;
+  run?: string;
+  env?: Record<string, string>;
+  with?: Record<string, string>;
+}
+
+interface WorkflowJob {
+  if?: string;
+  needs?: string[] | string;
+  outputs?: Record<string, string>;
+  steps?: WorkflowStep[];
+}
+
+function readWorkflow(): { jobs: Record<string, WorkflowJob> } {
+  return parseYaml(readFileSync(WORKFLOW_PATH, "utf8"));
+}
+
 /** Read the LIVE `if:` expression of the given job from the workflow YAML. */
 function readJobGuard(jobId: string): string {
-  const doc = parseYaml(readFileSync(WORKFLOW_PATH, "utf8")) as {
-    jobs: Record<string, { if?: string }>;
-  };
-  const job = doc.jobs[jobId];
+  const job = readWorkflow().jobs[jobId];
   if (!job) throw new Error(`Job '${jobId}' not found in ${WORKFLOW_PATH}`);
   if (typeof job.if !== "string") {
     throw new Error(`Job '${jobId}' has no string 'if:' guard`);
   }
   return job.if;
+}
+
+/** Read the LIVE `run:` script of a named step of a named job. */
+function readStepScript(jobId: string, stepName: string): string {
+  const job = readWorkflow().jobs[jobId];
+  if (!job) throw new Error(`Job '${jobId}' not found in ${WORKFLOW_PATH}`);
+  const step = (job.steps ?? []).find((s) => s.name === stepName);
+  if (!step) {
+    throw new Error(`Step '${stepName}' not found in job '${jobId}'`);
+  }
+  if (typeof step.run !== "string") {
+    throw new Error(
+      `Step '${stepName}' of job '${jobId}' has no 'run:' script`,
+    );
+  }
+  return step.run;
+}
+
+/**
+ * Parse the LIVE `case "$BUILD_STATUS" in ... esac` block out of a per-slot
+ * result-writer step and return the function it implements:
+ * `job.status` → the `status` value recorded in the per-slot result artifact.
+ *
+ * This reads the REAL shell out of the REAL workflow rather than restating it,
+ * so deleting or altering an arm changes what these tests observe. That is the
+ * whole point: the per-slot artifact is the ONLY place a leg-level
+ * cancellation survives (GitHub's status functions are blind to it), so the
+ * mapping this `case` implements IS the alerting capability under test.
+ */
+function readSlotStatusMapper(
+  jobId: string,
+  stepName: string,
+): (jobStatus: string) => string {
+  const script = readStepScript(jobId, stepName);
+  const block = script.match(
+    /case\s+"\$BUILD_STATUS"\s+in\s*\n([\s\S]*?)\n\s*esac/,
+  );
+  if (!block) {
+    throw new Error(
+      `No 'case "$BUILD_STATUS" in ... esac' block in step '${stepName}' of job '${jobId}'`,
+    );
+  }
+  const arms: { patterns: string[]; status: string }[] = [];
+  const armRe = /^\s*([^)\n]+?)\)\s*STATUS=(\S+)\s*;;\s*$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = armRe.exec(block[1])) !== null) {
+    arms.push({
+      patterns: m[1].split("|").map((p) => p.trim()),
+      status: m[2],
+    });
+  }
+  if (arms.length === 0) {
+    throw new Error(
+      `Parsed zero case arms in step '${stepName}' of job '${jobId}' — the parser has drifted from the YAML`,
+    );
+  }
+  return (jobStatus: string) => {
+    for (const arm of arms) {
+      // `*` is the only glob these arms use; everything else is a literal.
+      if (arm.patterns.some((p) => p === "*" || p === jobStatus)) {
+        return arm.status;
+      }
+    }
+    throw new Error(`No case arm matched job.status='${jobStatus}'`);
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -302,6 +382,21 @@ function contextFor(
             }
           : { any_success: "", any_cancelled: "", cancelled_services: "" },
       },
+      // The STARTER lane, as it looks on a showcase-only change: no starter
+      // paths changed, so `detect-starter-changes` reports 'false',
+      // `redeploy-staging-starters` is skipped by its own guard, and a skipped
+      // job's outputs resolve to the EMPTY STRING. Modelled explicitly (rather
+      // than omitted) because `notify` reads
+      // `redeploy-staging-starters.outputs.any_cancelled`, and because '' is
+      // exactly what keeps the starter clause from adding noise here.
+      "detect-starter-changes": { outputs: { has_changes: "false" } },
+      "check-lockfile": { result: "success" },
+      "verify-image-refs": { result: "success" },
+      "build-starters": { result: "skipped" },
+      "redeploy-staging": { result: "success" },
+      "redeploy-staging-starters": {
+        outputs: { any_cancelled: "", cancelled_starters: "" },
+      },
     },
   };
 }
@@ -361,8 +456,23 @@ function starterContextFor(
  * enforced one level down.
  */
 function starterRedeployStepRuns(legResults: readonly string[]): boolean {
-  return legResults.includes("success");
+  // Derived through the LIVE case block, not restated: the CSV is built from
+  // records whose recorded `status` is `success`.
+  return legResults.some((leg) => recordStarterSlot(leg) === "success");
 }
+
+/**
+ * The LIVE `job.status` → recorded-`status` mapping for each lane's per-slot
+ * result writer, parsed out of the workflow's own shell.
+ */
+const recordShowcaseSlot = readSlotStatusMapper(
+  "build",
+  "Write per-slot build result",
+);
+const recordStarterSlot = readSlotStatusMapper(
+  "build-starters",
+  "Write per-slot starter build result",
+);
 
 describe("redeploy-staging guard — matrix cancellation regression", () => {
   const guard = readJobGuard("redeploy-staging");
@@ -640,5 +750,290 @@ describe("notify-cancelled-builds guard", () => {
 
   it("does NOT fire when there were no changes to build", () => {
     expect(jobRuns(guard, contextFor([], { hasChanges: false }))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression guard for the SILENT PARTIAL-CANCEL hole in the STARTER lane.
+//
+// #6171 closed this hole for the showcase `build` lane only. The starter lane
+// (`detect-starter-changes` → `build-starters` → `redeploy-staging-starters`)
+// kept laundering `job.status: cancelled` into `skipped` in its per-slot
+// result writer:
+//
+//     case "$BUILD_STATUS" in
+//       success) STATUS=success ;;
+//       failure) STATUS=failure ;;
+//       *)       STATUS=skipped ;;    # ← cancelled lands here
+//     esac
+//
+// The per-slot artifact is the ONLY place a leg-level cancellation survives:
+// `cancelled()` is workflow-scoped (a killed leg does not cancel the RUN) and
+// a CANCELLED ancestor did not FAIL, so `failure()` is false too — both
+// measured on probe run 30166429073. With `cancelled` collapsed to `skipped`,
+// a starter slot killed by `timeout-minutes` was indistinguishable from one
+// that legitimately never built, so:
+//   - the two fail-loud checks in `redeploy-staging-starters` are both gated
+//     on `build-starters.result == 'success'` — and a cancelled leg rolls the
+//     matrix up to `cancelled`, so neither can fire;
+//   - `notify`'s three clauses were all keyed on the SHOWCASE aggregator, so
+//     on a starter-only change (`detect-changes.has_changes == 'false'`) the
+//     aggregator is skipped, its outputs are `''`, and `notify` was SKIPPED;
+//   - nothing redded the run, and nothing named the starter to re-run.
+// Net: no alert, no red, no `:latest` advance, no self-heal.
+// ---------------------------------------------------------------------------
+describe("build-starters per-slot writer — cancelled must not be laundered", () => {
+  it("records a timeout-killed starter slot as 'cancelled', NOT 'skipped'", () => {
+    // RED on pre-fix main: the `*)` catch-all returns 'skipped', which is
+    // excluded from BOTH the redeploy success-set and any cancelled-slot
+    // alert — the laundering that made the whole lane silent.
+    expect(recordStarterSlot("cancelled")).toBe("cancelled");
+  });
+
+  it("records the other job.status values unchanged", () => {
+    expect(recordStarterSlot("success")).toBe("success");
+    expect(recordStarterSlot("failure")).toBe("failure");
+  });
+
+  it("keeps the defensive catch-all conservative (unknown → skipped)", () => {
+    // `skipped` is the conservative fallback for a hypothetical fourth
+    // job.status: excluded from the redeploy set AND from the alert.
+    expect(recordStarterSlot("some-future-github-status")).toBe("skipped");
+  });
+
+  it("is byte-for-byte equivalent to the showcase lane's mapping", () => {
+    // The two lanes' per-slot writers must agree on the contract; a drift
+    // between them is exactly how the starter hole survived #6171.
+    for (const status of [
+      "success",
+      "failure",
+      "cancelled",
+      "some-future-github-status",
+    ]) {
+      expect(recordStarterSlot(status)).toBe(recordShowcaseSlot(status));
+    }
+  });
+
+  it("does not let a cancelled starter into the redeploy set", () => {
+    // Unchanged invariant: a slot that pushed no image can never be deployed.
+    expect(recordStarterSlot("cancelled")).not.toBe("success");
+    expect(starterRedeployStepRuns(["cancelled", "cancelled"])).toBe(false);
+    expect(starterRedeployStepRuns(["success", "cancelled"])).toBe(true);
+  });
+});
+
+/**
+ * Build a GH context for the jobs that consume the starter lane's
+ * cancelled-slot outputs. `any_cancelled` / `cancelled_starters` are derived
+ * from the per-slot records THROUGH THE LIVE CASE BLOCK — so if the writer
+ * ever launders `cancelled` again, these contexts stop reporting it and every
+ * assertion below flips, exactly as production would.
+ *
+ * `redeploy-staging-starters` is skipped (outputs `''`, not `'false'`) when the
+ * whole RUN is cancelled or there are no starter changes, mirroring its own
+ * `!cancelled() && has_changes == 'true'` guard.
+ *
+ * `detect-changes.has_changes` is 'false' and the showcase aggregator's outputs
+ * are `''` throughout: this models a STARTER-ONLY change, the exact shape on
+ * which `notify` was silent.
+ */
+function starterCancelContextFor(
+  legResults: readonly string[],
+  opts: { runCancelled?: boolean; hasChanges?: boolean } = {},
+): GhContext {
+  const runCancelled = opts.runCancelled ?? false;
+  const hasChanges = opts.hasChanges ?? true;
+  const cancelled = legResults
+    .map((leg, i) => ({
+      service: `starter-${i}`,
+      status: recordStarterSlot(leg),
+    }))
+    .filter((r) => r.status === "cancelled")
+    .map((r) => r.service);
+  const starterRedeployRan = !runCancelled && hasChanges;
+  return {
+    runCancelled,
+    needs: {
+      "detect-changes": { outputs: { has_changes: "false" } },
+      "detect-starter-changes": {
+        outputs: { has_changes: String(hasChanges) },
+      },
+      "check-lockfile": { result: "success" },
+      "verify-image-refs": { result: "success" },
+      build: { result: "skipped" },
+      "build-starters": { result: rollupBuildResult(legResults) },
+      "aggregate-build-results": {
+        outputs: { any_success: "", any_cancelled: "", cancelled_services: "" },
+      },
+      "redeploy-staging": { result: "skipped" },
+      "redeploy-staging-starters": {
+        outputs: starterRedeployRan
+          ? {
+              any_cancelled: String(cancelled.length > 0),
+              cancelled_starters: cancelled.join(","),
+            }
+          : { any_cancelled: "", cancelled_starters: "" },
+      },
+    },
+  };
+}
+
+describe("notify-cancelled-starter-builds guard", () => {
+  // Read lazily (inside each test) so a MISSING job fails these tests
+  // individually instead of blowing up collection for the whole file.
+  const runs = (ctx: GhContext) =>
+    jobRuns(
+      readJobGuard("notify-cancelled-starter-builds"),
+      ctx,
+      "build-starters",
+    );
+
+  it("fires on a partial starter cancel (some built, one killed by timeout)", () => {
+    const legs = [...Array(5).fill("success"), "cancelled"];
+    const ctx = starterCancelContextFor(legs);
+    // Every pre-existing signal goes the wrong way — this is the hole.
+    expect(rollupBuildResult(legs)).toBe("cancelled"); // so the `== 'success'`-gated fail-louds are inert
+    expect(anyDepFailed(ctx)).toBe(false); // failure() === false
+    expect(ctx.runCancelled).toBe(false); // cancelled() === false
+    expect(runs(ctx)).toBe(true); // ...and the new guard still fires
+  });
+
+  it("fires when every starter leg was cancelled", () => {
+    expect(runs(starterCancelContextFor(Array(6).fill("cancelled")))).toBe(
+      true,
+    );
+  });
+
+  it("does NOT fire on a clean starter build", () => {
+    expect(runs(starterCancelContextFor(Array(6).fill("success")))).toBe(false);
+  });
+
+  it("does NOT fire on an all-FAILED starter build (that is notify's job)", () => {
+    expect(runs(starterCancelContextFor(Array(6).fill("failure")))).toBe(false);
+  });
+
+  it("does NOT fire when a human cancelled the whole RUN (intentional)", () => {
+    const legs = [...Array(5).fill("success"), "cancelled"];
+    expect(runs(starterCancelContextFor(legs, { runCancelled: true }))).toBe(
+      false,
+    );
+  });
+
+  it("does NOT fire when there were no starter changes", () => {
+    expect(runs(starterCancelContextFor([], { hasChanges: false }))).toBe(
+      false,
+    );
+  });
+});
+
+describe("notify guard — starter-only partial cancel", () => {
+  const guard = readJobGuard("notify");
+  const runs = (ctx: GhContext) => jobRuns(guard, ctx, "build-starters");
+
+  /**
+   * The pre-fix `notify` guard, verbatim from origin/main at the time the
+   * starter hole was found. Pinned as a literal so these tests prove the
+   * DIFFERENCE the fix makes rather than merely restating current behaviour.
+   */
+  const PRE_FIX_GUARD = `\${{ !cancelled()
+          && (failure()
+              || needs.aggregate-build-results.outputs.any_success == 'false'
+              || needs.aggregate-build-results.outputs.any_cancelled == 'true') }}`;
+
+  const partialCancelLegs = [...Array(5).fill("success"), "cancelled"];
+
+  it("RED: the pre-fix guard stays SILENT on a starter-only partial cancel", () => {
+    const ctx = starterCancelContextFor(partialCancelLegs);
+    // A starter-only change skips the showcase aggregator, so all three of the
+    // pre-fix clauses read '' or false. No Slack, no PR comment.
+    expect(jobRuns(PRE_FIX_GUARD, ctx, "build-starters")).toBe(false);
+  });
+
+  it("GREEN: the live guard FIRES on a starter-only partial cancel", () => {
+    expect(runs(starterCancelContextFor(partialCancelLegs))).toBe(true);
+  });
+
+  it("adds no noise: silent on a clean starter-only build", () => {
+    expect(runs(starterCancelContextFor(Array(6).fill("success")))).toBe(false);
+  });
+
+  it("adds no noise: silent when a human cancels the whole RUN", () => {
+    const ctx = starterCancelContextFor(partialCancelLegs, {
+      runCancelled: true,
+    });
+    expect(runs(ctx)).toBe(false);
+  });
+
+  it("adds no noise: silent when there were no starter changes", () => {
+    expect(runs(starterCancelContextFor([], { hasChanges: false }))).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The expression model above proves the GUARDS fire on the right shapes, but
+// it derives `any_cancelled` in TypeScript. These assertions pin the WIRING in
+// between — the parts that carry the signal from the per-slot artifact to the
+// guard — so deleting any single link breaks a test rather than silently
+// re-opening the hole:
+//   build-starters writer records `cancelled`   (covered by recordStarterSlot)
+//     → redeploy-staging-starters derives it from the records   (here)
+//     → and publishes it as a job output                        (here)
+//     → notify-cancelled-starter-builds reads that output       (here)
+//     → and exits non-zero so the run goes RED, not `cancelled` (here)
+// ---------------------------------------------------------------------------
+describe("starter cancelled-slot signal — end-to-end wiring", () => {
+  const workflow = readWorkflow();
+
+  it("redeploy-staging-starters derives the signal from the per-slot records", () => {
+    const script = readStepScript(
+      "redeploy-staging-starters",
+      "Compute successfully-built starter services",
+    );
+    // It must select on the RECORDED status the writer emits — not on the
+    // matrix, not on the rollup.
+    expect(script).toMatch(/select\(\s*\.status\s*==\s*"cancelled"\s*\)/);
+    // ...and publish both halves to $GITHUB_OUTPUT.
+    expect(script).toMatch(/any_cancelled=true/);
+    expect(script).toMatch(/any_cancelled=false/);
+    expect(script).toMatch(/cancelled_starters=\$cancelled_starters/);
+  });
+
+  it("redeploy-staging-starters exposes the signal as job outputs", () => {
+    const job = workflow.jobs["redeploy-staging-starters"];
+    expect(job.outputs?.any_cancelled).toContain(
+      "steps.changed.outputs.any_cancelled",
+    );
+    expect(job.outputs?.cancelled_starters).toContain(
+      "steps.changed.outputs.cancelled_starters",
+    );
+  });
+
+  it("notify-cancelled-starter-builds consumes that output and reds the run", () => {
+    const guard = readJobGuard("notify-cancelled-starter-builds");
+    expect(guard).toContain(
+      "needs.redeploy-staging-starters.outputs.any_cancelled",
+    );
+    const job = workflow.jobs["notify-cancelled-starter-builds"];
+    expect(job.needs).toContain("redeploy-staging-starters");
+    // Step 1 must exit non-zero: that is what turns the run's conclusion from
+    // `cancelled` (which suppresses downstream verification) into `failure`.
+    const redStep = (job.steps ?? [])[0];
+    expect(redStep?.run).toMatch(/exit 1/);
+    // Step 2 must alert, naming the cancelled starters.
+    const alertStep = (job.steps ?? [])[1];
+    expect(alertStep?.with?.payload).toContain(
+      "needs.redeploy-staging-starters.outputs.cancelled_starters",
+    );
+  });
+
+  it("notify's PR comment names the cancelled starters", () => {
+    const job = workflow.jobs["notify"];
+    const comment = (job.steps ?? []).find((s) => s.name === "Comment on PR");
+    expect(comment?.env?.CANCELLED_STARTERS).toContain(
+      "needs.redeploy-staging-starters.outputs.cancelled_starters",
+    );
+    expect(comment?.with?.script).toContain("CANCELLED_STARTERS");
   });
 });

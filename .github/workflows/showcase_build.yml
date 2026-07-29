@@ -225,6 +225,13 @@ jobs:
           GITHUB_REF_NAME_ENV: ${{ github.ref_name }}
           FILTER_CHANGES: ${{ steps.filter.outputs.changes }}
         run: |
+          # `set -euo pipefail` (the sibling "Build starter matrix" step has it,
+          # this one did not): without it, a failing `jq` in the MATRIX=$(...)
+          # assignment below leaves MATRIX empty, the step still exits 0, and it
+          # writes `matrix=` plus `has_changes=true` — which surfaces much later
+          # as an opaque `fromJSON('')` error in the `build` job's strategy
+          # instead of a clear failure here.
+          set -euo pipefail
           # Full service config as JSON
           # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path, skip_build
           # skip_build (optional, boolean): when true, the Docker build step
@@ -814,21 +821,42 @@ jobs:
         run: |
           # Mirror of the main `build` matrix's per-slot result write
           # (see "Write per-slot build result" above). job.status is one of
-          # success, failure, cancelled; normalize cancelled→skipped to match
-          # the same {service,status} shape. We publish per-slot via artifact
+          # success, failure, cancelled; each is recorded VERBATIM, in the
+          # same {service,status} shape. We publish per-slot via artifact
           # because matrix-slot outputs aren't aggregable across slots.
+          #
+          # `cancelled` used to be laundered into `skipped` by the `*)`
+          # catch-all here — the same one-line bug #6171 fixed in the
+          # showcase lane, left un-fixed in this one. This artifact is the
+          # ONLY place a leg-level cancellation survives, because GitHub's
+          # status functions cannot see it: `cancelled()` is workflow-scoped
+          # (a leg killed by `timeout-minutes` does not cancel the RUN) and a
+          # CANCELLED ancestor did not FAIL, so `failure()` is false too —
+          # both measured on probe run 30166429073. Collapsed to `skipped`, a
+          # timed-out starter was indistinguishable from one that never
+          # built, and BOTH fail-loud checks in redeploy-staging-starters are
+          # gated on `build-starters.result == 'success'` — which a cancelled
+          # leg rolls up to `cancelled`. Net: no alert, no red run, no
+          # `:latest` advance, no self-heal. Keep it distinct.
+          #
+          # The `*)` catch-all stays as a defensive fallback in case GitHub
+          # ever introduces a fourth job.status value; `skipped` is the
+          # conservative choice because it is excluded from both the redeploy
+          # success-set and the cancelled-slot alert.
           #
           # IMPORTANT: starter artifacts use the `starter-build-result-*`
           # prefix, NOT `build-result-*`. The aggregate-build-results job
           # downloads every `build-result-*` and feeds it to the showcase
           # redeploy set (keyed by showcase dispatch_name). Starters are a
           # separate namespace and must NOT pollute that intersection, so
-          # they get their own prefix. This artifact exists to give the
-          # `notify` job a durable per-starter failure surface.
+          # they get their own prefix. This artifact is what gives the
+          # `notify` and `notify-cancelled-starter-builds` jobs a durable
+          # per-starter failure surface.
           case "$BUILD_STATUS" in
-            success) STATUS=success ;;
-            failure) STATUS=failure ;;
-            *)       STATUS=skipped ;;
+            success)   STATUS=success ;;
+            failure)   STATUS=failure ;;
+            cancelled) STATUS=cancelled ;;
+            *)         STATUS=skipped ;;
           esac
           mkdir -p "$RUNNER_TEMP/starter-build-result"
           printf '{"service":"%s","status":"%s"}\n' "$SERVICE" "$STATUS" \
@@ -1114,6 +1142,18 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: read
+    # Starter analogue of aggregate-build-results' `any_cancelled` /
+    # `cancelled_services`. They are the ONLY downstream signal that one or
+    # more starter build slots were cancelled (in practice: killed by
+    # `timeout-minutes`), derived from the per-slot artifacts rather than from
+    # GitHub's status functions, which are blind to a leg-level cancellation —
+    # see the `notify-cancelled-starter-builds` job below. This job already
+    # downloads and parses every per-slot starter result, so the derivation
+    # rides along here instead of standing up a second aggregator job (the
+    # same reason the success intersection lives here).
+    outputs:
+      any_cancelled: ${{ steps.changed.outputs.any_cancelled }}
+      cancelled_starters: ${{ steps.changed.outputs.cancelled_starters }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -1165,6 +1205,22 @@ jobs:
             records="$(find "$RESULTS_DIR" -name result.json -exec cat {} + \
               | jq -sc '.')"
           fi
+          # Cancelled-slot signal, published FIRST so it survives every exit
+          # path below. A starter slot killed by `timeout-minutes` reports
+          # job.status=cancelled and pushes NO image; the per-slot artifact is
+          # the only place that survives (see build-starters' writer and the
+          # `notify-cancelled-starter-builds` job). Emitted unconditionally so
+          # a clean run publishes an explicit 'false' rather than an empty
+          # string — the alert guard tests for 'true', and a SKIPPED job's
+          # outputs are '' either way.
+          cancelled_starters="$(echo "$records" \
+            | jq -r '[.[] | select(.status == "cancelled") | .service] | join(",")')"
+          if [ -n "$cancelled_starters" ]; then
+            echo "any_cancelled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any_cancelled=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "cancelled_starters=$cancelled_starters" >> "$GITHUB_OUTPUT"
           # Fail-loud artifact-completeness check (Finding 2): every matrix slot
           # writes a result.json ("Write per-slot starter build result" runs
           # `if: always()`), so when ALL slots built (build-starters.result ==
@@ -1374,6 +1430,83 @@ jobs:
           payload: |
             { "text": ${{ toJSON(format(':warning: *Showcase build INCOMPLETE — slots cancelled*{5}Cancelled (no image pushed): `{4}`{5}Staging keeps the previous :latest for those services.{5}Commit: `{0}` by {1}{5}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, needs.aggregate-build-results.outputs.cancelled_services, fromJSON('"\n"'))) }} }
 
+  notify-cancelled-starter-builds:
+    name: Notify cancelled/timed-out starter build slots
+    needs: [detect-starter-changes, redeploy-staging-starters]
+    # ── Why this job exists ───────────────────────────────────────────────
+    #
+    # Starter analogue of `notify-cancelled-builds` above. #6171 closed the
+    # silent-partial-cancel hole for the showcase `build` lane only; the
+    # starter lane kept laundering `job.status: cancelled` into `skipped` in
+    # its per-slot writer, so a starter slot killed by `timeout-minutes`
+    # produced NOTHING: no alert, no red run, no `:latest` advance for that
+    # starter, and no self-heal.
+    #
+    # Every pre-existing guard was blind to it, for the reasons measured on
+    # probe run 30166429073 and documented on `notify-cancelled-builds`:
+    #   - `cancelled()` is workflow-scoped → FALSE (the RUN wasn't cancelled);
+    #   - a CANCELLED ancestor did not FAIL → `failure()` FALSE;
+    #   - `build-starters.result` rolls up to `cancelled`, so BOTH fail-loud
+    #     checks in `redeploy-staging-starters` — each gated on
+    #     `== 'success'` — are inert;
+    #   - `notify`'s three clauses were all keyed on the SHOWCASE aggregator,
+    #     which on a starter-only change is itself skipped (its outputs are
+    #     '', not 'false'), so `notify` was SKIPPED too.
+    # The only signal that survives is the per-slot one, which is why the
+    # writer must record `cancelled` verbatim and this job reads it from
+    # `redeploy-staging-starters.outputs.any_cancelled`.
+    #
+    # Like its showcase sibling, this job does the two things a cancelled
+    # slot must do:
+    #   1. RED THE RUN (step 1 exits 1) so the conclusion is `failure`, not
+    #      `cancelled`. A slot killed by its timeout budget IS a failure, and
+    #      `cancelled` is precisely the state that suppressed everything.
+    #   2. ALERT, naming the affected starters so the run can be re-run with
+    #      "Re-run failed jobs".
+    # It does NOT block the healthy subset: `redeploy-staging-starters` has
+    # already redeployed exactly the starters that built.
+    #
+    # `!cancelled()` is the intentional-vs-flake discriminator, same as the
+    # showcase sibling: a human cancelling the whole RUN keeps this silent,
+    # while a leg-level timeout leaves `cancelled()` FALSE so the alert
+    # fires. Belt and braces: on a run-level cancel
+    # `redeploy-staging-starters` is itself skipped by its own `!cancelled()`
+    # guard, so `any_cancelled` would be '' rather than 'true' anyway.
+    if: >-
+      ${{ !cancelled()
+          && needs.detect-starter-changes.outputs.has_changes == 'true'
+          && needs.redeploy-staging-starters.outputs.any_cancelled == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    steps:
+      - name: Mark workflow red (starter build incomplete)
+        env:
+          CANCELLED_STARTERS: ${{ needs.redeploy-staging-starters.outputs.cancelled_starters }}
+        run: |
+          echo "::error::Starter build INCOMPLETE — these starter slots were cancelled (typically killed by timeout-minutes) and pushed NO image: ${CANCELLED_STARTERS}"
+          echo "Those starters were correctly excluded from the staging redeploy (matrix ∩ build-success), so staging still serves their previous :latest."
+          echo "Re-run the failed jobs on this run to finish the starter fleet."
+          exit 1
+      - name: Slack #oss-alerts
+        # `always()` so the alert still goes out after step 1 deliberately
+        # exits non-zero to red the run.
+        if: always() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # NOTE: `\n` is NOT an escape sequence in GitHub Actions expression
+          # string literals — `format()` would emit the two literal characters
+          # backslash+n, which `toJSON` then encodes as `\\n`, so Slack renders
+          # a literal "\n". Inject real newlines via `fromJSON('"\n"')` ({5}) so
+          # `toJSON` encodes them as a single `\n` that Slack honors.
+          payload: |
+            { "text": ${{ toJSON(format(':warning: *Starter build INCOMPLETE — slots cancelled*{5}Cancelled (no image pushed): `{4}`{5}Staging keeps the previous :latest for those starters.{5}Commit: `{0}` by {1}{5}<https://github.com/{2}/actions/runs/{3}|View run>', github.sha, github.actor, github.repository, github.run_id, needs.redeploy-staging-starters.outputs.cancelled_starters, fromJSON('"\n"'))) }} }
+
   notify:
     name: Notify on failure
     # Cover the whole detect→build→aggregate→redeploy pipeline. `needs: [build]`
@@ -1434,11 +1567,23 @@ jobs:
     # equals 'true'. `notify-cancelled-builds` fires alongside this job on
     # that path; two alerts for one event is the same convention already used
     # by `notify-all-builds-failed` + this job, and matches the alert SOP.
+    #
+    # The fourth clause is the STARTER-lane equivalent, and it is not
+    # redundant with the third: all three showcase clauses are keyed on the
+    # showcase aggregator, and on a starter-only change
+    # (`detect-changes.has_changes == 'false'`) that aggregator is skipped, so
+    # its outputs are '' — every showcase clause goes false and this job was
+    # SKIPPED on an incomplete starter build. That is the only path on which
+    # the merge author gets a PR comment. Same no-noise argument as above: a
+    # starter build with no cancelled slot emits `any_cancelled=false`, and a
+    # push with no starter changes skips `redeploy-staging-starters` so the
+    # output is '' — neither equals 'true'.
     if: >-
       ${{ !cancelled()
           && (failure()
               || needs.aggregate-build-results.outputs.any_success == 'false'
-              || needs.aggregate-build-results.outputs.any_cancelled == 'true') }}
+              || needs.aggregate-build-results.outputs.any_cancelled == 'true'
+              || needs.redeploy-staging-starters.outputs.any_cancelled == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -1465,8 +1610,11 @@ jobs:
         env:
           # Non-empty only on the partial-cancel path, where the generic
           # "the build failed" wording would be wrong (most slots built and
-          # were redeployed; a subset was killed mid-build).
+          # were redeployed; a subset was killed mid-build). Two vars, one per
+          # lane — a combined push can have cancelled slots in either or both,
+          # and the script joins them into one list.
           CANCELLED_SERVICES: ${{ needs.aggregate-build-results.outputs.cancelled_services }}
+          CANCELLED_STARTERS: ${{ needs.redeploy-staging-starters.outputs.cancelled_starters }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -1480,7 +1628,11 @@ jobs:
               console.log('No merged PR found for this commit — skipping comment');
               return;
             }
-            const cancelled = (process.env.CANCELLED_SERVICES || '')
+            const cancelled = [
+              process.env.CANCELLED_SERVICES || '',
+              process.env.CANCELLED_STARTERS || '',
+            ]
+              .join(',')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);
