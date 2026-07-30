@@ -1,4 +1,7 @@
-import type { Channel } from "@copilotkit/channels-core";
+import type {
+  Channel,
+  ReplyContinuationOptions,
+} from "@copilotkit/channels-core";
 import type { Message } from "@ag-ui/client";
 import {
   assertValidChannelNames,
@@ -97,6 +100,8 @@ export interface StartChannelsWithGatewayControlOptions {
   log?: (message: string, meta?: unknown) => void;
   /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
+  /** Continuation-message tuning forwarded to the Slack renderer. */
+  replyContinuation?: ReplyContinuationOptions;
   /** Execute one outer Channel run through the runtime's standard runner. */
   runCanonical(
     args: CanonicalChannelRunArgs,
@@ -144,6 +149,7 @@ export async function startChannelsWithGatewayControl(
       ...(store ? { store } : {}),
       ...(opts.log ? { log: opts.log } : {}),
       showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
+      replyContinuation: opts.replyContinuation ?? channel.replyContinuation,
     }),
   );
   await channel.ɵruntime.start();
@@ -236,6 +242,8 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   log?: (message: string, meta?: unknown) => void;
   /** Override managed provider tool-call visibility; omission is forwarded. */
   showToolStatus?: boolean;
+  /** Continuation-message tuning forwarded to the Slack renderer. */
+  replyContinuation?: ReplyContinuationOptions;
   /** Execute one outer Channel run through the runtime's standard runner. */
   runCanonical(
     args: CanonicalChannelRunArgs,
@@ -315,6 +323,7 @@ export async function startChannelsOverRealtimeGateway(
       ...(config.env ? { env: config.env } : {}),
       ...(config.log ? { log: config.log } : {}),
       showToolStatus: config.showToolStatus,
+      replyContinuation: config.replyContinuation,
     });
   } catch (err) {
     session.disconnect();

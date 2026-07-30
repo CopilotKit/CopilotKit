@@ -22,6 +22,7 @@ import type {
   UserQuery,
   EphemeralResult,
   NativePayload,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type {
@@ -81,6 +82,11 @@ export interface SlackAdapterOptions {
   interruptEventNames?: ReadonlySet<string>;
   /** Surface tool-call progress in Slack. Default false. */
   showToolStatus?: boolean;
+  /**
+   * Tuning for splitting a long reply across continuation messages once Slack's
+   * per-message ceiling is reached. See {@link ReplyContinuationOptions}.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   /**
    * Assistant-pane behavior ("Agents & AI Apps"). ON by default — the pane
    * activates whenever the app's Slack config has the toggle (see the README),
@@ -416,6 +422,15 @@ export class SlackAdapter implements PlatformAdapter {
         onStartFailure: () => {
           this.nativeStreamingOk = false;
         },
+        ...(this.opts.replyContinuation?.messageByteLimit !== undefined
+          ? { messageByteLimit: this.opts.replyContinuation.messageByteLimit }
+          : {}),
+        ...(this.opts.replyContinuation?.maxMessages !== undefined
+          ? { maxMessages: this.opts.replyContinuation.maxMessages }
+          : {}),
+        ...(this.opts.replyContinuation?.truncationMarker !== undefined
+          ? { truncationMarker: this.opts.replyContinuation.truncationMarker }
+          : {}),
       });
     } else {
       sink = makeLegacy();
@@ -624,6 +639,9 @@ export class SlackAdapter implements PlatformAdapter {
             onChunkFailure: () => {
               this.nativeTaskChunksOk = false;
             },
+            ...(this.opts.replyContinuation !== undefined
+              ? { replyContinuation: this.opts.replyContinuation }
+              : {}),
           }
         : undefined,
       // Native AI feedback row (opt-in); only attached to native streamed

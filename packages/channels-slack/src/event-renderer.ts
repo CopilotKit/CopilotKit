@@ -4,6 +4,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
@@ -116,6 +117,11 @@ export function createRunRenderer(args: {
     strict?: boolean;
     /** Override the native text flush floor. Managed sessions use `0`. */
     minIntervalMs?: number;
+    /**
+     * Tuning for splitting a long reply across continuation messages. Passed
+     * straight through to the turn stream; unset leaves its defaults.
+     */
+    replyContinuation?: ReplyContinuationOptions;
     onStartFailure?: (err: unknown) => void;
     /**
      * Whether structured `task_update` chunks are known to work on this
@@ -273,6 +279,15 @@ export function createRunRenderer(args: {
       onStartFailure: ns.onStartFailure,
       strict: ns.strict,
       minIntervalMs: ns.minIntervalMs,
+      ...(ns.replyContinuation?.messageByteLimit !== undefined
+        ? { messageByteLimit: ns.replyContinuation.messageByteLimit }
+        : {}),
+      ...(ns.replyContinuation?.maxMessages !== undefined
+        ? { maxMessages: ns.replyContinuation.maxMessages }
+        : {}),
+      ...(ns.replyContinuation?.truncationMarker !== undefined
+        ? { truncationMarker: ns.replyContinuation.truncationMarker }
+        : {}),
       onChunkFailure: () => {
         // Structured chunks unsupported on this workspace — degrade tool
         // progress to `:wrench:` rows for the rest of the run, and let the

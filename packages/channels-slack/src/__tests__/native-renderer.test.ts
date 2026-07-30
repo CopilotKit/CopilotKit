@@ -99,6 +99,34 @@ const chunksOf = (events: Event[]): AnyChunk[] =>
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
 describe("createRunRenderer — native streaming", () => {
+  it("forwards replyContinuation to the turn stream", async () => {
+    // The renderer is the seam between a caller's `replyContinuation` and
+    // NativeMessageStream's own options; without the pass-through the limits are
+    // silently ignored and a long reply stays in one (over-cap) message.
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport();
+    const { subscriber: sub, finish } = createRunRenderer({
+      transport: fake.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: {
+        transport: nt.transport,
+        replyContinuation: { messageByteLimit: 400, maxMessages: 2 },
+      },
+    });
+
+    await sub.onTextMessageStartEvent!({ event: { messageId: "m1" } } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "word ".repeat(500) },
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+    await finish!();
+
+    // Split by the configured byte limit and capped by maxMessages, rather than
+    // the 11k/20 defaults which would have produced a single message.
+    expect(nt.messages).toHaveLength(2);
+    expect(textOf(nt.messages[1]!.events)).toContain("reply truncated");
+  });
+
   it("streams multiple AG-UI messages into ONE turn message, separated by a blank line", async () => {
     const fake = makeFakeClient();
     const nt = makeFakeNativeTransport();

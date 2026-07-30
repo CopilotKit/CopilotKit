@@ -22,6 +22,7 @@ import type {
   StateStore,
   SurfaceCapabilities,
   UserQuery,
+  ReplyContinuationOptions,
 } from "@copilotkit/channels-core";
 import {
   createRunRenderer as createSlackRunRenderer,
@@ -84,6 +85,8 @@ export interface DeliveryAdapterOptions {
   store?: StateStore;
   log?: (message: string, meta?: unknown) => void;
   showToolStatus?: boolean;
+  /** Continuation-message tuning for long Slack replies. */
+  replyContinuation?: ReplyContinuationOptions;
 }
 
 /**
@@ -581,6 +584,9 @@ export class DeliveryAdapter implements PlatformAdapter {
       nativeStreaming: {
         strict: true,
         minIntervalMs: 0,
+        ...(this.options.replyContinuation !== undefined
+          ? { replyContinuation: this.options.replyContinuation }
+          : {}),
         transport: {
           startStream: async () => {
             providerReference = providerReferenceFromResult(

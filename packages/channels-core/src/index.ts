@@ -10,6 +10,7 @@ export type {
   Channel,
   CreateChannelOptions,
   ManagedChannelProvider,
+  ReplyContinuationOptions,
   ChannelHandler,
   ThreadStartHandler,
   ReactionEvent,
