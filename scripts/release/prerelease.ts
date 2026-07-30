@@ -19,7 +19,11 @@
  */
 
 import { spawn } from "child_process";
-import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
+import {
+  getCurrentVersion,
+  getPackagesForScope,
+  pinPrereleaseDependencies,
+} from "./lib/versions.js";
 import type { PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
@@ -166,6 +170,11 @@ async function main() {
   // The publish job receives pre-built artifacts via download-artifact.
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
+
+  // `workspace:^` packs to a caret range, which can select an incompatible,
+  // semver-higher canary. Keep packages from this run together with exact pins.
+  const pinned = pinPrereleaseDependencies(packages);
+  console.log(`Exact-pinned ${pinned} same-run canary dependency edge(s).`);
 
   // Publish via pnpm pack + the pinned OIDC-aware npm. Resolved ONCE up front:
   // see lib/npm-cli.ts for why this is not `npx npm@<v>` per package (npx
