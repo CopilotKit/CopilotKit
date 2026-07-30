@@ -57,6 +57,7 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
     });
     let loadCalls = 0;
     const gated = new DeliveryAdapter({
+      channelName: "support",
       transport: {} as never,
       runCanonical: async () => ({ iterations: 0, interrupted: false }),
       loadHistory: async () => {
