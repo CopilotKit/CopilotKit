@@ -140,7 +140,18 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 0
+          # Canaries need no git history: the prerelease path pushes no tag, cuts
+          # no GitHub Release, reads no commit range for release notes, and the
+          # build is `nx run-many` (NOT `nx affected`), so there is no merge base
+          # to resolve. Full history costs ~25-48s of clone time here AND rides
+          # along in the workspace artifact this job uploads.
+          #
+          # Stable releases MUST keep depth 0: the publish job resolves and
+          # pushes tags out of this checkout's .git (shipped via that artifact),
+          # and the release notes diff against the previous release tag.
+          # `inputs.mode` is empty on the merged-release-PR path, so that path
+          # correctly evaluates to 0.
+          fetch-depth: ${{ inputs.mode == 'prerelease' && 1 || 0 }}
           persist-credentials: false
 
       - name: Setup pnpm
@@ -152,6 +163,31 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
+          # Do NOT use cache: "pnpm" here — its key omits the Node.js version.
+          # Cached manually below with the node version in the key, matching
+          # test_unit.yml's reasoning.
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Without this, every job here installed all 4608 packages cold from the
+      # registry on every release. Usually ~45s, but it is npm-registry-bandwidth
+      # bound and therefore heavy-tailed: an observed canary spent 9m08s in this
+      # step on tarballs trickling in at 2-49 KiB/s.
+      #
+      # Cache-poisoning posture: `--frozen-lockfile` forbids resolution changes
+      # and pnpm verifies every store file against the lockfile's integrity
+      # hashes on link, so a tampered cache entry fails the install rather than
+      # injecting code. The worst case is a denied install, not a compromised
+      # publish.
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -197,6 +233,10 @@ jobs:
           name: workspace
           path: /tmp/workspace.tgz
           retention-days: 1
+          # The payload is already gzipped by "Pack workspace"; re-deflating it
+          # into the artifact zip burns time on both upload and download for
+          # ~no size win.
+          compression-level: 0
 
     outputs:
       scope: ${{ steps.meta.outputs.scope }}
@@ -272,6 +312,21 @@ jobs:
         with:
           node-version: 22.x
           registry-url: https://registry.npmjs.org
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Same cache as the build job (see the rationale there). This job is where
+      # the observed 9m08s cold-install stall happened, so the cache matters most
+      # here: it is the only step between a built artifact and a publish.
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
 
       # Restore node_modules — the build job excludes them from the
       # uploaded workspace artifact (see "Upload workspace" above). Uses
@@ -720,10 +775,21 @@ jobs:
     # always() so we still report on a failed lane, but guard on a real release
     # context: a workflow_dispatch (manual release) OR a *merged* PR. A
     # closed-unmerged PR is not a release attempt and must not notify.
+    #
+    # Canaries are excluded up front. For mode=prerelease the builder already
+    # returns should_post=false and the self-watchdog's Slack post is already
+    # gated off (npm_intended is false for a prerelease dispatch), so this job
+    # could only ever checkout + install + compute "post nothing" — ~85s of dead
+    # work sitting on the canary critical path, since canary.yml waits for the
+    # whole run. `inputs.python_publish == true` keeps the PyPI lane's
+    # notification and self-alert reachable under a prerelease-mode dispatch, and
+    # `inputs.mode` is empty on the merged-PR path so stable releases are
+    # unaffected.
     if: >
       always() &&
       (github.event_name == 'workflow_dispatch' ||
-        github.event.pull_request.merged == true)
+        github.event.pull_request.merged == true) &&
+      (inputs.mode != 'prerelease' || inputs.python_publish == true)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -801,6 +867,19 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22.x
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: echo "store-path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Same cache as the build job (see the rationale there).
+      - name: Cache pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
 
       # Restore node_modules so `pnpm tsx` (and the release-config import the
       # notifier does) resolves. The build/publish jobs install before running

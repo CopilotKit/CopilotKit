@@ -24,6 +24,7 @@ import type { PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
+import { resolvePublishNpm } from "./lib/npm-cli.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -130,7 +131,10 @@ function main() {
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
 
-  // Publish each package via pnpm pack + npx npm@11 (OIDC-aware)
+  // Publish each package via pnpm pack + the pinned OIDC-aware npm. Resolved
+  // ONCE up front: see lib/npm-cli.ts for why this is not `npx npm@<v>` per
+  // package (npx re-resolved the spec every time, ~16s of each package's ~21s).
+  const npmBin = resolvePublishNpm();
   console.log("\nPublishing packages...");
   for (const p of packages) {
     console.log(
@@ -138,20 +142,9 @@ function main() {
     );
     run("pnpm", ["pack"], { cwd: p.dir });
     const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
-    run(
-      "npx",
-      [
-        "--yes",
-        "npm@11.15.0",
-        "publish",
-        tarball,
-        "--tag",
-        distTag,
-        "--access",
-        "public",
-      ],
-      { cwd: p.dir },
-    );
+    run(npmBin, ["publish", tarball, "--tag", distTag, "--access", "public"], {
+      cwd: p.dir,
+    });
   }
 
   // The workflow's "Verify publish step emitted version" guard and the
