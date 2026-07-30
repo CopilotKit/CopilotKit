@@ -258,6 +258,53 @@ describe("Channel delivery transport", () => {
     ).rejects.toThrow(/packet path is closed/);
   });
 
+  it("still allows stream.stop after a permanent non-terminal failure", async () => {
+    const deliveryChannel = channel();
+    const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
+    let pushCount = 0;
+    vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
+      pushCount += 1;
+      const body = packet as { payload?: { kind?: string } };
+      if (body.payload?.kind === "slack.stream.append") {
+        return Promise.reject(
+          new RealtimeGatewayPushError("packet", "conflict", "append failed"),
+        );
+      }
+      return Promise.resolve({
+        ...(packet as object),
+        phase: "applied",
+        result: { providerReference: "pref_v1_message_01" },
+      });
+    });
+    const session = new ChannelDeliverySession(
+      preparedDelivery(),
+      {
+        ownerGeneration: 7,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryChannel,
+      vi.fn(),
+    );
+
+    await session.effect("response_01", { kind: "slack.stream.start" });
+    await expect(
+      session.effect("response_01", {
+        kind: "slack.stream.append",
+        providerReference: "pref_v1_message_01",
+        delta: "x",
+        beforeTextDigest: "a".repeat(64),
+        afterTextDigest: "b".repeat(64),
+      }),
+    ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
+
+    await session.effect("response_01", {
+      kind: "slack.stream.stop",
+      providerReference: "pref_v1_message_01",
+      finalTextDigest: "c".repeat(64),
+    });
+    expect(pushCount).toBeGreaterThanOrEqual(3);
+  });
+
   it("surfaces an applied provider failure as an already-terminal error", async () => {
     const deliveryChannel = channel();
     vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) =>

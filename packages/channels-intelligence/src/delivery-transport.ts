@@ -192,18 +192,16 @@ export class ChannelDeliverySession {
       const error = typeof result.error === "string" ? result.error : undefined;
       const status =
         typeof result.status === "string" ? result.status : undefined;
+      // Only explicit terminal statuses mean the gateway already terminalled.
       if (
-        error !== undefined ||
         status === "failed" ||
         status === "failed_before_output" ||
         status === "uncertain"
       ) {
-        // Gateway applied a terminal provider failure — seal further effects
-        // (a local terminal is still allowed unless gateway already terminalled).
         this.effectsClosed = true;
         throw new ChannelProviderDeliveryError(
           error ?? "provider_failed",
-          status ?? "failed",
+          status,
         );
       }
       this.providerOutputApplied = true;
@@ -322,13 +320,18 @@ export class ChannelDeliverySession {
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
+    // Stream stop must remain sendable after mid-stream effect failure so
+    // providers do not leave an open native stream (confirmation r4).
+    const isStreamStop =
+      typeof payload.kind === "string" && payload.kind.endsWith(".stream.stop");
+    const isCleanupPacket = isTerminal || isStreamStop;
     const operation = this.tail.then(async () => {
       if (this.terminalApplied) {
         throw new Error(
           `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
         );
       }
-      if (!isTerminal && this.effectsClosed) {
+      if (!isCleanupPacket && this.effectsClosed) {
         throw new Error(
           `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
         );
@@ -337,8 +340,8 @@ export class ChannelDeliverySession {
       this.unacknowledgedPacket = packet;
       try {
         // sendExactPacket retries the exact packet across soft transport
-        // reconnects; permanent non-terminal failures seal further effects
-        // but leave the path open for a terminal outcome packet.
+        // reconnects; permanent non-cleanup failures seal further effects
+        // but leave the path open for terminal + stream.stop packets.
         const acknowledgement = await this.sendExactPacket(packet);
         this.assertExactAcknowledgement(packet, acknowledgement);
         this.unacknowledgedPacket = undefined;
@@ -346,7 +349,7 @@ export class ChannelDeliverySession {
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
-        if (!isTerminal) {
+        if (!isCleanupPacket) {
           this.effectsClosed = true;
         }
         throw error;
@@ -541,13 +544,23 @@ export class ChannelDeliveryTransport {
         this.options.runtimeInstanceId,
       );
       let joined = await this.joinDelivery(deliveryId, owner, claim.joinToken!);
-      const delivery = assertPreparedDelivery(joined.joinReply, deliveryId);
+      let delivery: PreparedChannelDelivery;
+      try {
+        delivery = assertPreparedDelivery(joined.joinReply, deliveryId);
+      } catch (error) {
+        try {
+          joined.leave();
+        } catch {
+          // Best-effort leave after invalid join reply.
+        }
+        throw error;
+      }
       const reconnect = async (): Promise<{
         channel: RealtimeGatewayDeliveryChannel;
         owner: DeliveryOwner;
         deliveryExpiresAt?: string;
       }> => {
-        joined.leave();
+        const previous = joined;
         const refreshed = assertClaim(
           (await this.options.session.push(JOIN_TOKEN_EVENT, {
             protocol: CHANNEL_DELIVERY_PROTOCOL,
@@ -557,11 +570,17 @@ export class ChannelDeliveryTransport {
           deliveryId,
           this.options.runtimeInstanceId,
         );
-        joined = await this.joinDelivery(
+        const next = await this.joinDelivery(
           deliveryId,
           refreshed,
           refreshed.joinToken!,
         );
+        try {
+          previous.leave();
+        } catch {
+          // Prefer the new join; leaving the old topic is best-effort.
+        }
+        joined = next;
         const rejoinDelivery = assertPreparedDelivery(
           joined.joinReply,
           deliveryId,

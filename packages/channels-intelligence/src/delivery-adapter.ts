@@ -411,19 +411,25 @@ export class DeliveryAdapter implements PlatformAdapter {
         }),
       );
       let text = "";
+      let bodyError: unknown;
       try {
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
           const before = digest(text);
-          text += delta;
+          const nextText = text + delta;
           await target.session.effect(responseId, {
             kind: "slack.stream.append",
             providerReference,
             delta,
             beforeTextDigest: before,
-            afterTextDigest: digest(text),
+            afterTextDigest: digest(nextText),
           });
+          // Only advance local text after the append is applied.
+          text = nextText;
         }
+      } catch (error) {
+        bodyError = error;
+        throw error;
       } finally {
         // Always stop a started stream (append failure must not leave it open).
         try {
@@ -432,8 +438,9 @@ export class DeliveryAdapter implements PlatformAdapter {
             providerReference,
             finalTextDigest: digest(text),
           });
-        } catch {
-          // Best-effort stop; primary error already propagates from the try body.
+        } catch (stopError) {
+          // If the body succeeded, stop failure is the delivery failure.
+          if (bodyError === undefined) throw stopError;
         }
       }
     } else {
