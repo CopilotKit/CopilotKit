@@ -707,12 +707,22 @@ export function CopilotChatInput({
       textarea.style.maxHeight = `${maxHeight}px`;
     }
 
+    // Save cursor position before height reset — Chrome reflows on `height = "auto"`
+    // which resets selectionStart/End to the end of the text (issue #6167).
+    const { selectionStart, selectionEnd, selectionDirection } = textarea;
     textarea.style.height = "auto";
     const scrollHeight = textarea.scrollHeight;
     if (maxHeight) {
       textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     } else {
       textarea.style.height = `${scrollHeight}px`;
+    }
+    if (document.activeElement === textarea) {
+      textarea.setSelectionRange(
+        selectionStart,
+        selectionEnd,
+        selectionDirection as "forward" | "backward" | "none",
+      );
     }
 
     return scrollHeight;
