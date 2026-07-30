@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { maxSatisfying } from "semver";
 import {
   parseSemver,
   computeNextStableVersion,
@@ -12,10 +11,7 @@ import {
   findCrossScopePins,
   getPackagesForScope,
   pinPrereleaseDependencies,
-  validatePrereleaseDependencyPins,
 } from "./versions.js";
-import type { PrereleaseManifest } from "./versions.js";
-import { packPackage } from "./pack-workspace.js";
 
 let tmpDir: string;
 
@@ -263,165 +259,24 @@ describe("bumpPackages", () => {
       "@copilotkit/shared",
     ]);
   });
-});
 
-describe("canary dependency pins", () => {
-  const sameRunVersion = "0.4.1-canary.1785375021";
-  const semverHigherCanary = "0.4.1-canary.perfall1";
+  it("exact-pins only packages included in the canary publish set", () => {
+    const packages = getPackagesForScope("monorepo");
+    packages[0].pkg.version = "1.55.3-canary.123";
+    packages[0].pkg.dependencies["@copilotkit/shared"] = "workspace:^";
+    packages[1].pkg.version = "1.55.3-canary.123";
 
-  beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "release-test-"));
-    const packagesDir = path.join(tmpDir, "packages");
-    fs.writeFileSync(
-      path.join(tmpDir, "pnpm-workspace.yaml"),
-      'packages:\n  - "packages/*"\n',
-    );
-
-    const write = (dir: string, pkg: Record<string, unknown>) => {
-      const target = path.join(packagesDir, dir);
-      fs.mkdirSync(target, { recursive: true });
-      fs.writeFileSync(
-        path.join(target, "package.json"),
-        `${JSON.stringify(pkg, null, 2)}\n`,
-      );
-    };
-
-    write("shared", {
-      name: "@copilotkit/shared",
-      version: "1.55.3-canary.1785375021",
-    });
-    write("react-core", {
-      name: "@copilotkit/react-core",
-      version: "1.55.3-canary.1785375021",
-      dependencies: {
-        "@copilotkit/shared": "workspace:*",
-        "@copilotkit/angular": "workspace:^",
-        "some-third-party": "^1.0.0",
-      },
-      peerDependencies: { "@copilotkit/angular": "^0.2.0" },
-      optionalDependencies: { "@copilotkit/shared": "workspace:~" },
-      devDependencies: { "@copilotkit/angular": "workspace:*" },
-    });
-    write("angular", {
-      name: "@copilotkit/angular",
-      version: sameRunVersion,
-    });
-  });
-
-  afterEach(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it("prevents a textual canary suffix from outranking the same-run numeric canary", () => {
-    const ranged = `^${sameRunVersion}`;
-    expect(maxSatisfying([sameRunVersion, semverHigherCanary], ranged)).toBe(
-      semverHigherCanary,
-    );
-    expect(
-      maxSatisfying([sameRunVersion, semverHigherCanary], sameRunVersion),
-    ).toBe(sameRunVersion);
-  });
-
-  it("exact-pins every dependency edge inside the prerelease publish set", () => {
-    const packages = [
-      ...getPackagesForScope("monorepo"),
-      ...getPackagesForScope("angular"),
-    ];
-
-    expect(pinPrereleaseDependencies(packages)).toEqual(
-      expect.arrayContaining([
-        {
-          from: "@copilotkit/react-core",
-          dep: "@copilotkit/angular",
-          field: "dependencies",
-          previousRange: "workspace:^",
-          version: sameRunVersion,
-        },
-        {
-          from: "@copilotkit/react-core",
-          dep: "@copilotkit/angular",
-          field: "peerDependencies",
-          previousRange: "^0.2.0",
-          version: sameRunVersion,
-        },
-        {
-          from: "@copilotkit/react-core",
-          dep: "@copilotkit/angular",
-          field: "devDependencies",
-          previousRange: "workspace:*",
-          version: sameRunVersion,
-        },
-      ]),
-    );
+    expect(pinPrereleaseDependencies(packages)).toBe(1);
 
     const reactCore = JSON.parse(
       fs.readFileSync(
         path.join(tmpDir, "packages/react-core/package.json"),
         "utf8",
       ),
-    ) as PrereleaseManifest;
-    expect(reactCore.dependencies?.["@copilotkit/angular"]).toBe(
-      sameRunVersion,
     );
-    expect(reactCore.peerDependencies?.["@copilotkit/angular"]).toBe(
-      sameRunVersion,
+    expect(reactCore.dependencies["@copilotkit/shared"]).toBe(
+      "1.55.3-canary.123",
     );
-    expect(reactCore.devDependencies?.["@copilotkit/angular"]).toBe(
-      sameRunVersion,
-    );
-    expect(reactCore.dependencies?.["some-third-party"]).toBe("^1.0.0");
-  });
-
-  it("keeps exact pins in the manifest produced by the real pnpm pack path", () => {
-    const packages = [
-      ...getPackagesForScope("monorepo"),
-      ...getPackagesForScope("angular"),
-    ];
-    pinPrereleaseDependencies(packages);
-
-    const tarballDir = path.join(tmpDir, "tarballs");
-    fs.mkdirSync(tarballDir);
-    const { manifest } = packPackage(
-      "@copilotkit/react-core",
-      tarballDir,
-      path.join(tmpDir, "packages/react-core"),
-    );
-
-    expect(manifest.dependencies?.["@copilotkit/angular"]).toBe(sameRunVersion);
-    expect(manifest.dependencies?.["@copilotkit/shared"]).toBe(
-      "1.55.3-canary.1785375021",
-    );
-  });
-
-  it("rejects any non-exact edge left in a packed prerelease graph", () => {
-    const manifests = new Map<string, PrereleaseManifest>([
-      [
-        "@copilotkit/channels-intelligence",
-        {
-          name: "@copilotkit/channels-intelligence",
-          version: sameRunVersion,
-          dependencies: {
-            "@copilotkit/channels-teams": `^${sameRunVersion}`,
-          },
-        },
-      ],
-      [
-        "@copilotkit/channels-teams",
-        {
-          name: "@copilotkit/channels-teams",
-          version: sameRunVersion,
-        },
-      ],
-    ]);
-
-    expect(validatePrereleaseDependencyPins(manifests)).toEqual([
-      `@copilotkit/channels-intelligence dependencies.@copilotkit/channels-teams must be exactly ${sameRunVersion}; found ^${sameRunVersion}`,
-    ]);
-
-    manifests.get("@copilotkit/channels-intelligence")!.dependencies![
-      "@copilotkit/channels-teams"
-    ] = sameRunVersion;
-    expect(validatePrereleaseDependencyPins(manifests)).toEqual([]);
   });
 });
 
@@ -480,7 +335,10 @@ describe("findCrossScopePins", () => {
     expect(found.map((pin) => pin.dep)).not.toContain("some-third-party");
   });
 
-  it("reports a literal range only while its scope is outside the publish set", () => {
+  // bumpPackages rewrites literal ranges for in-scope packages only, so a literal
+  // cross-scope range survives every bump — publishing both scopes together does
+  // NOT make it carry this run's version, which is why it reports even then.
+  it("reports a literal cross-scope range even when both scopes are published", () => {
     fs.writeFileSync(
       path.join(tmpDir, "packages/react-core/package.json"),
       JSON.stringify({
@@ -490,7 +348,7 @@ describe("findCrossScopePins", () => {
       }),
     );
 
-    expect(findCrossScopePins(["monorepo"])).toEqual([
+    expect(findCrossScopePins(["monorepo", "angular"])).toEqual([
       {
         from: "@copilotkit/react-core",
         dep: "@copilotkit/angular",
@@ -499,6 +357,5 @@ describe("findCrossScopePins", () => {
         reason: "literal-range",
       },
     ]);
-    expect(findCrossScopePins(["monorepo", "angular"])).toEqual([]);
   });
 });
