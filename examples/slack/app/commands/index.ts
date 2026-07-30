@@ -1,6 +1,6 @@
 /**
  * Slash commands for this bot. Each is registered with the engine via
- * `createBot({ commands })`; the Slack adapter forwards every `/command` it
+ * `createChannel({ commands })`; the Slack adapter forwards every `/command` it
  * receives and the engine routes by name (ignoring unregistered ones).
  *
  * NOTE: a slash command only fires if it's also declared in the Slack app
@@ -11,18 +11,18 @@
  * surfaces with native structured args (e.g. Discord). The `options` schema
  * is optional and used there for registration/typing.
  */
-import { defineBotCommand } from "@copilotkit/channels";
-import type { BotCommand } from "@copilotkit/channels";
+import { defineChannelCommand } from "@copilotkit/channels";
+import type { ChannelCommand } from "@copilotkit/channels";
 import { senderContext } from "../sender-context.js";
 import { IssueCard } from "../components/index.js";
 import { FileIssueModal } from "../modals/file-issue.js";
 
-export const appCommands: BotCommand[] = [
+export const appCommands: ChannelCommand[] = [
   // `/agent <text>` — a mention-free entry point. (Previously hardcoded in the
   // adapter; now an ordinary, app-owned command.) Runs the agent with the
   // command text as the user prompt, since slash-command args are never
   // posted to the channel for the agent to read from history.
-  defineBotCommand({
+  defineChannelCommand({
     name: "agent",
     description: "Ask the triage agent anything (no @mention needed).",
     async handler({ thread, text, user }) {
@@ -39,7 +39,7 @@ export const appCommands: BotCommand[] = [
 
   // `/triage [note]` — summarize the current channel/thread and propose Linear
   // issues to file. Demonstrates a command with its own intent.
-  defineBotCommand({
+  defineChannelCommand({
     name: "triage",
     description:
       "Summarize the conversation and propose Linear issues to file.",
@@ -60,7 +60,7 @@ export const appCommands: BotCommand[] = [
   // a native only-you message; Discord and Telegram have no ephemeral surface, so
   // `fallbackToDM: true` sends it as a direct message instead. We narrate which
   // path was taken so the degradation is visible, never silent.
-  defineBotCommand({
+  defineChannelCommand({
     name: "preview",
     description: "Privately preview the issue I'd file (only you see it).",
     async handler({ thread, text, user, platform }) {
@@ -105,7 +105,7 @@ export const appCommands: BotCommand[] = [
   //              dropdowns/radio drop and defaults apply (see FileIssueModal).
   //  - Telegram→ no modal trigger at all (`ctx.openModal` is undefined), so we
   //              say so and continue the same job conversationally via the agent.
-  defineBotCommand({
+  defineChannelCommand({
     name: "file-issue",
     description: "Open a form to file a Linear issue.",
     async handler({ thread, openModal, platform, user }) {

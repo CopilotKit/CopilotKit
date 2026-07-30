@@ -52,7 +52,8 @@ export interface BubbleRaceReproOpts {
 
 export interface BubbleRaceTurnResult {
   turnIndex: number;
-  assistantText: string;
+  inputLength: number;
+  assistantTextLength: number;
 }
 
 export interface BubbleRaceReproResult {
@@ -68,17 +69,14 @@ export interface BubbleRaceReproResult {
  * Drives `bin/showcase test <slug> --<level> --verbose` (which in turn
  * runs `npx tsx harness/src/cli.ts test …` per cmd-test.sh:143). The
  * harness runs from source — no Docker image of the harness exists in
- * the local path. Parses per-turn assistant-text emissions out of
+ * the local path. Parses privacy-safe per-turn length metadata out of
  * verbose stdout.
  *
  * The driver depends on TWO production log lines added in the SAME
  * commit that lands this driver:
- *   1. `[conversation-runner] turn N/total — settled text { turnNum, text }`
- *      — added inside the runner immediately after the existing
- *      `assistant settled` debug block (~line 461), matching the
- *      surrounding "turn N/total — phrase" + structured-2nd-arg
- *      style. Moves into `waitForTurnComplete` in Phase 3 and
- *      survives Phase 5 cutover.
+ *   1. `[conversation-runner] turn N/total — settled metadata`
+ *      — carries the turn number, bubble index, and response length but
+ *      never the prompt or generated response content.
  *   2. `[harness] runDir=…` — the harness already prints the run
  *      artifacts directory in --verbose mode; the driver captures it
  *      out of stdout. If the existing log uses a different label,
@@ -102,8 +100,8 @@ export async function runBubbleRaceRepro(
   };
   // `--direct` runs d5/d6 via the in-process driver in cli.ts rather than
   // the control-plane worker path. This is REQUIRED for the bubble-race
-  // repros because the driver parses `[conversation-runner] turn N/total —
-  // settled text …` lines out of the CLI subprocess's stdout; in
+  // repros because the driver parses privacy-safe settled metadata out of
+  // the CLI subprocess's stdout; in
   // control-plane mode, those logs are emitted inside a separate worker
   // process whose stdout never reaches the CLI. The `--direct` switch is
   // exposed by cmd-test.sh (line 17/62) and the harness CLI (cli.ts:80).
@@ -125,37 +123,22 @@ export async function runBubbleRaceRepro(
     proc.on("close", (code) => resolve(code ?? -1)),
   );
   const turns: BubbleRaceTurnResult[] = [];
-  // Match the structured-2nd-arg console.debug emission, e.g.
-  //   [conversation-runner] turn 1/3 — settled text { turnNum: 1, text: 'Bubbles' }
-  // The 2nd-arg object is rendered by Node's util.inspect when the
-  // shell captures stdout; the production emission shape is
-  // `{ turnNum: N, text: <quoted> }`. util.inspect picks the quote
-  // character based on string content: single quotes by default, but
-  // SWITCHES to double quotes when the string contains a `'` and no
-  // `"` (and backticks when it contains both). The parser must accept
-  // either single- or double-quoted form; the two-alternation regex
-  // below mirrors util.inspect's standard escape semantics for each
-  // (backslash-escape of the same quote + a literal backslash). The
-  // PRE-text segment is anchored on the literal `turnNum: <digits>,
-  // text:` key sequence rather than `[^}]*` so a stray `}` anywhere in
-  // the line can't collapse the match boundary; the quoted-string
-  // capture itself already terminates on the unescaped closing quote,
-  // so by the time we're past it the only legal trailer is ` }`.
-  // Also tolerates the multi-line pretty-printed inspect output
-  // (`{\n  turnNum: …,\n  text: …\n}`) via the leading `\s*`.
-  const re =
-    /\[conversation-runner\] turn (\d+)\/\d+ — settled text \{\s*turnNum:\s*\d+,\s*text:\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")\s*\}/gm;
+  const inputLengths = new Map<number, number>();
+  const sendRe =
+    /\[conversation-runner\] turn (\d+)\/\d+ — sending message \{\s*inputLength:\s*(\d+),/gm;
   let m: RegExpExecArray | null;
+  while ((m = sendRe.exec(stdout)) !== null) {
+    inputLengths.set(Number(m[1]), Number(m[2]));
+  }
+  const re =
+    /\[conversation-runner\] turn (\d+)\/\d+ — settled metadata \{\s*turnNum:\s*\d+,\s*bubbleIndex:\s*\d+,\s*textLength:\s*(\d+)\s*\}/gm;
   while ((m = re.exec(stdout)) !== null) {
-    // Un-escape the util.inspect output. The escape rules differ by
-    // quote character — `\'` inside single-quoted, `\"` inside
-    // double-quoted — but `\\` is the same in both. m[2] holds the
-    // single-quoted capture; m[3] holds the double-quoted capture.
-    const raw = m[2] ?? m[3] ?? "";
-    const escaped =
-      m[2] !== undefined ? raw.replace(/\\'/g, "'") : raw.replace(/\\"/g, '"');
-    const text = escaped.replace(/\\\\/g, "\\");
-    turns.push({ turnIndex: Number(m[1]), assistantText: text });
+    const turnIndex = Number(m[1]);
+    turns.push({
+      turnIndex,
+      inputLength: inputLengths.get(turnIndex) ?? -1,
+      assistantTextLength: Number(m[2]),
+    });
   }
   const runDirMatch = stdout.match(/\[harness\] runDir=(\S+)/);
   const runDir = runDirMatch ? runDirMatch[1] : "";

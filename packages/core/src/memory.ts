@@ -1,6 +1,7 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
 import {
+  EMPTY,
   asapScheduler,
   defer,
   firstValueFrom,
@@ -53,6 +54,7 @@ import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 // `/api/memories` the same way it maps `/threads` -> `/api/threads`.
 const MEMORIES_PATH = "/memories";
 const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
+const MEMORIES_RECALL_PATH = "/memories/recall";
 const REQUEST_TIMEOUT_MS = 15_000;
 /** Consecutive socket errors tolerated before the realtime stream gives up. */
 const MAX_SOCKET_RETRIES = 5;
@@ -105,6 +107,8 @@ export interface Memory {
   content: string;
   sourceThreadIds: readonly string[];
   invalidatedAt: string | null;
+  /** Relevance score from a `recall()` (hybrid RAG) query; `undefined` for list/realtime/mutation memories. */
+  score?: number;
 }
 
 /** Input for creating a memory; `scope` defaults to `"user"` (v1 is user-scoped). */
@@ -203,6 +207,13 @@ const memoryRestEvents = createActionGroup("Memory REST", {
     sessionId: number;
     joinToken: string;
     joinCode: string;
+    // Optional project-scoped realtime credentials. Present only when the
+    // caller's API key resolves a project scope (B1b `/memories/subscribe`
+    // returns them alongside the user credentials); omitted otherwise. When
+    // present, the socket effect opens a SECOND `project_meta:memories:<code>`
+    // channel so project rows stay live. Absent -> user-only (silent degrade).
+    projectJoinToken?: string;
+    projectJoinCode?: string;
   }>(),
   // Credentials outcomes are a SILENT degrade: they feed only the realtime
   // socket effect and deliberately do NOT touch the reducer's `available`/
@@ -231,10 +242,12 @@ interface MemoryMetadataPayloadMemory extends Memory {
 }
 
 /**
- * The realtime `memory_metadata` event broadcast on the `user_meta` channel:
+ * The realtime `memory_metadata` event broadcast on a memory channel:
  * `created`/`updated` carry the full memory, `invalidated` carries only its id.
- * The gateway strips `userId` before broadcasting and only delivers
- * user-scoped memories, so this is always the current user's stream.
+ * The same wire shape is delivered on both the user channel
+ * (`user_meta:memories:<code>`, current user's memories) and the optional
+ * project channel (`project_meta:memories:<code>`, memories shared across the
+ * project); the store reduces both into one id-keyed list.
  */
 type MemoryMetadataEvent =
   | {
@@ -550,6 +563,16 @@ interface MemoryStore {
    * immediately when no context is set.
    */
   refresh(): Promise<void>;
+  /**
+   * Semantically recalls memories via `POST {runtimeUrl}/memories/recall`
+   * (hybrid RAG). Returns memories ordered by relevance, each carrying a
+   * `score`. Does NOT mutate the snapshot — a one-shot query. Rejects when no
+   * context is set or the request fails.
+   */
+  recall(
+    query: string,
+    opts?: { limit?: number; scope?: MemoryScope },
+  ): Promise<Memory[]>;
   /** Creates a memory; resolves to the stored memory (server-authoritative). */
   addMemory(input: NewMemory): Promise<Memory>;
   /** Supersedes a memory; resolves to the new memory (its id changes). */
@@ -582,10 +605,12 @@ function memoryFromFetch<T>(
 }
 
 /**
- * Fetches the memory snapshot and maps it to a success/failure action. Keeps
- * only user-scoped memories (v1 surfaces user scope only; the realtime stream
- * is user-scoped too), so project-scoped rows visible to the caller are
- * dropped from the store.
+ * Fetches the memory snapshot and maps it to a success/failure action. Both
+ * user- and project-scoped rows are kept: the store now opens a second
+ * `project_meta:memories:<code>` realtime channel (when project credentials are
+ * available) that keeps project rows in sync, so surfacing them in the snapshot
+ * no longer risks a stale list. Rows are keyed by id across both channels, so
+ * realtime deltas reconcile either scope idempotently.
  */
 function createMemoryFetchObservable(
   environment: MemoryEnvironment,
@@ -625,7 +650,7 @@ function createMemoryFetchObservable(
       map((data) =>
         memoryRestEvents.listSucceeded({
           sessionId,
-          memories: data.memories.filter((memory) => memory.scope === "user"),
+          memories: data.memories,
         }),
       ),
       catchError((error) => {
@@ -674,6 +699,8 @@ function createMemoryCredentialsFetchObservable(
         return response.json() as Promise<{
           joinToken: string;
           joinCode: string;
+          projectJoinToken?: string;
+          projectJoinCode?: string;
         }>;
       },
       fetch: environment.fetch,
@@ -695,10 +722,27 @@ function createMemoryCredentialsFetchObservable(
           throw new Error("missing joinCode");
         }
 
+        // Project credentials are optional and only forwarded when BOTH are
+        // non-empty strings (the silent-degrade contract): a partial/malformed
+        // pair is treated as "no project scope", so the store falls back to the
+        // user channel only rather than erroring. A missing project scope must
+        // never fail credentials — the user channel is the baseline.
+        const hasProjectCreds =
+          typeof data.projectJoinToken === "string" &&
+          data.projectJoinToken.length > 0 &&
+          typeof data.projectJoinCode === "string" &&
+          data.projectJoinCode.length > 0;
+
         return memoryRestEvents.credentialsSucceeded({
           sessionId,
           joinToken: data.joinToken,
           joinCode: data.joinCode,
+          ...(hasProjectCreds
+            ? {
+                projectJoinToken: data.projectJoinToken,
+                projectJoinCode: data.projectJoinCode,
+              }
+            : {}),
         });
       }),
       catchError((error) => {
@@ -753,6 +797,30 @@ function responseToMemory(data: {
     content: data.content,
     sourceThreadIds: data.sourceThreadIds,
     invalidatedAt: data.invalidatedAt,
+  };
+}
+
+/**
+ * Projects a recall REST response memory (which carries a relevance `score`)
+ * to the public {@link Memory} shape. `score` is copied through when supplied.
+ */
+function recallResponseToMemory(data: {
+  id: string;
+  kind: MemoryKind;
+  scope: MemoryScope;
+  content: string;
+  sourceThreadIds: readonly string[];
+  invalidatedAt: string | null;
+  score?: number;
+}): Memory {
+  return {
+    id: data.id,
+    kind: data.kind,
+    scope: data.scope,
+    content: data.content,
+    sourceThreadIds: data.sourceThreadIds,
+    invalidatedAt: data.invalidatedAt,
+    ...(typeof data.score === "number" ? { score: data.score } : {}),
   };
 }
 
@@ -1133,7 +1201,8 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         }),
         switchMap(([action, state]) => {
           const context = state.context as MemoryRuntimeContext;
-          const { joinToken, joinCode } = action;
+          const { joinToken, joinCode, projectJoinToken, projectJoinCode } =
+            action;
           const sessionId = action.sessionId;
           const shutdown$ = actions$.pipe(
             ofType(
@@ -1141,6 +1210,57 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               memoryAdapterEvents.stopped,
             ),
           );
+
+          // Builds the live `memory_metadata` delta stream for one realtime
+          // channel (its own socket, keyed by that channel's join token). Both
+          // the user channel and the optional project channel feed the SAME
+          // reducer through this, and — critically — both stamp their deltas
+          // with the SAME `sessionId` (the D4 landmine): the reducer's
+          // superseded-context guard therefore drops stale deltas from BOTH
+          // channels identically the moment the context changes. The reducer's
+          // upsert/invalidate already key by memory id, so interleaving user
+          // and project rows is safe (no per-channel bookkeeping needed).
+          const channelMetadata$ = (
+            channelJoinToken: string,
+            topic: string,
+          ): Observable<
+            | ReturnType<typeof memoryDomainEvents.memoryUpserted>
+            | ReturnType<typeof memoryDomainEvents.memoryInvalidated>
+          > => {
+            const socket$ = ɵphoenixSocket$({
+              url: context.wsUrl,
+              options: {
+                params: { join_token: channelJoinToken },
+                reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+                rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+              },
+            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+            const channel$ = ɵphoenixChannel$({ socket$, topic }).pipe(
+              shareReplay({ bufferSize: 1, refCount: true }),
+            );
+            const metadata$ = channel$.pipe(
+              switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                ɵobservePhoenixEvent$<MemoryMetadataEvent>(
+                  channel,
+                  MEMORY_METADATA_EVENT,
+                ),
+              ),
+              map((event) => mapMemoryMetadataEvent(event, sessionId)),
+            );
+            // Drive the join (see the user-channel note below) but swallow its
+            // outcome: the project channel deliberately does NOT emit realtime
+            // status deltas — `realtimeStatus` is owned by the user channel so
+            // a project-channel join failure never regresses the user-facing
+            // "live" indicator (silent degrade). On failure the metadata stream
+            // stays alive for Phoenix's automatic rejoin on reconnect.
+            const join$ = ɵjoinPhoenixChannel$(channel$).pipe(
+              catchError((error) => {
+                console.warn(`[memory] failed to join ${topic}`, error);
+                return EMPTY;
+              }),
+            );
+            return merge(metadata$, join$);
+          };
 
           return defer(() => {
             const socket$ = ɵphoenixSocket$({
@@ -1224,6 +1344,19 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               }),
             );
 
+            // Open the project channel alongside the user channel when project
+            // credentials are present. It feeds the SAME reducer with the SAME
+            // session stamp (see `channelMetadata$`), so project rows stay live
+            // without going stale. Absent project creds -> `EMPTY`: user-only,
+            // no second socket, no status regression (silent degrade).
+            const projectMetadata$ =
+              projectJoinToken && projectJoinCode
+                ? channelMetadata$(
+                    projectJoinToken,
+                    `project_meta:memories:${projectJoinCode}`,
+                  )
+                : EMPTY;
+
             return merge(
               // Surface "connecting" immediately when the realtime stream starts
               // (credentials succeeded -> socket subscribing/joining). Reset to
@@ -1232,6 +1365,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               of(memoryDomainEvents.realtimeConnecting({ sessionId })),
               metadata$,
               join$,
+              projectMetadata$,
               fatalStatus$,
             ).pipe(
               takeUntil(
@@ -1373,6 +1507,52 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       });
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
       return done;
+    },
+    recall(
+      query: string,
+      opts?: { limit?: number; scope?: MemoryScope },
+    ): Promise<Memory[]> {
+      const { context } = store.getState();
+      if (!context?.runtimeUrl) {
+        return Promise.reject(new Error("Runtime URL is not configured"));
+      }
+      const body: Record<string, unknown> = { query };
+      if (opts?.limit !== undefined) body.limit = opts.limit;
+      if (opts?.scope !== undefined) body.scope = opts.scope;
+
+      const recall$ = memoryFromFetch(
+        `${context.runtimeUrl}${MEMORIES_RECALL_PATH}`,
+        {
+          selector: async (response) => {
+            if (!response.ok) {
+              throw new MemoryError("MEMORY_RECALL_FAILED", {
+                message: `Failed to recall memories: ${response.status}`,
+                retryable: isRetryableStatus(response.status),
+              });
+            }
+            return (await response.json()) as { memories: unknown[] };
+          },
+          fetch: environment.fetch,
+          method: "POST",
+          headers: { ...context.headers, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      ).pipe(
+        timeout({
+          first: REQUEST_TIMEOUT_MS,
+          with: () => {
+            throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
+          },
+        }),
+        map((data) =>
+          (data.memories ?? []).map((m) =>
+            recallResponseToMemory(
+              m as Parameters<typeof recallResponseToMemory>[0],
+            ),
+          ),
+        ),
+      );
+      return firstValueFrom(recall$);
     },
     addMemory(input: NewMemory): Promise<Memory> {
       return trackMutation(

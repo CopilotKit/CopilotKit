@@ -184,10 +184,8 @@ export class InMemoryAgentRunner extends AgentRunner {
                     ? { messages: sanitizedMessages }
                     : {}),
                 };
-                processedEvent = {
-                  ...runStartedEvent,
-                  input: updatedInput,
-                } as RunStartedEvent;
+                runStartedEvent.input = updatedInput;
+                processedEvent = runStartedEvent;
               }
             }
 

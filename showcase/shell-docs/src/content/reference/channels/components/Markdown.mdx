@@ -1,37 +1,23 @@
 ---
-title: "Markdown"
-description: "Explicit markdown text block in a bot message."
+title: Markdown
+description: Render an explicit portable Markdown text block.
 ---
 
-## Overview
-
-`Markdown` is an explicit markdown text block. It behaves like [`Section`](/reference/channels/components/Section) but signals intent: this content *is* markdown (e.g. agent output you're passing through), not incidental body text.
-
-## Import
+`Markdown` is an explicit body-text block for formatted content.
 
 ```tsx
-import { Markdown } from "@copilotkit/channels-ui";
-```
+import { Markdown, Message } from "@copilotkit/channels/ui";
 
-## Props
-
-<PropertyReference name="children" type="BotChildren">
-  The markdown source.
-</PropertyReference>
-
-## Usage
-
-```tsx
 <Message>
-  <Markdown>{agentSummary}</Markdown>
-</Message>
+  <Markdown>{"**Owner:** Payments\n\n`p95 = 1.8s`"}</Markdown>
+</Message>;
 ```
 
-## On Slack
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Markdown text and portable child content. |
 
-Renders as a `section` block whose text is passed through the adapter's Markdown → mrkdwn translation, truncated at **3000 characters** (`SLACK_LIMITS.sectionText`).
-
-## Related
-
-- [Section](/reference/channels/components/Section) — general body text
-- [markdownToMrkdwn](/reference/channels/slack/markdownToMrkdwn) — the Markdown → mrkdwn translation
+It currently maps to the same provider primitives as
+[`Section`](/reference/channels/components/Section): Slack `mrkdwn` and a
+wrapping Teams `TextBlock`. Use it when the semantic intent of the source is
+formatted text.

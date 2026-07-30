@@ -1,95 +1,27 @@
 "use client";
 
-// Frontend Tools (Async) demo.
-//
-// Same `useFrontendTool` pattern as `frontend-tools`, but the handler is
-// async and awaits a simulated client-side DB round-trip. The full async
-// path is exercised end-to-end: agent invokes -> handler awaits -> result
-// returned -> branded render.
-
 import React from "react";
 import {
-  CopilotKitProvider,
   CopilotChat,
-  useFrontendTool,
+  CopilotKit,
   useConfigureSuggestions,
+  useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { NotesCard, type Note } from "./notes-card";
-
-// Fake client-side "notes database". In a real app this could be an
-// IndexedDB, a fetched local cache, or any other client-owned data store.
-const NOTES_DB: Note[] = [
-  {
-    id: "n1",
-    title: "Q2 project planning kickoff",
-    excerpt:
-      "Discussed scope for the new onboarding flow with design. Draft spec due Friday.",
-    tags: ["planning", "project", "onboarding"],
-  },
-  {
-    id: "n2",
-    title: "Planning: migrate auth to passkeys",
-    excerpt:
-      "Research WebAuthn library options. Consider fallback for unsupported browsers.",
-    tags: ["planning", "auth", "security"],
-  },
-  {
-    id: "n3",
-    title: "Grocery list",
-    excerpt: "Olive oil, tomatoes, sourdough, basil, parmesan.",
-    tags: ["personal", "shopping"],
-  },
-  {
-    id: "n4",
-    title: "Book recommendations",
-    excerpt:
-      "Thinking Fast and Slow (Kahneman); The Design of Everyday Things (Norman).",
-    tags: ["reading"],
-  },
-  {
-    id: "n5",
-    title: "Project planning retrospective notes",
-    excerpt:
-      "What went well: async standups. What didn't: ambiguous ownership on shared components.",
-    tags: ["retro", "project", "planning"],
-  },
-  {
-    id: "n6",
-    title: "Weekend hike plan",
-    excerpt: "Tam West Peak → Rock Spring. 8mi loop, bring layers.",
-    tags: ["personal", "outdoors"],
-  },
-  {
-    id: "n7",
-    title: "1:1 prep — career planning",
-    excerpt: "Discuss growth areas. Ask about scope for Q3. Revisit goals doc.",
-    tags: ["career", "planning"],
-  },
-];
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
-}
+import { NotesCard } from "./notes-card";
+import type { Note } from "./notes-card";
+import { NOTES_DB, sleep } from "./fake-notes-db";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>
       </div>
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 
@@ -129,8 +61,7 @@ function Chat() {
       };
     },
     // @endregion[frontend-tool-async-handler]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    render: ({ args, result, status }: any) => {
+    render: ({ args, result, status }) => {
       const loading = status !== "complete";
       const parsed = parseJsonResult<{
         keyword?: string;
@@ -167,5 +98,10 @@ function Chat() {
     available: "always",
   });
 
-  return <CopilotChat className="h-full rounded-2xl" />;
+  return (
+    <CopilotChat
+      agentId="frontend-tools-async"
+      className="h-full rounded-2xl"
+    />
+  );
 }

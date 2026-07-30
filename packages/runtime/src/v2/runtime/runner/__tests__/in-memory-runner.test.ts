@@ -13,8 +13,8 @@ import type {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { AbstractAgent, EventType } from "@ag-ui/client";
-import { EMPTY, firstValueFrom } from "rxjs";
+import { AbstractAgent, EventType, verifyEvents } from "@ag-ui/client";
+import { EMPTY, Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
@@ -951,5 +951,114 @@ describe("InMemoryAgentRunner onConcurrentRun", () => {
           (e as { runId?: string }).runId === "run-2",
       ),
     ).toBe(true);
+  });
+});
+
+describe("InMemoryAgentRunner stop mid-stream (#5812)", () => {
+  // Models an HttpAgent proxy (e.g. pydantic-ai's AGUIAdapter): it opens a text
+  // message and streams a chunk, then on abort emits a live RUN_ERROR WITHOUT
+  // closing the message and lets runAgent resolve. Before the fix, finalize
+  // appended a trailing TEXT_MESSAGE_END after that RUN_ERROR, which the AG-UI
+  // verifier the browser runs rejected with "the run has already errored".
+  class MidStreamAbortAgent extends AbstractAgent {
+    readonly messageId = "225f30a2-c662-4d0d-a05e-789cb51e17cc";
+    private emit?: (event: BaseEvent) => void;
+    private finishRun?: () => void;
+
+    async runAgent(
+      input: RunAgentInput,
+      options: {
+        onEvent: (e: { event: BaseEvent }) => void;
+        onRunStartedEvent?: () => void;
+      },
+    ): Promise<RunAgentResult> {
+      const emit = (event: BaseEvent) => options.onEvent({ event });
+      this.emit = emit;
+      emit({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      } as RunStartedEvent);
+      options.onRunStartedEvent?.();
+      emit({
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: this.messageId,
+        role: "assistant",
+      } as TextMessageStartEvent);
+      emit({
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: this.messageId,
+        delta: " frames",
+      } as TextMessageContentEvent);
+      return new Promise<RunAgentResult>((resolve) => {
+        this.finishRun = () => resolve({ result: undefined, newMessages: [] });
+      });
+    }
+
+    abortRun(): void {
+      this.emit?.({
+        type: EventType.RUN_ERROR,
+        message: "This operation was aborted",
+        code: "abort",
+      } as RunErrorEvent);
+      this.finishRun?.();
+    }
+
+    clone(): AbstractAgent {
+      return new MidStreamAbortAgent();
+    }
+
+    run(): ReturnType<AbstractAgent["run"]> {
+      return EMPTY;
+    }
+
+    protected connect(): ReturnType<AbstractAgent["connect"]> {
+      return EMPTY;
+    }
+  }
+
+  it("emits no events after RUN_ERROR and the stream passes the AG-UI verifier", async () => {
+    const runner = new InMemoryAgentRunner();
+    runner.clearThreads();
+    const threadId = "in-memory-stop-mid-stream";
+    const agent = new MidStreamAbortAgent();
+    const input: RunAgentInput = {
+      threadId,
+      runId: "run-1",
+      messages: [],
+      state: {},
+      tools: [],
+      context: [],
+    };
+
+    const collected: BaseEvent[] = [];
+    const done = new Promise<void>((resolve) => {
+      runner.run({ threadId, agent, input }).subscribe({
+        next: (event) => collected.push(event),
+        complete: () => resolve(),
+      });
+    });
+
+    // START + CONTENT are emitted synchronously; press Stop mid-stream (between
+    // TEXT_MESSAGE_START and TEXT_MESSAGE_END).
+    await runner.stop({ threadId });
+    await done;
+
+    const types = collected.map((event) => event.type);
+    const runErrorIdx = types.indexOf(EventType.RUN_ERROR);
+    expect(runErrorIdx).toBeGreaterThanOrEqual(0);
+    // Nothing may follow the terminal RUN_ERROR — no trailing TEXT_MESSAGE_END.
+    expect(types.slice(runErrorIdx + 1)).toEqual([]);
+
+    // The stream the client receives must pass the SAME verifier the browser
+    // runs (verifyEvents). Before the fix this rejected the trailing
+    // TEXT_MESSAGE_END with "the run has already errored with 'RUN_ERROR'".
+    const verified = await firstValueFrom(
+      new Observable<BaseEvent>((subscriber) => {
+        for (const event of collected) subscriber.next(event);
+        subscriber.complete();
+      }).pipe(verifyEvents(false), toArray()),
+    );
+    expect(verified.at(-1)?.type).toBe(EventType.RUN_ERROR);
   });
 });

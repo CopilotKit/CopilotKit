@@ -2,8 +2,7 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / frontend-tools",
     "sourceFile": "d5-all.json",
-    "created": "2026-05-21",
-    "copiedFrom": "langgraph-python"
+    "created": "2026-05-21"
   },
   "fixtures": [
     {
@@ -13,11 +12,11 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done \u2014 sunset gradient is live."
+        "content": "Done — sunset gradient is live."
       }
     },
     {
-      "_comment": "frontend-tools 'Sunset' pill \u2014 1st leg: emit change_background tool call only. The toolCallId-keyed follow-up fixture above is ordered first, so it catches the second-leg request (after tool result). This fixture only matches the first-leg request (before tool execution). No turnIndex gate \u2014 the 3-pill probe sends sequential turns; turnIndex would restrict to the first turn.",
+      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call only. The toolCallId-keyed follow-up fixture above is ordered first, so it catches the second-leg request (after tool result). This fixture only matches the first-leg request (before tool execution). No turnIndex gate — the 3-pill probe sends sequential turns; turnIndex would restrict to the first turn.",
       "match": {
         "userMessage": "Make the background a sunset gradient",
         "context": "langgraph-typescript"
@@ -41,11 +40,11 @@
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done \u2014 forest gradient is live."
+        "content": "Done — forest gradient is live."
       }
     },
     {
-      "_comment": "frontend-tools 'Forest' pill \u2014 1st leg: emit change_background tool call only. No turnIndex gate \u2014 multi-turn probe.",
+      "_comment": "frontend-tools 'Forest' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
         "userMessage": "deep green forest gradient",
         "context": "langgraph-typescript"
@@ -64,18 +63,18 @@
     },
     {
       "match": {
-        "userMessage": "navy \u2192 magenta cosmic gradient",
+        "userMessage": "navy → magenta cosmic gradient",
         "toolCallId": "call_d5_change_background_cosmic",
         "context": "langgraph-typescript"
       },
       "response": {
-        "content": "Done \u2014 cosmic gradient is live."
+        "content": "Done — cosmic gradient is live."
       }
     },
     {
-      "_comment": "frontend-tools 'Cosmic' pill \u2014 1st leg: emit change_background tool call only. No turnIndex gate \u2014 multi-turn probe.",
+      "_comment": "frontend-tools 'Cosmic' pill — 1st leg: emit change_background tool call only. No turnIndex gate — multi-turn probe.",
       "match": {
-        "userMessage": "navy \u2192 magenta cosmic gradient",
+        "userMessage": "navy → magenta cosmic gradient",
         "context": "langgraph-typescript"
       },
       "response": {
@@ -90,5 +89,8 @@
         ]
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

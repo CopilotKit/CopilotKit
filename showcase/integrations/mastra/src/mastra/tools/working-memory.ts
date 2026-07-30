@@ -145,7 +145,11 @@ async function resolveMemoryAndIds(
   }
   let memory: unknown;
   try {
-    memory = a.getMemory();
+    // `Agent.getMemory` is async in current @mastra/core (returns a Promise) —
+    // it must be awaited, or `memory.updateWorkingMemory` reads off the Promise
+    // as undefined and the write silently no-ops ("memory has no
+    // updateWorkingMemory method"). await is safe if a sync value is returned.
+    memory = await a.getMemory();
   } catch (err) {
     logWorkingMemoryFailure(component, "agent.getMemory threw", err);
     return null;
@@ -264,6 +268,70 @@ export async function writeStepsToWorkingMemory(
   } catch (err) {
     logWorkingMemoryFailure(component, "updateWorkingMemory threw", err);
   }
+}
+
+/**
+ * Replace the `todos` array in the Beautiful Chat agent's working memory.
+ * Determinism guarantee: the app-mode todo canvas reads `agent.state.todos`,
+ * which is sourced from this working-memory slot. `manage_sales_todos` returns
+ * the todos as its tool result, but the tool result never flows into agent
+ * state — only working memory does (via the STATE_SNAPSHOT the adapter emits on
+ * every working-memory change). So the todos MUST be written here or the panel
+ * stays on "No todos yet" even though the tool ran (OSS-452). Beautiful Chat
+ * runs on `weatherAgent`, hence that default agentId.
+ */
+export async function writeTodosToWorkingMemory(
+  ctx: MaybeToolExecutionContext,
+  todos: Array<Record<string, unknown>>,
+): Promise<void> {
+  const component = "beautiful-chat";
+  // Use the Mastra registration KEY ("weatherAgent"), NOT ctx.agent.agentId
+  // (which is the agent's `id` field, "weather-agent"): resolving by the id
+  // returns an agent form whose memory lacks updateWorkingMemory, so the write
+  // silently no-ops and the todo panel stays empty. Beautiful Chat always runs
+  // on weatherAgent (see copilotkit-beautiful-chat/route.ts).
+  const agentId = "weatherAgent";
+  const resolved = await resolveMemoryAndIds(ctx, agentId, component);
+  if (!resolved) return;
+  try {
+    const existing = await readExistingWorkingMemory(
+      resolved.memory,
+      resolved.threadId,
+      resolved.resourceId,
+    );
+    const merged: Record<string, unknown> = {
+      ...existing,
+      todos,
+    };
+    await resolved.memory.updateWorkingMemory({
+      threadId: resolved.threadId,
+      resourceId: resolved.resourceId,
+      workingMemory: JSON.stringify(merged),
+    });
+  } catch (err) {
+    logWorkingMemoryFailure(component, "updateWorkingMemory threw", err);
+  }
+}
+
+/**
+ * Read the `todos` array back out of the Beautiful Chat agent's working memory
+ * (backs the `get_todos` tool). Returns [] on any failure — get_todos is a
+ * read-only convenience, never worth failing a run over.
+ */
+export async function readTodosFromWorkingMemory(
+  ctx: MaybeToolExecutionContext,
+): Promise<unknown[]> {
+  const component = "beautiful-chat";
+  // Registration key, not ctx.agent.agentId — see writeTodosToWorkingMemory.
+  const agentId = "weatherAgent";
+  const resolved = await resolveMemoryAndIds(ctx, agentId, component);
+  if (!resolved) return [];
+  const existing = await readExistingWorkingMemory(
+    resolved.memory,
+    resolved.threadId,
+    resolved.resourceId,
+  );
+  return Array.isArray(existing.todos) ? (existing.todos as unknown[]) : [];
 }
 
 /**

@@ -1,0 +1,58 @@
+---
+title: StoreConfig
+description: Configure per-thread state, the StateStore backend, transcript identity, and turn concurrency controls.
+---
+
+`StoreConfig` is the `createChannel({ store })` value.
+
+```ts
+interface StoreConfig<TStateSchema> {
+  adapter?: StateStore;
+  state?: TStateSchema;
+  identity?: Identity;
+  transcripts?: TranscriptsConfig;
+  onLockConflict?:
+    | "drop"
+    | "force"
+    | ((
+        conversationKey: string,
+        message: IncomingMessage,
+      ) => "drop" | "force" | Promise<"drop" | "force">);
+  lockTtl?: number;
+  dedupTtl?: number;
+}
+```
+
+| Option | Default | Behavior |
+| --- | --- | --- |
+| `adapter` | `MemoryStore` | Persistence backend for SDK state. |
+| `state` | none | Standard Schema that types and validates `thread.state()` and `setState()`. |
+| `identity` | none | Resolves an inbound provider user to a stable transcript key. Must be paired with `transcripts`. |
+| `transcripts` | none | Optional retention and per-user cap. Must be paired with `identity`. |
+| `onLockConflict` | `"drop"` | Drop or force a turn when the conversation lock is already held. |
+| `lockTtl` | `60_000` | Per-conversation turn-lock TTL in milliseconds. |
+| `dedupTtl` | `300_000` | Inbound event deduplication window in milliseconds. |
+
+```ts
+const stateSchema = z.object({
+  stage: z.enum(["draft", "review", "done"]),
+});
+
+const channel = createChannel({
+  name: "support-slack",
+  provider: "slack",
+  agent: makeAgent,
+  store: {
+    adapter: durableStateStore,
+    state: stateSchema,
+    lockTtl: 90_000,
+  },
+});
+```
+
+`thread.setState(value)` replaces the entire stored value and validates it
+against `state`. It does not merge patches.
+
+On the managed path, Intelligence owns cross-instance delivery leases and
+egress idempotency. The SDK store still owns application state and callback
+snapshots.

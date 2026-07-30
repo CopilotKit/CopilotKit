@@ -2,7 +2,7 @@ import type {
   InteractionEvent,
   IncomingReaction,
   IncomingModalSubmit,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { PlatformUser } from "@copilotkit/channels-ui";
 
 /** The structural subset of a discord.js component interaction we read. */

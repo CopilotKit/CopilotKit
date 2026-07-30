@@ -12,14 +12,12 @@ import {
   computeNextStableVersion,
   bumpPackages,
   getPackagesForScope,
-  type BumpLevel,
 } from "./lib/versions.js";
-import {
-  getChangesSummary,
-  type ChangesSummary,
-  type Commit,
-} from "./lib/changes.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
+import type { BumpLevel } from "./lib/versions.js";
+import { getChangesSummary } from "./lib/changes.js";
+import type { ChangesSummary, Commit } from "./lib/changes.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
 
 function generateRawReleaseNotes(
   version: string,
@@ -103,7 +101,7 @@ function main() {
   console.log(`Bump level: ${bumpLevel}`);
   console.log(`Next version: ${nextVersion}`);
 
-  const summary = getChangesSummary();
+  const summary = getChangesSummary(scope);
   console.log(
     `\nCommits since ${summary.lastTag || "beginning"}: ${summary.commitCount}`,
   );

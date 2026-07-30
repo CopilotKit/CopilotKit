@@ -16,6 +16,7 @@ Mirrors the langgraph-python and ag2 references.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import traceback
@@ -152,7 +153,15 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
         RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
 
-    while True:
+    # Maximum tool iterations per run. `generate_a2ui` normally renders in a
+    # single turn, but a misbehaving model could keep re-calling the tool and
+    # never yield an empty `tool_calls` turn — which would wedge the run and
+    # RUN_FINISHED would never fire (done-signal-missing timeout). Cap the loop
+    # so the run always terminates. Mirrors the claude-sdk-typescript sibling's
+    # MAX_TOOL_ITERATIONS bound.
+    MAX_TOOL_ITERATIONS = 10
+
+    for _iter in range(MAX_TOOL_ITERATIONS):
         msg_id = f"msg-{run_id}-{len(messages)}"
         yield encoder.encode(
             TextMessageStartEvent(
@@ -284,7 +293,13 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
             if tc["name"] == "generate_a2ui":
                 ctx = tc["input"].get("context", "")
                 try:
-                    result_obj = _generate_a2ui(ctx, conversation_messages=messages)
+                    # Offload to a worker thread: _generate_a2ui runs a
+                    # synchronous anthropic.Anthropic() LLM round-trip, which
+                    # would otherwise block the uvicorn event loop and wedge the
+                    # :8000 /health endpoint under load.
+                    result_obj = await asyncio.to_thread(
+                        _generate_a2ui, ctx, conversation_messages=messages
+                    )
                     result_text = json.dumps(result_obj)
                 except Exception as exc:  # noqa: BLE001 - surface as tool result
                     result_text = json.dumps(

@@ -1,4 +1,4 @@
-import type { InteractionEvent } from "@copilotkit/channels";
+import type { InteractionEvent } from "@copilotkit/channels-core";
 import type { InboundMessage, ReplyTarget } from "./types.js";
 
 /**

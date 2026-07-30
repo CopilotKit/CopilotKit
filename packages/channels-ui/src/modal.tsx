@@ -1,4 +1,4 @@
-import type { BotNode } from "./ir.js";
+import type { ChannelNode } from "./ir.js";
 import type { BotChildren } from "./components.js";
 import { intrinsic } from "./components.js";
 
@@ -7,7 +7,7 @@ interface WithModalChildren {
 }
 
 export interface ModalProps extends WithModalChildren {
-  /** Stable id routed to `bot.onModalSubmit` / `bot.onModalClose`. */
+  /** Stable id routed to `channel.onModalSubmit` / `channel.onModalClose`. */
   callbackId: string;
   title: string;
   submitLabel?: string;
@@ -48,7 +48,7 @@ export interface RadioButtonsProps extends WithModalChildren {
 }
 
 /** A modal view IR root. Distinct from message IR; rendered via `renderModal`. */
-export type ModalView = BotNode & { type: "modal" };
+export type ModalView = ChannelNode & { type: "modal" };
 
 /** Thrown by an adapter's `renderModal` when a view uses an unsupported element. */
 export class ModalRenderError extends Error {

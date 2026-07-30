@@ -1,0 +1,113 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / a2ui-recovery (A2UI error recovery). Backend-owned A2UI (a2uiRecoveryAgent, getA2UITools, injectA2UITool=false) with the toolkit validate->retry loop made visible. NO `context` match field: a real browser (the dojo) does NOT send x-aimock-context (only the harness does), and the inner render_a2ui sub-agent calls carry NO context header at all, so context-scoped fixtures would 404 / collide. The two pills' prompts are UNIQUE per framework (no substring overlap), so userMessage alone disambiguates across frameworks. Flow per pill: outer generate_a2ui emit (userMessage, tool-less — matched last); inner render_a2ui (userMessage+toolName+sequenceIndex; listed first so they win for the inner calls); outer narration (unique toolCallId of the emit). HEAL: attempt 1 (seq 0) invalid (dangling child) -> retry -> attempt 2 (seq 1) valid -> paints (Column + 2 Metric). EXHAUST: invalid every attempt -> recovery exhausts -> a2ui_recovery_exhausted.",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "HEAL - inner render_a2ui attempt 1 (sequenceIndex 0): structurally INVALID (root references a missing child) -> validate->retry rejects it.",
+      "match": {
+        "userMessage": "mend a botched opening attempt",
+        "toolName": "render_a2ui",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_recover_heal_bad",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"missing-metric\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL - inner render_a2ui attempt 2 (sequenceIndex 1): VALID surface (Column + two Metric tiles; Mastra Metric props = label/value/trend, no trendValue) -> recovery succeeds and paints.",
+      "match": {
+        "userMessage": "mend a botched opening attempt",
+        "toolName": "render_a2ui",
+        "sequenceIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_recover_heal_good",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"m1\", \"m2\"]}, {\"id\": \"m1\", \"component\": \"Metric\", \"label\": \"Quarterly Revenue\", \"value\": \"$4.2M\", \"trend\": \"up\"}, {\"id\": \"m2\", \"component\": \"Metric\", \"label\": \"Win Rate\", \"value\": \"31%\", \"trend\": \"down\"}], \"data\": {}}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL - outer narration after generate_a2ui returns the healed surface (matched by the emit's unique toolCallId).",
+      "match": {
+        "toolCallId": "call_d6_mastra_recover_heal_outer_001"
+      },
+      "response": {
+        "content": "The first render came back malformed — I recovered and painted your quarterly revenue tile."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "HEAL - outer agent emits generate_a2ui (matched by the unique prompt).",
+      "match": {
+        "userMessage": "mend a botched opening attempt"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_recover_heal_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"intent\": \"create\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST - inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> recovery exhausts.",
+      "match": {
+        "userMessage": "flunks every validation sweep",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_recover_exhaust_design",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST - outer narration after generate_a2ui returns the recovery-exhausted envelope (matched by the emit's unique toolCallId).",
+      "match": {
+        "toolCallId": "call_d6_mastra_recover_exhaust_outer_001"
+      },
+      "response": {
+        "content": "I couldn't produce a valid surface after several attempts — showing a graceful fallback instead."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "EXHAUST - outer agent emits generate_a2ui (matched by the unique prompt).",
+      "match": {
+        "userMessage": "flunks every validation sweep"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_recover_exhaust_outer_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"intent\": \"create\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

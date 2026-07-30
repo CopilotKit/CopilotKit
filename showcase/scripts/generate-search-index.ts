@@ -13,6 +13,8 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { buildAngularFeatureSearchEntries } from "./lib/angular-feature-search";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 // MDX docs content now lives in shell-docs. shell-docs consumes the index
@@ -23,6 +25,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SHELL_DOCS_DIR = path.join(ROOT, "shell-docs", "src");
 const SHELL_DIR = path.join(ROOT, "shell", "src");
 const CONTENT_ROOT = SHELL_DOCS_DIR;
+const SHARED_DIR = path.join(ROOT, "shared");
 const OUTPUT_PATHS = [
   path.join(SHELL_DOCS_DIR, "data", "search-index.json"),
   path.join(SHELL_DIR, "data", "search-index.json"),
@@ -36,13 +39,19 @@ interface SearchEntry {
   href: string;
 }
 
+interface FrontendSearchPage {
+  id: string;
+  name: string;
+  guidanceTitle?: "Docs status";
+}
+
 const FRONTEND_SEARCH_PAGES = [
   { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
   { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
-  { id: "slack", name: "Slack", guidanceTitle: "About early access" },
-  { id: "teams", name: "Teams", guidanceTitle: "About early access" },
-] as const;
+  { id: "slack", name: "Slack" },
+  { id: "teams", name: "Microsoft Teams" },
+] as const satisfies readonly FrontendSearchPage[];
 
 const FRONTEND_NAMES = new Map(
   FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
@@ -166,14 +175,7 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
 
   const slugPath = entry.href.slice(frontendPrefix.length);
   if (slugPath === "using-these-docs") {
-    return FRONTEND_SEARCH_PAGES.filter(
-      (frontend) => frontend.guidanceTitle === "About early access",
-    ).map((frontend) => ({
-      ...entry,
-      title: `${frontend.name}: ${frontend.guidanceTitle}`,
-      section: "Frontends",
-      href: `/${frontend.id}/using-these-docs`,
-    }));
+    return [];
   }
 
   if (slugPath === "docs-status") {
@@ -194,7 +196,12 @@ function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
     {
       ...entry,
       section: "Frontends",
-      href: tail.length > 0 ? `/${frontend}/${tail.join("/")}` : `/${frontend}`,
+      href:
+        tail.length > 0
+          ? `/${frontend}/${tail.join("/")}`
+          : frontend === "slack" || frontend === "teams"
+            ? `/${frontend}/connect`
+            : `/${frontend}`,
     },
   ];
 }
@@ -356,6 +363,19 @@ function main() {
       `[generate-search-index] all scan directories missing — emitting static-pages stub only. Missing: ${scanDirsMissing.join(", ")}`,
     );
   }
+
+  const frontendRegistry = JSON.parse(
+    fs.readFileSync(path.join(SHARED_DIR, "frontend-registry.json"), "utf-8"),
+  );
+  const featureRegistry = JSON.parse(
+    fs.readFileSync(path.join(SHARED_DIR, "feature-registry.json"), "utf-8"),
+  );
+  const angularFeatureEntries = buildAngularFeatureSearchEntries(
+    frontendRegistry,
+    featureRegistry,
+  );
+  entries.push(...angularFeatureEntries);
+  console.log(`  Angular features: ${angularFeatureEntries.length} entries`);
 
   // Write (dual-emit to shell-docs + shell)
   const json = JSON.stringify(entries, null, 2) + "\n";

@@ -8,6 +8,38 @@ Two checklists: what makes a **complete package**, and what **external setup** i
 
 ---
 
+## Iron Rules (non-negotiable)
+
+These govern ALL showcase cell work (integration, test, fixture, frontend). They exist because violating them causes divergence bugs across cells. `showcase/AGENTS.md` is the short canonical statement; this section is the deeper reference.
+
+A showcase "cell" is one (integration × feature) pair. The core invariant: **a cell's behavior must be determined by the integration's backend + its fixture, and NOTHING else.**
+
+1. **Identical tests — ONE shared probe.** The test measuring a feature (e2e/probe spec) is byte-identical across every integration; per-integration differences live ONLY in fixtures. For D6/D5 this is a single shared harness probe — e.g. `harness/src/probes/scripts/d5-gen-ui-a2ui-fixed.ts` — run against every integration. NEVER add a per-integration test copy.
+2. **Near-identical frontends.** The feature UI is shared/near-identical so a cell renders the same regardless of backend (e.g. mastra ≡ langgraph-python frontend, byte-identical). Verify by screenshot/diff; don't diverge per-integration.
+3. **Minimal backends.** Each integration's backend is the thinnest glue that drives the feature. No per-integration logic that belongs in shared — push it into `shared/`.
+4. **Per-integration fixtures ONLY.** The only sanctioned per-integration variation is the aimock fixture: one per integration, keyed to its slug, under `aimock/d6/<slug>/...`.
+
+### The single-source symlink mechanism (enforces rules 1 + 3)
+
+`integrations/*/shared-tools/`, `*/tools/`, and `*/_shared/` are meant to be **SYMLINKS to `shared/...`** (single source of truth). `stage_shared()` in `scripts/cli/_common.sh` dereferences them to real files for the Docker build; `restore_symlinks()` restores them afterward.
+
+- **EDIT THE SHARED SOURCE ONLY** (`showcase/shared/...`).
+- A real file (not a symlink) under `shared-tools/` / `tools/` / `_shared/` is a **BUG** — it has drifted from shared. Check with `ls -l showcase/integrations/<slug>/shared-tools` (should show `-> ...`).
+- This has ERODED on `main` (some paths are now real `100644` files that drifted) — that drift is the root cause of divergence bugs (e.g. the a2ui flat-vs-nested + `render_a2ui` vs `_design_a2ui_surface` split fixed in PR #5971).
+- **NEVER "fix all N copies byte-identically."** Fix the shared source and restore the symlink.
+
+### Value-test before merge (mandatory)
+
+Run the real probe surface, not unit tests against fakes:
+
+```
+bin/showcase test <slug>:<feature> --d6 --direct
+```
+
+Observe RED (pre-fix) then GREEN (post-fix) on ≥3 real cells. Unit tests against fakes are NOT sufficient proof.
+
+---
+
 ## A. Complete Package (what `pnpm create-integration` generates)
 
 Everything below should exist in `showcase/integrations/<slug>/`:

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   runConversation,
   fillAndVerifySend,
@@ -8,6 +8,7 @@ import {
   AssistantErroredError,
   waitForTurnComplete,
   TurnNotCompleteError,
+  surfaceMountEntries,
 } from "./conversation-runner.js";
 import type {
   ConversationTurn,
@@ -473,6 +474,44 @@ function makePage(script: PageScript = {}): Page {
 }
 
 describe("runConversation", () => {
+  it("keeps prompts, assistant content, and assertion payloads out of CI logs", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const privatePrompt = "PRIVATE_PROMPT_DO_NOT_LOG";
+    const privateAssertion = "PRIVATE_ASSERTION_PAYLOAD_DO_NOT_LOG";
+    const privateAssistantText = "assistant-bubble-text-1";
+    const page = makePage({
+      evaluateValues: [0, 0, 1, 1, 1, 1, 1, 1, 1, 1],
+    });
+
+    try {
+      const result = await runConversation(
+        page,
+        [
+          {
+            input: privatePrompt,
+            assertions: async () => {
+              throw new Error(privateAssertion);
+            },
+          },
+        ],
+        { assistantSettleMs: 50 },
+      );
+
+      // The in-memory result retains the original error so the bounded matrix
+      // classifier can identify the failure. Only operator-visible logs must
+      // omit content-bearing values.
+      expect(result.error).toBe(privateAssertion);
+      const emitted = JSON.stringify([...debug.mock.calls, ...warn.mock.calls]);
+      expect(emitted).not.toContain(privatePrompt);
+      expect(emitted).not.toContain(privateAssistantText);
+      expect(emitted).not.toContain(privateAssertion);
+    } finally {
+      debug.mockRestore();
+      warn.mockRestore();
+    }
+  }, 10_000);
+
   it("happy path: 3 turns succeed and run assertions in order", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
     // Each turn must see the assistant-message count grow then stabilise.
@@ -2284,14 +2323,18 @@ describe("runConversation surface-mount completion (completeOnMount)", () => {
    * `makePage`'s dispatch but with two key differences:
    *   - the cascade-state read always returns non-empty `count` with
    *     `text: ""` (empty → text-stability impossible), and
-   *   - the `readTestIdCounts` closure (body has `data-testid` + builds an
-   *     `out` map, no `{ count`) returns the scripted per-testid counts.
+   *   - the `readSurfaceCounts` closure (body builds an `out[key]` map)
+   *     returns the scripted per-surface-entry counts.
    */
   function makeSurfacePage(opts: {
-    /** Per-testid count returned AFTER the surface "mounts". */
+    /**
+     * Per-surface-entry count returned AFTER the surface "mounts", keyed the
+     * way the runner keys its counts: a bare testid for a `testIds` entry, the
+     * selector string itself for a `selectors` entry.
+     */
     mounted: Record<string, number>;
     /**
-     * Polls before the surface mounts — until then `readTestIdCounts`
+     * Polls before the surface mounts — until then `readSurfaceCounts`
      * returns all-zero. Default 1 (mounts almost immediately). Set high
      * (or never-mounting via `neverMount`) to model a broken render.
      */
@@ -2354,10 +2397,11 @@ describe("runConversation surface-mount completion (completeOnMount)", () => {
         if (body.includes("copilot-assistant-message")) {
           return (sent ? 1 : 0) as never;
         }
-        // readTestIdCounts: references data-testid + querySelectorAll, builds
-        // an `out` map, no `{ count`, no `copilot-assistant-message`. This is
-        // the surface-mount poll.
-        if (body.includes("data-testid") && body.includes("querySelectorAll")) {
+        // readSurfaceCounts: the ONLY closure that builds an `out[key]` map
+        // over `pairs`. Routed on that shape rather than on `data-testid` so a
+        // spec using raw `selectors` (no testid in the source) still lands
+        // here. This is the surface-mount poll.
+        if (body.includes("out[key]") && body.includes("querySelectorAll")) {
           surfacePolls += 1;
           const ready = !opts.neverMount && surfacePolls >= mountAfter;
           return (ready ? opts.mounted : {}) as never;
@@ -2483,6 +2527,92 @@ describe("runConversation surface-mount completion (completeOnMount)", () => {
     expect(result.failure_turn).toBe(1);
     expect(result.error).toContain("surface-missing");
   }, 20_000);
+
+  // CF-1 (mcp-apps false-red): a surface whose contract is "any conforming
+  // form" is declared as ONE comma-separated `selectors` entry. Gating on a
+  // single testid instead red-lined D5/D6 `mcp-apps` on every non-Angular
+  // integration for a day while the demos rendered fine.
+  it("GREEN: completes on a raw `selectors` cascade entry (no testIds in the spec)", async () => {
+    const cascade = '[data-testid="mcp-app-iframe"], iframe[sandbox]';
+    const page = makeSurfacePage({
+      mounted: { [cascade]: 1 },
+      mountAfterPolls: 2,
+    });
+    let assertionRan = false;
+    const result = await runConversation(
+      page,
+      [
+        {
+          input:
+            "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+          completeOnMount: { selectors: [cascade] },
+          assertions: async () => {
+            assertionRan = true;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.turns_completed).toBe(1);
+    expect(assertionRan).toBe(true);
+  }, 20_000);
+
+  it("INTEGRITY (red): a `selectors` cascade that never mounts still fails surface-missing", async () => {
+    const cascade = '[data-testid="mcp-app-iframe"], iframe[sandbox]';
+    const page = makeSurfacePage({ mounted: {}, neverMount: true });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Open Excalidraw and sketch a system diagram.",
+          responseTimeoutMs: 1_200,
+          completeOnMount: { selectors: [cascade] },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("surface-missing");
+  }, 20_000);
+
+  it("FAILS LOUD: a completeOnMount spec naming no surface errors instead of hanging", async () => {
+    const page = makeSurfacePage({ mounted: {}, neverMount: true });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          responseTimeoutMs: 1_200,
+          completeOnMount: {},
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("names no surface");
+  }, 20_000);
+});
+
+describe("surfaceMountEntries", () => {
+  it("renders testIds as data-testid selectors and keeps raw selectors verbatim", () => {
+    expect(
+      surfaceMountEntries({
+        testIds: ["declarative-metric"],
+        selectors: ["iframe[sandbox]"],
+      }),
+    ).toEqual([
+      {
+        key: "declarative-metric",
+        selector: '[data-testid="declarative-metric"]',
+      },
+      { key: "iframe[sandbox]", selector: "iframe[sandbox]" },
+    ]);
+  });
+
+  it("returns an empty list when neither axis is set", () => {
+    expect(surfaceMountEntries({})).toEqual([]);
+  });
 });
 
 describe("fillAndVerifySend", () => {

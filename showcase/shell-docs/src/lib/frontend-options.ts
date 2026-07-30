@@ -1,3 +1,7 @@
+import frontendRegistryData from "@/data/frontend-registry.json";
+import { CHANNEL_FRONTENDS, isChannelGuideSlug } from "./channel-guide-routes";
+import type { ChannelFrontend } from "./channel-guide-routes";
+
 export type FrontendId =
   | "react"
   | "vue"
@@ -15,44 +19,43 @@ export interface FrontendOption {
   summary: string;
 }
 
-export const FRONTEND_OPTIONS: readonly FrontendOption[] = [
-  {
-    id: "react",
-    name: "React",
-    icon: "react",
-    summary: "The complete CopilotKit docs experience.",
-  },
-  {
-    id: "vue",
-    name: "Vue",
-    icon: "vue",
-    summary: "Vue 3 provider, composables, and chat primitives.",
-  },
-  {
-    id: "react-native",
-    name: "React Native",
-    icon: "react-native",
-    summary: "Mobile bindings for React Native and Expo apps.",
-  },
-  {
-    id: "angular",
-    name: "Angular",
-    icon: "angular",
-    summary: "Angular components, directives, and services.",
-  },
-  {
-    id: "slack",
-    name: "Slack",
-    icon: "slack",
-    summary: "Slack bot quickstart with streaming agent replies.",
-  },
-  {
-    id: "teams",
-    name: "Teams",
-    icon: "teams",
-    summary: "Microsoft Teams bot quickstart with the M365 Agents Playground.",
-  },
-] as const;
+export type FrontendSupportState =
+  | "supported"
+  | "docs-only"
+  | "not-supported"
+  | "not-applicable"
+  | "quarantined";
+
+export interface FrontendSupportDeclaration {
+  state: FrontendSupportState;
+  reason?: string;
+  owner?: string;
+  review_date?: string;
+  issue?: string;
+}
+
+interface FrontendRegistryData {
+  frontends: Array<
+    FrontendOption & {
+      runnable: boolean;
+      feature_support_required: boolean;
+    }
+  >;
+  feature_support: Record<
+    string,
+    Partial<Record<FrontendId, FrontendSupportDeclaration>>
+  >;
+}
+
+const frontendRegistry = frontendRegistryData as FrontendRegistryData;
+
+export const FRONTEND_OPTIONS: readonly FrontendOption[] =
+  frontendRegistry.frontends.map(({ id, name, icon, summary }) => ({
+    id,
+    name,
+    icon,
+    summary,
+  }));
 
 const FRONTEND_IDS = new Set<string>(
   FRONTEND_OPTIONS.map((option) => option.id),
@@ -66,8 +69,22 @@ export function getFrontendOption(id: FrontendId): FrontendOption {
   return FRONTEND_OPTIONS.find((option) => option.id === id)!;
 }
 
-export function isFrontendEarlyAccess(id: FrontendId): boolean {
-  return id === "slack" || id === "teams";
+/** Whether a frontend has a runnable Showcase application. */
+export function isRunnableFrontend(id: FrontendId): boolean {
+  return frontendRegistry.frontends.find((frontend) => frontend.id === id)!
+    .runnable;
+}
+
+/** Read a frontend's explicit support declaration for a Showcase feature. */
+export function getFrontendSupport(
+  featureId: string,
+  frontendId: FrontendId,
+): FrontendSupportDeclaration | undefined {
+  return frontendRegistry.feature_support[featureId]?.[frontendId];
+}
+
+export function isChannelFrontend(id: FrontendId): id is ChannelFrontend {
+  return CHANNEL_FRONTENDS.some((frontend) => frontend === id);
 }
 
 function normalizeSlugPath(slugPath: string): string {
@@ -96,7 +113,8 @@ export function frontendPathForBackend(
 
   if (
     normalizedSlugPath === "" ||
-    normalizedSlugPath === "quickstart" ||
+    (normalizedSlugPath === "quickstart" &&
+      (backendFrameworkSlug === null || id !== "angular")) ||
     (id === "react" && normalizedSlugPath === "using-these-docs")
   ) {
     return basePath || "/";
@@ -123,6 +141,23 @@ export interface FrontendRoutePath {
 
 function pathnameSegments(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
+}
+
+export function shouldNavigateFrontendSelection(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  pathname: string,
+  destinationPath: string,
+): boolean {
+  return id !== effectiveFrontendId && destinationPath !== pathname;
+}
+
+export function isFrontendOptionActive(
+  id: FrontendId,
+  effectiveFrontendId: FrontendId,
+  _pathname: string,
+): boolean {
+  return id === effectiveFrontendId;
 }
 
 export function parseFrontendRoutePath(
@@ -156,26 +191,48 @@ export function backendFromPathname(
   return first && backendFrameworkSlugs.includes(first) ? first : null;
 }
 
+function targetQuickstartSlug(
+  id: FrontendId,
+  backendFrameworkSlug: string | null,
+): string {
+  return id === "angular" && backendFrameworkSlug !== null ? "quickstart" : "";
+}
+
 export function frontendPathForCurrentPath(
   id: FrontendId,
   pathname: string,
   backendFrameworkSlugs: readonly string[] = [],
 ): string {
+  const targetIsChannel = isChannelFrontend(id);
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {
+    const currentIsChannel = isChannelFrontend(frontendRoute.frontend);
+    const shouldUseTargetQuickstart =
+      (targetIsChannel && !currentIsChannel) ||
+      (!targetIsChannel &&
+        currentIsChannel &&
+        (frontendRoute.slugPath === "" ||
+          isChannelGuideSlug(frontendRoute.slugPath)));
+
     return frontendPathForBackend(
       id,
-      frontendRoute.slugPath,
+      shouldUseTargetQuickstart
+        ? targetQuickstartSlug(id, frontendRoute.backend)
+        : frontendRoute.slugPath,
       frontendRoute.backend,
     );
   }
 
   const [first = "", ...rest] = pathnameSegments(pathname);
   if (backendFrameworkSlugs.includes(first)) {
-    return frontendPathForBackend(id, rest.join("/"), first);
+    return frontendPathForBackend(
+      id,
+      targetIsChannel ? "" : rest.join("/"),
+      first,
+    );
   }
 
-  return frontendPathFor(id, [first, ...rest].join("/"));
+  return frontendPathFor(id, targetIsChannel ? "" : [first, ...rest].join("/"));
 }
 
 export function backendPathForCurrentPath(
@@ -187,11 +244,13 @@ export function backendPathForCurrentPath(
   const backend = slug === defaultFrameworkSlug ? null : slug;
   const frontendRoute = parseFrontendRoutePath(pathname, backendFrameworkSlugs);
   if (frontendRoute) {
-    return frontendPathForBackend(
-      frontendRoute.frontend,
-      frontendRoute.slugPath,
-      backend,
-    );
+    const isUnscopedFrontendRoot =
+      frontendRoute.backend === null && frontendRoute.slugPath === "";
+    const slugPath = isUnscopedFrontendRoot
+      ? targetQuickstartSlug(frontendRoute.frontend, backend)
+      : frontendRoute.slugPath;
+
+    return frontendPathForBackend(frontendRoute.frontend, slugPath, backend);
   }
 
   const [first = "", ...rest] = pathnameSegments(pathname);

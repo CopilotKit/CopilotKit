@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 
 [[package]]
@@ -407,6 +407,7 @@ dependencies = [
     { name = "openai" },
     { name = "packaging" },
     { name = "python-dotenv" },
+    { name = "python-multipart" },
     { name = "uvicorn" },
     { name = "yfinance" },
 ]
@@ -419,6 +420,7 @@ requires-dist = [
     { name = "openai", specifier = ">=1.88.0" },
     { name = "packaging", specifier = ">=25.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "uvicorn", specifier = ">=0.34.3" },
     { name = "yfinance", specifier = ">=0.2.63" },
 ]

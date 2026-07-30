@@ -81,7 +81,7 @@ describe("FrameworkSelector", () => {
     expect(backendIndex).toBeGreaterThanOrEqual(0);
     expect(frontendIndex).toBeLessThan(backendIndex);
     expect(markup).toContain("React");
-    expect(markup).not.toContain("Early access");
+    expect(markup).not.toContain("Production ready");
     expect(markup).toContain("CopilotKit");
     expect(
       markup.match(
@@ -119,14 +119,14 @@ describe("FrameworkSelector", () => {
 
     expect(markup).toContain("Frontend");
     expect(markup).toContain("Vue");
-    expect(markup).not.toContain("Early access");
+    expect(markup).not.toContain("Production ready");
     expect(markup).not.toContain("px-1 py-0 text-[8px]");
     expect(markup).not.toContain("leading-[10px]");
     expect(markup).toContain("mt-0.5 flex min-w-0 items-center gap-2");
     expect(markup).not.toContain("React Native");
   });
 
-  it("keeps the early access badge for Slack and Teams only", () => {
+  it("presents Slack and Teams without redundant status badges", () => {
     navigation.pathname = "/slack";
 
     const markup = renderToStaticMarkup(
@@ -138,10 +138,23 @@ describe("FrameworkSelector", () => {
     );
 
     expect(markup).toContain("Slack");
-    expect(markup).toContain("Early access");
-    expect(markup).toContain("px-1 py-0 text-[8px]");
-    expect(markup).toContain("leading-[10px]");
-    expect(markup).toContain("self-center");
+    expect(markup).toContain("Channel");
+    expect(markup).not.toContain(">Frontend<");
+    expect(markup).not.toContain("Production ready");
+    expect(markup).not.toContain("px-1 py-0 text-[8px]");
+    expect(markup).not.toContain("leading-[10px]");
+  });
+
+  it("separates channel frontends under a non-selectable Channels SDK label", () => {
+    const componentSource = readFileSync(
+      new URL("../framework-selector.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(componentSource).toContain("Channels SDK");
+    expect(componentSource).toContain('role="separator"');
+    expect(componentSource).not.toContain("FrontendProductionReadyBadge");
+    expect(componentSource).not.toContain("FrontendEarlyAccessBadge");
   });
 
   it("uses a picker menu shadow that does not bleed upward", () => {
@@ -184,5 +197,19 @@ describe("FrameworkSelector", () => {
     expect(componentSource).toContain(
       "router.replace(\n      backendPathForCurrentPath(",
     );
+  });
+
+  it("attributes explicit frontend switches with their origin and backend", () => {
+    const componentSource = readFileSync(
+      new URL("../framework-selector.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(componentSource).toContain('"docs.frontend_selected"');
+    expect(componentSource).toContain("from_frontend: effectiveFrontendId");
+    expect(componentSource).not.toContain("Channels overview");
+    expect(componentSource).toContain("backend: effectiveFramework");
+    expect(componentSource).toContain("from_path: pathname");
+    expect(componentSource).toContain("destination_path: destinationPath");
   });
 });

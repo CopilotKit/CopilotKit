@@ -1,55 +1,38 @@
 ---
-title: "Select"
-description: "Dropdown control in a bot message with an inline onSelect handler."
+title: Select
+description: Render a portable single- or multi-select control and understand its current managed-provider limits.
 ---
 
-## Overview
-
-`Select` is a dropdown for an [`Actions`](/reference/channels/components/Actions) row. The selection handler is inline, like [`Button`](/reference/channels/components/Button)'s `onClick`; the selected option's `value` arrives as a `string`.
-
-## Import
+`Select` describes a list of string choices.
 
 ```tsx
-import { Select } from "@copilotkit/channels-ui";
+import { Actions, Select } from "@copilotkit/channels/ui";
+
+<Actions>
+  <Select
+    placeholder="Choose an owner"
+    options={[
+      { label: "Payments", value: "payments" },
+      { label: "Identity", value: "identity" },
+    ]}
+    onSelect={async ({ action, thread }) => {
+      await thread.post(`Selected ${String(action.value)}.`);
+    }}
+  />
+</Actions>;
 ```
 
 ## Props
 
-<PropertyReference name="onSelect" type="ClickHandler<string>">
-  Inline handler run on selection. `ctx.action.value` is the chosen option's `value` (a `string`). See [`InteractionContext`](/reference/channels/types/InteractionContext). Must return `void` or `Promise<void>`.
-</PropertyReference>
+| Prop | Type | Description |
+| --- | --- | --- |
+| `options` | `{ label: string; value: string }[]` | Required choices. |
+| `placeholder` | `string` | Native placeholder text. |
+| `multi` | `boolean` | Allows multiple selections where the provider supports them. |
+| `onSelect` | `ClickHandler<string \| string[]>` | Selection callback. `multi` selections use a string array. |
 
-<PropertyReference name="placeholder" type="string">
-  Placeholder shown before a selection is made.
-</PropertyReference>
-
-<PropertyReference name="options" type="{ label: string; value: string }[]" required>
-  The selectable options (`SelectOption[]`).
-</PropertyReference>
-
-## Usage
-
-```tsx
-<Actions>
-  <Select
-    placeholder="Pick a severity"
-    options={[
-      { label: "SEV1 — page someone", value: "sev1" },
-      { label: "SEV2 — business hours", value: "sev2" },
-      { label: "SEV3 — backlog", value: "sev3" },
-    ]}
-    onSelect={async ({ thread, action }) => {
-      await thread.post(`Severity set to ${action.value}.`);
-    }}
-  />
-</Actions>
-```
-
-## On Slack
-
-Renders as a `static_select` element — at most **100 options** (`SLACK_LIMITS.selectOptions`).
-
-## Related
-
-- [Button](/reference/channels/components/Button) — single-click control
-- [InteractionContext](/reference/channels/types/InteractionContext) — what the handler receives
+Managed Slack emits a dispatching static select; `multi` becomes a
+`multi_static_select` input block. Managed Teams renders an Adaptive Card
+`Input.ChoiceSet`, but the managed Teams ingress currently routes only
+`Button` submissions and does not expose card field values. Do not use
+`Select.onSelect` as a required cross-provider managed workflow step today.

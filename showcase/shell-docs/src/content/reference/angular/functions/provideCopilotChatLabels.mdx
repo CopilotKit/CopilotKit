@@ -7,7 +7,7 @@ description: "Angular provider that overrides the default text labels used by th
 
 `provideCopilotChatLabels` returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that customizes the text labels used throughout the prebuilt chat components, such as the input placeholder, toolbar button labels, the disclaimer text, and the welcome message. You pass a partial set of labels and they are merged over the defaults, so you only override the strings you want to change.
 
-Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels). This mirrors React's chat label configuration via `useCopilotChatConfiguration`.
+Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels).
 
 The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value.
 

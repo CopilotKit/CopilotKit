@@ -62,26 +62,14 @@ describe("bubble-race repro (defect 2: mechanism-GREEN — messagesOverrideFromE
     // override callsite, and each turn drove a settled assistant
     // response. This is the end-to-end wiring proof.
     expect(result.turns).toHaveLength(3);
-    // Each of the 3 user inputs was echoed by the runner's
+    // Each of the 3 user inputs is represented by its character count in the
+    // runner's privacy-safe
     // `[conversation-runner] turn N/total — sending message
-    //  { input: '<msg>', ... }` log immediately before the send.
-    // util.inspect renders the object across multiple lines, so the
-    // regex uses [\s\S]*? to span the structured-2nd-arg block. The
-    // sending-message log is emitted BEFORE the settle wait, so it
-    // is present even on turns that would later mis-settle — making
-    // this assertion strictly about the SEND-channel wiring, not
-    // about settled assistant text.
-    for (const msg of messages) {
-      const escaped = msg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const sendRe = new RegExp(
-        `\\[conversation-runner\\] turn \\d+/\\d+ — sending message[\\s\\S]*?input:\\s*'${escaped}'`,
-        "m",
-      );
-      expect(
-        result.stdout,
-        `expected stdout to contain a sending-message log echoing input='${msg}'`,
-      ).toMatch(sendRe);
-    }
+    // metadata. This proves the override values reached the send channel
+    // without copying prompt content into CI logs.
+    expect(result.turns.map((turn) => turn.inputLength)).toEqual(
+      messages.map((message) => message.length),
+    );
   }, 240_000);
 });
 
@@ -98,20 +86,16 @@ describe("bubble-race repro (defect 2: un-turn-scoped bubble selection)", () => 
     });
     expect(result.exitCode).toBe(0);
     expect(result.turns).toHaveLength(3);
-    // Turn 1's canonical response: "How about Bubbles? It is friendly, ..."
-    // Defect-2 manifests when turn-1's read picks up turn-2's or
-    // turn-3's content via the global `list[last]` selector.
-    expect(result.turns[0].assistantText).toContain("Bubbles");
-    expect(result.turns[0].assistantText).not.toContain("Bubble Bowl");
-    // Turn 2's canonical response: "Following the Bubbles theme, you
-    // could call the tank The Bubble Bowl. ..."
-    expect(result.turns[1].assistantText).toContain("Bubble Bowl");
-    // Turn 3's canonical response is the recall confirmation:
-    // "We named the goldfish Bubbles, and the tank The Bubble Bowl."
-    // The recall is distinguished by containing BOTH names AND the
-    // "named" verb (turn 1's "Bubbles" line never uses "named").
-    expect(result.turns[2].assistantText).toContain("Bubbles");
-    expect(result.turns[2].assistantText).toContain("Bubble Bowl");
-    expect(result.turns[2].assistantText).toMatch(/named/i);
+    // The canonical deterministic responses have distinct lengths. Pinning
+    // their order still catches a global `list[last]` lookup while keeping
+    // generated response content out of subprocess logs.
+    const expectedResponses = [
+      "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango.",
+      "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone.",
+      "We named the goldfish Bubbles, and the tank The Bubble Bowl.",
+    ];
+    expect(result.turns.map((turn) => turn.assistantTextLength)).toEqual(
+      expectedResponses.map((response) => response.length),
+    );
   }, 240_000);
 });

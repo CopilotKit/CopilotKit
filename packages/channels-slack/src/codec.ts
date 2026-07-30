@@ -1,4 +1,4 @@
-import type { PlatformCodec } from "@copilotkit/channels";
+import type { PlatformCodec } from "@copilotkit/channels-core";
 import { renderSlackMessage } from "./render/block-kit.js";
 import { normalizeSlackEvent } from "./ingress-normalize.js";
 import type { SlackNeutralEvent } from "./ingress-normalize.js";

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { decodeViewSubmission, decodeViewClosed } from "../interaction.js";
 import { SlackAdapter } from "../adapter.js";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 
 describe("decodeViewSubmission", () => {
   it("parses field values from a view_submission payload", () => {
@@ -118,7 +118,7 @@ describe("decodeViewClosed", () => {
 });
 
 describe("SlackAdapter.openModal", () => {
-  const modalIr: BotNode[] = [
+  const modalIr: ChannelNode[] = [
     {
       type: "modal",
       props: {
@@ -126,7 +126,7 @@ describe("SlackAdapter.openModal", () => {
         title: "File issue",
         children: [],
       },
-    } as unknown as BotNode,
+    } as unknown as ChannelNode,
   ];
 
   function makeAdapter() {
@@ -160,7 +160,7 @@ describe("SlackAdapter.openModal", () => {
 
   it("preserves an author-set private_metadata under pm", async () => {
     const { adapter, open } = makeAdapter();
-    const irWithMeta: BotNode[] = [
+    const irWithMeta: ChannelNode[] = [
       {
         type: "modal",
         props: {
@@ -169,7 +169,7 @@ describe("SlackAdapter.openModal", () => {
           privateMetadata: "authorMeta",
           children: [],
         },
-      } as unknown as BotNode,
+      } as unknown as ChannelNode,
     ];
     await adapter.openModal(
       { channel: "C123" } as never,

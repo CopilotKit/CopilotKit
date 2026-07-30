@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { renderTeamsMarkdown } from "./markdown.js";
 
-const text = (value: string): BotNode => ({ type: "text", props: { value } });
+const text = (value: string): ChannelNode => ({
+  type: "text",
+  props: { value },
+});
 
 describe("renderTeamsMarkdown", () => {
   it("renders a bare text node", () => {
@@ -10,7 +13,7 @@ describe("renderTeamsMarkdown", () => {
   });
 
   it("renders a header as bold", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       { type: "header", props: { children: [text("Title")] } },
     ];
     expect(renderTeamsMarkdown(ir)).toBe("**Title**");
@@ -21,7 +24,7 @@ describe("renderTeamsMarkdown", () => {
   });
 
   it("joins a message container's children with blank lines", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       {
         type: "message",
         props: {
@@ -36,7 +39,7 @@ describe("renderTeamsMarkdown", () => {
   });
 
   it("renders context children as emphasized lines", () => {
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       { type: "context", props: { children: [text("fyi")] } },
     ];
     expect(renderTeamsMarkdown(ir)).toBe("_fyi_");
@@ -47,11 +50,11 @@ describe("renderTeamsMarkdown", () => {
   });
 
   it("renders a <Table> as a GFM pipe-table fallback", () => {
-    const cell = (v: string): BotNode => ({
+    const cell = (v: string): ChannelNode => ({
       type: "cell",
       props: { children: [text(v)] },
     });
-    const ir: BotNode[] = [
+    const ir: ChannelNode[] = [
       {
         type: "table",
         props: {

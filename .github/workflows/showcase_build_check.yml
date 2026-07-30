@@ -9,6 +9,11 @@ on:
   pull_request:
     paths:
       - "showcase/**"
+      - "packages/a2ui-renderer/**"
+      - "packages/angular/**"
+      - "packages/core/**"
+      - "packages/shared/**"
+      - "packages/web-components/**"
       - ".github/workflows/showcase_build.yml"
       - ".github/workflows/showcase_build_check.yml"
 
@@ -28,8 +33,9 @@ jobs:
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
+      needs_angular: ${{ steps.build-matrix.outputs.needs_angular }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
@@ -41,6 +47,13 @@ jobs:
             workflow_config:
               - '.github/workflows/showcase_build.yml'
               - '.github/workflows/showcase_build_check.yml'
+            angular:
+              - 'showcase/angular/**'
+              - 'packages/a2ui-renderer/**'
+              - 'packages/angular/**'
+              - 'packages/core/**'
+              - 'packages/shared/**'
+              - 'packages/web-components/**'
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
@@ -125,35 +138,35 @@ jobs:
           # checked pre-merge.
           #
           # Fields carried over: dispatch_name, filter_key, context, image,
-          # timeout, lfs, build_args_*, dockerfile.
+          # timeout, build_args_*, dockerfile.
           # Fields omitted (not needed for build-only): railway_id, health_path.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
-            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
-            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"lfs":true,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
-            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"lfs":false,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
-            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"lfs":false,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell/Dockerfile"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/integrations/agno","image":"showcase-agno","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/integrations/llamaindex","image":"showcase-llamaindex","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/integrations/langgraph-fastapi","image":"showcase-langgraph-fastapi","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/integrations/langgraph-typescript","image":"showcase-langgraph-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"ms-agent-harness-dotnet","filter_key":"ms_agent_harness_dotnet","context":"showcase/integrations/ms-agent-harness-dotnet","image":"showcase-ms-agent-harness-dotnet","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/integrations/claude-sdk-python","image":"showcase-claude-sdk-python","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"built-in-agent","filter_key":"built_in_agent","context":"showcase/integrations/built-in-agent","image":"showcase-built-in-agent","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","timeout":10,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-dashboard/Dockerfile"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","timeout":10,"build_args_sha":"__GH_SHA__","build_args_branch":"__GH_REF_NAME__","dockerfile":"showcase/shell-docs/Dockerfile"},
+            {"dispatch_name":"showcase-harness","filter_key":"showcase_harness","context":".","image":"showcase-harness","timeout":20,"build_args":"","dockerfile":"showcase/harness/Dockerfile"},
+            {"dispatch_name":"showcase-aimock","filter_key":"showcase_aimock","context":"showcase/aimock","image":"showcase-aimock","timeout":5,"build_args":"","dockerfile":"showcase/aimock/Dockerfile"}
           ]'
 
           CHANGES="${FILTER_CHANGES:-[]}"
@@ -167,19 +180,66 @@ jobs:
               if .build_args_branch == "__GH_REF_NAME__" then .build_args_branch = $ref else . end |
               (.filter_key as $fk | select(
               ($changes | index("workflow_config") != null) or
-              ($changes | index($fk) != null)
+              ($changes | index($fk) != null) or
+              (($changes | index("angular") != null) and (
+                (.context | startswith("showcase/integrations/")) or
+                .dispatch_name == "shell"
+              ))
             ))]
           ')
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "needs_angular=$(echo "$MATRIX" | jq -r 'any(.[]; (.context | startswith("showcase/integrations/")))')" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
-  build-check:
+  build-angular:
+    name: Build canonical Angular browser artifact
     needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: Setup Node
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+
+      - name: Install
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Build
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        run: pnpm nx build @copilotkit/showcase-angular-host
+
+      - name: Upload canonical Angular browser artifact
+        if: needs.detect-changes.outputs.needs_angular == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: showcase-angular-browser-${{ github.sha }}
+          path: showcase/angular/dist/showcase-angular/browser
+          if-no-files-found: error
+          retention-days: 1
+
+  build-check:
+    needs: [detect-changes, build-angular]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
@@ -193,10 +253,26 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          lfs: ${{ matrix.service.lfs }}
+          # Uniform `lfs: true`, matching showcase_build.yml. Every integration
+          # ships LFS-tracked demo assets under public/ (demo-files/*.png|*.pdf,
+          # demo-audio/*.wav per the repo-root .gitattributes). Without the
+          # fetch these check out as ~130-byte pointer stubs and get COPYed into
+          # the image as text, so this job would "successfully" build an image
+          # whose multimodal demo is broken — the exact failure showcase_build.yml
+          # already fixed for the deploy path. Hardcoded rather than read from
+          # `matrix.service.lfs` so a new integration is covered automatically,
+          # with no per-slot flag to forget.
+          lfs: true
           persist-credentials: false
+
+      - name: Download canonical Angular browser artifact
+        if: startsWith(matrix.service.context, 'showcase/integrations/')
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: showcase-angular-browser-${{ github.sha }}
+          path: ${{ runner.temp }}/showcase-angular-browser
 
       - name: Setup Depot
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
@@ -218,6 +294,8 @@ jobs:
           echo "BUILDARGS_EOF" >> $GITHUB_OUTPUT
 
       - name: Copy shared modules into build context
+        env:
+          ANGULAR_BROWSER: ${{ runner.temp }}/showcase-angular-browser
         run: |
           set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
@@ -250,6 +328,11 @@ jobs:
               fi
             fi
           done
+
+          if [ -L "$CONTEXT/public/angular" ]; then
+            source showcase/scripts/cli/_common.sh
+            stage_angular "$CONTEXT" "$ANGULAR_BROWSER"
+          fi
 
       - name: Build Docker image (no push)
         uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0

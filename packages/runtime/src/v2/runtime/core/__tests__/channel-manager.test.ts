@@ -1,0 +1,963 @@
+import { describe, it, expect, vi } from "vitest";
+import { createChannel, FakeAdapter } from "@copilotkit/channels";
+import { CopilotKitIntelligence } from "../../intelligence-platform";
+import { InMemoryAgentRunner } from "../../runner/in-memory";
+import {
+  ChannelManager,
+  ChannelSetupRequiredError,
+  isModuleNotFound,
+  defaultActivateChannel,
+} from "../channel-manager";
+import type {
+  ActivateChannelEngine,
+  ChannelsHandle,
+  ChannelsIntelligenceModule,
+} from "../channel-manager";
+import { deriveChannelActivationConfig } from "../channel-activation-config";
+import type { ChannelActivationConfig } from "../channel-activation-config";
+
+/** A CopilotKitIntelligence whose runner API key carries a parseable project id. */
+function fakeIntelligence(): CopilotKitIntelligence {
+  return new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+}
+
+function fakeServices() {
+  return {
+    runner: new InMemoryAgentRunner(),
+    intelligence: fakeIntelligence(),
+  };
+}
+
+/** A minimal fake ChannelsHandle whose `stop` is a spy. */
+function fakeHandle(): ChannelsHandle & { stop: ReturnType<typeof vi.fn> } {
+  return { metadata: {}, stop: vi.fn(async () => {}) };
+}
+
+function captureChannelsIntelligenceLaunch() {
+  const handle = fakeHandle();
+  const start = vi.fn<
+    ChannelsIntelligenceModule["startChannelsOverRealtimeGateway"]
+  >(async () => handle);
+  const importer = async (): Promise<ChannelsIntelligenceModule> => ({
+    startChannelsOverRealtimeGateway: start,
+  });
+  return { handle, start, importer };
+}
+
+describe("ChannelSetupRequiredError", () => {
+  it("sets .name to ChannelSetupRequiredError rather than the default Error", () => {
+    expect(new ChannelSetupRequiredError("x").name).toBe(
+      "ChannelSetupRequiredError",
+    );
+  });
+});
+
+describe("ChannelManager", () => {
+  it("activate() starts one engine call per channel with distinct runtimeInstanceIds and reaches online after ready()", async () => {
+    const chA = createChannel({ name: "support" });
+    const chB = createChannel({ name: "sales" });
+    const seenIds: string[] = [];
+    const engine: ActivateChannelEngine = vi.fn(async (config) => {
+      seenIds.push(config.runtimeInstanceId);
+      return fakeHandle();
+    });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [chA, chB],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    expect(engine).toHaveBeenCalledTimes(2);
+    expect(mgr.status().overall).toBe("connecting");
+    expect(new Set(seenIds).size).toBe(2);
+    expect(seenIds.every((id) => id.startsWith("rti_"))).toBe(true);
+
+    await mgr.ready();
+
+    expect(mgr.status().overall).toBe("online");
+    expect(mgr.status().channels).toEqual({
+      support: "online",
+      sales: "online",
+    });
+  });
+
+  it("a second activate() is a no-op (idempotent)", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+
+    mgr.activate();
+    mgr.activate();
+
+    expect(engine).toHaveBeenCalledTimes(1);
+    await mgr.ready();
+  });
+
+  it("does not call the engine at construction; stop() stops each handle once and is idempotent", async () => {
+    const handleA = fakeHandle();
+    const handleB = fakeHandle();
+    const handles = [handleA, handleB];
+    let i = 0;
+    const engine: ActivateChannelEngine = vi.fn(async () => handles[i++]!);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+
+    expect(engine).toHaveBeenCalledTimes(0);
+
+    mgr.activate();
+    await mgr.ready();
+    await mgr.stop();
+    await mgr.stop();
+
+    expect(handleA.stop).toHaveBeenCalledTimes(1);
+    expect(handleB.stop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().overall).toBe("stopped");
+    expect(mgr.status().channels).toEqual({
+      support: "stopped",
+      sales: "stopped",
+    });
+  });
+
+  it("marks a ChannelSetupRequiredError rejection as setup_required without failing ready(); other channel stays online", async () => {
+    const engine: ActivateChannelEngine = async (config) => {
+      if (config.channelName === "sales") {
+        throw new ChannelSetupRequiredError(
+          "no managed provider for sales yet",
+        );
+      }
+      return fakeHandle();
+    };
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(mgr.status().channels).toEqual({
+      support: "online",
+      sales: "setup_required",
+    });
+    expect(mgr.status().overall).toBe("setup_required");
+  });
+
+  it("treats an error carrying code SETUP_REQUIRED as setup_required", async () => {
+    const engine: ActivateChannelEngine = async () => {
+      const err = Object.assign(new Error("setup"), { code: "SETUP_REQUIRED" });
+      throw err;
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(mgr.status().channels.support).toBe("setup_required");
+  });
+
+  it("marks a plain error rejection as error and rejects ready()", async () => {
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("boom");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    const err = await mgr.ready().then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(AggregateError);
+    expect((err as AggregateError).errors[0]).toMatchObject({
+      message: "boom",
+    });
+    expect(mgr.status().channels.support).toBe("error");
+    expect(mgr.status().overall).toBe("error");
+  });
+
+  it("status() reports overall 'stopped' when stop() runs before activate() (SIGTERM during startup)", async () => {
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: async () => fakeHandle(),
+    });
+    // stop() before activate() — no entries were ever created, so the empty-set
+    // fold would report "online" (a torn-down manager reading healthy) without
+    // the stopped short-circuit in status().
+    await mgr.stop();
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("ready() rejects when a channel does not settle within timeoutMs", async () => {
+    const engine: ActivateChannelEngine = () =>
+      new Promise<ChannelsHandle>(() => {});
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await expect(mgr.ready({ timeoutMs: 25 })).rejects.toThrow();
+    expect(mgr.status().overall).toBe("connecting");
+  });
+
+  it("ready() surfaces the erroring channel's real reason even when a sibling hangs", async () => {
+    const boom = new Error("activation exploded");
+    const engine: ActivateChannelEngine = (_config, channel) =>
+      channel.name === "support"
+        ? Promise.reject(boom) // errors immediately
+        : new Promise<ChannelsHandle>(() => {}); // sibling hangs forever
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    const err = await mgr.ready({ timeoutMs: 25 }).then(
+      () => undefined,
+      (e: unknown) => e,
+    );
+    // A set-wide timeout would have rejected with only a generic timeout and
+    // DISCARDED `boom`. The per-channel timeout aggregate carries BOTH.
+    expect(err).toBeInstanceOf(AggregateError);
+    const agg = err as AggregateError;
+    expect(agg.errors).toContain(boom);
+    expect(
+      agg.errors.some(
+        (e) => e instanceof Error && /"sales" did not settle/.test(e.message),
+      ),
+    ).toBe(true);
+  });
+
+  it("activate() throws on duplicate channel names before any engine call (no leak)", () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "support" }),
+      ],
+      activateChannel: engine,
+    });
+
+    expect(() => mgr.activate()).toThrow(/support/);
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("stop() resolves promptly when an activation never settles, and tears down a handle that settles after stop()", async () => {
+    const handle = fakeHandle();
+    let resolveActivation!: (h: ChannelsHandle) => void;
+    const engine: ActivateChannelEngine = vi.fn(
+      () =>
+        new Promise<ChannelsHandle>((resolve) => {
+          resolveActivation = resolve;
+        }),
+    );
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    let hangTimer: ReturnType<typeof setTimeout>;
+    await expect(
+      Promise.race([
+        mgr.stop(),
+        new Promise((_resolve, reject) => {
+          hangTimer = setTimeout(() => reject(new Error("stop() hung")), 1000);
+        }),
+      ]),
+    ).resolves.toBeUndefined();
+    clearTimeout(hangTimer!);
+    expect(mgr.status().channels.support).toBe("stopped");
+
+    resolveActivation(handle);
+    await vi.waitFor(() => expect(handle.stop).toHaveBeenCalledTimes(1));
+    expect(mgr.status().channels.support).toBe("stopped");
+  });
+
+  it("stop() bounds a wedged handle.stop() so teardown can't hang (per-handle timeout)", async () => {
+    const logs: unknown[][] = [];
+    // A handle whose stop() never settles — the SIGTERM-hang risk.
+    const wedged: ChannelsHandle & { stop: ReturnType<typeof vi.fn> } = {
+      metadata: {},
+      stop: vi.fn(() => new Promise<void>(() => {})),
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: async () => wedged,
+      stopHandleTimeoutMs: 20,
+      log: (...args) => logs.push(args),
+    });
+    await mgr.ready();
+
+    let hangTimer: ReturnType<typeof setTimeout>;
+    await expect(
+      Promise.race([
+        mgr.stop(),
+        new Promise((_resolve, reject) => {
+          hangTimer = setTimeout(() => reject(new Error("stop() hung")), 1000);
+        }),
+      ]),
+    ).resolves.toBeUndefined();
+    clearTimeout(hangTimer!);
+
+    expect(mgr.status().channels.support).toBe("stopped");
+    expect(wedged.stop).toHaveBeenCalledTimes(1);
+    const timeoutLog = logs.find(
+      ([msg]) =>
+        typeof msg === "string" &&
+        msg.includes("channel handle stop() failed during teardown"),
+    );
+    expect(timeoutLog).toBeDefined();
+    expect((timeoutLog![1] as Error).message).toMatch(/timed out after 20ms/);
+  });
+
+  it("stop() completes and marks every channel stopped even when a handle.stop() rejects", async () => {
+    const throwingHandle: ChannelsHandle & { stop: ReturnType<typeof vi.fn> } =
+      {
+        metadata: {},
+        stop: vi.fn(async () => {
+          throw new Error("session.disconnect failed");
+        }),
+      };
+    const okHandle = fakeHandle();
+    const handles = [throwingHandle, okHandle];
+    let i = 0;
+    const engine: ActivateChannelEngine = vi.fn(async () => handles[i++]!);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "sales" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    await expect(mgr.stop()).resolves.toBeUndefined();
+
+    expect(throwingHandle.stop).toHaveBeenCalledTimes(1);
+    expect(okHandle.stop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels).toEqual({
+      support: "stopped",
+      sales: "stopped",
+    });
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("stop() does not throw when a channel never produced a handle (setup_required)", async () => {
+    const engine: ActivateChannelEngine = async () => {
+      throw new ChannelSetupRequiredError("no provider");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    await expect(mgr.stop()).resolves.toBeUndefined();
+    expect(mgr.status().channels.support).toBe("stopped");
+  });
+
+  it("keeps a channel stopped when its activation rejects AFTER stop() (RC5)", async () => {
+    let rejectActivation!: (err: unknown) => void;
+    const engine: ActivateChannelEngine = vi.fn(
+      () =>
+        new Promise<ChannelsHandle>((_resolve, reject) => {
+          rejectActivation = reject;
+        }),
+    );
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await mgr.stop();
+
+    rejectActivation(new Error("connect failed after stop"));
+    await vi.waitFor(() =>
+      expect(mgr.status().channels.support).toBe("stopped"),
+    );
+
+    expect(mgr.status().overall).toBe("stopped");
+    await expect(mgr.ready()).resolves.toBeUndefined();
+  });
+
+  it("stops a handle assigned in the same tick as stop() EXACTLY once (RC7)", async () => {
+    // NOTE on reachability: a genuinely CONTENDED double-stop — where both
+    // stop()'s own per-entry pass AND the success settle handler's conditional
+    // `stopEntry` call each observe a live, not-yet-stopped handle — is not
+    // reachable through the public API given the current code structure.
+    // `this.stopped` is flipped synchronously at the very top of `stop()`,
+    // strictly before stop()'s own (single, synchronous) pass over `entries`;
+    // and the settle handler only ever routes through `stopEntry` when it
+    // observes `this.stopped === true`, which can only be true because
+    // stop()'s own pass over THIS entry has already run (and, since the handle
+    // had not been assigned yet, was a no-op). So at most one of the two call
+    // sites ever finds a live handle — the other is either a no-op (handle not
+    // yet assigned) or never taken (this.stopped was still false when the
+    // settle handler checked it). Verified directly: with the
+    // `!entry.handleStopped` guard removed entirely, the resolveActivation()
+    // -then-stop() sequence below still calls `handle.stop()` exactly once.
+    //
+    // So this test instead exercises `stopEntry`'s own idempotency contract
+    // directly — the thing the guard actually exists to enforce — by invoking
+    // it twice back-to-back on the same live entry via a narrow white-box seam.
+    const handle = fakeHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    interface ChannelManagerStopEntryInternals {
+      entries: Map<
+        string,
+        { handle?: ChannelsHandle; handleStopped: boolean; status: string }
+      >;
+      stopEntry(entry: {
+        handle?: ChannelsHandle;
+        handleStopped: boolean;
+        status: string;
+      }): Promise<void>;
+    }
+    const internals = mgr as unknown as ChannelManagerStopEntryInternals;
+    const entry = internals.entries.get("support")!;
+
+    // Two invocations racing on the SAME entry: the first synchronously claims
+    // the guard (sets `handleStopped = true`) before either reaches its own
+    // `await`, so the second must observe the guard already tripped.
+    await Promise.all([internals.stopEntry(entry), internals.stopEntry(entry)]);
+
+    expect(handle.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("ready() resolves after stop() even when a channel settled to error before stop() (f3)", async () => {
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("connect boom");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    await mgr.ready().catch(() => {});
+    expect(mgr.status().channels.support).toBe("error");
+
+    await mgr.stop();
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("invokes the injected log sink with a failed-to-activate breadcrumb when a channel errors (RC11)", async () => {
+    const log = vi.fn();
+    const engine: ActivateChannelEngine = async () => {
+      throw new Error("boom");
+    };
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+
+    await mgr.ready().catch(() => {});
+
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) => typeof msg === "string" && msg.includes("failed to activate"),
+      ),
+    ).toBe(true);
+  });
+
+  it("logs (and does not rethrow) when a foreign handle.stop() throws SYNCHRONOUSLY during teardown (sync-throw guard)", async () => {
+    const log = vi.fn();
+    const syncThrowHandle: ChannelsHandle = {
+      metadata: {},
+      stop: () => {
+        throw new Error("sync stop boom");
+      },
+    };
+    const engine: ActivateChannelEngine = async () => syncThrowHandle;
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    await expect(mgr.stop()).resolves.toBeUndefined();
+    expect(mgr.status().channels.support).toBe("stopped");
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) =>
+          typeof msg === "string" &&
+          msg.includes("channel handle stop() failed during teardown"),
+      ),
+    ).toBe(true);
+  });
+
+  it("activate() after stop() opens no transports (stopped-guard)", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+
+    await mgr.stop();
+    mgr.activate();
+
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("ready() on a fresh manager rejects with ChannelConfigError for duplicate names (lazy-activate path)", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({ name: "support" }),
+      ],
+      activateChannel: engine,
+    });
+
+    await expect(mgr.ready()).rejects.toThrow(/support/);
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("an empty channels[] manager reports overall online and ready() resolves", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [],
+      activateChannel: engine,
+    });
+
+    expect(mgr.status().overall).toBe("online");
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("starts a direct-adapter channel via its own transport seam (not the managed engine) and reflects online; the managed one reflects its real state", async () => {
+    const log = vi.fn();
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const managed = createChannel({ name: "support" });
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+    // The manager now DRIVES a direct channel through its own transport seam —
+    // spy on it so the managed engine and this seam can be told apart.
+    const directStart = vi
+      .spyOn(direct.ɵruntime, "start")
+      .mockResolvedValue(undefined);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [managed, direct],
+      activateChannel: engine,
+      log,
+    });
+    mgr.activate();
+
+    // The managed engine runs only for the managed channel; the direct channel
+    // is started through `channel.ɵruntime.start()` instead.
+    expect(engine).toHaveBeenCalledTimes(1);
+    expect(directStart).toHaveBeenCalledTimes(1);
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    // Both channels read `online`: the managed one via activation, the direct one
+    // once its own transport is up. `overall` now folds over BOTH.
+    expect(mgr.status().channels).toEqual({
+      support: "online",
+      sales: "online",
+    });
+    expect(mgr.status().overall).toBe("online");
+
+    const breadcrumbs = log.mock.calls.map(([msg]) => msg);
+    expect(
+      breadcrumbs.some(
+        (msg) =>
+          typeof msg === "string" &&
+          msg.includes("sales") &&
+          msg.includes("direct adapter") &&
+          msg.includes("ɵruntime.start()"),
+      ),
+    ).toBe(true);
+  });
+
+  it("starts a lone direct-adapter channel and reads online (not empty/false-healthy); ready() resolves", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+    const directStart = vi
+      .spyOn(direct.ɵruntime, "start")
+      .mockResolvedValue(undefined);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+    mgr.activate();
+
+    // The managed engine is never called for a direct channel; its own transport
+    // seam is used instead.
+    expect(engine).not.toHaveBeenCalled();
+    expect(directStart).toHaveBeenCalledTimes(1);
+    // Before its start settles the channel reads `connecting` — present in status
+    // (never an empty map), never false-healthy.
+    expect(mgr.status().channels).toEqual({ sales: "connecting" });
+    expect(mgr.status().overall).toBe("connecting");
+
+    await expect(mgr.ready()).resolves.toBeUndefined();
+    // Once the direct transport is up, the lone direct channel reads `online`.
+    expect(mgr.status().channels).toEqual({ sales: "online" });
+    expect(mgr.status().overall).toBe("online");
+  });
+
+  it("stops a direct-adapter channel through its own transport seam on stop()", async () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const managed = createChannel({ name: "support" });
+    const direct = createChannel({
+      name: "sales",
+      adapters: [new FakeAdapter({ platform: "slack" })],
+    });
+    vi.spyOn(direct.ɵruntime, "start").mockResolvedValue(undefined);
+    const directStop = vi
+      .spyOn(direct.ɵruntime, "stop")
+      .mockResolvedValue(undefined);
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [managed, direct],
+      activateChannel: engine,
+    });
+    await mgr.ready();
+    await mgr.stop();
+
+    // Both channels are torn down: the managed handle via handle.stop(), the
+    // direct one via channel.ɵruntime.stop(). `overall` folds to `stopped`.
+    expect(directStop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels).toEqual({
+      support: "stopped",
+      sales: "stopped",
+    });
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("drives a direct channel's REAL transport end-to-end: the adapter starts on ready() and stops on stop()", async () => {
+    // No ɵruntime spy — exercise the REAL create-channel start/stop seam with a
+    // FakeAdapter, so the spy-based tests above can't hide a broken real path.
+    // (Channel telemetry is disabled under VITEST, so start() makes no network
+    // call.)
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const adapter = new FakeAdapter({ platform: "slack" });
+    const adapterStop = vi.spyOn(adapter, "stop");
+    const direct = createChannel({ name: "sales", adapters: [adapter] });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+    await mgr.ready();
+
+    // The manager started the direct channel's own transport, which started the
+    // developer's adapter.
+    expect(adapter.started).toBe(true);
+    expect(mgr.status().channels).toEqual({ sales: "online" });
+
+    await mgr.stop();
+
+    // Teardown routed through channel.ɵruntime.stop() reached the adapter.
+    expect(adapterStop).toHaveBeenCalledTimes(1);
+    expect(mgr.status().channels).toEqual({ sales: "stopped" });
+    expect(mgr.status().overall).toBe("stopped");
+  });
+
+  it("a direct channel whose adapters ALL fail to start reads 'error', not a false 'online'", async () => {
+    // Regression for the false-`online` defect: ɵruntime.start() used to swallow
+    // adapter start failures and resolve, so the manager reported `online` on a
+    // dead bot. Now an all-failed start rejects → the manager surfaces `error`.
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const adapter = new FakeAdapter({ platform: "slack", failStart: true });
+    const direct = createChannel({ name: "sales", adapters: [adapter] });
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [direct],
+      activateChannel: engine,
+    });
+
+    // A dead channel must not resolve ready() clean, and must not read `online`.
+    await expect(mgr.ready()).rejects.toBeDefined();
+    expect(mgr.status().channels).toEqual({ sales: "error" });
+    expect(mgr.status().overall).toBe("error");
+
+    await mgr.stop();
+  });
+
+  it("still enforces unique names across all declared channels, including direct ones", () => {
+    const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support" }),
+        createChannel({
+          name: "support",
+          adapters: [new FakeAdapter({ platform: "slack" })],
+        }),
+      ],
+      activateChannel: engine,
+    });
+
+    expect(() => mgr.activate()).toThrow(/support/);
+    expect(engine).not.toHaveBeenCalled();
+  });
+
+  it("declares each Channel's own provider — two Channels with different providers are not collapsed to one global (OSS-473)", async () => {
+    // The provider is per-Channel, not a manager-wide default: a Slack-backed
+    // Channel and a Teams-backed Channel activated by the same manager must each
+    // declare their own adapter to the gateway.
+    const seen = new Map<string, string>();
+    const engine: ActivateChannelEngine = vi.fn(async (config) => {
+      seen.set(config.channelName, config.adapter);
+      return fakeHandle();
+    });
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [
+        createChannel({ name: "support", provider: "slack" }),
+        createChannel({ name: "sales", provider: "teams" }),
+      ],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    expect(seen.get("support")).toBe("slack");
+    expect(seen.get("sales")).toBe("teams");
+  });
+
+  it("defaults a Channel with no provider to the documented 'slack' adapter", async () => {
+    let seenAdapter: string | undefined;
+    const engine: ActivateChannelEngine = vi.fn(async (config) => {
+      seenAdapter = config.adapter;
+      return fakeHandle();
+    });
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ name: "support" })],
+      activateChannel: engine,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    expect(seenAdapter).toBe("slack");
+  });
+});
+
+describe("defaultActivateChannel", () => {
+  const config: ChannelActivationConfig = {
+    wsUrl: "wss://runtime.example",
+    apiUrl: "https://runtime.example",
+    apiKey: "cpk-42_short_long",
+    projectId: 42,
+    channelName: "support",
+    adapter: "slack",
+    runtimeInstanceId: "rti_x",
+  };
+
+  it("maps config to launcher opts and returns the launcher's handle", async () => {
+    const { handle, start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
+
+    const result = await defaultActivateChannel(
+      config,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(result).toBe(handle);
+    expect(start).toHaveBeenCalledTimes(1);
+    const [channels, opts] = start.mock.calls[0]!;
+    expect(channels).toEqual([channel]);
+    expect(opts).toEqual({
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+      scope: { projectId: 42, channelName: "support" },
+      runtimeInstanceId: "rti_x",
+      adapter: "slack",
+      runCanonical: expect.any(Function),
+      loadHistory: expect.any(Function),
+      // The app-api HTTP base URL must reach the launcher so the transport wires
+      // file/history on the NORMAL managed path (OSS-476) — not only manual
+      // low-level callers.
+      appApiBaseUrl: "https://runtime.example",
+    });
+    // The scope carries ONLY projectId + channelName — never org/channelId.
+    expect(opts.scope).not.toHaveProperty("organizationId");
+    expect(opts.scope).not.toHaveProperty("channelId");
+  });
+
+  it("keeps tool status omitted when createChannel() does not configure it", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig).not.toHaveProperty("showToolStatus");
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts).not.toHaveProperty("showToolStatus");
+  });
+
+  it("forwards createChannel({ showToolStatus: true }) to the managed launcher", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({
+      name: "support",
+      showToolStatus: true,
+    });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig.showToolStatus).toBe(true);
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.showToolStatus).toBe(true);
+  });
+
+  it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
+    const log = vi.fn();
+
+    await defaultActivateChannel(
+      config,
+      channel,
+      importer,
+      log,
+      fakeServices(),
+    );
+
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.log).toBe(log);
+  });
+
+  it("throws a friendly install hint when the module is not found", async () => {
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => {
+      throw Object.assign(new Error("not found"), {
+        code: "ERR_MODULE_NOT_FOUND",
+      });
+    };
+
+    await expect(
+      defaultActivateChannel(config, channel, importer),
+    ).rejects.toThrow(
+      /Managed Channels require '@copilotkit\/channels-intelligence'/,
+    );
+  });
+
+  it("rethrows a generic import failure unchanged", async () => {
+    const channel = createChannel({ name: "support" });
+    const importer = async (): Promise<ChannelsIntelligenceModule> => {
+      throw new Error("boom");
+    };
+
+    await expect(
+      defaultActivateChannel(config, channel, importer),
+    ).rejects.toThrow(/^boom$/);
+  });
+});
+
+describe("isModuleNotFound", () => {
+  it("recognizes ERR_MODULE_NOT_FOUND and MODULE_NOT_FOUND error codes", () => {
+    expect(isModuleNotFound({ code: "ERR_MODULE_NOT_FOUND" })).toBe(true);
+    expect(isModuleNotFound({ code: "MODULE_NOT_FOUND" })).toBe(true);
+  });
+
+  it("returns false for unrelated errors and non-error values", () => {
+    expect(isModuleNotFound(new Error("boom"))).toBe(false);
+    expect(isModuleNotFound({ code: "SETUP_REQUIRED" })).toBe(false);
+    expect(isModuleNotFound(null)).toBe(false);
+    expect(isModuleNotFound("boom")).toBe(false);
+  });
+});

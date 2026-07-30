@@ -69,12 +69,27 @@ frontend renders every new entry live.
 
 ## Rendering a live delegation log
 
-On the frontend, the delegation log is just a reactive render of the
-`delegations` slot. Subscribe with `useAgent({ updates:
+On the frontend, the delegation log is a reactive render of the
+`delegations` slot.
+
+<FrontendOnly frontend="react">
+Subscribe with `useAgent({ updates:
 [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged] })`,
 read `agent.state.delegations`, and render one card per entry.
 
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+Read the selected agent's state through `injectAgentStore`, derive the
+delegations with `computed`, and register one typed renderer for each sub-agent
+tool. The Angular Showcase uses this source:
+
+<AngularSnippet
+  region="subagent-delegation-state"
+  title="showcase/angular/src/app/features/agent-state/agent-state-feature.component.ts"
+/>
+</FrontendOnly>
 
 The result: as the supervisor fans work out to its sub-agents, the log
 grows in real time, giving the user visibility into a process that

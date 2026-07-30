@@ -20,6 +20,13 @@ const COMPOSE_FILE =
   process.env.SHOWCASE_COMPOSE_FILE ||
   path.join(SHOWCASE_DIR, "docker-compose.local.yml");
 const INTEGRATIONS_DIR = path.join(SHOWCASE_DIR, "integrations");
+const ANGULAR_BROWSER_DIR = path.join(
+  SHOWCASE_DIR,
+  "angular",
+  "dist",
+  "showcase-angular",
+  "browser",
+);
 // Honor LOCAL_PORTS_FILE env var (set by isolation overlay) so the harness
 // reads offset ports from a temp file instead of the checked-in original.
 const PORTS_FILE =
@@ -134,11 +141,13 @@ function resolveHealthEndpoint(service: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * For each integration package directory, replace `tools`, `shared-tools`, and
- * `_shared` symlinks with real directory copies so Docker can access them
- * inside the build context. This mirrors the `stage_shared()` function in
- * dev-local.sh. `_shared` carries the single-source CVDIAG bootstrap module
- * (`showcase/integrations/_shared/`) into each Python integration's context.
+ * For each integration package directory, replace `tools`, `shared-tools`,
+ * `_shared`, and `public/angular` symlinks with real directory copies so
+ * Docker can access them inside the build context. This mirrors
+ * `stage_shared()` in `scripts/cli/_common.sh`. `_shared` carries the
+ * single-source CVDIAG bootstrap module (`showcase/integrations/_shared/`)
+ * into each Python integration's context, while `public/angular` carries one
+ * shared Angular browser build into every integration image.
  */
 export function stageSharedModules(): void {
   log.info("staging shared modules for Docker build contexts");
@@ -192,6 +201,45 @@ export function stageSharedModules(): void {
         from: target,
       });
     }
+
+    const angularLink = path.join(pkgDir, "public", "angular");
+    let angularIsSymlink = false;
+    try {
+      angularIsSymlink = fs.lstatSync(angularLink).isSymbolicLink();
+    } catch {
+      // Missing Angular link means this package does not host the shared app.
+    }
+    if (!angularIsSymlink) continue;
+
+    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+      log.info("building shared Angular browser artifact");
+      execFileSync(
+        "pnpm",
+        ["nx", "run", "@copilotkit/showcase-angular-host:build"],
+        {
+          cwd: path.dirname(SHOWCASE_DIR),
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+    }
+    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+      throw new Error(
+        `Angular browser build did not produce ${ANGULAR_BROWSER_DIR}`,
+      );
+    }
+
+    fs.rmSync(angularLink);
+    fs.cpSync(ANGULAR_BROWSER_DIR, angularLink, { recursive: true });
+    fs.writeFileSync(
+      path.join(angularLink, "runtime-config.js"),
+      `globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"angular","integrationId":"${pkg.name}"});\n`,
+      "utf-8",
+    );
+    log.debug("staged Angular browser artifact", {
+      pkg: pkg.name,
+      from: ANGULAR_BROWSER_DIR,
+    });
   }
 
   log.info("shared module staging complete");
@@ -209,7 +257,7 @@ export function restoreSymlinks(): void {
     // matches the canonical source dir `integrations/_shared` (a real tracked
     // dir, never a symlink) — a no-op restore there is harmless.
     execSync(
-      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared",
+      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared integrations/*/public/angular",
       {
         cwd: SHOWCASE_DIR,
         stdio: "pipe",
@@ -354,7 +402,14 @@ export async function down(
     compose("--profile", "all", "down");
   } else {
     log.info("stopping services", { slugs });
-    const profileArgs = slugs.flatMap((s) => ["--profile", s]);
+    // Integration services depend on infra services such as aimock. Compose
+    // must load the infra profile to resolve those dependencies even though
+    // `stop <slug...>` only stops the explicitly named integrations.
+    const profileArgs = [
+      "--profile",
+      "infra",
+      ...slugs.flatMap((s) => ["--profile", s]),
+    ];
     compose(...profileArgs, "stop", ...slugs);
   }
 }

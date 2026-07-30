@@ -21,9 +21,11 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
       [class]="computedClass()"
       [attr.data-message-id]="message().id"
       data-testid="copilot-chat-reasoning-message"
+      data-copilot-reasoning-message
     >
       <button
         type="button"
+        data-testid="reasoning-block"
         [class]="headerClass()"
         [attr.aria-expanded]="hasContent() ? open() : null"
         (click)="toggle()"

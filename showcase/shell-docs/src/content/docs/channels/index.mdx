@@ -1,40 +1,71 @@
 ---
 title: Channels
-description: Build durable, cross-platform AI bots with CopilotKit — a platform adapter, an AG-UI agent, and optional persistence wired together in a single createBot call.
-icon: "lucide/Bot"
-hideTOC: true
+nav_title: Overview
+icon: "lucide/MessagesSquare"
+description: Run one AG-UI agent in Slack or Microsoft Teams through managed CopilotKit Intelligence connections.
+doc_type: explanation
 ---
 
-The channel stack is three pieces: **`@copilotkit/channels`** (core runtime), a **platform adapter** (e.g. `@copilotkit/channels-slack`), and an **AG-UI agent** — any CopilotKit runtime or compatible backend. Plug them together with `createBot` and you get a bot that streams agent replies into the platform, handles interactive buttons, and — once you add a store — survives restarts and spans multiple instances.
+Channels brings your agent into the conversations where work already happens.
+Your agent still runs in your infrastructure. CopilotKit Intelligence owns the
+Slack or Microsoft Teams connection, delivers each turn to your Channels SDK
+listener, and sends the response back as native channel UI.
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Join the waitlist for managed Slack and Teams agents"
-  body="Start here when you want to own the adapter, runtime, and store. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams setup, identity, durable state, approvals, and production operations."
-  ctaLabel="Join the waitlist"
-  surface="docs_bots_managed_agents_waitlist"
-  href="https://www.copilotkit.ai/opentag-managed"
+## How Channels connects your agent
+
+Channels connects the agent and application logic you run to the provider
+connection managed by CopilotKit Intelligence. The diagram shows the boundaries
+between those systems and the path each message takes.
+
+<Image
+  src="/images/channels/channels-architecture-light.png"
+  alt="Channels architecture showing agent frameworks connected through AG-UI, CopilotKit Runtime, Enterprise Intelligence, and the Channels SDK to Slack, Microsoft Teams, WhatsApp, and Discord."
+  width={3354}
+  height={2270}
+  className="block dark:hidden my-8 w-full rounded-xl"
+/>
+<Image
+  src="/images/channels/channels-architecture-dark.png"
+  alt="Channels architecture showing agent frameworks connected through AG-UI, CopilotKit Runtime, Enterprise Intelligence, and the Channels SDK to Slack, Microsoft Teams, WhatsApp, and Discord."
+  width={4000}
+  height={2400}
+  className="hidden dark:block my-8 w-full rounded-xl"
 />
 
-<Cards>
-  <Card
-    title="Slack quickstart"
-    href="/slack"
-    description="From zero to a working Slack bot in minutes — Socket Mode, streaming replies, and interactive Block Kit buttons."
-  />
-  <Card
-    title="Persistence"
-    href="/channels/persistence"
-    description="Persist actions, locks, and per-thread state across restarts by backing the store with a durable StateStore implementation."
-  />
-  <Card
-    title="Transcripts"
-    href="/channels/transcripts"
-    description="Give the agent a cross-platform memory that follows users from Slack to any other channel — with GDPR-ready delete support."
-  />
-  <Card
-    title="Channels reference"
-    href="/reference/channels"
-    description="Full API reference — createBot, Thread, StateStore, ActionStore, and the Slack adapter."
-  />
-</Cards>
+Each message moves through the same five stages:
+
+1. A person messages your app in Slack or Teams.
+2. CopilotKit Intelligence receives the platform event using the credentials
+   configured for that Channel.
+3. A persistent Intelligence gateway connection delivers the turn to your
+   long-running Channels SDK process.
+4. The SDK runs your agent over [AG-UI](/agentic-protocols/ag-ui), executes
+   channel tools, and renders the response.
+5. Intelligence sends the result back as native Slack Block Kit or Teams
+   Adaptive Card content.
+
+This split keeps platform credentials out of your agent process without moving
+your agent, tools, or business logic into CopilotKit.
+
+| You run                                | CopilotKit Intelligence manages               |
+| -------------------------------------- | --------------------------------------------- |
+| The agent and its model credentials    | Slack and Teams platform credentials          |
+| A long-running Channels SDK listener   | Platform ingress and credentialed delivery    |
+| Tools and approval business logic      | Runtime registration, health, and reconnects  |
+| Deployment, logs, and application auth | Conversation-history delivery to the listener |
+
+## Next step
+
+<FrontendOnly frontend="slack">
+
+Continue to [Configure the Channel in Intelligence](/channels/intelligence) to
+create the managed Slack connection.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="teams">
+
+Continue to [Configure the Channel in Intelligence](/channels/intelligence) to
+create the managed Microsoft Teams connection.
+
+</FrontendOnly>

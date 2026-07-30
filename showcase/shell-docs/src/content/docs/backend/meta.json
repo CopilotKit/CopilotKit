@@ -1,5 +1,8 @@
 {
   "title": "Runtime",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "copilot-runtime",
     "runtime-endpoints",

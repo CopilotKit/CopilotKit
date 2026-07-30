@@ -76,6 +76,12 @@ export interface NativeMessageStreamConfig {
    * surface (`:wrench:` rows). Text streaming is unaffected.
    */
   onChunkFailure?: (err: unknown) => void;
+  /**
+   * Fail the stream when required native text calls fail. This disables the
+   * legacy start fallback and makes append or stop failures visible to the
+   * caller. Structured task chunks remain optional and may still be dropped.
+   */
+  strict?: boolean;
   /** Minimum gap between text flushes, in ms (defaults to 600). */
   minIntervalMs?: number;
 }
@@ -113,6 +119,7 @@ export class NativeMessageStream implements TextStream {
   private readonly makeFallback: () => TextStream;
   private readonly onStartFailure: ((err: unknown) => void) | undefined;
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
+  private readonly strict: boolean;
   private readonly minIntervalMs: number;
 
   constructor(config: NativeMessageStreamConfig) {
@@ -120,6 +127,7 @@ export class NativeMessageStream implements TextStream {
     this.makeFallback = config.fallback;
     this.onStartFailure = config.onStartFailure;
     this.onChunkFailure = config.onChunkFailure;
+    this.strict = config.strict ?? false;
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
   }
 
@@ -168,9 +176,17 @@ export class NativeMessageStream implements TextStream {
       this.flushTimer = undefined;
     }
     this.enqueueFlush();
-    await this.queue;
+    // Drain the queue even when a prior strict append rejected it, so we still
+    // reach stopStream and do not leave an open native Slack stream.
+    let queueError: unknown;
+    try {
+      await this.queue;
+    } catch (err) {
+      queueError = err;
+    }
     if (this.legacy) {
       await this.legacy.finish();
+      if (queueError !== undefined && this.strict) throw queueError;
       return;
     }
     // Finalize the streamed message (no-op if we never started one).
@@ -178,12 +194,18 @@ export class NativeMessageStream implements TextStream {
       try {
         await this.transport.stopStream(this.curTs, finalBlocks);
       } catch (err) {
+        if (this.strict) throw queueError ?? err;
         console.error("[native-stream] stopStream failed:", err);
       }
     }
+    if (queueError !== undefined && this.strict) throw queueError;
   }
 
   private scheduleFlush(): void {
+    if (this.minIntervalMs <= 0) {
+      this.enqueueFlush();
+      return;
+    }
     if (this.flushTimer) return;
     const elapsed = Date.now() - this.lastFlushedAt;
     const delay = Math.max(0, this.minIntervalMs - elapsed);
@@ -205,6 +227,7 @@ export class NativeMessageStream implements TextStream {
       this.firstTsValue = this.curTs;
       return true;
     } catch (err) {
+      if (this.strict) throw err;
       this.failOverToLegacy(err);
       return false;
     }
@@ -227,6 +250,7 @@ export class NativeMessageStream implements TextStream {
         this.curPosted = cursor;
       }
     } catch (err) {
+      if (this.strict) throw err;
       // A mid-stream append failure shouldn't sink the stream; the next flush
       // retries from `curPosted` (only advanced on success).
       console.error(
@@ -277,6 +301,7 @@ export class NativeMessageStream implements TextStream {
         this.curPosted = cursor;
       }
     } catch (err) {
+      if (this.strict) throw err;
       console.error(
         `[native-stream] appendText (pre-chunk) failed (ts=${this.curTs}):`,
         err,

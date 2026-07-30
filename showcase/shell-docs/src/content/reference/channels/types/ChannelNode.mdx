@@ -1,0 +1,34 @@
+---
+title: ChannelNode
+description: The serializable intermediate representation between Channels JSX and native provider renderers.
+---
+
+`ChannelNode` is the intermediate representation produced by Channels JSX.
+
+```ts
+interface ChannelNode {
+  type: string | ComponentFn | symbol;
+  props: Record<string, unknown>;
+  key?: string | number;
+}
+
+type Renderable =
+  | string
+  | ChannelNode
+  | ChannelNode[]
+  | { raw: unknown };
+```
+
+Before `renderToIR`, `type` can be a named component or Fragment. After
+expansion, intrinsic string types such as `message`, `section`, and `button`
+remain. Strings and numbers become `text` nodes.
+
+Callbacks stay in the tree until the action registry replaces them with opaque
+ids. Provider credentials and handler source are never embedded in the native
+message.
+
+Most applications should use components rather than constructing nodes
+directly. Reach for `ChannelNode` when writing component tests, a custom
+renderer, or a direct platform adapter.
+
+See [`renderToIR`](/reference/channels/functions/renderToIR).

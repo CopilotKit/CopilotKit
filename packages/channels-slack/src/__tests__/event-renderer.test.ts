@@ -55,16 +55,24 @@ describe("createRunRenderer", () => {
       event: { messageId: id, delta: "E" },
       textMessageBuffer: "",
     } as never);
+
+    await vi.waitFor(() => {
+      expect(fake.posts).toHaveLength(1);
+      expect(fake.posts[0]?.text).toBe("E");
+      expect(fake.posts.every((post) => post.text !== "_thinking…_")).toBe(
+        true,
+      );
+    });
+
     sub.onTextMessageContentEvent!({
       event: { messageId: id, delta: "CHO" },
       textMessageBuffer: "E",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: id } } as never);
 
-    // (a) Text streaming posts a placeholder then updates it; the LAST
-    // update must be the fully-accumulated text.
+    // (a) The first post contains the buffered response, then updates track
+    // the fully accumulated text.
     expect(fake.posts).toHaveLength(1);
-    expect(fake.posts[0]?.text).toBe("_thinking…_");
     expect(fake.updates.length).toBeGreaterThan(0);
     expect(fake.updates.at(-1)?.text).toBe("ECHO");
   });
@@ -167,11 +175,12 @@ describe("createRunRenderer", () => {
     expect(captured[0]?.toolCallArgs).toEqual({ title: "final" });
   });
 
-  it("tool-call status: showToolStatus default (true) → START posts 🔧, END edits to ✅", async () => {
+  it("tool-call status: showToolStatus:true → START posts 🔧, END edits to ✅", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -188,12 +197,11 @@ describe("createRunRenderer", () => {
     expect(fake.updates[0]?.text).toContain(":white_check_mark:");
   });
 
-  it("tool-call status: showToolStatus:false → no status posts but still captures", async () => {
+  it("tool-call status: hidden by default but still captured", async () => {
     const fake = makeFakeClient();
     const { subscriber: sub, getCapturedToolCalls } = createRunRenderer({
       transport: fake.transport,
       target: { channel: "C1", threadTs: "100.0" },
-      showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "tc1", toolCallName: "search_flights" },
@@ -287,6 +295,10 @@ describe("createRunRenderer", () => {
       textMessageBuffer: "",
     } as never);
     await sub.onTextMessageEndEvent!({ event: { messageId: "m1" } } as never);
+    const initial = fake.posts[0]?.text ?? "";
+    expect(initial).toContain("*hi*");
+    expect(initial).toContain("<https://x.com|docs>");
+    expect(initial).toContain("•  a");
     const last = fake.updates.at(-1)?.text ?? "";
     expect(last).toContain("*hi*");
     expect(last).toContain("<https://x.com|docs>");
@@ -481,6 +493,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: true, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
@@ -489,19 +502,32 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("is using `search`…");
   });
 
-  it("showToolStatus:false suppresses the pane's `is using` status", async () => {
+  it("showToolStatus:false refreshes the generic pane status without revealing tools", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
       transport: f.transport,
       target: { channel: "D1", threadTs: "100.0" },
-      status: { threadTs: "100.0", isPane: true, config: {} },
+      status: {
+        threadTs: "100.0",
+        isPane: true,
+        config: { thinking: "is pondering…" },
+      },
       showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
     } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "search",
+      toolCallArgs: {},
+    } as never);
     expect(f.posts).toHaveLength(0);
     expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+    expect(f.statuses.map((s) => s.status)).toEqual([
+      "is pondering…",
+      "is pondering…",
+    ]);
   });
 
   it("clears the status once a reply is posted", async () => {
@@ -535,10 +561,95 @@ describe("createRunRenderer — native status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("");
   });
 
+  it("clears the status for a tool-only reply that streamed no text (real event order)", async () => {
+    // Regression: a turn whose reply is tool/file-only (e.g. a posted chart)
+    // never streams text, so `onFirstReply` never fires and the native "is
+    // thinking…" status would otherwise linger forever. This exercises the real
+    // event order — RUN_FINISHED fires before finish() — so the status ends
+    // cleared regardless of which hook does it.
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: { thinking: "t" } },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    // A tool runs to completion but NO TEXT_MESSAGE_* events are ever emitted.
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "make_chart" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "make_chart",
+      toolCallArgs: {},
+    } as never);
+    await sub.onRunFinishedEvent!({} as never);
+    // Engine's turn-end hook.
+    await renderer.finish!();
+    // The status must end cleared (empty string).
+    expect(f.statuses.at(-1)?.status).toBe("");
+    expect(f.statuses.some((s) => s.status === "")).toBe(true);
+  });
+
+  it("finish(): backstop clears a tool-only reply even if RUN_FINISHED never cleared", async () => {
+    // Isolates the finish() backstop: if the RUN_FINISHED clear is somehow
+    // skipped, finish() is still the last line of defense against a lingering
+    // "is thinking…" status. (In practice RUN_FINISHED fires first — see the
+    // test above — but the backstop must stand alone.)
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: { thinking: "t" } },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "make_chart" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "make_chart",
+      toolCallArgs: {},
+    } as never);
+    // No onRunFinishedEvent — finish() alone must clear.
+    await renderer.finish!();
+    expect(f.statuses.at(-1)?.status).toBe("");
+    expect(f.statuses.some((s) => s.status === "")).toBe(true);
+  });
+
+  it("finish(): does not re-clear once a streamed reply already cleared (postedReply guard)", async () => {
+    const f = makePaneClient();
+    const renderer = createRunRenderer({
+      transport: f.transport,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: {} },
+    });
+    const sub = renderer.subscriber;
+    await sub.onRunStartedEvent!({} as never);
+    await sub.onTextMessageStartEvent!({
+      event: { messageId: "m", role: "assistant" },
+    } as never);
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m", delta: "hi" },
+      textMessageBuffer: "",
+    } as never);
+    await sub.onTextMessageEndEvent!({ event: { messageId: "m" } } as never);
+    // Posting the reply already cleared the status exactly once (onFirstReply).
+    const clearsAfterReply = f.statuses.filter((s) => s.status === "").length;
+    expect(clearsAfterReply).toBe(1);
+    // finish() must NOT clear again — `postedReply` guards the backstop.
+    await renderer.finish!();
+    const clearsAfterFinish = f.statuses.filter((s) => s.status === "").length;
+    expect(clearsAfterFinish).toBe(clearsAfterReply);
+  });
+
   // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
   // "is thinking…" status instead of the old :hourglass: placeholder, and tool
-  // progress flows to both :wrench: rows and the composer "is using…" status
-  // (setStatus drives any thread anchor now, not just panes). ──────────────────
+  // progress, when enabled, flows to both :wrench: rows and the composer
+  // "is using…" status (setStatus drives any thread anchor now, not just
+  // panes). ────────────────────────────────────────────────────────────────────
   it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({
@@ -557,6 +668,7 @@ describe("createRunRenderer — native status mode", () => {
       transport: f.transport,
       target: { channel: "C1", threadTs: "100.0" },
       status: { threadTs: "100.0", isPane: false, config: {} },
+      showToolStatus: true,
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },

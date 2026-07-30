@@ -1,34 +1,40 @@
 /**
- * Intelligence Channel entrypoint for the same Slack bot as
+ * Intelligence (managed Channel) entrypoint for the same Slack bot as
  * `app/index.ts`.
  *
  * `index.ts` is the SELF-HOSTED variant: it holds the Slack bot/app tokens and
  * talks to Slack directly via the native `slack()` adapter. This file is the
- * Channel variant: it holds no Slack credentials and no public endpoint — it
- * connects to the Intelligence Realtime Gateway, receives leased
- * deliveries, and streams render frames back. Intelligence owns the Slack edge
- * (signed ingress → app-api, egress via the Connector Outbox).
+ * MANAGED variant: it holds no Slack credentials and no public Slack endpoint —
+ * Intelligence owns the Slack edge (signed ingress → app-api, egress via the
+ * Connector Outbox) and delivers turns to this process over its realtime
+ * transport.
  *
  * The bot itself — the agent, tools, context, commands, and turn handlers — is
- * IDENTICAL to the native bot; only the transport changes. `intelligenceAdapter`
- * is exclusive, so the Channel Bot is created WITHOUT a native adapter and
- * {@link startChannelsOverRealtimeGateway} attaches the Channel transport.
+ * IDENTICAL to the native bot; only the transport changes. Instead of a
+ * launcher, the managed path now goes through the NORMAL runtime handler: you
+ * hand your `createChannel(...)` to `new CopilotRuntime({ …, channels })` and
+ * mount it with `createCopilotNodeListener`, then `await
+ * listener.channels.ready()` to activate the managed Channel (the runtime
+ * derives every infra id — project, adapter, channel — from the Intelligence
+ * config + the channel `name`, so the developer supplies NONE of them):
  *
- *   native:   createBot({ adapters: [slack({ botToken, appToken }) ] })  // index.ts
- *   channel:  startChannelsOverRealtimeGateway([ createBot({ … }) ], { … })   // this file
+ *   native:   createChannel({ adapters: [slack({ botToken, appToken }) ] })   // index.ts
+ *   managed:  new CopilotRuntime({ intelligence, identifyUser, channels })     // this file
+ *             + createCopilotNodeListener({ runtime })
  *
- * Run: `pnpm --filter slack-example channel` with the INTELLIGENCE_* env set
- * (see `.env.example`).
+ * Run: `pnpm --filter slack-example channel` with the intelligence config env
+ * set (see `.env.example`).
  */
 import "dotenv/config";
-import { randomUUID } from "node:crypto";
-import { createBot } from "@copilotkit/channels";
+import { createServer } from "node:http";
+import { createChannel } from "@copilotkit/channels";
 import {
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
-} from "@copilotkit/channels-slack";
-import { startChannelsOverRealtimeGateway } from "@copilotkit/channels-intelligence";
+} from "@copilotkit/channels/slack";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
@@ -45,26 +51,25 @@ const required = (name: string): string => {
   return v;
 };
 
+/**
+ * The managed Channel `name` is chosen HERE, in code — it is the project-unique
+ * identifier the runtime uses to derive the managed Channel's activation config
+ * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
+ */
+const channelName = "triage";
+
 async function main() {
   const agentUrl = required("AGENT_URL");
   const agentHeaders = process.env.AGENT_AUTH_HEADER
     ? { Authorization: process.env.AGENT_AUTH_HEADER }
     : undefined;
 
-  const projectId = Number(required("INTELLIGENCE_PROJECT_ID"));
-  if (!Number.isInteger(projectId) || projectId <= 0) {
-    console.error(
-      `Invalid INTELLIGENCE_PROJECT_ID: "${process.env.INTELLIGENCE_PROJECT_ID}"`,
-    );
-    process.exit(1);
-  }
-  const channelName = required("INTELLIGENCE_CHANNEL_NAME");
-
-  // Same Slack Bot as the native example, minus the adapter: the Channel transport is
-  // attached by startChannelsOverRealtimeGateway. Slack is the only Channel provider
-  // here, so it always ships the Slack tools/context (the native example adds
-  // these conditionally per active adapter).
-  const bot = createBot({
+  // Same Slack Bot as the native example, minus the adapter: the managed
+  // transport is attached by the runtime when the handler activates the
+  // Channel. Slack is the only managed provider here, so it always ships the
+  // Slack tools/context (the native example adds these conditionally per active
+  // adapter).
+  const support = createChannel({
     name: channelName,
     agent: (threadId) => {
       const a = new SanitizingHttpAgent({
@@ -80,7 +85,7 @@ async function main() {
   });
 
   // Turn + feature handlers — identical to the native example (app/index.ts).
-  bot.onMention(async ({ thread, message }) => {
+  support.onMention(async ({ thread, message }) => {
     try {
       // Channel history (app-api /api/channels/history) does NOT include the
       // in-flight turn (unlike native adapters whose getHistory rebuilds the
@@ -101,8 +106,8 @@ async function main() {
         );
     }
   });
-  bot.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
-  bot.onThreadStarted(async ({ thread, user }) => {
+  support.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
+  support.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
     await thread.setSuggestedPrompts([
       {
@@ -116,36 +121,53 @@ async function main() {
     ]);
   });
 
-  const handle = await startChannelsOverRealtimeGateway([bot], {
-    wsUrl: required("INTELLIGENCE_GATEWAY_WS_URL"),
-    apiKey: required("INTELLIGENCE_API_KEY"),
-    scope: {
-      organizationId: required("INTELLIGENCE_ORG_ID"),
-      projectId,
-      channelId: required("INTELLIGENCE_CHANNEL_ID"),
-      channelName,
-    },
-    runtimeInstanceId:
-      process.env.INTELLIGENCE_RUNTIME_INSTANCE_ID ??
-      `rti_${randomUUID().replace(/-/g, "")}`,
-    adapter: "slack",
-    // DEBUG-ONLY logging. `meta` (and the raw `err` in the onMention catch
-    // above) can contain message content/payloads — the design says telemetry
-    // must not include raw message text. In production, drop this `log` or trim
-    // `meta` to safe fields (ids, counts) before emitting.
-    log: (msg, meta) => console.log(`[channel] ${msg}`, meta ?? ""),
+  // The Intelligence client. It holds the managed edge credentials; from these
+  // (plus the channel `name`) the runtime derives the managed Channel's
+  // activation config — project id, adapter, socket URL/auth — with no infra
+  // ids supplied by the developer.
+  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // overrides target a self-hosted or dev deployment. Set both or neither: the
+  // API and realtime planes are separate hosts (api.… vs realtime.…), so
+  // neither can be derived from the other.
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
+    apiKey: required("COPILOTKIT_API_KEY"),
   });
-  console.log(
-    `[channel] started over Realtime Gateway as "${channelName}" on project ${projectId}`,
-  );
+
+  const runtime = new CopilotRuntime({
+    // The Channel supplies its own agent (the SanitizingHttpAgent above), so no
+    // additional runtime-hosted agents are needed here.
+    agents: {},
+    intelligence,
+    // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
+    // before any multi-user deployment, or all users share one thread history.
+    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+    channels: [support],
+  });
+
+  // The NORMAL handler is what runs the managed Channel: the Node listener
+  // creates the runtime handler and exposes `.channels` for activation +
+  // shutdown. Mounting it opens NO connection — `ready()` below activates the
+  // Channel over the Intelligence transport. There is no public Slack ingress on
+  // this port — Intelligence owns the Slack edge — but the server keeps the
+  // lifecycle-owning process alive.
+  const listener = createCopilotNodeListener({
+    runtime,
+    basePath: "/api/copilotkit",
+  });
+  const port = Number(process.env.PORT ?? 8300);
+  createServer(listener).listen(port, () => {
+    console.log(`[channel] listener on :${port}`);
+  });
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
     let exitCode = 0;
     try {
-      await handle.stop();
+      await listener.channels.stop();
     } catch (err) {
-      console.error("[channel] error stopping Channel runtime", err);
+      console.error("[channel] error stopping managed Channel", err);
       exitCode = 1;
     }
     // Browser teardown is best-effort, but still surface a failure rather than
@@ -165,8 +187,16 @@ async function main() {
       process.exit(1);
     });
   };
+  // Registered BEFORE activation on purpose: `ready()` below can take up to its
+  // timeout, and a Ctrl-C inside that window must still tear the Channel down
+  // rather than hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
+
+  // Required: this is the call that connects the managed Channel to the Realtime
+  // Gateway. Bound it so a wedged connect can't hang startup forever.
+  await listener.channels.ready({ timeoutMs: 30_000 });
+  console.log(`[channel] started managed Channel "${channelName}"`);
 }
 
 // Fail loud, not silent: surface any stray async error instead of letting it
@@ -179,6 +209,6 @@ process.on("uncaughtException", (err) => {
 });
 
 main().catch((err: unknown) => {
-  console.error("[channel] fatal: failed to start Channel runtime", err);
+  console.error("[channel] fatal: failed to start managed Channel", err);
   process.exit(1);
 });

@@ -1,7 +1,12 @@
 // packages/channels-ui/src/emoji.ts
 
 /** Platforms that support a normalized emoji token. */
-export type EmojiPlatform = "slack" | "discord" | "telegram";
+export type EmojiPlatform =
+  | "slack"
+  | "discord"
+  | "telegram"
+  | "teams"
+  | "whatsapp";
 
 export interface EmojiEntry {
   /** Canonical cross-platform name (matches a `KnownEmoji`). */
@@ -35,6 +40,13 @@ export const EMOJI_TABLE = [
   { name: "pray", unicode: "🙏", slack: ["pray"] },
   { name: "smile", unicode: "😄", slack: ["smile"] },
   { name: "thinking", unicode: "🤔", slack: ["thinking_face"] },
+  // 🔄 (U+1F504) — the demo's "refresh" reaction (Teams delivers `1f504_refresh`).
+  { name: "refresh", unicode: "🔄", slack: ["arrows_counterclockwise"] },
+  // Classic Teams reactions with no existing canonical entry.
+  { name: "laugh", unicode: "😆", slack: ["laughing"] },
+  { name: "surprised", unicode: "😮", slack: ["open_mouth"] },
+  { name: "sad", unicode: "😢", slack: ["cry"] },
+  { name: "angry", unicode: "😠", slack: ["angry"] },
 ] as const satisfies readonly {
   name: string;
   unicode: string;
@@ -84,6 +96,10 @@ export function toPlatformEmoji(
     : (slackToName.get(value) ?? unicodeToName.get(value));
   const entry = name ? byName.get(name) : undefined;
   if (!entry) return undefined;
+  // Teams/WhatsApp fall through to the unicode form here. That's inert today
+  // (both declare `supportsReactions: false`, so nothing sends outbound
+  // reactions through them). TODO: if outbound reactions to Teams land, Teams
+  // expects the `<codepoint>_<name>` token, not raw unicode — special-case it.
   return platform === "slack" ? entry.slack[0] : entry.unicode;
 }
 
@@ -104,13 +120,56 @@ export function toCanonicalEmoji(value: EmojiValue): EmojiValue {
   );
 }
 
+/**
+ * Teams "classic" reactions arrive as bare names (not `<codepoint>_<name>`
+ * codes). Map them onto canonical names; `like`/`heart` reuse existing entries.
+ */
+const teamsClassicToName: Record<string, KnownEmoji> = {
+  like: "thumbs_up",
+  heart: "heart",
+  laugh: "laugh",
+  surprised: "surprised",
+  sad: "sad",
+  angry: "angry",
+};
+
+/**
+ * Teams modern-emoji token: `<unicode-codepoint-hex>_<name>`, e.g. `1f504_refresh`.
+ * Case-insensitive — providers may deliver upper- or lower-case hex. Only the
+ * single leading codepoint is parsed; multi-codepoint sequences (ZWJ, keycaps,
+ * flags) resolve by their first codepoint and otherwise pass through unchanged,
+ * which is fine while the table holds only single-codepoint emoji.
+ */
+const TEAMS_CODEPOINT = /^([0-9a-f]{4,6})_/i;
+
+/** Resolve a Unicode token (as-is, then VS16-stripped) to a canonical name. */
+const unicodeName = (token: string): KnownEmoji | undefined =>
+  unicodeToName.get(token) ?? unicodeToName.get(stripVs16(token));
+
 /** Platform-native token → canonical name, or `undefined` if unrecognized. */
 export function normalizeEmoji(
   token: string,
   platform: EmojiPlatform,
 ): EmojiValue | undefined {
   if (platform === "slack") return slackToName.get(token);
-  // Discord/Telegram: try the token as-is, then retry with VS16 stripped, since
-  // the platform may deliver/cache a bare codepoint without the table's U+FE0F.
-  return unicodeToName.get(token) ?? unicodeToName.get(stripVs16(token));
+  if (platform === "teams") {
+    // Modern Teams reactions: `<codepoint-hex>_<name>` — parse the leading hex
+    // into its Unicode form, then look it up (bare or VS16-stripped).
+    const hex = TEAMS_CODEPOINT.exec(token)?.[1];
+    if (hex) {
+      // The regex admits up to 6 hex digits (max 0xFFFFFF), but String.fromCodePoint
+      // throws RangeError above U+10FFFF. rawEmoji is untrusted provider input, so
+      // degrade an out-of-range token to passthrough (undefined) rather than throw
+      // out of the reaction ingress path.
+      const cp = parseInt(hex, 16);
+      if (cp > 0x10ffff) return undefined;
+      return unicodeName(String.fromCodePoint(cp));
+    }
+    // Classic Teams reactions arrive as bare names (`like`, `heart`, …).
+    return teamsClassicToName[token];
+  }
+  // Discord/Telegram/WhatsApp: try the token as-is, then retry with VS16
+  // stripped, since the platform may deliver/cache a bare codepoint without the
+  // table's U+FE0F.
+  return unicodeName(token);
 }

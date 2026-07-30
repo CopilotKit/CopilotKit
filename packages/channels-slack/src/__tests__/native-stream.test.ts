@@ -13,7 +13,9 @@ type Event =
  * interleaved, plus the stop call and any trailing blocks.
  */
 function makeFakeTransport(opts?: {
+  failAppend?: boolean;
   failStart?: boolean;
+  failStop?: boolean;
   failChunks?: boolean;
 }) {
   const messages: {
@@ -32,6 +34,7 @@ function makeFakeTransport(opts?: {
       return ts;
     }),
     appendText: vi.fn(async (ts: string, md: string) => {
+      if (opts?.failAppend) throw new Error("appendStream unavailable");
       messages
         .find((m) => m.ts === ts)
         ?.events.push({ kind: "text", value: md });
@@ -43,6 +46,7 @@ function makeFakeTransport(opts?: {
         ?.events.push({ kind: "chunks", value: chunks });
     }),
     stopStream: vi.fn(async (ts: string, blocks?: KnownBlock[]) => {
+      if (opts?.failStop) throw new Error("stopStream unavailable");
       const m = messages.find((x) => x.ts === ts);
       if (m) {
         m.stopped = true;
@@ -215,6 +219,50 @@ describe("NativeMessageStream", () => {
     expect(transport.appendText).not.toHaveBeenCalled();
     expect(fallback.last()).toBe("hello world");
     expect(fallback.finished).toBe(true);
+  });
+
+  it("strict mode rejects a start failure without creating a legacy bubble", async () => {
+    const { transport } = makeFakeTransport({ failStart: true });
+    const fallback = makeFakeFallback();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("managed reply");
+
+    await expect(stream.finish()).rejects.toThrow("startStream unavailable");
+    expect(fallback.last()).toBe("");
+    expect(fallback.finished).toBe(false);
+  });
+
+  it("strict mode reports append and stop failures to the caller", async () => {
+    const appendFailure = makeFakeTransport({ failAppend: true });
+    const appendStream = new NativeMessageStream({
+      transport: appendFailure.transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+    appendStream.append("managed reply");
+    await expect(appendStream.finish()).rejects.toThrow(
+      "appendStream unavailable",
+    );
+    // Even when a strict append fails, finish still finalizes the open stream.
+    expect(appendFailure.messages[0]?.stopped).toBe(true);
+    expect(appendFailure.transport.stopStream).toHaveBeenCalledOnce();
+
+    const stopFailure = makeFakeTransport({ failStop: true });
+    const stopStream = new NativeMessageStream({
+      transport: stopFailure.transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+    stopStream.append("managed reply");
+    await expect(stopStream.finish()).rejects.toThrow("stopStream unavailable");
   });
 
   it("fires onChunkFailure and degrades when a chunk append fails", async () => {

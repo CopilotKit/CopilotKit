@@ -29,39 +29,19 @@
       "sharedVersion": false
     },
     "channels": {
-      "packages": ["@copilotkit/channels", "@copilotkit/channels-ui"],
+      "packages": [
+        "@copilotkit/channels-ui",
+        "@copilotkit/channels-core",
+        "@copilotkit/channels-slack",
+        "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
+        "@copilotkit/channels-telegram",
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
+      ],
       "versionSource": "@copilotkit/channels",
       "sharedVersion": true
-    },
-    "channels-discord": {
-      "packages": ["@copilotkit/channels-discord"],
-      "versionSource": "@copilotkit/channels-discord",
-      "sharedVersion": false
-    },
-    "channels-intelligence": {
-      "packages": ["@copilotkit/channels-intelligence"],
-      "versionSource": "@copilotkit/channels-intelligence",
-      "sharedVersion": false
-    },
-    "channels-slack": {
-      "packages": ["@copilotkit/channels-slack"],
-      "versionSource": "@copilotkit/channels-slack",
-      "sharedVersion": false
-    },
-    "channels-teams": {
-      "packages": ["@copilotkit/channels-teams"],
-      "versionSource": "@copilotkit/channels-teams",
-      "sharedVersion": false
-    },
-    "channels-telegram": {
-      "packages": ["@copilotkit/channels-telegram"],
-      "versionSource": "@copilotkit/channels-telegram",
-      "sharedVersion": false
-    },
-    "channels-whatsapp": {
-      "packages": ["@copilotkit/channels-whatsapp"],
-      "versionSource": "@copilotkit/channels-whatsapp",
-      "sharedVersion": false
     }
   }
 }

@@ -241,6 +241,51 @@
     @apply cpk:overflow-x-auto;
   }
 
+  /* Table action controls (copy / download). streamdown renders the controls
+     row, per-button wrappers, trigger buttons, dropdown popovers and menu items
+     with raw Tailwind utilities and no stable `data-streamdown` attribute, so
+     scope them structurally under the table wrapper. The controls row is the
+     first child ONLY when controls are enabled; `:not(:last-child)` leaves a
+     control-less table (single child = the scroll container handled above)
+     untouched. #5775 */
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child) {
+    @apply cpk:flex cpk:items-center cpk:justify-end cpk:gap-1;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div {
+    @apply cpk:relative;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > button {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > div {
+    @apply cpk:absolute cpk:top-full cpk:right-0 cpk:z-10 cpk:mt-1 cpk:min-w-[120px] cpk:overflow-hidden cpk:rounded-md cpk:border cpk:border-border cpk:bg-background cpk:shadow-lg;
+  }
+
+  [data-copilotkit]
+    [data-streamdown="table-wrapper"]
+    > div:first-child:not(:last-child)
+    > div
+    > div
+    > button {
+    @apply cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors cpk:hover:bg-muted;
+  }
+
   [data-copilotkit] [data-streamdown="table"] {
     @apply cpk:w-full cpk:border-collapse cpk:border cpk:border-border;
   }

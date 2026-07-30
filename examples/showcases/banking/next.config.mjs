@@ -10,6 +10,13 @@ const nextConfig = {
   // HITL chat (and the teach-mode demonstration arc) work when the demo is run
   // via `next dev`. No effect on production behavior or correctness.
   reactStrictMode: false,
+
+  // Hide Next's floating dev-tools badge (the "N" bottom-left that periodically
+  // flashes "1 Issue"). It is a dev-only overlay, but this demo is PRESENTED
+  // from `next dev`, so on stage it reads as a defect in our product and it
+  // overlaps the chat's own bottom-left controls. Purely cosmetic: it disables
+  // the indicator, not any checking.
+  devIndicators: false,
 };
 
 export default nextConfig;

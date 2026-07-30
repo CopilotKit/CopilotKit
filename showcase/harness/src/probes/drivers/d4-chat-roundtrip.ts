@@ -458,6 +458,30 @@ function isAgentMessagePost(method: string, url: string): boolean {
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 60 * 1000;
 
+/**
+ * L3 demo route (`/demos/agentic-chat`) — driven on EVERY discovered slug.
+ */
+export const D4_DEMO_ROUTE_AGENTIC_CHAT = "agentic-chat" as const;
+/**
+ * L4 demo route (`/demos/tool-rendering`) — driven only where the slug's
+ * registry exposes the `tool-rendering` demo.
+ */
+export const D4_DEMO_ROUTE_TOOL_RENDERING = "tool-rendering" as const;
+
+/**
+ * SOURCE OF TRUTH for the set of `/demos/<route>` routes this probe navigates:
+ * L3 (`agentic-chat`) always, L4 (`tool-rendering`) conditionally. The
+ * `runLevel` call sites below derive their `demo`/`demoPath` from these same
+ * constants, and the `d4-probe-domdone-guard` test derives its probed-route
+ * scan from this array (instead of a parallel hardcoded literal that could
+ * silently drift) so a future D4 route is covered automatically.
+ */
+export const D4_PROBED_DEMO_ROUTES = [
+  D4_DEMO_ROUTE_AGENTIC_CHAT,
+  D4_DEMO_ROUTE_TOOL_RENDERING,
+] as const;
+export type D4ProbedDemoRoute = (typeof D4_PROBED_DEMO_ROUTES)[number];
+
 // `PendingSseEvent`, `CvdiagProbeSession`, `defaultCvdiagBufferDir`, and
 // `nowMonoMs` were extracted to `../../cvdiag/probe-session.js` so the d5/d6
 // probe path can reuse the SAME probe-layer session. They are imported at the
@@ -491,7 +515,7 @@ const WEATHER_VOCAB = [
  * turn still fails once the grace elapses. Bounded and small so a
  * genuinely-empty completed turn fails fast.
  */
-const FIRST_TOKEN_GRACE_MS = 2000;
+export const FIRST_TOKEN_GRACE_MS = 2000;
 
 /**
  * Fast-fail budget for a turn that COMPLETES with empty assistant text. With a
@@ -1185,7 +1209,7 @@ export function createE2eSmokeDriver(
           demos = [];
         }
       }
-      const hasToolRendering = demos.includes("tool-rendering");
+      const hasToolRendering = demos.includes(D4_DEMO_ROUTE_TOOL_RENDERING);
 
       // Arm an AbortController that combines:
       //   1. The driver's own `timeoutMs` hard cap (triggers teardown).
@@ -1262,8 +1286,8 @@ export function createE2eSmokeDriver(
           slug,
           backendUrl,
           level: "chat",
-          demo: "agentic-chat",
-          demoPath: "/demos/agentic-chat",
+          demo: D4_DEMO_ROUTE_AGENTIC_CHAT,
+          demoPath: `/demos/${D4_DEMO_ROUTE_AGENTIC_CHAT}`,
           message: "Hello, please respond with a brief greeting.",
           testId: `d4-${slug}-${runId}`,
           abortSignal: abort.signal,
@@ -1386,8 +1410,8 @@ export function createE2eSmokeDriver(
             slug,
             backendUrl,
             level: "tools",
-            demo: "tool-rendering",
-            demoPath: "/demos/tool-rendering",
+            demo: D4_DEMO_ROUTE_TOOL_RENDERING,
+            demoPath: `/demos/${D4_DEMO_ROUTE_TOOL_RENDERING}`,
             message: "What's the weather in San Francisco?",
             testId: `d4-${slug}-${runId}`,
             abortSignal: abort.signal,
@@ -2064,18 +2088,18 @@ async function runLevel(opts: {
         runStartCount: number;
       }): Promise<{
         observed: boolean;
-        complete: boolean;
+        completed: boolean;
       }> => {
         // Route through `safeReadTurnState`: no seam OR a mid-poll read-throw
         // both yield "not observed / not complete" here (the throw returns the
         // degraded sentinel whose all-zero counters can't rise past the
-        // baseline, so `observed`/`complete` stay false). A throw is thus handled
+        // baseline, so `observed`/`completed` stay false). A throw is thus handled
         // CONSISTENTLY with `readDegraded` — the poll treats it as "no reliable
         // signal → degraded", widening the wait rather than escaping as a
         // spurious `level-error`.
         const st = await safeReadTurnState();
         if (st === undefined) {
-          return { observed: false, complete: false };
+          return { observed: false, completed: false };
         }
         const newRunStarted = st.runStartCount > baseline.runStartCount;
         const domDone =
@@ -2091,7 +2115,18 @@ async function runLevel(opts: {
         const observed = newRunStarted || sseDone;
         return {
           observed,
-          complete: domDone || sseDone,
+          // Gate completion on `domDone` ALONE, not `domDone || sseDone`.
+          // `sseDone` (the transport-level RUN_FINISHED counter) is a
+          // synchronous raw-byte parse OUTSIDE React and can fire at-or-before
+          // the React commit that renders the assistant text; `domDone` is
+          // coalesced into that SAME commit (use-agent.tsx batchedForceUpdate /
+          // queueMicrotask), so the moment `domDone` is true the text is
+          // already in the DOM. Gating on `sseDone` let the fast-fail grace
+          // window elapse with the DOM still empty under contention, redding a
+          // turn that was about to render correctly ("empty assistant
+          // response"). `observed` still includes `sseDone` (above) so a turn
+          // whose attribute never appears still gets the wider polling window.
+          completed: domDone,
         };
       };
 
@@ -2180,9 +2215,9 @@ async function runLevel(opts: {
               observed: everObserved,
             };
           }
-          const { observed, complete } = await readTurnComplete(baseline);
+          const { observed, completed } = await readTurnComplete(baseline);
           if (observed) everObserved = true;
-          if (complete && completeAtMs === undefined) {
+          if (completed && completeAtMs === undefined) {
             // Stamp completion from the NODE clock at the first poll iteration
             // that observes THIS turn complete. The grace-window deadline math
             // below runs on the Node clock, so the completion instant must too:

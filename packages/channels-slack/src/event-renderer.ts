@@ -4,7 +4,7 @@ import type {
   RunRenderer,
   CapturedToolCall,
   CapturedInterrupt,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
@@ -34,6 +34,7 @@ const displayTransform = (text: string): string =>
   markdownToMrkdwn(autoCloseOpenMarkdown(text));
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
+const RUN_ERROR_SUFFIX = "\n\n_(response interrupted)_";
 
 /**
  * Construct a {@link RunRenderer} for a single agent run in Slack.
@@ -50,11 +51,11 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
  *
  * When `nativeStreaming` is set, the run uses a SINGLE turn-scoped
  * `chat.startStream` message for the whole turn: text from every AG-UI
- * message accumulates into it (separated by blank lines), and tool calls
- * surface as native `task_update` chunks INSIDE that message. The message is
- * finalized once, at `finish()`, optionally carrying a feedback row. The
+ * message accumulates into it (separated by blank lines), and opted-in tool
+ * calls surface as native `task_update` chunks INSIDE that message. The message
+ * is finalized once, at `finish()`, optionally carrying a feedback row. The
  * legacy path keeps the prior behavior — one `chat.update` message per AG-UI
- * text message, plus separate `:wrench:` tool-status rows.
+ * text message, plus separate `:wrench:` tool-status rows when enabled.
  */
 export function createRunRenderer(args: {
   /**
@@ -73,7 +74,7 @@ export function createRunRenderer(args: {
   interruptEventNames?: ReadonlySet<string>;
   /**
    * Master toggle for surfacing tool-call progress in the UI. Defaults to
-   * `true`. When `false`, NO tool progress is shown on any surface — native
+   * `false`. When `false`, NO tool progress is shown on any surface — native
    * in-message `task_update` chunks, legacy `:wrench:` rows, and the pane's
    * "is using `tool`…" composer status are all suppressed (tools still run;
    * only the display is hidden). When `true`, the surface is chosen by target:
@@ -108,6 +109,13 @@ export function createRunRenderer(args: {
    */
   nativeStreaming?: {
     transport: NativeStreamTransport;
+    /**
+     * Require native text delivery. Start, append, and stop failures propagate
+     * instead of creating or updating a second legacy message.
+     */
+    strict?: boolean;
+    /** Override the native text flush floor. Managed sessions use `0`. */
+    minIntervalMs?: number;
     onStartFailure?: (err: unknown) => void;
     /**
      * Whether structured `task_update` chunks are known to work on this
@@ -127,8 +135,9 @@ export function createRunRenderer(args: {
   const { transport, target } = args;
   const interruptEventNames =
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
-  const showToolStatus = args.showToolStatus ?? true;
+  const showToolStatus = args.showToolStatus ?? false;
   const nativeMode = args.nativeStreaming !== undefined;
+  const strictNative = args.nativeStreaming?.strict ?? false;
 
   // ── Native status mode ──────────────────────────────────────────────
   // Whenever the reply is anchored to a thread, the run lifecycle drives
@@ -194,6 +203,8 @@ export function createRunRenderer(args: {
   let pendingSeparator = false;
   /** True once the turn stream has been finalized (interrupt / error / finish). */
   let turnFinalised = false;
+  /** True after a run error, so a partial reply never receives feedback UI. */
+  let runFailed = false;
   /**
    * Whether native structured chunks (`task_update`) are usable. Flipped off
    * the first time a chunk append fails (old workspace / missing scope), after
@@ -260,6 +271,8 @@ export function createRunRenderer(args: {
       },
       fallback: makeLegacyStream,
       onStartFailure: ns.onStartFailure,
+      strict: ns.strict,
+      minIntervalMs: ns.minIntervalMs,
       onChunkFailure: () => {
         // Structured chunks unsupported on this workspace — degrade tool
         // progress to `:wrench:` rows for the rest of the run, and let the
@@ -421,6 +434,10 @@ export function createRunRenderer(args: {
       // still gates panes; every other surface shows it when tool status is on.
       if (statusMode && showToolStatus && (isPane ? paneToolStatus : true)) {
         await setStatus(`is using \`${event.toolCallName}\`…`);
+      } else if (statusMode && !showToolStatus) {
+        // Keep Slack's generic status alive during long tool calls without
+        // revealing tool names or adding visible tool-progress rows.
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
       }
       // Panes surface tool activity ONLY as composer status — no in-thread rows.
       if (isPane) return;
@@ -436,6 +453,7 @@ export function createRunRenderer(args: {
         }
         return;
       }
+      if (strictNative) return;
       // Legacy path (or native degraded): a `:wrench:` status row.
       await postToolStartRow(event.toolCallId, event.toolCallName);
     },
@@ -461,6 +479,9 @@ export function createRunRenderer(args: {
         toolCallName,
         (toolCallArgs ?? {}) as Record<string, unknown>,
       );
+      if (statusMode && !showToolStatus) {
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
+      }
       // Pane threads use live status (set on START); no per-call rows to edit.
       if (isPane) return;
       // Native path: complete the in-message `task_update`.
@@ -475,6 +496,7 @@ export function createRunRenderer(args: {
         }
         return;
       }
+      if (strictNative) return;
       // Legacy path (or native degraded): edit the `:wrench:` row to a check.
       await finishToolStatusRow(event.toolCallId, toolCallName);
     },
@@ -505,9 +527,18 @@ export function createRunRenderer(args: {
       // `_(interrupted)_` marker on the partial reply is the user-visible
       // signal in that case.
       if (statusMode) await clearStatus();
+      if (aborted) return;
+
+      if (strictNative && turnStream) {
+        runFailed = true;
+        turnText += RUN_ERROR_SUFFIX;
+        turnStream.append(turnText);
+        await finalizeTurnStream();
+        return;
+      }
+
       // Close any open native turn stream so the partial reply is committed.
       await finalizeTurnStream();
-      if (aborted) return;
       try {
         await transport.postMessage({
           channel: target.channel,
@@ -528,7 +559,9 @@ export function createRunRenderer(args: {
       // Attach the feedback row only to a COMPLETE reply that streamed text —
       // never to an interrupted/aborted partial (no point rating a half answer).
       const blocks =
-        !aborted && turnText.length > 0 ? args.feedbackBlocks : undefined;
+        !aborted && !runFailed && turnText.length > 0
+          ? args.feedbackBlocks
+          : undefined;
       await turnStream.finish(blocks);
     }
   };
@@ -545,6 +578,12 @@ export function createRunRenderer(args: {
       // No-op if the run was interrupted (markInterrupted already drained).
       if (aborted) return;
       await finalizeTurnStream();
+      // Backstop: clear the native "is thinking…" status even when the reply
+      // streamed no text — a tool-only / file-only reply (e.g. a posted chart)
+      // never triggers `onFirstReply`, so without this the indicator lingers
+      // forever. `postedReply` guards against a redundant clear on the normal
+      // streamed-text path (where onFirstReply already cleared it).
+      if (statusMode && !postedReply) await clearStatus();
     },
     async markInterrupted() {
       // Idempotent. Mark BEFORE any await so subsequent subscriber

@@ -79,12 +79,60 @@ interface ExecuteToolHandlerResult {
 }
 
 /**
+ * A registered A2UI catalog component, as exposed to the inspector via
+ * `CopilotKitCore.catalogComponents`. `schema` is an opaque JSON-schema-ish
+ * value (the built catalog's Zod schema or a serialized form); the inspector
+ * treats it as unknown. `description` is optional because the built
+ * `ComponentApi` does not carry descriptions.
+ */
+export interface CopilotKitCoreCatalogComponent {
+  name: string;
+  description?: string;
+  schema: unknown;
+}
+
+/**
+ * Absolute safety cap on the depth of recursive follow-up runs triggered by
+ * `processAgentResult`. Without this, any scenario that keeps
+ * `needsFollowUp = true` (e.g. the LLM repeatedly calling the same tool, a
+ * backend that errors after receiving tool results, or input processors that
+ * reprocess tool messages) would loop indefinitely, silently consuming API
+ * quota and potentially DOS'ing the backend.
+ *
+ * The cap is deliberately high so that legitimate multi-step agent workflows
+ * (search → fill form → confirm → update → send email, etc.) are never
+ * affected; it only trips on runaway recursion.
+ */
+const MAX_FOLLOW_UP_DEPTH = 100;
+
+/**
  * Handles agent execution, tool calling, and agent connectivity for CopilotKitCore.
  * Manages the complete lifecycle of agent runs including tool execution and follow-ups.
  */
 export class RunHandler {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _tools: FrontendTool<any>[] = [];
+
+  /**
+   * The full list of A2UI catalog components registered by the provider.
+   * Order is preserved for display in the inspector.
+   */
+  private _catalogComponents: CopilotKitCoreCatalogComponent[] = [];
+
+  /**
+   * Names of catalog components the caller has explicitly disabled. A name
+   * absent from this set is enabled (default). Survives re-registration so a
+   * catalog identity change does not silently re-enable a disabled component.
+   */
+  private _disabledCatalogComponents: Set<string> = new Set();
+
+  /**
+   * Keys of frontend tools explicitly disabled at runtime via the Inspector's
+   * Capabilities tool (`setToolEnabled`). Kept independently of each tool's own
+   * `available` flag so a hook re-registering the tool (which resets
+   * `available`) does not clobber the override. Key = `capabilityKey(name, agentId)`.
+   */
+  private _disabledToolKeys = new Set<string>();
 
   /**
    * Tracks whether the current run (including in-flight tool execution)
@@ -237,6 +285,39 @@ export class RunHandler {
    */
   setTools(tools: FrontendTool<any>[]): void {
     this._tools = [...tools];
+  }
+
+  /**
+   * Return the registered A2UI catalog components (readonly).
+   */
+  get catalogComponents(): ReadonlyArray<CopilotKitCoreCatalogComponent> {
+    return this._catalogComponents;
+  }
+
+  /**
+   * Replace the registered catalog component list. Preserves the disabled set
+   * (by name) so re-registration does not re-enable disabled components.
+   */
+  setCatalogComponents(components: CopilotKitCoreCatalogComponent[]): void {
+    this._catalogComponents = [...components];
+  }
+
+  /**
+   * Enable or disable a catalog component by name.
+   */
+  setCatalogComponentEnabled(name: string, enabled: boolean): void {
+    if (enabled) {
+      this._disabledCatalogComponents.delete(name);
+    } else {
+      this._disabledCatalogComponents.add(name);
+    }
+  }
+
+  /**
+   * Whether a catalog component is enabled. Unknown names default to enabled.
+   */
+  isCatalogComponentEnabled(name: string): boolean {
+    return !this._disabledCatalogComponents.has(name);
   }
 
   /**
@@ -468,15 +549,49 @@ export class RunHandler {
       for (const message of newMessages) {
         if (message.role === "assistant") {
           for (const toolCall of message.toolCalls || []) {
-            if (
-              newMessages.findIndex(
-                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-              ) === -1
-            ) {
-              const tool = this.getTool({
-                toolName: toolCall.function.name,
+            const tool = this.getTool({
+              toolName: toolCall.function.name,
+              agentId: agent.agentId,
+            });
+
+            let wildcardTool: FrontendTool<any> | undefined;
+            const getWildcardTool = () => {
+              if (tool || wildcardTool) {
+                return wildcardTool;
+              }
+              wildcardTool = this.getTool({
+                toolName: "*",
                 agentId: agent.agentId,
               });
+              return wildcardTool;
+            };
+
+            let existingResultIndex = newMessages.findIndex(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            );
+            const existingResult =
+              existingResultIndex === -1
+                ? undefined
+                : newMessages[existingResultIndex];
+            const executableTool = tool ?? getWildcardTool();
+
+            if (
+              existingResult &&
+              executableTool?.handler &&
+              this.isFrontendPlaceholderResult(existingResult)
+            ) {
+              newMessages.splice(existingResultIndex, 1);
+              existingResultIndex = -1;
+
+              const agentMsgIdx = agent.messages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              );
+              if (agentMsgIdx !== -1) {
+                agent.messages.splice(agentMsgIdx, 1);
+              }
+            }
+
+            if (existingResultIndex === -1) {
               if (tool) {
                 const followUp = await this.executeSpecificTool(
                   tool,
@@ -489,14 +604,10 @@ export class RunHandler {
                   needsFollowUp = true;
                 }
               } else {
-                // Wildcard fallback for undefined tools
-                const wildcardTool = this.getTool({
-                  toolName: "*",
-                  agentId: agent.agentId,
-                });
-                if (wildcardTool) {
+                const fallbackTool = getWildcardTool();
+                if (fallbackTool) {
                   const followUp = await this.executeWildcardTool(
-                    wildcardTool,
+                    fallbackTool,
                     toolCall,
                     message,
                     agent,
@@ -514,17 +625,80 @@ export class RunHandler {
     }
 
     if (needsFollowUp && !this._runAbortController?.signal.aborted) {
-      // Yield to the framework scheduler before the follow-up run so that any
-      // deferred state updates (e.g. React useEffect in useAgentContext) can
-      // complete and write fresh values into the context store before runAgent
-      // reads it. The base implementation is a no-op; React overrides this.
-      await this._internal.waitForPendingFrameworkUpdates();
-      return await this.runAgent({ agent });
+      // Circuit breaker: bail out instead of recursing once the follow-up
+      // chain exceeds an absolute safety cap. `_runDepth` reflects the current
+      // depth of nested runAgent calls (it is incremented in runAgent and
+      // decremented in its finally block), so a runaway loop — repeated
+      // identical tool calls, a backend that keeps erroring after tool
+      // results, reprocessed tool messages, etc. — eventually trips this
+      // guard rather than looping forever and exhausting API quota.
+      if (this._runDepth >= MAX_FOLLOW_UP_DEPTH) {
+        logger.warn(
+          `[CopilotKit] Follow-up depth limit (${MAX_FOLLOW_UP_DEPTH}) reached for agent "${agentId}". ` +
+            `Stopping recursive follow-up runs to prevent an infinite loop. ` +
+            `This usually indicates a tool that keeps requesting a follow-up (e.g. the LLM repeatedly ` +
+            `calling the same tool). Consider setting "followUp: false" on the offending tool.`,
+        );
+      } else {
+        // Yield to the framework scheduler before the follow-up run so that any
+        // deferred state updates (e.g. React useEffect in useAgentContext) can
+        // complete and write fresh values into the context store before runAgent
+        // reads it. The base implementation is a no-op; React overrides this.
+        await this._internal.waitForPendingFrameworkUpdates();
+        return await this.runAgent({ agent });
+      }
     }
 
     void this._internal.suggestionEngine.reloadSuggestions(agentId);
 
     return runAgentResult;
+  }
+
+  private isFrontendPlaceholderResult(message: Message): boolean {
+    if (message.role !== "tool") {
+      return false;
+    }
+
+    const normalized = this.normalizeToolResultContent(message.content);
+    return normalized === "Forwarded to client";
+  }
+
+  private normalizeToolResultContent(content: unknown): string | null {
+    if (typeof content === "string") {
+      return content.trim();
+    }
+
+    if (Array.isArray(content)) {
+      const text = content
+        .flatMap((part) => {
+          if (typeof part === "string") {
+            return [part];
+          }
+          if (
+            part &&
+            typeof part === "object" &&
+            "text" in part &&
+            typeof (part as { text?: unknown }).text === "string"
+          ) {
+            return [(part as { text: string }).text];
+          }
+          return [];
+        })
+        .join("")
+        .trim();
+      return text.length > 0 ? text : null;
+    }
+
+    if (
+      content &&
+      typeof content === "object" &&
+      "text" in content &&
+      typeof (content as { text?: unknown }).text === "string"
+    ) {
+      return (content as { text: string }).text.trim();
+    }
+
+    return null;
   }
 
   /**
@@ -682,13 +856,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.result,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -820,13 +1005,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt]?.role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
@@ -954,6 +1150,31 @@ export class RunHandler {
     };
   }
 
+  /** Stable identity for a tool override: agent-scope + name (NUL-separated). */
+  private capabilityKey(name: string, agentId?: string): string {
+    return `${agentId ?? ""}\u0000${name}`;
+  }
+
+  /**
+   * Enable/disable a registered frontend tool at runtime without unregistering
+   * it. A disabled tool is omitted from {@link buildFrontendTools}, so the agent
+   * never receives it. Unlike the per-tool `available` flag, this override
+   * survives the tool being re-registered.
+   */
+  setToolEnabled(name: string, enabled: boolean, agentId?: string): void {
+    const key = this.capabilityKey(name, agentId);
+    if (enabled) {
+      this._disabledToolKeys.delete(key);
+    } else {
+      this._disabledToolKeys.add(key);
+    }
+  }
+
+  /** Whether a tool is currently enabled (not overridden off). Defaults true. */
+  isToolEnabled(name: string, agentId?: string): boolean {
+    return !this._disabledToolKeys.has(this.capabilityKey(name, agentId));
+  }
+
   /**
    * Build frontend tools for an agent
    */
@@ -963,7 +1184,8 @@ export class RunHandler {
         (tool) =>
           tool.available !== false &&
           (tool.available as boolean | string | undefined) !== "disabled" &&
-          (!tool.agentId || tool.agentId === agentId),
+          (!tool.agentId || tool.agentId === agentId) &&
+          this.isToolEnabled(tool.name, tool.agentId),
       )
       .map((tool) => ({
         name: tool.name,
@@ -1003,6 +1225,19 @@ export class RunHandler {
         });
       },
       onRunErrorEvent: async ({ event }) => {
+        // A user-initiated stop (stopAgent / agent.abortRun) makes the agent
+        // emit a terminal RUN_ERROR — often code "abort" — as its cancellation
+        // signal. That is expected, not a failure: surfacing it would pop an
+        // error banner on Stop (#5966, follow-up to #5812). Mirror the
+        // local-abort suppression on the runAgent/connectAgent paths and skip
+        // it. Prefer the abort controller (the client's own record that it
+        // initiated the stop) over the agent-supplied `code`, which is not
+        // standardized across agents.
+        const runWasAborted = this._runAbortController?.signal.aborted === true;
+        if (runWasAborted || event?.code === "abort") {
+          return;
+        }
+
         const eventError =
           event?.rawEvent instanceof Error
             ? event.rawEvent

@@ -207,8 +207,20 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     expect(response.status).not.toBe(405);
   });
 
+  // Memory routes are opt-in (secure default off). These reachability tests use
+  // a runtime with `exposeMemoryRoutes: true`; the gated-off (404) behavior is
+  // covered in its own describe block below.
+  const memoryHandler = createCopilotRuntimeHandler({
+    runtime: new CopilotRuntime({
+      agents: { default: createMockAgent() },
+      exposeMemoryRoutes: true,
+    }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
   it("routes GET /memories (not 404/405)", async () => {
-    const response = await handler(
+    const response = await memoryHandler(
       get("http://localhost/api/copilotkit/memories"),
     );
     // No intelligence configured here → 422, but the route + GET method match.
@@ -217,7 +229,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("routes POST /memories (create) — not 404/405", async () => {
-    const response = await handler(
+    const response = await memoryHandler(
       post("http://localhost/api/copilotkit/memories", {
         content: "c",
         kind: "topical",
@@ -228,8 +240,26 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     expect(response.status).not.toBe(405);
   });
 
+  it("routes POST /memories/recall (not 404/405)", async () => {
+    const response = await memoryHandler(
+      post("http://localhost/api/copilotkit/memories/recall", {
+        query: "music",
+      }),
+    );
+    // No intelligence configured → 422, but the route + POST method match.
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("returns 405 for GET /memories/recall (POST-only)", async () => {
+    const response = await memoryHandler(
+      get("http://localhost/api/copilotkit/memories/recall"),
+    );
+    expect(response.status).toBe(405);
+  });
+
   it("routes PATCH /memories/:id (supersede) — not 404/405", async () => {
-    const response = await handler(
+    const response = await memoryHandler(
       new Request("http://localhost/api/copilotkit/memories/m-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -241,7 +271,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("routes DELETE /memories/:id (retire) — not 404/405", async () => {
-    const response = await handler(
+    const response = await memoryHandler(
       new Request("http://localhost/api/copilotkit/memories/m-1", {
         method: "DELETE",
       }),
@@ -251,7 +281,7 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   });
 
   it("returns 405 for GET /memories/:id (PATCH/DELETE-only)", async () => {
-    const response = await handler(
+    const response = await memoryHandler(
       get("http://localhost/api/copilotkit/memories/m-1"),
     );
     expect(response.status).toBe(405);
@@ -286,6 +316,85 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     );
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Opt-in memory-proxy flag (exposeMemoryRoutes)
+ * --------------------------------------------------------------------------------------------- */
+
+describe("createCopilotRuntimeHandler — exposeMemoryRoutes gate", () => {
+  const offHandler = createCopilotRuntimeHandler({
+    // Default: exposeMemoryRoutes omitted → off.
+    runtime: new CopilotRuntime({ agents: { default: createMockAgent() } }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+  const onHandler = createCopilotRuntimeHandler({
+    runtime: new CopilotRuntime({
+      agents: { default: createMockAgent() },
+      exposeMemoryRoutes: true,
+    }),
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
+  it("404s GET /memories when the flag is off (default)", async () => {
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s POST /memories/recall when the flag is off (default)", async () => {
+    const response = await offHandler(
+      post("http://localhost/api/copilotkit/memories/recall", {
+        query: "music",
+      }),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s POST /memories/subscribe when the flag is off (default)", async () => {
+    const response = await offHandler(
+      post("http://localhost/api/copilotkit/memories/subscribe"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s PATCH /memories/:id when the flag is off (default)", async () => {
+    const response = await offHandler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "c", kind: "topical" }),
+      }),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("404s (not 405) for a wrong method on a hidden memory route — no route-existence leak", async () => {
+    // GET on the POST-only recall route would 405 if reachable; the gate must
+    // 404 before method validation so the route's existence is not disclosed.
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/memories/recall"),
+    );
+    expect(response.status).toBe(404);
+  });
+
+  it("does not 404 memory routes when the flag is on", async () => {
+    // No intelligence configured → 422 (not 404): the route is now exposed.
+    const response = await onHandler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    expect(response.status).not.toBe(404);
+  });
+
+  it("leaves non-memory routes reachable when the flag is off", async () => {
+    const response = await offHandler(
+      get("http://localhost/api/copilotkit/info"),
+    );
+    expect(response.status).toBe(200);
   });
 });
 

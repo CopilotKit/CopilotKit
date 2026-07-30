@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { AgentSession, ConversationStore } from "@copilotkit/channels";
+import type {
+  AgentSession,
+  ConversationStore,
+} from "@copilotkit/channels-core";
 import type { ThreadMessage } from "@copilotkit/channels-ui";
 import type { HistoryStore, StoredMessage } from "./history-store.js";
 import type { ReplyTarget } from "./types.js";
@@ -20,6 +23,7 @@ interface AgentMessage {
  * as `bot-slack`.
  */
 export class WhatsAppConversationStore implements ConversationStore {
+  readonly seedsInboundTurn = true;
   private readonly historyStore: HistoryStore;
 
   constructor(args: { historyStore: HistoryStore }) {

@@ -2240,11 +2240,22 @@ module Railway
             end.uniq
         end
 
-        # The env-LOCAL host the target service serves in `env` (the `domains`
-        # value from the SSOT). `env` is "prod" or "staging".
+        # The env-LOCAL host a serviceRef must point at for `env`.
+        #
+        # PREFERS the PRIVATE Railway networking host (`internalDomains[env]`,
+        # e.g. `showcase-aimock.railway.internal`) when the SSOT declares one:
+        # public `*.up.railway.app` traffic is billed egress even intra-project,
+        # while `*.railway.internal` is free and env-scoped, so demo backends
+        # must resolve their aimock serviceRefs at the private host. Falls back
+        # to the public `domains[env]` host for any target that declares no
+        # internal domain (every non-aimock target today). `env` is "prod" or
+        # "staging". The comparison in `check_service_refs` is HOST-substring,
+        # so returning the bare host (no scheme/port) matches both the bare
+        # origin and the `/v1`-suffixed `http://<host>:4010/v1` forms.
         def ssot_target_host(target_name, env)
             entry = ssot_service(target_name)
-            entry && entry.dig("domains", env)
+            return nil unless entry
+            entry.dig("internalDomains", env) || entry.dig("domains", env)
         end
 
         # Read a single (service,env) variable VALUE transiently (never

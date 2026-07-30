@@ -9,8 +9,8 @@
  * no Chromium, and no PNG upload, so the bot stays a pure Node service.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/channels";
-import { Message, Chart } from "@copilotkit/channels-ui";
+import { defineChannelTool } from "@copilotkit/channels";
+import { Message, Chart } from "@copilotkit/channels";
 
 const schema = z.object({
   chartType: z
@@ -43,7 +43,7 @@ const schema = z.object({
     .describe("The data to plot — one entry per category."),
 });
 
-export const renderChartTool = defineBotTool({
+export const renderChartTool = defineChannelTool({
   name: "render_chart",
   description:
     "Render a native chart in the conversation. Provide a chartType, a title, " +

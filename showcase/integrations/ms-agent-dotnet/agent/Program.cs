@@ -84,6 +84,17 @@ app.MapPost("/multimodal", (HttpContext context) => MultimodalEndpoint.HandleAsy
     agentFactory.CreateMultimodalChatClient(),
     loggerFactory.CreateLogger("MultimodalEndpoint")));
 
+// A2UI Error Recovery demo. Backend-owned render->validate->retry loop with a
+// graceful a2ui_recovery_exhausted fallback. Mounted as a raw SSE endpoint (NOT
+// MapAGUI): the recovery-exhausted card only renders from an a2ui-surface
+// ACTIVITY_SNAPSHOT carrying status:"failed", which the MS Agent Framework AG-UI
+// adapter cannot emit — so this endpoint hand-writes the AG-UI SSE stream, the
+// same adapter-bypass pattern used by /multimodal. See agent/RecoveryAgent.cs.
+app.MapPost("/a2ui-recovery", (HttpContext context) => RecoveryAgent.HandleAsync(
+    context,
+    builder.Configuration,
+    loggerFactory.CreateLogger("RecoveryAgent")));
+
 // Beautiful Chat flagship demo.
 app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
 
@@ -394,8 +405,6 @@ public record FlightInfo
 // =================
 public class SalesAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly IConfiguration _configuration;
     private readonly SalesState _state;
     private readonly OpenAIClient _openAiClient;
@@ -411,30 +420,16 @@ public class SalesAgentFactory
         _logger = loggerFactory.CreateLogger<SalesAgentFactory>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        // Get the GitHub token from configuration
-        var githubToken = _configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(_configuration);
 
         // Log the resolved OpenAI endpoint at startup so operators can tell
         // whether we're hitting a custom OPENAI_BASE_URL or falling back to the
         // GitHub Models / Azure default. Previously the fallback was silent.
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
-        if (string.IsNullOrEmpty(endpointEnv))
-        {
-            _logger.LogInformation(
-                "OPENAI_BASE_URL not set; using default OpenAI endpoint: {Endpoint}", endpoint);
-        }
-        else
-        {
-            _logger.LogInformation("Using OpenAI endpoint from OPENAI_BASE_URL: {Endpoint}", endpoint);
-        }
+        var endpoint = ApiKeyResolver.ResolveEndpoint(_configuration);
+        _logger.LogInformation("Using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -445,7 +440,7 @@ public class SalesAgentFactory
         var chatClientAgent = new ChatClientAgent(
             chatClient,
             name: "SalesAgent",
-            description: @"A helpful assistant that helps manage a sales pipeline.
+            instructions: @"A helpful assistant that helps manage a sales pipeline.
             You have tools available to get, update, and query sales data.
             You can search for flights and generate dynamic UI.
             When discussing deals or the pipeline, ALWAYS use the get_sales_todos tool to see the current state before mentioning, updating, or discussing deals with the user.",
@@ -491,7 +486,7 @@ public class SalesAgentFactory
         var inner = new ChatClientAgent(
             chatClient,
             name: "AgentConfigInner",
-            description: "You are a helpful assistant. Follow the tone, expertise, and response-length directives in the system message for each turn.",
+            instructions: "You are a helpful assistant. Follow the tone, expertise, and response-length directives in the system message for each turn.",
             tools: []);
         return new AgentConfigAgent(inner, _loggerFactory.CreateLogger<AgentConfigAgent>());
     }
@@ -648,7 +643,7 @@ public class SalesAgentFactory
         {
             content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
                 _configuration,
-                "Generate a useful A2UI dashboard.",
+                BeautifulChatA2ui.DesignSystemPrompt(BeautifulChatA2ui.AppDashboardCatalogId),
                 userContent,
                 cancellationToken).ConfigureAwait(false);
         }
@@ -706,7 +701,11 @@ public class SalesAgentFactory
             return StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
         }
 
-        return BuildA2uiResponseFromContent(content, errorId, _logger);
+        return BuildA2uiResponseFromContent(
+            content,
+            errorId,
+            _logger,
+            forcedCatalogId: BeautifulChatA2ui.AppDashboardCatalogId);
     }
 
     /// <summary>
@@ -723,106 +722,18 @@ public class SalesAgentFactory
     /// and ensures the helper itself is robust to defensive / test callers
     /// that pass through whatever the upstream produced.
     /// </remarks>
-    internal static object BuildA2uiResponseFromContent(string? content, string errorId, ILogger logger)
-    {
-        ArgumentNullException.ThrowIfNull(errorId);
-        ArgumentNullException.ThrowIfNull(logger);
-
-        if (string.IsNullOrEmpty(content))
-        {
-            logger.LogError("GenerateA2ui (errorId={ErrorId}): content was null or empty", errorId);
-            return StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
-        }
-
-        // JsonDocument.Parse can throw JsonException on malformed input.
-        // This is isolated from the parse-the-shape errors below so we can
-        // return a precise remediation message for each failure mode.
-        JsonDocument? jsonDoc;
-        try
-        {
-            jsonDoc = JsonDocument.Parse(content);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): LLM returned malformed JSON", errorId);
-            return StructuredError("malformed_llm_output", "The UI generator produced output that wasn't valid JSON.", "Ask the user to rephrase their request — the model sometimes adds explanatory text around the JSON.", errorId);
-        }
-
-        using (jsonDoc)
-        {
-            try
-            {
-                var args = jsonDoc.RootElement;
-
-                if (args.ValueKind != JsonValueKind.Object)
-                {
-                    logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output was JSON but not an object (kind={Kind})", errorId, args.ValueKind);
-                    return StructuredError("malformed_llm_output", "The UI generator output was JSON but not the expected object shape.", "Retry or adjust the prompt.", errorId);
-                }
-
-                var surfaceId = args.TryGetProperty("surfaceId", out var sid) ? sid.GetString() ?? "dynamic-surface" : "dynamic-surface";
-                var catalogId = args.TryGetProperty("catalogId", out var cid) ? cid.GetString() ?? "copilotkit://app-dashboard-catalog" : "copilotkit://app-dashboard-catalog";
-
-                if (!args.TryGetProperty("components", out var componentsElement) || componentsElement.ValueKind != JsonValueKind.Array)
-                {
-                    logger.LogError("GenerateA2ui (errorId={ErrorId}): LLM output missing 'components' array", errorId);
-                    return StructuredError("malformed_llm_output", "The UI generator output didn't include a components array.", "Retry the request.", errorId);
-                }
-
-                var ops = new List<object>
-                {
-                    new { version = "v0.9", createSurface = new { surfaceId, catalogId } },
-                    new
-                    {
-                        version = "v0.9",
-                        updateComponents = new
-                        {
-                            surfaceId,
-                            components = JsonSerializer.Deserialize<object[]>(componentsElement.GetRawText()),
-                        },
-                    },
-                };
-
-                if (args.TryGetProperty("data", out var dataElement) && dataElement.ValueKind != JsonValueKind.Null)
-                {
-                    ops.Add(new
-                    {
-                        version = "v0.9",
-                        updateDataModel = new
-                        {
-                            surfaceId,
-                            path = "/",
-                            value = JsonSerializer.Deserialize<object>(dataElement.GetRawText()),
-                        },
-                    });
-                }
-
-                return new { a2ui_operations = ops };
-            }
-            catch (JsonException ex)
-            {
-                logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): shape deserialization failed", errorId);
-                return StructuredError("malformed_llm_output", "The UI generator output didn't match the expected structure.", "Retry the request.", errorId);
-            }
-            catch (ArgumentException ex)
-            {
-                logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): argument validation failed", errorId);
-                return StructuredError("invalid_argument", "One of the arguments was invalid.", "Check the request shape and retry.", errorId);
-            }
-        }
-    }
+    internal static object BuildA2uiResponseFromContent(
+        string? content,
+        string errorId,
+        ILogger logger,
+        string? forcedCatalogId = null) =>
+        BeautifulChatA2ui.BuildA2uiResponseFromContent(content, errorId, logger, forcedCatalogId);
 
     // Structured error payload returned to the LLM/caller. We deliberately
     // keep this short and categorical — no raw exception messages, no paths,
     // no internal identifiers beyond the correlation id.
     internal static object StructuredError(string category, string message, string remediation, string errorId) =>
-        new
-        {
-            error = category,
-            message,
-            remediation,
-            errorId,
-        };
+        BeautifulChatA2ui.StructuredError(category, message, remediation, errorId);
 }
 
 // =================

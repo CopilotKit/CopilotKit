@@ -29,8 +29,25 @@ import {
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
 } from "@/lib/frontend-page-content";
+import {
+  CHANNEL_FRONTENDS,
+  CHANNEL_GUIDE_ROUTES,
+  channelConnectHref,
+  channelGuideHref,
+} from "@/lib/channel-guide-routes";
 import { loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
+import type { NavNode } from "@/lib/docs-render";
+import {
+  getAngularDocsNavTree,
+  resolveAngularDoc,
+} from "@/lib/angular-doc-navigation";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "@/lib/registry";
+import { isGlobalDocsPath } from "@/lib/reserved-route-slugs";
 
 // Force-dynamic so the sitemap is regenerated per request and reads
 // the LIVE NEXT_PUBLIC_BASE_URL via getRuntimeConfig(). Without this
@@ -43,9 +60,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = getBaseUrl();
   const now = new Date();
   const entries: MetadataRoute.Sitemap = [];
+  const seenUrls = new Set<string>();
+  const pushUnique = (entry: MetadataRoute.Sitemap[number]): void => {
+    if (seenUrls.has(entry.url)) return;
+    seenUrls.add(entry.url);
+    entries.push(entry);
+  };
 
   // 1. Root / overview.
-  entries.push({
+  pushUnique({
     url: `${baseUrl}/`,
     lastModified: now,
   });
@@ -61,7 +84,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // pages are emitted at their bare root URLs instead.
   const bareDocs = getBareDocsPages();
   const integrations = getIntegrations().filter(
-    (i) => i.slug !== ROOT_FRAMEWORK,
+    ({ slug }) => slug !== ROOT_FRAMEWORK && getDocsMode(slug) !== "hidden",
+  );
+  const channelGuideSourceSlugs = new Set<string>(
+    CHANNEL_GUIDE_ROUTES.map(({ sourceSlug }) => sourceSlug),
   );
 
   // Track every framework-scoped URL we've already emitted so the
@@ -70,20 +96,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const bareSlugs = new Set(bareDocs.map((d) => d.slug));
 
   for (const { slug, filePath } of bareDocs) {
+    if (channelGuideSourceSlugs.has(slug)) continue;
+
     const lastModified = resolveLastModified(filePath);
     // The root `built-in-agent.mdx` topic page collides with the
     // retired framework prefix: its bare URL permanently redirects to
     // `/`, so only the framework-scoped variants are listed.
     if (slug !== ROOT_FRAMEWORK) {
-      entries.push({
+      pushUnique({
         url: `${baseUrl}/${slug}`,
         lastModified,
       });
     }
-    for (const integration of integrations) {
-      const url = `${baseUrl}/${integration.slug}/${slug}`;
-      seenFrameworkUrls.add(url);
-      entries.push({ url, lastModified });
+    if (!isGlobalDocsPath(slug)) {
+      for (const integration of integrations) {
+        const url = `${baseUrl}/${integration.slug}/${slug}`;
+        seenFrameworkUrls.add(url);
+        pushUnique({ url, lastModified });
+      }
     }
   }
 
@@ -92,7 +122,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const integration of integrations) {
     const url = `${baseUrl}/${integration.slug}`;
     seenFrameworkUrls.add(url);
-    entries.push({ url, lastModified: now });
+    pushUnique({ url, lastModified: now });
   }
 
   // Per-framework override pages — topics that only exist under
@@ -101,10 +131,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   for (const integration of integrations) {
     const folder = getDocsFolder(integration.slug);
     for (const { slug, filePath } of getFrameworkOverridePages(folder)) {
+      if (isGlobalDocsPath(slug)) continue;
       const url = `${baseUrl}/${integration.slug}/${slug}`;
       if (seenFrameworkUrls.has(url)) continue;
       seenFrameworkUrls.add(url);
-      entries.push({
+      pushUnique({
         url,
         lastModified: resolveLastModified(filePath),
       });
@@ -118,19 +149,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     getDocsFolder(ROOT_FRAMEWORK),
   )) {
     if (!slug || bareSlugs.has(slug)) continue;
-    entries.push({
+    pushUnique({
       url: `${baseUrl}/${slug}`,
       lastModified: resolveLastModified(filePath),
     });
   }
 
-  // Frontend quickstarts. The source MDX lives under
+  // Frontend landing guides. The source MDX lives under
   // content/docs/frontends/*, but those files are not served as
   // /frontends/* docs anymore; they canonicalize to /<frontend>.
   for (const frontend of FRONTEND_PAGE_IDS) {
+    if (CHANNEL_FRONTENDS.some((channel) => channel === frontend)) continue;
+
     const doc = loadDoc(getFrontendContentSlug(frontend));
     if (doc) {
-      entries.push({
+      pushUnique({
         url: `${baseUrl}/${frontend}`,
         lastModified: resolveLastModified(doc.filePath),
       });
@@ -139,34 +172,135 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // Status/guidance page, emitted once per non-React frontend.
   for (const frontend of FRONTEND_PAGE_IDS) {
+    if (CHANNEL_FRONTENDS.some((channel) => channel === frontend)) continue;
+
     const doc = loadDoc(getFrontendGuidanceContentSlug(frontend));
     if (doc) {
-      entries.push({
+      pushUnique({
         url: `${baseUrl}/${frontend}/using-these-docs`,
         lastModified: resolveLastModified(doc.filePath),
       });
     }
   }
 
+  // Slack and Teams each expose the maintained shared Channels guides for
+  // every visible backend. Built-in Agent is the default and therefore
+  // collapses to /<channel>; selected backends retain their slug segment.
+  const visibleChannelFrameworks = getIntegrations().filter(
+    ({ slug }) => getDocsMode(slug) !== "hidden",
+  );
+  const channelGuideLastModified = new Map<string, Date>();
+  for (const guide of CHANNEL_GUIDE_ROUTES) {
+    const doc = loadDoc(guide.sourceSlug);
+    if (doc) {
+      channelGuideLastModified.set(
+        guide.sourceSlug,
+        resolveLastModified(doc.filePath),
+      );
+    }
+  }
+
+  for (const frontend of CHANNEL_FRONTENDS) {
+    const connectionDoc = loadDoc(getFrontendContentSlug(frontend));
+    if (!connectionDoc) continue;
+    const connectionLastModified = resolveLastModified(connectionDoc.filePath);
+
+    for (const framework of visibleChannelFrameworks) {
+      pushUnique({
+        url: `${baseUrl}${channelConnectHref(frontend, framework.slug)}`,
+        lastModified: connectionLastModified,
+      });
+
+      for (const guide of CHANNEL_GUIDE_ROUTES) {
+        const lastModified = channelGuideLastModified.get(guide.sourceSlug);
+        if (!lastModified) continue;
+        pushUnique({
+          url: `${baseUrl}${channelGuideHref(
+            frontend,
+            framework.slug,
+            guide.slug,
+          )}`,
+          lastModified,
+        });
+      }
+    }
+  }
+
+  // Angular reuses the shared Runtime and Intelligence IA, with sparse
+  // Angular-authored variants for frontend code. Publish that canonical
+  // surface once under /angular. For a selected backend, publish only its
+  // landing, frontend quickstart, and genuinely backend-owned pages rather
+  // than multiplying every shared topic by frontend × backend.
+  const seenAngularUrls = new Set(
+    entries
+      .map((entry) => entry.url)
+      .filter((url) => url.startsWith(`${baseUrl}/angular`)),
+  );
+  const pushAngular = (
+    path: string,
+    filePath?: string,
+    lastModified = now,
+  ): void => {
+    const url = `${baseUrl}${path}`;
+    if (seenAngularUrls.has(url)) return;
+    seenAngularUrls.add(url);
+    pushUnique({
+      url,
+      lastModified: filePath ? resolveLastModified(filePath) : lastModified,
+    });
+  };
+
+  for (const slug of pageSlugs(getAngularDocsNavTree(null))) {
+    if (!slug || isGlobalDocsPath(slug)) continue;
+    const resolution = resolveAngularDoc(null, slug);
+    const doc = resolution ? loadDoc(resolution.contentSlugPath) : null;
+    if (doc) pushAngular(`/angular/${slug}`, doc.filePath);
+  }
+
+  for (const integration of integrations.filter(
+    (item) => item.docs_mode !== "hidden",
+  )) {
+    const prefix = `/angular/${integration.slug}`;
+    pushAngular(prefix);
+    const quickstart = loadDoc(getFrontendContentSlug("angular"));
+    if (quickstart) pushAngular(`${prefix}/quickstart`, quickstart.filePath);
+
+    for (const slug of pageSlugs(getAngularDocsNavTree(integration.slug))) {
+      if (!slug || slug === "quickstart" || isGlobalDocsPath(slug)) continue;
+      const resolution = resolveAngularDoc(integration.slug, slug);
+      if (!resolution || resolution.source !== "backend") continue;
+      const doc = loadDoc(resolution.contentSlugPath);
+      if (doc) pushAngular(`${prefix}/${slug}`, doc.filePath);
+    }
+  }
+
   // 4. Reference docs.
   for (const { slug, filePath } of getReferencePages()) {
-    entries.push({
+    pushUnique({
       url: `${baseUrl}/reference/${slug}`,
       lastModified: resolveLastModified(filePath),
     });
   }
   // Reference index.
-  entries.push({ url: `${baseUrl}/reference`, lastModified: now });
+  pushUnique({ url: `${baseUrl}/reference`, lastModified: now });
 
   // 5. AG-UI.
   for (const { slug, filePath } of getAgUiPages()) {
-    entries.push({
+    pushUnique({
       url: `${baseUrl}/ag-ui/${slug}`,
       lastModified: resolveLastModified(filePath),
     });
   }
   // AG-UI overview landing.
-  entries.push({ url: `${baseUrl}/ag-ui`, lastModified: now });
+  pushUnique({ url: `${baseUrl}/ag-ui`, lastModified: now });
 
   return entries;
+}
+
+function pageSlugs(nodes: NavNode[]): string[] {
+  return nodes.flatMap((node): string[] => {
+    if (node.type === "page") return node.href ? [] : [node.slug];
+    if (node.type === "group") return pageSlugs(node.children);
+    return [];
+  });
 }

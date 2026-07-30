@@ -1,5 +1,5 @@
 import type { AgentContentPart } from "@copilotkit/channels-ui";
-import type { ChannelFileRef } from "./contracts.js";
+import type { ChannelFileRef } from "./delivery-files.js";
 
 /** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
 export function mediaKindForMime(
@@ -21,10 +21,7 @@ export function mediaKindForMime(
  * inline; anything else degrades to a short text note so the model still sees
  * it.
  *
- * Shared by the inbound turn path ({@link IntelligenceAdapter.dispatchTo}, via
- * `buildContentParts`) and conversation-history seeding
- * (`HttpDeliverySource.getHistory`) so both hydrate files identically — a
- * historical image attachment and a live one produce the same content part.
+ * Used by the admitted live delivery before the canonical runner starts.
  */
 export async function buildContentParts(
   files: ChannelFileRef[] | undefined,
@@ -33,7 +30,14 @@ export async function buildContentParts(
     | undefined,
   log?: (msg: string, meta?: unknown) => void,
 ): Promise<AgentContentPart[]> {
-  if (!files?.length || !fetchFile) return [];
+  if (!files?.length) return [];
+  if (!fetchFile) {
+    log?.("intelligence file fetch unavailable: file client is not configured");
+    return files.map((ref) => ({
+      type: "text" as const,
+      text: `[attached file ${ref.filename} could not be retrieved]`,
+    }));
+  }
   const parts: AgentContentPart[] = [];
   for (const ref of files) {
     try {

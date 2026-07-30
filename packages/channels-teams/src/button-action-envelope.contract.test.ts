@@ -6,16 +6,20 @@
  * `docs/button-action-envelope.md`.
  */
 import { describe, it, expect } from "vitest";
-import type { BotNode } from "@copilotkit/channels-ui";
+import type { ChannelNode } from "@copilotkit/channels-ui";
 import { renderAdaptiveCard } from "./render/adaptive-card.js";
-import {
-  parseCardAction,
-  conversationKeyOf,
-  type TeamsActivityLike,
-} from "./interaction.js";
+import { parseCardAction, conversationKeyOf } from "./interaction.js";
+import type { TeamsActivityLike } from "./interaction.js";
 
-const text = (value: string): BotNode => ({ type: "text", props: { value } });
-const el = (type: string, children: BotNode[], props = {}): BotNode => ({
+const text = (value: string): ChannelNode => ({
+  type: "text",
+  props: { value },
+});
+const el = (
+  type: string,
+  children: ChannelNode[],
+  props = {},
+): ChannelNode => ({
   type,
   props: { ...props, children },
 });

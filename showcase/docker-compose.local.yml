@@ -5,7 +5,11 @@ x-integration-defaults: &integration-defaults
   env_file: .env
   environment:
     - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
-    - OPENAI_BASE_URL=http://aimock:4010/v1
+    # Defaults to the in-network aimock replay. Override in .env (e.g.
+    # OPENAI_BASE_URL=https://api.openai.com/v1) to run a real-LLM cell such as
+    # browser-use against live OpenAI. Default unchanged, so aimock replay for
+    # every other cell is unaffected.
+    - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
     - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
@@ -313,9 +317,14 @@ services:
       start_period: 30s
 
   harness-pool-worker:
-    build:
-      context: ../
-      dockerfile: showcase/harness/Dockerfile
+    # Reuses the image built by harness-control-plane (same Dockerfile; the
+    # worker vs control-plane role is selected at runtime via HARNESS_ROLE).
+    # It must NOT declare its own `build:` — two services building the same
+    # `image:` tag race under the parallel `docker buildx bake` path (the
+    # default in recent Compose) and fail the whole build with
+    # `image "...showcase-harness:local": already exists`. Having a single
+    # build owner (control-plane) makes the build deterministic on every
+    # toolchain (bake or classic, cold or warm).
     image: showcase-harness:local
     # NO fixed container_name: the worker is the scalable unit of the fleet
     # (`--scale harness-pool-worker=N`, N from HARNESS_POOL_COUNT). A fixed

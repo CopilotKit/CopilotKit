@@ -24,9 +24,40 @@
  * // Cloudflare Workers
  * export default { fetch: handler };
  * ```
+ *
+ * ## Managed Channels lifecycle (serverless-safe)
+ *
+ * When the runtime declares managed Channels, the returned handler carries a
+ * `handler.channels` control surface — but creating the handler opens NO
+ * network connection. Activation (which opens a persistent gateway WebSocket)
+ * is LAZY: it is triggered by the first `await handler.channels.ready()` and
+ * never before — not at handler creation, not on the first HTTP request.
+ *
+ * - On a LONG-RUNNING host (a Node server / container / the node/express/hono
+ *   endpoint wrappers), call `await handler.channels.ready()` ONCE at startup to
+ *   open the listener; the process owns it for its lifetime.
+ * - On a SERVERLESS / EDGE host (Cloudflare Workers, Next.js App Router), do NOT
+ *   call `ready()` — those hosts freeze/recycle per-request isolates and cannot
+ *   own a persistent listener, and separate cold starts would mint conflicting
+ *   listeners. The generic Fetch handler stays a pure request/response function
+ *   there, exactly as documented above.
+ *
+ * @example
+ * ```typescript
+ * // Long-running host: open the managed-Channel listener once at startup.
+ * const handler = createCopilotRuntimeHandler({ runtime });
+ * await handler.channels.ready();
+ * ```
  */
 
-import type { CopilotRuntimeLike } from "./runtime";
+import type {
+  CopilotRuntimeLike,
+  CopilotIntelligenceRuntimeLike,
+  RuntimeWithDeclaredChannels,
+} from "./runtime";
+import { isIntelligenceRuntime } from "./runtime";
+import { ChannelManager } from "./channel-manager";
+import type { ChannelsControl, ActivateChannelEngine } from "./channel-manager";
 import type { CopilotRuntimeHooks, RouteInfo, HookContext } from "./hooks";
 import {
   runOnRequest,
@@ -61,6 +92,7 @@ import {
 } from "../handlers/handle-threads";
 import {
   handleListMemories,
+  handleRecallMemories,
   handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,
@@ -112,16 +144,149 @@ export interface CopilotRuntimeHandlerOptions {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Whether the handler builds the runtime's declared managed-Channel control
+   * surface. Defaults to `true`, which constructs the {@link ChannelManager} and
+   * exposes `handler.channels` — but does NOT open any connection: activation is
+   * lazy and triggered by the first `handler.channels.ready()` (see the factory
+   * TSDoc). Set `false` to opt out entirely: no {@link ChannelManager} is
+   * constructed and the returned handler has no `.channels`. Non-intelligence or
+   * channel-less runtimes never build a control surface regardless of this flag.
+   */
+  activateChannels?: boolean;
+
+  /**
+   * @internal Test seam: inject a fake Channel activation engine so channel
+   * activation runs without opening a real transport. Not part of the public
+   * API and may change or be removed without notice.
+   */
+  __channelEngine?: ActivateChannelEngine;
 }
 
-export type CopilotRuntimeFetchHandler = (
+/**
+ * A framework-agnostic runtime handler: a `(Request) => Promise<Response>`
+ * function that is also a callable object carrying an optional {@link channels}
+ * control surface. A plain function is assignable to this type, so existing
+ * call sites that treat it as `(Request) => Promise<Response>` keep working.
+ */
+export type CopilotRuntimeFetchHandler = ((
   request: Request,
-) => Promise<Response>;
+) => Promise<Response>) & {
+  /**
+   * Present only when the handler activated managed Channels for an
+   * Intelligence runtime; the lifecycle control surface for those Channels.
+   */
+  channels?: ChannelsControl;
+};
+
+/**
+ * A {@link CopilotRuntimeFetchHandler} whose {@link ChannelsControl} surface is
+ * guaranteed present. Returned when the runtime was constructed with at least
+ * one declared Intelligence Channel and activation was not opted out of, so the
+ * documented `handler.channels.ready(...)` call type-checks without a `!` or
+ * `?.` under strict TypeScript.
+ */
+export type CopilotRuntimeFetchHandlerWithChannels = ((
+  request: Request,
+) => Promise<Response>) & {
+  /** Lifecycle control surface for the runtime's activated managed Channels. */
+  channels: ChannelsControl;
+};
+
+/**
+ * Managed Channel managers keyed by runtime instance. Guarantees a single
+ * manager (and thus a single activation) per runtime: creating the handler more
+ * than once for the same runtime reuses the existing manager instead of
+ * constructing a second one.
+ */
+const channelManagers = new WeakMap<object, ChannelManager>();
+
+/**
+ * Look up (or lazily CREATE) the {@link ChannelManager} for an Intelligence
+ * runtime. First creation constructs the manager and caches it; subsequent
+ * lookups reuse the cached instance so there is exactly one manager per runtime.
+ *
+ * Activation is NOT triggered here. Constructing the manager opens no
+ * transport — the persistent gateway socket is opened lazily on the first
+ * {@link ChannelManager.ready} call (see the factory TSDoc). This keeps the
+ * generic Fetch handler serverless/edge-safe: creating it (e.g. at
+ * Cloudflare-Worker module scope or per Next.js App Router isolate) never
+ * performs network I/O and never mints a listener the host cannot own.
+ *
+ * Caching the un-activated manager is correct: a later `ready()` activates it
+ * once (idempotently), and an up-front misconfiguration (duplicate/missing
+ * channel names) surfaces as a rejected `ready()` rather than a throw at
+ * creation. A manager that has been {@link ChannelManager.stop}ped stays
+ * stopped on reuse — its latches short-circuit any later `activate()`/`ready()`.
+ *
+ * @param runtime - The Intelligence runtime whose Channels the manager drives.
+ * @param engine - Optional injected activation engine (test seam); when
+ *   omitted the manager uses its default Realtime Gateway engine.
+ * @returns The runtime's (un-activated) Channel manager.
+ */
+function getOrCreateChannelManager(
+  runtime: CopilotIntelligenceRuntimeLike,
+  engine: ActivateChannelEngine | undefined,
+): ChannelManager {
+  const existing = channelManagers.get(runtime);
+  if (existing) {
+    return existing;
+  }
+  const manager = new ChannelManager({
+    intelligence: runtime.intelligence,
+    runner: runtime.runner,
+    lockTtlSeconds: runtime.lockTtlSeconds,
+    lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
+    ...(runtime.lockKeyPrefix !== undefined
+      ? { lockKeyPrefix: runtime.lockKeyPrefix }
+      : {}),
+    channels: runtime.channels,
+    // Bridge the manager's diagnostic sink to the shared logger. Without this
+    // every `this.log?.(...)` breadcrumb in the manager (setup_required,
+    // failed-to-activate, dropped-session, teardown-stop failures) is a no-op,
+    // so a channel that fails to activate is permanently dead with zero output.
+    // Mirror the `logger.<level>(context, message)` call shape used elsewhere in
+    // this file; a failed activation is a degraded-but-recoverable condition, so
+    // `warn` is the appropriate level. The manager passes an `Error` as `meta`
+    // for failure breadcrumbs, but pino only serializes an Error (its
+    // non-enumerable message/stack) under the `err` key — under any other key it
+    // renders as `{}` and the cause is lost. Route an Error to `err` and keep the
+    // `meta` key for everything else (`meta` is typed `unknown`).
+    log: (msg, meta) =>
+      logger.warn(meta instanceof Error ? { err: meta } : { meta }, msg),
+    ...(engine ? { activateChannel: engine } : {}),
+  });
+  channelManagers.set(runtime, manager);
+  return manager;
+}
 
 /* ------------------------------------------------------------------------------------------------
  * Handler factory
  * --------------------------------------------------------------------------------------------- */
 
+/**
+ * Overload: a runtime constructed with at least one declared Intelligence
+ * Channel (a {@link RuntimeWithDeclaredChannels}-branded runtime), when
+ * activation is not disabled, yields a handler with a **non-optional**
+ * {@link ChannelsControl}. `activateChannels` is constrained to `true | undefined`
+ * here so passing `activateChannels: false` (which skips activation and leaves no
+ * `.channels`) falls through to the optional-shape overload below rather than
+ * dishonestly promising a control surface that will not exist.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions & {
+    runtime: RuntimeWithDeclaredChannels;
+    activateChannels?: true | undefined;
+  },
+): CopilotRuntimeFetchHandlerWithChannels;
+/**
+ * Overload: every other runtime (SSE, Intelligence without channels, or with
+ * activation disabled) yields a handler whose `.channels` is optional.
+ */
+export function createCopilotRuntimeHandler(
+  options: CopilotRuntimeHandlerOptions,
+): CopilotRuntimeFetchHandler;
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
@@ -131,7 +296,9 @@ export function createCopilotRuntimeHandler(
 
   const corsConfig = resolveCorsConfig(cors);
 
-  return async (request: Request): Promise<Response> => {
+  const handler: CopilotRuntimeFetchHandler = async (
+    request: Request,
+  ): Promise<Response> => {
     const url = new URL(request.url, "http://localhost");
     const path = url.pathname;
     const requestOrigin = request.headers.get("origin");
@@ -202,6 +369,19 @@ export function createCopilotRuntimeHandler(
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
         if (!matched) {
+          throw jsonResponse({ error: "Not found" }, 404);
+        }
+
+        // Opt-in gate for the client-facing memory proxy routes (secure
+        // default: off). Runs BEFORE method validation so a hidden route 404s
+        // uniformly regardless of HTTP method — a 405 here would otherwise leak
+        // that the route exists. `dispatchRoute` re-applies the same gate as
+        // defense-in-depth (and to cover the single-route path).
+        if (
+          matched.method.startsWith("memories/") &&
+          runtime.exposeMemoryRoutes !== true
+        ) {
+          route = matched;
           throw jsonResponse({ error: "Not found" }, 404);
         }
 
@@ -300,6 +480,28 @@ export function createCopilotRuntimeHandler(
       );
     }
   };
+
+  // Build (but do NOT activate) the managed-Channel control surface for an
+  // Intelligence runtime that declares Channels and hasn't opted out via
+  // activateChannels. `handler.channels` exists immediately, but the persistent
+  // gateway socket is opened lazily on the first `handler.channels.ready()` —
+  // never at handler-creation time and never inside the per-request closure
+  // above. This keeps the generic Fetch handler serverless/edge-safe: no
+  // module-scope network I/O, and no listener a request-driven isolate cannot
+  // own. See the factory TSDoc for the full lifecycle contract.
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.channels &&
+    runtime.channels.length > 0 &&
+    options.activateChannels !== false
+  ) {
+    handler.channels = getOrCreateChannelManager(
+      runtime,
+      options.__channelEngine,
+    );
+  }
+
+  return handler;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -312,6 +514,19 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  // Opt-in gate for the client-facing memory proxy routes (secure default:
+  // off). When not explicitly enabled, every `/memories/*` route 404s as if it
+  // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
+  // check so an un-opted-in deployment reveals nothing about memory (not even
+  // whether Intelligence is configured). Coalesce a missing flag (external
+  // `CopilotRuntimeLike` implementor) to `false`.
+  if (
+    route.method.startsWith("memories/") &&
+    runtime.exposeMemoryRoutes !== true
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   switch (route.method) {
     case "agent/run":
       return handleRunAgent({
@@ -354,6 +569,8 @@ function dispatchRoute(
       return request.method.toUpperCase() === "POST"
         ? handleCreateMemory({ runtime, request })
         : handleListMemories({ runtime, request });
+    case "memories/recall":
+      return handleRecallMemories({ runtime, request });
     case "memories/subscribe":
       return handleSubscribeToMemories({ runtime, request });
     case "memories/mutate":
@@ -517,6 +734,13 @@ function validateHttpMethod(
       if (method === "PATCH" || method === "DELETE") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "PATCH, DELETE",
+      });
+
+    case "memories/recall":
+      // POST-only: semantic recall carries its query in the body.
+      if (method === "POST") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "POST",
       });
 
     case "threads/update":

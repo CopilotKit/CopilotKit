@@ -26,6 +26,7 @@ runtime injects `generateSandboxedUi` on the frontend.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Annotated
@@ -94,10 +95,10 @@ async def generate_a2ui(
 ) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
-    Mirrors `a2ui_dynamic.py`: a secondary LLM is bound to the
-    `render_a2ui` tool with `tool_choice` forced, and the resulting
-    arguments are wrapped into an `a2ui_operations` container the
-    runtime A2UI middleware detects and forwards to the frontend.
+    Kept synchronous and offloaded via ``asyncio.to_thread`` from the async
+    tool wrapper below: the synchronous ``openai.OpenAI().chat.completions``
+    call would otherwise block the uvicorn asyncio event loop for the full
+    LLM round-trip, wedging the ``:8000`` ``/health`` endpoint under load.
     """
     client = openai.OpenAI()
     response = client.chat.completions.create(

@@ -1,10 +1,18 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI - Dynamic Schema)
 // cell.
 //
-// `injectA2UITool: false` because the backend crew owns the `generate_a2ui`
-// tool itself (see src/agents/declarative_gen_ui.py). The A2UI middleware
-// still runs on the runtime side so the registered client catalog is
-// serialised into `copilotkit.context` for the secondary LLM inside the tool.
+// Option A (JS-runtime-injected A2UI): `injectA2UITool` defaults to true so
+// the CopilotKit runtime middleware intercepts the agent's no-arg
+// `generate_a2ui` toolcall and drives the secondary `render_a2ui` LLM pass
+// itself, emitting `a2ui_operations` that the frontend renderer paints.
+// The backend crew (see src/agents/declarative_gen_ui.py) wires a no-arg
+// `generate_a2ui` tool that raises loudly if called directly — the
+// middleware should always intercept before it reaches Python.
+//
+// `defaultCatalogId` pins the catalog the page registers so the middleware's
+// secondary-LLM pass uses the correct component set (models that follow the
+// tool-usage guide and omit `catalogId` would otherwise fall back to the
+// unregistered spec basic catalog, giving a "Catalog not found" render error).
 //
 // Agent URL points at the dedicated `/declarative-gen-ui` FastAPI endpoint
 // mounted by `agent_server.py`, so this demo runs against its own crew
@@ -35,7 +43,6 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
   a2ui: {
-    injectA2UITool: false,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
     // ("Catalog not found" render error). Pin the catalog the page registers.

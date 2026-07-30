@@ -8,6 +8,12 @@ vocabulary, opaque-id interactions, and HITL.
 You write your UI as JSX once (`@copilotkit/channels-ui`) and drive the bot with
 `@copilotkit/channels`; this package is the only one that talks to the WhatsApp Cloud API.
 
+The adapter keeps its own WhatsApp Cloud API credentials (`accessToken` /
+`phoneNumberId` / …) — but the Channel itself only runs inside a CopilotKit
+Intelligence-configured `CopilotRuntime` (an API key; a free tier is
+available). There is no standalone / DIY runner and no `channel.start()`; the
+runtime starts and owns the channel because Intelligence is configured.
+
 ## Install
 
 ```sh
@@ -17,13 +23,19 @@ pnpm add @copilotkit/channels @copilotkit/channels-whatsapp
 ## Quickstart
 
 ```ts
-import { createBot } from "@copilotkit/channels";
+import { createChannel } from "@copilotkit/channels";
 import {
   whatsapp,
   defaultWhatsAppContext,
 } from "@copilotkit/channels-whatsapp";
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 
-const bot = createBot({
+const bot = createChannel({
+  name: "support-bot", // project-unique Intelligence Channel name
   adapters: [
     whatsapp({
       accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
@@ -43,7 +55,19 @@ bot.onMessage(async ({ thread }) => {
   await thread.runAgent();
 });
 
-await bot.start();
+// The runtime owns the channel's lifecycle — there is no `bot.start()`.
+const runtime = new CopilotRuntime({
+  intelligence: new CopilotKitIntelligence({
+    // apiUrl and wsUrl default to the managed Intelligence platform — override
+    // both together only for a self-hosted deployment.
+    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+  }),
+  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
+  channels: [bot],
+});
+
+const handler = createCopilotRuntimeHandler({ runtime });
+await handler.channels.ready(); // starts the channel; handler.channels.stop() tears it down
 console.log("[whatsapp-bot] listening for webhooks");
 ```
 
@@ -136,7 +160,7 @@ The engine's `ActionStore` (from `@copilotkit/channels`) stores the minted opaqu
 that power `Button` / `Select` click handlers. By default it is in-memory: after a
 process restart, clicks on old interactive messages are acknowledged but ignored.
 For persistent interactions, pass a durable `ActionStore` to
-`createBot({ actionStore })`.
+`createChannel({ actionStore })`.
 
 ### HistoryStore (conversation memory)
 
@@ -193,7 +217,7 @@ explicitly if the agent needs to see them as history.
 
 ## Tool context
 
-Tools receive the single shared `BotToolContext` from `@copilotkit/channels`
+Tools receive the single shared `ChannelToolContext` from `@copilotkit/channels`
 (`{ thread, message?, user?, signal?, platform }`) and reach WhatsApp power through
 capability-gated `thread` methods this adapter backs:
 

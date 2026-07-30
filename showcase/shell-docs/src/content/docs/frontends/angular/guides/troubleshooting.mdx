@@ -1,0 +1,140 @@
+---
+title: Troubleshooting Angular apps
+description: Diagnose Angular runtime connections, agent resolution, tools, threads, interrupts, SSR, and rendering failures.
+icon: "lucide/LifeBuoy"
+doc_type: how-to
+---
+
+Use this page for failures in the Angular application layer. Runtime and
+protocol diagnostics remain available in the shared troubleshooting pages, so
+you can investigate the complete request without switching frontend docs.
+
+## Start at the connection boundary
+
+Confirm that the browser is calling the same Copilot Runtime URL your server
+actually exposes:
+
+```ts title="src/app/app.config.ts"
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+    }),
+  ],
+};
+```
+
+Then inspect `GET {runtimeUrl}/info`. A healthy response lists the expected
+agent ids. If the request fails:
+
+- verify the path, origin, proxy, and deployment base URL;
+- verify the runtime process is running and allows the Angular origin;
+- check authentication headers without logging their values;
+- try `127.0.0.1` when local `localhost` resolution is unreliable.
+
+The [`CopilotKit` service](/reference/angular/services/CopilotKit) exposes
+`runtimeConnectionStatus`, `runtimeUrl`, and the resolved `agents` as signals.
+Use them in a temporary diagnostic component:
+
+```ts title="src/app/copilot-diagnostics.component.ts"
+import { Component, inject } from "@angular/core";
+import { CopilotKit } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-copilot-diagnostics",
+  standalone: true,
+  template: `
+    <p>Runtime: {{ copilotKit.runtimeConnectionStatus() }}</p>
+    <p>Agents: {{ agentIds().join(", ") || "none" }}</p>
+  `,
+})
+export class CopilotDiagnosticsComponent {
+  protected readonly copilotKit = inject(CopilotKit);
+  protected readonly agentIds = () =>
+    Object.keys(this.copilotKit.agents());
+}
+```
+
+Remove diagnostics that expose topology or identifiers before production.
+
+## Agent id does not resolve
+
+`injectAgentStore("support")` and `<copilot-chat agentId="support" />` must use
+an id returned by the runtime or registered through `agents` or
+`selfManagedAgents`. After the runtime finishes connecting,
+`injectAgentStore` throws an error that includes the requested id and known
+agents when no match exists.
+
+If you intend to use the default agent, either register an agent named
+`default` or pass the real id explicitly everywhere the chat, state, tools, or
+interrupt controller selects an agent.
+
+## A frontend tool is missing or never runs
+
+Registrations are injector-scoped. Call `registerFrontendTool`,
+`registerRenderToolCall`, or `registerHumanInTheLoop` from a field initializer,
+constructor, provider factory, or another active injection context.
+
+Check these in order:
+
+1. The component or service that registers the tool is instantiated.
+2. Its injector has not been destroyed by route or conditional-view changes.
+3. The registered `agentId` matches the chat's agent.
+4. The tool description tells the model when it should call the tool.
+5. The input schema accepts the arguments emitted by the agent.
+6. The handler catches expected application failures and returns a deliberate
+   result instead of silently throwing.
+
+For a source-backed registration, see
+[Frontend tools and generative UI](/angular/guides/frontend-tools-generative-ui).
+
+## A thread list or mutation fails
+
+Use `listError()` for user-visible thread-list and mutation failures. The
+broader `error()` signal can also contain developer configuration errors such
+as a missing runtime URL or unavailable thread endpoints.
+
+Mutation methods return promises. Handle rejection and confirm before permanent
+deletion:
+
+```ts
+await threads.renameThread(threadId, nextName).catch((error) => {
+  console.error("Thread rename failed", error);
+});
+```
+
+See [`injectThreads`](/reference/angular/functions/injectThreads) for loading,
+pagination, realtime, and optimistic-mutation behavior.
+
+## An interrupt cannot resume
+
+Read `injectInterrupt().error()` after a failed predicate, handler, or resume.
+Expired decisions use `InterruptExpiredError`. Resolve or cancel every pending
+interrupt id when the backend emits multiple simultaneous decisions.
+
+The controller clears stale decisions when a thread changes or a new run
+starts. Do not cache it outside the injector that created it.
+
+## SSR, hydration, or zoneless problems
+
+- Keep provider configuration and initial component inputs identical between
+  the server render and first browser render.
+- Do not start agent runs, resume interrupts, or access browser APIs during
+  server rendering.
+- Put application-owned DOM and media work behind an Angular platform guard or
+  `afterNextRender`.
+- Read CopilotKit signals from templates or computed signals so zoneless
+  change detection observes updates.
+
+The complete contract is in
+[Angular production and lifecycle](/reference/angular/production-lifecycle).
+
+## Continue through the shared stack
+
+- [Common Copilot issues](/troubleshooting/common-issues)
+- [Runtime endpoints](/backend/runtime-endpoints)
+- [Runtime debug mode](/troubleshooting/debug-mode)
+- [AG-UI Event Inspector](/troubleshooting/event-inspector)
+- [Authentication](/angular/auth)
