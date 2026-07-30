@@ -92,6 +92,11 @@ export interface NativeMessageStreamConfig {
    * over to a continuation. Defaults to {@link DEFAULT_MESSAGE_BYTE_LIMIT}.
    */
   messageByteLimit?: number;
+  /**
+   * Ceiling on messages one reply may occupy before it is truncated with a
+   * visible marker. Defaults to {@link DEFAULT_MAX_MESSAGES}.
+   */
+  maxMessages?: number;
 }
 
 /**
@@ -137,6 +142,42 @@ const DEFAULT_MESSAGE_BYTE_LIMIT = 11000;
 const MIN_MESSAGE_PROGRESS_BYTES = 256;
 /** Bounded retries when `finish()` still has undelivered text (see {@link finish}). */
 const FINISH_DRAIN_ATTEMPTS = 3;
+/**
+ * Longest plausible fenced-code language tag.
+ *
+ * `detectOpenContext` reports everything up to the first newline after ``` as the
+ * language, so a fence followed immediately by a long single line — minified
+ * JSON, a base64 payload, one long log line — yields a multi-kilobyte "language".
+ * Re-injecting that into every continuation puts the same blob atop consecutive
+ * messages and roughly halves useful throughput. A real tag is a short
+ * identifier; past this we re-open with a bare fence, which still preserves code
+ * formatting (dropping the opener entirely would not).
+ */
+const MAX_FENCE_LANG_CHARS = 32;
+/**
+ * Ceiling on messages one reply may occupy, after which it is truncated with a
+ * visible marker.
+ *
+ * Uncapped, a 500k-char reply became 46 Slack messages. The legacy
+ * {@link ChunkedMessageStream} is uncapped too, so this is not a regression — but
+ * this PR exists because a runaway turned into repeated copies in a channel, and
+ * silently converting one over-long reply into dozens of real messages is the
+ * same failure wearing a different hat. Visible truncation beats unbounded spam.
+ */
+const DEFAULT_MAX_MESSAGES = 20;
+/** Appended when {@link DEFAULT_MAX_MESSAGES} is reached, so the cut is not silent. */
+const TRUNCATION_MARKER = "\n\n_…reply truncated: too long to deliver to Slack._";
+
+/**
+ * Strip an implausibly long fenced-code language so the continuation re-opens
+ * with a bare fence. See {@link MAX_FENCE_LANG_CHARS}.
+ */
+function clampFenceLang(ctx: OpenMarkdownContext): OpenMarkdownContext {
+  if (ctx.fenceLang !== null && ctx.fenceLang.length > MAX_FENCE_LANG_CHARS) {
+    return { ...ctx, fenceLang: "" };
+  }
+  return ctx;
+}
 
 /** UTF-8 byte length of the code point at `i`, and its UTF-16 width. */
 function codePointAt(
@@ -261,7 +302,8 @@ export class NativeMessageStream implements TextStream {
   private queue: Promise<void> = Promise.resolve();
   private lastFlushedAt = 0;
   private flushTimer: ReturnType<typeof setTimeout> | undefined;
-  private finished = false;
+  /** Messages started for this reply, bounded by `maxMessages`. */
+  private messageCount = 0;
 
   /** Current streamed message ts (undefined until the first `startStream`). */
   private curTs: string | undefined;
@@ -288,6 +330,7 @@ export class NativeMessageStream implements TextStream {
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
   private readonly minIntervalMs: number;
   private readonly messageByteLimit: number;
+  private readonly maxMessages: number;
 
   constructor(config: NativeMessageStreamConfig) {
     this.transport = config.transport;
@@ -297,6 +340,7 @@ export class NativeMessageStream implements TextStream {
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
     this.messageByteLimit =
       config.messageByteLimit ?? DEFAULT_MESSAGE_BYTE_LIMIT;
+    this.maxMessages = config.maxMessages ?? DEFAULT_MAX_MESSAGES;
   }
 
   /** The first streamed message's ts (or the fallback's), available after finish(). */
@@ -338,7 +382,6 @@ export class NativeMessageStream implements TextStream {
   }
 
   async finish(finalBlocks?: KnownBlock[]): Promise<void> {
-    this.finished = true;
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = undefined;
@@ -422,13 +465,14 @@ export class NativeMessageStream implements TextStream {
     if (this.curTs) return true;
     if (this.firstTsValue !== undefined) {
       this.curTs = await this.transport.startStream();
+      this.messageCount += 1;
       this.curMessageBytes = 0;
       const posted = this.buffer.slice(0, this.curPosted);
       // Re-open whatever the boundary straddles. `detectOpenContext` covers
       // fences/inline-code/emphasis; tables it does not model, so they are
       // handled separately (and are mutually exclusive with an open fence).
       const opener =
-        renderContextOpener(detectOpenContext(posted)) ||
+        renderContextOpener(clampFenceLang(detectOpenContext(posted))) ||
         tableHeaderToReopen(posted);
       // Charge the opener only when it leaves room to actually carry text —
       // see MIN_MESSAGE_PROGRESS_BYTES. Dropping it keeps the loop terminating.
@@ -445,6 +489,7 @@ export class NativeMessageStream implements TextStream {
     try {
       this.curTs = await this.transport.startStream();
       this.firstTsValue = this.curTs;
+      this.messageCount += 1;
       this.curMessageBytes = 0;
       return true;
     } catch (err) {
@@ -486,7 +531,7 @@ export class NativeMessageStream implements TextStream {
       if (!(await this.ensureStarted())) return; // failed over to legacy
       const roomBytes = this.messageByteLimit - this.curMessageBytes;
       if (roomBytes <= 0) {
-        await this.rollOver();
+        if (!(await this.rollOver())) return;
         continue;
       }
       // How far the byte budget reaches, and how far one call may reach.
@@ -509,7 +554,7 @@ export class NativeMessageStream implements TextStream {
       }
       if (byteEnd <= this.curPosted) {
         // Not even one code point fits — the message is full.
-        await this.rollOver();
+        if (!(await this.rollOver())) return;
         continue;
       }
       if (callEnd < byteEnd) {
@@ -519,7 +564,7 @@ export class NativeMessageStream implements TextStream {
       }
       // Message-limited with text remaining: freeze the boundary, then roll over.
       await this.appendSlice(this.breakPoint(this.curPosted, byteEnd));
-      await this.rollOver();
+      if (!(await this.rollOver())) return;
     }
   }
 
@@ -561,12 +606,28 @@ export class NativeMessageStream implements TextStream {
    * left open, finalize it, and clear `curTs` so the next {@link ensureStarted}
    * opens the continuation and re-opens that construct.
    */
-  private async rollOver(): Promise<void> {
+  private async rollOver(): Promise<boolean> {
+    if (this.messageCount >= this.maxMessages) {
+      await this.truncate();
+      return false;
+    }
     const posted = this.buffer.slice(0, this.curPosted);
     const closer = renderContextCloser(detectOpenContext(posted), posted);
     if (closer) {
-      await this.transport.appendText(this.curTs!, closer);
-      this.curMessageBytes += utf8Length(closer);
+      try {
+        await this.transport.appendText(this.curTs!, closer);
+        this.curMessageBytes += utf8Length(closer);
+      } catch (err) {
+        // Same reasoning as `stopStream` below, and far more load-bearing. This
+        // append sits closest to the cap by construction — the message has just
+        // filled — so it is the FIRST thing a wrong headroom assumption rejects.
+        // Unguarded it threw out of `rollOver` with `curTs` still set, so the next
+        // flush recomputed a full message, re-entered `rollOver`, and failed on the
+        // same closer forever: the rollover switched itself off before it ever
+        // fired and everything after the boundary was lost. Degraded markdown on
+        // one message is by far the cheaper failure.
+        console.error("[native-stream] boundary closer failed:", err);
+      }
     }
     try {
       await this.transport.stopStream(this.curTs!);
@@ -576,6 +637,29 @@ export class NativeMessageStream implements TextStream {
       console.error("[native-stream] stopStream (rollover) failed:", err);
     }
     this.curTs = undefined;
+    return true;
+  }
+
+  /**
+   * Close out a reply that has hit `maxMessages`: mark the cut in the channel so
+   * it is visible rather than silent, and consume the buffer so {@link finish}
+   * neither re-drains nor hands the remainder to the legacy transport — this
+   * truncation is deliberate, not a failure.
+   */
+  private async truncate(): Promise<void> {
+    const posted = this.buffer.slice(0, this.curPosted);
+    console.error(
+      `[native-stream] reply exceeded ${this.maxMessages} messages; dropping ${
+        this.buffer.length - this.curPosted
+      } chars`,
+    );
+    const closer = renderContextCloser(detectOpenContext(posted), posted);
+    try {
+      await this.transport.appendText(this.curTs!, closer + TRUNCATION_MARKER);
+    } catch (err) {
+      console.error("[native-stream] truncation marker failed:", err);
+    }
+    this.curPosted = this.buffer.length;
   }
 
   /**

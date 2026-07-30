@@ -346,6 +346,91 @@ describe("NativeMessageStream", () => {
     expect(textOf(messages[0]!.events)).toBe(text);
   });
 
+  it("rolls over even when the boundary closer is rejected", async () => {
+    // The closer sits closest to the cap by construction (the message has just
+    // filled), so it is the first append a wrong headroom assumption rejects.
+    // Unguarded, it threw out of rollOver with curTs still set, so every later
+    // flush re-entered rollOver and failed on the same closer — the rollover
+    // switched itself off and 70% of the reply was lost.
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        messages.push({ ts: `S${starts}`, text: "" });
+        return `S${starts}`;
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        // Reject a delta made only of markdown closers.
+        if (/^[\n`*_~]+$/.test(md)) throw new Error("msg_too_long");
+        const m = messages.find((x) => x.ts === ts);
+        if (!m) throw new Error(`unknown ts ${ts}`);
+        m.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // Inside an open fence, so a closer is generated at every boundary.
+    const text = "```python\n" + "print('x')\n".repeat(3_400);
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => m.text).join("")).toContain(
+      "print('x')\n".repeat(100),
+    );
+    // Every char of the reply still delivered, closer or no closer.
+    const delivered = messages.map((m) => m.text).join("");
+    expect(delivered.length).toBeGreaterThanOrEqual(text.length);
+  });
+
+  it("re-opens with a bare fence when the language tag is implausibly long", async () => {
+    // `detectOpenContext` calls everything up to the first newline after ``` the
+    // "language", so a minified blob became a multi-kilobyte preamble re-injected
+    // into every continuation, roughly halving useful throughput.
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    const blob = "j".repeat(5_000);
+    stream.append("```" + blob + "\n" + "code line here\n".repeat(2_000));
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    // Continuations re-open the fence, but bare — no blob.
+    for (const m of messages.slice(1)) {
+      const rendered = textOf(m.events);
+      expect(rendered.startsWith("```\n")).toBe(true);
+      expect(rendered).not.toContain(blob);
+    }
+  });
+
+  it("bounds the number of messages one reply may occupy", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      maxMessages: 5,
+    });
+
+    stream.append("word ".repeat(100_000)); // 500k chars
+    await stream.finish();
+
+    // Capped, and the cut is visible rather than silent.
+    expect(messages).toHaveLength(5);
+    expect(textOf(messages[4]!.events)).toContain("reply truncated");
+  });
+
   it("terminates when the continuation re-opener is larger than the message cap", async () => {
     const { transport, messages } = makeFakeTransport({ startBudget: 30 });
     const stream = new NativeMessageStream({
