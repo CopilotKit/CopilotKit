@@ -205,7 +205,8 @@ function spanWithinBudget(
 function tableHeaderToReopen(postedText: string): string {
   // Tables cannot contain a blank line, so only the current block matters.
   const blockStart = postedText.lastIndexOf("\n\n");
-  const block = blockStart === -1 ? postedText : postedText.slice(blockStart + 2);
+  const block =
+    blockStart === -1 ? postedText : postedText.slice(blockStart + 2);
   const lines = block.split("\n");
   // A boundary keeps its break char, so the block usually ends with an empty
   // line; the row before it is what the continuation follows on from.
