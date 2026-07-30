@@ -906,9 +906,9 @@ describe("NativeMessageStream", () => {
     expect(messages.length).toBeGreaterThan(1);
     expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
     for (const m of messages) {
-      expect(new TextEncoder().encode(textOf(m.events)).length).toBeLessThanOrEqual(
-        12_000,
-      );
+      expect(
+        new TextEncoder().encode(textOf(m.events)).length,
+      ).toBeLessThanOrEqual(12_000);
     }
   });
 
