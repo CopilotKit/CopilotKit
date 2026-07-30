@@ -407,6 +407,8 @@ export interface RenewThreadLockRequest {
 export interface CleanupThreadLockRequest {
   threadId: string;
   runId: string;
+  /** Must match the prefix used when acquiring. */
+  lockKeyPrefix?: string;
 }
 
 export interface RenewThreadLockResponse {
@@ -1155,6 +1157,9 @@ export class CopilotKitIntelligence {
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
+        ...(params.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: params.lockKeyPrefix }
+          : {}),
       },
     );
   }
