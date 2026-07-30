@@ -27,11 +27,8 @@ pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-teams
 ```ts
 import { createChannel } from "@copilotkit/channels";
 import { teams } from "@copilotkit/channels-teams";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -51,8 +48,11 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // POST /api/messages now listening on :3978
+// Creating the listener starts the Channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation; once settled, POST /api/messages is listening
+// on :3978.
+await listener.channels.ready();
 ```
 
 Then point the **Microsoft 365 Agents Playground** at it. No Microsoft

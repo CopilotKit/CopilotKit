@@ -125,8 +125,8 @@ const runtime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the listener exposes `.channels` for activation + shutdown but opens
-// no connection; `ready()` activates the Channel (starting its adapters).
+// Mounting the listener starts the Channel (and its adapters) and exposes
+// `.channels` to observe or shut it down; `ready()` waits until it is live.
 // No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,

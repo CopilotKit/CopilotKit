@@ -21,16 +21,14 @@ available in Node.js 22+.
 Upgrade Channels and Runtime together, then run the same real-provider smoke
 test used for the initial quickstart.
 
-## Start before reporting ready
+## Settle before reporting ready
 
-Creating the Node listener exposes the optional Channels control surface but
-does not open the managed connection. Call `ready()` and inspect `status()`:
+Creating the Node listener starts the managed connection — a declared Channel
+connects because it was declared, with no start call to forget. Await `ready()`
+to observe that activation settling, then inspect `status()`:
 
 ```ts title="health.ts"
 const channels = listener.channels;
-if (!channels) {
-  throw new Error("Managed Channels control surface was not created.");
-}
 
 await channels.ready({ timeoutMs: 30_000 });
 
@@ -82,18 +80,28 @@ or error.
 
 ## Shut down cleanly
 
-Register signal handlers before calling `ready()`:
+Register signal handlers before **creating the listener**, not just before
+`ready()`. Creating it begins activation, so a signal that arrives during the
+connect window must already have somewhere to land — otherwise it hits Node's
+default handler and leaves a live gateway session behind:
 
 ```ts title="channel.ts"
+let teardown: (() => Promise<void>) | undefined;
 const shutdown = async () => {
-  await channels.stop();
-  if (server.listening) server.close();
+  await teardown?.();
 };
 
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 
-await channels.ready({ timeoutMs: 30_000 });
+const listener = createCopilotNodeListener({ runtime });
+const server = createServer(listener);
+teardown = async () => {
+  await listener.channels.stop();
+  if (server.listening) server.close();
+};
+
+await listener.channels.ready({ timeoutMs: 30_000 });
 ```
 
 Give the worker enough termination grace to stop its managed sessions. Avoid
