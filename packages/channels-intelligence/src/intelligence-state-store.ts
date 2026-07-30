@@ -1,6 +1,19 @@
 import { MemoryStore } from "@copilotkit/channels-core";
 import type { StateStore } from "@copilotkit/channels-core";
-import type { FetchLike } from "./http-transports.js";
+export interface FetchLike {
+  (
+    input: string,
+    init: {
+      method: string;
+      headers: Record<string, string>;
+      body: string;
+    },
+  ): Promise<{
+    ok: boolean;
+    status: number;
+    text(): Promise<string>;
+  }>;
+}
 
 /** Minimal transport config the store needs (subset of the adapter's). */
 export interface IntelligenceStateStoreConfig {

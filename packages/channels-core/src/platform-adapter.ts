@@ -10,6 +10,7 @@ import type {
 } from "@copilotkit/channels-ui";
 import type { CommandSpec } from "./commands.js";
 import type { StateStore } from "./state/state-store.js";
+import type { AgentToolDescriptor, ContextEntry } from "./tools.js";
 
 /** Opaque to the channel core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -70,6 +71,46 @@ export interface RunRenderer {
   finish?(): Promise<void>;
 }
 
+/** Result of one public Channel agent invocation, including local tool steps. */
+export interface ChannelAgentLoopResult {
+  iterations: number;
+  interrupted: boolean;
+  /**
+   * Managed renderer/provider failure deferred until the AgentRunner records
+   * its canonical terminal event. The managed lifecycle wrapper rejects the
+   * delivery with this error after the runner settles.
+   */
+  deliveryError?: unknown;
+}
+
+/** Canonical thread/run ownership opened by the managed AgentRunner. */
+export interface CanonicalRunIdentity {
+  threadId: string;
+  runId: string;
+}
+
+/**
+ * Adapter hook for wrapping the whole local Channel tool loop in one canonical
+ * runner lifecycle. Managed Intelligence implements this; direct adapters omit
+ * it and keep calling the agent in process.
+ */
+export interface ChannelAgentLifecycleArgs {
+  replyTarget: ReplyTarget;
+  agent: AbstractAgent;
+  renderer: RunRenderer;
+  tools: readonly AgentToolDescriptor[];
+  context: readonly ContextEntry[];
+  /**
+   * True only for `Thread.resume()`. The resume value remains private to the
+   * agent command and never crosses the managed run-open boundary.
+   */
+  isResume?: boolean;
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: CanonicalRunIdentity,
+  ): Promise<ChannelAgentLoopResult>;
+}
+
 /**
  * Fields shared by every ingress event routed through the {@link IngressSink}:
  * the conversation it belongs to, the opaque target to reply on, and the user
@@ -79,6 +120,11 @@ export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
   user?: PlatformUser;
+  /**
+   * Provider that produced this event when it differs from the transport
+   * adapter identity. Multiplexing adapters set it per event.
+   */
+  platform?: string;
 }
 
 /**
@@ -160,15 +206,6 @@ export interface IncomingReaction extends IngressEventBase {
   messageRef?: MessageRef;
   /** Containing thread/conversation id, when distinct from the message. */
   threadId?: string;
-  /**
-   * Source provider a managed delivery originated from (e.g. `"teams"`,
-   * `"slack"`). Direct adapters omit it — core then normalizes by
-   * {@link PlatformAdapter.platform}. The Intelligence adapter (whose own
-   * `platform` is `"intelligence"`, not an emoji platform) sets it to the
-   * delivery's source provider so central normalization runs on the managed
-   * path.
-   */
-  readonly platform?: string;
   /** Native payload. */
   raw: unknown;
 }
@@ -230,6 +267,13 @@ export interface UserQuery {
 /** A resolved agent session for a conversation (the adapter may build the agent's history from its own state). */
 export interface AgentSession {
   agent: AbstractAgent;
+  /**
+   * Optional exclusive-session release hook.
+   *
+   * Managed adapters use it when an application supplied one mutable agent
+   * instance for more than one canonical thread.
+   */
+  release?(): void | Promise<void>;
 }
 
 /** Adapter-owned conversation state; the adapter resolves (or creates) the agent session for a conversation. */
@@ -273,6 +317,26 @@ export interface PlatformAdapter {
   ): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
   createRunRenderer(target: ReplyTarget): RunRenderer;
+  /**
+   * Optional synchronous preflight for a public `Thread.runAgent()` call.
+   *
+   * Surface-policy rejections happen before delivery-operation tracking so a
+   * handler may catch them and use a supported fallback without failing the
+   * containing delivery.
+   */
+  assertRunAgentSupported?(target: ReplyTarget): void;
+  runAgentLifecycle?(
+    args: ChannelAgentLifecycleArgs,
+  ): Promise<ChannelAgentLoopResult>;
+  /**
+   * Optional delivery-lifecycle hook. {@link Thread} invokes this synchronously
+   * when a public operation starts so a managed transport can keep the delivery
+   * open even when a handler intentionally does not await that operation.
+   */
+  trackThreadOperation?<T>(
+    target: ReplyTarget,
+    operation: () => Promise<T>,
+  ): Promise<T>;
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
@@ -292,6 +356,8 @@ export interface PlatformAdapter {
    * a legitimate retry.
    */
   readonly skipIngressDedup?: boolean;
+  /** Inject the implicit inbound turn into only the first run in one handler. */
+  readonly injectInboundTurnOnce?: boolean;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,

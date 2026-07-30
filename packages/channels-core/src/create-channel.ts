@@ -345,18 +345,24 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
   };
 }
 
+/** Resolve the provider that produced an event without changing adapter identity. */
+function ingressPlatform(
+  adapter: PlatformAdapter,
+  event: { platform?: string },
+): string {
+  return event.platform ?? adapter.platform;
+}
+
 /**
- * Enforce V1 Intelligence Channel exclusivity: an Intelligence Channel adapter
- * (`intelligenceAdapter`) must be the only adapter on a Channel. Channel and direct delivery are
- * alternative modes on a Channel — Intelligence holds the platform creds, or
- * the runtime does, never both.
+ * Enforce managed Intelligence Channel exclusivity. Managed and direct
+ * delivery are alternative modes on a Channel: Intelligence holds provider
+ * credentials, or the runtime does, never both.
  */
 function assertExclusive(adapters: PlatformAdapter[]): void {
   if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
     throw new Error(
-      "intelligenceAdapter() must be the only adapter on a Channel — Channel and " +
-        "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
-        "direct adapters (slack/discord/...), not both.",
+      "The managed Intelligence adapter must be the only adapter on a Channel — " +
+        "managed and direct delivery are alternative modes.",
     );
   }
 }
@@ -462,7 +468,11 @@ export function createChannel<
     adapter: PlatformAdapter,
     replyTarget: unknown,
     conversationKey: string,
-    extras?: { userKey?: string; message?: IncomingMessage },
+    extras?: {
+      platform?: string;
+      userKey?: string;
+      message?: IncomingMessage;
+    },
   ): Thread {
     if (!backend || !registry || !telemetry) {
       throw new Error(
@@ -471,6 +481,7 @@ export function createChannel<
     }
     const deps: ThreadDeps = {
       adapter,
+      platform: extras?.platform,
       replyTarget,
       conversationKey,
       registry,
@@ -513,6 +524,7 @@ export function createChannel<
     const store = backend!;
     return {
       async onTurn(turn: IncomingTurn) {
+        const platform = ingressPlatform(adapter, turn);
         const lockKey = `turn:${turn.conversationKey}`;
         const acquired = await store.lock.acquire(lockKey, {
           ttlMs: cfg.lockTtl ?? 60_000,
@@ -537,13 +549,13 @@ export function createChannel<
           // that throws still leaves its event marked seen — dedup drops duplicate DELIVERIES,
           // it is not retry-of-failed-turns.)
           if (turn.eventId && !adapter.skipIngressDedup) {
-            const dupKey = `evt:${adapter.platform}:${turn.eventId}`;
+            const dupKey = `evt:${platform}:${turn.eventId}`;
             try {
               if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
                 return;
             } catch (err) {
               console.warn(
-                `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
+                `[channel] dedup check failed for ${platform}; processing without dedup`,
                 err,
               );
             }
@@ -557,14 +569,14 @@ export function createChannel<
           if (cfg.identity) {
             try {
               const resolved = await cfg.identity({
-                adapter: adapter.platform,
+                adapter: platform,
                 author: turn.user ?? { id: "" },
                 message: msgFromTurn(turn),
               });
               userKey = resolved ?? undefined;
             } catch (err) {
               console.warn(
-                `[channel] identity resolution failed for ${adapter.platform}; continuing without userKey`,
+                `[channel] identity resolution failed for ${platform}; continuing without userKey`,
                 err,
               );
             }
@@ -574,7 +586,7 @@ export function createChannel<
             adapter,
             turn.replyTarget,
             turn.conversationKey,
-            { userKey, message },
+            { platform, userKey, message },
           );
           // v1 routing: there is no turn `kind`, so prefer mention handlers; if
           // none are registered, fall back to message handlers. (The reference
@@ -589,14 +601,15 @@ export function createChannel<
         }
       },
       async onInteraction(evt: InteractionEvent) {
+        const platform = ingressPlatform(adapter, evt);
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
         if (evt.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${adapter.platform}:${evt.eventId}`;
+          const dupKey = `evt:${platform}:${evt.eventId}`;
           try {
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${platform}; processing without dedup`,
               err,
             );
           }
@@ -606,6 +619,7 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { platform },
         );
         const user = evt.user ?? { id: "" };
         const ctx: InteractionContext = {
@@ -614,12 +628,12 @@ export function createChannel<
             text: "",
             user,
             ref: evt.messageRef ?? { id: "" },
-            platform: adapter.platform,
+            platform,
           },
           action: { id: evt.id, value: evt.value },
           values: {},
           user,
-          platform: adapter.platform,
+          platform,
         };
         const openModal = makeOpenModal(
           adapter,
@@ -653,14 +667,15 @@ export function createChannel<
         }
       },
       async onCommand(cmd: IncomingCommand) {
+        const platform = ingressPlatform(adapter, cmd);
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
         if (cmd.eventId && !adapter.skipIngressDedup) {
-          const dupKey = `evt:${adapter.platform}:${cmd.eventId}`;
+          const dupKey = `evt:${platform}:${cmd.eventId}`;
           try {
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
-              `[channel] dedup check failed for ${adapter.platform}; processing without dedup`,
+              `[channel] dedup check failed for ${platform}; processing without dedup`,
               err,
             );
           }
@@ -672,6 +687,7 @@ export function createChannel<
           adapter,
           cmd.replyTarget,
           cmd.conversationKey,
+          { platform },
         );
         // Resolve typed options from any structured args the surface supplied
         // (e.g. Discord); text-only surfaces (Slack) leave `options` empty and
@@ -687,7 +703,7 @@ export function createChannel<
           text: cmd.text,
           options,
           user: cmd.user,
-          platform: cmd.platform,
+          platform,
         };
         const openModal = makeOpenModal(
           adapter,
@@ -705,18 +721,15 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { platform: ingressPlatform(adapter, evt) },
         );
         for (const h of threadStartedHandlers)
           await h({ thread, user: evt.user });
       },
       async onReaction(evt: IncomingReaction) {
-        // Normalize by the reaction's SOURCE platform: direct adapters omit
-        // `evt.platform`, so it falls back to `adapter.platform`; the managed
-        // path (adapter.platform === "intelligence") sets `evt.platform` to the
-        // originating provider (e.g. "teams"/"slack") so central normalization
-        // still runs. Only normalize when that platform is one the emoji table
-        // knows; otherwise the raw token passes through unchanged.
-        const sourcePlatform = evt.platform ?? adapter.platform;
+        // Normalize by source platform, falling back to adapter identity for
+        // direct adapters that do not need per-event provider routing.
+        const sourcePlatform = ingressPlatform(adapter, evt);
         const normalized = isEmojiPlatform(sourcePlatform)
           ? normalizeEmoji(evt.rawEmoji, sourcePlatform)
           : undefined;
@@ -725,6 +738,7 @@ export function createChannel<
           adapter,
           evt.replyTarget,
           evt.conversationKey,
+          { platform: sourcePlatform },
         );
         // Prefer the adapter's update-capable ref; fall back to the bare id.
         const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
@@ -769,7 +783,9 @@ export function createChannel<
         if (!handler) return; // unregistered → closes
         const thread =
           evt.conversationKey !== undefined && evt.replyTarget !== undefined
-            ? makeThread(adapter, evt.replyTarget, evt.conversationKey)
+            ? makeThread(adapter, evt.replyTarget, evt.conversationKey, {
+                platform: evt.platform,
+              })
             : undefined;
         const result = await handler({
           callbackId: evt.callbackId,

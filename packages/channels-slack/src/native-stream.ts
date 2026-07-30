@@ -85,6 +85,12 @@ export interface NativeMessageStreamConfig {
    * surface (`:wrench:` rows). Text streaming is unaffected.
    */
   onChunkFailure?: (err: unknown) => void;
+  /**
+   * Fail the stream when required native text calls fail. This disables the
+   * legacy start fallback and makes append or stop failures visible to the
+   * caller. Structured task chunks remain optional and may still be dropped.
+   */
+  strict?: boolean;
   /** Minimum gap between text flushes, in ms (defaults to 600). */
   minIntervalMs?: number;
   /**
@@ -338,6 +344,7 @@ export class NativeMessageStream implements TextStream {
   private readonly makeFallback: () => TextStream;
   private readonly onStartFailure: ((err: unknown) => void) | undefined;
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
+  private readonly strict: boolean;
   private readonly minIntervalMs: number;
   private readonly messageByteLimit: number;
   private readonly maxMessages: number;
@@ -347,6 +354,7 @@ export class NativeMessageStream implements TextStream {
     this.makeFallback = config.fallback;
     this.onStartFailure = config.onStartFailure;
     this.onChunkFailure = config.onChunkFailure;
+    this.strict = config.strict ?? false;
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
     this.messageByteLimit =
       config.messageByteLimit ?? DEFAULT_MESSAGE_BYTE_LIMIT;
@@ -397,9 +405,17 @@ export class NativeMessageStream implements TextStream {
       this.flushTimer = undefined;
     }
     this.enqueueFlush();
-    await this.queue;
+    // Drain the queue even when a prior strict append rejected it, so we still
+    // reach stopStream and do not leave an open native Slack stream.
+    let queueError: unknown;
+    try {
+      await this.queue;
+    } catch (err) {
+      queueError = err;
+    }
     if (this.legacy) {
       await this.legacy.finish();
+      if (queueError !== undefined && this.strict) throw queueError;
       return;
     }
     // A continuation `startStream` can fail transiently, and unlike a mid-stream
@@ -413,27 +429,46 @@ export class NativeMessageStream implements TextStream {
       this.curPosted < this.buffer.length;
       attempt++
     ) {
+      // A strict rejection settles `queue` rejected, and `.then()` on a rejected
+      // promise skips its callback — so without resetting it the retry would
+      // re-raise the same settled error instead of running a flush at all.
+      this.queue = Promise.resolve();
       this.enqueueFlush();
-      await this.queue;
+      try {
+        await this.queue;
+      } catch (err) {
+        // Captured, never thrown: throwing here would skip `stopStream` and leave
+        // an open native stream, which is exactly what the drain above avoids.
+        queueError ??= err;
+      }
     }
     if (!this.truncated && this.curPosted < this.buffer.length) {
-      // Last resort: hand the remainder to the legacy transport rather than lose
-      // it. Seeded with ONLY the undelivered tail (not the whole buffer, which is
-      // what `failOverToLegacy` does for a never-started stream) so the text
-      // already streamed natively is not posted twice. `onStartFailure` is
-      // deliberately not fired — a transient continuation failure should not mark
-      // the whole workspace legacy.
       const tail = this.buffer.slice(this.curPosted);
-      console.error(
-        `[native-stream] finish: ${tail.length} chars undelivered after ${FINISH_DRAIN_ATTEMPTS} drain attempts; falling back to legacy for the tail`,
-      );
-      try {
-        const legacy = this.makeFallback();
-        legacy.append(tail);
-        this.curPosted = this.buffer.length;
-        await legacy.finish();
-      } catch (err) {
-        console.error("[native-stream] legacy tail fallback failed:", err);
+      if (this.strict) {
+        // Strict mode disables the legacy fallback by design, so surface the loss
+        // instead of quietly routing around it; the throw happens after
+        // `stopStream` below, via `queueError`.
+        queueError ??= new Error(
+          `[native-stream] finish: ${tail.length} chars undelivered after ${FINISH_DRAIN_ATTEMPTS} drain attempts`,
+        );
+      } else {
+        // Last resort: hand the remainder to the legacy transport rather than lose
+        // it. Seeded with ONLY the undelivered tail (not the whole buffer, which is
+        // what `failOverToLegacy` does for a never-started stream) so the text
+        // already streamed natively is not posted twice. `onStartFailure` is
+        // deliberately not fired — a transient continuation failure should not mark
+        // the whole workspace legacy.
+        console.error(
+          `[native-stream] finish: ${tail.length} chars undelivered after ${FINISH_DRAIN_ATTEMPTS} drain attempts; falling back to legacy for the tail`,
+        );
+        try {
+          const legacy = this.makeFallback();
+          legacy.append(tail);
+          this.curPosted = this.buffer.length;
+          await legacy.finish();
+        } catch (err) {
+          console.error("[native-stream] legacy tail fallback failed:", err);
+        }
       }
     }
     // Finalize the streamed message (no-op if we never started one).
@@ -441,12 +476,18 @@ export class NativeMessageStream implements TextStream {
       try {
         await this.transport.stopStream(this.curTs, finalBlocks);
       } catch (err) {
+        if (this.strict) throw queueError ?? err;
         console.error("[native-stream] stopStream failed:", err);
       }
     }
+    if (queueError !== undefined && this.strict) throw queueError;
   }
 
   private scheduleFlush(): void {
+    if (this.minIntervalMs <= 0) {
+      this.enqueueFlush();
+      return;
+    }
     if (this.flushTimer) return;
     const elapsed = Date.now() - this.lastFlushedAt;
     const delay = Math.max(0, this.minIntervalMs - elapsed);
@@ -505,6 +546,7 @@ export class NativeMessageStream implements TextStream {
       this.curMessageBytes = 0;
       return true;
     } catch (err) {
+      if (this.strict) throw err;
       this.failOverToLegacy(err);
       return false;
     }
@@ -517,6 +559,7 @@ export class NativeMessageStream implements TextStream {
     try {
       await this.appendPending();
     } catch (err) {
+      if (this.strict) throw err;
       // A mid-stream append failure shouldn't sink the stream; the next flush
       // retries from `curPosted` (only advanced on success).
       console.error(
@@ -634,29 +677,36 @@ export class NativeMessageStream implements TextStream {
     }
     const posted = this.buffer.slice(0, this.curPosted);
     const closer = renderContextCloser(detectOpenContext(posted), posted);
+    // Failures here are recorded, not thrown, so `stopStream` is still reached and
+    // no native stream is left open — the same guarantee `finish()` gives. In
+    // strict mode they are rethrown afterwards, with the same precedence
+    // `finish()` uses (earliest error wins).
+    let closerError: unknown;
     if (closer) {
       try {
         await this.transport.appendText(this.curTs!, closer);
         this.curMessageBytes += utf8Length(closer);
       } catch (err) {
-        // Same reasoning as the `stopStream` guard below, which this append sits
-        // directly above: unguarded, it threw out of `rollOver` with `curTs` still
-        // set, so the next flush recomputed a full message, re-entered
-        // `rollOver`, and failed on the same closer forever — a permanent wedge
-        // losing everything after the boundary. Rare (it needs a ceiling within a
-        // few bytes of the budget), but degraded markdown on one message is a far
-        // cheaper failure than dropping the rest of the reply.
+        closerError = err;
+        // Unguarded, this threw out of `rollOver` with `curTs` still set, so the
+        // next flush recomputed a full message, re-entered `rollOver`, and failed
+        // on the same closer forever — a permanent wedge losing everything after
+        // the boundary. Rare (it needs a ceiling within a few bytes of the
+        // budget), but degraded markdown on one message is a far cheaper failure
+        // than dropping the rest of the reply.
         console.error("[native-stream] boundary closer failed:", err);
       }
     }
     try {
       await this.transport.stopStream(this.curTs!);
     } catch (err) {
+      if (this.strict) throw closerError ?? err;
       // A message left rendering as "still streaming" is cosmetic; dropping the
       // rest of the reply is not. Roll over regardless.
       console.error("[native-stream] stopStream (rollover) failed:", err);
     }
     this.curTs = undefined;
+    if (closerError !== undefined && this.strict) throw closerError;
     return true;
   }
 
@@ -681,6 +731,9 @@ export class NativeMessageStream implements TextStream {
         this.buffer.length - this.curPosted
       } chars`,
     );
+    // Settle state BEFORE the append, so a strict rethrow still leaves the stream
+    // terminal rather than re-entering here on the next flush.
+    this.curPosted = this.buffer.length;
     const closer = renderContextCloser(detectOpenContext(posted), posted);
     const marker = closer + TRUNCATION_MARKER;
     try {
@@ -689,9 +742,9 @@ export class NativeMessageStream implements TextStream {
       // checked nor updated the budget, leaving the last message over its cap.
       this.curMessageBytes += utf8Length(marker);
     } catch (err) {
+      if (this.strict) throw err;
       console.error("[native-stream] truncation marker failed:", err);
     }
-    this.curPosted = this.buffer.length;
   }
 
   /**
@@ -736,6 +789,7 @@ export class NativeMessageStream implements TextStream {
     try {
       await this.appendPending();
     } catch (err) {
+      if (this.strict) throw err;
       console.error(
         `[native-stream] appendText (pre-chunk) failed (ts=${this.curTs}):`,
         err,

@@ -5,6 +5,16 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
+import { EMPTY } from "rxjs";
+import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
@@ -24,9 +34,8 @@ import type { Channel } from "@copilotkit/channels";
  *   delegated to the Phoenix connection layer); it only reflects the health the
  *   session reports via its `onStateChange` observer.
  * - `stopped`: {@link ChannelManager.stop} has torn the Channel down.
- * - `error`: activation rejected with a non-setup error, OR a previously-online
- *   session gave up reconnecting after its bounded reconnect window or was
- *   generation-fenced by a replacement.
+ * - `error`: activation rejected with a non-setup error, or a previously-online
+ *   control link gave up reconnecting after its bounded reconnect window.
  *
  * Both MANAGED (Intelligence-gateway) and DIRECT (developer-supplied adapter)
  * Channels move through these states. A direct Channel is driven by the manager
@@ -37,7 +46,7 @@ import type { Channel } from "@copilotkit/channels";
  * drop signal, so it never reports `reconnecting`.
  *
  * That gap is BY DESIGN, not a deferral. Run-correctness (canonical
- * cross-surface history, fenced outer-run/single-terminal, durable
+ * cross-surface history, one outer run and one terminal outcome, durable
  * HITL-resume-across-restart, selection pinning) and the reliability layer are
  * Intelligence-side only — see OSS-599's boundary discipline. A direct Channel's
  * ceiling is the SDK's in-process run loop. Do not "finish" this by pulling the
@@ -124,7 +133,7 @@ export interface ChannelsHandle {
    */
   onStateChange?(
     cb: (
-      state: "online" | "reconnecting" | "gave_up" | "fenced",
+      state: "online" | "reconnecting" | "gave_up",
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;
@@ -136,6 +145,14 @@ export interface ChannelManagerArgs {
   intelligence: CopilotKitIntelligence;
   /** The declared framework Channels to activate. */
   channels: Channel[];
+  /** Standard runtime AgentRunner used by managed Channel executions. */
+  runner?: AgentRunner;
+  /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
+  lockTtlSeconds?: number;
+  /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
+  lockHeartbeatIntervalSeconds?: number;
+  /** Must match web Intelligence runs so channel + HTTP share the same lock key. */
+  lockKeyPrefix?: string;
   /**
    * Activation engine. Defaults to a wrapper over the channels-intelligence
    * Realtime Gateway launcher (`startChannelsOverRealtimeGateway`), reached via
@@ -210,6 +227,36 @@ export interface ChannelsIntelligenceModule {
        * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
        * silent in the managed path. */
       log?: (msg: string, meta?: unknown) => void;
+      runCanonical(args: {
+        agent: AbstractAgent;
+        threadId: string;
+        runId: string;
+        userId: string;
+        agentId: string;
+        tools: readonly {
+          name: string;
+          description: string;
+          parameters: Record<string, unknown>;
+        }[];
+        context: readonly { description: string; value: string }[];
+        persistedInputMessages: Message[];
+        execute(
+          subscriber: AgentSubscriber,
+          canonicalRun?: { threadId: string; runId: string },
+        ): Promise<{
+          iterations: number;
+          interrupted: boolean;
+          deliveryError?: unknown;
+        }>;
+      }): Promise<{
+        iterations: number;
+        interrupted: boolean;
+        deliveryError?: unknown;
+      }>;
+      loadHistory(args: {
+        threadId: string;
+        appUserId: string;
+      }): Promise<Message[]>;
     },
   ) => Promise<ChannelsHandle>;
 }
@@ -244,6 +291,13 @@ export async function defaultActivateChannel(
       CHANNELS_INTELLIGENCE_SPECIFIER
     ) as Promise<ChannelsIntelligenceModule>,
   log?: (msg: string, meta?: unknown) => void,
+  services?: {
+    runner: AgentRunner;
+    intelligence: CopilotKitIntelligence;
+    lockTtlSeconds?: number;
+    lockHeartbeatIntervalSeconds?: number;
+    lockKeyPrefix?: string;
+  },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
   try {
@@ -256,6 +310,11 @@ export async function defaultActivateChannel(
       );
     }
     throw err;
+  }
+  if (!services) {
+    throw new Error(
+      "Managed Channels require the runtime AgentRunner and Intelligence client",
+    );
   }
   return mod.startChannelsOverRealtimeGateway([channel], {
     wsUrl: config.wsUrl,
@@ -274,7 +333,239 @@ export async function defaultActivateChannel(
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.
     ...(log ? { log } : {}),
+    runCanonical: (args) =>
+      runCanonicalChannelAgent(
+        services.runner,
+        services.intelligence,
+        services.lockTtlSeconds ?? 20,
+        services.lockHeartbeatIntervalSeconds ?? 15,
+        args,
+        services.lockKeyPrefix,
+      ),
+    loadHistory: async ({ threadId, appUserId }) => {
+      const history = await services.intelligence.getThreadMessages({
+        threadId,
+        userId: appUserId,
+      });
+      return history.messages.map(toAgentMessage);
+    },
   });
+}
+
+interface CanonicalRunArgs {
+  agent: AbstractAgent;
+  threadId: string;
+  runId: string;
+  userId: string;
+  agentId: string;
+  tools: readonly {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }[];
+  context: readonly { description: string; value: string }[];
+  persistedInputMessages: Message[];
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: { threadId: string; runId: string },
+  ): Promise<{
+    iterations: number;
+    interrupted: boolean;
+    deliveryError?: unknown;
+  }>;
+}
+
+/** One outer agent that lets the standard runner own the whole local tool loop. */
+class ChannelOuterAgent extends AbstractAgent {
+  constructor(
+    private readonly inner: AbstractAgent,
+    private readonly canonicalThreadId: string,
+    private readonly executeLoop: CanonicalRunArgs["execute"],
+  ) {
+    super({
+      threadId: inner.threadId,
+      initialMessages: inner.messages,
+      initialState: inner.state,
+      ...(inner.agentId ? { agentId: inner.agentId } : {}),
+    });
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  override async runAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    if (!parameters?.runId) {
+      throw new Error("Canonical Channel run requires a runId");
+    }
+    const result = await this.executeLoop(subscriber ?? {}, {
+      threadId: this.canonicalThreadId,
+      runId: parameters.runId,
+    });
+    return { result, newMessages: [] };
+  }
+
+  override abortRun(): void {
+    this.inner.abortRun();
+  }
+}
+
+/** Drive one public Channel run through the runtime's existing AgentRunner. */
+async function runCanonicalChannelAgent(
+  runner: AgentRunner,
+  intelligence: CopilotKitIntelligence,
+  lockTtlSeconds: number,
+  lockHeartbeatIntervalSeconds: number,
+  args: CanonicalRunArgs,
+  lockKeyPrefix?: string,
+): Promise<{
+  iterations: number;
+  interrupted: boolean;
+  deliveryError?: unknown;
+}> {
+  const lock = await intelligence.ɵacquireThreadLock({
+    threadId: args.threadId,
+    runId: args.runId,
+    userId: args.userId,
+    agentId: args.agentId,
+    ttlSeconds: lockTtlSeconds,
+    ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
+  });
+  const canonicalThreadId = lock.threadId;
+  const canonicalRunId = lock.runId;
+  let result = { iterations: 0, interrupted: false };
+  const outer = new ChannelOuterAgent(
+    args.agent,
+    canonicalThreadId,
+    async (subscriber, canonicalRun) => {
+      result = await args.execute(subscriber, canonicalRun);
+      return result;
+    },
+  );
+  let stopPromise: Promise<boolean | undefined> | undefined;
+  let heartbeatError: unknown;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  const stopCanonicalRun = (): void => {
+    stopPromise ??= Promise.resolve()
+      .then(() => runner.stop({ threadId: canonicalThreadId }))
+      .catch(() => false);
+  };
+  heartbeatTimer = setInterval(() => {
+    intelligence
+      .ɵrenewThreadLock({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+        ttlSeconds: lockTtlSeconds,
+        ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
+      })
+      .catch((error: unknown) => {
+        if (heartbeatTimer === undefined) return;
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = undefined;
+        heartbeatError = error;
+        try {
+          args.agent.abortRun();
+        } catch {
+          // The runner stop below remains the authoritative cancellation path.
+        }
+        stopCanonicalRun();
+      });
+  }, lockHeartbeatIntervalSeconds * 1_000);
+  heartbeatTimer.unref?.();
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let terminalError: (Error & { code?: string }) | undefined;
+      const stream = runner.run({
+        threadId: canonicalThreadId,
+        agent: outer,
+        input: {
+          threadId: canonicalThreadId,
+          runId: canonicalRunId,
+          messages: args.agent.messages,
+          state: args.agent.state,
+          tools: [...args.tools],
+          context: [...args.context],
+          forwardedProps: undefined,
+        },
+        persistedInputMessages: args.persistedInputMessages,
+      });
+      stream.subscribe({
+        next: (event: BaseEvent) => {
+          if (event.type !== EventType.RUN_ERROR || terminalError) return;
+          const message =
+            "message" in event && typeof event.message === "string"
+              ? event.message
+              : "Canonical Channel agent run failed";
+          terminalError = new Error(message);
+          terminalError.name = "ChannelCanonicalRunError";
+          if (
+            "code" in event &&
+            typeof event.code === "string" &&
+            event.code.length > 0
+          ) {
+            terminalError.code = event.code;
+          }
+        },
+        error: reject,
+        complete: () => {
+          if (terminalError) {
+            reject(terminalError);
+          } else {
+            resolve();
+          }
+        },
+      });
+    });
+  } finally {
+    if (heartbeatTimer !== undefined) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
+    // Always release the product thread lock from the Runtime side. Gateway
+    // may also release on terminal AG-UI ingestion; cleanup is idempotent and
+    // covers runner paths that never stream terminal events (or lose them).
+    await intelligence
+      .ɵcleanupThreadLock({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+      })
+      .catch(() => undefined);
+  }
+
+  if (heartbeatError !== undefined) {
+    await stopPromise;
+    throw heartbeatError;
+  }
+  return result;
+}
+
+/** Convert canonical Intelligence history into AG-UI messages. */
+function toAgentMessage(message: {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
+}): Message {
+  return {
+    id: message.id,
+    role: message.role as Message["role"],
+    content: message.content ?? "",
+    ...(message.toolCalls
+      ? {
+          toolCalls: message.toolCalls.map((call) => ({
+            id: call.id,
+            type: "function" as const,
+            function: { name: call.name, arguments: call.args },
+          })),
+        }
+      : {}),
+    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+  } as Message;
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */
@@ -362,15 +653,12 @@ function withTimeout<T>(
  * and {@link ready} rather than thrown.
  *
  * Reconnection is NOT handled here — it is delegated to the Phoenix connection
- * layer that backs the launcher. When a managed socket drops, Phoenix's `Socket`
- * auto-reconnects and auto-rejoins, re-sending the channel's join declaration;
- * the Intelligence gateway's `join/3` re-runs `record_heartbeat` (re-registering
- * the runtime's listener) and its `terminate/2` releases the dead socket's
- * leases (verified against Intelligence #511 `sdk_channel.ex`). So the transport
- * self-heals under the persistent adapter and a re-activation here would be both
- * redundant AND broken: re-invoking the engine on an already-started `Channel`
- * throws in `channel.addAdapter` (started=true). The manager therefore never
- * re-activates on a drop.
+ * layer that backs the launcher. When a managed control socket drops, Phoenix's
+ * `Socket` reconnects and rejoins with the same Runtime declaration. Active
+ * deliveries request fresh one-use join tokens through that control link. A
+ * re-activation here would be both redundant AND broken: re-invoking the engine
+ * on an already-started `Channel` throws in `channel.addAdapter` (started=true).
+ * The manager therefore never re-activates on a drop.
  *
  * It DOES, however, reflect real connection health through the session's
  * `onStateChange` observer so {@link ChannelManager.status} stays honest rather
@@ -380,6 +668,10 @@ function withTimeout<T>(
  */
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
+  private readonly runner?: AgentRunner;
+  private readonly lockTtlSeconds: number;
+  private readonly lockHeartbeatIntervalSeconds: number;
+  private readonly lockKeyPrefix?: string;
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
@@ -394,6 +686,10 @@ export class ChannelManager implements ChannelsControl {
   /** @param args - See {@link ChannelManagerArgs}. */
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
+    this.runner = args.runner;
+    this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
+    this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
+    this.lockKeyPrefix = args.lockKeyPrefix;
     this.channels = args.channels;
     this.log = args.log;
     // When using the default engine, forward the manager's log DOWN to the
@@ -403,7 +699,23 @@ export class ChannelManager implements ChannelsControl {
     this.activateChannel =
       args.activateChannel ??
       ((config, channel) =>
-        defaultActivateChannel(config, channel, undefined, this.log));
+        defaultActivateChannel(
+          config,
+          channel,
+          undefined,
+          this.log,
+          this.runner
+            ? {
+                runner: this.runner,
+                intelligence: this.intelligence,
+                lockTtlSeconds: this.lockTtlSeconds,
+                lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
+                ...(this.lockKeyPrefix !== undefined
+                  ? { lockKeyPrefix: this.lockKeyPrefix }
+                  : {}),
+              }
+            : undefined,
+        ));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);
@@ -430,7 +742,7 @@ export class ChannelManager implements ChannelsControl {
     // Reject duplicate Channel names BEFORE kicking off any engine call. The
     // manager keys `entries` by name, so a duplicate would let the second
     // activation's entry silently overwrite the first — leaking the first
-    // Channel's live session out of status()/ready()/stop(). Fail loud here so
+    // Channel's control link out of status()/ready()/stop(). Fail loud here so
     // nothing is ever activated in that state.
     this.assertUniqueChannelNames();
     this.activated = true;
@@ -832,8 +1144,7 @@ export class ChannelManager implements ChannelsControl {
    *
    * - `reconnecting` → status `reconnecting` (dropped, Phoenix retrying);
    * - `online` → status `online` (rejoined, sendable again);
-   * - `gave_up` → status `error` (dead after the bounded reconnect window);
-   * - `fenced` → status `error` immediately (another activation superseded it).
+   * - `gave_up` → status `error` (dead after the bounded reconnect window).
    *
    * Makes NO re-activation — reconnection is delegated to the Phoenix connection
    * layer (see {@link ChannelManager}), which auto-rejoins under the persistent
@@ -872,12 +1183,6 @@ export class ChannelManager implements ChannelsControl {
         this.log?.(
           `channel "${name}" managed session gave up reconnecting after ${this.downFor(entry)}; ` +
             `marking error (still retrying — a successful rejoin restores online)${because}`,
-        );
-      } else {
-        entry.status = "error";
-        this.clearReconnectLog(entry);
-        this.log?.(
-          `channel "${name}" managed session was generation-fenced by a replacement; marking error`,
         );
       }
     });

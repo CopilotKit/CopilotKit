@@ -8,6 +8,7 @@ import { MemoryStore } from "./state/memory-store.js";
 import { Section, Actions, Button } from "@copilotkit/channels-ui";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import type { PlatformAdapter } from "./platform-adapter.js";
+import type { AgentSubscriber } from "@ag-ui/client";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -129,6 +130,93 @@ describe("createChannel", () => {
       role: "user",
       content: "Say my name",
     });
+  });
+
+  it("injects the inbound turn only into the first managed run in one handler", async () => {
+    const fake = new FakeAdapter();
+    Object.defineProperty(fake, "injectInboundTurnOnce", { value: true });
+    const agent = new FakeAgent();
+    const added = captureAddedMessages(agent);
+    const channel = createChannel({ adapters: [fake], agent: () => agent });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Use this once",
+      platform: "fake",
+    });
+
+    expect(agent.runAgentCalls).toBe(2);
+    expect(added).toEqual([
+      expect.objectContaining({
+        role: "user",
+        content: "Use this once",
+      }),
+    ]);
+  });
+
+  it("wraps every local tool iteration in one managed lifecycle", async () => {
+    const fake = new FakeAdapter();
+    const canonicalToolEnds: string[] = [];
+    const lifecycleCalls: number[] = [];
+    (fake as PlatformAdapter).runAgentLifecycle = async (args) => {
+      lifecycleCalls.push(1);
+      const subscriber: AgentSubscriber = {
+        onToolCallEndEvent({ event }) {
+          canonicalToolEnds.push(event.toolCallId);
+        },
+      };
+      return args.execute(subscriber);
+    };
+    const agent = new FakeAgent([
+      (subscriber) => {
+        subscriber.onToolCallEndEvent?.({
+          event: { toolCallId: "tool-1" },
+          toolCallName: "echo",
+          toolCallArgs: { value: "hello" },
+        } as never);
+      },
+      () => undefined,
+    ]);
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => agent,
+      tools: [
+        {
+          name: "echo",
+          description: "Return the input",
+          parameters: z.object({ value: z.string() }),
+          handler: ({ value }) => value,
+        },
+      ],
+    });
+
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await fake.getSink().onTurn({
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "Run the tool",
+      platform: "fake",
+    });
+
+    expect(lifecycleCalls).toHaveLength(1);
+    expect(agent.runAgentCalls).toBe(2);
+    expect(canonicalToolEnds).toEqual(["tool-1"]);
+    expect(
+      agent.messages.some(
+        (message) => message.role === "tool" && message.toolCallId === "tool-1",
+      ),
+    ).toBe(true);
   });
 
   it("does not duplicate an inbound message seeded by the conversation store", async () => {

@@ -454,6 +454,7 @@ export class CopilotKitIntelligence {
   #apiUrl: string;
   #runnerWsUrl: string;
   #clientWsUrl: string;
+  #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
@@ -475,6 +476,7 @@ export class CopilotKitIntelligence {
     );
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
+    this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
 
@@ -559,6 +561,10 @@ export class CopilotKitIntelligence {
 
   ɵgetClientWsUrl(): string {
     return this.#clientWsUrl;
+  }
+
+  ɵgetChannelsWsUrl(): string {
+    return this.#channelsWsUrl;
   }
 
   ɵgetRunnerAuthToken(): string {
@@ -1229,6 +1235,10 @@ function deriveRunnerWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/client".length)}/runner`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/runner`;
+  }
+
   return `${wsUrl}/runner`;
 }
 
@@ -1241,5 +1251,20 @@ function deriveClientWsUrl(wsUrl: string): string {
     return `${wsUrl.slice(0, -"/runner".length)}/client`;
   }
 
+  if (wsUrl.endsWith("/channels")) {
+    return `${wsUrl.slice(0, -"/channels".length)}/client`;
+  }
+
   return `${wsUrl}/client`;
+}
+
+function deriveChannelsWsUrl(wsUrl: string): string {
+  if (wsUrl.endsWith("/channels")) return wsUrl;
+  if (wsUrl.endsWith("/runner")) {
+    return `${wsUrl.slice(0, -"/runner".length)}/channels`;
+  }
+  if (wsUrl.endsWith("/client")) {
+    return `${wsUrl.slice(0, -"/client".length)}/channels`;
+  }
+  return `${wsUrl}/channels`;
 }

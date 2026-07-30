@@ -13,7 +13,9 @@ type Event =
  * interleaved, plus the stop call and any trailing blocks.
  */
 function makeFakeTransport(opts?: {
+  failAppend?: boolean;
   failStart?: boolean;
+  failStop?: boolean;
   failChunks?: boolean;
   /**
    * Slack's *cumulative* per-message text cap, in UTF-8 BYTES. An `appendStream`
@@ -49,6 +51,7 @@ function makeFakeTransport(opts?: {
       return ts;
     }),
     appendText: vi.fn(async (ts: string, md: string) => {
+      if (opts?.failAppend) throw new Error("appendStream unavailable");
       const message = messages.find((m) => m.ts === ts);
       if (!message) throw new Error(`appendText to unknown ts ${ts}`);
       if (opts?.messageByteLimit !== undefined) {
@@ -70,6 +73,7 @@ function makeFakeTransport(opts?: {
         ?.events.push({ kind: "chunks", value: chunks });
     }),
     stopStream: vi.fn(async (ts: string, blocks?: KnownBlock[]) => {
+      if (opts?.failStop) throw new Error("stopStream unavailable");
       const m = messages.find((x) => x.ts === ts);
       if (m) {
         m.stopped = true;
@@ -645,6 +649,118 @@ describe("NativeMessageStream", () => {
     expect(transport.appendText).not.toHaveBeenCalled();
     expect(fallback.last()).toBe("hello world");
     expect(fallback.finished).toBe(true);
+  });
+
+  it("strict mode rejects a start failure without creating a legacy bubble", async () => {
+    const { transport } = makeFakeTransport({ failStart: true });
+    const fallback = makeFakeFallback();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("managed reply");
+
+    await expect(stream.finish()).rejects.toThrow("startStream unavailable");
+    expect(fallback.last()).toBe("");
+    expect(fallback.finished).toBe(false);
+  });
+
+  it("strict mode reports append and stop failures to the caller", async () => {
+    const appendFailure = makeFakeTransport({ failAppend: true });
+    const appendStream = new NativeMessageStream({
+      transport: appendFailure.transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+    appendStream.append("managed reply");
+    await expect(appendStream.finish()).rejects.toThrow(
+      "appendStream unavailable",
+    );
+    // Even when a strict append fails, finish still finalizes the open stream.
+    expect(appendFailure.messages[0]?.stopped).toBe(true);
+    expect(appendFailure.transport.stopStream).toHaveBeenCalledOnce();
+
+    const stopFailure = makeFakeTransport({ failStop: true });
+    const stopStream = new NativeMessageStream({
+      transport: stopFailure.transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+    stopStream.append("managed reply");
+    await expect(stopStream.finish()).rejects.toThrow("stopStream unavailable");
+  });
+
+  it("strict mode surfaces a rollover closer failure, after still finalizing", async () => {
+    // Rollover was added after `strict`, so its own guards have to honour it:
+    // non-strict keeps going (degraded markdown beats a lost reply), strict makes
+    // the failure visible — but either way `stopStream` is reached, so no native
+    // stream is left open.
+    const messages: { ts: string; text: string; stopped: boolean }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        messages.push({ ts: `S${starts}`, text: "", stopped: false });
+        return `S${starts}`;
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        if (/^[\n`*_~]+$/.test(md)) throw new Error("closer rejected");
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async (ts: string) => {
+        messages.find((m) => m.ts === ts)!.stopped = true;
+      }),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("```python\n" + "print('x')\n".repeat(3_400));
+    await expect(stream.finish()).rejects.toThrow("closer rejected");
+    // The message that hit the boundary was still finalized.
+    expect(messages[0]!.stopped).toBe(true);
+  });
+
+  it("strict mode surfaces an undelivered tail instead of using the legacy fallback", async () => {
+    // Non-strict hands the tail to the legacy sink; strict disables that fallback
+    // by design, so the loss must be reported rather than quietly routed around.
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const fallback = makeFakeFallback();
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation unavailable");
+        messages.push({ ts: "S1", text: "" });
+        return "S1";
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => fallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("word ".repeat(5_000));
+    await expect(stream.finish()).rejects.toThrow("continuation unavailable");
+    // The legacy transport was never engaged.
+    expect(fallback.last()).toBe("");
+    expect(fallback.finished).toBe(false);
   });
 
   it("fires onChunkFailure and degrades when a chunk append fails", async () => {
