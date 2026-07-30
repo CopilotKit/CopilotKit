@@ -103,6 +103,12 @@ export interface NativeMessageStreamConfig {
    * visible marker. Defaults to {@link DEFAULT_MAX_MESSAGES}.
    */
   maxMessages?: number;
+  /**
+   * Notice appended when `maxMessages` is reached. Defaults to
+   * {@link TRUNCATION_MARKER}, which is English — replace it for a workspace
+   * that is not.
+   */
+  truncationMarker?: string;
 }
 
 /**
@@ -348,6 +354,7 @@ export class NativeMessageStream implements TextStream {
   private readonly minIntervalMs: number;
   private readonly messageByteLimit: number;
   private readonly maxMessages: number;
+  private readonly truncationMarker: string;
 
   constructor(config: NativeMessageStreamConfig) {
     this.transport = config.transport;
@@ -359,6 +366,7 @@ export class NativeMessageStream implements TextStream {
     this.messageByteLimit =
       config.messageByteLimit ?? DEFAULT_MESSAGE_BYTE_LIMIT;
     this.maxMessages = config.maxMessages ?? DEFAULT_MAX_MESSAGES;
+    this.truncationMarker = config.truncationMarker ?? TRUNCATION_MARKER;
   }
 
   /** The first streamed message's ts (or the fallback's), available after finish(). */
@@ -748,7 +756,7 @@ export class NativeMessageStream implements TextStream {
     // terminal rather than re-entering here on the next flush.
     this.curPosted = this.buffer.length;
     const closer = renderContextCloser(detectOpenContext(posted), posted);
-    const marker = closer + TRUNCATION_MARKER;
+    const marker = closer + this.truncationMarker;
     try {
       await this.transport.appendText(this.curTs!, marker);
       // Charged like every other append; this was the one path that neither

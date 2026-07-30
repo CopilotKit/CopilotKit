@@ -1019,6 +1019,27 @@ describe("NativeMessageStream", () => {
     expect(withChunk[0]!.ts).toBe(messages[messages.length - 1]!.ts);
   });
 
+  it("uses a configured truncation marker", async () => {
+    // The default marker is English copy posted into the customer's channel, so
+    // a non-English workspace has to be able to replace it.
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      maxMessages: 2,
+      messageByteLimit: 400,
+      truncationMarker: "\n\n_…réponse tronquée._",
+    });
+
+    stream.append("word ".repeat(500));
+    await stream.finish();
+
+    const last = textOf(messages[messages.length - 1]!.events);
+    expect(last).toContain("réponse tronquée");
+    expect(last).not.toContain("reply truncated");
+  });
+
   it("does not fail the turn when the truncation marker cannot be posted", async () => {
     const messages: { ts: string; text: string }[] = [];
     let starts = 0;

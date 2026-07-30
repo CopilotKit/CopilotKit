@@ -18,7 +18,10 @@ import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
-import type { Channel } from "@copilotkit/channels";
+import type {
+  Channel,
+  ReplyContinuationOptions,
+} from "@copilotkit/channels";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -220,6 +223,8 @@ export interface ChannelsIntelligenceModule {
       adapter?: string;
       /** Optional per-Channel override for managed tool-call visibility. */
       showToolStatus?: boolean;
+      /** Optional per-Channel tuning for continuation messages on long replies. */
+      replyContinuation?: ReplyContinuationOptions;
       /** Intelligence app-api HTTP base URL, forwarded to the transport so the
        * managed realtime path enables file/history parity (HTTP-only) — OSS-476. */
       appApiBaseUrl?: string;
@@ -324,6 +329,9 @@ export async function defaultActivateChannel(
     adapter: config.adapter,
     ...(config.showToolStatus !== undefined
       ? { showToolStatus: config.showToolStatus }
+      : {}),
+    ...(config.replyContinuation !== undefined
+      ? { replyContinuation: config.replyContinuation }
       : {}),
     // Forward the app-api HTTP base URL so the transport wires file/history
     // (HTTP-only) on the NORMAL managed path — without this, Channels started by

@@ -196,6 +196,34 @@ export interface StoreConfig<
   dedupTtl?: number;
 }
 
+/**
+ * Tuning for how a long reply is spread across continuation messages.
+ *
+ * Providers cap how much text one message can hold; past that the reply is
+ * split, and past {@link ReplyContinuationOptions.maxMessages} it is truncated
+ * with a visible marker. Defaults are conservative and suit most bots — reach
+ * for these when a provider's real ceiling differs, when a product wants a
+ * different tolerance for how many messages one reply may occupy, or when the
+ * truncation notice needs to be in another language.
+ *
+ * Currently honoured by managed and direct Slack.
+ */
+export interface ReplyContinuationOptions {
+  /**
+   * Soft cap on the UTF-8 bytes one message may hold before continuing into a
+   * new one. Bytes rather than characters because the provider ceiling may be
+   * counted either way, and bytes are the safe reading for non-Latin scripts.
+   */
+  readonly messageByteLimit?: number;
+  /**
+   * Ceiling on messages a single reply may occupy before it is truncated with a
+   * visible marker. Bounds a runaway reply.
+   */
+  readonly maxMessages?: number;
+  /** Notice appended when `maxMessages` is reached. Defaults to English copy. */
+  readonly truncationMarker?: string;
+}
+
 export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
@@ -237,6 +265,12 @@ export interface CreateChannelOptions<
    * `slack({ showToolStatus: true })` instead.
    */
   showToolStatus?: boolean;
+  /**
+   * Tuning for splitting a long reply across continuation messages. See
+   * {@link ReplyContinuationOptions}. Applies to managed and direct Slack;
+   * configure direct Slack with `slack({ replyContinuation })` instead.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -273,6 +307,11 @@ export interface Channel<TState = unknown> {
    * undefined. Ignored for direct-adapter Channels.
    */
   readonly showToolStatus?: boolean;
+  /**
+   * Continuation-message tuning from `createChannel({ replyContinuation })`.
+   * Undefined leaves the provider defaults in place.
+   */
+  readonly replyContinuation?: ReplyContinuationOptions;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -815,6 +854,9 @@ export function createChannel<
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.showToolStatus !== undefined
       ? { showToolStatus: opts.showToolStatus }
+      : {}),
+    ...(opts.replyContinuation !== undefined
+      ? { replyContinuation: opts.replyContinuation }
       : {}),
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect
