@@ -18,29 +18,66 @@
  * Usage: tsx scripts/release/prerelease.ts --scope <scope from release.config.json | all> [--dry-run]
  */
 
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
 import type { PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
+import { resolvePublishNpm } from "./lib/npm-cli.js";
+import { mapWithConcurrency } from "./lib/concurrency.js";
 
-function run(cmd: string, args: string[], opts?: { cwd?: string }) {
-  const result = spawnSync(cmd, args, {
-    cwd: opts?.cwd ?? ROOT,
-    stdio: "inherit",
-    encoding: "utf8",
+/**
+ * How many packages to pack+publish at once. Each one is dominated by a registry
+ * round-trip, so a small pool removes most of the serial wait without hammering
+ * npm. Override with CANARY_PUBLISH_CONCURRENCY=1 to fall back to serial when
+ * debugging an individual package's publish.
+ */
+const PUBLISH_CONCURRENCY = Number(
+  process.env.CANARY_PUBLISH_CONCURRENCY ?? "4",
+);
+
+/**
+ * Run a command to completion, capturing its output.
+ *
+ * Output is CAPTURED rather than inherited, then replayed as one block per
+ * package once that package finishes. With a pool in flight, inheriting stdio
+ * would interleave several npm publishes line-by-line and make the log
+ * unreadable — and this log is the only forensic record when a canary
+ * half-publishes.
+ */
+function runCaptured(
+  cmd: string,
+  args: string[],
+  opts?: { cwd?: string },
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      cwd: opts?.cwd ?? ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    child.stdout?.on("data", (chunk) => (output += chunk));
+    child.stderr?.on("data", (chunk) => (output += chunk));
+    child.on("error", reject);
+    child.on("close", (status) => {
+      if (status === 0) {
+        resolve(output);
+        return;
+      }
+      reject(
+        new Error(
+          `Command failed (exit ${status}): ${cmd} ${args.join(" ")}\n${output}`,
+        ),
+      );
+    });
   });
-  if (result.status !== 0) {
-    throw new Error(`Command failed: ${cmd} ${args.join(" ")}`);
-  }
-  return result;
 }
 
 // Valid scopes come from release.config.json — the single source of truth.
 const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
-function main() {
+async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
   const scopeIdx = argv.indexOf("--scope");
@@ -130,27 +167,50 @@ function main() {
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
 
-  // Publish each package via pnpm pack + npx npm@11 (OIDC-aware)
-  console.log("\nPublishing packages...");
-  for (const p of packages) {
-    console.log(
-      `  Publishing ${p.name}@${p.pkg.version} with tag ${distTag}...`,
+  // Publish via pnpm pack + the pinned OIDC-aware npm. Resolved ONCE up front:
+  // see lib/npm-cli.ts for why this is not `npx npm@<v>` per package (npx
+  // re-resolved the spec every time, ~16s of each package's ~21s).
+  //
+  // Packages go out with bounded concurrency because each is dominated by a
+  // registry round-trip. This does not weaken an ordering invariant — see the
+  // multi-scope caveat in this file's header and lib/concurrency.ts: the
+  // cross-scope graph has cycles, so no serial order was ever safe either.
+  const npmBin = resolvePublishNpm();
+  console.log(
+    `\nPublishing ${packages.length} package(s), ${PUBLISH_CONCURRENCY} at a time...`,
+  );
+  const results = await mapWithConcurrency(
+    packages,
+    PUBLISH_CONCURRENCY,
+    async (p) => {
+      const label = `${p.name}@${p.pkg.version}`;
+      const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
+      await runCaptured("pnpm", ["pack"], { cwd: p.dir });
+      await runCaptured(
+        npmBin,
+        ["publish", tarball, "--tag", distTag, "--access", "public"],
+        { cwd: p.dir },
+      );
+      console.log(`  Published ${label} with tag ${distTag}`);
+      return label;
+    },
+  );
+
+  // Report EVERY failure rather than just the first: npm refuses to republish a
+  // version, so a partially-published canary id must be abandoned wholesale, and
+  // the operator needs the full picture to judge that (see the header's
+  // multi-scope caveat).
+  const failures = results.filter((r) => r.error);
+  if (failures.length > 0) {
+    console.error(
+      `\n${failures.length} of ${packages.length} package(s) failed to publish:`,
     );
-    run("pnpm", ["pack"], { cwd: p.dir });
-    const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
-    run(
-      "npx",
-      [
-        "--yes",
-        "npm@11.15.0",
-        "publish",
-        tarball,
-        "--tag",
-        distTag,
-        "--access",
-        "public",
-      ],
-      { cwd: p.dir },
+    for (const { item, error } of failures) {
+      console.error(`\n--- ${item.name}@${item.pkg.version} ---`);
+      console.error(error instanceof Error ? error.message : error);
+    }
+    throw new Error(
+      `Prerelease aborted: ${failures.length} package(s) failed. This canary id is now half-published and cannot be resumed — retry with a NEW suffix.`,
     );
   }
 
@@ -165,4 +225,9 @@ function main() {
   console.log(`\nPrerelease published: ${publishVersions} (tag: ${distTag})`);
 }
 
-main();
+// Explicit non-zero exit: an unhandled rejection from the now-async main would
+// otherwise let the publish step pass while packages failed to publish.
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});
