@@ -371,7 +371,10 @@ describe("IntelligenceAgent", () => {
 
       expect(events).toContainEqual(textEvent);
       expect(events).toContainEqual(toolEvent);
-      expect(events).toContainEqual(runStartedEvent);
+      expect(events.at(-1)).toMatchObject({
+        runId: "standard-run-id",
+        run_id: "legacy-run-id",
+      });
     });
   });
 

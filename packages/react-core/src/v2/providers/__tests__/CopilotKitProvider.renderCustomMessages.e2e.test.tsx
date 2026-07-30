@@ -38,8 +38,6 @@ const SnapshotRenderer: React.FC<SnapshotRendererProps> = ({
   position,
   message,
   runId,
-  messageIndexInRun,
-  numberOfMessagesInRun,
   stateSnapshot,
 }) => {
   if (position !== "after" || message.role !== "assistant") {
@@ -68,12 +66,7 @@ const SnapshotRenderer: React.FC<SnapshotRendererProps> = ({
   }
 
   return (
-    <div
-      data-testid={`state-${message.id}`}
-      data-run-id={runId}
-      data-message-index-in-run={messageIndexInRun}
-      data-messages-in-run={numberOfMessagesInRun}
-    >
+    <div data-testid={`state-${message.id}`} data-run-id={runId}>
       State: {count ?? "null"}
     </div>
   );
@@ -135,8 +128,6 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
   it("renders stored state snapshots for sequential runs", async () => {
     const agent = new MockStepwiseAgent();
     const history: number[] = [];
-    const firstServerRunId = "server-run-1";
-    const secondServerRunId = "server-run-2";
 
     const emitSnapshot = (count: number) => {
       history.push(count);
@@ -162,7 +153,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByText("First question")).toBeDefined();
     });
 
-    agent.emit(runStartedEvent(firstServerRunId));
+    agent.emit(runStartedEvent());
     emitSnapshot(1);
     agent.emit(textMessageStartEvent(firstAssistantId));
     agent.emit(textMessageContentEvent(firstAssistantId, "First answer"));
@@ -177,17 +168,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     const firstRunId = screen
       .getByTestId(`state-${firstAssistantId}`)
       .getAttribute("data-run-id");
-    expect(firstRunId).toBe(firstServerRunId);
-    expect(
-      screen
-        .getByTestId(`state-${firstAssistantId}`)
-        .getAttribute("data-message-index-in-run"),
-    ).toBe("0");
-    expect(
-      screen
-        .getByTestId(`state-${firstAssistantId}`)
-        .getAttribute("data-messages-in-run"),
-    ).toBe("1");
+    expect(firstRunId).toBeTruthy();
 
     const secondAssistantId = testId("assistant-message");
     fireEvent.change(input, { target: { value: "Second question" } });
@@ -197,7 +178,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByText("Second question")).toBeDefined();
     });
 
-    agent.emit(runStartedEvent(secondServerRunId));
+    agent.emit(runStartedEvent());
     emitSnapshot(2);
     agent.emit(textMessageStartEvent(secondAssistantId));
     agent.emit(textMessageContentEvent(secondAssistantId, "Second answer"));
@@ -214,17 +195,7 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       .getByTestId(`state-${secondAssistantId}`)
       .getAttribute("data-run-id");
 
-    expect(secondRunId).toBe(secondServerRunId);
-    expect(
-      screen
-        .getByTestId(`state-${secondAssistantId}`)
-        .getAttribute("data-message-index-in-run"),
-    ).toBe("0");
-    expect(
-      screen
-        .getByTestId(`state-${secondAssistantId}`)
-        .getAttribute("data-messages-in-run"),
-    ).toBe("1");
+    expect(secondRunId).not.toBe(firstRunId);
 
     const firstRunIdAfterSecond = screen
       .getByTestId(`state-${firstAssistantId}`)

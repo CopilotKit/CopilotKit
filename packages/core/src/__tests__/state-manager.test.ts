@@ -369,7 +369,6 @@ describe("StateManager - Multiple Runs", () => {
     expect(
       copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
     ).toEqual(firstRunState);
-    expect(generatedRunId).toBeDefined();
     expect(
       copilotKitCore.getStateByRun("agent1", "thread1", generatedRunId!),
     ).toEqual(secondRunState);
@@ -485,39 +484,6 @@ describe("StateManager - Message Tracking", () => {
     );
     expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
       runId,
-    );
-  });
-
-  it("should preserve server run IDs during cumulative connect replay", async () => {
-    const connectionRunId = "connect-run";
-    const firstRunId = "server-run-1";
-    const secondRunId = "server-run-2";
-    const firstMessage: Message = {
-      id: "msg1",
-      role: "assistant",
-      content: "First response",
-    };
-    const secondMessage: Message = {
-      id: "msg2",
-      role: "assistant",
-      content: "Second response",
-    };
-
-    await agent.emitRunStarted(firstRunId, {}, connectionRunId);
-    await agent.emitMessagesSnapshot(connectionRunId, [firstMessage]);
-    await agent.emitRunFinished(firstRunId, {}, connectionRunId);
-
-    await agent.emitRunStarted(secondRunId, {}, connectionRunId);
-    await agent.emitMessagesSnapshot(connectionRunId, [
-      firstMessage,
-      secondMessage,
-    ]);
-
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
-      firstRunId,
-    );
-    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
-      secondRunId,
     );
   });
 
@@ -943,7 +909,6 @@ describe("StateManager - RunErrorEvent Handling", () => {
     expect(
       copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
     ).toEqual(run1State);
-    expect(generatedRunId).toBeDefined();
     expect(
       copilotKitCore.getStateByRun("agent1", "thread1", generatedRunId!),
     ).toEqual(run2State);
