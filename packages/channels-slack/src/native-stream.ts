@@ -12,11 +12,15 @@
  *     renderer tolerates a mid-stream-unbalanced buffer).
  *   - `appendStream` takes the *delta* since the last flush, not the full
  *     accumulated text, so this class tracks how much it has already sent.
- *   - A single streamed message holds the whole reply: Slack documents no
- *     cumulative per-message cap, only a **12k char limit per `markdown_text`
- *     call**, so long replies are sent as successive ≤12k appends to the SAME
- *     message (no multi-message splitting — that was a `chat.update`-era
- *     workaround).
+ *   - Slack enforces a 12k char limit per `markdown_text` call AND a
+ *     *cumulative* cap on the text a single streamed message can hold. Once a
+ *     message is full, `appendStream` rejects every further delta with
+ *     `msg_too_long` — permanently, for the rest of the run. So a long reply is
+ *     spread over successive messages: {@link rollOver} closes the full one and
+ *     opens a continuation, re-opening any markdown construct that straddles
+ *     the boundary (the same shape as the legacy {@link ChunkedMessageStream}).
+ *     Appends are *deltas* and Slack has no "un-append", so a frozen boundary
+ *     can never be reflowed.
  *   - Beyond text, the stream can carry structured {@link AnyChunk}s
  *     (`task_update` / `plan_update` / `blocks`) via {@link appendChunk}, which
  *     flushes any pending text first so ordering is preserved, and a finalized
@@ -38,6 +42,11 @@
  * fake timers and a fake transport.
  */
 import type { AnyChunk, KnownBlock } from "@slack/types";
+import {
+  detectOpenContext,
+  renderContextOpener,
+} from "./auto-close-streaming.js";
+import type { OpenMarkdownContext } from "./auto-close-streaming.js";
 
 /** A minimal `{ append(fullText), finish() }` streaming sink. */
 export interface TextStream {
@@ -78,6 +87,11 @@ export interface NativeMessageStreamConfig {
   onChunkFailure?: (err: unknown) => void;
   /** Minimum gap between text flushes, in ms (defaults to 600). */
   minIntervalMs?: number;
+  /**
+   * Soft cap on the text one streamed message may hold before rolling over to a
+   * continuation. Defaults to {@link DEFAULT_MESSAGE_CHAR_LIMIT}.
+   */
+  messageCharLimit?: number;
 }
 
 /**
@@ -89,6 +103,49 @@ export interface NativeMessageStreamConfig {
 const DEFAULT_MIN_INTERVAL_MS = 600;
 /** Slack caps `markdown_text` at 12k chars per `appendStream` call. */
 const APPEND_CHAR_LIMIT = 12000;
+/**
+ * Soft cap on the text a single streamed message may accumulate before we roll
+ * over to a continuation message.
+ *
+ * Slack's *cumulative* per-message limit is undocumented; observed in
+ * production, `appendStream` began rejecting with `msg_too_long` after ~11.6k
+ * chars had been accepted into one message, which puts the real ceiling at 12k
+ * (the same number as the per-call cap). Staying a kilobyte under it leaves room
+ * for the auto-close closers appended at a boundary and absorbs any drift in
+ * how Slack counts, since crossing the cap is unrecoverable for the whole reply
+ * rather than merely truncating one append.
+ */
+const DEFAULT_MESSAGE_CHAR_LIMIT = 11000;
+
+/**
+ * The append-only counterpart to {@link renderContextOpener}: the closers that
+ * terminate whatever markdown is still open at a rollover boundary, so the
+ * message about to be finalized renders as well-formed markdown instead of
+ * ending mid-construct.
+ *
+ * Deliberately NOT {@link autoCloseOpenMarkdown}: that rewrites the text to
+ * insert closers *before* trailing whitespace, which an append-only transport
+ * cannot express — `appendStream` sends deltas and Slack offers no way to edit
+ * text already streamed. Appending after the trailing whitespace is the closest
+ * faithful equivalent.
+ */
+function renderContextCloser(
+  ctx: OpenMarkdownContext,
+  postedText: string,
+): string {
+  // Fences are exclusive: inside one, other markers are opaque code.
+  if (ctx.fenceLang !== null) {
+    return postedText.endsWith("\n") ? "```" : "\n```";
+  }
+  let out = "";
+  if (ctx.inlineCode) out += "`";
+  // Walk the bracket stack innermost-first so the rendered structure stays
+  // well-nested. Indexed backwards rather than via `reverse()`/`toReversed()`:
+  // the former mutates and lint rewrites it to the latter, which needs a newer
+  // `lib` than this package builds against.
+  for (let i = ctx.brackets.length - 1; i >= 0; i--) out += ctx.brackets[i];
+  return out;
+}
 
 export class NativeMessageStream implements TextStream {
   private buffer = "";
@@ -99,8 +156,15 @@ export class NativeMessageStream implements TextStream {
 
   /** Current streamed message ts (undefined until the first `startStream`). */
   private curTs: string | undefined;
-  /** Buffer chars already appended as text to the current message. */
+  /** Buffer chars already appended as text, across ALL messages of this reply. */
   private curPosted = 0;
+  /**
+   * Chars written to the CURRENT message — buffer text plus the synthetic
+   * openers/closers a rollover injects. Compared against `messageCharLimit`,
+   * so it must count the synthetic text too; `curPosted` must not, since that
+   * indexes the buffer.
+   */
+  private curMessagePosted = 0;
   /** ts of the first streamed message (for the returned MessageRef). */
   private firstTsValue: string | undefined;
 
@@ -114,6 +178,7 @@ export class NativeMessageStream implements TextStream {
   private readonly onStartFailure: ((err: unknown) => void) | undefined;
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
   private readonly minIntervalMs: number;
+  private readonly messageCharLimit: number;
 
   constructor(config: NativeMessageStreamConfig) {
     this.transport = config.transport;
@@ -121,6 +186,8 @@ export class NativeMessageStream implements TextStream {
     this.onStartFailure = config.onStartFailure;
     this.onChunkFailure = config.onChunkFailure;
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
+    this.messageCharLimit =
+      config.messageCharLimit ?? DEFAULT_MESSAGE_CHAR_LIMIT;
   }
 
   /** The first streamed message's ts (or the fallback's), available after finish(). */
@@ -197,12 +264,37 @@ export class NativeMessageStream implements TextStream {
     this.queue = this.queue.then(() => this.flushText());
   }
 
-  /** Ensure the stream is started; on failure, fall back to legacy and replay. Returns false if failed over. */
+  /**
+   * Open the message the next append should target — the reply's first message,
+   * or a continuation after a {@link rollOver}.
+   *
+   * A failure on the FIRST message falls back to the legacy transport ("opting
+   * in can never break a bot"). A failure on a *continuation* must not: the
+   * legacy sink is seeded with the whole accumulated buffer, so failing over
+   * mid-reply would re-post every character already streamed. It propagates
+   * instead, leaving the boundary intact so the next flush retries the
+   * continuation.
+   *
+   * @returns False only when the stream failed over to legacy.
+   */
   private async ensureStarted(): Promise<boolean> {
     if (this.curTs) return true;
+    if (this.firstTsValue !== undefined) {
+      this.curTs = await this.transport.startStream();
+      this.curMessagePosted = 0;
+      const opener = renderContextOpener(
+        detectOpenContext(this.buffer.slice(0, this.curPosted)),
+      );
+      if (opener) {
+        await this.transport.appendText(this.curTs, opener);
+        this.curMessagePosted += opener.length;
+      }
+      return true;
+    }
     try {
       this.curTs = await this.transport.startStream();
       this.firstTsValue = this.curTs;
+      this.curMessagePosted = 0;
       return true;
     } catch (err) {
       this.failOverToLegacy(err);
@@ -210,22 +302,12 @@ export class NativeMessageStream implements TextStream {
     }
   }
 
-  /** Append all un-posted buffer text to the current message, chunked under the 12k per-call cap. */
+  /** Append all un-posted buffer text, rolling over to continuation messages as needed. */
   private async flushText(): Promise<void> {
     if (this.legacy) return; // appends are forwarded directly once failed over
     if (this.curPosted >= this.buffer.length) return; // nothing new
-    if (!(await this.ensureStarted())) return;
     try {
-      let cursor = this.curPosted;
-      while (cursor < this.buffer.length) {
-        const end = Math.min(cursor + APPEND_CHAR_LIMIT, this.buffer.length);
-        await this.transport.appendText(
-          this.curTs!,
-          this.buffer.slice(cursor, end),
-        );
-        cursor = end;
-        this.curPosted = cursor;
-      }
+      await this.appendPending();
     } catch (err) {
       // A mid-stream append failure shouldn't sink the stream; the next flush
       // retries from `curPosted` (only advanced on success).
@@ -238,19 +320,122 @@ export class NativeMessageStream implements TextStream {
     }
   }
 
-  /** Flush pending text, then append one structured chunk. */
+  /**
+   * Append every un-posted buffer char, honoring BOTH Slack caps: ≤12k per
+   * `appendStream` call, and ≤`messageCharLimit` accumulated per message. When a
+   * message fills and text remains, the boundary is frozen on a line/word break
+   * and the reply continues in a fresh message.
+   *
+   * Errors propagate to the caller; `curPosted` advances only on a successful
+   * append, so a retry resumes exactly where this left off rather than
+   * re-posting (the failure mode that put five copies of a novella in a channel).
+   */
+  private async appendPending(): Promise<void> {
+    while (this.curPosted < this.buffer.length) {
+      if (!(await this.ensureStarted())) return; // failed over to legacy
+      const room = this.messageCharLimit - this.curMessagePosted;
+      if (room <= 0) {
+        await this.rollOver();
+        continue;
+      }
+      const remaining = this.buffer.length - this.curPosted;
+      if (remaining <= room) {
+        // The rest of the reply fits in this message; only the per-call cap applies.
+        await this.appendSlice(
+          Math.min(this.curPosted + APPEND_CHAR_LIMIT, this.buffer.length),
+        );
+        continue;
+      }
+      if (room <= APPEND_CHAR_LIMIT) {
+        // This append fills the message and text remains: freeze the boundary.
+        await this.appendSlice(
+          this.breakPoint(this.curPosted, this.curPosted + room),
+        );
+        await this.rollOver();
+        continue;
+      }
+      // Room to spare beyond one call (only reachable with a configured limit
+      // above the per-call cap): send a full call and re-evaluate.
+      await this.appendSlice(this.curPosted + APPEND_CHAR_LIMIT);
+    }
+  }
+
+  /** Append `buffer[curPosted, end)` to the current message and advance both cursors. */
+  private async appendSlice(end: number): Promise<void> {
+    const delta = this.buffer.slice(this.curPosted, end);
+    if (!delta) return;
+    await this.transport.appendText(this.curTs!, delta);
+    this.curPosted = end;
+    this.curMessagePosted += delta.length;
+  }
+
+  /**
+   * Pick where to end a message that has run out of room, preferring the last
+   * line break in the available window and falling back to the last space, so a
+   * boundary never tears a word in half. A break in the first quarter of the
+   * window is rejected as too wasteful — a hard cut costs less than shipping a
+   * near-empty message.
+   *
+   * @returns An index strictly greater than `start` (so callers always progress).
+   */
+  private breakPoint(start: number, maxEnd: number): number {
+    const window = this.buffer.slice(start, maxEnd);
+    const floor = window.length / 4;
+    let at = window.lastIndexOf("\n");
+    if (at < floor) at = Math.max(at, window.lastIndexOf(" "));
+    if (at < floor) return maxEnd;
+    // +1 keeps the break character on the outgoing message, so the continuation
+    // starts cleanly at the next line/word.
+    return start + at + 1;
+  }
+
+  /**
+   * Freeze the current message at the boundary: close any markdown construct
+   * left open, finalize it, and clear `curTs` so the next {@link ensureStarted}
+   * opens the continuation and re-opens that construct.
+   */
+  private async rollOver(): Promise<void> {
+    const posted = this.buffer.slice(0, this.curPosted);
+    const closer = renderContextCloser(detectOpenContext(posted), posted);
+    if (closer) {
+      await this.transport.appendText(this.curTs!, closer);
+      this.curMessagePosted += closer.length;
+    }
+    try {
+      await this.transport.stopStream(this.curTs!);
+    } catch (err) {
+      // A message left rendering as "still streaming" is cosmetic; dropping the
+      // rest of the reply is not. Roll over regardless.
+      console.error("[native-stream] stopStream (rollover) failed:", err);
+    }
+    this.curTs = undefined;
+  }
+
+  /**
+   * Flush pending text, then append one structured chunk.
+   *
+   * Everything is guarded: this runs on the shared `queue`, and letting a
+   * rejection escape would poison every later flush (including `finish`'s
+   * `await this.queue`).
+   */
   private async flushChunk(chunk: AnyChunk): Promise<void> {
     if (this.legacy || this.chunksDisabled) return;
-    // Start the stream even if no text yet — a tool call can be the first thing
-    // the agent emits (`startStream` accepts a content-less open; the chunk is
-    // the message's first content).
-    if (!(await this.ensureStarted())) {
-      this.disableChunks(new Error("startStream failed"));
-      return;
-    }
-    await this.flushTextInline();
     try {
-      await this.transport.appendChunks(this.curTs!, [chunk]);
+      // Start the stream even if no text yet — a tool call can be the first
+      // thing the agent emits (`startStream` accepts a content-less open; the
+      // chunk is the message's first content).
+      if (!(await this.ensureStarted())) {
+        this.disableChunks(new Error("startStream failed"));
+        return;
+      }
+      await this.flushTextInline();
+      // A rollover inside the text flush retargets the stream, and a legacy
+      // failover removes it entirely; re-check before addressing the chunk.
+      if (this.legacy || !this.curTs) {
+        this.disableChunks(new Error("native stream unavailable"));
+        return;
+      }
+      await this.transport.appendChunks(this.curTs, [chunk]);
     } catch (err) {
       console.error(
         `[native-stream] appendChunks failed (ts=${this.curTs}):`,
@@ -262,20 +447,11 @@ export class NativeMessageStream implements TextStream {
     }
   }
 
-  /** Append pending text to the current (already-started) message; swallow failures. */
+  /** Append pending text to the current message (rolling over as needed); swallow failures. */
   private async flushTextInline(): Promise<void> {
     if (this.curPosted >= this.buffer.length) return;
     try {
-      let cursor = this.curPosted;
-      while (cursor < this.buffer.length) {
-        const end = Math.min(cursor + APPEND_CHAR_LIMIT, this.buffer.length);
-        await this.transport.appendText(
-          this.curTs!,
-          this.buffer.slice(cursor, end),
-        );
-        cursor = end;
-        this.curPosted = cursor;
-      }
+      await this.appendPending();
     } catch (err) {
       console.error(
         `[native-stream] appendText (pre-chunk) failed (ts=${this.curTs}):`,

@@ -15,6 +15,13 @@ type Event =
 function makeFakeTransport(opts?: {
   failStart?: boolean;
   failChunks?: boolean;
+  /**
+   * Slack's *cumulative* per-message text cap. An `appendStream` whose delta
+   * would push the message's total `markdown_text` past this many chars is
+   * rejected with `msg_too_long` — exactly what the real API does, and what a
+   * long reply (a novella) hits in production. Undefined = uncapped.
+   */
+  messageCharLimit?: number;
 }) {
   const messages: {
     ts: string;
@@ -32,9 +39,18 @@ function makeFakeTransport(opts?: {
       return ts;
     }),
     appendText: vi.fn(async (ts: string, md: string) => {
-      messages
-        .find((m) => m.ts === ts)
-        ?.events.push({ kind: "text", value: md });
+      const message = messages.find((m) => m.ts === ts);
+      if (!message) throw new Error(`appendText to unknown ts ${ts}`);
+      if (opts?.messageCharLimit !== undefined) {
+        const posted = message.events.reduce(
+          (n, e) => (e.kind === "text" ? n + e.value.length : n),
+          0,
+        );
+        if (posted + md.length > opts.messageCharLimit) {
+          throw new Error("msg_too_long");
+        }
+      }
+      message.events.push({ kind: "text", value: md });
     }),
     appendChunks: vi.fn(async (ts: string, chunks: AnyChunk[]) => {
       if (opts?.failChunks) throw new Error("chunks unsupported");
@@ -113,26 +129,133 @@ describe("NativeMessageStream", () => {
     expect(messages).toHaveLength(0);
   });
 
-  it("keeps a long reply in ONE message, chunking appends under the 12k per-call cap", async () => {
-    const { transport, messages } = makeFakeTransport();
+  it("keeps a reply that fits under the per-message cap in ONE message", async () => {
+    const { transport, messages } = makeFakeTransport({
+      messageCharLimit: 12_000,
+    });
     const stream = new NativeMessageStream({
       transport,
       fallback: makeFakeFallback,
       minIntervalMs: 0,
     });
 
-    const text = "x".repeat(25_000); // > 2× the 12k per-append limit
+    const text = "x".repeat(5_000);
     stream.append(text);
     await stream.finish();
 
-    // One streamed message (no continuation splitting), finalized.
     expect(messages).toHaveLength(1);
     expect(messages[0]!.stopped).toBe(true);
-    // Reconstructs exactly, and every append is <= 12k chars.
-    const appends = messages[0]!.events.filter((e) => e.kind === "text");
-    expect(appends.length).toBeGreaterThan(1);
-    for (const a of appends) expect(a.value.length).toBeLessThanOrEqual(12_000);
     expect(textOf(messages[0]!.events)).toBe(text);
+  });
+
+  it("rolls over to continuation messages when the reply exceeds Slack's cumulative per-message cap", async () => {
+    const { transport, messages } = makeFakeTransport({
+      messageCharLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // A novella-length reply: ~2× Slack's cumulative per-message cap. The
+    // production incident lost 4 of 5 attempts to `msg_too_long` here.
+    const text = "x".repeat(25_000);
+    stream.append(text);
+    await stream.finish();
+
+    // Split across messages, none of which exceeded the cumulative cap...
+    expect(messages.length).toBeGreaterThan(1);
+    for (const m of messages) {
+      expect(textOf(m.events).length).toBeLessThanOrEqual(12_000);
+      // ...every append still under the 12k per-call cap...
+      for (const e of m.events) {
+        if (e.kind === "text")
+          expect(e.value.length).toBeLessThanOrEqual(12_000);
+      }
+      // ...and every message finalized, not left streaming.
+      expect(m.stopped).toBe(true);
+    }
+    // Not one character lost or reordered.
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    // The MessageRef still points at the first message of the reply.
+    expect(stream.firstTs).toBe("S1");
+  });
+
+  it("rolls over at a line boundary instead of mid-word", async () => {
+    const { transport, messages } = makeFakeTransport({
+      messageCharLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // 250 numbered lines of ~100 chars — every line break is a legal boundary.
+    const lines = Array.from({ length: 250 }, (_, i) =>
+      `${String(i).padStart(4, "0")} ${"word ".repeat(19)}`.trim(),
+    );
+    const text = lines.join("\n");
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    // No message except the last may end mid-word: each boundary lands on a
+    // newline, so no rendered line is ever torn in half.
+    for (const m of messages.slice(0, -1)) {
+      const rendered = textOf(m.events);
+      expect(rendered.endsWith("\n")).toBe(true);
+    }
+  });
+
+  it("resumes from the last successful append after a transient failure, never re-posting", async () => {
+    const { transport, messages } = makeFakeTransport();
+    // Reject the 2nd append once; the flush after it must resume from the same
+    // offset rather than replaying text Slack already accepted.
+    let calls = 0;
+    const inner = transport.appendText;
+    transport.appendText = vi.fn(async (ts: string, md: string) => {
+      calls++;
+      if (calls === 2) throw new Error("transient");
+      return inner(ts, md);
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    stream.append("one ");
+    await new Promise((r) => setTimeout(r, 0));
+    stream.append("one two ");
+    await new Promise((r) => setTimeout(r, 0));
+    stream.append("one two three");
+    await stream.finish();
+
+    expect(textOf(messages[0]!.events)).toBe("one two three");
+  });
+
+  it("reopens an unclosed code fence in the continuation message", async () => {
+    const { transport, messages } = makeFakeTransport({
+      messageCharLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // A fenced block long enough to straddle the rollover boundary.
+    const text = `here you go:\n\n\`\`\`python\n${"# a comment line\n".repeat(1_200)}\`\`\`\n`;
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    // The continuation must re-open the fence, or Slack renders the rest of the
+    // program as prose.
+    expect(textOf(messages[1]!.events).startsWith("```")).toBe(true);
   });
 
   it("appendChunk flushes pending text FIRST, then sends the chunk", async () => {
