@@ -383,5 +383,6 @@ features your app uses:
 entries); `markdownToMrkdwn`; and the
 preserved mechanics (`SlackConversationStore`, `MessageStream`,
 `ChunkedMessageStream`, `NativeMessageStream`, `attachSlackListener`,
-`attachAssistant`, `SanitizingHttpAgent`, `buildFileContentParts`,
+`attachAssistant`, `SanitizingHttpAgent` (deprecated — Channels sanitize by
+default), `buildFileContentParts`,
 `autoCloseOpenMarkdown`, and supporting types).

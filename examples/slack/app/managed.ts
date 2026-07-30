@@ -27,11 +27,10 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import {
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -72,7 +71,7 @@ async function main() {
   const support = createChannel({
     name: channelName,
     agent: (threadId) => {
-      const a = new SanitizingHttpAgent({
+      const a = new HttpAgent({
         url: agentUrl,
         headers: agentHeaders,
       });
@@ -136,7 +135,7 @@ async function main() {
   });
 
   const runtime = new CopilotRuntime({
-    // The Channel supplies its own agent (the SanitizingHttpAgent above), so no
+    // The Channel supplies its own agent (the HttpAgent above), so no
     // additional runtime-hosted agents are needed here.
     agents: {},
     intelligence,
