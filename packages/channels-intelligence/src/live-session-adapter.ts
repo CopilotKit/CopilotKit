@@ -1,0 +1,799 @@
+import { createHash, randomUUID } from "node:crypto";
+import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type {
+  ChannelNode,
+  MessageRef,
+  PlatformUser,
+  ThreadMessage,
+} from "@copilotkit/channels-ui";
+import type {
+  CanonicalRunIdentity,
+  ChannelAgentLifecycleArgs,
+  ChannelAgentLoopResult,
+  ConversationStore,
+  AgentToolDescriptor,
+  ContextEntry,
+  IngressSink,
+  InteractionEvent,
+  NativePayload,
+  PlatformAdapter,
+  ReplyTarget,
+  RunRenderer,
+  StateStore,
+  SurfaceCapabilities,
+  UserQuery,
+} from "@copilotkit/channels-core";
+import {
+  createRunRenderer as createSlackRunRenderer,
+  renderSlackMessage,
+} from "@copilotkit/channels-slack/render";
+import {
+  createRunRenderer as createTeamsRunRenderer,
+  isPlainText,
+  renderAdaptiveCard,
+  renderTeamsMarkdown,
+} from "@copilotkit/channels-teams/render";
+import type {
+  LiveDeliverySession,
+  LiveSessionDelivery,
+  LiveSessionRun,
+  LiveSessionTransport,
+} from "./live-session-transport.js";
+import { safeChannelErrorMetadata } from "./live-session-transport.js";
+import { assertProviderReference } from "./live-session-contracts.js";
+import {
+  managedImageBytesMatch,
+  managedImageMimeType,
+} from "./live-session-files.js";
+
+interface LiveReplyTarget {
+  session: LiveDeliverySession;
+  delivery: LiveSessionDelivery;
+}
+
+interface LiveMessageRef extends MessageRef {
+  responseId: string;
+  session: LiveDeliverySession;
+  adapter: "slack" | "teams";
+  providerReference?: string;
+}
+
+export interface CanonicalChannelRunArgs {
+  agent: AbstractAgent;
+  threadId: string;
+  runId: string;
+  runnerToken: string;
+  /** Cancels this exact Gateway delivery/call through the canonical runner. */
+  abortSignal: AbortSignal;
+  tools: readonly AgentToolDescriptor[];
+  context: readonly ContextEntry[];
+  persistedInputMessages: Message[];
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: CanonicalRunIdentity,
+  ): Promise<ChannelAgentLoopResult>;
+}
+
+export interface LiveSessionAdapterOptions {
+  transport: LiveSessionTransport;
+  runCanonical(args: CanonicalChannelRunArgs): Promise<ChannelAgentLoopResult>;
+  loadHistory(args: {
+    threadId: string;
+    appUserId: string;
+  }): Promise<Message[]>;
+  store?: StateStore;
+  log?: (message: string, meta?: unknown) => void;
+  showToolStatus?: boolean;
+}
+
+/** Typed rejection for two overlapping agent calls on one canonical thread. */
+export class ChannelAgentConcurrencyError extends Error {
+  readonly code = "channel_agent_concurrency_not_supported";
+
+  constructor(threadId: string) {
+    super(`Channel agent execution is already active for thread ${threadId}`);
+    this.name = "ChannelAgentConcurrencyError";
+  }
+}
+
+/** Stable managed-v1 rejection for Slack slash commands that request agent output. */
+class ChannelSlashCommandAgentNotSupportedError extends Error {
+  readonly code = "channel_slash_command_agent_not_supported";
+
+  constructor() {
+    super(
+      "Managed Slack slash commands cannot call Thread.runAgent() in Channels v1; send a discrete reply with Thread.post() instead.",
+    );
+    this.name = "ChannelSlashCommandAgentNotSupportedError";
+  }
+}
+
+/** Managed Channels adapter backed only by Gateway-owned delivery sessions. */
+export class LiveSessionAdapter implements PlatformAdapter {
+  readonly platform = "intelligence";
+  readonly __intelligenceChannel = true;
+  readonly skipIngressDedup = true;
+  readonly injectInboundTurnOnce = true;
+  readonly ackDeadlineMs = 0;
+  readonly stateStore?: StateStore;
+  readonly capabilities: SurfaceCapabilities = {
+    supportsModals: false,
+    supportsTyping: false,
+    supportsReactions: false,
+    supportsStreaming: true,
+    supportsBlockingChoice: false,
+    supportsEphemeral: false,
+  };
+  readonly conversationStore: ConversationStore = {
+    seedsInboundTurn: false,
+    getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
+      const target = asLiveTarget(replyTarget);
+      const threadId = target.delivery.canonicalThreadId;
+      // Reserve before creating or queuing an agent so overlap rejects instead
+      // of silently serializing behind a configured shared agent instance.
+      if (this.activeThreads.has(threadId)) {
+        throw new ChannelAgentConcurrencyError(threadId);
+      }
+      this.activeThreads.add(threadId);
+      let releaseAgent: (() => void) | undefined;
+      try {
+        const agent = makeAgent(conversationKey);
+        releaseAgent = await this.acquireAgent(agent);
+        const history = await this.options.loadHistory({
+          threadId,
+          appUserId: target.delivery.appUserId,
+        });
+        agent.messages = [...history];
+        this.historyIds.set(
+          agent,
+          new Set(history.map((message) => message.id)),
+        );
+        let released = false;
+        return {
+          agent,
+          release: () => {
+            if (released) return;
+            released = true;
+            releaseAgent?.();
+            this.activeThreads.delete(threadId);
+          },
+        };
+      } catch (error) {
+        releaseAgent?.();
+        this.activeThreads.delete(threadId);
+        throw error;
+      }
+    },
+  };
+
+  private sink?: IngressSink;
+  private readonly rendererResponses = new WeakMap<RunRenderer, string>();
+  private readonly historyIds = new WeakMap<
+    AbstractAgent,
+    ReadonlySet<string>
+  >();
+  private readonly agentTails = new WeakMap<AbstractAgent, Promise<void>>();
+  private readonly activeThreads = new Set<string>();
+  private readonly interruptedRuns = new Map<string, string>();
+
+  constructor(private readonly options: LiveSessionAdapterOptions) {
+    this.stateStore = options.store;
+  }
+
+  /**
+   * Hold one mutable agent instance for exactly one managed canonical thread.
+   *
+   * Agent factories still run concurrently because they return distinct
+   * objects. A configured agent instance queues here through history loading,
+   * prompt injection, execution, cancellation, and finalization.
+   */
+  private async acquireAgent(agent: AbstractAgent): Promise<() => void> {
+    const previous = this.agentTails.get(agent) ?? Promise.resolve();
+    let releaseCurrent!: () => void;
+    const current = new Promise<void>((resolve) => {
+      releaseCurrent = resolve;
+    });
+    const tail = previous.then(() => current);
+    this.agentTails.set(agent, tail);
+    await previous;
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      releaseCurrent();
+      if (this.agentTails.get(agent) === tail) {
+        this.agentTails.delete(agent);
+      }
+    };
+  }
+
+  async start(sink: IngressSink): Promise<void> {
+    this.sink = sink;
+    this.options.transport.start((session, delivery) =>
+      this.dispatch(session, delivery),
+    );
+  }
+
+  stop(): Promise<void> {
+    return this.options.transport.stop();
+  }
+
+  trackThreadOperation<T>(
+    targetValue: ReplyTarget,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    return asLiveTarget(targetValue).session.trackOperation(operation);
+  }
+
+  private async dispatch(
+    session: LiveDeliverySession,
+    delivery: LiveSessionDelivery,
+  ): Promise<void> {
+    const sink = this.sink;
+    if (!sink) throw new Error("LiveSessionAdapter is not started");
+    const replyTarget: LiveReplyTarget = { session, delivery };
+    const base = {
+      conversationKey: delivery.canonicalThreadId,
+      replyTarget,
+      eventId: delivery.turn.eventId,
+      turnId: delivery.turn.id,
+      deliveryId: delivery.deliveryId,
+      platform: delivery.adapter,
+      user: delivery.turn.actor
+        ? {
+            id: delivery.turn.actor.externalUserId,
+            ...(delivery.turn.actor.displayName
+              ? { name: delivery.turn.actor.displayName }
+              : {}),
+          }
+        : undefined,
+    };
+    const input = delivery.turn.input;
+    switch (input.kind) {
+      case "text": {
+        const parts = await session.getContentParts(input.files);
+        await sink.onTurn({
+          ...base,
+          userText: input.text ?? "",
+          ...(parts.length > 0
+            ? {
+                contentParts: [
+                  ...(input.text
+                    ? [{ type: "text" as const, text: input.text }]
+                    : []),
+                  ...parts,
+                ],
+              }
+            : {}),
+        });
+        return;
+      }
+      case "command":
+        await sink.onCommand({
+          ...base,
+          command: input.command,
+          text: input.text ?? "",
+          ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
+          ...(input.triggerId ? { triggerId: input.triggerId } : {}),
+        });
+        return;
+      case "interaction":
+        await sink.onInteraction({
+          ...base,
+          id: input.actionId,
+          ...(input.value !== undefined ? { value: input.value } : {}),
+          ...(input.messageRef !== undefined
+            ? {
+                messageRef: inboundMessageRef(replyTarget, input.messageRef),
+              }
+            : {}),
+          ...(input.triggerId ? { triggerId: input.triggerId } : {}),
+        });
+        return;
+      case "reaction":
+        await sink.onReaction({
+          ...base,
+          rawEmoji: input.rawEmoji,
+          added: input.added,
+          messageId: input.messageRef.id,
+          messageRef: inboundMessageRef(replyTarget, input.messageRef),
+          ...(input.postedRef ? { postedMessageId: input.postedRef } : {}),
+          raw: input,
+        });
+    }
+  }
+
+  /** Reject managed surface-policy violations before operation tracking starts. */
+  assertRunAgentSupported(targetValue: ReplyTarget): void {
+    const target = asLiveTarget(targetValue);
+    if (
+      target.delivery.adapter === "slack" &&
+      target.delivery.turn.input.kind === "command"
+    ) {
+      throw new ChannelSlashCommandAgentNotSupportedError();
+    }
+  }
+
+  async runAgentLifecycle(
+    args: ChannelAgentLifecycleArgs,
+  ): Promise<ChannelAgentLoopResult> {
+    const target = asLiveTarget(args.replyTarget);
+    this.assertRunAgentSupported(args.replyTarget);
+    const threadId = target.delivery.canonicalThreadId;
+    const parentRunId = args.isResume
+      ? this.interruptedRuns.get(threadId)
+      : undefined;
+    const responseId =
+      this.rendererResponses.get(args.renderer) ?? mintId("response_");
+    const callId = mintId("call_");
+    let opened: LiveSessionRun | undefined;
+    let status: "complete" | "failed" = "complete";
+    let result!: ChannelAgentLoopResult;
+    try {
+      opened = await target.session.openRun({
+        callId,
+        responseId,
+        agentId: args.agent.agentId ?? "default",
+        ...(parentRunId ? { parentRunId } : {}),
+      });
+      if (
+        parentRunId !== undefined &&
+        this.interruptedRuns.get(threadId) === parentRunId
+      ) {
+        this.interruptedRuns.delete(threadId);
+      }
+      const historyIds = this.historyIds.get(args.agent) ?? new Set<string>();
+      result = await this.options.runCanonical({
+        agent: args.agent,
+        threadId: opened.threadId,
+        runId: opened.runId,
+        runnerToken: opened.runnerToken,
+        abortSignal: opened.abortSignal,
+        tools: args.tools,
+        context: args.context,
+        persistedInputMessages: args.agent.messages.filter(
+          (message) => !historyIds.has(message.id),
+        ),
+        execute: args.execute,
+      });
+      if (result.interrupted) {
+        this.interruptedRuns.set(threadId, opened.runId);
+      }
+    } catch (error) {
+      status = "failed";
+      throw error;
+    } finally {
+      if (opened) {
+        await target.session
+          .closeRun(opened.callId, status)
+          .catch((error: unknown) => {
+            this.options.log?.(
+              "channel run close failed",
+              safeChannelErrorMetadata(error),
+            );
+          });
+      }
+    }
+    if (result.deliveryError !== undefined) {
+      throw result.deliveryError;
+    }
+    return result;
+  }
+
+  render(ir: ChannelNode[]): NativePayload {
+    return ir;
+  }
+
+  async post(targetValue: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
+    const target = asLiveTarget(targetValue);
+    const responseId = mintId("response_");
+    await this.postRendered(
+      target.session,
+      target.delivery.adapter,
+      responseId,
+      ir,
+    );
+    return messageRef(target, responseId);
+  }
+
+  async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
+    const ref = asLiveRef(refValue);
+    await this.replaceRendered(
+      ref.session,
+      ref.adapter,
+      ref.responseId,
+      ir,
+      ref.providerReference,
+    );
+  }
+
+  async delete(refValue: MessageRef): Promise<void> {
+    const ref = asLiveRef(refValue);
+    if (ref.adapter !== "slack") {
+      throw new Error("Teams message delete is not supported");
+    }
+    await ref.session.effect(ref.responseId, {
+      kind: "slack.message.delete",
+      ...(ref.providerReference
+        ? { providerReference: ref.providerReference }
+        : {}),
+    });
+  }
+
+  async stream(
+    targetValue: ReplyTarget,
+    chunks: AsyncIterable<string>,
+  ): Promise<MessageRef> {
+    const target = asLiveTarget(targetValue);
+    const responseId = mintId("response_");
+    if (target.delivery.adapter === "slack") {
+      await target.session.effect(responseId, {
+        kind: "slack.stream.start",
+      });
+      let text = "";
+      for await (const delta of chunks) {
+        const before = digest(text);
+        text += delta;
+        await target.session.effect(responseId, {
+          kind: "slack.stream.append",
+          delta,
+          beforeTextDigest: before,
+          afterTextDigest: digest(text),
+        });
+      }
+      await target.session.effect(responseId, {
+        kind: "slack.stream.stop",
+        finalTextDigest: digest(text),
+      });
+    } else {
+      let text = "";
+      let created = false;
+      for await (const delta of chunks) {
+        text += delta;
+        await target.session.effect(responseId, {
+          kind: created ? "teams.message.replace" : "teams.message.create",
+          text,
+        });
+        created = true;
+      }
+    }
+    return messageRef(target, responseId);
+  }
+
+  async postFile(
+    targetValue: ReplyTarget,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+    const target = asLiveTarget(targetValue);
+    if (target.delivery.adapter === "teams") {
+      const mimeType = managedImageMimeType(args.filename);
+      if (!mimeType) {
+        return {
+          ok: false,
+          error: "Teams general file upload is not supported",
+        };
+      }
+      if (!managedImageBytesMatch(args.bytes, mimeType)) {
+        return {
+          ok: false,
+          error: "Teams image bytes do not match the filename",
+        };
+      }
+    }
+    try {
+      const handle = await target.session.uploadFile(args);
+      const responseId = mintId("response_");
+      if (target.delivery.adapter === "slack") {
+        await target.session.effect(responseId, {
+          kind: "slack.file.create",
+          fileHandle: handle,
+          ...(args.title ? { title: args.title } : {}),
+          ...(args.altText ? { altText: args.altText } : {}),
+        });
+      } else {
+        await target.session.effect(responseId, {
+          kind: "teams.image.create",
+          fileHandle: handle,
+          altText: args.altText ?? args.title ?? args.filename,
+        });
+      }
+      return { ok: true, fileId: handle };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  createRunRenderer(targetValue: ReplyTarget): RunRenderer {
+    const target = asLiveTarget(targetValue);
+    const responseId = mintId("response_");
+    const renderer =
+      target.delivery.adapter === "slack"
+        ? this.createSlackRenderer(target.session, responseId)
+        : this.createTeamsRenderer(target.session, responseId);
+    this.rendererResponses.set(renderer, responseId);
+    return renderer;
+  }
+
+  private createSlackRenderer(
+    session: LiveDeliverySession,
+    responseId: string,
+  ): RunRenderer {
+    let text = "";
+    return createSlackRunRenderer({
+      target: { channel: "managed", threadTs: "managed" },
+      status: { threadTs: "managed", isPane: false },
+      showToolStatus: this.options.showToolStatus ?? false,
+      transport: {
+        setStatus: async ({ status }) => {
+          await session.effect(responseId, {
+            kind: "slack.status",
+            status,
+          });
+        },
+        postMessage: async ({ text: message }) => {
+          await session.effect(responseId, {
+            kind: "slack.message.create",
+            text: message,
+          });
+          return { ts: responseId };
+        },
+        updateMessage: async ({ text: message }) => {
+          await session.effect(responseId, {
+            kind: "slack.message.replace",
+            text: message,
+          });
+        },
+      },
+      nativeStreaming: {
+        strict: true,
+        minIntervalMs: 0,
+        transport: {
+          startStream: async () => {
+            await session.effect(responseId, {
+              kind: "slack.stream.start",
+            });
+            return responseId;
+          },
+          appendText: async (_id, delta) => {
+            const before = digest(text);
+            text += delta;
+            await session.effect(responseId, {
+              kind: "slack.stream.append",
+              delta,
+              beforeTextDigest: before,
+              afterTextDigest: digest(text),
+            });
+          },
+          appendChunks: async (_id, chunks) => {
+            for (const chunk of chunks as unknown as Array<
+              Record<string, unknown>
+            >) {
+              if (chunk.type !== "task_update") continue;
+              await session.effect(responseId, {
+                kind: "slack.stream.task",
+                taskId: String(chunk.id),
+                title: String(chunk.title),
+                status: normalizeTaskStatus(chunk.status),
+              });
+            }
+          },
+          stopStream: async () => {
+            await session.effect(responseId, {
+              kind: "slack.stream.stop",
+              finalTextDigest: digest(text),
+            });
+          },
+        },
+      },
+    });
+  }
+
+  private createTeamsRenderer(
+    session: LiveDeliverySession,
+    responseId: string,
+  ): RunRenderer {
+    return createTeamsRunRenderer({
+      typing: async () => {
+        try {
+          await session.effect(responseId, {
+            kind: "teams.typing",
+          });
+        } catch (error) {
+          this.options.log?.(
+            "managed Teams typing failed",
+            safeChannelErrorMetadata(error),
+          );
+        }
+      },
+      post: async (text) => {
+        await session.effect(responseId, {
+          kind: "teams.message.create",
+          text,
+        });
+        return responseId;
+      },
+      update: async (_id, text) => {
+        await session.effect(responseId, {
+          kind: "teams.message.replace",
+          text,
+        });
+      },
+    });
+  }
+
+  private async postRendered(
+    session: LiveDeliverySession,
+    adapter: "slack" | "teams",
+    responseId: string,
+    ir: ChannelNode[],
+  ): Promise<void> {
+    if (adapter === "slack") {
+      const rendered = renderSlackMessage(ir);
+      await session.effect(responseId, {
+        kind: "slack.message.create",
+        text: collectText(ir),
+        blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
+      });
+      return;
+    }
+    await session.effect(responseId, teamsMessageEffect("create", ir));
+  }
+
+  private async replaceRendered(
+    session: LiveDeliverySession,
+    adapter: "slack" | "teams",
+    responseId: string,
+    ir: ChannelNode[],
+    providerReference?: string,
+  ): Promise<void> {
+    if (adapter === "slack") {
+      const rendered = renderSlackMessage(ir);
+      await session.effect(responseId, {
+        kind: "slack.message.replace",
+        text: collectText(ir),
+        blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
+        ...(providerReference ? { providerReference } : {}),
+      });
+      return;
+    }
+    await session.effect(
+      responseId,
+      teamsMessageEffect("replace", ir, providerReference),
+    );
+  }
+
+  async getMessages(targetValue: ReplyTarget): Promise<ThreadMessage[]> {
+    const target = asLiveTarget(targetValue);
+    const messages = await this.options.loadHistory({
+      threadId: target.delivery.canonicalThreadId,
+      appUserId: target.delivery.appUserId,
+    });
+    return messages.map((message) => ({
+      text:
+        typeof message.content === "string"
+          ? message.content
+          : JSON.stringify(message.content),
+      isBot: message.role !== "user",
+      user: {
+        id: message.role === "user" ? "user" : "bot",
+        name: message.role === "user" ? "user" : "bot",
+      },
+    }));
+  }
+
+  decodeInteraction(raw: unknown): InteractionEvent | undefined {
+    return raw as InteractionEvent;
+  }
+
+  lookupUser(_query: UserQuery): Promise<PlatformUser | undefined> {
+    return Promise.resolve(undefined);
+  }
+}
+
+function teamsMessageEffect(
+  operation: "create" | "replace",
+  ir: ChannelNode[],
+  providerReference?: string,
+) {
+  const text = renderTeamsMarkdown(ir);
+  const reference = providerReference ? { providerReference } : {};
+  return isPlainText(ir)
+    ? {
+        kind: `teams.message.${operation}` as const,
+        text,
+        ...reference,
+      }
+    : {
+        kind: `teams.message.${operation}` as const,
+        text,
+        cards: [renderAdaptiveCard(ir) as unknown as Record<string, unknown>],
+        ...reference,
+      };
+}
+
+function asLiveTarget(value: ReplyTarget): LiveReplyTarget {
+  const target = value as Partial<LiveReplyTarget>;
+  if (!target.session || !target.delivery) {
+    throw new Error("Channel reply target is outside a live delivery session");
+  }
+  return target as LiveReplyTarget;
+}
+
+function asLiveRef(value: MessageRef): LiveMessageRef {
+  const ref = value as Partial<LiveMessageRef>;
+  if (!ref.session || !ref.responseId || !ref.adapter) {
+    throw new Error("Channel message ref is outside a live delivery session");
+  }
+  return ref as LiveMessageRef;
+}
+
+function messageRef(
+  target: LiveReplyTarget,
+  responseId: string,
+  providerReference?: string,
+): LiveMessageRef {
+  return {
+    id: providerReference ?? responseId,
+    responseId,
+    session: target.session,
+    adapter: target.delivery.adapter,
+    ...(providerReference ? { providerReference } : {}),
+  };
+}
+
+/** Rehydrate a Gateway reference with delivery-local update state. */
+function inboundMessageRef(
+  target: LiveReplyTarget,
+  value: unknown,
+): LiveMessageRef {
+  if (typeof value !== "object" || value === null || !("id" in value)) {
+    throw new TypeError(
+      "provider message reference must contain an opaque capability",
+    );
+  }
+  const providerReference = value.id;
+  assertProviderReference(providerReference);
+  return messageRef(target, mintId("response_"), providerReference);
+}
+
+function mintId(prefix: string): string {
+  return `${prefix}${randomUUID().replaceAll("-", "")}`;
+}
+
+function digest(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function normalizeTaskStatus(
+  value: unknown,
+): "pending" | "in_progress" | "complete" | "failed" {
+  return value === "pending" ||
+    value === "in_progress" ||
+    value === "complete" ||
+    value === "failed"
+    ? value
+    : "in_progress";
+}
+
+function collectText(nodes: readonly ChannelNode[]): string {
+  let text = "";
+  for (const node of nodes) {
+    if (node.type === "text" && typeof node.props.value === "string") {
+      text += node.props.value;
+    }
+    const children = node.props.children;
+    if (Array.isArray(children)) {
+      text += collectText(children as ChannelNode[]);
+    }
+  }
+  return text;
+}

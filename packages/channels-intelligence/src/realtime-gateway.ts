@@ -1,4 +1,6 @@
 import { Socket } from "phoenix";
+import type { Channel } from "phoenix";
+import type { CHANNEL_SESSION_PROTOCOL } from "./live-session-contracts.js";
 
 /**
  * Minimal Realtime Gateway session surface used by the delivery/render
@@ -8,6 +10,16 @@ import { Socket } from "phoenix";
 export interface RealtimeGatewaySession {
   push(event: string, payload: unknown): Promise<unknown>;
   on(event: string, handler: (payload: unknown) => void): void;
+  /** Join one delivery-scoped Phoenix topic on the existing socket. */
+  join?(
+    topic: string,
+    payload: unknown,
+  ): Promise<RealtimeGatewayDeliveryChannel>;
+}
+
+/** One joined delivery topic. */
+export interface RealtimeGatewayDeliveryChannel extends RealtimeGatewaySession {
+  leave(): void;
 }
 
 /** @internal Options for {@link connectRealtimeGateway}. */
@@ -26,11 +38,12 @@ export interface ConnectRealtimeGatewayOptions {
   projectId: number;
   /** Listener declaration sent as the channel join payload. */
   join: {
+    /** Exact live-session protocol required by the Gateway project topic. */
+    protocol: typeof CHANNEL_SESSION_PROTOCOL;
     runtimeInstanceId: string;
     declaredChannels: ReadonlyArray<{
       channelName: string;
       adapter: string;
-      renderCapabilities?: readonly string[];
     }>;
     runtimeMetadata?: Record<string, unknown>;
     observedAt: string;
@@ -885,6 +898,42 @@ export async function connectRealtimeGateway(
   // connect watchdog above.
   await initialConnect;
 
+  const wrapChannel = (
+    joinedChannel: Channel,
+  ): RealtimeGatewayDeliveryChannel => ({
+    push: (event, payload) =>
+      new Promise((resolve, reject) => {
+        joinedChannel
+          .push(event, payload as object, timeout)
+          .receive("ok", (reply: unknown) => resolve(reply))
+          .receive("error", (reason: unknown) =>
+            reject(
+              new RealtimeGatewayPushError(
+                event,
+                extractReasonCode(reason),
+                reason,
+              ),
+            ),
+          )
+          .receive("timeout", () =>
+            reject(
+              new Error(`realtime gateway session push ${event} timed out`),
+            ),
+          );
+      }),
+    on: (event, handler) => {
+      joinedChannel.on(event, handler);
+    },
+    join: async (topic, payload) => {
+      const child = socket.channel(topic, payload as object);
+      await joinPhoenixChannel(child, timeout);
+      return wrapChannel(child);
+    },
+    leave: () => {
+      joinedChannel.leave();
+    },
+  });
+
   // Drop notification: Phoenix fires the socket's `onClose`/`onError` AND the
   // channel's `onError` for the same underlying drop (see `socket.js`'s
   // `onConnClose` → `triggerChanError`), so guard with a fired flag rather
@@ -948,29 +997,7 @@ export async function connectRealtimeGateway(
   });
 
   return {
-    push: (event, payload) =>
-      new Promise((resolve, reject) => {
-        channel
-          .push(event, payload as object, timeout)
-          .receive("ok", (reply: unknown) => resolve(reply))
-          .receive("error", (reason: unknown) =>
-            reject(
-              new RealtimeGatewayPushError(
-                event,
-                extractReasonCode(reason),
-                reason,
-              ),
-            ),
-          )
-          .receive("timeout", () =>
-            reject(
-              new Error(`realtime gateway session push ${event} timed out`),
-            ),
-          );
-      }),
-    on: (event, handler) => {
-      channel.on(event, handler);
-    },
+    ...wrapChannel(channel),
     onClose: (cb) => {
       closeCallbacks.push(cb);
     },
@@ -983,6 +1010,28 @@ export async function connectRealtimeGateway(
       socket.disconnect();
     },
   };
+}
+
+/** Join a Phoenix channel and reject with its bounded reply reason. */
+function joinPhoenixChannel(
+  channel: Channel,
+  timeoutMs: number,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    channel
+      .join(timeoutMs)
+      .receive("ok", () => resolve())
+      .receive("error", (reason: unknown) =>
+        reject(
+          new Error(
+            `realtime gateway delivery session join failed: ${safeReason(reason)}`,
+          ),
+        ),
+      )
+      .receive("timeout", () =>
+        reject(new Error("realtime gateway delivery session join timed out")),
+      );
+  });
 }
 
 /**

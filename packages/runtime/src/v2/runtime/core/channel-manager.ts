@@ -5,6 +5,16 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
+import { EMPTY } from "rxjs";
+import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
@@ -136,6 +146,12 @@ export interface ChannelManagerArgs {
   intelligence: CopilotKitIntelligence;
   /** The declared framework Channels to activate. */
   channels: Channel[];
+  /** Standard runtime AgentRunner used by managed Channel executions. */
+  runner?: AgentRunner;
+  /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
+  lockTtlSeconds?: number;
+  /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
+  lockHeartbeatIntervalSeconds?: number;
   /**
    * Activation engine. Defaults to a wrapper over the channels-intelligence
    * Realtime Gateway launcher (`startChannelsOverRealtimeGateway`), reached via
@@ -210,6 +226,36 @@ export interface ChannelsIntelligenceModule {
        * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
        * silent in the managed path. */
       log?: (msg: string, meta?: unknown) => void;
+      runCanonical(args: {
+        agent: AbstractAgent;
+        threadId: string;
+        runId: string;
+        runnerToken: string;
+        abortSignal: AbortSignal;
+        tools: readonly {
+          name: string;
+          description: string;
+          parameters: Record<string, unknown>;
+        }[];
+        context: readonly { description: string; value: string }[];
+        persistedInputMessages: Message[];
+        execute(
+          subscriber: AgentSubscriber,
+          canonicalRun?: { threadId: string; runId: string },
+        ): Promise<{
+          iterations: number;
+          interrupted: boolean;
+          deliveryError?: unknown;
+        }>;
+      }): Promise<{
+        iterations: number;
+        interrupted: boolean;
+        deliveryError?: unknown;
+      }>;
+      loadHistory(args: {
+        threadId: string;
+        appUserId: string;
+      }): Promise<Message[]>;
     },
   ) => Promise<ChannelsHandle>;
 }
@@ -244,6 +290,12 @@ export async function defaultActivateChannel(
       CHANNELS_INTELLIGENCE_SPECIFIER
     ) as Promise<ChannelsIntelligenceModule>,
   log?: (msg: string, meta?: unknown) => void,
+  services?: {
+    runner: AgentRunner;
+    intelligence: CopilotKitIntelligence;
+    lockTtlSeconds?: number;
+    lockHeartbeatIntervalSeconds?: number;
+  },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
   try {
@@ -256,6 +308,11 @@ export async function defaultActivateChannel(
       );
     }
     throw err;
+  }
+  if (!services) {
+    throw new Error(
+      "Managed Channels require the runtime AgentRunner and Intelligence client",
+    );
   }
   return mod.startChannelsOverRealtimeGateway([channel], {
     wsUrl: config.wsUrl,
@@ -274,7 +331,249 @@ export async function defaultActivateChannel(
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.
     ...(log ? { log } : {}),
+    runCanonical: (args) =>
+      runCanonicalChannelAgent(
+        services.runner,
+        services.intelligence,
+        services.lockTtlSeconds ?? 20,
+        services.lockHeartbeatIntervalSeconds ?? 15,
+        args,
+      ),
+    loadHistory: async ({ threadId, appUserId }) => {
+      const history = await services.intelligence.getThreadMessages({
+        threadId,
+        userId: appUserId,
+      });
+      return history.messages.map(toAgentMessage);
+    },
   });
+}
+
+interface CanonicalRunArgs {
+  agent: AbstractAgent;
+  threadId: string;
+  runId: string;
+  runnerToken: string;
+  abortSignal: AbortSignal;
+  tools: readonly {
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }[];
+  context: readonly { description: string; value: string }[];
+  persistedInputMessages: Message[];
+  execute(
+    subscriber: AgentSubscriber,
+    canonicalRun?: { threadId: string; runId: string },
+  ): Promise<{
+    iterations: number;
+    interrupted: boolean;
+    deliveryError?: unknown;
+  }>;
+}
+
+/** One outer agent that lets the standard runner own the whole local tool loop. */
+class ChannelOuterAgent extends AbstractAgent {
+  constructor(
+    private readonly inner: AbstractAgent,
+    private readonly canonicalThreadId: string,
+    private readonly executeLoop: CanonicalRunArgs["execute"],
+  ) {
+    super({
+      threadId: inner.threadId,
+      initialMessages: inner.messages,
+      initialState: inner.state,
+      ...(inner.agentId ? { agentId: inner.agentId } : {}),
+    });
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  override async runAgent(
+    parameters?: RunAgentParameters,
+    subscriber?: AgentSubscriber,
+  ): Promise<RunAgentResult> {
+    if (!parameters?.runId) {
+      throw new Error("Canonical Channel run requires a runId");
+    }
+    const result = await this.executeLoop(subscriber ?? {}, {
+      threadId: this.canonicalThreadId,
+      runId: parameters.runId,
+    });
+    return { result, newMessages: [] };
+  }
+
+  override abortRun(): void {
+    this.inner.abortRun();
+  }
+}
+
+/** Drive one public Channel run through the runtime's existing AgentRunner. */
+async function runCanonicalChannelAgent(
+  runner: AgentRunner,
+  intelligence: CopilotKitIntelligence,
+  lockTtlSeconds: number,
+  lockHeartbeatIntervalSeconds: number,
+  args: CanonicalRunArgs,
+): Promise<{
+  iterations: number;
+  interrupted: boolean;
+  deliveryError?: unknown;
+}> {
+  if (args.abortSignal.aborted) {
+    throw channelRunCancellationError(args.abortSignal);
+  }
+
+  let result = { iterations: 0, interrupted: false };
+  const outer = new ChannelOuterAgent(
+    args.agent,
+    args.threadId,
+    async (subscriber, canonicalRun) => {
+      result = await args.execute(subscriber, canonicalRun);
+      return result;
+    },
+  );
+  let stopPromise: Promise<boolean | undefined> | undefined;
+  let heartbeatError: unknown;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  const stopCanonicalRun = (): void => {
+    stopPromise ??= Promise.resolve()
+      .then(() => runner.stop({ threadId: args.threadId }))
+      .catch(() => false);
+  };
+  args.abortSignal.addEventListener("abort", stopCanonicalRun, { once: true });
+  heartbeatTimer = setInterval(() => {
+    intelligence
+      .ɵrenewThreadLock({
+        threadId: args.threadId,
+        runId: args.runId,
+        ttlSeconds: lockTtlSeconds,
+      })
+      .catch((error: unknown) => {
+        if (heartbeatTimer === undefined) return;
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = undefined;
+        heartbeatError = error;
+        try {
+          args.agent.abortRun();
+        } catch {
+          // The runner stop below remains the authoritative cancellation path.
+        }
+        stopCanonicalRun();
+      });
+  }, lockHeartbeatIntervalSeconds * 1_000);
+  heartbeatTimer.unref?.();
+
+  try {
+    if (args.abortSignal.aborted) {
+      stopCanonicalRun();
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let terminalError: (Error & { code?: string }) | undefined;
+      runner
+        .run({
+          threadId: args.threadId,
+          agent: outer,
+          input: {
+            threadId: args.threadId,
+            runId: args.runId,
+            messages: args.agent.messages,
+            state: args.agent.state,
+            tools: [...args.tools],
+            context: [...args.context],
+            forwardedProps: undefined,
+          },
+          persistedInputMessages: args.persistedInputMessages,
+          authToken: args.runnerToken,
+        })
+        .subscribe({
+          next: (event: BaseEvent) => {
+            if (event.type !== EventType.RUN_ERROR || terminalError) return;
+            const message =
+              "message" in event && typeof event.message === "string"
+                ? event.message
+                : "Canonical Channel agent run failed";
+            terminalError = new Error(message);
+            terminalError.name = "ChannelCanonicalRunError";
+            if (
+              "code" in event &&
+              typeof event.code === "string" &&
+              event.code.length > 0
+            ) {
+              terminalError.code = event.code;
+            }
+          },
+          error: reject,
+          complete: () => {
+            if (terminalError) {
+              reject(terminalError);
+            } else {
+              resolve();
+            }
+          },
+        });
+    });
+  } catch (error) {
+    if (args.abortSignal.aborted) {
+      await stopPromise;
+      throw channelRunCancellationError(args.abortSignal);
+    }
+    throw error;
+  } finally {
+    if (heartbeatTimer !== undefined) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
+    args.abortSignal.removeEventListener("abort", stopCanonicalRun);
+  }
+
+  if (heartbeatError !== undefined) {
+    await stopPromise;
+    throw heartbeatError;
+  }
+  if (args.abortSignal.aborted) {
+    await stopPromise;
+    throw channelRunCancellationError(args.abortSignal);
+  }
+  return result;
+}
+
+function channelRunCancellationError(signal: AbortSignal): Error {
+  const reason =
+    typeof signal.reason === "string" && signal.reason.length > 0
+      ? signal.reason
+      : "channel_run_cancelled";
+  const error = new Error(reason);
+  error.name = "ChannelCanonicalRunCancelledError";
+  return error;
+}
+
+/** Convert canonical Intelligence history into AG-UI messages. */
+function toAgentMessage(message: {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
+}): Message {
+  return {
+    id: message.id,
+    role: message.role as Message["role"],
+    content: message.content ?? "",
+    ...(message.toolCalls
+      ? {
+          toolCalls: message.toolCalls.map((call) => ({
+            id: call.id,
+            type: "function" as const,
+            function: { name: call.name, arguments: call.args },
+          })),
+        }
+      : {}),
+    ...(message.toolCallId ? { toolCallId: message.toolCallId } : {}),
+  } as Message;
 }
 
 /** Whether `err` signals a missing managed provider rather than a hard failure. */
@@ -380,6 +679,9 @@ function withTimeout<T>(
  */
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
+  private readonly runner?: AgentRunner;
+  private readonly lockTtlSeconds: number;
+  private readonly lockHeartbeatIntervalSeconds: number;
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
@@ -394,6 +696,9 @@ export class ChannelManager implements ChannelsControl {
   /** @param args - See {@link ChannelManagerArgs}. */
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
+    this.runner = args.runner;
+    this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
+    this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
     this.channels = args.channels;
     this.log = args.log;
     // When using the default engine, forward the manager's log DOWN to the
@@ -403,7 +708,20 @@ export class ChannelManager implements ChannelsControl {
     this.activateChannel =
       args.activateChannel ??
       ((config, channel) =>
-        defaultActivateChannel(config, channel, undefined, this.log));
+        defaultActivateChannel(
+          config,
+          channel,
+          undefined,
+          this.log,
+          this.runner
+            ? {
+                runner: this.runner,
+                intelligence: this.intelligence,
+                lockTtlSeconds: this.lockTtlSeconds,
+                lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
+              }
+            : undefined,
+        ));
     this.mintRuntimeInstanceId =
       args.mintRuntimeInstanceId ??
       (() => `rti_${randomUUID().replace(/-/g, "")}`);

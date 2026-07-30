@@ -12,6 +12,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
+import type { RunLoopArgs } from "./run-loop.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
@@ -28,6 +29,8 @@ import type { StandardSchemaV1 } from "./standard-schema.js";
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
+  /** Source provider for this ingress event; falls back to the adapter identity. */
+  platform?: string;
   replyTarget: ReplyTarget;
   conversationKey: string;
   registry: ActionRegistry;
@@ -65,6 +68,18 @@ export interface ThreadDeps {
   };
 }
 
+/** Stable rejection for surfaces that cannot hold one run open for a choice. */
+class ChannelAwaitChoiceNotSupportedError extends Error {
+  readonly code = "channel_await_choice_not_supported";
+
+  constructor() {
+    super(
+      "Managed Channels v1 does not support Thread.awaitChoice(); post the picker in an onInterrupt handler and call Thread.resume() from the later interaction delivery.",
+    );
+    this.name = "ChannelAwaitChoiceNotSupportedError";
+  }
+}
+
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
 export class Thread implements ThreadInterface {
   readonly platform: string;
@@ -73,9 +88,10 @@ export class Thread implements ThreadInterface {
   /** Mirrors the adapter's `supportsBlockingChoice` capability (see SurfaceCapabilities). */
   readonly supportsBlockingChoice?: boolean;
   private readonly store: StateStore;
+  private implicitInboundConsumed = false;
 
   constructor(private deps: ThreadDeps) {
-    this.platform = deps.adapter.platform;
+    this.platform = deps.platform ?? deps.adapter.platform;
     this.conversationKey = deps.conversationKey;
     this.supportsBlockingChoice =
       deps.adapter.capabilities.supportsBlockingChoice;
@@ -84,6 +100,20 @@ export class Thread implements ThreadInterface {
 
   private async bindForPost(ui: Renderable) {
     return this.deps.registry.bindRenderable(ui, this.deps.conversationKey);
+  }
+
+  private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
+    if (!this.deps.adapter.trackThreadOperation) {
+      try {
+        return operation();
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    }
+    return this.deps.adapter.trackThreadOperation(
+      this.deps.replyTarget,
+      operation,
+    );
   }
 
   /**
@@ -106,105 +136,124 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  async post(ui: Renderable): Promise<MessageRef> {
-    const bound = await this.bindForPost(ui);
-    const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
-    await this.bindReaction(ref.id, bound);
-    return ref;
+  post(ui: Renderable): Promise<MessageRef> {
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      const ref = await this.deps.adapter.post(
+        this.deps.replyTarget,
+        bound.root,
+      );
+      await this.bindReaction(ref.id, bound);
+      return ref;
+    });
   }
 
-  async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
-    const bound = await this.bindForPost(ui);
-    await this.deps.adapter.update(ref, bound.root);
-    await this.bindReaction(ref.id, bound);
-    return ref;
+  update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
+    return this.trackOperation(async () => {
+      const bound = await this.bindForPost(ui);
+      await this.deps.adapter.update(ref, bound.root);
+      await this.bindReaction(ref.id, bound);
+      return ref;
+    });
   }
 
-  async delete(ref: MessageRef): Promise<void> {
-    await this.deps.adapter.delete(ref);
+  delete(ref: MessageRef): Promise<void> {
+    return this.trackOperation(() => this.deps.adapter.delete(ref));
   }
 
-  async stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
-    const iter =
-      typeof src === "string"
-        ? (async function* () {
-            yield src;
-          })()
-        : src;
-    return this.deps.adapter.stream(this.deps.replyTarget, iter);
+  stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
+    return this.trackOperation(() => {
+      const iter =
+        typeof src === "string"
+          ? (async function* () {
+              yield src;
+            })()
+          : src;
+      return this.deps.adapter.stream(this.deps.replyTarget, iter);
+    });
   }
 
-  async postFile(args: {
+  postFile(args: {
     bytes: Uint8Array;
     filename: string;
     title?: string;
     altText?: string;
   }): Promise<{ ok: boolean; fileId?: string; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postFile) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support file upload`,
-      };
-    }
-    return adapter.postFile(this.deps.replyTarget, args);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.postFile) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support file upload`,
+        };
+      }
+      return adapter.postFile(this.deps.replyTarget, args);
+    });
   }
 
   /** Pin suggested prompts (returns `{ ok: false }` on surfaces without support). */
-  async setSuggestedPrompts(
+  setSuggestedPrompts(
     prompts: ReadonlyArray<{ title: string; message: string }>,
     opts?: { title?: string },
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setSuggestedPrompts) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support suggested prompts`,
-      };
-    }
-    return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.setSuggestedPrompts) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support suggested prompts`,
+        };
+      }
+      return adapter.setSuggestedPrompts(this.deps.replyTarget, prompts, opts);
+    });
   }
 
   /** Name this conversation (returns `{ ok: false }` on surfaces without support). */
-  async setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.setThreadTitle) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support thread titles`,
-      };
-    }
-    return adapter.setThreadTitle(this.deps.replyTarget, title);
+  setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.setThreadTitle) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support thread titles`,
+        };
+      }
+      return adapter.setThreadTitle(this.deps.replyTarget, title);
+    });
   }
 
   /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
-  async react(
+  react(
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.addReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.addReaction) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support reactions`,
+        };
+      }
+      return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+    });
   }
 
   /** Remove the channel's emoji reaction from a message (capability-gated). */
-  async unreact(
+  unreact(
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
-    const adapter = this.deps.adapter;
-    if (!adapter.removeReaction) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support reactions`,
-      };
-    }
-    return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.removeReaction) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support reactions`,
+        };
+      }
+      return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+    });
   }
 
   /**
@@ -212,83 +261,107 @@ export class Thread implements ThreadInterface {
    * `true` → DM the user when native ephemeral is unsupported; `false` →
    * resolve to `null` when native ephemeral is unsupported.
    */
-  async postEphemeral(
+  postEphemeral(
     user: PlatformUser | string,
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
-    const adapter = this.deps.adapter;
-    if (!adapter.postEphemeral) {
-      return {
-        ok: false,
-        error: `${this.platform} does not support ephemeral messages`,
-      };
-    }
-    // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
-    // (stripped by bindForPost) rather than registered.
-    const { root } = await this.bindForPost(ui);
-    return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+    return this.trackOperation(async () => {
+      const adapter = this.deps.adapter;
+      if (!adapter.postEphemeral) {
+        return {
+          ok: false,
+          error: `${this.platform} does not support ephemeral messages`,
+        };
+      }
+      // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
+      // (stripped by bindForPost) rather than registered.
+      const { root } = await this.bindForPost(ui);
+      return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
+    });
   }
 
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
 
   /** Record this conversation as subscribed (persisted in state). Proactive delivery to subscribed conversations is not yet wired. */
-  async subscribe(): Promise<void> {
-    await this.store.kv.set(`sub:${this.deps.conversationKey}`, true);
+  subscribe(): Promise<void> {
+    return this.trackOperation(() =>
+      this.store.kv.set(`sub:${this.deps.conversationKey}`, true),
+    );
   }
 
   /** Remove the subscription for this conversation. */
-  async unsubscribe(): Promise<void> {
-    await this.store.kv.delete(`sub:${this.deps.conversationKey}`);
+  unsubscribe(): Promise<void> {
+    return this.trackOperation(() =>
+      this.store.kv.delete(`sub:${this.deps.conversationKey}`),
+    );
   }
 
   /** Returns true if this conversation is currently subscribed. */
-  async isSubscribed(): Promise<boolean> {
-    return (
-      (await this.store.kv.get<boolean>(`sub:${this.deps.conversationKey}`)) ===
-      true
+  isSubscribed(): Promise<boolean> {
+    return this.trackOperation(
+      async () =>
+        (await this.store.kv.get<boolean>(
+          `sub:${this.deps.conversationKey}`,
+        )) === true,
     );
   }
 
   /** Persist arbitrary per-thread state (e.g. workflow step). */
-  async setState<T>(v: T): Promise<void> {
-    let value: unknown = v;
-    if (this.deps.stateSchema) {
-      const r = await validateSchema(this.deps.stateSchema, v);
-      if (!r.ok) throw new Error(`thread.setState: invalid state — ${r.error}`);
-      value = r.value;
-    }
-    await this.store.kv.set(`threadstate:${this.deps.conversationKey}`, value);
+  setState<T>(v: T): Promise<void> {
+    return this.trackOperation(async () => {
+      let value: unknown = v;
+      if (this.deps.stateSchema) {
+        const r = await validateSchema(this.deps.stateSchema, v);
+        if (!r.ok)
+          throw new Error(`thread.setState: invalid state — ${r.error}`);
+        value = r.value;
+      }
+      await this.store.kv.set(
+        `threadstate:${this.deps.conversationKey}`,
+        value,
+      );
+    });
   }
 
   /** Read back per-thread state previously written with `setState`. */
-  async state<T>(): Promise<T | undefined> {
-    return this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`);
+  state<T>(): Promise<T | undefined> {
+    return this.trackOperation(() =>
+      this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`),
+    );
   }
 
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
-  async getMessages(): Promise<ThreadMessage[]> {
-    return (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [];
+  getMessages(): Promise<ThreadMessage[]> {
+    return this.trackOperation(
+      async () =>
+        (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [],
+    );
   }
 
   /** Resolve a platform user by free-form query (returns `undefined` when unsupported). */
-  async lookupUser(query: string): Promise<PlatformUser | undefined> {
-    return this.deps.adapter.lookupUser?.({ query });
+  lookupUser(query: string): Promise<PlatformUser | undefined> {
+    return this.trackOperation(() => this.deps.adapter.lookupUser({ query }));
   }
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
-  async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
-    const p = new Promise<T>((resolve) =>
-      this.deps.registerWaiter(
-        this.deps.conversationKey,
-        resolve as (value: unknown) => void,
-      ),
-    );
-    await this.post(ui);
-    return p;
+  awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+    if (this.supportsBlockingChoice === false) {
+      return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
+    }
+    return this.trackOperation(async () => {
+      const p = new Promise<T>((resolve) =>
+        this.deps.registerWaiter(
+          this.deps.conversationKey,
+          resolve as (value: unknown) => void,
+        ),
+      );
+      await this.post(ui);
+      return p;
+    });
   }
 
-  async runAgent(input?: {
+  runAgent(input?: {
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
@@ -313,23 +386,34 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
-    const message = this.deps.message;
-    const defaultPrompt =
-      message?.contentParts && message.contentParts.length > 0
-        ? message.contentParts
-        : message?.text;
-    return this.run(undefined, {
-      ...input,
-      prompt:
-        input?.prompt ??
-        (this.deps.adapter.conversationStore.seedsInboundTurn
-          ? undefined
-          : defaultPrompt),
+    try {
+      this.deps.adapter.assertRunAgentSupported?.(this.deps.replyTarget);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+    return this.trackOperation(async () => {
+      const message = this.deps.message;
+      const defaultPrompt =
+        message?.contentParts && message.contentParts.length > 0
+          ? message.contentParts
+          : message?.text;
+      const implicitPrompt =
+        input?.prompt === undefined &&
+        !this.deps.adapter.conversationStore.seedsInboundTurn &&
+        (!this.deps.adapter.injectInboundTurnOnce ||
+          !this.implicitInboundConsumed);
+      if (implicitPrompt && defaultPrompt) {
+        this.implicitInboundConsumed = true;
+      }
+      return this.run(undefined, {
+        ...input,
+        prompt: input?.prompt ?? (!implicitPrompt ? undefined : defaultPrompt),
+      });
     });
   }
 
-  async resume(value: unknown): Promise<MessageRef | undefined> {
-    return this.run({ resume: value });
+  resume(value: unknown): Promise<MessageRef | undefined> {
+    return this.trackOperation(() => this.run({ resume: value }));
   }
 
   private async run(
@@ -346,152 +430,174 @@ export class Thread implements ThreadInterface {
       this.deps.replyTarget,
       this.deps.agentFactory,
     );
-    // Inject an explicit user message when the input isn't in the adapter's
-    // reconstructed history (e.g. a slash command's args, or inbound image/file
-    // attachments built into multimodal content parts). A non-empty array is
-    // truthy, so this guard also admits multimodal prompts.
-    if (extra?.prompt) {
-      session.agent.addMessage({
-        id: globalThis.crypto.randomUUID(),
-        role: "user",
-        // AG-UI types `content` as `string`, but multimodal works at runtime by
-        // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
-        // converts the parts to the provider's multimodal format. We cast to
-        // satisfy the string-typed field (channels-slack parity — it does the same
-        // when assigning multimodal `content` to its reconstructed messages).
-        content: extra.prompt as unknown as string,
-      });
-    }
-    const renderer = this.deps.adapter.createRunRenderer(this.deps.replyTarget);
-
-    // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
-    // as a context entry, then append the current user turn. This flag owns the
-    // bridge — see `runAgent`'s `transcript` doc. No-ops with one warning when
-    // identity/transcripts aren't configured.
-    const transcripts = this.deps.transcripts;
-    const userKey = this.deps.userKey;
-    let transcriptContext: ContextEntry | undefined;
-    if (extra?.transcript) {
-      if (transcripts && userKey) {
-        const limit =
-          typeof extra.transcript === "object"
-            ? (extra.transcript.limit ?? 20)
-            : 20;
-        // List BEFORE appending the current user turn so the current message
-        // isn't counted as its own "prior history".
-        const prior = await transcripts.list({ userKey, limit });
-        if (prior.length > 0) {
-          transcriptContext = {
-            description: `Prior cross-platform conversation history with this user. Current channel: ${this.platform}.`,
-            value: prior
-              .map((e) => `[${e.platform}] ${e.role}: ${e.text}`)
-              .join("\n"),
-          };
-        }
-        if (this.deps.message) {
-          await transcripts.append(this, this.deps.message, { userKey });
-        }
-      } else {
-        warnTranscriptIgnored();
-      }
-    }
-
-    // Merge per-run context/tools (this run only) on top of the channel-level deps.
-    const extraTools = extra?.tools ?? [];
-    let tools = this.deps.tools;
-    let toolDescriptors = this.deps.toolDescriptors;
-    if (extraTools.length > 0) {
-      tools = new Map(this.deps.tools);
-      for (const t of extraTools) tools.set(t.name, t);
-      toolDescriptors = [
-        ...this.deps.toolDescriptors,
-        ...toAgentToolDescriptors(extraTools),
-      ];
-    }
-    const context: ContextEntry[] = [
-      ...this.deps.context,
-      ...(transcriptContext ? [transcriptContext] : []),
-      ...(extra?.context ?? []),
-    ];
-
-    // Snapshot the message count BEFORE the loop so we can isolate the
-    // assistant messages this run produced (step 4).
-    const messagesBefore = session.agent.messages.length;
-
-    const startedAt = Date.now();
-    let loopResult: { iterations: number; interrupted: boolean };
-    // Telemetry stage: "agent" while the run loop runs, "finalize" for the
-    // transcript-append + renderer.finish() steps below. A throw in either is
-    // reported as agent_run_failed (with the right stage) instead of being
-    // hidden behind an already-sent success event.
-    let stage: "agent" | "finalize" = "agent";
     try {
-      loopResult = await runAgentLoop({
-        agent: session.agent,
-        renderer,
-        tools,
-        toolDescriptors,
-        context,
-        makeToolCtx: (): ChannelToolContext => ({
-          thread: this,
-          platform: this.platform,
-        }),
-        handleInterrupt: async (interrupt) => {
-          const h = this.deps.interruptHandlers.get(interrupt.eventName);
-          if (h) await h({ payload: interrupt.value, thread: this });
-        },
-        initialResume,
-      });
-      stage = "finalize";
-      // Transcript auto-bridge (step 4): capture the assistant text this run
-      // produced and append it. Only when the bridge actually applied (transcripts
-      // + userKey both present and `transcript` was requested).
-      if (extra?.transcript && transcripts && userKey) {
-        const produced = session.agent.messages.slice(messagesBefore);
-        const text = produced
-          .filter(
-            (m) =>
-              m.role === "assistant" &&
-              typeof m.content === "string" &&
-              m.content.trim().length > 0,
-          )
-          .map((m) => m.content as string)
-          .join("\n\n");
-        if (text.length > 0) {
-          await transcripts.append(
-            this,
-            { role: "assistant", text },
-            { userKey },
-          );
+      // Inject an explicit user message when the input isn't in the adapter's
+      // reconstructed history (e.g. a slash command's args, or inbound image/file
+      // attachments built into multimodal content parts). A non-empty array is
+      // truthy, so this guard also admits multimodal prompts.
+      if (extra?.prompt) {
+        session.agent.addMessage({
+          id: globalThis.crypto.randomUUID(),
+          role: "user",
+          // AG-UI types `content` as `string`, but multimodal works at runtime by
+          // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
+          // converts the parts to the provider's multimodal format. We cast to
+          // satisfy the string-typed field (channels-slack parity — it does the same
+          // when assigning multimodal `content` to its reconstructed messages).
+          content: extra.prompt as unknown as string,
+        });
+      }
+      const renderer = this.deps.adapter.createRunRenderer(
+        this.deps.replyTarget,
+      );
+
+      // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
+      // as a context entry, then append the current user turn. This flag owns the
+      // bridge — see `runAgent`'s `transcript` doc. No-ops with one warning when
+      // identity/transcripts aren't configured.
+      const transcripts = this.deps.transcripts;
+      const userKey = this.deps.userKey;
+      let transcriptContext: ContextEntry | undefined;
+      if (extra?.transcript) {
+        if (transcripts && userKey) {
+          const limit =
+            typeof extra.transcript === "object"
+              ? (extra.transcript.limit ?? 20)
+              : 20;
+          // List BEFORE appending the current user turn so the current message
+          // isn't counted as its own "prior history".
+          const prior = await transcripts.list({ userKey, limit });
+          if (prior.length > 0) {
+            transcriptContext = {
+              description: `Prior cross-platform conversation history with this user. Current channel: ${this.platform}.`,
+              value: prior
+                .map((e) => `[${e.platform}] ${e.role}: ${e.text}`)
+                .join("\n"),
+            };
+          }
+          if (this.deps.message) {
+            await transcripts.append(this, this.deps.message, { userKey });
+          }
+        } else {
+          warnTranscriptIgnored();
         }
       }
 
-      // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
-      // open across runAgent iterations (e.g. a native streaming message). A
-      // no-op for renderers whose per-message streams already self-terminate, and
-      // for runs that were interrupted (the renderer guards that internally).
-      await renderer.finish?.();
-    } catch (err) {
-      // A throw is a run failure — in the agent loop (tool-handler errors are
-      // swallowed inside the loop, so a throw is agent-level) or in finalization.
-      // `stage` distinguishes the two.
-      this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
+      // Merge per-run context/tools (this run only) on top of the channel-level deps.
+      const extraTools = extra?.tools ?? [];
+      let tools = this.deps.tools;
+      let toolDescriptors = this.deps.toolDescriptors;
+      if (extraTools.length > 0) {
+        tools = new Map(this.deps.tools);
+        for (const t of extraTools) tools.set(t.name, t);
+        toolDescriptors = [
+          ...this.deps.toolDescriptors,
+          ...toAgentToolDescriptors(extraTools),
+        ];
+      }
+      const context: ContextEntry[] = [
+        ...this.deps.context,
+        ...(transcriptContext ? [transcriptContext] : []),
+        ...(extra?.context ?? []),
+      ];
+
+      // Snapshot the message count BEFORE the loop so we can isolate the
+      // assistant messages this run produced (step 4).
+      const messagesBefore = session.agent.messages.length;
+
+      const startedAt = Date.now();
+      let loopResult: { iterations: number; interrupted: boolean };
+      // Telemetry stage: "agent" while the run loop runs, "finalize" for the
+      // transcript-append + renderer.finish() steps below. A throw in either is
+      // reported as agent_run_failed (with the right stage) instead of being
+      // hidden behind an already-sent success event.
+      let stage: "agent" | "finalize" = "agent";
+      try {
+        const loopArgs: RunLoopArgs = {
+          agent: session.agent,
+          renderer,
+          tools,
+          toolDescriptors,
+          context,
+          makeToolCtx: (): ChannelToolContext => ({
+            thread: this,
+            platform: this.platform,
+          }),
+          handleInterrupt: async (interrupt) => {
+            const h = this.deps.interruptHandlers.get(interrupt.eventName);
+            if (h) await h({ payload: interrupt.value, thread: this });
+          },
+          initialResume,
+        };
+        loopResult = this.deps.adapter.runAgentLifecycle
+          ? await this.deps.adapter.runAgentLifecycle({
+              replyTarget: this.deps.replyTarget,
+              agent: session.agent,
+              renderer,
+              tools: toolDescriptors,
+              context,
+              isResume: initialResume !== undefined,
+              execute: (subscriber, canonicalRun) =>
+                runAgentLoop({
+                  ...loopArgs,
+                  subscriber,
+                  ...(canonicalRun ? { canonicalRun } : {}),
+                }),
+            })
+          : await runAgentLoop(loopArgs);
+        stage = "finalize";
+        // Transcript auto-bridge (step 4): capture the assistant text this run
+        // produced and append it. Only when the bridge actually applied (transcripts
+        // + userKey both present and `transcript` was requested).
+        if (extra?.transcript && transcripts && userKey) {
+          const produced = session.agent.messages.slice(messagesBefore);
+          const text = produced
+            .filter(
+              (m) =>
+                m.role === "assistant" &&
+                typeof m.content === "string" &&
+                m.content.trim().length > 0,
+            )
+            .map((m) => m.content as string)
+            .join("\n\n");
+          if (text.length > 0) {
+            await transcripts.append(
+              this,
+              { role: "assistant", text },
+              { userKey },
+            );
+          }
+        }
+
+        // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
+        // open across runAgent iterations (e.g. a native streaming message). A
+        // no-op for renderers whose per-message streams already self-terminate, and
+        // for runs that were interrupted (the renderer guards that internally).
+        await renderer.finish?.();
+      } catch (err) {
+        // A throw is a run failure — in the agent loop (tool-handler errors are
+        // swallowed inside the loop, so a throw is agent-level) or in finalization.
+        // `stage` distinguishes the two.
+        this.deps.telemetry?.capture("oss.channel.agent_run_failed", {
+          platform: normalizePlatform(this.platform),
+          errorClass: errorClass(err),
+          stage,
+        });
+        throw err;
+      }
+      // Emit success ONLY after the loop AND finalization both completed, so a
+      // late transcript/finish rejection can never follow a success event.
+      this.deps.telemetry?.capture("oss.channel.agent_run", {
         platform: normalizePlatform(this.platform),
-        errorClass: errorClass(err),
-        stage,
+        durationMs: Date.now() - startedAt,
+        toolCallCount: renderer.getCapturedToolCalls().length,
+        iterations: loopResult.iterations,
+        interrupted: loopResult.interrupted,
       });
-      throw err;
+      return undefined;
+    } finally {
+      await session.release?.();
     }
-    // Emit success ONLY after the loop AND finalization both completed, so a
-    // late transcript/finish rejection can never follow a success event.
-    this.deps.telemetry?.capture("oss.channel.agent_run", {
-      platform: normalizePlatform(this.platform),
-      durationMs: Date.now() - startedAt,
-      toolCallCount: renderer.getCapturedToolCalls().length,
-      iterations: loopResult.iterations,
-      interrupted: loopResult.interrupted,
-    });
-    return undefined;
   }
 }
 

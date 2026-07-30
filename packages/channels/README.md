@@ -74,7 +74,6 @@ await handler.channels.ready(); // starts the channel; handler.channels.stop() t
 - `@copilotkit/channels/discord`
 - `@copilotkit/channels/telegram`
 - `@copilotkit/channels/whatsapp`
-- `@copilotkit/channels/intelligence` for the curated `intelligenceAdapter` factory and `IntelligenceAdapterOptions` type
 
 One package version gives you a tested snapshot of the core engine, JSX/UI vocabulary,
 testing helpers, and every adapter listed above.

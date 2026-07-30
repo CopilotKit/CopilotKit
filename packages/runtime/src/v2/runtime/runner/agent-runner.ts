@@ -11,6 +11,8 @@ export interface AgentRunnerRunRequest {
   agent: AbstractAgent;
   input: RunAgentInput;
   persistedInputMessages?: Message[];
+  /** Short-lived token scoped to this runner invocation. */
+  authToken?: string;
 }
 
 export interface AgentRunnerConnectRequest {
