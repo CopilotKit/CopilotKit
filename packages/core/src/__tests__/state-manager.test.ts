@@ -29,7 +29,11 @@ class EventEmittingMockAgent extends AbstractAgent {
   }
 
   // Helper to emit run started event
-  public async emitRunStarted(runId: string, state: State = {}) {
+  public async emitRunStarted(
+    runId: string,
+    state: State = {},
+    inputRunId = runId,
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunStartedEvent) {
@@ -42,14 +46,18 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(inputRunId),
         });
       }
     }
   }
 
   // Helper to emit run finished event
-  public async emitRunFinished(runId: string, state: State = {}) {
+  public async emitRunFinished(
+    runId: string,
+    state: State = {},
+    inputRunId = runId,
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunFinishedEvent) {
@@ -62,7 +70,7 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(inputRunId),
         });
       }
     }
@@ -450,6 +458,39 @@ describe("StateManager - Message Tracking", () => {
     );
     expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
       runId,
+    );
+  });
+
+  it("should preserve server run IDs during cumulative connect replay", async () => {
+    const connectionRunId = "connect-run";
+    const firstRunId = "server-run-1";
+    const secondRunId = "server-run-2";
+    const firstMessage: Message = {
+      id: "msg1",
+      role: "assistant",
+      content: "First response",
+    };
+    const secondMessage: Message = {
+      id: "msg2",
+      role: "assistant",
+      content: "Second response",
+    };
+
+    await agent.emitRunStarted(firstRunId, {}, connectionRunId);
+    await agent.emitMessagesSnapshot(connectionRunId, [firstMessage]);
+    await agent.emitRunFinished(firstRunId, {}, connectionRunId);
+
+    await agent.emitRunStarted(secondRunId, {}, connectionRunId);
+    await agent.emitMessagesSnapshot(connectionRunId, [
+      firstMessage,
+      secondMessage,
+    ]);
+
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      firstRunId,
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
+      secondRunId,
     );
   });
 
