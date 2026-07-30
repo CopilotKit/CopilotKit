@@ -431,6 +431,38 @@ describe("NativeMessageStream", () => {
     expect(textOf(messages[4]!.events)).toContain("reply truncated");
   });
 
+  it("marks a truncated reply exactly once, however much text keeps arriving", async () => {
+    // `truncate()` was not terminal: text keeps arriving after the cap, so
+    // `append()` grew the buffer, the next flush saw undelivered text on an
+    // already-full message, and re-entered — stacking one marker per flush (36 at
+    // production defaults) and pushing the last message past its own budget,
+    // since this was the one append path that never charged `curMessageBytes`.
+    const { transport, messages } = makeFakeTransport({
+      messageByteLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      maxMessages: 3,
+    });
+
+    // Arrives incrementally, well past what 3 messages can hold.
+    const text = "word ".repeat(20_000);
+    for (let i = 5_000; i <= text.length; i += 5_000) {
+      stream.append(text.slice(0, i));
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    await stream.finish();
+
+    expect(messages).toHaveLength(3);
+    const last = textOf(messages[2]!.events);
+    expect(last.match(/reply truncated/g) ?? []).toHaveLength(1);
+    // The marker is charged like every other append, so the fake's cumulative
+    // cap is never breached — no wasted `msg_too_long` calls after the cut.
+    expect(new TextEncoder().encode(last).length).toBeLessThanOrEqual(12_000);
+  });
+
   it("terminates when the continuation re-opener is larger than the message cap", async () => {
     const { transport, messages } = makeFakeTransport({ startBudget: 30 });
     const stream = new NativeMessageStream({

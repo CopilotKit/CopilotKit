@@ -281,11 +281,14 @@ function renderContextCloser(
   // Fences are exclusive: inside one, other markers are opaque code.
   if (ctx.fenceLang !== null) {
     // Mirror `autoCloseOpenMarkdown`'s `hasFenceCodeContent` rule: a fence that
-    // has only just opened (```lang with no body yet) is not closed, else the
-    // boundary emits an empty code block and immediately re-opens it.
+    // has only just opened (```lang, or ```lang\n with nothing after it) is not
+    // closed, else the boundary emits an empty code block and re-opens it. Needs
+    // non-whitespace *after* the language line, not merely a newline.
     const opener = postedText.lastIndexOf("```");
     const body = opener === -1 ? "" : postedText.slice(opener + 3);
-    if (!body.includes("\n")) return "";
+    const languageLineEnd = body.indexOf("\n");
+    if (languageLineEnd === -1) return "";
+    if (!/\S/.test(body.slice(languageLineEnd + 1))) return "";
     return postedText.endsWith("\n") ? "```" : "\n```";
   }
   let out = "";
@@ -305,6 +308,12 @@ export class NativeMessageStream implements TextStream {
   private flushTimer: ReturnType<typeof setTimeout> | undefined;
   /** Messages started for this reply, bounded by `maxMessages`. */
   private messageCount = 0;
+  /**
+   * Set once the reply has been truncated at `maxMessages`. Terminal: text keeps
+   * arriving after the cap, so without this every later flush re-entered
+   * `truncate()` and stacked another marker on the last message.
+   */
+  private truncated = false;
 
   /** Current streamed message ts (undefined until the first `startStream`). */
   private curTs: string | undefined;
@@ -399,13 +408,15 @@ export class NativeMessageStream implements TextStream {
     // the turn looks successful and the platform never replays it.
     for (
       let attempt = 0;
-      attempt < FINISH_DRAIN_ATTEMPTS && this.curPosted < this.buffer.length;
+      attempt < FINISH_DRAIN_ATTEMPTS &&
+      !this.truncated &&
+      this.curPosted < this.buffer.length;
       attempt++
     ) {
       this.enqueueFlush();
       await this.queue;
     }
-    if (this.curPosted < this.buffer.length) {
+    if (!this.truncated && this.curPosted < this.buffer.length) {
       // Last resort: hand the remainder to the legacy transport rather than lose
       // it. Seeded with ONLY the undelivered tail (not the whole buffer, which is
       // what `failOverToLegacy` does for a never-started stream) so the text
@@ -528,6 +539,7 @@ export class NativeMessageStream implements TextStream {
    * re-posting (the failure mode that put five copies of a novella in a channel).
    */
   private async appendPending(): Promise<void> {
+    if (this.truncated) return; // terminal; see truncate()
     while (this.curPosted < this.buffer.length) {
       if (!(await this.ensureStarted())) return; // failed over to legacy
       const roomBytes = this.messageByteLimit - this.curMessageBytes;
@@ -591,6 +603,14 @@ export class NativeMessageStream implements TextStream {
     const window = this.buffer.slice(start, maxEnd);
     const floor = window.length / 4;
     let at = window.lastIndexOf("\n");
+    // Inside a table, a row boundary is the ONLY acceptable break: a space break
+    // leaves the continuation starting mid-row, so the re-emitted header is
+    // followed by a malformed row and Slack renders literal pipes. Under real
+    // cadence the window is only the leftover room, which is exactly when the
+    // space fallback used to win.
+    if (at >= 0 && tableHeaderToReopen(this.buffer.slice(0, maxEnd))) {
+      return start + at + 1;
+    }
     if (at < floor) at = Math.max(at, window.lastIndexOf(" "));
     // No usable break (whitespace-free text: CJK, emoji runs, base64) — hard cut.
     // `maxEnd` came from `spanWithinBudget`, which advances whole code points, so
@@ -619,14 +639,13 @@ export class NativeMessageStream implements TextStream {
         await this.transport.appendText(this.curTs!, closer);
         this.curMessageBytes += utf8Length(closer);
       } catch (err) {
-        // Same reasoning as `stopStream` below, and far more load-bearing. This
-        // append sits closest to the cap by construction — the message has just
-        // filled — so it is the FIRST thing a wrong headroom assumption rejects.
-        // Unguarded it threw out of `rollOver` with `curTs` still set, so the next
-        // flush recomputed a full message, re-entered `rollOver`, and failed on the
-        // same closer forever: the rollover switched itself off before it ever
-        // fired and everything after the boundary was lost. Degraded markdown on
-        // one message is by far the cheaper failure.
+        // Same reasoning as the `stopStream` guard below, which this append sits
+        // directly above: unguarded, it threw out of `rollOver` with `curTs` still
+        // set, so the next flush recomputed a full message, re-entered
+        // `rollOver`, and failed on the same closer forever — a permanent wedge
+        // losing everything after the boundary. Rare (it needs a ceiling within a
+        // few bytes of the budget), but degraded markdown on one message is a far
+        // cheaper failure than dropping the rest of the reply.
         console.error("[native-stream] boundary closer failed:", err);
       }
     }
@@ -648,6 +667,14 @@ export class NativeMessageStream implements TextStream {
    * truncation is deliberate, not a failure.
    */
   private async truncate(): Promise<void> {
+    // Terminal and idempotent. Text keeps arriving after the cap, so `append()`
+    // grows the buffer, the next flush sees undelivered text and a message that
+    // is already over budget, and re-enters here — stacking one marker per flush
+    // on the last message (and, against a real ceiling, a run of rejected
+    // appends). That is the spam the cap exists to prevent, relocated inside one
+    // message.
+    if (this.truncated) return;
+    this.truncated = true;
     const posted = this.buffer.slice(0, this.curPosted);
     console.error(
       `[native-stream] reply exceeded ${this.maxMessages} messages; dropping ${
@@ -655,8 +682,12 @@ export class NativeMessageStream implements TextStream {
       } chars`,
     );
     const closer = renderContextCloser(detectOpenContext(posted), posted);
+    const marker = closer + TRUNCATION_MARKER;
     try {
-      await this.transport.appendText(this.curTs!, closer + TRUNCATION_MARKER);
+      await this.transport.appendText(this.curTs!, marker);
+      // Charged like every other append; this was the one path that neither
+      // checked nor updated the budget, leaving the last message over its cap.
+      this.curMessageBytes += utf8Length(marker);
     } catch (err) {
       console.error("[native-stream] truncation marker failed:", err);
     }
