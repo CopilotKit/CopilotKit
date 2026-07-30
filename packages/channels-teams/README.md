@@ -162,5 +162,6 @@ Planned follow-ups (the architecture leaves room for each):
 `renderAdaptiveCard` / `AdaptiveCard` / `isPlainText` /
 `ADAPTIVE_CARD_CONTENT_TYPE`; `TEAMS_LIMITS`; `TeamsMessageStream`;
 `createTeamsServer` / `TeamsServer` / `TeamsServerConfig`;
-`SanitizingHttpAgent`; `buildFileContentParts` / `TeamsAttachmentRef` /
+`SanitizingHttpAgent` (deprecated — Channels sanitize by default);
+`buildFileContentParts` / `TeamsAttachmentRef` /
 `FileDeliveryConfig`.

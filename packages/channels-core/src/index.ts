@@ -6,6 +6,12 @@ export {
   isolateAgentInstance,
   resolveChannelConcurrency,
 } from "./create-channel.js";
+// Applied to every Channel agent by default; exported for the adapter packages
+// and for anyone driving an agent outside a Channel.
+export { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
+// The usual `agent` for a Channel is an AG-UI agent over HTTP. Re-exported so
+// wiring one up needs no second import (any `AbstractAgent` still works).
+export { HttpAgent } from "@ag-ui/client";
 export type {
   Channel,
   CreateChannelOptions,

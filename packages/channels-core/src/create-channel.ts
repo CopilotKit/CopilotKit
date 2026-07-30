@@ -22,6 +22,7 @@ import type { ChannelCommand, CommandContext } from "./commands.js";
 import { Thread } from "./thread.js";
 import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
+import { sanitizeAgentEventStream } from "./sanitize-agent-events.js";
 import type {
   InteractionContext,
   IncomingMessage,
@@ -336,6 +337,20 @@ export interface CreateChannelOptions<
    */
   replyContinuation?: ReplyContinuationOptions;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  /**
+   * Tolerate the AG-UI event streams real agents emit. On by default.
+   *
+   * `@ag-ui/langgraph` emits a `TOOL_CALL_START` whose `parentMessageId` is
+   * `null` — notably the tool call that triggers an interrupt — which strict
+   * client-side validation rejects, aborting the whole run and breaking
+   * human-in-the-loop. Channels coerce that field on the wire so the run
+   * survives; see {@link sanitizeAgentEventStream} for exactly what is touched.
+   *
+   * Set `false` to stream events through unmodified and let a malformed event
+   * fail the run. Only meaningful for agents that stream over HTTP — nothing
+   * re-validates the events of an in-process agent.
+   */
+  sanitizeAgentEvents?: boolean;
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
   tools?: ChannelTool[];
@@ -527,11 +542,19 @@ export function createChannel<
   let telemetry: ChannelTelemetry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
+    // Applied here rather than at each call site so a developer never has to
+    // know the workaround exists. Idempotent, so reusing one agent instance
+    // across threads (or being handed an already-sanitized one) is fine.
+    const sanitize =
+      opts.sanitizeAgentEvents === false
+        ? (agent: AbstractAgent) => agent
+        : sanitizeAgentEventStream;
     const a = opts.agent;
     if (typeof a === "function")
-      return a as (threadId: string) => AbstractAgent;
+      return (threadId: string) => sanitize(a(threadId));
     // Singleton config: clone per run so concurrent turns never share one mutable agent.
-    if (a) return (threadId: string) => isolateAgentInstance(a, threadId);
+    if (a)
+      return (threadId: string) => sanitize(isolateAgentInstance(a, threadId));
     return () => {
       throw new Error(
         "createChannel: no agent configured (pass `agent` to use runAgent)",

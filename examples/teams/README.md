@@ -63,7 +63,7 @@ instead, swap the `agent` factory to read a URL from the environment:
 
 ```ts
 agent: (threadId) => {
-  const a = new SanitizingHttpAgent({ url: process.env.AGENT_URL! });
+  const a = new HttpAgent({ url: process.env.AGENT_URL! });
   a.threadId = threadId;
   return a;
 },

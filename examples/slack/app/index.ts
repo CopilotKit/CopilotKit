@@ -28,7 +28,7 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel } from "@copilotkit/channels";
+import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import type {
@@ -40,7 +40,6 @@ import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
-  SanitizingHttpAgent,
 } from "@copilotkit/channels/slack";
 import {
   discord,
@@ -200,12 +199,11 @@ async function main() {
     adapters,
     // One AG-UI agent per conversation. The backend is a CopilotKit
     // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
-    // threadId, so the raw conversation thread id is fine.
-    // `SanitizingHttpAgent` is a lenient superset of `HttpAgent` (tolerates a
-    // null `parentMessageId` from `@ag-ui/langgraph`); it's safe for every
-    // platform, so one factory covers Slack, Discord, Telegram, and WhatsApp alike.
+    // threadId, so the raw conversation thread id is fine. Nothing here is
+    // platform-specific, so one factory covers Slack, Discord, Telegram, and
+    // WhatsApp alike.
     agent: (threadId) => {
-      const a = new SanitizingHttpAgent({
+      const a = new HttpAgent({
         url: agentUrl,
         headers: agentHeaders,
       });
@@ -290,7 +288,7 @@ async function main() {
   // because Intelligence is configured, it starts EVERY direct adapter on the
   // Channel (Slack + Discord + Telegram + WhatsApp alike) — there is no
   // `bot.start()`. The runtime hosts no agents itself; the Channel supplies its
-  // own (the SanitizingHttpAgent above), so `agents` is empty.
+  // own (the HttpAgent above), so `agents` is empty.
   const channelRuntime = new CopilotRuntime({
     agents: {},
     intelligence,
