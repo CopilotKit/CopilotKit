@@ -140,6 +140,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(config.adapter).toBe("slack");
     expect(config.showToolStatus).toBe(true);
     expect(config.wsUrl).toBe(intelligence.ɵgetChannelsWsUrl());
+    expect(config.apiUrl).toBe(intelligence.ɵgetApiUrl());
     expect(config.apiKey).toBe(intelligence.ɵgetRunnerAuthToken());
     expect(config.runtimeInstanceId).toMatch(/^rti_/);
 
@@ -158,8 +159,9 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(handler.channels!.status().overall).toBe("reconnecting");
     expect(state.calls.length).toBe(1);
 
-    // 7. stop() resolves and the fake handle's stop was invoked.
+    // 7. stop() resolves, the fake handle's stop was invoked, and overall is stopped.
     await handler.channels!.stop();
     expect(state.stopCalls).toBe(1);
+    expect(handler.channels!.status().overall).toBe("stopped");
   });
 });

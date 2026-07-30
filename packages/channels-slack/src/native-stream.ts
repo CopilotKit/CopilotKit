@@ -176,9 +176,17 @@ export class NativeMessageStream implements TextStream {
       this.flushTimer = undefined;
     }
     this.enqueueFlush();
-    await this.queue;
+    // Drain the queue even when a prior strict append rejected it, so we still
+    // reach stopStream and do not leave an open native Slack stream.
+    let queueError: unknown;
+    try {
+      await this.queue;
+    } catch (err) {
+      queueError = err;
+    }
     if (this.legacy) {
       await this.legacy.finish();
+      if (queueError !== undefined && this.strict) throw queueError;
       return;
     }
     // Finalize the streamed message (no-op if we never started one).
@@ -186,10 +194,11 @@ export class NativeMessageStream implements TextStream {
       try {
         await this.transport.stopStream(this.curTs, finalBlocks);
       } catch (err) {
-        if (this.strict) throw err;
+        if (this.strict) throw queueError ?? err;
         console.error("[native-stream] stopStream failed:", err);
       }
     }
+    if (queueError !== undefined && this.strict) throw queueError;
   }
 
   private scheduleFlush(): void {

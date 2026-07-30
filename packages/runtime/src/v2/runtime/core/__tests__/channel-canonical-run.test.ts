@@ -86,6 +86,15 @@ async function captureRunCanonical(
     ...canonicalIdentity,
     joinToken: "join_token_not_used_by_channels",
   });
+  // Always mock cleanup/renew so unit tests never issue real HTTP to apiUrl.
+  if (!vi.isMockFunction(intelligence.ɵcleanupThreadLock)) {
+    vi.spyOn(intelligence, "ɵcleanupThreadLock").mockResolvedValue(undefined);
+  }
+  if (!vi.isMockFunction(intelligence.ɵrenewThreadLock)) {
+    vi.spyOn(intelligence, "ɵrenewThreadLock").mockResolvedValue({
+      ttlSeconds: 20,
+    });
+  }
 
   await defaultActivateChannel(
     {

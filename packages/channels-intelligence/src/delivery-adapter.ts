@@ -40,6 +40,7 @@ import type {
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
+import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 import { assertProviderReference } from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
@@ -405,14 +406,17 @@ export class DeliveryAdapter implements PlatformAdapter {
     const responseId = mintId("response_");
     let providerReference: string | undefined;
     if (target.delivery.adapter === "slack") {
-      providerReference = providerReferenceFromResult(
-        await target.session.effect(responseId, {
-          kind: "slack.stream.start",
-        }),
-      );
       let text = "";
       let bodyError: unknown;
+      let streamStarted = false;
       try {
+        // Start lives inside try/finally so a missing providerReference after
+        // an applied start still attempts stream.stop cleanup.
+        const startResult = await target.session.effect(responseId, {
+          kind: "slack.stream.start",
+        });
+        streamStarted = true;
+        providerReference = providerReferenceFromResult(startResult);
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
           const before = digest(text);
@@ -432,15 +436,17 @@ export class DeliveryAdapter implements PlatformAdapter {
         throw error;
       } finally {
         // Always stop a started stream (append failure must not leave it open).
-        try {
-          await target.session.effect(responseId, {
-            kind: "slack.stream.stop",
-            providerReference,
-            finalTextDigest: digest(text),
-          });
-        } catch (stopError) {
-          // If the body succeeded, stop failure is the delivery failure.
-          if (bodyError === undefined) throw stopError;
+        if (streamStarted && providerReference !== undefined) {
+          try {
+            await target.session.effect(responseId, {
+              kind: "slack.stream.stop",
+              providerReference,
+              finalTextDigest: digest(text),
+            });
+          } catch (stopError) {
+            // If the body succeeded, stop failure is the delivery failure.
+            if (bodyError === undefined) throw stopError;
+          }
         }
       }
     } else {
@@ -448,17 +454,19 @@ export class DeliveryAdapter implements PlatformAdapter {
       let created = false;
       for await (const delta of chunks) {
         if (delta.length === 0) continue;
-        text += delta;
+        const nextText = text + delta;
         const result = created
           ? await target.session.effect(responseId, {
               kind: "teams.message.replace",
               providerReference: providerReference!,
-              text,
+              text: nextText,
             })
           : await target.session.effect(responseId, {
               kind: "teams.message.create",
-              text,
+              text: nextText,
             });
+        // Only advance local text after create/replace is applied.
+        text = nextText;
         providerReference ??= providerReferenceFromResult(result);
         created = true;
       }
@@ -523,7 +531,19 @@ export class DeliveryAdapter implements PlatformAdapter {
       }
       return { ok: true, fileId: handle };
     } catch (error) {
-      if (error instanceof ChannelProviderDeliveryError) throw error;
+      // Permanent gateway/protocol failures must propagate so claimAndHandle
+      // does not emit a false complete terminal after a failed provider effect.
+      if (
+        error instanceof ChannelProviderDeliveryError ||
+        error instanceof RealtimeGatewayPushError ||
+        (error instanceof Error &&
+          (/packet path is closed|ownership expired|conflicting acknowledgement/i.test(
+            error.message,
+          ) ||
+            /timed out/i.test(error.message)))
+      ) {
+        throw error;
+      }
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
@@ -588,14 +608,16 @@ export class DeliveryAdapter implements PlatformAdapter {
             if (delta.length === 0) return;
             assertProviderReference(providerReference);
             const before = digest(text);
-            text += delta;
+            const nextText = text + delta;
             await session.effect(responseId, {
               kind: "slack.stream.append",
               providerReference,
               delta,
               beforeTextDigest: before,
-              afterTextDigest: digest(text),
+              afterTextDigest: digest(nextText),
             });
+            // Only advance local text after the append is applied (match stream()).
+            text = nextText;
           },
           appendChunks: async (_id, chunks) => {
             assertProviderReference(providerReference);

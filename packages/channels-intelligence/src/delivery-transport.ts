@@ -204,7 +204,12 @@ export class ChannelDeliverySession {
           status,
         );
       }
-      this.providerOutputApplied = true;
+      // Cleanup stream.stop must not count as user-visible provider output —
+      // otherwise failed-before-output terminals misclassify after stop-only.
+      const kind = typeof payload.kind === "string" ? payload.kind : undefined;
+      if (kind === undefined || !kind.endsWith(".stream.stop")) {
+        this.providerOutputApplied = true;
+      }
       return result;
     });
   }
@@ -663,10 +668,20 @@ export function safeChannelErrorMetadata(error: unknown): {
     | "conflict"
     | "unknown";
 } {
-  const value = error as { name?: unknown; code?: unknown } | null;
+  const value = error as {
+    name?: unknown;
+    code?: unknown;
+    message?: unknown;
+  } | null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof value?.message === "string"
+        ? value.message
+        : "";
   const classification =
-    `${String(value?.name ?? "")} ${String(value?.code ?? "")}`.toLowerCase();
-  if (/timeout|expired|deadline/.test(classification)) {
+    `${String(value?.name ?? "")} ${String(value?.code ?? "")} ${message}`.toLowerCase();
+  if (/timeout|expired|deadline|timed out/.test(classification)) {
     return { errorCategory: "timeout" };
   }
   if (/network|fetch|econn|enotfound|socket|dns|epipe/.test(classification)) {
@@ -738,11 +753,34 @@ function assertPreparedDelivery(
     typeof prepared.turn.receivedAt !== "string" ||
     !isRecord(prepared.turn.input) ||
     typeof prepared.turn.input.kind !== "string" ||
-    !PREPARED_TURN_KINDS.has(prepared.turn.input.kind)
+    !PREPARED_TURN_KINDS.has(prepared.turn.input.kind) ||
+    !isValidPreparedTurnInput(prepared.turn.input)
   ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
   }
   return prepared as PreparedChannelDelivery;
+}
+
+/** Per-kind required fields for prepared turn input (join-boundary fail-fast). */
+function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
+  switch (input.kind) {
+    case "text":
+      return true;
+    case "command":
+      return typeof input.command === "string" && input.command.length > 0;
+    case "reaction":
+      return (
+        typeof input.rawEmoji === "string" &&
+        input.rawEmoji.length > 0 &&
+        typeof input.messageId === "string" &&
+        input.messageId.length > 0 &&
+        typeof input.added === "boolean"
+      );
+    case "interaction":
+      return typeof input.actionId === "string" && input.actionId.length > 0;
+    default:
+      return false;
+  }
 }
 
 function isInvitation(value: unknown): value is {

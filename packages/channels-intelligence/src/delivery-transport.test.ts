@@ -302,7 +302,104 @@ describe("Channel delivery transport", () => {
       providerReference: "pref_v1_message_01",
       finalTextDigest: "c".repeat(64),
     });
-    expect(pushCount).toBeGreaterThanOrEqual(3);
+    expect(pushCount).toBe(3);
+    const kinds = vi
+      .mocked(deliveryChannel.push)
+      .mock.calls.map(
+        (call) => (call[1] as { payload?: { kind?: string } }).payload?.kind,
+      );
+    expect(kinds).toEqual([
+      "slack.stream.start",
+      "slack.stream.append",
+      "slack.stream.stop",
+    ]);
+  });
+
+  it("does not count stream.stop alone as provider output", async () => {
+    const deliveryChannel = channel();
+    const session = new ChannelDeliverySession(
+      preparedDelivery(),
+      {
+        ownerGeneration: 7,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryChannel,
+      vi.fn(),
+    );
+
+    await session.effect("response_01", {
+      kind: "slack.stream.stop",
+      providerReference: "pref_v1_message_01",
+      finalTextDigest: "c".repeat(64),
+    });
+    expect(session.hasProviderOutput()).toBe(false);
+  });
+
+  it("classifies timeout/expiry errors from message text", async () => {
+    const { safeChannelErrorMetadata } =
+      await import("./delivery-transport.js");
+    expect(
+      safeChannelErrorMetadata(
+        new Error("realtime gateway delivery join timed out"),
+      ),
+    ).toEqual({ errorCategory: "timeout" });
+    expect(
+      safeChannelErrorMetadata(new Error("Channel delivery ownership expired")),
+    ).toEqual({ errorCategory: "timeout" });
+  });
+
+  it("rejects prepared deliveries with incomplete turn fields", async () => {
+    const badPrepared = {
+      ...preparedDelivery(),
+      turn: {
+        eventId: "evt_bad",
+        receivedAt: "2026-07-29T17:00:00.000Z",
+        // command kind without required `command` field
+        input: { kind: "command" as const },
+        actor: { externalUserId: "U1" },
+      },
+    };
+    const deliveryChannel = channel(
+      badPrepared as unknown as ReturnType<typeof preparedDelivery>,
+    );
+    const control: RealtimeGatewaySession = {
+      push: vi.fn().mockResolvedValue({
+        result: "claimed",
+        deliveryId: "dlv_delivery_01",
+        ownerGeneration: 1,
+        joinToken: "chj_token_01",
+      }),
+      on: vi.fn(),
+      join: vi.fn().mockResolvedValue(deliveryChannel),
+    };
+    const log = vi.fn();
+    const transport = new ChannelDeliveryTransport({
+      session: control,
+      runtimeInstanceId: "rti_runtime_01",
+      log,
+    });
+    transport.start(async () => undefined);
+    const invitationHandler = vi.mocked(control.on).mock.calls[0]![1] as (
+      invitation: unknown,
+    ) => void;
+    invitationHandler({
+      protocol: "channel_delivery_v1",
+      deliveryId: "dlv_delivery_01",
+    });
+    await transport.stop();
+    await vi.waitFor(() => {
+      expect(vi.mocked(control.join)).toHaveBeenCalled();
+    });
+    expect(deliveryChannel.leave).toHaveBeenCalled();
+    // Invalid prepared turn must not emit a complete terminal packet.
+    const terminalPackets = vi
+      .mocked(deliveryChannel.push)
+      .mock.calls.filter(
+        (call) =>
+          (call[1] as { payload?: { kind?: string } }).payload?.kind ===
+          "channel.delivery.terminal",
+      );
+    expect(terminalPackets.length).toBe(0);
   });
 
   it("surfaces an applied provider failure as an already-terminal error", async () => {
