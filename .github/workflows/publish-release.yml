@@ -181,6 +181,11 @@ jobs:
       # hashes on link, so a tampered cache entry fails the install rather than
       # injecting code. The worst case is a denied install, not a compromised
       # publish.
+      #
+      # Cost note: on a MISS the post-job save adds ~22s (measured) to this job's
+      # wall clock, so the first release after any pnpm-lock.yaml change is
+      # roughly break-even. Every release until the next lockfile change then
+      # restores in a few seconds instead of installing cold.
       - name: Cache pnpm store
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
