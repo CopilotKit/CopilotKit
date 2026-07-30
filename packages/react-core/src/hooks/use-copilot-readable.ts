@@ -122,14 +122,14 @@ export function useCopilotReadable(
 
     ctxIdRef.current = copilotkit.addContext({
       description,
-      value: (convert ?? JSON.stringify)(value),
+      value: convert ? convert(description, value) : JSON.stringify(value),
     });
 
     return () => {
       if (!ctxIdRef.current) return;
       copilotkit.removeContext(ctxIdRef.current);
     };
-  }, [description, value, convert]);
+  }, [description, value, convert, ...(dependencies ?? [])]);
 
   return ctxIdRef.current;
 }
