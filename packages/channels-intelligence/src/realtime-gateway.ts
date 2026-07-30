@@ -442,6 +442,7 @@ export async function connectRealtimeGateway(
       ? T
       : never,
   });
+  const channel = socket.channel("control", config.join as object);
 
   // --- Initial-connect watchdog (OSS-623) ----------------------------------
   // Phoenix treats a failed FIRST connect exactly like a dropped one: it retries
@@ -619,9 +620,34 @@ export async function connectRealtimeGateway(
   }, connectTimeoutMs);
   (connectDeadline as unknown as { unref?: () => void }).unref?.();
 
-  socket.connect();
+  const pendingInvitations: unknown[] = [];
+  const invitationHandlers: Array<(payload: unknown) => void> = [];
+  const maxPendingInvitations = 1_000;
+  channel.on("delivery_invitation", (payload: unknown) => {
+    if (invitationHandlers.length > 0) {
+      for (const handler of invitationHandlers) handler(payload);
+      return;
+    }
+    if (pendingInvitations.length >= maxPendingInvitations) {
+      if (!initialJoinSettled) {
+        initialJoinSettled = true;
+        clearConnectDeadline();
+        closingIntentionally = true;
+        socket.disconnect();
+        failConnect(
+          new Error(
+            `realtime gateway sent more than ${maxPendingInvitations} invitations before control setup completed`,
+          ),
+        );
+      }
+      return;
+    }
+    pendingInvitations.push(payload);
+  });
 
-  const channel = socket.channel("control", config.join as object);
+  // The control channel and its invitation handler exist before the transport
+  // can open or the join can succeed, so an immediate Gateway wake is retained.
+  socket.connect();
 
   // --- Connection-health state machine -------------------------------------
   // `disconnect()` flips `closingIntentionally` first so our own teardown —
@@ -799,6 +825,15 @@ export async function connectRealtimeGateway(
           );
       }),
     on: (event, handler) => {
+      if (joinedChannel === channel && event === "delivery_invitation") {
+        invitationHandlers.push(handler);
+        const buffered = pendingInvitations.splice(
+          0,
+          pendingInvitations.length,
+        );
+        for (const payload of buffered) handler(payload);
+        return;
+      }
       joinedChannel.on(event, handler);
     },
     join: async (topic, payload) => {
