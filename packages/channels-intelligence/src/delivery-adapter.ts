@@ -73,6 +73,8 @@ export interface CanonicalChannelRunArgs {
 }
 
 export interface DeliveryAdapterOptions {
+  /** Declared Channel name used to own the canonical Intelligence thread. */
+  channelName: string;
   transport: ChannelDeliveryTransport;
   runCanonical(args: CanonicalChannelRunArgs): Promise<ChannelAgentLoopResult>;
   loadHistory(args: {
@@ -337,7 +339,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId,
       runId,
       userId: target.delivery.appUserId,
-      agentId: args.agent.agentId ?? "default",
+      agentId: this.options.channelName,
       tools: args.tools,
       context: args.context,
       persistedInputMessages: args.agent.messages.filter(
