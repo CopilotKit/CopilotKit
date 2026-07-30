@@ -141,6 +141,11 @@ export async function handleIntelligenceRun({
       .ɵcleanupThreadLock({
         threadId: canonicalThreadId || input.threadId,
         runId: canonicalRunId || input.runId,
+        // Must match the prefix used on acquire/renew above, or the release
+        // targets the unprefixed key and the real lock is never freed.
+        ...(runtime.lockKeyPrefix !== undefined
+          ? { lockKeyPrefix: runtime.lockKeyPrefix }
+          : {}),
       })
       .catch((cleanupError) => {
         logger.error(

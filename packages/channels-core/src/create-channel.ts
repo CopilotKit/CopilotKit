@@ -84,13 +84,23 @@ export type ChannelConcurrency = "parallel" | "serial" | "drop";
 /**
  * Isolate an agent for one turn via `clone()`.
  *
- * Used for:
+ * Applied to every configured shape, so the object a turn runs on is never one
+ * the caller still holds a reference to:
  * - `createChannel({ agent: shared })` (singleton config)
- * - factories that return a shared instance (`agent: (id) => shared`)
+ * - `agent: (id) => new Agent()` (fresh factory — clone of an unused agent)
+ * - `agent: (id) => shared` (factory returning a shared instance)
  *
- * Post-clone hygiene matters: `HttpAgent.clone()` will start aborted if the
- * prototype's AbortController was aborted, and `isRunning` is copied from the
- * source — either leaves concurrent/follow-up turns dead. Always reset both.
+ * The last shape is the one that needs this. A factory returning the same object
+ * every call hands each turn an agent already mutated by the previous turn, and
+ * `DeliveryAdapter.acquireAgent` keys on object identity, so those turns also
+ * serialize behind one another instead of running independently.
+ *
+ * Caveat for custom agents: `AbstractAgent.prototype.clone()` copies a fixed
+ * field list, so fields declared by a subclass (auth clients, config, caches)
+ * are **not** carried onto the clone and read back as `undefined`. There is no
+ * loud failure for this — `clone()` always exists on the base class and returns
+ * a correctly-typed instance. Subclasses with their own state must override
+ * `clone()` to copy it.
  */
 export function isolateAgentInstance(
   prototype: AbstractAgent,
@@ -99,7 +109,8 @@ export function isolateAgentInstance(
   if (typeof prototype.clone !== "function") {
     throw new Error(
       "createChannel: agent must implement clone() that returns a new instance " +
-        "(HttpAgent, BuiltInAgent, etc.), or pass agent: (threadId) => new Agent() factory",
+        "(HttpAgent, BuiltInAgent, etc.). Every turn is isolated via clone(), " +
+        "including agents returned from an agent: (threadId) => ... factory.",
     );
   }
   const cloned = prototype.clone() as AbstractAgent;
@@ -109,21 +120,22 @@ export function isolateAgentInstance(
     );
   }
   cloned.threadId = threadId;
-  // Never inherit a mid-run or aborted lifecycle from the prototype / prior clone.
+  // `clone()` copies both of these from the source, so a clone taken from an
+  // agent that has already run starts out claiming to be mid-run with a spent
+  // (possibly aborted) controller. A fresh turn is neither.
+  //
+  // Note this is hygiene, not the fix for a dead follow-up turn: `runAgent`
+  // assigns `abortController = params?.abortController ?? new AbortController()`
+  // before each run, so an inherited aborted controller cannot reach the next
+  // request on its own. Reset it anyway so anything reading the signal between
+  // isolation and the run sees a live one.
   cloned.isRunning = false;
   const withAbort = cloned as AbstractAgent & {
     abortController?: AbortController;
   };
-  if ("abortController" in withAbort || withAbort.abortController) {
+  if ("abortController" in withAbort) {
     withAbort.abortController = new AbortController();
   }
-  // Drop any in-flight run handles Object.create may have left undefined/shared.
-  const withRun = cloned as AbstractAgent & {
-    activeRunDetach$?: unknown;
-    activeRunCompletionPromise?: unknown;
-  };
-  withRun.activeRunDetach$ = undefined;
-  withRun.activeRunCompletionPromise = undefined;
   return cloned;
 }
 
@@ -564,17 +576,17 @@ export function createChannel<
   let telemetry: ChannelTelemetry | undefined;
 
   /**
-   * Per-turn agent resolution — always isolate via `clone()`.
+   * Per-turn agent resolution — always isolate via `clone()`, for both the
+   * singleton config and the result of a factory.
    *
-   * Why always (not only on concurrent conflict):
-   * - `agent: shared` and `agent: () => shared` must never *run* the prototype.
-   *   Running it mutates abortController / isRunning / messages; the next clone
-   *   from an aborted HttpAgent starts dead (HttpAgent.clone re-aborts when the
-   *   source signal is aborted), so only the first turn replies.
-   * - Fresh factories (`() => new Agent()`) still work: clone of an unused agent
-   *   is a clean independent instance.
-   * - DeliveryAdapter.acquireAgent keys on object identity; distinct clones are
-   *   what allow concurrent same-thread turns instead of serializing on one agent.
+   * Isolating the singleton config alone is not enough: a factory is free to
+   * return the same object on every call (`agent: (id) => shared`), which is an
+   * easy shape to write by accident. Left un-isolated, each turn runs an agent
+   * still carrying the previous turn's messages and lifecycle flags, and
+   * `DeliveryAdapter.acquireAgent` — which keys on object identity — serializes
+   * those turns behind one another. Cloning the factory's result costs nothing
+   * for a fresh factory (`() => new Agent()` clones an unused agent) and closes
+   * the shared-instance case.
    */
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     // Applied here rather than at each call site so a developer never has to
@@ -596,8 +608,7 @@ export function createChannel<
       return (threadId: string) =>
         sanitize(isolateAgentInstance(a(threadId), threadId));
     }
-    return (threadId: string) =>
-      sanitize(isolateAgentInstance(a, threadId));
+    return (threadId: string) => sanitize(isolateAgentInstance(a, threadId));
   })();
 
   /** Per-conversation serial turn queue (error-boundaried so one failure cannot poison the chain). */

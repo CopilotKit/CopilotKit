@@ -58,18 +58,18 @@ function collectText(nodes: ChannelNode[]): string {
 }
 
 /**
- * Capture user messages injected into a fake agent (and every clone of it).
- * createChannel always isolates via `clone()`, so spies on the prototype alone
- * would miss the agent instance that actually runs the turn.
+ * Apply `patch` to `agent` and, recursively, to every clone descended from it.
+ *
+ * `createChannel` isolates every turn via `clone()`, so the instance that
+ * actually runs is never the one configured in the test. A spy installed only on
+ * the configured agent would observe nothing.
  */
-function captureAddedMessages(agent: FakeAgent): unknown[] {
-  const added: unknown[] = [];
+function patchAgentAndClones(
+  agent: FakeAgent,
+  patch: (target: FakeAgent) => void,
+): void {
   const wrap = (target: FakeAgent): void => {
-    const addMessage = target.addMessage.bind(target);
-    target.addMessage = (message) => {
-      added.push(message);
-      return addMessage(message);
-    };
+    patch(target);
     const origClone = target.clone.bind(target);
     target.clone = () => {
       const cloned = origClone();
@@ -78,27 +78,32 @@ function captureAddedMessages(agent: FakeAgent): unknown[] {
     };
   };
   wrap(agent);
+}
+
+/** Capture user messages injected into a fake agent (and every clone of it). */
+function captureAddedMessages(agent: FakeAgent): unknown[] {
+  const added: unknown[] = [];
+  patchAgentAndClones(agent, (target) => {
+    const addMessage = target.addMessage.bind(target);
+    target.addMessage = (message) => {
+      added.push(message);
+      return addMessage(message);
+    };
+  });
   return added;
 }
 
-/** Sum `runAgentCalls` across the prototype and every clone produced from it. */
+/** Sum `runAgent` calls across the configured agent and every clone of it. */
 function trackRunAgentCalls(agent: FakeAgent): { total: () => number } {
   let total = 0;
-  const wrap = (target: FakeAgent): void => {
+  patchAgentAndClones(agent, (target) => {
     const orig = target.runAgent.bind(target);
     target.runAgent = async (parameters, subscriber) => {
       total += 1;
       // Keep FakeAgent's own counter in sync for any direct assertions.
       return orig(parameters, subscriber);
     };
-    const origClone = target.clone.bind(target);
-    target.clone = () => {
-      const cloned = origClone();
-      wrap(cloned);
-      return cloned;
-    };
-  };
-  wrap(agent);
+  });
   return { total: () => total };
 }
 
@@ -460,7 +465,7 @@ describe("createChannel", () => {
     // Capture the context/tools passed to the (isolated) agent's first runAgent call.
     let seenContext: unknown;
     let seenTools: unknown;
-    const wrapRun = (target: FakeAgent): void => {
+    patchAgentAndClones(agent, (target) => {
       const origRunAgent = target.runAgent.bind(target);
       target.runAgent = async (parameters, subscriber) => {
         if (seenContext === undefined) {
@@ -470,14 +475,7 @@ describe("createChannel", () => {
         }
         return origRunAgent(parameters, subscriber);
       };
-      const origClone = target.clone.bind(target);
-      target.clone = () => {
-        const cloned = origClone();
-        wrapRun(cloned);
-        return cloned;
-      };
-    };
-    wrapRun(agent);
+    });
 
     const channel = createChannel({
       adapters: [fake],
@@ -850,17 +848,9 @@ describe("createChannel", () => {
   it("factory that returns a shared instance still isolates per turn", async () => {
     const state = new MemoryStore();
     const shared = new FakeAgent();
-    const seen: FakeAgent[] = [];
 
     const fake = new FakeAdapter();
-    const origGetOrCreate = fake.conversationStore.getOrCreate.bind(
-      fake.conversationStore,
-    );
-    fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
-      const session = await origGetOrCreate(key, target, makeAgent);
-      seen.push(session.agent as FakeAgent);
-      return session;
-    };
+    const { agents: seen } = captureSessionAgents(fake);
 
     // Common "singleton factory" anti-pattern: returns the same object every call.
     // Parallel turns must still get distinct clones, not serialize on one agent.
@@ -1056,10 +1046,8 @@ describe("createChannel", () => {
     // Capture the context the agent receives on its first runAgent call, and
     // have the fake produce an assistant message with text on agent.messages
     // (mirroring how run-loop expects assistant replies to land there).
-    // Applied to the prototype and every isolate/clone — createChannel never
-    // runs the configured prototype directly.
     let seenContext: unknown;
-    const wrapRun = (target: FakeAgent): void => {
+    patchAgentAndClones(agent, (target) => {
       const origRunAgent = target.runAgent.bind(target);
       target.runAgent = async (parameters, subscriber) => {
         if (seenContext === undefined) {
@@ -1073,14 +1061,7 @@ describe("createChannel", () => {
         });
         return origRunAgent(parameters, subscriber);
       };
-      const origClone = target.clone.bind(target);
-      target.clone = () => {
-        const cloned = origClone();
-        wrapRun(cloned);
-        return cloned;
-      };
-    };
-    wrapRun(agent);
+    });
 
     channel.onMention(async ({ thread }) => {
       await thread.runAgent({ transcript: true });

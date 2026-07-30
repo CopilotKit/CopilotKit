@@ -435,27 +435,23 @@ async function runCanonicalChannelAgent(
   interrupted: boolean;
   deliveryError?: unknown;
 }> {
-  // Scope the product lock + local runner store per delivery run so concurrent
-  // Channel turns on the same conversation (same Intelligence threadId) do not
-  // 409 the lock or hit InMemoryAgentRunner's "Thread already running".
-  // History is still loaded from the real canonical threadId by the adapter.
-  const runLockPrefix = [lockKeyPrefix, "channel-run", args.runId]
-    .filter(
-      (part): part is string => typeof part === "string" && part.length > 0,
-    )
-    .join(":");
+  // The product thread lock stays exclusive per (org, thread) and unprefixed
+  // unless the runtime explicitly configures a prefix. Do NOT namespace it per
+  // run: the Realtime Gateway derives this same key itself and reads its value
+  // as "which run is active on this thread" (validate_active_lock,
+  // lookup_active_run, stream_idle gating). It is also the only mutual
+  // exclusion that spans runtime replicas — DeliveryTransport's per-thread
+  // admission gate is instance state, so it cannot fence two replicas.
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
     userId: args.userId,
     agentId: args.agentId,
     ttlSeconds: lockTtlSeconds,
-    lockKeyPrefix: runLockPrefix,
+    ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });
   const canonicalThreadId = lock.threadId;
   const canonicalRunId = lock.runId;
-  /** Local runner key — unique per delivery so concurrent same-thread turns do not collide. */
-  const runnerThreadId = `${canonicalThreadId}::${canonicalRunId}`;
   let result = { iterations: 0, interrupted: false };
   const outer = new ChannelOuterAgent(
     args.agent,
@@ -470,7 +466,7 @@ async function runCanonicalChannelAgent(
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
-      .then(() => runner.stop({ threadId: runnerThreadId }))
+      .then(() => runner.stop({ threadId: canonicalThreadId }))
       .catch(() => false);
   };
   heartbeatTimer = setInterval(() => {
@@ -479,7 +475,7 @@ async function runCanonicalChannelAgent(
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: lockTtlSeconds,
-        lockKeyPrefix: runLockPrefix,
+        ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
       })
       .catch((error: unknown) => {
         if (heartbeatTimer === undefined) return;
@@ -500,7 +496,7 @@ async function runCanonicalChannelAgent(
     await new Promise<void>((resolve, reject) => {
       let terminalError: (Error & { code?: string }) | undefined;
       const stream = runner.run({
-        threadId: runnerThreadId,
+        threadId: canonicalThreadId,
         agent: outer,
         input: {
           threadId: canonicalThreadId,
@@ -552,7 +548,7 @@ async function runCanonicalChannelAgent(
       .ɵcleanupThreadLock({
         threadId: canonicalThreadId,
         runId: canonicalRunId,
-        lockKeyPrefix: runLockPrefix,
+        ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
       })
       .catch(() => undefined);
   }
