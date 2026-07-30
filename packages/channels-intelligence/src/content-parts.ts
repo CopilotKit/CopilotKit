@@ -1,5 +1,5 @@
 import type { AgentContentPart } from "@copilotkit/channels-ui";
-import type { ChannelFileRef } from "./live-session-files.js";
+import type { ChannelFileRef } from "./delivery-files.js";
 
 /** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
 export function mediaKindForMime(
@@ -30,7 +30,14 @@ export async function buildContentParts(
     | undefined,
   log?: (msg: string, meta?: unknown) => void,
 ): Promise<AgentContentPart[]> {
-  if (!files?.length || !fetchFile) return [];
+  if (!files?.length) return [];
+  if (!fetchFile) {
+    log?.("intelligence file fetch unavailable: file client is not configured");
+    return files.map((ref) => ({
+      type: "text" as const,
+      text: `[attached file ${ref.filename} could not be retrieved]`,
+    }));
+  }
   const parts: AgentContentPart[] = [];
   for (const ref of files) {
     try {

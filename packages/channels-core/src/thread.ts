@@ -575,6 +575,14 @@ export class Thread implements ThreadInterface {
         // for runs that were interrupted (the renderer guards that internally).
         await renderer.finish?.();
       } catch (err) {
+        // Best-effort finalize on failure so native Slack streams still get
+        // stopStream after mid-run delivery/append errors (deferred deliveryError
+        // or run-loop throw). finish is idempotent; original error wins.
+        try {
+          await renderer.finish?.();
+        } catch {
+          // Prefer the original failure over finalize noise.
+        }
         // A throw is a run failure — in the agent loop (tool-handler errors are
         // swallowed inside the loop, so a throw is agent-level) or in finalization.
         // `stage` distinguishes the two.

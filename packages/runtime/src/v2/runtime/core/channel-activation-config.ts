@@ -149,7 +149,7 @@ export function deriveChannelActivationConfig(args: {
 
   const channelName = channel.name;
 
-  const wsUrl = intelligence.ɵgetRunnerWsUrl();
+  const wsUrl = intelligence.ɵgetChannelsWsUrl();
   const apiUrl = intelligence.ɵgetApiUrl();
   const apiKey = intelligence.ɵgetRunnerAuthToken();
   const projectId = parseProjectIdFromApiKey(apiKey);

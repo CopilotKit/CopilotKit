@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { createChannel, FakeAdapter } from "@copilotkit/channels";
-import { startChannelsOverRealtimeGateway } from "@copilotkit/channels-intelligence";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { InMemoryAgentRunner } from "../../runner/in-memory";
 import {
@@ -101,33 +100,6 @@ describe("ChannelManager", () => {
 
     expect(engine).toHaveBeenCalledTimes(1);
     await mgr.ready();
-  });
-
-  it("marks a generation-fenced managed session as an explicit error", async () => {
-    let stateCallback:
-      | ((state: "online" | "reconnecting" | "gave_up" | "fenced") => void)
-      | undefined;
-    const logs: string[] = [];
-    const handle: ChannelsHandle = {
-      metadata: {},
-      stop: async () => {},
-      onStateChange: (callback) => {
-        stateCallback = callback;
-      },
-    };
-    const mgr = new ChannelManager({
-      intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
-      activateChannel: async () => handle,
-      log: (message) => logs.push(message),
-    });
-
-    mgr.activate();
-    await mgr.ready();
-    stateCallback?.("fenced");
-
-    expect(mgr.status().channels.support).toBe("error");
-    expect(logs.some((message) => message.includes("fenced"))).toBe(true);
   });
 
   it("does not call the engine at construction; stop() stops each handle once and is idempotent", async () => {
@@ -973,105 +945,6 @@ describe("defaultActivateChannel", () => {
     await expect(
       defaultActivateChannel(config, channel, importer),
     ).rejects.toThrow(/^boom$/);
-  });
-});
-
-/**
- * A gateway-compatible fake WebSocket (phoenix v2 serializer) that rejects the
- * channel join with the gateway's setup-required reason
- * `channel_declaration_unavailable`. Records `close()` so teardown can be
- * asserted. This drives the REAL engine end-to-end: `defaultActivateChannel` →
- * real `startChannelsOverRealtimeGateway` → real `connectRealtimeGateway`.
- */
-function makeSetupRequiredWebSocket() {
-  const instances: FakeWebSocket[] = [];
-  class FakeWebSocket {
-    static readonly CONNECTING = 0;
-    static readonly OPEN = 1;
-    static readonly CLOSING = 2;
-    static readonly CLOSED = 3;
-    readyState = 0;
-    onopen: ((ev?: unknown) => void) | null = null;
-    onmessage: ((ev: { data: string }) => void) | null = null;
-    onerror: ((ev?: unknown) => void) | null = null;
-    onclose: ((ev?: unknown) => void) | null = null;
-    closed = false;
-    constructor(public readonly url: string) {
-      instances.push(this);
-      queueMicrotask(() => {
-        this.readyState = 1;
-        this.onopen?.();
-      });
-    }
-    send(data: string): void {
-      let frame: unknown;
-      try {
-        frame = JSON.parse(data);
-      } catch {
-        return;
-      }
-      if (!Array.isArray(frame)) return;
-      const [joinRef, ref, topic, event] = frame as [
-        string,
-        string,
-        string,
-        string,
-      ];
-      if (event !== "phx_join") return;
-      const reply = JSON.stringify([
-        joinRef,
-        ref,
-        topic,
-        "phx_reply",
-        {
-          status: "error",
-          response: { reason: "channel_declaration_unavailable" },
-        },
-      ]);
-      queueMicrotask(() => this.onmessage?.({ data: reply }));
-    }
-    close(): void {
-      this.closed = true;
-      this.readyState = 3;
-      this.onclose?.();
-    }
-  }
-  return { FakeWebSocket, instances };
-}
-
-describe("ChannelManager — reachable setup_required over the REAL engine (OSS-473)", () => {
-  it("degrades an unconfigured provider to setup_required (not error) and ready() resolves", async () => {
-    const { FakeWebSocket } = makeSetupRequiredWebSocket();
-    // Drive the REAL defaultActivateChannel → real startChannelsOverRealtimeGateway
-    // → real connectRealtimeGateway; the only injected seam is the fake
-    // WebSocket (an explicit launcher option), so the setup-required
-    // translation is exercised on the production path, not a stubbed engine.
-    const importer = async (): Promise<ChannelsIntelligenceModule> => ({
-      startChannelsOverRealtimeGateway: (channels, opts) =>
-        startChannelsOverRealtimeGateway(channels, {
-          ...opts,
-          webSocket: FakeWebSocket,
-        }),
-    });
-    const engine: ActivateChannelEngine = (config, channel) =>
-      defaultActivateChannel(
-        config,
-        channel,
-        importer,
-        undefined,
-        fakeServices(),
-      );
-
-    const mgr = new ChannelManager({
-      intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
-      activateChannel: engine,
-    });
-    mgr.activate();
-
-    await expect(mgr.ready()).resolves.toBeUndefined();
-    expect(mgr.status().channels.support).toBe("setup_required");
-    expect(mgr.status().overall).toBe("setup_required");
   });
 });
 

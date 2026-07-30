@@ -65,12 +65,17 @@ export function resolveChannelActivationEnv(
 ): ChannelActivationEnv {
   // Guard against non-Node hosts (browser/edge) where `process` is absent.
   const env = typeof process !== "undefined" ? process.env : undefined;
-  const nodeEnv = env?.NODE_ENV;
+  const copilotRuntimeEnv = env?.COPILOTKIT_RUNTIME_ENV?.trim() || undefined;
+  const nodeEnv = env?.NODE_ENV?.trim() || undefined;
+  // Only defined overrides may clobber defaults (Partial can carry explicit undefined).
+  const definedOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([, value]) => value !== undefined),
+  ) as Partial<ChannelActivationEnv>;
   return {
-    runtimeEnv: env?.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    runtimeEnv: copilotRuntimeEnv ?? nodeEnv ?? "development",
     nodeEnv,
     nodeVersion: typeof process !== "undefined" ? process.version : undefined,
-    ...overrides,
+    ...definedOverrides,
   };
 }
 
@@ -110,11 +115,11 @@ export interface ChannelsHandle {
   metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
   /**
-   * Optional seam: register a callback the handle fires when its managed
-   * session drops unexpectedly, so a supervising `ChannelManager` can begin a
-   * reconnect. Not fired by the handle's own `stop()`. Present when the
-   * underlying session supports drop notification (see
-   * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   * Optional drop breadcrumb when the managed session disconnects
+   * unexpectedly. Not used by `ChannelManager` for reconnect (Phoenix owns
+   * reconnect; status is driven by `onStateChange`). Not fired by the
+   * handle's own `stop()`. Present when the underlying session supports it
+   * (see `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
    */
   onClose?(cb: () => void): void;
   /**
@@ -127,7 +132,7 @@ export interface ChannelsHandle {
    */
   onStateChange?(
     cb: (
-      state: "online" | "reconnecting" | "gave_up" | "fenced",
+      state: "online" | "reconnecting" | "gave_up",
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;

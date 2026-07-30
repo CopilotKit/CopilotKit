@@ -250,6 +250,9 @@ describe("NativeMessageStream", () => {
     await expect(appendStream.finish()).rejects.toThrow(
       "appendStream unavailable",
     );
+    // Even when a strict append fails, finish still finalizes the open stream.
+    expect(appendFailure.messages[0]?.stopped).toBe(true);
+    expect(appendFailure.transport.stopStream).toHaveBeenCalledOnce();
 
     const stopFailure = makeFakeTransport({ failStop: true });
     const stopStream = new NativeMessageStream({

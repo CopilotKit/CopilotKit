@@ -53,7 +53,7 @@ describe("CopilotKitIntelligence", () => {
     );
   });
 
-  it("derives runner and client websocket URLs from a single intelligence websocket URL", () => {
+  it("derives runner, client, and Channels websocket URLs from one host", () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
@@ -62,6 +62,7 @@ describe("CopilotKitIntelligence", () => {
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
     expect(c.ɵgetClientWsUrl()).toBe("wss://ws.example.com/client");
+    expect(c.ɵgetChannelsWsUrl()).toBe("wss://ws.example.com/channels");
   });
 
   describe("managed platform URL defaults", () => {
@@ -81,6 +82,9 @@ describe("CopilotKitIntelligence", () => {
       );
       expect(c.ɵgetClientWsUrl()).toBe(
         "wss://realtime.intelligence.copilotkit.ai/client",
+      );
+      expect(c.ɵgetChannelsWsUrl()).toBe(
+        "wss://realtime.intelligence.copilotkit.ai/channels",
       );
     });
 
