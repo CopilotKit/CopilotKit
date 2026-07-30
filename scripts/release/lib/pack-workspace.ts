@@ -43,12 +43,12 @@ function readSourceManifest(name: string): SourceManifest {
 export function packPackage(
   name: string,
   tarballDir: string,
+  packageDir = packageDirectory(name),
 ): { manifest: PackedManifest; tarball: string } {
-  const cwd = packageDirectory(name);
   const source = JSON.parse(
-    readFileSync(join(cwd, "package.json"), "utf8"),
+    readFileSync(join(packageDir, "package.json"), "utf8"),
   ) as PackedManifest;
-  capture("pnpm", ["pack", "--pack-destination", tarballDir], cwd);
+  capture("pnpm", ["pack", "--pack-destination", tarballDir], packageDir);
 
   const tarball = join(tarballDir, tarballName(source));
   const manifest = JSON.parse(

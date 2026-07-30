@@ -19,19 +19,28 @@
  */
 
 import { spawn } from "child_process";
-import { getCurrentVersion, getPackagesForScope } from "./lib/versions.js";
-import type { PublishablePackage } from "./lib/versions.js";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  getCurrentVersion,
+  getPackagesForScope,
+  pinPrereleaseDependencies,
+  validatePrereleaseDependencyPins,
+} from "./lib/versions.js";
+import type { PrereleaseManifest, PublishablePackage } from "./lib/versions.js";
 import { ALL_SCOPES, ROOT, loadConfig, resolveScopes } from "./lib/config.js";
 import type { ReleaseScope } from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
+import { packPackage } from "./lib/pack-workspace.js";
 import { resolvePublishNpm } from "./lib/npm-cli.js";
 import { mapWithConcurrency } from "./lib/concurrency.js";
 
 /**
- * How many packages to pack+publish at once. Each one is dominated by a registry
+ * How many packages to publish at once. Each one is dominated by a registry
  * round-trip, so a small pool removes most of the serial wait without hammering
- * npm. Override with CANARY_PUBLISH_CONCURRENCY=1 to fall back to serial when
- * debugging an individual package's publish.
+ * npm. Packing happens up front so the complete dependency graph can be
+ * validated before any package reaches the registry.
  */
 const PUBLISH_CONCURRENCY = Number(
   process.env.CANARY_PUBLISH_CONCURRENCY ?? "4",
@@ -144,74 +153,126 @@ async function main() {
   console.log(`Publishing versions: ${publishVersions}`);
   console.log(`Dist tag: ${distTag}`);
 
-  if (dryRun) {
-    console.log("\n[DRY RUN] Would publish these packages:");
-    for (const p of packages) {
-      console.log(`  ${p.name}@${p.pkg.version}`);
-    }
-    // Emitting in dry-run is safe — the publish workflow gates both the
-    // publish step and the verify guard on `inputs.dry-run != true`, so this
-    // only serves local/e2e verification of the output contract.
-    emitGithubOutputs({
-      version: publishVersion,
-      versions: publishVersions,
-      scope: selector,
-    });
-    console.log("\n[DRY RUN] Exiting.");
-    return;
-  }
-
   // NOTE: Version bumping is handled by bump-prerelease.ts in the CI build
   // job (no secrets). Build and test also run there.
   // The publish job receives pre-built artifacts via download-artifact.
   // We intentionally do NOT rebuild/retest here to keep NPM_TOKEN out
   // of the build process tree.
 
-  // Publish via pnpm pack + the pinned OIDC-aware npm. Resolved ONCE up front:
-  // see lib/npm-cli.ts for why this is not `npx npm@<v>` per package (npx
-  // re-resolved the spec every time, ~16s of each package's ~21s).
-  //
-  // Packages go out with bounded concurrency because each is dominated by a
-  // registry round-trip. This does not weaken an ordering invariant — see the
-  // multi-scope caveat in this file's header and lib/concurrency.ts: the
-  // cross-scope graph has cycles, so no serial order was ever safe either.
-  const npmBin = resolvePublishNpm();
-  console.log(
-    `\nPublishing ${packages.length} package(s), ${PUBLISH_CONCURRENCY} at a time...`,
+  // Snapshot source manifests because exact canary pins are a packaging concern,
+  // not authored package.json changes. They are applied only long enough to pack
+  // every artifact, then restored before publishing the already-validated
+  // tarballs. Stable publishing never calls this script.
+  const originalManifests = new Map(
+    packages.map((p) => [p.pkgJsonPath, readFileSync(p.pkgJsonPath, "utf8")]),
   );
-  const results = await mapWithConcurrency(
-    packages,
-    PUBLISH_CONCURRENCY,
-    async (p) => {
-      const label = `${p.name}@${p.pkg.version}`;
-      const tarball = `${p.name.replace("@", "").replace("/", "-")}-${p.pkg.version}.tgz`;
-      await runCaptured("pnpm", ["pack"], { cwd: p.dir });
-      await runCaptured(
-        npmBin,
-        ["publish", tarball, "--tag", distTag, "--access", "public"],
-        { cwd: p.dir },
-      );
-      console.log(`  Published ${label} with tag ${distTag}`);
-      return label;
-    },
-  );
+  const temp = mkdtempSync(join(tmpdir(), "copilotkit-prerelease-"));
 
-  // Report EVERY failure rather than just the first: npm refuses to republish a
-  // version, so a partially-published canary id must be abandoned wholesale, and
-  // the operator needs the full picture to judge that (see the header's
-  // multi-scope caveat).
-  const failures = results.filter((r) => r.error);
-  if (failures.length > 0) {
-    console.error(
-      `\n${failures.length} of ${packages.length} package(s) failed to publish:`,
-    );
-    for (const { item, error } of failures) {
-      console.error(`\n--- ${item.name}@${item.pkg.version} ---`);
-      console.error(error instanceof Error ? error.message : error);
+  try {
+    const packedPackages: {
+      package: PublishablePackage;
+      manifest: PrereleaseManifest;
+      tarball: string;
+    }[] = [];
+
+    try {
+      const pins = pinPrereleaseDependencies(packages);
+      console.log(
+        `\nExact-pinned ${pins.length} dependency edge(s) within this canary publish set.`,
+      );
+
+      // Pack the ENTIRE set before publishing any package. This makes the check
+      // atomic with respect to validation: an invalid packed graph cannot leave
+      // a half-published canary behind.
+      for (const p of packages) {
+        const { manifest, tarball } = packPackage(p.name, temp);
+        packedPackages.push({
+          package: p,
+          manifest: manifest as PrereleaseManifest,
+          tarball,
+        });
+      }
+
+      const manifests = new Map(
+        packedPackages.map(({ manifest }) => [manifest.name, manifest]),
+      );
+      const problems = validatePrereleaseDependencyPins(manifests);
+      if (problems.length > 0) {
+        throw new Error(
+          `Prerelease dependency validation failed before npm publish:\n${problems.map((problem) => `  - ${problem}`).join("\n")}`,
+        );
+      }
+      console.log(
+        `Validated ${packedPackages.length} packed canary manifest(s): every dependency within the publish set is exact.`,
+      );
+    } finally {
+      for (const p of packages) {
+        const original = originalManifests.get(p.pkgJsonPath);
+        if (original === undefined) continue;
+        writeFileSync(p.pkgJsonPath, original);
+        p.pkg = JSON.parse(original);
+      }
     }
-    throw new Error(
-      `Prerelease aborted: ${failures.length} package(s) failed. This canary id is now half-published and cannot be resumed — retry with a NEW suffix.`,
+
+    if (dryRun) {
+      console.log("\n[DRY RUN] Validated these packages:");
+      for (const { manifest } of packedPackages) {
+        console.log(`  ${manifest.name}@${manifest.version}`);
+      }
+      // Emitting in dry-run is safe — the publish workflow gates both the
+      // publish step and the verify guard on `inputs.dry-run != true`, so this
+      // only serves local/e2e verification of the output contract.
+      emitGithubOutputs({
+        version: publishVersion,
+        versions: publishVersions,
+        scope: selector,
+      });
+      console.log("\n[DRY RUN] Exiting.");
+      return;
+    }
+
+    // Publish the preflighted tarballs with the pinned OIDC-aware npm. Packages
+    // go out with bounded concurrency because each is dominated by a registry
+    // round-trip. This does not weaken an ordering invariant: the cross-scope
+    // graph has cycles, so no serial order was safe either.
+    const npmBin = resolvePublishNpm();
+    console.log(
+      `\nPublishing ${packedPackages.length} package(s), ${PUBLISH_CONCURRENCY} at a time...`,
     );
+    const results = await mapWithConcurrency(
+      packedPackages,
+      PUBLISH_CONCURRENCY,
+      async ({ package: p, manifest, tarball }) => {
+        const label = `${manifest.name}@${manifest.version}`;
+        await runCaptured(
+          npmBin,
+          ["publish", tarball, "--tag", distTag, "--access", "public"],
+          { cwd: p.dir },
+        );
+        console.log(`  Published ${label} with tag ${distTag}`);
+        return label;
+      },
+    );
+
+    // Report EVERY failure rather than just the first: npm refuses to republish
+    // a version, so a partially-published canary id must be abandoned wholesale.
+    const failures = results.filter((result) => result.error);
+    if (failures.length > 0) {
+      console.error(
+        `\n${failures.length} of ${packedPackages.length} package(s) failed to publish:`,
+      );
+      for (const { item, error } of failures) {
+        console.error(
+          `\n--- ${item.manifest.name}@${item.manifest.version} ---`,
+        );
+        console.error(error instanceof Error ? error.message : error);
+      }
+      throw new Error(
+        `Prerelease aborted: ${failures.length} package(s) failed. This canary id is now half-published and cannot be resumed — retry with a NEW suffix.`,
+      );
+    }
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
   }
 
   // The workflow's "Verify publish step emitted version" guard and the

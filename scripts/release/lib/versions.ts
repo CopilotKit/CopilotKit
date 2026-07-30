@@ -185,6 +185,107 @@ export function bumpPackages(
   return updated;
 }
 
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "devDependencies",
+] as const;
+
+export type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
+
+export interface PrereleaseDependencyPin {
+  from: string;
+  dep: string;
+  field: DependencyField;
+  previousRange: string;
+  version: string;
+}
+
+export interface PrereleaseManifest {
+  name: string;
+  version: string;
+  dependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+}
+
+/**
+ * Exact-pin every dependency edge contained within one prerelease publish set.
+ *
+ * This deliberately runs only from prerelease.ts, after the publish job has
+ * restored the frozen lockfile. Stable manifests keep their authored ranges.
+ * Exact canary pins are necessary because a packed `workspace:^` range such as
+ * `^0.4.1-canary.1785375021` can resolve a semver-higher, incompatible canary
+ * like `0.4.1-canary.perfall1` instead of the version built in this run.
+ */
+export function pinPrereleaseDependencies(
+  packages: PublishablePackage[],
+): PrereleaseDependencyPin[] {
+  const manifests = packages.map((p) => ({
+    package: p,
+    manifest: JSON.parse(
+      fs.readFileSync(p.pkgJsonPath, "utf8"),
+    ) as PrereleaseManifest,
+  }));
+  const versions = new Map(
+    manifests.map(({ manifest }) => [manifest.name, manifest.version]),
+  );
+  const pinned: PrereleaseDependencyPin[] = [];
+
+  for (const { package: p, manifest } of manifests) {
+    let changed = false;
+    for (const field of DEPENDENCY_FIELDS) {
+      const deps = manifest[field];
+      if (!deps) continue;
+      for (const [dep, previousRange] of Object.entries(deps)) {
+        const version = versions.get(dep);
+        if (!version || previousRange === version) continue;
+        deps[dep] = version;
+        changed = true;
+        pinned.push({
+          from: manifest.name,
+          dep,
+          field,
+          previousRange,
+          version,
+        });
+      }
+    }
+    if (changed) {
+      fs.writeFileSync(p.pkgJsonPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      p.pkg = manifest;
+    }
+  }
+
+  return pinned;
+}
+
+/**
+ * Validate the packed, publishable graph after pnpm has transformed manifests.
+ * Call this for the complete publish set before the first `npm publish`.
+ */
+export function validatePrereleaseDependencyPins(
+  manifests: ReadonlyMap<string, PrereleaseManifest>,
+): string[] {
+  const problems: string[] = [];
+
+  for (const owner of manifests.values()) {
+    for (const field of DEPENDENCY_FIELDS) {
+      for (const [dep, range] of Object.entries(owner[field] ?? {})) {
+        const dependency = manifests.get(dep);
+        if (!dependency || range === dependency.version) continue;
+        problems.push(
+          `${owner.name} ${field}.${dep} must be exactly ${dependency.version}; found ${range}`,
+        );
+      }
+    }
+  }
+
+  return problems;
+}
+
 /** A cross-scope dependency edge whose published pin won't be this run's version. */
 export interface CrossScopePin {
   /** Package being published. */
@@ -201,9 +302,8 @@ export interface CrossScopePin {
    *   the working tree, where `depScope` was not bumped in this run. Publishing
    *   that scope too (scope=all) fixes it.
    * - `literal-range`: a hand-written version range on a cross-scope package.
-   *   `bumpPackages` only rewrites literal ranges naming packages in the SAME
-   *   scope, so this one survives every bump — scope=all does NOT fix it. Convert
-   *   the dep to the `workspace:` protocol.
+   *   The dependency's scope is not in this run, so the range cannot carry its
+   *   same-run version.
    */
   reason: "unpublished-scope" | "literal-range";
 }
@@ -218,11 +318,10 @@ export interface CrossScopePin {
  * canaried changed both sides of the contract. The artifact then only composes
  * with that release, and nothing says so until a consumer hits a runtime error.
  *
- * Two shapes qualify. A `workspace:` range into a scope that isn't being
- * published is fixed by publishing every scope together; a literal range into
- * another scope is fixed only by converting it to `workspace:`, since
- * {@link bumpPackages} rewrites literal ranges for in-scope packages only. Both
- * are reported, tagged by {@link CrossScopePin.reason}.
+ * Two shapes qualify: a `workspace:` or literal range into a scope that isn't
+ * being published. Publishing the dependency's scope in the same prerelease run
+ * makes either shape exact via {@link pinPrereleaseDependencies}. Both are
+ * reported, tagged by {@link CrossScopePin.reason}.
  *
  * Only `dependencies`/`peerDependencies`/`optionalDependencies` are considered —
  * devDependencies never constrain a consumer's install.
@@ -250,11 +349,10 @@ export function findCrossScopePins(scopes: ReleaseScope[]): CrossScopePin[] {
         if (!deps) continue;
         for (const [dep, range] of Object.entries(deps)) {
           const depScope = scopeByPackage.get(dep);
-          if (!depScope || depScope === scope) continue;
+          if (!depScope || depScope === scope || publishing.has(depScope)) {
+            continue;
+          }
           const isWorkspace = range.startsWith("workspace:");
-          // A workspace: range into a scope this run bumps resolves to that
-          // scope's canary version — the composable case, nothing to report.
-          if (isWorkspace && publishing.has(depScope)) continue;
           found.push({
             from: p.name,
             dep,

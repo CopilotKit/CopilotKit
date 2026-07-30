@@ -40,12 +40,8 @@ function warnOnCrossScopePins(scopes: ReturnType<typeof resolveScopes>): void {
     `\n${pins.length} cross-scope pin(s) will NOT carry a version from this publish:`,
   );
   for (const pin of pins) {
-    const remedy =
-      pin.reason === "literal-range"
-        ? `That range is written literally in ${pin.from}'s package.json, so no bump rewrites it — scope=${ALL_SCOPES} does NOT fix this. Convert the dep to the workspace: protocol.`
-        : `If this commit changed both sides, re-run the canary with scope=${ALL_SCOPES}.`;
     console.log(
-      `::warning::${pin.from} depends on ${pin.dep} (scope "${pin.depScope}") — the published manifest will pin ${pin.dep}@${pin.resolvesTo}, so this canary is only usable with that release. ${remedy}`,
+      `::warning::${pin.from} depends on ${pin.dep} (scope "${pin.depScope}", not part of this publish) — the published manifest will carry ${pin.dep}@${pin.resolvesTo}, so this canary is only usable with that release. If this commit changed both sides, re-run the canary with scope=${ALL_SCOPES}.`,
     );
   }
 }
