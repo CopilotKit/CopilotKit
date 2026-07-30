@@ -88,10 +88,10 @@ export interface NativeMessageStreamConfig {
   /** Minimum gap between text flushes, in ms (defaults to 600). */
   minIntervalMs?: number;
   /**
-   * Soft cap on the text one streamed message may hold before rolling over to a
-   * continuation. Defaults to {@link DEFAULT_MESSAGE_CHAR_LIMIT}.
+   * Soft cap on the UTF-8 bytes one streamed message may hold before rolling
+   * over to a continuation. Defaults to {@link DEFAULT_MESSAGE_BYTE_LIMIT}.
    */
-  messageCharLimit?: number;
+  messageByteLimit?: number;
 }
 
 /**
@@ -104,20 +104,27 @@ const DEFAULT_MIN_INTERVAL_MS = 600;
 /** Slack caps `markdown_text` at 12k chars per `appendStream` call. */
 const APPEND_CHAR_LIMIT = 12000;
 /**
- * Soft cap on the text a single streamed message may accumulate before we roll
- * over to a continuation message.
+ * Soft cap on what a single streamed message may accumulate before we roll over
+ * to a continuation — measured in **UTF-8 bytes**, not JS chars.
  *
- * Slack's *cumulative* per-message limit is undocumented; observed in
- * production, `appendStream` began rejecting with `msg_too_long` after ~11.6k
- * chars had been accepted into one message, which puts the real ceiling at 12k
- * (the same number as the per-call cap). Staying a kilobyte under it leaves room
- * for the auto-close closers appended at a boundary and absorbs any drift in
- * how Slack counts, since crossing the cap is unrecoverable for the whole reply
- * rather than merely truncating one append.
+ * Slack's cumulative per-message limit is undocumented. Production showed
+ * `appendStream` rejecting with `msg_too_long` after ~11.6k had been accepted
+ * into one message, which puts the real ceiling near 12k — but that reply was
+ * English, where chars and UTF-8 bytes are 1:1, so the datapoint cannot tell us
+ * which unit Slack counts.
+ *
+ * Bytes are therefore the safe unit: UTF-8 byte length is always >= char count,
+ * so an 11k-*byte* budget stays under a 12k ceiling whichever unit that ceiling
+ * is expressed in. A char-based budget does not: under a byte ceiling a CJK
+ * reply (3 bytes/char) blows past it at ~4k chars while an 11k-char budget never
+ * fires, which reproduces the original silent-truncation bug for every
+ * non-Latin-script user. Costs extra messages for non-Latin replies if the real
+ * ceiling turns out to be chars; that is the correct side to err on.
  */
-const DEFAULT_MESSAGE_CHAR_LIMIT = 11000;
+const DEFAULT_MESSAGE_BYTE_LIMIT = 11000;
 /**
- * Minimum buffer text a continuation must be able to carry after its re-opener.
+ * Minimum bytes of buffer text a continuation must be able to carry after its
+ * re-opener.
  *
  * The re-opener is synthetic text charged against the message's budget, so a
  * pathological context — an unclosed fence whose language line is itself longer
@@ -127,24 +134,89 @@ const DEFAULT_MESSAGE_CHAR_LIMIT = 11000;
  * the opener cannot leave at least this much room, it is dropped: degraded
  * rendering for one continuation beats an infinite loop.
  */
-const MIN_MESSAGE_PROGRESS_CHARS = 256;
+const MIN_MESSAGE_PROGRESS_BYTES = 256;
+/** Bounded retries when `finish()` still has undelivered text (see {@link finish}). */
+const FINISH_DRAIN_ATTEMPTS = 3;
+
+/** UTF-8 byte length of the code point at `i`, and its UTF-16 width. */
+function codePointAt(
+  text: string,
+  i: number,
+): { readonly bytes: number; readonly units: number } {
+  const code = text.charCodeAt(i);
+  if (code < 0x80) return { bytes: 1, units: 1 };
+  if (code < 0x800) return { bytes: 2, units: 1 };
+  if (code >= 0xd800 && code <= 0xdbff && i + 1 < text.length) {
+    const next = text.charCodeAt(i + 1);
+    if (next >= 0xdc00 && next <= 0xdfff) return { bytes: 4, units: 2 };
+  }
+  return { bytes: 3, units: 1 };
+}
+
+/** UTF-8 byte length of `text`. */
+function utf8Length(text: string): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; ) {
+    const cp = codePointAt(text, i);
+    bytes += cp.bytes;
+    i += cp.units;
+  }
+  return bytes;
+}
 
 /**
- * Pull `index` back off a surrogate pair so a boundary never splits one
- * character into two messages.
+ * Largest index `end >= start` such that `text.slice(start, end)` fits in
+ * `budgetBytes` UTF-8 bytes and `maxChars` UTF-16 units.
  *
- * Slicing at an arbitrary UTF-16 offset can leave a lone high surrogate at the
- * end of one message and an orphaned low surrogate at the start of the next;
- * each renders as a replacement glyph. Whitespace-free text (CJK, emoji runs,
- * base64) reaches the hard-cut path routinely, so this is not theoretical.
+ * Advances whole code points, so a returned boundary can never split a surrogate
+ * pair — a lone high surrogate ending one message (with its orphaned low
+ * surrogate starting the next) renders as a replacement glyph in Slack, and
+ * whitespace-free text reaches the hard-cut path routinely.
  */
-function avoidSurrogateSplit(text: string, index: number): number {
-  if (index <= 0 || index >= text.length) return index;
-  const high = text.charCodeAt(index - 1);
-  const low = text.charCodeAt(index);
-  const splitsPair =
-    high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff;
-  return splitsPair ? index - 1 : index;
+function spanWithinBudget(
+  text: string,
+  start: number,
+  budgetBytes: number,
+  maxChars: number,
+): number {
+  const hardEnd = Math.min(text.length, start + maxChars);
+  let i = start;
+  let bytes = 0;
+  while (i < hardEnd) {
+    const cp = codePointAt(text, i);
+    if (i + cp.units > hardEnd || bytes + cp.bytes > budgetBytes) break;
+    bytes += cp.bytes;
+    i += cp.units;
+  }
+  return i;
+}
+
+/**
+ * Header + delimiter rows to re-emit when a boundary lands inside a markdown
+ * table, or `""` when it doesn't.
+ *
+ * {@link detectOpenContext} models fences, inline code, and emphasis but not
+ * tables, and a long generated table is one of the most common ways a reply gets
+ * past the cap in the first place. Without this, continuation messages start
+ * mid-row and Slack renders literal pipes instead of a table — a visible
+ * regression in the very feature (`markdown_text` native tables) that motivated
+ * this transport.
+ */
+function tableHeaderToReopen(postedText: string): string {
+  // Tables cannot contain a blank line, so only the current block matters.
+  const blockStart = postedText.lastIndexOf("\n\n");
+  const block = blockStart === -1 ? postedText : postedText.slice(blockStart + 2);
+  const lines = block.split("\n");
+  // A boundary keeps its break char, so the block usually ends with an empty
+  // line; the row before it is what the continuation follows on from.
+  if (lines[lines.length - 1] === "") lines.pop();
+  const delimiter = lines.findIndex(
+    (line) => line.includes("|") && /^[\s|:-]*-[\s|:-]*$/.test(line),
+  );
+  // Need a header row above the delimiter, and we must still be in the rows.
+  if (delimiter < 1) return "";
+  if (!(lines[lines.length - 1] ?? "").includes("|")) return "";
+  return `${lines[delimiter - 1]}\n${lines[delimiter]}\n`;
 }
 
 /**
@@ -165,6 +237,12 @@ function renderContextCloser(
 ): string {
   // Fences are exclusive: inside one, other markers are opaque code.
   if (ctx.fenceLang !== null) {
+    // Mirror `autoCloseOpenMarkdown`'s `hasFenceCodeContent` rule: a fence that
+    // has only just opened (```lang with no body yet) is not closed, else the
+    // boundary emits an empty code block and immediately re-opens it.
+    const opener = postedText.lastIndexOf("```");
+    const body = opener === -1 ? "" : postedText.slice(opener + 3);
+    if (!body.includes("\n")) return "";
     return postedText.endsWith("\n") ? "```" : "\n```";
   }
   let out = "";
@@ -189,12 +267,12 @@ export class NativeMessageStream implements TextStream {
   /** Buffer chars already appended as text, across ALL messages of this reply. */
   private curPosted = 0;
   /**
-   * Chars written to the CURRENT message — buffer text plus the synthetic
-   * openers/closers a rollover injects. Compared against `messageCharLimit`,
-   * so it must count the synthetic text too; `curPosted` must not, since that
-   * indexes the buffer.
+   * UTF-8 bytes written to the CURRENT message — buffer text plus the synthetic
+   * openers/closers a rollover injects. Compared against `messageByteLimit`, so
+   * it must count the synthetic text too; `curPosted` must not, since that
+   * indexes the buffer (and is in UTF-16 units, not bytes).
    */
-  private curMessagePosted = 0;
+  private curMessageBytes = 0;
   /** ts of the first streamed message (for the returned MessageRef). */
   private firstTsValue: string | undefined;
 
@@ -208,7 +286,7 @@ export class NativeMessageStream implements TextStream {
   private readonly onStartFailure: ((err: unknown) => void) | undefined;
   private readonly onChunkFailure: ((err: unknown) => void) | undefined;
   private readonly minIntervalMs: number;
-  private readonly messageCharLimit: number;
+  private readonly messageByteLimit: number;
 
   constructor(config: NativeMessageStreamConfig) {
     this.transport = config.transport;
@@ -216,8 +294,8 @@ export class NativeMessageStream implements TextStream {
     this.onStartFailure = config.onStartFailure;
     this.onChunkFailure = config.onChunkFailure;
     this.minIntervalMs = config.minIntervalMs ?? DEFAULT_MIN_INTERVAL_MS;
-    this.messageCharLimit =
-      config.messageCharLimit ?? DEFAULT_MESSAGE_CHAR_LIMIT;
+    this.messageByteLimit =
+      config.messageByteLimit ?? DEFAULT_MESSAGE_BYTE_LIMIT;
   }
 
   /** The first streamed message's ts (or the fallback's), available after finish(). */
@@ -270,6 +348,38 @@ export class NativeMessageStream implements TextStream {
       await this.legacy.finish();
       return;
     }
+    // A continuation `startStream` can fail transiently, and unlike a mid-stream
+    // failure there is no later flush to retry it — without this, the whole
+    // undelivered tail is dropped while the first message finalizes cleanly, so
+    // the turn looks successful and the platform never replays it.
+    for (
+      let attempt = 0;
+      attempt < FINISH_DRAIN_ATTEMPTS && this.curPosted < this.buffer.length;
+      attempt++
+    ) {
+      this.enqueueFlush();
+      await this.queue;
+    }
+    if (this.curPosted < this.buffer.length) {
+      // Last resort: hand the remainder to the legacy transport rather than lose
+      // it. Seeded with ONLY the undelivered tail (not the whole buffer, which is
+      // what `failOverToLegacy` does for a never-started stream) so the text
+      // already streamed natively is not posted twice. `onStartFailure` is
+      // deliberately not fired — a transient continuation failure should not mark
+      // the whole workspace legacy.
+      const tail = this.buffer.slice(this.curPosted);
+      console.error(
+        `[native-stream] finish: ${tail.length} chars undelivered after ${FINISH_DRAIN_ATTEMPTS} drain attempts; falling back to legacy for the tail`,
+      );
+      try {
+        const legacy = this.makeFallback();
+        legacy.append(tail);
+        this.curPosted = this.buffer.length;
+        await legacy.finish();
+      } catch (err) {
+        console.error("[native-stream] legacy tail fallback failed:", err);
+      }
+    }
     // Finalize the streamed message (no-op if we never started one).
     if (this.curTs) {
       try {
@@ -311,25 +421,30 @@ export class NativeMessageStream implements TextStream {
     if (this.curTs) return true;
     if (this.firstTsValue !== undefined) {
       this.curTs = await this.transport.startStream();
-      this.curMessagePosted = 0;
-      const opener = renderContextOpener(
-        detectOpenContext(this.buffer.slice(0, this.curPosted)),
-      );
+      this.curMessageBytes = 0;
+      const posted = this.buffer.slice(0, this.curPosted);
+      // Re-open whatever the boundary straddles. `detectOpenContext` covers
+      // fences/inline-code/emphasis; tables it does not model, so they are
+      // handled separately (and are mutually exclusive with an open fence).
+      const opener =
+        renderContextOpener(detectOpenContext(posted)) ||
+        tableHeaderToReopen(posted);
       // Charge the opener only when it leaves room to actually carry text —
-      // see MIN_MESSAGE_PROGRESS_CHARS. Dropping it keeps the loop terminating.
+      // see MIN_MESSAGE_PROGRESS_BYTES. Dropping it keeps the loop terminating.
+      const openerBytes = utf8Length(opener);
       if (
         opener &&
-        opener.length + MIN_MESSAGE_PROGRESS_CHARS <= this.messageCharLimit
+        openerBytes + MIN_MESSAGE_PROGRESS_BYTES <= this.messageByteLimit
       ) {
         await this.transport.appendText(this.curTs, opener);
-        this.curMessagePosted += opener.length;
+        this.curMessageBytes += openerBytes;
       }
       return true;
     }
     try {
       this.curTs = await this.transport.startStream();
       this.firstTsValue = this.curTs;
-      this.curMessagePosted = 0;
+      this.curMessageBytes = 0;
       return true;
     } catch (err) {
       this.failOverToLegacy(err);
@@ -356,10 +471,10 @@ export class NativeMessageStream implements TextStream {
   }
 
   /**
-   * Append every un-posted buffer char, honoring BOTH Slack caps: ≤12k per
-   * `appendStream` call, and ≤`messageCharLimit` accumulated per message. When a
-   * message fills and text remains, the boundary is frozen on a line/word break
-   * and the reply continues in a fresh message.
+   * Append every un-posted buffer char, honoring BOTH Slack caps: ≤12k chars per
+   * `appendStream` call, and ≤`messageByteLimit` UTF-8 bytes accumulated per
+   * message. When a message fills and text remains, the boundary is frozen on a
+   * line/word break and the reply continues in a fresh message.
    *
    * Errors propagate to the caller; `curPosted` advances only on a successful
    * append, so a retry resumes exactly where this left off rather than
@@ -368,35 +483,42 @@ export class NativeMessageStream implements TextStream {
   private async appendPending(): Promise<void> {
     while (this.curPosted < this.buffer.length) {
       if (!(await this.ensureStarted())) return; // failed over to legacy
-      const room = this.messageCharLimit - this.curMessagePosted;
-      if (room <= 0) {
+      const roomBytes = this.messageByteLimit - this.curMessageBytes;
+      if (roomBytes <= 0) {
         await this.rollOver();
         continue;
       }
-      const remaining = this.buffer.length - this.curPosted;
-      if (remaining <= room) {
-        // The rest of the reply fits in this message; only the per-call cap applies.
-        await this.appendSlice(
-          avoidSurrogateSplit(
-            this.buffer,
-            Math.min(this.curPosted + APPEND_CHAR_LIMIT, this.buffer.length),
-          ),
-        );
-        continue;
-      }
-      if (room <= APPEND_CHAR_LIMIT) {
-        // This append fills the message and text remains: freeze the boundary.
-        await this.appendSlice(
-          this.breakPoint(this.curPosted, this.curPosted + room),
-        );
-        await this.rollOver();
-        continue;
-      }
-      // Room to spare beyond one call (only reachable with a configured limit
-      // above the per-call cap): send a full call and re-evaluate.
-      await this.appendSlice(
-        avoidSurrogateSplit(this.buffer, this.curPosted + APPEND_CHAR_LIMIT),
+      // How far the byte budget reaches, and how far one call may reach.
+      const byteEnd = spanWithinBudget(
+        this.buffer,
+        this.curPosted,
+        roomBytes,
+        Number.MAX_SAFE_INTEGER,
       );
+      const callEnd = spanWithinBudget(
+        this.buffer,
+        this.curPosted,
+        Number.MAX_SAFE_INTEGER,
+        APPEND_CHAR_LIMIT,
+      );
+      if (byteEnd >= this.buffer.length) {
+        // The rest of the reply fits in this message; only the per-call cap applies.
+        await this.appendSlice(Math.min(callEnd, this.buffer.length));
+        continue;
+      }
+      if (byteEnd <= this.curPosted) {
+        // Not even one code point fits — the message is full.
+        await this.rollOver();
+        continue;
+      }
+      if (callEnd < byteEnd) {
+        // Per-call-limited, not message-limited: send a full call, keep the message.
+        await this.appendSlice(callEnd);
+        continue;
+      }
+      // Message-limited with text remaining: freeze the boundary, then roll over.
+      await this.appendSlice(this.breakPoint(this.curPosted, byteEnd));
+      await this.rollOver();
     }
   }
 
@@ -406,7 +528,7 @@ export class NativeMessageStream implements TextStream {
     if (!delta) return;
     await this.transport.appendText(this.curTs!, delta);
     this.curPosted = end;
-    this.curMessagePosted += delta.length;
+    this.curMessageBytes += utf8Length(delta);
   }
 
   /**
@@ -423,9 +545,10 @@ export class NativeMessageStream implements TextStream {
     const floor = window.length / 4;
     let at = window.lastIndexOf("\n");
     if (at < floor) at = Math.max(at, window.lastIndexOf(" "));
-    // No usable break (whitespace-free text: CJK, emoji runs, base64) — hard cut,
-    // stepped back off a surrogate pair if it lands inside one.
-    if (at < floor) return avoidSurrogateSplit(this.buffer, maxEnd);
+    // No usable break (whitespace-free text: CJK, emoji runs, base64) — hard cut.
+    // `maxEnd` came from `spanWithinBudget`, which advances whole code points, so
+    // it is already surrogate-safe.
+    if (at < floor) return maxEnd;
     // +1 keeps the break character on the outgoing message, so the continuation
     // starts cleanly at the next line/word. A break character is never half of a
     // surrogate pair, so this boundary is inherently safe.
@@ -442,7 +565,7 @@ export class NativeMessageStream implements TextStream {
     const closer = renderContextCloser(detectOpenContext(posted), posted);
     if (closer) {
       await this.transport.appendText(this.curTs!, closer);
-      this.curMessagePosted += closer.length;
+      this.curMessageBytes += utf8Length(closer);
     }
     try {
       await this.transport.stopStream(this.curTs!);

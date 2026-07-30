@@ -16,12 +16,14 @@ function makeFakeTransport(opts?: {
   failStart?: boolean;
   failChunks?: boolean;
   /**
-   * Slack's *cumulative* per-message text cap. An `appendStream` whose delta
-   * would push the message's total `markdown_text` past this many chars is
-   * rejected with `msg_too_long` — exactly what the real API does, and what a
-   * long reply (a novella) hits in production. Undefined = uncapped.
+   * Slack's *cumulative* per-message text cap, in UTF-8 BYTES. An `appendStream`
+   * whose delta would push the message's total `markdown_text` past this is
+   * rejected with `msg_too_long` — what the real API does, and what a long reply
+   * (a novella) hits in production. Bytes rather than chars because the incident
+   * datapoint was English (1:1) and cannot distinguish the units, so the fake
+   * models the stricter reading. Undefined = uncapped.
    */
-  messageCharLimit?: number;
+  messageByteLimit?: number;
   /**
    * Hard ceiling on `startStream` calls. Turns a runaway rollover loop into a
    * failed test instead of a hung one (and, in production, unbounded messages).
@@ -49,12 +51,13 @@ function makeFakeTransport(opts?: {
     appendText: vi.fn(async (ts: string, md: string) => {
       const message = messages.find((m) => m.ts === ts);
       if (!message) throw new Error(`appendText to unknown ts ${ts}`);
-      if (opts?.messageCharLimit !== undefined) {
+      if (opts?.messageByteLimit !== undefined) {
+        const bytes = (t: string) => new TextEncoder().encode(t).length;
         const posted = message.events.reduce(
-          (n, e) => (e.kind === "text" ? n + e.value.length : n),
+          (n, e) => (e.kind === "text" ? n + bytes(e.value) : n),
           0,
         );
-        if (posted + md.length > opts.messageCharLimit) {
+        if (posted + bytes(md) > opts.messageByteLimit) {
           throw new Error("msg_too_long");
         }
       }
@@ -139,7 +142,7 @@ describe("NativeMessageStream", () => {
 
   it("keeps a reply that fits under the per-message cap in ONE message", async () => {
     const { transport, messages } = makeFakeTransport({
-      messageCharLimit: 12_000,
+      messageByteLimit: 12_000,
     });
     const stream = new NativeMessageStream({
       transport,
@@ -147,7 +150,9 @@ describe("NativeMessageStream", () => {
       minIntervalMs: 0,
     });
 
-    const text = "x".repeat(5_000);
+    // Just under the 11k soft limit, so this pins the boundary rather than
+    // passing merely because it is far away from it.
+    const text = "x".repeat(10_900);
     stream.append(text);
     await stream.finish();
 
@@ -158,7 +163,7 @@ describe("NativeMessageStream", () => {
 
   it("rolls over to continuation messages when the reply exceeds Slack's cumulative per-message cap", async () => {
     const { transport, messages } = makeFakeTransport({
-      messageCharLimit: 12_000,
+      messageByteLimit: 12_000,
     });
     const stream = new NativeMessageStream({
       transport,
@@ -192,7 +197,7 @@ describe("NativeMessageStream", () => {
 
   it("rolls over at a line boundary instead of mid-word", async () => {
     const { transport, messages } = makeFakeTransport({
-      messageCharLimit: 12_000,
+      messageByteLimit: 12_000,
     });
     const stream = new NativeMessageStream({
       transport,
@@ -216,6 +221,129 @@ describe("NativeMessageStream", () => {
       const rendered = textOf(m.events);
       expect(rendered.endsWith("\n")).toBe(true);
     }
+  });
+
+  it("rolls over on a non-Latin reply, where bytes and chars diverge", async () => {
+    // The regression this guards: a char-based budget never fires under a
+    // byte-denominated cap, so a CJK reply (3 bytes/char) silently truncated at
+    // ~4k of 20k chars with zero rollovers — the original bug, intact, for every
+    // non-Latin-script user. The incident datapoint was English (1:1 bytes:chars)
+    // and so could not distinguish the units.
+    const { transport, messages } = makeFakeTransport({
+      messageByteLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    const text = "漢字".repeat(10_000); // 20k chars / 60k UTF-8 bytes
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    const bytes = (t: string) => new TextEncoder().encode(t).length;
+    for (const m of messages) {
+      expect(bytes(textOf(m.events))).toBeLessThanOrEqual(12_000);
+    }
+  });
+
+  it("delivers the tail when a continuation stream cannot be opened at finish()", async () => {
+    // `finish()` enqueues exactly one flush, so a continuation `startStream` that
+    // throws there has no later flush to retry it: the tail was dropped while the
+    // first message finalized cleanly, making the turn look successful.
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    let tail = "";
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("transient 5xx");
+        messages.push({ ts: "S1", text: "" });
+        return "S1";
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        const m = messages.find((x) => x.ts === ts);
+        if (!m) throw new Error(`unknown ts ${ts}`);
+        m.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => ({
+        append(full: string) {
+          tail = full;
+        },
+        async finish() {},
+      }),
+      minIntervalMs: 0,
+    });
+
+    const text = "word ".repeat(5_000);
+    stream.append(text);
+    await stream.finish();
+
+    // Nothing lost, and the tail carries ONLY what didn't stream natively — the
+    // legacy sink must not be seeded with the whole buffer or the reply doubles.
+    const native = messages.map((m) => m.text).join("");
+    expect(native + tail).toBe(text);
+    expect(native.length).toBeGreaterThan(0);
+    expect(tail.length).toBeGreaterThan(0);
+  });
+
+  it("re-emits a table's header and delimiter in the continuation", async () => {
+    // `detectOpenContext` models fences/inline-code/emphasis but not tables, so a
+    // straddling table lost its header and rendered as literal pipes — in the very
+    // feature (native `markdown_text` tables) that motivated this transport.
+    const { transport, messages } = makeFakeTransport({
+      messageByteLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    const header = "| col a | col b |\n| --- | --- |\n";
+    const rows = Array.from(
+      { length: 700 },
+      (_, i) => `| row ${i} value | another value here |`,
+    ).join("\n");
+    stream.append(header + rows);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    for (const m of messages.slice(1)) {
+      expect(textOf(m.events)).toContain("| --- |");
+      expect(textOf(m.events).startsWith("| col a | col b |")).toBe(true);
+    }
+  });
+
+  it("keeps one message when the configured byte limit exceeds the per-call cap", async () => {
+    // Exercises the `callEnd < byteEnd` branch, unreachable at the default limit
+    // (11k bytes < 12k chars per call).
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 40_000,
+    });
+
+    const text = "x".repeat(30_000);
+    stream.append(text);
+    await stream.finish();
+
+    // One message, but split across several ≤12k appends.
+    expect(messages).toHaveLength(1);
+    const appends = messages[0]!.events.filter((e) => e.kind === "text");
+    expect(appends.length).toBeGreaterThan(2);
+    for (const a of appends) expect(a.value.length).toBeLessThanOrEqual(12_000);
+    expect(textOf(messages[0]!.events)).toBe(text);
   });
 
   it("terminates when the continuation re-opener is larger than the message cap", async () => {
@@ -251,7 +379,7 @@ describe("NativeMessageStream", () => {
       transport,
       fallback: makeFakeFallback,
       // Odd cap so the boundary lands mid-pair unless explicitly corrected.
-      messageCharLimit: 1001,
+      messageByteLimit: 1001,
       minIntervalMs: 0,
     });
 
@@ -301,7 +429,7 @@ describe("NativeMessageStream", () => {
 
   it("reopens an unclosed code fence in the continuation message", async () => {
     const { transport, messages } = makeFakeTransport({
-      messageCharLimit: 12_000,
+      messageByteLimit: 12_000,
     });
     const stream = new NativeMessageStream({
       transport,
