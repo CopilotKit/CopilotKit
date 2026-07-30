@@ -27,12 +27,12 @@ the Microsoft Teams provider.
 | `name`       | `string`                                               | Project-unique Intelligence Code. Required for managed Channels; lowercase kebab-case, 3–64 characters, and not `channels`. |
 | `provider`   | `"slack" \| "teams"`                                   | Managed provider declared to Intelligence. Slack is the default when omitted; set it explicitly in production code.         |
 | `showToolStatus` | `boolean`                                           | Controls managed Slack tool-call progress. It is hidden by default; set `true` to show it.                                  |
-| `agent`      | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Use a factory for thread isolation.                                                              |
+| `agent`      | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Factory preferred; a singleton is isolated per run via `clone()`.                              |
 | `tools`      | `ChannelTool[]`                                        | Typed tools forwarded to the agent.                                                                                         |
 | `context`    | `ContextEntry[]`                                       | Stable `{ description, value }` context sent on each run.                                                                   |
 | `components` | `ChannelComponent[]`                                   | Named JSX components whose callbacks can be reconstructed from stored snapshots.                                            |
 | `commands`   | `ChannelCommand[]`                                     | Declared commands for providers that support them.                                                                          |
-| `store`      | `StoreConfig`                                          | State schema, persistence adapter, locks, deduplication, and optional transcript bridge.                                    |
+| `store`      | `StoreConfig`                                          | State schema, persistence, turn concurrency (`parallel` default), dedup, and optional transcript bridge.                    |
 | `adapters`   | `PlatformAdapter[]`                                    | Low-level direct transports. Managed Slack/Teams quickstarts do not use this option.                                        |
 
 One Channel declares one provider. Names must be unique inside one
@@ -46,8 +46,9 @@ One Channel declares one provider. Names must be unique inside one
 | `adapter`        | `StateStore`                    | Persistence implementation for SDK state. Without it, the current managed realtime path falls back to process memory.          |
 | `identity`       | `Identity`                      | Resolves a stable user key for the optional transcript bridge. Must be paired with `transcripts`.                              |
 | `transcripts`    | `TranscriptsConfig`             | SDK-owned cross-platform transcript configuration. Distinct from managed conversation history. Must be paired with `identity`. |
-| `onLockConflict` | `"drop" \| "force" \| callback` | Chooses what to do when another turn holds the same conversation lock.                                                         |
-| `lockTtl`        | `number`                        | Conversation lock TTL in milliseconds. Default: `60_000`.                                                                      |
+| `concurrency`    | `"parallel" \| "serial" \| "drop"` | How overlapping turns on the same conversation are handled. Default: `"parallel"`. See [`StoreConfig`](/reference/channels/types/StoreConfig). |
+| `onLockConflict` | `"drop" \| "force" \| callback` | **Deprecated.** Prefer `concurrency`. Maps to drop/parallel when static.                                                         |
+| `lockTtl`        | `number`                        | Conversation lock TTL in milliseconds (drop / legacy paths). Default: `60_000`.                                                                      |
 | `dedupTtl`       | `number`                        | Inbound event deduplication window in milliseconds. Default: `300_000`.                                                        |
 
 `StateStore` contains `kv`, `list`, `lock`, `dedup`, and `queue` facets. Remote

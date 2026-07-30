@@ -196,6 +196,8 @@ old card.
 
 ## Match the managed concurrency model
 
+### Runtime election (multi-replica)
+
 Intelligence elects one active owner for each Channel Code. Other live runtimes
 with the same complete Channel declaration set remain connected as standbys and
 are promoted if the active owner releases or expires. This makes identical
@@ -213,9 +215,39 @@ idempotent, but application tools can still repeat if a turn is retried. Give
 consequential writes an application idempotency key based on
 `message.eventId`, `message.turnId`, or your own durable operation id.
 
+### Turn concurrency (same conversation)
+
+Within the active runtime, overlapping turns on the **same** conversation run
+in **parallel by default**. Five people asking five questions in one Slack
+thread get five concurrent agent runs and replies.
+
+```ts
+// Default — parallel (no config needed)
+createChannel({ name: "support", agent: makeAgent });
+
+// One-at-a-time per conversation (queue)
+createChannel({
+  name: "support",
+  agent: makeAgent,
+  store: { concurrency: "serial" },
+});
+
+// Discard overlapping turns (legacy drop)
+createChannel({
+  name: "support",
+  agent: makeAgent,
+  store: { concurrency: "drop" },
+});
+```
+
+A singleton agent is safe under parallel mode because the SDK isolates each run
+with `agent.clone()`. Prefer a factory when you want that explicit. See
+[`StoreConfig`](/reference/channels/types/StoreConfig).
+
 ## Production checklist
 
-- Use one fresh agent per `thread.conversationKey`.
+- Prefer an agent factory; singletons are cloned per run automatically.
+- Choose `store.concurrency` deliberately if you need serial workflow state.
 - Provide a durable store before promising restart-safe state or callbacks.
 - Run the StateStore conformance suite against the real backend.
 - Test a restart while a card is awaiting a click.

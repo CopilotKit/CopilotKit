@@ -86,7 +86,10 @@ export interface DeliveryAdapterOptions {
   showToolStatus?: boolean;
 }
 
-/** Typed rejection for two overlapping agent calls on one canonical thread. */
+/**
+ * @deprecated Concurrent same-thread agent runs are supported (parallel default).
+ * Kept so older importers do not break; no longer thrown by DeliveryAdapter.
+ */
 export class ChannelAgentConcurrencyError extends Error {
   readonly code = "channel_agent_concurrency_not_supported";
 
@@ -129,12 +132,9 @@ export class DeliveryAdapter implements PlatformAdapter {
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const target = asDeliveryTarget(replyTarget);
       const threadId = target.delivery.canonicalThreadId;
-      // Reserve before creating or queuing an agent so overlap rejects instead
-      // of silently serializing behind a configured shared agent instance.
-      if (this.activeThreads.has(threadId)) {
-        throw new ChannelAgentConcurrencyError(threadId);
-      }
-      this.activeThreads.add(threadId);
+      // Concurrent same-thread turns are allowed (channel-core parallel default).
+      // makeAgent already isolates singletons via clone(); acquireAgent only
+      // serializes when the same agent object is reused across runs.
       let releaseAgent: (() => void) | undefined;
       try {
         const agent = makeAgent(conversationKey);
@@ -155,12 +155,10 @@ export class DeliveryAdapter implements PlatformAdapter {
             if (released) return;
             released = true;
             releaseAgent?.();
-            this.activeThreads.delete(threadId);
           },
         };
       } catch (error) {
         releaseAgent?.();
-        this.activeThreads.delete(threadId);
         throw error;
       }
     },
@@ -173,7 +171,6 @@ export class DeliveryAdapter implements PlatformAdapter {
     ReadonlySet<string>
   >();
   private readonly agentTails = new WeakMap<AbstractAgent, Promise<void>>();
-  private readonly activeThreads = new Set<string>();
   private readonly interruptedRuns = new Map<string, string>();
 
   constructor(private readonly options: DeliveryAdapterOptions) {

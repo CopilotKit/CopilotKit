@@ -2,6 +2,10 @@
 
 // Channel orchestration
 export { createChannel } from "./create-channel.js";
+export {
+  isolateAgentInstance,
+  resolveChannelConcurrency,
+} from "./create-channel.js";
 export type {
   Channel,
   CreateChannelOptions,
@@ -16,6 +20,7 @@ export type {
   ModalCloseHandler,
   StoreConfig,
   LockConflictDecision,
+  ChannelConcurrency,
   StatefulThread,
   ChannelComponent,
 } from "./create-channel.js";

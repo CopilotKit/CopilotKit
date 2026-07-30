@@ -21,8 +21,8 @@ and interrupt callbacks.
 `thread.conversationKey` is the opaque, stable key Intelligence supplies for
 the native conversation. Do not parse it or infer workspace, team, channel, or
 thread identifiers from its value. The SDK passes that same value to your
-`agent(threadId)` factory, which is why every quickstart creates a fresh agent
-and assigns its `threadId`.
+`agent(threadId)` factory (or sets it on a cloned singleton), which is why
+every quickstart creates a fresh agent and assigns its `threadId`.
 
 ```ts title="agent.ts"
 export function makeAgent(threadId: string) {
@@ -32,9 +32,14 @@ export function makeAgent(threadId: string) {
 }
 ```
 
-Do not reuse one mutable agent instance across conversations. Managed history
-is loaded onto the newly created agent, and concurrent threads would overwrite
-a singleton's messages.
+Prefer an agent **factory** so each turn gets an explicit new instance. You may
+also pass a singleton (`agent: shared`); under the hood the SDK calls
+`shared.clone()` per run so concurrent turns do not share one mutable object.
+Managed history is loaded onto that per-run agent after isolation.
+
+Overlapping turns on the same conversation run in **parallel by default**. Use
+`store: { concurrency: "serial" }` when a workflow needs exclusive access to
+`thread.setState` or other shared workflow state.
 
 The native provider is `message.platform`. On the managed path,
 `thread.platform` is `"intelligence"` because it identifies the delivery
