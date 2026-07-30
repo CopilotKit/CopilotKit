@@ -18,8 +18,7 @@ import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
-import type { Channel } from "@copilotkit/channels";
-import type { StartChannelsOverRealtimeGatewayOptions } from "@copilotkit/channels-intelligence";
+import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -206,21 +205,61 @@ interface ChannelEntry {
 const CHANNELS_INTELLIGENCE_SPECIFIER = "@copilotkit/channels-intelligence";
 
 /**
- * The `@copilotkit/channels-intelligence` module surface the default engine
- * consumes.
- *
- * The launcher's own options type is imported rather than re-declared: a
- * hand-written mirror drifts silently, since a new launcher option type-checks
- * clean here while the managed path quietly ignores it. The CJS/ESM boundary
- * above constrains the *value* import — hence the non-literal specifier — but a
- * type-only import is erased, leaks no `require` into the CJS build, and this
- * interface is not part of the emitted `.d.cts` surface, so no CJS consumer
- * resolves the ESM-only package for it.
+ * Structural view of the `@copilotkit/channels-intelligence` module surface the
+ * default engine consumes. Declared locally (not imported) for the same
+ * CJS/ESM-boundary reason the {@link ChannelsHandle} view is.
  */
 export interface ChannelsIntelligenceModule {
   startChannelsOverRealtimeGateway: (
     channels: Channel[],
-    opts: StartChannelsOverRealtimeGatewayOptions,
+    opts: {
+      wsUrl: string;
+      apiKey: string;
+      scope: { projectId: number; channelName: string };
+      runtimeInstanceId: string;
+      adapter?: string;
+      /** Optional per-Channel override for managed tool-call visibility. */
+      showToolStatus?: boolean;
+      /** Optional per-Channel tuning for continuation messages on long replies. */
+      replyContinuation?: ReplyContinuationOptions;
+      /** Intelligence app-api HTTP base URL, forwarded to the transport so the
+       * managed realtime path enables file/history parity (HTTP-only) — OSS-476. */
+      appApiBaseUrl?: string;
+      /** Diagnostic sink forwarded to the launcher/transport so transport-level
+       * drop diagnostics (e.g. a version-skew missing-leaseToken outage) are not
+       * silent in the managed path. */
+      log?: (msg: string, meta?: unknown) => void;
+      runCanonical(args: {
+        agent: AbstractAgent;
+        threadId: string;
+        runId: string;
+        userId: string;
+        agentId: string;
+        tools: readonly {
+          name: string;
+          description: string;
+          parameters: Record<string, unknown>;
+        }[];
+        context: readonly { description: string; value: string }[];
+        persistedInputMessages: Message[];
+        execute(
+          subscriber: AgentSubscriber,
+          canonicalRun?: { threadId: string; runId: string },
+        ): Promise<{
+          iterations: number;
+          interrupted: boolean;
+          deliveryError?: unknown;
+        }>;
+      }): Promise<{
+        iterations: number;
+        interrupted: boolean;
+        deliveryError?: unknown;
+      }>;
+      loadHistory(args: {
+        threadId: string;
+        appUserId: string;
+      }): Promise<Message[]>;
+    },
   ) => Promise<ChannelsHandle>;
 }
 
