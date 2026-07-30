@@ -16,6 +16,8 @@ import type { RealtimeGatewaySession } from "./realtime-gateway.js";
 import type { EgressSink } from "./transports.js";
 import { RENDER_BATCH_PROTOCOL_CAPABILITY } from "./render-batches.js";
 import { isChannelsTerminalBatchingEnabled } from "./operations-feature-flags.js";
+import { STREAMING_CHANNEL_ACTIVATION_DECISION } from "./intelligence-adapter.js";
+import type { InternalChannelActivationDecision } from "./intelligence-adapter.js";
 
 const MANAGED_PRODUCTION_GATEWAY_URL =
   "wss://realtime.intelligence.copilotkit.ai/runner";
@@ -115,13 +117,17 @@ export async function startChannelsWithGatewaySession(
   channels: Channel[],
   opts: StartChannelsWithGatewaySessionOptions,
 ): Promise<ChannelsHandle> {
-  return startChannelsWithGatewaySessionInternal(channels, opts, false);
+  return startChannelsWithGatewaySessionInternal(
+    channels,
+    opts,
+    STREAMING_CHANNEL_ACTIVATION_DECISION,
+  );
 }
 
 async function startChannelsWithGatewaySessionInternal(
   channels: Channel[],
   opts: StartChannelsWithGatewaySessionOptions,
-  terminalBatchingEnabled: boolean,
+  decision: InternalChannelActivationDecision,
 ): Promise<ChannelsHandle> {
   assertScopeMatchesChannel(channels, opts.scope);
   const transport = new RealtimeGatewayTransport({
@@ -146,7 +152,7 @@ async function startChannelsWithGatewaySessionInternal(
       env: { ...opts.env, runtimeInstanceId: opts.runtimeInstanceId },
       showToolStatus: opts.showToolStatus,
     },
-    terminalBatchingEnabled,
+    decision,
   );
   // This variant does not own the socket (the caller passed an
   // already-joined session), so it neither connects nor disconnects it. Still
@@ -263,12 +269,27 @@ export async function startChannelsOverRealtimeGateway(
     channels,
     resolveChannelActivationEnv(envOverrides),
   );
-  const terminalBatchingEnabled =
-    config.wsUrl === MANAGED_PRODUCTION_GATEWAY_URL &&
-    config.appApiBaseUrl === MANAGED_PRODUCTION_APP_API_URL &&
-    activation.runtimeEnv === "production"
-      ? await isChannelsTerminalBatchingEnabled(config.scope.projectId)
-      : false;
+  const managedGateway = config.wsUrl === MANAGED_PRODUCTION_GATEWAY_URL;
+  const managedAppApi = config.appApiBaseUrl === MANAGED_PRODUCTION_APP_API_URL;
+  const production = activation.runtimeEnv === "production";
+  const eligible = managedGateway && managedAppApi && production;
+  const terminalBatchingEnabled = eligible
+    ? await isChannelsTerminalBatchingEnabled(
+        config.scope.projectId,
+        globalThis.fetch,
+        config.log,
+      )
+    : false;
+  const activationDecision: InternalChannelActivationDecision = Object.freeze({
+    terminalBatchingEnabled,
+  });
+  config.log?.("channels terminal batching activation decision", {
+    eligible,
+    enabled: terminalBatchingEnabled,
+    managedAppApi,
+    managedGateway,
+    production,
+  });
 
   const session = await connectRealtimeGateway({
     wsUrl: config.wsUrl,
@@ -331,7 +352,7 @@ export async function startChannelsOverRealtimeGateway(
         ...(config.log ? { log: config.log } : {}),
         showToolStatus: config.showToolStatus,
       },
-      terminalBatchingEnabled,
+      activationDecision,
     );
   } catch (err) {
     session.disconnect();

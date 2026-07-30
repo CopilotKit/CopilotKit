@@ -67,10 +67,19 @@ test("returns false for a network failure", async () => {
   const fetch = vi.fn(async () => {
     throw new Error("network unavailable");
   });
+  const log = vi.fn();
 
   await expect(
-    isChannelsTerminalBatchingEnabled(123, fetch as typeof globalThis.fetch),
+    isChannelsTerminalBatchingEnabled(
+      123,
+      fetch as typeof globalThis.fetch,
+      log,
+    ),
   ).resolves.toBe(false);
+  expect(log).toHaveBeenCalledWith(
+    "channels terminal batching flag evaluation failed; using streaming",
+    { reason: "request_failed" },
+  );
 });
 
 test("aborts a request after 3 seconds and returns false", async () => {

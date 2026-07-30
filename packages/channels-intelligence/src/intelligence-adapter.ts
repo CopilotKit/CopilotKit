@@ -190,13 +190,16 @@ const INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS = Symbol(
   "internal-intelligence-adapter-options",
 );
 
-interface InternalIntelligenceAdapterOptions {
-  terminalBatchingEnabled: boolean;
+export interface InternalChannelActivationDecision {
+  readonly terminalBatchingEnabled: boolean;
 }
 
 type IntelligenceAdapterConstructionOptions = IntelligenceAdapterOptions & {
-  [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]?: InternalIntelligenceAdapterOptions;
+  [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]?: InternalChannelActivationDecision;
 };
+
+export const STREAMING_CHANNEL_ACTIVATION_DECISION: InternalChannelActivationDecision =
+  Object.freeze({ terminalBatchingEnabled: false });
 
 /**
  * @internal Not a publicly documented API.
@@ -356,8 +359,8 @@ export class IntelligenceAdapter implements PlatformAdapter {
   >();
   /** Shared per-turn transport tail for renderer batches and discrete effects. */
   private readonly renderLaneTails = new Map<string, Promise<void>>();
-  /** Flush buffered renderer text before a discrete effect claims its seq. */
-  private readonly renderLaneFlushers = new Map<string, () => void>();
+  /** Flush every active renderer before another renderer/effect claims its seq. */
+  private readonly renderLaneFlushers = new Map<string, Set<() => void>>();
 
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.terminalBatchingEnabled =
@@ -489,7 +492,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
       await this.finalizeRenderedTurn(env);
       turnProcessed = true;
     } catch (err) {
-      if (isLeaseRevoked(err)) {
+      const leaseRevoked = isLeaseRevoked(err);
+      if (this.terminalBatchingEnabled && !leaseRevoked) {
+        this.flushRenderLane(env.turnId);
+        await this.renderLaneTails.get(env.turnId);
+      }
+      if (leaseRevoked) {
         // This delivery's lease was revoked mid-turn, so another owner holds it
         // now and app-api owns redelivery. A nack here would send a `fail` the
         // same fence rejects — the doomed intent whose 409 used to be reported
@@ -732,6 +740,26 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return result;
   }
 
+  private flushRenderLane(turnId: string, except?: () => void): void {
+    for (const flush of this.renderLaneFlushers.get(turnId) ?? []) {
+      if (flush !== except) flush();
+    }
+  }
+
+  private registerRenderLaneFlusher(
+    turnId: string,
+    flush: () => void,
+  ): () => void {
+    const flushers = this.renderLaneFlushers.get(turnId) ?? new Set();
+    flushers.add(flush);
+    this.renderLaneFlushers.set(turnId, flushers);
+    return () => {
+      const current = this.renderLaneFlushers.get(turnId);
+      current?.delete(flush);
+      if (current?.size === 0) this.renderLaneFlushers.delete(turnId);
+    };
+  }
+
   /**
    * Pushes one realtime frame immediately and records its accepted terminal
    * state. Sequence allocation stays deterministic across delivery retries.
@@ -740,7 +768,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     target: ChannelReplyTarget,
     event: ChannelRenderEvent,
   ): Promise<{ receipt: RenderBatchAccepted; seq: number }> {
-    this.renderLaneFlushers.get(target.turnId)?.();
+    this.flushRenderLane(target.turnId);
     const seq = this.nextFrameSeq(target.turnId);
     return this.enqueueRenderLane(target.turnId, async () => {
       const receipt = await this.requireRenderSink().pushBatch(
@@ -887,7 +915,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // semantic boundary for the run renderer. Drain its prefix and permanently
     // enter streaming before bytes leave this process, so renderer callbacks
     // that arrive while the upload is in flight cannot overtake the effect.
-    this.renderLaneFlushers.get(channelTarget.turnId)?.();
+    this.flushRenderLane(channelTarget.turnId);
     try {
       // Stream bytes to app-api first (durable in S3), then emit a `file` frame
       // referencing the handle; the Connector Outbox does the Slack uploadV2.
@@ -1230,7 +1258,14 @@ export class IntelligenceAdapter implements PlatformAdapter {
       }, RENDER_TEXT_TAIL_FLUSH_MS);
     };
 
-    this.renderLaneFlushers.set(t.turnId, flushForDiscreteEffect);
+    if ((this.renderLaneFlushers.get(t.turnId)?.size ?? 0) > 0) {
+      this.flushRenderLane(t.turnId);
+      streaming = true;
+    }
+    const unregisterRenderLaneFlusher = this.registerRenderLaneFlusher(
+      t.turnId,
+      flushForDiscreteEffect,
+    );
 
     const enqueueStreaming = (event: ChannelRenderEvent): void => {
       if (transportError !== undefined || enqueueError !== undefined) return;
@@ -1277,6 +1312,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
 
     const enqueue = (event: ChannelRenderEvent): void => {
       if (transportError !== undefined || enqueueError !== undefined) return;
+      if ((this.renderLaneFlushers.get(t.turnId)?.size ?? 0) > 1) {
+        this.flushRenderLane(t.turnId, flushForDiscreteEffect);
+      }
       if (streaming) {
         enqueueStreaming(event);
         return;
@@ -1338,9 +1376,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         }
       } finally {
         clearTailFlushTimer();
-        if (this.renderLaneFlushers.get(t.turnId) === flushForDiscreteEffect) {
-          this.renderLaneFlushers.delete(t.turnId);
-        }
+        unregisterRenderLaneFlusher();
       }
     };
 
@@ -1495,10 +1531,10 @@ export function intelligenceAdapter(
  */
 export function intelligenceAdapterInternal(
   opts: IntelligenceAdapterOptions,
-  internal: InternalIntelligenceAdapterOptions,
+  decision: InternalChannelActivationDecision,
 ): IntelligenceAdapter {
   return new IntelligenceAdapter({
     ...opts,
-    [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]: internal,
+    [INTERNAL_INTELLIGENCE_ADAPTER_OPTIONS]: decision,
   } as IntelligenceAdapterConstructionOptions);
 }

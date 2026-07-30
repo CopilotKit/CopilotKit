@@ -643,6 +643,53 @@ describe("managed render batch compaction", () => {
     ]);
   });
 
+  it("keeps every concurrent renderer on one ordered turn lane before an effect", async () => {
+    const sink = new RecordingBatchSink();
+    const adapter = intelligenceAdapterInternal(
+      {
+        source: new InMemoryDeliverySource(),
+        egress: new InMemoryEgressSink(),
+        renderSink: sink,
+      },
+      { terminalBatchingEnabled: true },
+    );
+    const first = adapter.createRunRenderer(target);
+    const second = adapter.createRunRenderer(target);
+    const firstSubscriber = first.subscriber as unknown as Subscriber;
+    const secondSubscriber = second.subscriber as unknown as Subscriber;
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    firstSubscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m1", delta: "first" },
+    });
+    secondSubscriber.onTextMessageContentEvent?.({
+      event: { messageId: "m2", delta: "second" },
+    });
+    await adapter.post(target, card);
+    await first.finish?.();
+    await second.finish?.();
+
+    const frames = sink.batches.flatMap((batch) => batch.frames);
+    expect(
+      frames.map((frame) =>
+        frame.event.kind === "text_delta"
+          ? `${frame.event.kind}:${frame.event.delta}`
+          : frame.event.kind,
+      ),
+    ).toEqual([
+      "run_started",
+      "text_delta:first",
+      "run_started",
+      "text_delta:second",
+      "post",
+      "finalize",
+      "finalize",
+    ]);
+    expect(frames.map((frame) => frame.seq)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
   it("fails the lane with a stable bounded-memory error while transport is stalled", async () => {
     const sink: RenderEventSink = {
       pushBatch: async () => new Promise(() => undefined),

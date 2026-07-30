@@ -5,9 +5,10 @@ import type {
   RenderEventSink,
 } from "./transports.js";
 import {
-  intelligenceAdapter,
   intelligenceAdapterInternal,
+  STREAMING_CHANNEL_ACTIVATION_DECISION,
 } from "./intelligence-adapter.js";
+import type { InternalChannelActivationDecision } from "./intelligence-adapter.js";
 
 /** Lowercase kebab-case Channel name, 3–64 characters. */
 const CHANNEL_NAME_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
@@ -172,7 +173,7 @@ export interface ChannelsHandle {
 export async function startChannels(
   opts: StartChannelsOptions,
 ): Promise<ChannelsHandle> {
-  return startChannelsInternal(opts, false);
+  return startChannelsInternal(opts, STREAMING_CHANNEL_ACTIVATION_DECISION);
 }
 
 /**
@@ -181,7 +182,7 @@ export async function startChannels(
  */
 export async function startChannelsInternal(
   opts: StartChannelsOptions,
-  terminalBatchingEnabled: boolean,
+  decision: InternalChannelActivationDecision,
 ): Promise<ChannelsHandle> {
   assertValidChannelNames(opts.channels);
   if (opts.channels.length === 0) {
@@ -212,11 +213,7 @@ export async function startChannelsInternal(
         showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
       };
       channel.ɵruntime.addAdapter(
-        terminalBatchingEnabled
-          ? intelligenceAdapterInternal(adapterOptions, {
-              terminalBatchingEnabled: true,
-            })
-          : intelligenceAdapter(adapterOptions),
+        intelligenceAdapterInternal(adapterOptions, decision),
       );
       await channel.ɵruntime.start();
       startedChannels.push(channel);

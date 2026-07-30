@@ -7,7 +7,10 @@ import {
 import type { ReplyTarget } from "@copilotkit/channels-core";
 import { Section } from "@copilotkit/channels-ui";
 import type { IncomingMessage } from "@copilotkit/channels-ui";
-import { intelligenceAdapter } from "./intelligence-adapter.js";
+import {
+  intelligenceAdapter,
+  intelligenceAdapterInternal,
+} from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
@@ -113,6 +116,47 @@ describe("intelligenceAdapter — ingress dispatch", () => {
     await source.deliver(envelope({ deliveryId: "d9" }));
     expect(source.acked).toEqual([]);
     expect(source.nacked.map((n) => n.deliveryId)).toEqual(["d9"]);
+  });
+
+  it("flushes terminal-batched partial history before nacking a rejected agent run", async () => {
+    const source = new InMemoryDeliverySource();
+    const renderSink = new InMemoryRenderEventSink();
+    const agent = new FakeAgent([
+      async (subscriber) => {
+        await subscriber.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "partial answer" },
+        } as never);
+        throw new Error("agent transport failed");
+      },
+    ]);
+    const channel = createChannel({
+      adapters: [
+        intelligenceAdapterInternal(
+          {
+            source,
+            egress: new InMemoryEgressSink(),
+            renderSink,
+          },
+          { terminalBatchingEnabled: true },
+        ),
+      ],
+      agent: () => agent,
+    });
+    channel.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await channel.ɵruntime.start();
+    await source.deliver(envelope());
+
+    expect(renderSink.frames.map((frame) => frame.event.kind)).toEqual([
+      "run_started",
+      "text_delta",
+    ]);
+    expect(source.acked).toEqual([]);
+    expect(source.nacked).toEqual([
+      { deliveryId: "d1", reason: "agent transport failed" },
+    ]);
   });
 
   it("abandons (not nacks) the delivery when the lease was revoked mid-turn", async () => {

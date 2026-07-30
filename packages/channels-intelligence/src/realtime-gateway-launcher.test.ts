@@ -49,7 +49,11 @@ function makeFakeSession() {
 
 /** Simulate one leased text-turn delivery arriving over the gateway session. */
 function deliverText(handlers: Map<string, (p: unknown) => void>) {
-  handlers.get("channel.delivery.available.v1")?.({
+  handlers.get("channel.delivery.available.v1")?.(textDeliveryPayload());
+}
+
+function textDeliveryPayload() {
+  return {
     payload: {
       delivery: {
         id: "dlv_1",
@@ -64,7 +68,7 @@ function deliverText(handlers: Map<string, (p: unknown) => void>) {
         },
       },
     },
-  });
+  };
 }
 
 /** The gateway session `delivery.available` handler is fire-and-forget, so poll until
@@ -556,6 +560,9 @@ function makeFakeWebSocket(mode: JoinMode) {
     onerror: ((ev?: unknown) => void) | null = null;
     onclose: ((ev?: unknown) => void) | null = null;
     closed = false;
+    readonly frames: unknown[] = [];
+    private joinRef: string | undefined;
+    private topic: string | undefined;
     constructor(public readonly url: string) {
       instances.push(this);
       queueMicrotask(() => {
@@ -571,16 +578,40 @@ function makeFakeWebSocket(mode: JoinMode) {
       } catch {
         return;
       }
+      this.frames.push(frame);
       if (!Array.isArray(frame)) return;
-      const [joinRef, ref, topic, event] = frame as [
+      const [joinRef, ref, topic, event, payload] = frame as [
         string,
         string,
         string,
         string,
+        unknown,
       ];
-      if (event !== "phx_join") return;
-      const status = mode === "ok" ? "ok" : "error";
-      const response = mode === "ok" ? {} : { reason: "unauthorized" };
+      const joining = event === "phx_join";
+      if (joining) {
+        this.joinRef = joinRef;
+        this.topic = topic;
+      }
+      const status = joining && mode === "error" ? "error" : "ok";
+      const renderPayload =
+        isObject(payload) && isObject(payload.payload)
+          ? payload.payload
+          : undefined;
+      const response =
+        status === "error"
+          ? { reason: "unauthorized" }
+          : event === "channel.render_batch.v1" && renderPayload
+            ? {
+                type: "channel.render_batch_accepted.v1",
+                occurredAt: "2026-07-09T00:00:00.000Z",
+                payload: {
+                  batchId: renderPayload.batchId,
+                  egressOperationId: "eop_1",
+                  acceptedThroughSeq: renderPayload.endSeq,
+                  duplicate: false,
+                },
+              }
+            : {};
       const reply = JSON.stringify([
         joinRef,
         ref,
@@ -589,6 +620,14 @@ function makeFakeWebSocket(mode: JoinMode) {
         { status, response },
       ]);
       queueMicrotask(() => this.onmessage?.({ data: reply }));
+    }
+    pushServer(event: string, payload: unknown): void {
+      if (this.joinRef === undefined || this.topic === undefined) {
+        throw new Error("fake socket has not joined");
+      }
+      this.onmessage?.({
+        data: JSON.stringify([this.joinRef, null, this.topic, event, payload]),
+      });
     }
     close(): void {
       this.closed = true;
@@ -600,6 +639,71 @@ function makeFakeWebSocket(mode: JoinMode) {
 }
 
 describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406)", () => {
+  it("carries an enabled managed-production decision into terminal adapter behavior", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({
+          flags: { "channels-terminal-batching": { enabled: true } },
+        }),
+      })),
+    );
+    const { FakeWebSocket, instances } = makeFakeWebSocket("ok");
+    const agent = new FakeAgent([
+      async (subscriber) => {
+        await subscriber.onTextMessageContentEvent?.({
+          event: { messageId: "m1", delta: "hello" },
+        } as never);
+        await subscriber.onTextMessageEndEvent?.({
+          event: { messageId: "m1" },
+        } as never);
+      },
+    ]);
+    const channel = createChannel({
+      name: "opentag",
+      agent: () => agent,
+    });
+    channel.onMessage(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    const handle = await startChannelsOverRealtimeGateway([channel], {
+      wsUrl: "wss://realtime.intelligence.copilotkit.ai/runner",
+      appApiBaseUrl: "https://api.intelligence.copilotkit.ai",
+      apiKey: "cpk-test",
+      scope,
+      runtimeInstanceId: "rti_managed_behavior",
+      env: { runtimeEnv: "production" },
+      webSocket: FakeWebSocket,
+    });
+    instances[0]!.pushServer(
+      "channel.delivery.available.v1",
+      textDeliveryPayload(),
+    );
+    await waitFor(() =>
+      instances[0]!.frames.some(
+        (frame) =>
+          Array.isArray(frame) &&
+          frame[3] === "channel.delivery.complete_requested.v1",
+      ),
+    );
+
+    const renderPushes = instances[0]!.frames.filter(
+      (frame) => Array.isArray(frame) && frame[3] === "channel.render_batch.v1",
+    ) as Array<
+      [string, string, string, string, { payload: { frames: unknown[] } }]
+    >;
+    expect(renderPushes).toHaveLength(1);
+    expect(
+      renderPushes[0]![4].payload.frames.map((frame) =>
+        isObject(frame) && isObject(frame.event) ? frame.event.kind : undefined,
+      ),
+    ).toEqual(["run_started", "text_delta", "text_end", "finalize"]);
+
+    await handle.stop();
+  });
+
   it("evaluates terminal batching once only for the exact managed production activation", async () => {
     const evaluateFlag = vi.fn(async () => ({
       ok: true,
@@ -609,6 +713,7 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
     }));
     vi.stubGlobal("fetch", evaluateFlag);
     const { FakeWebSocket } = makeFakeWebSocket("ok");
+    const log = vi.fn();
     const makeBot = () =>
       createChannel({
         name: "opentag",
@@ -623,8 +728,19 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
       runtimeInstanceId: "rti_managed",
       env: { runtimeEnv: "production" },
       webSocket: FakeWebSocket,
+      log,
     });
     expect(evaluateFlag).toHaveBeenCalledTimes(1);
+    expect(log).toHaveBeenCalledWith(
+      "channels terminal batching activation decision",
+      {
+        eligible: true,
+        enabled: true,
+        managedAppApi: true,
+        managedGateway: true,
+        production: true,
+      },
+    );
     await managed.stop();
 
     const custom = await startChannelsOverRealtimeGateway([makeBot()], {
@@ -635,7 +751,18 @@ describe("startChannelsOverRealtimeGateway — socket lifecycle cleanup (OSS-406
       runtimeInstanceId: "rti_custom",
       env: { runtimeEnv: "production" },
       webSocket: FakeWebSocket,
+      log,
     });
+    expect(log).toHaveBeenCalledWith(
+      "channels terminal batching activation decision",
+      {
+        eligible: false,
+        enabled: false,
+        managedAppApi: false,
+        managedGateway: false,
+        production: true,
+      },
+    );
     await custom.stop();
 
     const development = await startChannelsOverRealtimeGateway([makeBot()], {

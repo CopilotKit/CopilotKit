@@ -11,12 +11,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function isChannelsTerminalBatchingEnabled(
   projectId: number,
   fetch: typeof globalThis.fetch = globalThis.fetch,
+  log?: (message: string, meta?: unknown) => void,
 ): Promise<boolean> {
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
     OPERATIONS_POSTHOG_REQUEST_TIMEOUT_MS,
   );
+  const failClosed = (
+    reason: "http_error" | "invalid_response" | "request_failed",
+  ): false => {
+    log?.(
+      "channels terminal batching flag evaluation failed; using streaming",
+      { reason },
+    );
+    return false;
+  };
 
   try {
     const response = await fetch(OPERATIONS_POSTHOG_FLAGS_URL, {
@@ -30,18 +40,21 @@ export async function isChannelsTerminalBatchingEnabled(
       }),
     });
     if (!response.ok) {
-      return false;
+      return failClosed("http_error");
     }
 
     const body: unknown = await response.json();
     if (!isRecord(body) || !isRecord(body.flags)) {
-      return false;
+      return failClosed("invalid_response");
     }
 
     const flag = body.flags[CHANNELS_TERMINAL_BATCHING_FLAG];
-    return isRecord(flag) && flag.enabled === true;
+    if (!isRecord(flag) || typeof flag.enabled !== "boolean") {
+      return failClosed("invalid_response");
+    }
+    return flag.enabled;
   } catch {
-    return false;
+    return failClosed("request_failed");
   } finally {
     clearTimeout(timeout);
   }
