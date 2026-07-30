@@ -204,7 +204,7 @@ approval.
 ## Use post-and-resume for managed approvals
 
 Managed deliveries cannot wait inside `thread.awaitChoice()`. The click arrives
-as a separate leased delivery, so blocking the first delivery would prevent the
+as a separate claimed delivery, so blocking the first delivery would prevent the
 approval from being processed.
 
 The safe flow is:
