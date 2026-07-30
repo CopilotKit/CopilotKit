@@ -225,8 +225,15 @@ export function renderWithCopilotKit({
 /**
  * Helper to create a RUN_STARTED event
  */
-export function runStartedEvent(): BaseEvent {
-  return { type: EventType.RUN_STARTED } as BaseEvent;
+export function runStartedEvent(
+  runId = testId("run"),
+  threadId = "test-thread",
+): BaseEvent {
+  return {
+    type: EventType.RUN_STARTED,
+    threadId,
+    runId,
+  };
 }
 
 /**

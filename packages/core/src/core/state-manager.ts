@@ -56,7 +56,7 @@ export class StateManager {
 
     // Subscribe to agent events.
     //
-    // Two invariants this subscription must uphold:
+    // Three invariants this subscription must uphold:
     //
     // 1. Revocation: the ag-ui pipeline captures `o = [...agent.subscribers]` at
     //    runAgent() start. If this subscription is replaced by a newer one before
@@ -64,14 +64,19 @@ export class StateManager {
     //    with the old input.runId. `revoked = true` turns them into no-ops once
     //    the replacement subscription is in place.
     //
-    // 2. Run isolation within one subscription: in tests (and edge cases), a new
+    // 2. Run identity: `input.runId` identifies the client invocation, while a
+    //    connect replay can contain multiple server runs in the same pipeline.
+    //    Each RUN_STARTED event provides the authoritative runId for its logical
+    //    run. Capture it and apply it to subsequent state and message callbacks.
+    //
+    // 3. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
     //    pipeline is set up. Concretely: the test emits RUN_STARTED for run2
     //    before copilotkit.runAgent() has had a chance to set up the new
     //    pipeline. At that point S1 is still active and sees run2's events with
-    //    input1.runId. To prevent both runs from sharing the same runId key, we
-    //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
-    //    generate a fresh runId for the second logical run.
+    //    input1.runId. When legacy or custom agents omit event.runId, detect the
+    //    "seen RUN_FINISHED, then RUN_STARTED again" pattern and generate a fresh
+    //    runId so both runs remain isolated.
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
@@ -82,9 +87,11 @@ export class StateManager {
     });
 
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
+      onRunStartedEvent: ({ event, input, state }) => {
         if (revoked) return;
-        if (runFinished && input.runId === subRunId) {
+        if (event.runId != null) {
+          subRunId = event.runId;
+        } else if (runFinished && input.runId === subRunId) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
           // copilotkit.runAgent() has had a chance to set up the new pipeline:
@@ -358,7 +365,10 @@ export class StateManager {
     }
     const threadMessages = agentMessages.get(threadId)!;
 
-    threadMessages.set(messageId, runId);
+    // Later cumulative snapshots may contain messages from earlier runs.
+    if (!threadMessages.has(messageId)) {
+      threadMessages.set(messageId, runId);
+    }
   }
 
   /**

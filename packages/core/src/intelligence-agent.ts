@@ -33,6 +33,7 @@ import {
   filter,
   finalize,
   ignoreElements,
+  map,
   mergeMap,
   share,
   shareReplay,
@@ -698,6 +699,7 @@ export class IntelligenceAgent extends AbstractAgent {
       switchMapOperator(({ channel }) =>
         this.observeChannelEvent$<BaseEvent>(channel, CLIENT_AG_UI_EVENT),
       ),
+      map((payload) => this.normalizeAgUiEvent(payload)),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
       }),
@@ -711,6 +713,28 @@ export class IntelligenceAgent extends AbstractAgent {
       ),
       dematerialize(),
     );
+  }
+
+  private normalizeAgUiEvent(payload: BaseEvent): BaseEvent {
+    const gatewayPayload = payload as BaseEvent & {
+      runId?: unknown;
+      run_id?: unknown;
+    };
+
+    // Phoenix gateway payloads use snake_case, while AG-UI subscribers expect
+    // the protocol-standard camelCase field. Normalize once at the transport
+    // boundary and preserve an already-standardized value.
+    if (
+      typeof gatewayPayload.runId === "string" ||
+      typeof gatewayPayload.run_id !== "string"
+    ) {
+      return payload;
+    }
+
+    return {
+      ...payload,
+      runId: gatewayPayload.run_id,
+    } as BaseEvent;
   }
 
   private observeControlEvent$(

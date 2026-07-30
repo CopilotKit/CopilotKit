@@ -13,6 +13,7 @@ vi.mock("phoenix", () => ({
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
 const { IntelligenceAgent } = await import("../intelligence-agent");
 const { ProxiedCopilotRuntimeAgent } = await import("../agent");
+const { CopilotKitCore } = await import("../core");
 type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -360,8 +361,17 @@ describe("IntelligenceAgent", () => {
       } as BaseEvent;
       channel.serverPush("ag_ui_event", toolEvent);
 
+      const runStartedEvent = {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "standard-run-id",
+        run_id: "legacy-run-id",
+      } as BaseEvent;
+      channel.serverPush("ag_ui_event", runStartedEvent);
+
       expect(events).toContainEqual(textEvent);
       expect(events).toContainEqual(toolEvent);
+      expect(events).toContainEqual(runStartedEvent);
     });
   });
 
@@ -1286,6 +1296,90 @@ describe("IntelligenceAgent", () => {
       await secondConnectPromise;
     });
 
+    it("preserves server run identity across cumulative gateway replay snapshots", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: null })),
+      );
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+      const core = new CopilotKitCore({});
+      core.addAgent__unsafe_dev_only({ id: "my-agent", agent });
+
+      const firstMessage = {
+        id: "message-1",
+        role: "assistant" as const,
+        content: "First response",
+      };
+      const secondMessage = {
+        id: "message-2",
+        role: "assistant" as const,
+        content: "Second response",
+      };
+
+      const promise = agent.connectAgent({ runId: "connect-run" });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "server-run-1",
+        input: { messages: [] },
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { turn: 1 },
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [firstMessage],
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        run_id: "server-run-1",
+      } as BaseEvent);
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "server-run-2",
+        input: { messages: [firstMessage] },
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.STATE_SNAPSHOT,
+        snapshot: { turn: 2 },
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.MESSAGES_SNAPSHOT,
+        messages: [firstMessage, secondMessage],
+      } as BaseEvent);
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        run_id: "server-run-2",
+      } as BaseEvent);
+      channel.serverPush("replay_complete", { latestEventId: "event-8" });
+      channel.serverPush("stream_idle", { latestEventId: "event-8" });
+
+      await promise;
+
+      expect(
+        core.getRunIdForMessage("my-agent", "thread-1", firstMessage.id),
+      ).toBe("server-run-1");
+      expect(
+        core.getRunIdForMessage("my-agent", "thread-1", secondMessage.id),
+      ).toBe("server-run-2");
+      expect(
+        core.getStateByRun("my-agent", "thread-1", "server-run-1"),
+      ).toEqual({ turn: 1 });
+      expect(
+        core.getStateByRun("my-agent", "thread-1", "server-run-2"),
+      ).toEqual({ turn: 2 });
+    });
+
     it("hydrates agent state from gateway replay events through connectAgent", async () => {
       const finalSnapshot = {
         todos: [
@@ -1375,6 +1469,7 @@ describe("IntelligenceAgent", () => {
       expect(events[0]).toEqual({
         type: EventType.RUN_STARTED,
         threadId: "thread-1",
+        runId: "backend-run-1",
         run_id: "backend-run-1",
         input: {
           messages: [

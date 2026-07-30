@@ -29,7 +29,16 @@ class EventEmittingMockAgent extends AbstractAgent {
   }
 
   // Helper to emit run started event
-  public async emitRunStarted(runId: string, state: State = {}) {
+  public async emitRunStarted(
+    runId: string | undefined,
+    state: State = {},
+    inputRunId?: string,
+  ) {
+    const resolvedInputRunId = inputRunId ?? runId;
+    if (resolvedInputRunId === undefined) {
+      throw new Error("inputRunId is required when event runId is omitted");
+    }
+
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunStartedEvent) {
@@ -42,14 +51,18 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(resolvedInputRunId),
         });
       }
     }
   }
 
   // Helper to emit run finished event
-  public async emitRunFinished(runId: string, state: State = {}) {
+  public async emitRunFinished(
+    runId: string,
+    state: State = {},
+    inputRunId = runId,
+  ) {
     this.state = state;
     for (const sub of this.testSubscribers) {
       if (sub.onRunFinishedEvent) {
@@ -62,7 +75,7 @@ class EventEmittingMockAgent extends AbstractAgent {
           messages: this.messages,
           state: this.state,
           agent: this,
-          input: this.createRunInput(runId),
+          input: this.createRunInput(inputRunId),
         });
       }
     }
@@ -340,6 +353,28 @@ describe("StateManager - Multiple Runs", () => {
     );
   });
 
+  it("should preserve run isolation when RUN_STARTED omits runId", async () => {
+    const inputRunId = "reused-input-run";
+    const firstRunState = { count: 1 };
+    const secondRunState = { count: 2 };
+
+    await agent.emitRunStarted(undefined, firstRunState, inputRunId);
+    await agent.emitRunFinished(inputRunId, firstRunState, inputRunId);
+    await agent.emitRunStarted(undefined, secondRunState, inputRunId);
+
+    const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread1");
+    const generatedRunId = runIds.find((runId) => runId !== inputRunId);
+
+    expect(runIds).toHaveLength(2);
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
+    ).toEqual(firstRunState);
+    expect(generatedRunId).toBeDefined();
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", generatedRunId!),
+    ).toEqual(secondRunState);
+  });
+
   it("should list all run IDs for a thread", async () => {
     await agent.emitRunStarted("run1", { count: 1 });
     await agent.emitRunFinished("run1", { count: 1 });
@@ -450,6 +485,39 @@ describe("StateManager - Message Tracking", () => {
     );
     expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg3")).toBe(
       runId,
+    );
+  });
+
+  it("should preserve server run IDs during cumulative connect replay", async () => {
+    const connectionRunId = "connect-run";
+    const firstRunId = "server-run-1";
+    const secondRunId = "server-run-2";
+    const firstMessage: Message = {
+      id: "msg1",
+      role: "assistant",
+      content: "First response",
+    };
+    const secondMessage: Message = {
+      id: "msg2",
+      role: "assistant",
+      content: "Second response",
+    };
+
+    await agent.emitRunStarted(firstRunId, {}, connectionRunId);
+    await agent.emitMessagesSnapshot(connectionRunId, [firstMessage]);
+    await agent.emitRunFinished(firstRunId, {}, connectionRunId);
+
+    await agent.emitRunStarted(secondRunId, {}, connectionRunId);
+    await agent.emitMessagesSnapshot(connectionRunId, [
+      firstMessage,
+      secondMessage,
+    ]);
+
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      firstRunId,
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
+      secondRunId,
     );
   });
 
@@ -859,41 +927,26 @@ describe("StateManager - RunErrorEvent Handling", () => {
     expect(storedState).toEqual(errorState);
   });
 
-  it("should allow a new run after a run error (runFinished resets)", async () => {
-    // First run errors out
-    const run1Id = "run1";
+  it("should preserve run isolation after RUN_ERROR when RUN_STARTED omits runId", async () => {
+    const inputRunId = "reused-input-run";
     const run1State = { count: 1, status: "error" };
+    const run2State = { count: 2, status: "started" };
 
-    await agent.emitRunStarted(run1Id, { count: 1 });
-    await agent.emitRunErrorEvent(run1Id, run1State, "oops", "internal");
+    await agent.emitRunStarted(undefined, { count: 1 }, inputRunId);
+    await agent.emitRunErrorEvent(inputRunId, run1State, "oops", "internal");
+    await agent.emitRunStarted(undefined, run2State, inputRunId);
 
-    const storedRun1 = copilotKitCore.getStateByRun(
-      "agent1",
-      "thread1",
-      run1Id,
-    );
-    expect(storedRun1).toEqual(run1State);
-
-    // Second run succeeds — verifies runFinished flag was set by error
-    // and resets on the next RUN_STARTED
-    const run2Id = "run2";
-    const run2State = { count: 2, status: "completed" };
-
-    await agent.emitRunStarted(run2Id, { count: 2 });
-    await agent.emitRunFinished(run2Id, run2State);
-
-    const storedRun2 = copilotKitCore.getStateByRun(
-      "agent1",
-      "thread1",
-      run2Id,
-    );
-    expect(storedRun2).toEqual(run2State);
-
-    // Both runs are tracked independently
     const runIds = copilotKitCore.getRunIdsForThread("agent1", "thread1");
+    const generatedRunId = runIds.find((runId) => runId !== inputRunId);
+
     expect(runIds).toHaveLength(2);
-    expect(runIds).toContain(run1Id);
-    expect(runIds).toContain(run2Id);
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", inputRunId),
+    ).toEqual(run1State);
+    expect(generatedRunId).toBeDefined();
+    expect(
+      copilotKitCore.getStateByRun("agent1", "thread1", generatedRunId!),
+    ).toEqual(run2State);
   });
 });
 
