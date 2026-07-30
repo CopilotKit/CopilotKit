@@ -4,8 +4,8 @@ import { AlertTriangle, Clock, FileText, TrendingUp } from "lucide-react";
 
 import type { ExpensePolicy, Report, Transaction } from "@/app/api/v1/data";
 import {
-  SpendByTeamBars,
-  IncomeExpenseChart,
+  SpendBreakdownChart,
+  SpendingTrendChart,
   BudgetUsageChart,
 } from "@/components/analytics-charts";
 import { isOverLimit } from "@/lib/over-limit";
@@ -146,14 +146,6 @@ export function ReportCard({
     (sum, a) => sum + a.amount,
     0,
   );
-  // Per-team invoice contribution, so the spend chart can show which part of a
-  // team's total came from the attached document rather than the ledger.
-  const additionsByTeam = (report.additions ?? []).reduce<
-    Record<string, number>
-  >((acc, a) => {
-    acc[a.team] = (acc[a.team] ?? 0) + a.amount;
-    return acc;
-  }, {});
   const overLimit = transactions.filter(
     (t) => t.status === "pending" && isOverLimit(t, policies),
   );
@@ -215,28 +207,29 @@ export function ReportCard({
         />
       </div>
 
-      {/* Charts at full width, three across — the substance, not a footnote. */}
+      {/* Charts at full width, three across — the substance, not a footnote.
+          Three different shapes on purpose: a share-of-total pie, a time
+          series, and a progress-against-limit bar set. Three bar charts in a row
+          read as one repeated chart; mixing the forms means each column answers
+          a visibly different question. */}
       <div className="grid gap-5 border-t border-hairline pt-5 lg:grid-cols-3">
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
             Spend by team
           </p>
-          <SpendByTeamBars
-            policies={chart.policies}
-            additionsByTeam={additionsByTeam}
-          />
+          <SpendBreakdownChart policies={chart.policies} />
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-medium text-ink-muted">
+            Spend over time
+          </p>
+          <SpendingTrendChart transactions={chart.transactions} />
         </div>
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
             Budget usage
           </p>
           <BudgetUsageChart policies={chart.policies} />
-        </div>
-        <div>
-          <p className="mb-2 text-xs font-medium text-ink-muted">
-            Income vs expenses
-          </p>
-          <IncomeExpenseChart transactions={chart.transactions} />
         </div>
       </div>
 
