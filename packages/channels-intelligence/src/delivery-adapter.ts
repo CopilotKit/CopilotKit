@@ -39,6 +39,7 @@ import type {
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
+import { ChannelProviderDeliveryError } from "./delivery-transport.js";
 import { assertProviderReference } from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
@@ -410,23 +411,31 @@ export class DeliveryAdapter implements PlatformAdapter {
         }),
       );
       let text = "";
-      for await (const delta of chunks) {
-        if (delta.length === 0) continue;
-        const before = digest(text);
-        text += delta;
-        await target.session.effect(responseId, {
-          kind: "slack.stream.append",
-          providerReference,
-          delta,
-          beforeTextDigest: before,
-          afterTextDigest: digest(text),
-        });
+      try {
+        for await (const delta of chunks) {
+          if (delta.length === 0) continue;
+          const before = digest(text);
+          text += delta;
+          await target.session.effect(responseId, {
+            kind: "slack.stream.append",
+            providerReference,
+            delta,
+            beforeTextDigest: before,
+            afterTextDigest: digest(text),
+          });
+        }
+      } finally {
+        // Always stop a started stream (append failure must not leave it open).
+        try {
+          await target.session.effect(responseId, {
+            kind: "slack.stream.stop",
+            providerReference,
+            finalTextDigest: digest(text),
+          });
+        } catch {
+          // Best-effort stop; primary error already propagates from the try body.
+        }
       }
-      await target.session.effect(responseId, {
-        kind: "slack.stream.stop",
-        providerReference,
-        finalTextDigest: digest(text),
-      });
     } else {
       let text = "";
       let created = false;
@@ -489,6 +498,8 @@ export class DeliveryAdapter implements PlatformAdapter {
     try {
       const handle = await target.session.uploadFile(args);
       const responseId = mintId("response_");
+      // ChannelProviderDeliveryError must propagate so claimAndHandle does not
+      // send a false complete terminal after a gateway-side provider failure.
       if (target.delivery.adapter === "slack") {
         await target.session.effect(responseId, {
           kind: "slack.file.create",
@@ -505,6 +516,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       }
       return { ok: true, fileId: handle };
     } catch (error) {
+      if (error instanceof ChannelProviderDeliveryError) throw error;
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),

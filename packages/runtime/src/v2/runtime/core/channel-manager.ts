@@ -151,6 +151,8 @@ export interface ChannelManagerArgs {
   lockTtlSeconds?: number;
   /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
   lockHeartbeatIntervalSeconds?: number;
+  /** Must match web Intelligence runs so channel + HTTP share the same lock key. */
+  lockKeyPrefix?: string;
   /**
    * Activation engine. Defaults to a wrapper over the channels-intelligence
    * Realtime Gateway launcher (`startChannelsOverRealtimeGateway`), reached via
@@ -294,6 +296,7 @@ export async function defaultActivateChannel(
     intelligence: CopilotKitIntelligence;
     lockTtlSeconds?: number;
     lockHeartbeatIntervalSeconds?: number;
+    lockKeyPrefix?: string;
   },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
@@ -337,6 +340,7 @@ export async function defaultActivateChannel(
         services.lockTtlSeconds ?? 20,
         services.lockHeartbeatIntervalSeconds ?? 15,
         args,
+        services.lockKeyPrefix,
       ),
     loadHistory: async ({ threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
@@ -416,6 +420,7 @@ async function runCanonicalChannelAgent(
   lockTtlSeconds: number,
   lockHeartbeatIntervalSeconds: number,
   args: CanonicalRunArgs,
+  lockKeyPrefix?: string,
 ): Promise<{
   iterations: number;
   interrupted: boolean;
@@ -427,6 +432,7 @@ async function runCanonicalChannelAgent(
     userId: args.userId,
     agentId: args.agentId,
     ttlSeconds: lockTtlSeconds,
+    ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });
   const canonicalThreadId = lock.threadId;
   const canonicalRunId = lock.runId;
@@ -453,6 +459,7 @@ async function runCanonicalChannelAgent(
         threadId: canonicalThreadId,
         runId: canonicalRunId,
         ttlSeconds: lockTtlSeconds,
+        ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
       })
       .catch((error: unknown) => {
         if (heartbeatTimer === undefined) return;
@@ -664,6 +671,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly runner?: AgentRunner;
   private readonly lockTtlSeconds: number;
   private readonly lockHeartbeatIntervalSeconds: number;
+  private readonly lockKeyPrefix?: string;
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
@@ -681,6 +689,7 @@ export class ChannelManager implements ChannelsControl {
     this.runner = args.runner;
     this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
     this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
+    this.lockKeyPrefix = args.lockKeyPrefix;
     this.channels = args.channels;
     this.log = args.log;
     // When using the default engine, forward the manager's log DOWN to the
@@ -701,6 +710,9 @@ export class ChannelManager implements ChannelsControl {
                 intelligence: this.intelligence,
                 lockTtlSeconds: this.lockTtlSeconds,
                 lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
+                ...(this.lockKeyPrefix !== undefined
+                  ? { lockKeyPrefix: this.lockKeyPrefix }
+                  : {}),
               }
             : undefined,
         ));

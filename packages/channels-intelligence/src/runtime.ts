@@ -65,13 +65,14 @@ export function resolveChannelActivationEnv(
 ): ChannelActivationEnv {
   // Guard against non-Node hosts (browser/edge) where `process` is absent.
   const env = typeof process !== "undefined" ? process.env : undefined;
-  const nodeEnv = env?.NODE_ENV;
+  const copilotRuntimeEnv = env?.COPILOTKIT_RUNTIME_ENV?.trim() || undefined;
+  const nodeEnv = env?.NODE_ENV?.trim() || undefined;
   // Only defined overrides may clobber defaults (Partial can carry explicit undefined).
   const definedOverrides = Object.fromEntries(
     Object.entries(overrides).filter(([, value]) => value !== undefined),
   ) as Partial<ChannelActivationEnv>;
   return {
-    runtimeEnv: env?.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    runtimeEnv: copilotRuntimeEnv ?? nodeEnv ?? "development",
     nodeEnv,
     nodeVersion: typeof process !== "undefined" ? process.version : undefined,
     ...definedOverrides,

@@ -40,6 +40,7 @@ export type {
 export {
   assertValidChannelNames,
   buildChannelActivationMetadata,
+  resolveChannelActivationEnv,
 } from "./runtime.js";
 export type {
   ChannelsHandle,

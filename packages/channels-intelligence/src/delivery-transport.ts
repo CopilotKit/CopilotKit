@@ -397,7 +397,7 @@ export class ChannelDeliverySession {
         if (
           error instanceof TypeError ||
           (error instanceof Error &&
-            /invalid delivery claim|invalid prepared delivery|cannot join deliveries/i.test(
+            /invalid delivery claim|invalid prepared delivery|cannot join deliveries|delivery join failed|delivery join timed out/i.test(
               error.message,
             ))
         ) {

@@ -115,7 +115,8 @@ CHANNEL_CODE=<exact-intelligence-code>
 
 Hosted Intelligence supplies the managed endpoints by default. For a
 self-hosted or non-production deployment, override both bases together. Do not
-derive one from the other or append `/api`, `/socket`, `/runner`, or `/client`.
+derive one from the other or append `/api`, `/socket`, `/runner`, `/client`, or
+`/channels`.
 
 Provider credentials stay in Intelligence. The runner should not contain Slack
 tokens or the Teams client secret. Rotate the project runtime key through your

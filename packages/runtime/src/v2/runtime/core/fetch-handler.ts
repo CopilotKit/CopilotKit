@@ -238,6 +238,9 @@ function getOrCreateChannelManager(
     runner: runtime.runner,
     lockTtlSeconds: runtime.lockTtlSeconds,
     lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
+    ...(runtime.lockKeyPrefix !== undefined
+      ? { lockKeyPrefix: runtime.lockKeyPrefix }
+      : {}),
     channels: runtime.channels,
     // Bridge the manager's diagnostic sink to the shared logger. Without this
     // every `this.log?.(...)` breadcrumb in the manager (setup_required,
