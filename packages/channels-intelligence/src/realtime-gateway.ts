@@ -409,7 +409,8 @@ export interface ConnectedRealtimeGatewaySession extends RealtimeGatewaySession 
  * values stay private here; callers receive only {@link RealtimeGatewaySession}.
  *
  * The session is joined (declaring the runtime's channels) before the promise
- * resolves, so the caller can immediately stream render frames.
+ * resolves, so the caller can receive delivery invitations and send ordered
+ * provider effects.
  *
  * @param config - Gateway URL, auth, project scope, and join declaration.
  * @returns The connected channel with a `disconnect()` teardown.

@@ -77,6 +77,8 @@ against `state`. It does not merge patches. Under `"parallel"`, concurrent
 turns that both call `setState` can race — use `"serial"` for workflows that
 depend on exclusive state updates.
 
-On the managed path, Intelligence owns cross-instance delivery leases and
-egress idempotency. The SDK store still owns application state and callback
+On the managed path, Intelligence owns cross-instance delivery claims and
+ordered provider effects. Managed admission also keeps one canonical Thread
+delivery active at a time on a Runtime, so `"parallel"` does not raise that
+delivery limit. The SDK store still owns application state and callback
 snapshots.
