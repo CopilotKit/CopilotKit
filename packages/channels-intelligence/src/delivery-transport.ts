@@ -150,15 +150,38 @@ export class ChannelDeliverySession {
   >();
   private trackedOperationsSealed = false;
   private providerOutputApplied = false;
+  /** After terminal or a non-retryable packet failure, refuse further effects. */
+  private packetPathClosed = false;
+  private owner: DeliveryOwner;
 
   constructor(
     readonly delivery: PreparedChannelDelivery,
-    private readonly owner: DeliveryOwner,
+    owner: DeliveryOwner,
     channel: RealtimeGatewayDeliveryChannel,
-    private readonly reconnect: () => Promise<RealtimeGatewayDeliveryChannel>,
+    private readonly reconnect: () => Promise<{
+      channel: RealtimeGatewayDeliveryChannel;
+      owner: DeliveryOwner;
+      deliveryExpiresAt?: string;
+    }>,
     private readonly files?: ChannelDeliveryFileClient,
   ) {
+    this.owner = owner;
     this.channel = channel;
+  }
+
+  /** Refresh ownership metadata after a successful join_token reconnect. */
+  updateOwner(
+    owner: DeliveryOwner,
+    deliveryExpiresAt?: string,
+  ): void {
+    this.owner = owner;
+    if (
+      deliveryExpiresAt !== undefined &&
+      Number.isFinite(Date.parse(deliveryExpiresAt))
+    ) {
+      (this.delivery as { deliveryExpiresAt: string }).deliveryExpiresAt =
+        deliveryExpiresAt;
+    }
   }
 
   /** Send one provider-ready payload after the previous packet is applied. */
@@ -181,10 +204,14 @@ export class ChannelDeliverySession {
   /** Send the final outcome through the same ordered packet path. */
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
-    await this.enqueue("response_terminal", {
-      kind: "channel.delivery.terminal",
-      ...payload,
-    });
+    try {
+      await this.enqueue("response_terminal", {
+        kind: "channel.delivery.terminal",
+        ...payload,
+      });
+    } finally {
+      this.packetPathClosed = true;
+    }
   }
 
   /** Return whether at least one provider packet reached the applied phase. */
@@ -196,7 +223,7 @@ export class ChannelDeliverySession {
    * Register one public Thread operation before it reaches its first await.
    */
   trackOperation<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.trackedOperationsSealed && this.trackedOperations.size === 0) {
+    if (this.trackedOperationsSealed) {
       const error = new Error(
         `Channel delivery ${this.delivery.deliveryId} no longer accepts Thread operations`,
       );
@@ -238,8 +265,13 @@ export class ChannelDeliverySession {
   /** Hydrate inbound file handles through app-api. */
   getContentParts(
     files: ChannelFileRef[] | undefined,
+    log?: (message: string, meta?: unknown) => void,
   ): Promise<AgentContentPart[]> {
-    return buildContentParts(files, this.files?.fetchFile.bind(this.files));
+    return buildContentParts(
+      files,
+      this.files?.fetchFile.bind(this.files),
+      log,
+    );
   }
 
   /** Upload outbound bytes and return an opaque handle for a provider packet. */
@@ -280,13 +312,27 @@ export class ChannelDeliverySession {
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): Promise<Record<string, unknown>> {
     const operation = this.tail.then(async () => {
+      if (this.packetPathClosed) {
+        throw new Error(
+          `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
+        );
+      }
       const packet = this.buildPacket(responseId, payload);
       this.unacknowledgedPacket = packet;
-      const acknowledgement = await this.sendExactPacket(packet);
-      this.assertExactAcknowledgement(packet, acknowledgement);
-      this.unacknowledgedPacket = undefined;
-      this.nextSeq += 1;
-      return acknowledgement.result;
+      try {
+        // sendExactPacket retries the exact packet across soft transport
+        // reconnects; permanent failures close the path so a later effect
+        // cannot mint a new effectId on the same seq.
+        const acknowledgement = await this.sendExactPacket(packet);
+        this.assertExactAcknowledgement(packet, acknowledgement);
+        this.unacknowledgedPacket = undefined;
+        this.nextSeq += 1;
+        return acknowledgement.result;
+      } catch (error) {
+        this.packetPathClosed = true;
+        this.unacknowledgedPacket = undefined;
+        throw error;
+      }
     });
     this.tail = operation.catch(() => undefined);
     return operation;
@@ -320,6 +366,7 @@ export class ChannelDeliverySession {
   private async sendExactPacket(
     packet: ChannelDeliveryPacket,
   ): Promise<ChannelDeliveryPacketAck> {
+    let attempt = 0;
     while (Date.now() < Date.parse(this.delivery.deliveryExpiresAt)) {
       try {
         return (await this.channel.push(
@@ -328,7 +375,14 @@ export class ChannelDeliverySession {
         )) as ChannelDeliveryPacketAck;
       } catch (error) {
         if (error instanceof RealtimeGatewayPushError) throw error;
-        this.channel = await this.reconnect();
+        attempt += 1;
+        // Bound reconnect thrash: exponential backoff capped at 5s.
+        const delayMs = Math.min(5_000, 50 * 2 ** Math.min(attempt, 6));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        if (Date.now() >= Date.parse(this.delivery.deliveryExpiresAt)) break;
+        const refreshed = await this.reconnect();
+        this.channel = refreshed.channel;
+        this.updateOwner(refreshed.owner, refreshed.deliveryExpiresAt);
       }
     }
     throw new Error("Channel delivery ownership expired");
@@ -379,6 +433,8 @@ export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
   private readonly files?: ChannelDeliveryFileClient;
   private stopped = false;
+  private invitationHandler?: (value: unknown) => void;
+  private started = false;
 
   constructor(private readonly options: ChannelDeliveryTransportOptions) {
     if (options.appApiBaseUrl && options.apiKey) {
@@ -387,6 +443,10 @@ export class ChannelDeliveryTransport {
         apiKey: options.apiKey,
         ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
       });
+    } else if (options.appApiBaseUrl || options.apiKey) {
+      options.log?.(
+        "channel delivery file client disabled: both appApiBaseUrl and apiKey are required",
+      );
     }
   }
 
@@ -396,7 +456,13 @@ export class ChannelDeliveryTransport {
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
   ): void {
-    this.options.session.on(INVITATION_EVENT, (value) => {
+    this.stopped = false;
+    if (this.started && this.invitationHandler) {
+      // Re-arm without stacking Phoenix handlers on start→stop→start.
+      return;
+    }
+    this.started = true;
+    this.invitationHandler = (value) => {
       if (
         this.stopped ||
         !isInvitation(value) ||
@@ -404,11 +470,13 @@ export class ChannelDeliveryTransport {
       ) {
         return;
       }
+      // Register into active before any await so stop() waits for this delivery.
       const running = this.claimAndHandle(value.deliveryId, handler).finally(
         () => this.active.delete(value.deliveryId),
       );
       this.active.set(value.deliveryId, running);
-    });
+    };
+    this.options.session.on(INVITATION_EVENT, this.invitationHandler);
   }
 
   async stop(): Promise<void> {
@@ -437,7 +505,11 @@ export class ChannelDeliveryTransport {
       );
       let joined = await this.joinDelivery(deliveryId, owner, claim.joinToken!);
       const delivery = assertPreparedDelivery(joined.joinReply, deliveryId);
-      const reconnect = async (): Promise<RealtimeGatewayDeliveryChannel> => {
+      const reconnect = async (): Promise<{
+        channel: RealtimeGatewayDeliveryChannel;
+        owner: DeliveryOwner;
+        deliveryExpiresAt?: string;
+      }> => {
         joined.leave();
         const refreshed = assertClaim(
           (await this.options.session.push(JOIN_TOKEN_EVENT, {
@@ -453,7 +525,18 @@ export class ChannelDeliveryTransport {
           refreshed,
           refreshed.joinToken!,
         );
-        return joined;
+        const rejoinDelivery = assertPreparedDelivery(
+          joined.joinReply,
+          deliveryId,
+        );
+        return {
+          channel: joined,
+          owner: {
+            ownerGeneration: refreshed.ownerGeneration,
+            runtimeInstanceId: refreshed.runtimeInstanceId,
+          },
+          deliveryExpiresAt: rejoinDelivery.deliveryExpiresAt,
+        };
       };
       const session = new ChannelDeliverySession(
         delivery,
@@ -553,7 +636,7 @@ function assertClaim(
   runtimeInstanceId: string,
 ): DeliveryOwner & { joinToken: string } {
   if (
-    claim.result === "lost" ||
+    claim.result !== "claimed" ||
     claim.deliveryId !== deliveryId ||
     !Number.isInteger(claim.ownerGeneration) ||
     (claim.ownerGeneration ?? 0) < 1 ||
@@ -568,6 +651,13 @@ function assertClaim(
     joinToken: claim.joinToken,
   };
 }
+
+const PREPARED_TURN_KINDS = new Set([
+  "text",
+  "command",
+  "reaction",
+  "interaction",
+]);
 
 function assertPreparedDelivery(
   value: unknown,
@@ -590,7 +680,9 @@ function assertPreparedDelivery(
     !isRecord(prepared.turn) ||
     typeof prepared.turn.eventId !== "string" ||
     typeof prepared.turn.receivedAt !== "string" ||
-    !isRecord(prepared.turn.input)
+    !isRecord(prepared.turn.input) ||
+    typeof prepared.turn.input.kind !== "string" ||
+    !PREPARED_TURN_KINDS.has(prepared.turn.input.kind)
   ) {
     throw new TypeError("Gateway returned an invalid prepared delivery");
   }

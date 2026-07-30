@@ -250,7 +250,10 @@ export class DeliveryAdapter implements PlatformAdapter {
     const input = delivery.turn.input;
     switch (input.kind) {
       case "text": {
-        const parts = await session.getContentParts(input.files);
+        const parts = await session.getContentParts(
+          input.files,
+          this.options.log,
+        );
         await sink.onTurn({
           ...base,
           userText: input.text ?? "",
@@ -299,6 +302,13 @@ export class DeliveryAdapter implements PlatformAdapter {
           ...(input.postedRef ? { postedMessageId: input.postedRef } : {}),
           raw: input,
         });
+        return;
+      default: {
+        const kind = (input as { kind?: unknown }).kind;
+        throw new TypeError(
+          `Unsupported prepared delivery turn kind: ${String(kind)}`,
+        );
+      }
     }
   }
 
@@ -400,6 +410,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       );
       let text = "";
       for await (const delta of chunks) {
+        if (delta.length === 0) continue;
         const before = digest(text);
         text += delta;
         await target.session.effect(responseId, {
@@ -553,6 +564,7 @@ export class DeliveryAdapter implements PlatformAdapter {
             return responseId;
           },
           appendText: async (_id, delta) => {
+            if (delta.length === 0) return;
             assertProviderReference(providerReference);
             const before = digest(text);
             text += delta;

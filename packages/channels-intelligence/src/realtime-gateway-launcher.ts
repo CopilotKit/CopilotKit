@@ -225,7 +225,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   env?: Partial<Omit<ChannelActivationEnv, "runtimeInstanceId">>;
   /** Join timeout in ms. */
   timeoutMs?: number;
-  /** Initial-connect window in ms (default 10000). When the socket never opens
+  /** Initial-connect window in ms (default 30000). When the socket never opens
    * within it, the connect rejects as unreachable instead of hanging on
    * Phoenix's forever-retry — see `ConnectRealtimeGatewayOptions.connectTimeoutMs`. */
   connectTimeoutMs?: number;

@@ -110,11 +110,11 @@ export interface ChannelsHandle {
   metadata: ChannelActivationMetadata;
   stop(): Promise<void>;
   /**
-   * Optional seam: register a callback the handle fires when its managed
-   * session drops unexpectedly, so a supervising `ChannelManager` can begin a
-   * reconnect. Not fired by the handle's own `stop()`. Present when the
-   * underlying session supports drop notification (see
-   * `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
+   * Optional drop breadcrumb when the managed session disconnects
+   * unexpectedly. Not used by `ChannelManager` for reconnect (Phoenix owns
+   * reconnect; status is driven by `onStateChange`). Not fired by the
+   * handle's own `stop()`. Present when the underlying session supports it
+   * (see `ConnectedRealtimeGatewaySession.onClose` in `realtime-gateway.ts`).
    */
   onClose?(cb: () => void): void;
   /**

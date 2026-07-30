@@ -88,21 +88,23 @@ export function preparedDelivery(
   adapter: "slack" | "teams",
   input: PreparedChannelDelivery["turn"]["input"],
 ): PreparedChannelDelivery {
+  // Packet contract requires `dlv_` + 8..128 charset chars.
+  const idSuffix = suffix.length >= 8 ? suffix : `${suffix}_pad000`.slice(0, 12);
   return {
     protocol: "channel_delivery_v1",
-    deliveryId: `dlv_${suffix}`,
+    deliveryId: `dlv_${idSuffix}`,
     deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
-    canonicalThreadId: `thread_${suffix}`,
-    appUserId: `app_user_${suffix}`,
+    canonicalThreadId: `thread_${idSuffix}`,
+    appUserId: `app_user_${idSuffix}`,
     channelId: "channel_support",
     channelName: "support",
     adapter,
     turn: {
-      eventId: `event_${suffix}`,
+      eventId: `event_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
       input,
       actor: {
-        externalUserId: `user_${suffix}`,
+        externalUserId: `user_${idSuffix}`,
         displayName: "Ada",
       },
     },

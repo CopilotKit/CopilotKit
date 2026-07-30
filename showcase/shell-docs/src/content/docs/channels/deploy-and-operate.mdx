@@ -52,8 +52,14 @@ The runtime status values are:
 | `online` | The managed connection is healthy and can claim delivery invitations |
 | `setup_required` | The Intelligence provider setup is incomplete |
 | `reconnecting` | The gateway connection dropped and is retrying |
-| `error` | Activation failed or reconnect gave up |
+| `error` | Activation failed, or reconnect give-up (~60s default) marked the session not-sendable |
 | `stopped` | The Channels control was stopped |
+
+Treat post-online `error` carefully: after reconnect give-up the client marks
+`error` while Phoenix **keeps retrying underneath**. A successful rejoin
+restores `online` without a process restart. Activation-time `error` (bad key,
+unreachable gateway, config) is different — fix configuration and restart the
+worker.
 
 The Intelligence UI translates provider and runtime details into its own
 operator-facing states such as **Waiting for runtime**, **Conflict**,
@@ -65,8 +71,10 @@ operator-facing states such as **Waiting for runtime**, **Conflict**,
 - Readiness answers whether `channels.status().overall` is `online`.
 
 Do not restart immediately for a short `reconnecting` episode; the realtime
-client owns bounded reconnect and rejoin. Alert or restart when it reaches
-`error`, or when your own outage threshold is exceeded.
+client owns bounded reconnect and rejoin (default reconnect give-up window is
+about 60 seconds, then status becomes `error` while retries continue). Alert on
+`error`; restart only when your own outage budget is exceeded or activation
+failed before ever going online.
 
 Poll `status()` from your health endpoint or monitoring loop. Do not cache the
 startup result forever because an online session can later become reconnecting

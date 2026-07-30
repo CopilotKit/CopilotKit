@@ -397,6 +397,23 @@ test("runCanonical cleans up the lock when the runner cannot start", async () =>
   expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
 });
 
+test("runCanonical cleans up the lock after a successful runner stream", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "cpk-42_short_long",
+  });
+  const cleanup = vi
+    .spyOn(intelligence, "ɵcleanupThreadLock")
+    .mockResolvedValue(undefined);
+  const runner = new TestRunner(() => EMPTY);
+  const runCanonical = await captureRunCanonical(runner, { intelligence });
+
+  await runCanonical(runArgs());
+
+  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+});
+
 test("runCanonical rejects an outer agent error completed by the standard runner", async () => {
   const runCanonical = await captureRunCanonical(new InMemoryAgentRunner());
   const agent = new NoopAgent();

@@ -442,7 +442,6 @@ async function runCanonicalChannelAgent(
   let stopPromise: Promise<boolean | undefined> | undefined;
   let heartbeatError: unknown;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
-  let runnerStarted = false;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
       .then(() => runner.stop({ threadId: canonicalThreadId }))
@@ -489,9 +488,6 @@ async function runCanonicalChannelAgent(
       });
       stream.subscribe({
         next: (event: BaseEvent) => {
-          if (event.type === EventType.RUN_STARTED) {
-            runnerStarted = true;
-          }
           if (event.type !== EventType.RUN_ERROR || terminalError) return;
           const message =
             "message" in event && typeof event.message === "string"
@@ -517,21 +513,20 @@ async function runCanonicalChannelAgent(
         },
       });
     });
-  } catch (error) {
-    if (!runnerStarted) {
-      await intelligence
-        .ɵcleanupThreadLock({
-          threadId: canonicalThreadId,
-          runId: canonicalRunId,
-        })
-        .catch(() => undefined);
-    }
-    throw error;
   } finally {
     if (heartbeatTimer !== undefined) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = undefined;
     }
+    // Always release the product thread lock from the Runtime side. Gateway
+    // may also release on terminal AG-UI ingestion; cleanup is idempotent and
+    // covers runner paths that never stream terminal events (or lose them).
+    await intelligence
+      .ɵcleanupThreadLock({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+      })
+      .catch(() => undefined);
   }
 
   if (heartbeatError !== undefined) {

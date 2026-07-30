@@ -94,10 +94,15 @@ describe("Channel delivery transport", () => {
   it("retries the exact packet after reconnect and calls no second sequence", async () => {
     const first = channel();
     const second = channel();
-    vi.mocked(first.push)
-      .mockRejectedValueOnce(new Error("socket dropped"))
-      .mockResolvedValueOnce(undefined);
-    const reconnect = vi.fn().mockResolvedValue(second);
+    vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
+    const reconnect = vi.fn().mockResolvedValue({
+      channel: second,
+      owner: {
+        ownerGeneration: 8,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+    });
     const session = new ChannelDeliverySession(
       preparedDelivery(),
       {
@@ -116,10 +121,91 @@ describe("Channel delivery transport", () => {
     expect(reconnect).toHaveBeenCalledOnce();
     expect(first.push).toHaveBeenCalledOnce();
     expect(second.push).toHaveBeenCalledOnce();
-    expect(vi.mocked(second.push).mock.calls[0]![1]).toEqual(
-      vi.mocked(first.push).mock.calls[0]![1],
-    );
+    const retried = vi.mocked(second.push).mock.calls[0]![1] as {
+      ownerGeneration: number;
+      seq: number;
+      effectId: string;
+    };
+    const original = vi.mocked(first.push).mock.calls[0]![1] as {
+      ownerGeneration: number;
+      seq: number;
+      effectId: string;
+    };
+    // Exact packet identity is preserved across soft reconnect retries.
+    expect(retried.seq).toBe(original.seq);
+    expect(retried.effectId).toBe(original.effectId);
+    // Owner generation is refreshed after join_token so later packets match join.
+    expect(retried.ownerGeneration).toBe(7);
     expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+  });
+
+  it("refreshes owner generation on packets after reconnect", async () => {
+    const first = channel();
+    const second = channel();
+    vi.mocked(first.push).mockRejectedValueOnce(new Error("socket dropped"));
+    const reconnect = vi.fn().mockResolvedValue({
+      channel: second,
+      owner: {
+        ownerGeneration: 9,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+    });
+    const session = new ChannelDeliverySession(
+      preparedDelivery(),
+      {
+        ownerGeneration: 7,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      first,
+      reconnect,
+    );
+
+    await session.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    });
+    await session.effect("response_02", {
+      kind: "slack.message.create",
+      text: "World",
+    });
+
+    const secondPacket = vi.mocked(second.push).mock.calls[1]![1] as {
+      ownerGeneration: number;
+      seq: number;
+    };
+    expect(secondPacket.ownerGeneration).toBe(9);
+    expect(secondPacket.seq).toBe(1);
+  });
+
+  it("closes the packet path after a permanent push failure", async () => {
+    const deliveryChannel = channel();
+    const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
+    vi.mocked(deliveryChannel.push).mockRejectedValue(
+      new RealtimeGatewayPushError("conflict", "sequence conflict"),
+    );
+    const session = new ChannelDeliverySession(
+      preparedDelivery(),
+      {
+        ownerGeneration: 7,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryChannel,
+      vi.fn(),
+    );
+
+    await expect(
+      session.effect("response_01", {
+        kind: "slack.message.create",
+        text: "Hello",
+      }),
+    ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
+
+    await expect(
+      session.effect("response_02", {
+        kind: "slack.message.create",
+        text: "World",
+      }),
+    ).rejects.toThrow(/packet path is closed/);
   });
 
   it("surfaces an applied provider failure as an already-terminal error", async () => {
