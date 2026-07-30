@@ -1,3 +1,6 @@
+import { AbstractAgent } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
+import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
@@ -30,12 +33,21 @@ function replyTarget(session: ChannelDeliverySession) {
   return { session, delivery: prepared() };
 }
 
-function makeAdapter() {
+class NoopAgent extends AbstractAgent {
+  run(_input: RunAgentInput): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+}
+
+function makeAdapter(
+  options: Partial<ConstructorParameters<typeof DeliveryAdapter>[0]> = {},
+) {
   return new DeliveryAdapter({
     channelName: "support",
     transport: {} as never,
     runCanonical: async () => ({ iterations: 0, interrupted: false }),
     loadHistory: async () => [],
+    ...options,
   });
 }
 
@@ -113,17 +125,32 @@ describe("DeliveryAdapter.postFile", () => {
   });
 
   it("returns ok after a successful file create effect", async () => {
+    const onEvent = vi.fn();
+    const runCanonical = vi.fn(async (args) => {
+      await args.execute(
+        { onEvent },
+        { threadId: args.threadId, runId: args.runId },
+      );
+      return { iterations: 0, interrupted: false };
+    });
     const session = {
       uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
       effect: vi.fn().mockResolvedValue({}),
     } as unknown as ChannelDeliverySession;
-    const adapter = makeAdapter();
+    const adapter = makeAdapter({ runCanonical });
+    const target = replyTarget(session);
+    const agentSession = await adapter.conversationStore.getOrCreate(
+      "thread_postfile",
+      target,
+      () => new NoopAgent(),
+    );
 
     await expect(
-      adapter.postFile(replyTarget(session), {
-        bytes: new Uint8Array([1]),
+      adapter.postFile(target, {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
         filename: "a.png",
         title: "chart",
+        altText: "Line chart",
       }),
     ).resolves.toEqual({ ok: true, fileId: "file_handle_01" });
     expect(session.effect).toHaveBeenCalledWith(
@@ -134,5 +161,23 @@ describe("DeliveryAdapter.postFile", () => {
         title: "chart",
       }),
     );
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: expect.objectContaining({
+          type: "ACTIVITY_SNAPSHOT",
+          activityType: "copilotkit.managed-asset",
+          content: {
+            assetId: "file_handle_01",
+            filename: "a.png",
+            mimeType: "image/png",
+            byteSize: 8,
+            title: "chart",
+            altText: "Line chart",
+          },
+        }),
+      }),
+    );
+    expect(JSON.stringify(onEvent.mock.calls)).not.toContain("iVBOR");
+    await agentSession.release?.();
   });
 });

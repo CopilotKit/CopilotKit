@@ -1,5 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentInput,
+} from "@ag-ui/client";
 import type {
   ChannelNode,
   MessageRef,
@@ -57,6 +64,8 @@ interface DeliveryMessageRef extends MessageRef {
   adapter: "slack" | "teams";
   providerReference?: string;
 }
+
+const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
 
 export interface CanonicalChannelRunArgs {
   agent: AbstractAgent;
@@ -151,6 +160,7 @@ export class DeliveryAdapter implements PlatformAdapter {
           agent,
           new Set(history.map((message) => message.id)),
         );
+        this.threadAgents.set(threadId, agent);
         let released = false;
         return {
           agent,
@@ -158,6 +168,9 @@ export class DeliveryAdapter implements PlatformAdapter {
             if (released) return;
             released = true;
             releaseAgent?.();
+            if (this.threadAgents.get(threadId) === agent) {
+              this.threadAgents.delete(threadId);
+            }
           },
         };
       } catch (error) {
@@ -174,6 +187,11 @@ export class DeliveryAdapter implements PlatformAdapter {
     ReadonlySet<string>
   >();
   private readonly agentTails = new WeakMap<AbstractAgent, Promise<void>>();
+  private readonly threadAgents = new Map<string, AbstractAgent>();
+  private readonly activeCanonicalEvents = new Map<
+    string,
+    (event: BaseEvent) => Promise<void>
+  >();
   private readonly interruptedRuns = new Map<string, string>();
 
   constructor(private readonly options: DeliveryAdapterOptions) {
@@ -334,6 +352,12 @@ export class DeliveryAdapter implements PlatformAdapter {
     const threadId = target.delivery.canonicalThreadId;
     const runId = mintId("run_");
     const historyIds = this.historyIds.get(args.agent) ?? new Set<string>();
+    const persistedInputMessages = canonicalizeManagedInputMessages(
+      args.agent.messages.filter((message) => !historyIds.has(message.id)),
+      target.delivery.turn.input.kind === "text"
+        ? target.delivery.turn.input.files
+        : undefined,
+    );
     const result = await this.options.runCanonical({
       agent: args.agent,
       threadId,
@@ -342,10 +366,29 @@ export class DeliveryAdapter implements PlatformAdapter {
       agentId: this.options.channelName,
       tools: args.tools,
       context: args.context,
-      persistedInputMessages: args.agent.messages.filter(
-        (message) => !historyIds.has(message.id),
-      ),
-      execute: args.execute,
+      persistedInputMessages,
+      execute: async (subscriber, canonicalRun) => {
+        if (!canonicalRun) {
+          return args.execute(subscriber, canonicalRun);
+        }
+        const emit = (event: BaseEvent) =>
+          emitCanonicalEvent({
+            agent: args.agent,
+            canonicalRun,
+            context: args.context,
+            event,
+            subscriber,
+            tools: args.tools,
+          });
+        this.activeCanonicalEvents.set(threadId, emit);
+        try {
+          return await args.execute(subscriber, canonicalRun);
+        } finally {
+          if (this.activeCanonicalEvents.get(threadId) === emit) {
+            this.activeCanonicalEvents.delete(threadId);
+          }
+        }
+      },
     });
     if (result.interrupted) {
       this.interruptedRuns.set(threadId, runId);
@@ -537,7 +580,74 @@ export class DeliveryAdapter implements PlatformAdapter {
         altText: args.altText ?? args.title ?? args.filename,
       });
     }
+    await this.recordManagedAssetActivity(target, {
+      assetId: handle,
+      filename: args.filename,
+      mimeType:
+        managedImageMimeType(args.filename) ?? "application/octet-stream",
+      byteSize: args.bytes.byteLength,
+      ...(args.title ? { title: args.title } : {}),
+      ...(args.altText ? { altText: args.altText } : {}),
+    });
     return { ok: true, fileId: handle };
+  }
+
+  /** Records provider-acknowledged managed output through canonical AG-UI. */
+  private async recordManagedAssetActivity(
+    target: DeliveryReplyTarget,
+    content: {
+      readonly assetId: string;
+      readonly filename: string;
+      readonly mimeType: string;
+      readonly byteSize: number;
+      readonly title?: string;
+      readonly altText?: string;
+    },
+  ): Promise<void> {
+    const event = {
+      type: EventType.ACTIVITY_SNAPSHOT,
+      messageId: mintId("activity_"),
+      activityType: MANAGED_ASSET_ACTIVITY_TYPE,
+      content,
+    } as BaseEvent;
+    const active = this.activeCanonicalEvents.get(
+      target.delivery.canonicalThreadId,
+    );
+    if (active) {
+      await active(event);
+      return;
+    }
+
+    const agent = this.threadAgents.get(target.delivery.canonicalThreadId);
+    if (!agent) {
+      throw new Error(
+        "Managed asset history requires an active Channel thread",
+      );
+    }
+    await this.options.runCanonical({
+      agent,
+      threadId: target.delivery.canonicalThreadId,
+      runId: mintId("run_"),
+      userId: target.delivery.appUserId,
+      agentId: this.options.channelName,
+      tools: [],
+      context: [],
+      persistedInputMessages: [],
+      execute: async (subscriber, canonicalRun) => {
+        if (!canonicalRun) {
+          throw new Error("Managed asset history requires a canonical run");
+        }
+        await emitCanonicalEvent({
+          agent,
+          canonicalRun,
+          context: [],
+          event,
+          subscriber,
+          tools: [],
+        });
+        return { iterations: 0, interrupted: false };
+      },
+    });
   }
 
   createRunRenderer(targetValue: ReplyTarget): RunRenderer {
@@ -559,7 +669,6 @@ export class DeliveryAdapter implements PlatformAdapter {
     let providerReference: string | undefined;
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
-      status: { threadTs: "managed", isPane: false },
       showToolStatus: this.options.showToolStatus ?? false,
       transport: {
         setStatus: async () => undefined,
@@ -645,7 +754,6 @@ export class DeliveryAdapter implements PlatformAdapter {
   ): RunRenderer {
     let providerReference: string | undefined;
     return createTeamsRunRenderer({
-      typing: async () => undefined,
       post: async (text) => {
         providerReference = providerReferenceFromResult(
           await session.effect(responseId, {
@@ -718,10 +826,11 @@ export class DeliveryAdapter implements PlatformAdapter {
       appUserId: target.delivery.appUserId,
     });
     return messages.map((message) => ({
-      text:
-        typeof message.content === "string"
-          ? message.content
-          : JSON.stringify(message.content),
+      text: historyText(message.content),
+      ...(message.content !== undefined ? { content: message.content } : {}),
+      ...("activityType" in message && typeof message.activityType === "string"
+        ? { activityType: message.activityType }
+        : {}),
       isBot: message.role !== "user",
       user: {
         id: message.role === "user" ? "user" : "bot",
@@ -737,6 +846,106 @@ export class DeliveryAdapter implements PlatformAdapter {
   lookupUser(_query: UserQuery): Promise<PlatformUser | undefined> {
     return Promise.resolve(undefined);
   }
+}
+
+/** Emits one canonical event through the active AgentRunner subscriber. */
+async function emitCanonicalEvent(input: {
+  readonly agent: AbstractAgent;
+  readonly canonicalRun: CanonicalRunIdentity;
+  readonly context: readonly ContextEntry[];
+  readonly event: BaseEvent;
+  readonly subscriber: AgentSubscriber;
+  readonly tools: readonly AgentToolDescriptor[];
+}): Promise<void> {
+  const runInput: RunAgentInput = {
+    threadId: input.canonicalRun.threadId,
+    runId: input.canonicalRun.runId,
+    messages: input.agent.messages,
+    state: input.agent.state,
+    tools: [...input.tools],
+    context: [...input.context],
+    forwardedProps: {},
+  };
+  await input.subscriber.onEvent?.({
+    agent: input.agent,
+    event: input.event,
+    input: runInput,
+    messages: input.agent.messages,
+    state: input.agent.state,
+  });
+}
+
+/** Replaces hydrated file bytes with durable managed-asset references. */
+function canonicalizeManagedInputMessages(
+  messages: Message[],
+  files:
+    | ReadonlyArray<{
+        handle: string;
+        filename: string;
+        mimeType?: string;
+        byteSize?: number;
+      }>
+    | undefined,
+): Message[] {
+  if (!files || files.length === 0) return messages;
+  let fileIndex = 0;
+  return messages.map((message) => {
+    if (!Array.isArray(message.content)) return message;
+    return {
+      ...message,
+      content: message.content.map((part) => {
+        if (
+          typeof part !== "object" ||
+          part === null ||
+          !("source" in part) ||
+          typeof part.source !== "object" ||
+          part.source === null ||
+          !("type" in part.source) ||
+          part.source.type !== "data"
+        ) {
+          return part;
+        }
+        const file = files[fileIndex++];
+        if (!file) return part;
+        return {
+          ...part,
+          source: {
+            type: "url" as const,
+            value: `cpki-asset://${file.handle}`,
+            ...(file.mimeType ? { mimeType: file.mimeType } : {}),
+          },
+          metadata: {
+            managedAsset: {
+              id: file.handle,
+              filename: file.filename,
+              ...(file.mimeType ? { mimeType: file.mimeType } : {}),
+              ...(file.byteSize !== undefined
+                ? { byteSize: file.byteSize }
+                : {}),
+            },
+          },
+        };
+      }),
+    } as Message;
+  });
+}
+
+/** Returns human-readable text without serializing structured AG-UI content. */
+function historyText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .flatMap((part) =>
+      typeof part === "object" &&
+      part !== null &&
+      "type" in part &&
+      part.type === "text" &&
+      "text" in part &&
+      typeof part.text === "string"
+        ? [part.text]
+        : [],
+    )
+    .join("");
 }
 
 function teamsMessageEffect(

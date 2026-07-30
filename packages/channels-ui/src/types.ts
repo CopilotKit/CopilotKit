@@ -70,6 +70,10 @@ export interface IncomingMessage {
 export interface ThreadMessage {
   user?: PlatformUser;
   text: string;
+  /** Structured AG-UI message content when the platform preserves it. */
+  content?: unknown;
+  /** Standard AG-UI activity type for activity messages. */
+  activityType?: string;
   ts?: string;
   isBot?: boolean;
 }
