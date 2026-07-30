@@ -599,6 +599,190 @@ describe("createChannel", () => {
     expect(runs).toBe(2);
   });
 
+  it("default concurrency is parallel: overlapping same-conversation turns both run", async () => {
+    const state = new MemoryStore();
+    let runs = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state },
+    });
+    channel.onMention(async () => {
+      runs++;
+      await gate;
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const turn = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...turn, eventId: "E-a" });
+    const p2 = sink.onTurn({ ...turn, eventId: "E-b" });
+    // Both handlers must have started before either finishes (parallel).
+    await vi.waitFor(() => expect(runs).toBe(2));
+    release();
+    await Promise.all([p1, p2]);
+    expect(runs).toBe(2);
+  });
+
+  it("concurrency: serial queues the second turn until the first finishes", async () => {
+    const state = new MemoryStore();
+    const order: string[] = [];
+    let release1!: () => void;
+    const gate1 = new Promise<void>((r) => (release1 = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state, concurrency: "serial" },
+    });
+    channel.onMention(async ({ message }) => {
+      order.push(`start:${message.eventId}`);
+      if (message.eventId === "E1") await gate1;
+      order.push(`end:${message.eventId}`);
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const base = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...base, eventId: "E1" });
+    const p2 = sink.onTurn({ ...base, eventId: "E2" });
+
+    await vi.waitFor(() => expect(order).toContain("start:E1"));
+    // Second must not start while first is gated.
+    expect(order).toEqual(["start:E1"]);
+    release1();
+    await Promise.all([p1, p2]);
+    expect(order).toEqual(["start:E1", "end:E1", "start:E2", "end:E2"]);
+  });
+
+  it("concurrency: drop discards the overlapping turn", async () => {
+    const state = new MemoryStore();
+    let runs = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: () => new FakeAgent(),
+      store: { adapter: state, concurrency: "drop" },
+    });
+    channel.onMention(async () => {
+      runs++;
+      await gate;
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    const turn = {
+      conversationKey: "c1",
+      replyTarget: {},
+      userText: "hi",
+      platform: "fake" as const,
+    };
+
+    const p1 = sink.onTurn({ ...turn, eventId: "E1" });
+    const p2 = sink.onTurn({ ...turn, eventId: "E2" });
+    release();
+    await Promise.all([p1, p2]);
+    expect(runs).toBe(1);
+  });
+
+  it("singleton agent is cloned per run (distinct instances)", async () => {
+    const state = new MemoryStore();
+    const prototype = new FakeAgent();
+    const seen: FakeAgent[] = [];
+
+    const fake = new FakeAdapter();
+    // Capture agents the conversation store receives from makeAgent.
+    const origGetOrCreate = fake.conversationStore.getOrCreate.bind(
+      fake.conversationStore,
+    );
+    fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
+      const session = await origGetOrCreate(key, target, makeAgent);
+      seen.push(session.agent as FakeAgent);
+      return session;
+    };
+
+    const channel = createChannel({
+      adapters: [fake],
+      agent: prototype, // singleton, not factory
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await Promise.all([
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "a",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "b",
+        platform: "fake" as const,
+        eventId: "E2",
+      }),
+    ]);
+
+    expect(seen.length).toBe(2);
+    expect(seen[0]).not.toBe(prototype);
+    expect(seen[1]).not.toBe(prototype);
+    expect(seen[0]).not.toBe(seen[1]);
+  });
+
+  it("singleton agent whose clone returns itself fails loud", async () => {
+    const state = new MemoryStore();
+    const bad = new FakeAgent();
+    bad.clone = () => bad;
+
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      adapters: [fake],
+      agent: bad,
+      store: { adapter: state },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ prompt: "hi" });
+    });
+
+    await channel.ɵruntime.start();
+    const sink = fake.getSink();
+    await expect(
+      sink.onTurn({
+        conversationKey: "c1",
+        replyTarget: {},
+        userText: "hi",
+        platform: "fake" as const,
+        eventId: "E1",
+      }),
+    ).rejects.toThrow(/clone\(\) must return a distinct instance/);
+  });
+
   it("dedupes turns by eventId", async () => {
     const state = new MemoryStore();
     let runs = 0;

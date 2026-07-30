@@ -72,6 +72,59 @@ function isEmojiPlatform(platform: string): platform is EmojiPlatform {
 export type LockConflictDecision = "drop" | "force";
 
 /**
+ * How overlapping turns on the same `conversationKey` are handled.
+ *
+ * - `"parallel"` (default) — concurrent turns run together (no exclusive turn lock).
+ * - `"serial"` — later turns wait for the in-flight turn on that conversation to finish.
+ * - `"drop"` — later turns are discarded while a turn is in flight.
+ */
+export type ChannelConcurrency = "parallel" | "serial" | "drop";
+
+/**
+ * Isolate a configured singleton agent for one run via `clone()`.
+ * Fail loud when clone is missing or returns the same instance.
+ */
+export function isolateAgentInstance(
+  prototype: AbstractAgent,
+  threadId: string,
+): AbstractAgent {
+  if (typeof prototype.clone !== "function") {
+    throw new Error(
+      "createChannel: singleton agent must implement clone() that returns a new instance " +
+        "(HttpAgent, BuiltInAgent, etc.), or pass agent: (threadId) => ... factory",
+    );
+  }
+  const cloned = prototype.clone() as AbstractAgent;
+  if (cloned == null || cloned === prototype) {
+    throw new Error(
+      "createChannel: agent.clone() must return a distinct instance for concurrent turns",
+    );
+  }
+  cloned.threadId = threadId;
+  return cloned;
+}
+
+/**
+ * Resolve effective turn concurrency from `store.concurrency` and legacy
+ * `store.onLockConflict`. Prefer `concurrency` when both are set.
+ */
+export function resolveChannelConcurrency(cfg: {
+  concurrency?: ChannelConcurrency;
+  onLockConflict?:
+    | LockConflictDecision
+    | ((
+        conversationKey: string,
+        message: IncomingMessage,
+      ) => LockConflictDecision | Promise<LockConflictDecision>);
+}): ChannelConcurrency | "legacy-callback" {
+  if (cfg.concurrency) return cfg.concurrency;
+  if (typeof cfg.onLockConflict === "function") return "legacy-callback";
+  if (cfg.onLockConflict === "drop") return "drop";
+  if (cfg.onLockConflict === "force") return "parallel";
+  return "parallel";
+}
+
+/**
  * The managed delivery provider a no-adapter Channel targets when it is
  * activated through CopilotKit Intelligence.
  *
@@ -183,17 +236,56 @@ export interface StoreConfig<
   identity?: Identity;
   /** Cross-platform transcript storage config. Paired with `identity`. */
   transcripts?: TranscriptsConfig;
-  /** What to do when a turn arrives while a prior turn on the same conversationKey is processing. */
+  /**
+   * How overlapping turns on the same conversationKey are handled.
+   * Default: `"parallel"`. Prefer this over {@link onLockConflict}.
+   */
+  concurrency?: ChannelConcurrency;
+  /**
+   * What to do when a turn arrives while a prior turn on the same conversationKey is processing.
+   *
+   * @deprecated Prefer {@link concurrency}. When `concurrency` is unset:
+   * `"drop"` → `concurrency: "drop"`, `"force"` → `concurrency: "parallel"`.
+   * A callback keeps the legacy lock + drop/force path.
+   */
   onLockConflict?:
     | LockConflictDecision
     | ((
         conversationKey: string,
         message: IncomingMessage,
       ) => LockConflictDecision | Promise<LockConflictDecision>);
-  /** TTL (ms) for the per-conversation turn lock. Default 60_000. */
+  /** TTL (ms) for the per-conversation turn lock. Default 60_000. Used by `drop` / legacy paths. */
   lockTtl?: number;
   /** TTL (ms) for the inbound event dedup window. Default 300_000. */
   dedupTtl?: number;
+}
+
+/**
+ * Tuning for how a long reply is spread across continuation messages.
+ *
+ * Providers cap how much text one message can hold; past that the reply is
+ * split, and past {@link ReplyContinuationOptions.maxMessages} it is truncated
+ * with a visible marker. Defaults are conservative and suit most bots — reach
+ * for these when a provider's real ceiling differs, when a product wants a
+ * different tolerance for how many messages one reply may occupy, or when the
+ * truncation notice needs to be in another language.
+ *
+ * Currently honoured by managed and direct Slack.
+ */
+export interface ReplyContinuationOptions {
+  /**
+   * Soft cap on the UTF-8 bytes one message may hold before continuing into a
+   * new one. Bytes rather than characters because the provider ceiling may be
+   * counted either way, and bytes are the safe reading for non-Latin scripts.
+   */
+  readonly messageByteLimit?: number;
+  /**
+   * Ceiling on messages a single reply may occupy before it is truncated with a
+   * visible marker. Bounds a runaway reply.
+   */
+  readonly maxMessages?: number;
+  /** Notice appended when `maxMessages` is reached. Defaults to English copy. */
+  readonly truncationMarker?: string;
 }
 
 export interface CreateChannelOptions<
@@ -237,6 +329,12 @@ export interface CreateChannelOptions<
    * `slack({ showToolStatus: true })` instead.
    */
   showToolStatus?: boolean;
+  /**
+   * Tuning for splitting a long reply across continuation messages. See
+   * {@link ReplyContinuationOptions}. Applies to managed and direct Slack;
+   * configure direct Slack with `slack({ replyContinuation })` instead.
+   */
+  replyContinuation?: ReplyContinuationOptions;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -273,6 +371,11 @@ export interface Channel<TState = unknown> {
    * undefined. Ignored for direct-adapter Channels.
    */
   readonly showToolStatus?: boolean;
+  /**
+   * Continuation-message tuning from `createChannel({ replyContinuation })`.
+   * Undefined leaves the provider defaults in place.
+   */
+  readonly replyContinuation?: ReplyContinuationOptions;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -427,13 +530,34 @@ export function createChannel<
     const a = opts.agent;
     if (typeof a === "function")
       return a as (threadId: string) => AbstractAgent;
-    if (a) return () => a;
+    // Singleton config: clone per run so concurrent turns never share one mutable agent.
+    if (a) return (threadId: string) => isolateAgentInstance(a, threadId);
     return () => {
       throw new Error(
         "createChannel: no agent configured (pass `agent` to use runAgent)",
       );
     };
   })();
+
+  /** Per-conversation serial turn queue (error-boundaried so one failure cannot poison the chain). */
+  const conversationTurnQueues = new Map<string, Promise<void>>();
+  function enqueueConversationTurn(
+    conversationKey: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    const previous =
+      conversationTurnQueues.get(conversationKey) ?? Promise.resolve();
+    const run = previous.then(work, work);
+    // Keep the map tail settled so a rejected turn does not block later ones forever.
+    conversationTurnQueues.set(
+      conversationKey,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  }
 
   const toolMap = new Map<string, ChannelTool>();
   for (const t of opts.tools ?? []) toolMap.set(t.name, t);
@@ -522,83 +646,107 @@ export function createChannel<
     // backend/registry are resolved in start() before any adapter.start() runs,
     // so they are always set by the time the sink receives an event.
     const store = backend!;
+
+    /**
+     * Core turn body (dedup → identity → handlers). Used by all concurrency modes.
+     * Dedup marks the event seen at the start so a Slack redelivery of an
+     * in-flight event does not double-run under parallel mode either.
+     */
+    async function processTurn(turn: IncomingTurn): Promise<void> {
+      const platform = ingressPlatform(adapter, turn);
+      if (turn.eventId && !adapter.skipIngressDedup) {
+        const dupKey = `evt:${platform}:${turn.eventId}`;
+        try {
+          if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+        } catch (err) {
+          console.warn(
+            `[channel] dedup check failed for ${platform}; processing without dedup`,
+            err,
+          );
+        }
+      }
+
+      // Resolve cross-platform identity key (if configured) and stamp it on
+      // the message so handlers and transcript storage can use it. Done
+      // BEFORE makeThread so the thread carries the userKey + message for
+      // the transcript auto-bridge (runAgent({ transcript: true })).
+      let userKey: string | undefined;
+      if (cfg.identity) {
+        try {
+          const resolved = await cfg.identity({
+            adapter: platform,
+            author: turn.user ?? { id: "" },
+            message: msgFromTurn(turn),
+          });
+          userKey = resolved ?? undefined;
+        } catch (err) {
+          console.warn(
+            `[channel] identity resolution failed for ${platform}; continuing without userKey`,
+            err,
+          );
+        }
+      }
+      const message: IncomingMessage = { ...msgFromTurn(turn), userKey };
+      const thread = makeThread(
+        adapter,
+        turn.replyTarget,
+        turn.conversationKey,
+        { platform, userKey, message },
+      );
+      // v1 routing: there is no turn `kind`, so prefer mention handlers; if
+      // none are registered, fall back to message handlers. (The reference
+      // example registers identical handlers on both, so this avoids
+      // double-firing while still invoking whatever is registered.)
+      const handlers =
+        mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
+      for (const h of handlers) await h({ thread, message });
+    }
+
+    /**
+     * Exclusive-lock path for `drop` and legacy `onLockConflict` callback.
+     * A turn dropped on lock-conflict must NOT burn its eventId, so Slack's
+     * retry can still be processed once the lock frees — hence dedup lives
+     * inside `processTurn` only after we hold the lock (or force through).
+     */
+    async function processTurnWithLock(turn: IncomingTurn): Promise<void> {
+      const lockKey = `turn:${turn.conversationKey}`;
+      const acquired = await store.lock.acquire(lockKey, {
+        ttlMs: cfg.lockTtl ?? 60_000,
+      });
+
+      if (!acquired) {
+        const decision =
+          typeof cfg.onLockConflict === "function"
+            ? await cfg.onLockConflict(turn.conversationKey, msgFromTurn(turn))
+            : (cfg.onLockConflict ?? "drop");
+        if (decision === "drop") return; // discard overlapping turn
+        // "force": proceed WITHOUT a lock token. Does NOT cancel the
+        // in-flight handler — cooperative cancellation is a future extension.
+      }
+
+      try {
+        await processTurn(turn);
+      } finally {
+        // acquired is null on "force" — naturally skips release.
+        if (acquired) await store.lock.release(lockKey, acquired.token);
+      }
+    }
+
     return {
       async onTurn(turn: IncomingTurn) {
-        const platform = ingressPlatform(adapter, turn);
-        const lockKey = `turn:${turn.conversationKey}`;
-        const acquired = await store.lock.acquire(lockKey, {
-          ttlMs: cfg.lockTtl ?? 60_000,
-        });
-
-        if (!acquired) {
-          const decision =
-            typeof cfg.onLockConflict === "function"
-              ? await cfg.onLockConflict(
-                  turn.conversationKey,
-                  msgFromTurn(turn),
-                )
-              : (cfg.onLockConflict ?? "drop");
-          if (decision === "drop") return; // discard overlapping turn
-          // "force": proceed WITHOUT a lock token. Does NOT cancel the
-          // in-flight handler — cooperative cancellation is a future extension.
+        const mode = resolveChannelConcurrency(cfg);
+        if (mode === "parallel") {
+          await processTurn(turn);
+          return;
         }
-
-        try {
-          // Dedup AFTER acquiring the lock: a turn dropped on lock-conflict must NOT burn its
-          // eventId, so Slack's retry can still be processed once the lock frees. (A handler
-          // that throws still leaves its event marked seen — dedup drops duplicate DELIVERIES,
-          // it is not retry-of-failed-turns.)
-          if (turn.eventId && !adapter.skipIngressDedup) {
-            const dupKey = `evt:${platform}:${turn.eventId}`;
-            try {
-              if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
-                return;
-            } catch (err) {
-              console.warn(
-                `[channel] dedup check failed for ${platform}; processing without dedup`,
-                err,
-              );
-            }
-          }
-
-          // Resolve cross-platform identity key (if configured) and stamp it on
-          // the message so handlers and transcript storage can use it. Done
-          // BEFORE makeThread so the thread carries the userKey + message for
-          // the transcript auto-bridge (runAgent({ transcript: true })).
-          let userKey: string | undefined;
-          if (cfg.identity) {
-            try {
-              const resolved = await cfg.identity({
-                adapter: platform,
-                author: turn.user ?? { id: "" },
-                message: msgFromTurn(turn),
-              });
-              userKey = resolved ?? undefined;
-            } catch (err) {
-              console.warn(
-                `[channel] identity resolution failed for ${platform}; continuing without userKey`,
-                err,
-              );
-            }
-          }
-          const message: IncomingMessage = { ...msgFromTurn(turn), userKey };
-          const thread = makeThread(
-            adapter,
-            turn.replyTarget,
-            turn.conversationKey,
-            { platform, userKey, message },
+        if (mode === "serial") {
+          await enqueueConversationTurn(turn.conversationKey, () =>
+            processTurn(turn),
           );
-          // v1 routing: there is no turn `kind`, so prefer mention handlers; if
-          // none are registered, fall back to message handlers. (The reference
-          // example registers identical handlers on both, so this avoids
-          // double-firing while still invoking whatever is registered.)
-          const handlers =
-            mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
-          for (const h of handlers) await h({ thread, message });
-        } finally {
-          // acquired is null on "force" — naturally skips release.
-          if (acquired) await store.lock.release(lockKey, acquired.token);
+          return;
         }
+        // "drop" or legacy callback — exclusive lock + drop/force.
+        await processTurnWithLock(turn);
       },
       async onInteraction(evt: InteractionEvent) {
         const platform = ingressPlatform(adapter, evt);
@@ -815,6 +963,9 @@ export function createChannel<
     ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.showToolStatus !== undefined
       ? { showToolStatus: opts.showToolStatus }
+      : {}),
+    ...(opts.replyContinuation !== undefined
+      ? { replyContinuation: opts.replyContinuation }
       : {}),
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect

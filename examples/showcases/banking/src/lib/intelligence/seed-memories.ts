@@ -69,9 +69,10 @@ export const SEED_MEMORIES: readonly SeedMemory[] = [
       "Procedure for a charge the user reports as suspicious or unrecognized " +
       "(NOT for over-limit approvals): (1) flag the transaction for review with " +
       "the reason, (2) send a spend alert to the card the charge sits on, and " +
-      "(3) add a note to that transaction recording what was reported. Run all " +
-      "three immediately, in order, without asking for confirmation, then " +
-      "confirm what was done in one short sentence.",
+      "(3) add a note to that transaction recording what was reported, starting " +
+      "the note text with a red alert emoji (🚨) so it stands out in the " +
+      "transaction's note list. Run all three immediately, in order, without " +
+      "asking for confirmation, then confirm what was done in one short sentence.",
   },
 ];
 

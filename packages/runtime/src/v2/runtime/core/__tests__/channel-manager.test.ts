@@ -904,6 +904,59 @@ describe("defaultActivateChannel", () => {
     expect(opts.showToolStatus).toBe(true);
   });
 
+  it("forwards createChannel({ replyContinuation }) to the managed launcher", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({
+      name: "support",
+      replyContinuation: { maxMessages: 5, truncationMarker: "…cut" },
+    });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig.replyContinuation).toEqual({
+      maxMessages: 5,
+      truncationMarker: "…cut",
+    });
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts.replyContinuation).toEqual({
+      maxMessages: 5,
+      truncationMarker: "…cut",
+    });
+  });
+
+  it("omits replyContinuation when createChannel does not set it", async () => {
+    const { start, importer } = captureChannelsIntelligenceLaunch();
+    const channel = createChannel({ name: "support" });
+    const activationConfig = deriveChannelActivationConfig({
+      intelligence: fakeIntelligence(),
+      channel,
+      runtimeInstanceId: "rti_x",
+    });
+
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
+
+    expect(activationConfig).not.toHaveProperty("replyContinuation");
+    const [, opts] = start.mock.calls[0]!;
+    expect(opts).not.toHaveProperty("replyContinuation");
+  });
+
   it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({ name: "support" });

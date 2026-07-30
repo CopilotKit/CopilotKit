@@ -32,6 +32,7 @@ function replyTarget(session: ChannelDeliverySession) {
 
 function makeAdapter() {
   return new DeliveryAdapter({
+    channelName: "support",
     transport: {} as never,
     runCanonical: async () => ({ iterations: 0, interrupted: false }),
     loadHistory: async () => [],
