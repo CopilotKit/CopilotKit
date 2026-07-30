@@ -39,8 +39,6 @@ import type {
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
-import { ChannelProviderDeliveryError } from "./delivery-transport.js";
-import { RealtimeGatewayPushError } from "./realtime-gateway.js";
 import { assertProviderReference } from "./delivery-contracts.js";
 import {
   managedImageBytesMatch,
@@ -510,45 +508,34 @@ export class DeliveryAdapter implements PlatformAdapter {
         };
       }
     }
+    // Soft-fail only pre-effect failures (upload/config). Any session.effect
+    // failure must propagate so claimAndHandle does not emit a false complete
+    // terminal after a permanent provider/protocol error.
+    let handle: string;
     try {
-      const handle = await target.session.uploadFile(args);
-      const responseId = mintId("response_");
-      // ChannelProviderDeliveryError must propagate so claimAndHandle does not
-      // send a false complete terminal after a gateway-side provider failure.
-      if (target.delivery.adapter === "slack") {
-        await target.session.effect(responseId, {
-          kind: "slack.file.create",
-          fileHandle: handle,
-          ...(args.title ? { title: args.title } : {}),
-          ...(args.altText ? { altText: args.altText } : {}),
-        });
-      } else {
-        await target.session.effect(responseId, {
-          kind: "teams.image.create",
-          fileHandle: handle,
-          altText: args.altText ?? args.title ?? args.filename,
-        });
-      }
-      return { ok: true, fileId: handle };
+      handle = await target.session.uploadFile(args);
     } catch (error) {
-      // Permanent gateway/protocol failures must propagate so claimAndHandle
-      // does not emit a false complete terminal after a failed provider effect.
-      if (
-        error instanceof ChannelProviderDeliveryError ||
-        error instanceof RealtimeGatewayPushError ||
-        (error instanceof Error &&
-          (/packet path is closed|ownership expired|conflicting acknowledgement/i.test(
-            error.message,
-          ) ||
-            /timed out/i.test(error.message)))
-      ) {
-        throw error;
-      }
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
+    const responseId = mintId("response_");
+    if (target.delivery.adapter === "slack") {
+      await target.session.effect(responseId, {
+        kind: "slack.file.create",
+        fileHandle: handle,
+        ...(args.title ? { title: args.title } : {}),
+        ...(args.altText ? { altText: args.altText } : {}),
+      });
+    } else {
+      await target.session.effect(responseId, {
+        kind: "teams.image.create",
+        fileHandle: handle,
+        altText: args.altText ?? args.title ?? args.filename,
+      });
+    }
+    return { ok: true, fileId: handle };
   }
 
   createRunRenderer(targetValue: ReplyTarget): RunRenderer {
