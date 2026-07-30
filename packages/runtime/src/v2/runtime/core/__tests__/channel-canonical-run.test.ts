@@ -307,6 +307,14 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
     ttlSeconds: 20,
   });
   expect(request).not.toHaveProperty("authToken");
+  // The thread id reaching the runner must stay the canonical product thread id,
+  // never decorated with a run id or any other process-local key.
+  // `IntelligenceAgentRunner` does not treat it as a local map key: it sends it as
+  // `thread_id` when joining `ingestion:<runId>`, and the gateway resolves that
+  // against `cpki.threads`, rejecting anything else with `thread_not_found`.
+  // `buildRunStartedEvent` also re-stamps `input.threadId` from it, so both must hold.
+  expect(request?.threadId).toBe(canonicalIdentity.threadId);
+  expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {
