@@ -327,9 +327,7 @@ describe("NativeMessageStream", () => {
     }
   });
 
-  it("keeps one message when the configured byte limit exceeds the per-call cap", async () => {
-    // Exercises the `callEnd < byteEnd` branch, unreachable at the default limit
-    // (11k bytes < 12k chars per call).
+  it("keeps one message when the whole reply fits the configured byte limit", async () => {
     const { transport, messages } = makeFakeTransport();
     const stream = new NativeMessageStream({
       transport,
@@ -348,6 +346,131 @@ describe("NativeMessageStream", () => {
     expect(appends.length).toBeGreaterThan(2);
     for (const a of appends) expect(a.value.length).toBeLessThanOrEqual(12_000);
     expect(textOf(messages[0]!.events)).toBe(text);
+  });
+
+  it("keeps filling a message when the per-call cap bites before the byte budget", async () => {
+    // The `callEnd < byteEnd` branch: room for more than one call's worth, so the
+    // append is capped by the 12k-per-call limit and the message is NOT rolled
+    // over. Needs a configured budget above 12k *bytes of the text at hand*, which
+    // multi-byte text reaches sooner. Also drives the "not even one code point
+    // fits" branch, when the leftover room is smaller than the next character.
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 36_004,
+    });
+
+    const text = "漢".repeat(20_000); // 60k UTF-8 bytes, 3 bytes/char
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    for (const m of messages) {
+      // Budget honoured per message, and per-call cap honoured per append.
+      expect(
+        new TextEncoder().encode(textOf(m.events)).length,
+      ).toBeLessThanOrEqual(36_004);
+      for (const e of m.events) {
+        if (e.kind === "text")
+          expect(e.value.length).toBeLessThanOrEqual(12_000);
+      }
+    }
+  });
+
+  it("degrades chunks when the continuation behind a rollover cannot be opened", async () => {
+    // A rollover retargets the stream; if the continuation cannot be opened, the
+    // chunk has no message to address and must degrade rather than throw at an
+    // undefined ts. (Reaches flushChunk's catch via `ensureStarted`; the
+    // `!this.curTs` re-check below it is a belt-and-braces guard — see the note
+    // on defensive branches in the source.)
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const onChunkFailure = vi.fn();
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation unavailable");
+        messages.push({ ts: "S1", text: "" });
+        return "S1";
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      onChunkFailure,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    stream.append("word ".repeat(200));
+    stream.appendChunk({
+      type: "task_update",
+      id: "t1",
+      title: "Using `search`",
+      status: "in_progress",
+    });
+    await stream.finish();
+
+    expect(onChunkFailure).toHaveBeenCalled();
+    expect(transport.appendChunks).not.toHaveBeenCalled();
+  });
+
+  it("keeps rolling over when the rollover's own stopStream fails", async () => {
+    const { transport, messages } = makeFakeTransport({ failStop: true });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    const text = "word ".repeat(300);
+    stream.append(text);
+    await stream.finish();
+
+    // Non-strict: a message left rendering as "still streaming" is cosmetic, so
+    // the rollover proceeds and no text is lost.
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+  });
+
+  it("strict mode reports the closer failure, not the stop failure, when both fail", async () => {
+    // Precedence mirrors `finish()`: the earliest error wins, so a caller sees the
+    // cause rather than the consequence.
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        messages.push({ ts: `S${starts}`, text: "" });
+        return `S${starts}`;
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        if (/^[\n`*_~]+$/.test(md)) throw new Error("closer rejected");
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {
+        throw new Error("stopStream unavailable");
+      }),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("```python\n" + "print('x')\n".repeat(3_400));
+    await expect(stream.finish()).rejects.toThrow("closer rejected");
   });
 
   it("rolls over even when the boundary closer is rejected", async () => {
@@ -761,6 +884,260 @@ describe("NativeMessageStream", () => {
     // The legacy transport was never engaged.
     expect(fallback.last()).toBe("");
     expect(fallback.finished).toBe(false);
+  });
+
+  it("rolls over on 2-byte-per-char text (Cyrillic)", async () => {
+    // The byte budget's third width class. CJK covers 3-byte and emoji 4-byte;
+    // Cyrillic/Greek/Hebrew/Arabic are 2-byte, and are the scripts that break
+    // soonest under a char-denominated budget after CJK.
+    const { transport, messages } = makeFakeTransport({
+      messageByteLimit: 12_000,
+    });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    const text = "привет ".repeat(2_000); // 14k chars / 26k UTF-8 bytes
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
+    for (const m of messages) {
+      expect(new TextEncoder().encode(textOf(m.events)).length).toBeLessThanOrEqual(
+        12_000,
+      );
+    }
+  });
+
+  it("closes and re-opens emphasis straddling a boundary", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    stream.append("**" + "word ".repeat(200));
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    // Outgoing message closes the bold run; the continuation re-opens it.
+    expect(textOf(messages[0]!.events).endsWith("**")).toBe(true);
+    expect(textOf(messages[1]!.events).startsWith("**")).toBe(true);
+  });
+
+  it("closes and re-opens an inline-code span straddling a boundary", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    stream.append("`" + "code ".repeat(200));
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    expect(textOf(messages[0]!.events).endsWith("`")).toBe(true);
+    expect(textOf(messages[1]!.events).startsWith("`")).toBe(true);
+  });
+
+  it("does not close a fence that has only just opened", async () => {
+    // Mirrors `hasFenceCodeContent`: ```lang with no body yet must not be closed,
+    // or the boundary emits an empty code block and immediately re-opens it.
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      // Small enough that the first boundary lands exactly on the fence's newline.
+      messageByteLimit: 10,
+    });
+
+    stream.append("```py\n" + "x".repeat(60));
+    await stream.finish();
+
+    expect(textOf(messages[0]!.events)).toBe("```py\n");
+  });
+
+  it("does not re-emit a table header once the table has ended", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    // Table, then prose in the same block. A boundary in the prose is no longer
+    // "inside the rows", so re-emitting the header would inject a stray table.
+    stream.append(
+      "| a | b |\n| --- | --- |\n| 1 | 2 |\nPlain prose follows. " +
+        "word ".repeat(200),
+    );
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    for (const m of messages.slice(1)) {
+      expect(textOf(m.events)).not.toContain("| --- |");
+    }
+  });
+
+  it("sends a structured chunk to the message current after a rollover", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const onChunkFailure = vi.fn();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      onChunkFailure,
+      minIntervalMs: 0,
+      messageByteLimit: 400,
+    });
+
+    stream.append("word ".repeat(300));
+    stream.appendChunk({
+      type: "task_update",
+      id: "t1",
+      title: "Using `search`",
+      status: "in_progress",
+    });
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    // The chunk lands on the message that was open when it was flushed, not the
+    // first one, and the rollover does not degrade chunk support.
+    expect(onChunkFailure).not.toHaveBeenCalled();
+    const withChunk = messages.filter((m) =>
+      m.events.some((e) => e.kind === "chunks"),
+    );
+    expect(withChunk).toHaveLength(1);
+    expect(withChunk[0]!.ts).toBe(messages[messages.length - 1]!.ts);
+  });
+
+  it("does not fail the turn when the truncation marker cannot be posted", async () => {
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        messages.push({ ts: `S${starts}`, text: "" });
+        return `S${starts}`;
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        if (md.includes("reply truncated")) throw new Error("msg_too_long");
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+      maxMessages: 2,
+      messageByteLimit: 400,
+    });
+
+    stream.append("word ".repeat(500));
+    // Non-strict: a failed marker is logged, never thrown — the reply is already
+    // truncated, and failing the turn here would be worse than an unmarked cut.
+    await expect(stream.finish()).resolves.toBeUndefined();
+    expect(messages).toHaveLength(2);
+  });
+
+  it("strict mode reports a failed truncation marker", async () => {
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        messages.push({ ts: `S${starts}`, text: "" });
+        return `S${starts}`;
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        if (md.includes("reply truncated")) throw new Error("marker rejected");
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+      maxMessages: 2,
+      messageByteLimit: 400,
+    });
+
+    stream.append("word ".repeat(500));
+    await expect(stream.finish()).rejects.toThrow("marker rejected");
+  });
+
+  it("skips a queued chunk when a strict text failure rejects the queue", async () => {
+    // Flushes share one promise chain, and `.then()` on a rejected promise skips
+    // its callback — so a strict text failure means the queued `flushChunk` never
+    // runs at all. The chunk is dropped rather than posted to a stream the caller
+    // is about to be told failed, and `onChunkFailure` stays silent because the
+    // text path already reports it.
+    const { transport } = makeFakeTransport({ failAppend: true });
+    const onChunkFailure = vi.fn();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      onChunkFailure,
+      strict: true,
+      minIntervalMs: 0,
+    });
+
+    stream.append("hello");
+    stream.appendChunk({
+      type: "task_update",
+      id: "t1",
+      title: "Using `search`",
+      status: "in_progress",
+    });
+    await expect(stream.finish()).rejects.toThrow("appendStream unavailable");
+    expect(transport.appendChunks).not.toHaveBeenCalled();
+    expect(onChunkFailure).not.toHaveBeenCalled();
+  });
+
+  it("survives a legacy tail fallback that itself fails", async () => {
+    const messages: { ts: string; text: string }[] = [];
+    let starts = 0;
+    const transport: NativeStreamTransport = {
+      startStream: vi.fn(async () => {
+        starts++;
+        if (starts > 1) throw new Error("continuation unavailable");
+        messages.push({ ts: "S1", text: "" });
+        return "S1";
+      }),
+      appendText: vi.fn(async (ts: string, md: string) => {
+        messages.find((m) => m.ts === ts)!.text += md;
+      }),
+      appendChunks: vi.fn(async () => {}),
+      stopStream: vi.fn(async () => {}),
+    };
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: () => ({
+        append() {},
+        finish: async () => {
+          throw new Error("legacy unavailable");
+        },
+      }),
+      minIntervalMs: 0,
+    });
+
+    stream.append("word ".repeat(5_000));
+    // Both transports failed; the turn still completes rather than rejecting from
+    // a best-effort last resort.
+    await expect(stream.finish()).resolves.toBeUndefined();
   });
 
   it("fires onChunkFailure and degrades when a chunk append fails", async () => {

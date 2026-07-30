@@ -586,6 +586,10 @@ export class NativeMessageStream implements TextStream {
     while (this.curPosted < this.buffer.length) {
       if (!(await this.ensureStarted())) return; // failed over to legacy
       const roomBytes = this.messageByteLimit - this.curMessageBytes;
+      // Defensive: every branch below that fills a message rolls over in the same
+      // iteration, so a full message is not observed at the top of the next one.
+      // Kept so the loop cannot spin if that ever stops holding — which is also
+      // why it has no test: it is unreachable at any configuration.
       if (roomBytes <= 0) {
         if (!(await this.rollOver())) return;
         continue;
@@ -609,7 +613,10 @@ export class NativeMessageStream implements TextStream {
         continue;
       }
       if (byteEnd <= this.curPosted) {
-        // Not even one code point fits — the message is full.
+        // Not even one code point fits — the message is full. Defensive, like the
+        // `roomBytes <= 0` check above: reaching it needs leftover room smaller
+        // than one character at the top of an iteration, and every branch that
+        // could leave that state rolls over first. Untestable, deliberately kept.
         if (!(await this.rollOver())) return;
         continue;
       }
@@ -627,6 +634,8 @@ export class NativeMessageStream implements TextStream {
   /** Append `buffer[curPosted, end)` to the current message and advance both cursors. */
   private async appendSlice(end: number): Promise<void> {
     const delta = this.buffer.slice(this.curPosted, end);
+    // Defensive stall guard: `spanWithinBudget` and `breakPoint` both return an
+    // index strictly greater than `curPosted`, so an empty delta cannot occur.
     if (!delta) return;
     await this.transport.appendText(this.curTs!, delta);
     this.curPosted = end;
@@ -723,6 +732,10 @@ export class NativeMessageStream implements TextStream {
     // on the last message (and, against a real ceiling, a run of rejected
     // appends). That is the spam the cap exists to prevent, relocated inside one
     // message.
+    //
+    // Defensive: `appendPending` short-circuits on `truncated` before it can call
+    // here again, so this early return is the second line of defence, not the
+    // first — which is why the marker-count test exercises the former.
     if (this.truncated) return;
     this.truncated = true;
     const posted = this.buffer.slice(0, this.curPosted);
