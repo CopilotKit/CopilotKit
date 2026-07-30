@@ -82,9 +82,12 @@ export class StateManager {
     });
 
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
+      onRunStartedEvent: ({ event, input, state }) => {
         if (revoked) return;
-        if (runFinished && input.runId === subRunId) {
+        // A connect replay may contain multiple server runs under one input.runId.
+        if (event.runId != null) {
+          subRunId = event.runId;
+        } else if (runFinished && input.runId === subRunId) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
           // copilotkit.runAgent() has had a chance to set up the new pipeline:
@@ -358,7 +361,10 @@ export class StateManager {
     }
     const threadMessages = agentMessages.get(threadId)!;
 
-    threadMessages.set(messageId, runId);
+    // Cumulative snapshots repeat messages from earlier runs.
+    if (!threadMessages.has(messageId)) {
+      threadMessages.set(messageId, runId);
+    }
   }
 
   /**
