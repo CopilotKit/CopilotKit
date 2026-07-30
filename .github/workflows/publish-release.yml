@@ -182,11 +182,29 @@ jobs:
       # injecting code. The worst case is a denied install, not a compromised
       # publish.
       #
-      # Cost note: on a MISS the post-job save adds ~22s (measured) to this job's
-      # wall clock, so the first release after any pnpm-lock.yaml change is
-      # roughly break-even. Every release until the next lockfile change then
-      # restores in a few seconds instead of installing cold.
-      - name: Cache pnpm store
+      # WHY PRERELEASES ONLY RESTORE: canary.yml mirrors the source branch to an
+      # EPHEMERAL `canary/<slug>-<run_id>-<attempt>` ref, and Actions scopes cache
+      # entries to the writing branch (plus the default branch). A cache saved
+      # from a canary ref is therefore unreachable by every later run — measured
+      # at 874 MiB of pure orphan per canary, competing for the repo's shared
+      # 10 GB budget and evicting entries other workflows do rely on. Worse, the
+      # save cost more than it bought: 22s save + 18s restore against a 25s
+      # faster install.
+      #
+      # So canaries RESTORE ONLY (free win whenever main has an entry, zero cost
+      # and zero pollution when it doesn't), and stable releases — which run on
+      # main, where a write is durable and reused — do the writing.
+      - name: Restore pnpm store (prerelease — read-only, ephemeral ref)
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
+
+      - name: Cache pnpm store (stable — read/write on main)
+        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-cache.outputs.store-path }}
@@ -322,10 +340,21 @@ jobs:
         id: pnpm-cache
         run: echo "store-path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-      # Same cache as the build job (see the rationale there). This job is where
-      # the observed 9m08s cold-install stall happened, so the cache matters most
-      # here: it is the only step between a built artifact and a publish.
-      - name: Cache pnpm store
+      # Same split as the build job, for the same reason (see the rationale
+      # there). This job is where the observed 9m08s cold-install stall happened,
+      # so a restore is worth attempting even when it may miss: it is the only
+      # step standing between a built artifact and a publish.
+      - name: Restore pnpm store (prerelease — read-only, ephemeral ref)
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
+
+      - name: Cache pnpm store (stable — read/write on main)
+        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-cache.outputs.store-path }}
@@ -877,8 +906,21 @@ jobs:
         id: pnpm-cache
         run: echo "store-path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
-      # Same cache as the build job (see the rationale there).
-      - name: Cache pnpm store
+      # Same split as the build job (see the rationale there). This job is
+      # normally stable-only, but a prerelease dispatch with python_publish=true
+      # still reaches it on an ephemeral canary ref — hence the same read-only
+      # arm, keyed off `inputs.mode` (the signal this job's own `if:` gate uses).
+      - name: Restore pnpm store (prerelease — read-only, ephemeral ref)
+        if: ${{ inputs.mode == 'prerelease' }}
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.pnpm-cache.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-22.x-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-22.x-
+
+      - name: Cache pnpm store (stable — read/write on main)
+        if: ${{ inputs.mode != 'prerelease' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.pnpm-cache.outputs.store-path }}
