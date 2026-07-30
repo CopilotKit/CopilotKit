@@ -147,7 +147,7 @@ export class ChannelDeliveryFileClient {
     return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
-  /** Upload one outbound file under the active delivery lease. */
+  /** Store one outbound file for the active delivery. */
   async uploadFile(
     deliveryId: string,
     args: {

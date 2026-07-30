@@ -166,7 +166,7 @@ class ObservableTrackedPromise<T> extends Promise<T> {
 }
 
 /** One claimed delivery and its exact unacknowledged packet. */
-export class ChannelDeliverySession {
+export class ClaimedChannelDelivery {
   private nextSeq = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private channel: RealtimeGatewayDeliveryChannel;
@@ -234,6 +234,16 @@ export class ChannelDeliverySession {
           status,
         );
       }
+      const capabilityError =
+        typeof result.capabilityError === "string"
+          ? result.capabilityError
+          : undefined;
+      if (
+        payload.kind === "teams.image.create" &&
+        capabilityError === "teams_image_rejected"
+      ) {
+        return result;
+      }
       // Cleanup stream.stop must not count as user-visible provider output —
       // otherwise failed-before-output terminals misclassify after stop-only.
       const kind = typeof payload.kind === "string" ? payload.kind : undefined;
@@ -248,7 +258,7 @@ export class ChannelDeliverySession {
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
     // Terminal remains sendable after effect failures so claimAndHandle can
-    // report failed/uncertain; only a successful terminal seals the session.
+    // report failed/uncertain; only a successful terminal seals the delivery.
     await this.enqueue({
       kind: "channel.delivery.terminal",
       ...payload,
@@ -516,7 +526,7 @@ export interface ChannelDeliveryTransportOptions {
 /** Claims invitations and runs each delivery on its one-use delivery topic. */
 export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
-  private readonly activeSessions = new Map<string, ChannelDeliverySession>();
+  private readonly activeDeliveries = new Map<string, ClaimedChannelDelivery>();
   private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
   private readonly maxConcurrentDeliveries: number;
@@ -526,7 +536,7 @@ export class ChannelDeliveryTransport {
   private started = false;
   /** Latest handler; invitation callback always reads this so re-start re-arms. */
   private deliveryHandler?: (
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     delivery: PreparedChannelDelivery,
   ) => Promise<void>;
 
@@ -556,7 +566,7 @@ export class ChannelDeliveryTransport {
 
   start(
     handler: (
-      session: ChannelDeliverySession,
+      claimedDelivery: ClaimedChannelDelivery,
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
   ): void {
@@ -611,7 +621,7 @@ export class ChannelDeliveryTransport {
   async stop(): Promise<void> {
     this.stopped = true;
     this.abortController.abort();
-    for (const session of this.activeSessions.values()) session.leave();
+    for (const delivery of this.activeDeliveries.values()) delivery.leave();
     const active = [...this.active.values()];
     if (active.length === 0) return;
     await new Promise<void>((resolve) => {
@@ -626,7 +636,7 @@ export class ChannelDeliveryTransport {
   private async claimAndHandle(
     deliveryId: string,
     handler: (
-      session: ChannelDeliverySession,
+      claimedDelivery: ClaimedChannelDelivery,
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
     signal: AbortSignal,
@@ -695,7 +705,7 @@ export class ChannelDeliveryTransport {
           deliveryExpiresAt: rejoinDelivery.deliveryExpiresAt,
         };
       };
-      const session = new ChannelDeliverySession(
+      const claimedDelivery = new ClaimedChannelDelivery(
         delivery,
         owner,
         joined,
@@ -703,19 +713,19 @@ export class ChannelDeliveryTransport {
         this.files,
         signal,
       );
-      this.activeSessions.set(deliveryId, session);
+      this.activeDeliveries.set(deliveryId, claimedDelivery);
       try {
         throwIfStopped(signal);
-        await handler(session, delivery);
-        await session.terminal({
+        await handler(claimedDelivery, delivery);
+        await claimedDelivery.terminal({
           status: "complete",
           code: "provider_delivery_complete",
         });
       } catch (error) {
         if (!(error instanceof ChannelProviderDeliveryError)) {
-          await session
+          await claimedDelivery
             .terminal({
-              status: session.hasProviderOutput()
+              status: claimedDelivery.hasProviderOutput()
                 ? "failed"
                 : "failed_before_output",
               code: "runtime_handler_failed",
@@ -727,8 +737,8 @@ export class ChannelDeliveryTransport {
           ...safeChannelErrorMetadata(error),
         });
       } finally {
-        this.activeSessions.delete(deliveryId);
-        session.leave();
+        this.activeDeliveries.delete(deliveryId);
+        claimedDelivery.leave();
       }
     } catch (error) {
       this.options.log?.("channel delivery claim or join failed", {

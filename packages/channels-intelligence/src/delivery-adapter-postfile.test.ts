@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import { ChannelProviderDeliveryError } from "./delivery-transport.js";
 import type {
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 import { RealtimeGatewayPushError } from "./realtime-gateway.js";
@@ -29,8 +29,14 @@ function prepared(): PreparedChannelDelivery {
   };
 }
 
-function replyTarget(session: ChannelDeliverySession) {
-  return { session, delivery: prepared() };
+function replyTarget(
+  session: ClaimedChannelDelivery,
+  adapter: "slack" | "teams" = "slack",
+) {
+  return {
+    claimedDelivery: session,
+    delivery: { ...prepared(), adapter },
+  };
 }
 
 class NoopAgent extends AbstractAgent {
@@ -53,11 +59,12 @@ function makeAdapter(
 
 describe("DeliveryAdapter.postFile", () => {
   it("soft-returns upload failures without throwing", async () => {
+    const log = vi.fn();
     const session = {
       uploadFile: vi.fn().mockRejectedValue(new Error("upload config missing")),
       effect: vi.fn(),
-    } as unknown as ChannelDeliverySession;
-    const adapter = makeAdapter();
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter({ log });
 
     await expect(
       adapter.postFile(replyTarget(session), {
@@ -69,6 +76,13 @@ describe("DeliveryAdapter.postFile", () => {
       error: "upload config missing",
     });
     expect(session.effect).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("channel managed asset upload", {
+      outcome: "failed",
+      code: "asset_upload_failed",
+      durationMs: expect.any(Number),
+      deliveryId: "dlv_postfile_01",
+      byteSize: 1,
+    });
   });
 
   it("rethrows permanent effect failures so claimAndHandle cannot complete", async () => {
@@ -83,7 +97,7 @@ describe("DeliveryAdapter.postFile", () => {
             "file create failed",
           ),
         ),
-    } as unknown as ChannelDeliverySession;
+    } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter();
 
     await expect(
@@ -102,7 +116,7 @@ describe("DeliveryAdapter.postFile", () => {
             .mockRejectedValue(
               new ChannelProviderDeliveryError("provider_failed", "failed"),
             ),
-        } as unknown as ChannelDeliverySession),
+        } as unknown as ClaimedChannelDelivery),
         { bytes: new Uint8Array([1]), filename: "a.png" },
       ),
     ).rejects.toBeInstanceOf(ChannelProviderDeliveryError);
@@ -118,7 +132,7 @@ describe("DeliveryAdapter.postFile", () => {
                 "Gateway returned a conflicting packet acknowledgement",
               ),
             ),
-        } as unknown as ChannelDeliverySession),
+        } as unknown as ClaimedChannelDelivery),
         { bytes: new Uint8Array([1]), filename: "a.png" },
       ),
     ).rejects.toBeInstanceOf(TypeError);
@@ -136,7 +150,7 @@ describe("DeliveryAdapter.postFile", () => {
     const session = {
       uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
       effect: vi.fn().mockResolvedValue({}),
-    } as unknown as ChannelDeliverySession;
+    } as unknown as ClaimedChannelDelivery;
     const adapter = makeAdapter({ runCanonical });
     const target = replyTarget(session);
     const agentSession = await adapter.conversationStore.getOrCreate(
@@ -179,5 +193,64 @@ describe("DeliveryAdapter.postFile", () => {
     );
     expect(JSON.stringify(onEvent.mock.calls)).not.toContain("iVBOR");
     await agentSession.release?.();
+  });
+
+  it("returns a Teams capability error and keeps later text usable", async () => {
+    const log = vi.fn();
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("file_handle_01"),
+      effect: vi
+        .fn()
+        .mockResolvedValueOnce({ capabilityError: "teams_image_rejected" })
+        .mockResolvedValueOnce({
+          providerReference: "pref_v1_teams_activity_01",
+        }),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter({ log });
+    const target = replyTarget(session, "teams");
+
+    await expect(
+      adapter.postFile(target, {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "diagram.png",
+        altText: "Architecture diagram",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "teams_image_rejected",
+    });
+    expect(log).toHaveBeenCalledWith("channel managed asset upload", {
+      outcome: "stored",
+      code: "asset_stored",
+      durationMs: expect.any(Number),
+      deliveryId: "dlv_postfile_01",
+      byteSize: 8,
+    });
+    expect(log).toHaveBeenCalledWith("channel provider capability rejected", {
+      outcome: "failed",
+      code: "teams_image_rejected",
+      durationMs: expect.any(Number),
+      deliveryId: "dlv_postfile_01",
+      adapter: "teams",
+    });
+
+    await expect(
+      adapter.post(target, [
+        {
+          type: "text",
+          props: { value: "Here is a text fallback" },
+        },
+      ]),
+    ).resolves.toMatchObject({
+      providerReference: "pref_v1_teams_activity_01",
+    });
+    expect(session.effect).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/^response_/),
+      {
+        kind: "teams.message.create",
+        text: "Here is a text fallback",
+      },
+    );
   });
 });

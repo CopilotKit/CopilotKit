@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { EventType } from "@ag-ui/client";
 import type {
   AbstractAgent,
@@ -43,7 +43,7 @@ import {
 } from "@copilotkit/channels-teams/render";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
 import type {
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
@@ -54,13 +54,13 @@ import {
 } from "./delivery-files.js";
 
 interface DeliveryReplyTarget {
-  session: ChannelDeliverySession;
+  claimedDelivery: ClaimedChannelDelivery;
   delivery: PreparedChannelDelivery;
 }
 
 interface DeliveryMessageRef extends MessageRef {
   responseId: string;
-  session: ChannelDeliverySession;
+  claimedDelivery: ClaimedChannelDelivery;
   adapter: "slack" | "teams";
   providerReference?: string;
 }
@@ -229,8 +229,8 @@ export class DeliveryAdapter implements PlatformAdapter {
 
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
-    this.options.transport.start((session, delivery) =>
-      this.dispatch(session, delivery),
+    this.options.transport.start((claimedDelivery, delivery) =>
+      this.dispatch(claimedDelivery, delivery),
     );
   }
 
@@ -242,16 +242,18 @@ export class DeliveryAdapter implements PlatformAdapter {
     targetValue: ReplyTarget,
     operation: () => Promise<T>,
   ): Promise<T> {
-    return asDeliveryTarget(targetValue).session.trackOperation(operation);
+    return asDeliveryTarget(targetValue).claimedDelivery.trackOperation(
+      operation,
+    );
   }
 
   private async dispatch(
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     delivery: PreparedChannelDelivery,
   ): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("DeliveryAdapter is not started");
-    const replyTarget: DeliveryReplyTarget = { session, delivery };
+    const replyTarget: DeliveryReplyTarget = { claimedDelivery, delivery };
     const base = {
       conversationKey: delivery.canonicalThreadId,
       replyTarget,
@@ -271,7 +273,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     const input = delivery.turn.input;
     switch (input.kind) {
       case "text": {
-        const parts = await session.getContentParts(
+        const parts = await claimedDelivery.getContentParts(
           input.files,
           this.options.log,
         );
@@ -410,7 +412,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     const target = asDeliveryTarget(targetValue);
     const responseId = mintId("response_");
     const providerReference = await this.postRendered(
-      target.session,
+      target.claimedDelivery,
       target.delivery.adapter,
       responseId,
       ir,
@@ -422,7 +424,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     const ref = asDeliveryRef(refValue);
     assertProviderReference(ref.providerReference);
     await this.replaceRendered(
-      ref.session,
+      ref.claimedDelivery,
       ref.adapter,
       ref.responseId,
       ir,
@@ -436,7 +438,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       throw new Error("Teams message delete is not supported");
     }
     assertProviderReference(ref.providerReference);
-    await ref.session.effect(ref.responseId, {
+    await ref.claimedDelivery.effect(ref.responseId, {
       kind: "slack.message.delete",
       providerReference: ref.providerReference,
     });
@@ -450,30 +452,23 @@ export class DeliveryAdapter implements PlatformAdapter {
     const responseId = mintId("response_");
     let providerReference: string | undefined;
     if (target.delivery.adapter === "slack") {
-      let text = "";
       let bodyError: unknown;
       let streamStarted = false;
       try {
         // Start lives inside try/finally so a missing providerReference after
         // an applied start still attempts stream.stop cleanup.
-        const startResult = await target.session.effect(responseId, {
+        const startResult = await target.claimedDelivery.effect(responseId, {
           kind: "slack.stream.start",
         });
         streamStarted = true;
         providerReference = providerReferenceFromResult(startResult);
         for await (const delta of chunks) {
           if (delta.length === 0) continue;
-          const before = digest(text);
-          const nextText = text + delta;
-          await target.session.effect(responseId, {
+          await target.claimedDelivery.effect(responseId, {
             kind: "slack.stream.append",
             providerReference,
             delta,
-            beforeTextDigest: before,
-            afterTextDigest: digest(nextText),
           });
-          // Only advance local text after the append is applied.
-          text = nextText;
         }
       } catch (error) {
         bodyError = error;
@@ -482,10 +477,9 @@ export class DeliveryAdapter implements PlatformAdapter {
         // Always stop a started stream (append failure must not leave it open).
         if (streamStarted && providerReference !== undefined) {
           try {
-            await target.session.effect(responseId, {
+            await target.claimedDelivery.effect(responseId, {
               kind: "slack.stream.stop",
               providerReference,
-              finalTextDigest: digest(text),
             });
           } catch (stopError) {
             // If the body succeeded, stop failure is the delivery failure.
@@ -500,12 +494,12 @@ export class DeliveryAdapter implements PlatformAdapter {
         if (delta.length === 0) continue;
         const nextText = text + delta;
         const result = created
-          ? await target.session.effect(responseId, {
+          ? await target.claimedDelivery.effect(responseId, {
               kind: "teams.message.replace",
               providerReference: providerReference!,
               text: nextText,
             })
-          : await target.session.effect(responseId, {
+          : await target.claimedDelivery.effect(responseId, {
               kind: "teams.message.create",
               text: nextText,
             });
@@ -517,7 +511,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     }
     if (!providerReference) {
       providerReference = providerReferenceFromResult(
-        await target.session.effect(responseId, {
+        await target.claimedDelivery.effect(responseId, {
           kind:
             target.delivery.adapter === "slack"
               ? "slack.message.create"
@@ -554,32 +548,58 @@ export class DeliveryAdapter implements PlatformAdapter {
         };
       }
     }
-    // Soft-fail only pre-effect failures (upload/config). Any session.effect
+    // Soft-fail only pre-effect failures (upload/config). Any provider-effect
     // failure must propagate so claimAndHandle does not emit a false complete
     // terminal after a permanent provider/protocol error.
     let handle: string;
+    const uploadStartedAtMs = Date.now();
     try {
-      handle = await target.session.uploadFile(args);
+      handle = await target.claimedDelivery.uploadFile(args);
     } catch (error) {
+      this.options.log?.("channel managed asset upload", {
+        outcome: "failed",
+        code: "asset_upload_failed",
+        durationMs: elapsedMs(uploadStartedAtMs),
+        deliveryId: target.delivery.deliveryId,
+        byteSize: args.bytes.byteLength,
+      });
       return {
         ok: false,
         error: error instanceof Error ? error.message : String(error),
       };
     }
+    this.options.log?.("channel managed asset upload", {
+      outcome: "stored",
+      code: "asset_stored",
+      durationMs: elapsedMs(uploadStartedAtMs),
+      deliveryId: target.delivery.deliveryId,
+      byteSize: args.bytes.byteLength,
+    });
     const responseId = mintId("response_");
     if (target.delivery.adapter === "slack") {
-      await target.session.effect(responseId, {
+      await target.claimedDelivery.effect(responseId, {
         kind: "slack.file.create",
         fileHandle: handle,
         ...(args.title ? { title: args.title } : {}),
         ...(args.altText ? { altText: args.altText } : {}),
       });
     } else {
-      await target.session.effect(responseId, {
+      const providerStartedAtMs = Date.now();
+      const result = await target.claimedDelivery.effect(responseId, {
         kind: "teams.image.create",
         fileHandle: handle,
         altText: args.altText ?? args.title ?? args.filename,
       });
+      if (result.capabilityError === "teams_image_rejected") {
+        this.options.log?.("channel provider capability rejected", {
+          outcome: "failed",
+          code: "teams_image_rejected",
+          durationMs: elapsedMs(providerStartedAtMs),
+          deliveryId: target.delivery.deliveryId,
+          adapter: "teams",
+        });
+        return { ok: false, error: "teams_image_rejected" };
+      }
     }
     await this.recordManagedAssetActivity(target, {
       assetId: handle,
@@ -656,26 +676,24 @@ export class DeliveryAdapter implements PlatformAdapter {
     const responseId = mintId("response_");
     const renderer =
       target.delivery.adapter === "slack"
-        ? this.createSlackRenderer(target.session, responseId)
-        : this.createTeamsRenderer(target.session, responseId);
+        ? this.createSlackRenderer(target.claimedDelivery, responseId)
+        : this.createTeamsRenderer(target.claimedDelivery, responseId);
     this.rendererResponses.set(renderer, responseId);
     return renderer;
   }
 
   private createSlackRenderer(
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     responseId: string,
   ): RunRenderer {
-    let text = "";
     let providerReference: string | undefined;
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
       transport: {
-        setStatus: async () => undefined,
         postMessage: async ({ text: message }) => {
           providerReference = providerReferenceFromResult(
-            await session.effect(responseId, {
+            await claimedDelivery.effect(responseId, {
               kind: "slack.message.create",
               text: message,
             }),
@@ -684,7 +702,7 @@ export class DeliveryAdapter implements PlatformAdapter {
         },
         updateMessage: async ({ text: message }) => {
           assertProviderReference(providerReference);
-          await session.effect(responseId, {
+          await claimedDelivery.effect(responseId, {
             kind: "slack.message.replace",
             providerReference,
             text: message,
@@ -700,7 +718,7 @@ export class DeliveryAdapter implements PlatformAdapter {
         transport: {
           startStream: async () => {
             providerReference = providerReferenceFromResult(
-              await session.effect(responseId, {
+              await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.start",
               }),
             );
@@ -709,17 +727,11 @@ export class DeliveryAdapter implements PlatformAdapter {
           appendText: async (_id, delta) => {
             if (delta.length === 0) return;
             assertProviderReference(providerReference);
-            const before = digest(text);
-            const nextText = text + delta;
-            await session.effect(responseId, {
+            await claimedDelivery.effect(responseId, {
               kind: "slack.stream.append",
               providerReference,
               delta,
-              beforeTextDigest: before,
-              afterTextDigest: digest(nextText),
             });
-            // Only advance local text after the append is applied (match stream()).
-            text = nextText;
           },
           appendChunks: async (_id, chunks) => {
             assertProviderReference(providerReference);
@@ -727,7 +739,7 @@ export class DeliveryAdapter implements PlatformAdapter {
               Record<string, unknown>
             >) {
               if (chunk.type !== "task_update") continue;
-              await session.effect(responseId, {
+              await claimedDelivery.effect(responseId, {
                 kind: "slack.stream.task",
                 providerReference,
                 taskId: String(chunk.id),
@@ -738,10 +750,9 @@ export class DeliveryAdapter implements PlatformAdapter {
           },
           stopStream: async () => {
             assertProviderReference(providerReference);
-            await session.effect(responseId, {
+            await claimedDelivery.effect(responseId, {
               kind: "slack.stream.stop",
               providerReference,
-              finalTextDigest: digest(text),
             });
           },
         },
@@ -750,14 +761,14 @@ export class DeliveryAdapter implements PlatformAdapter {
   }
 
   private createTeamsRenderer(
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     responseId: string,
   ): RunRenderer {
     let providerReference: string | undefined;
     return createTeamsRunRenderer({
       post: async (text) => {
         providerReference = providerReferenceFromResult(
-          await session.effect(responseId, {
+          await claimedDelivery.effect(responseId, {
             kind: "teams.message.create",
             text,
           }),
@@ -766,7 +777,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       },
       update: async (_id, text) => {
         assertProviderReference(providerReference);
-        await session.effect(responseId, {
+        await claimedDelivery.effect(responseId, {
           kind: "teams.message.replace",
           providerReference,
           text,
@@ -774,7 +785,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       },
       finalize: async (_id, text) => {
         assertProviderReference(providerReference);
-        await session.effect(responseId, {
+        await claimedDelivery.effect(responseId, {
           kind: "teams.message.finalize",
           providerReference,
           text,
@@ -784,7 +795,7 @@ export class DeliveryAdapter implements PlatformAdapter {
   }
 
   private async postRendered(
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     adapter: "slack" | "teams",
     responseId: string,
     ir: ChannelNode[],
@@ -792,7 +803,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
       return providerReferenceFromResult(
-        await session.effect(responseId, {
+        await claimedDelivery.effect(responseId, {
           kind: "slack.message.create",
           text: collectText(ir),
           blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
@@ -800,12 +811,15 @@ export class DeliveryAdapter implements PlatformAdapter {
       );
     }
     return providerReferenceFromResult(
-      await session.effect(responseId, teamsMessageEffect("create", ir)),
+      await claimedDelivery.effect(
+        responseId,
+        teamsMessageEffect("create", ir),
+      ),
     );
   }
 
   private async replaceRendered(
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     adapter: "slack" | "teams",
     responseId: string,
     ir: ChannelNode[],
@@ -814,7 +828,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     assertProviderReference(providerReference);
     if (adapter === "slack") {
       const rendered = renderSlackMessage(ir);
-      await session.effect(responseId, {
+      await claimedDelivery.effect(responseId, {
         kind: "slack.message.replace",
         text: collectText(ir),
         blocks: rendered.blocks as unknown as Array<Record<string, unknown>>,
@@ -822,7 +836,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       });
       return;
     }
-    await session.effect(
+    await claimedDelivery.effect(
       responseId,
       teamsMessageEffect("replace", ir, providerReference),
     );
@@ -982,7 +996,7 @@ function teamsMessageEffect(
 
 function asDeliveryTarget(value: ReplyTarget): DeliveryReplyTarget {
   const target = value as Partial<DeliveryReplyTarget>;
-  if (!target.session || !target.delivery) {
+  if (!target.claimedDelivery || !target.delivery) {
     throw new Error("Channel reply target is outside a claimed delivery");
   }
   return target as DeliveryReplyTarget;
@@ -990,7 +1004,7 @@ function asDeliveryTarget(value: ReplyTarget): DeliveryReplyTarget {
 
 function asDeliveryRef(value: MessageRef): DeliveryMessageRef {
   const ref = value as Partial<DeliveryMessageRef>;
-  if (!ref.session || !ref.responseId || !ref.adapter) {
+  if (!ref.claimedDelivery || !ref.responseId || !ref.adapter) {
     throw new Error("Channel message ref is outside a claimed delivery");
   }
   return ref as DeliveryMessageRef;
@@ -1010,7 +1024,7 @@ function messageRef(
   return {
     id: providerReference ?? responseId,
     responseId,
-    session: target.session,
+    claimedDelivery: target.claimedDelivery,
     adapter: target.delivery.adapter,
     ...(providerReference ? { providerReference } : {}),
   };
@@ -1035,8 +1049,8 @@ function mintId(prefix: string): string {
   return `${prefix}${randomUUID().replaceAll("-", "")}`;
 }
 
-function digest(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
+function elapsedMs(startedAtMs: number): number {
+  return Math.max(Date.now() - startedAtMs, 0);
 }
 
 function normalizeTaskStatus(

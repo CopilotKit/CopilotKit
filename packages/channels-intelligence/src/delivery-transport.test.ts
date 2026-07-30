@@ -1,7 +1,7 @@
 import { expect, test, vi } from "vitest";
 import {
   ChannelProviderDeliveryError,
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   ChannelDeliveryTransport,
 } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
@@ -263,7 +263,7 @@ test("retries the exact packet after reconnect and calls no second sequence", as
     },
     deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
   });
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -320,7 +320,7 @@ test("polls the same packet after a retry-wait result", async () => {
         result: { providerReference: "pref_v1_message_01" },
       }),
     );
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -340,6 +340,54 @@ test("polls the same packet after a retry-wait result", async () => {
   const secondPacket = vi.mocked(deliveryChannel.push).mock.calls[1]![1];
   expect(secondPacket).toEqual(firstPacket);
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
+test("keeps a confirmed Teams image capability rejection non-terminal", async () => {
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve({
+        ...(packet as object),
+        phase: "applied",
+        result: { capabilityError: "teams_image_rejected" },
+      }),
+    )
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve({
+        ...(packet as object),
+        phase: "applied",
+        result: { providerReference: "pref_v1_teams_activity_01" },
+      }),
+    );
+  const claimedDelivery = new ClaimedChannelDelivery(
+    { ...preparedDelivery(), adapter: "teams" },
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  await expect(
+    claimedDelivery.effect("response_image", {
+      kind: "teams.image.create",
+      fileHandle: "file_handle_01",
+      altText: "Architecture diagram",
+    }),
+  ).resolves.toEqual({ capabilityError: "teams_image_rejected" });
+  expect(claimedDelivery.hasProviderOutput()).toBe(false);
+
+  await expect(
+    claimedDelivery.effect("response_text", {
+      kind: "teams.message.create",
+      text: "Text fallback",
+    }),
+  ).resolves.toEqual({
+    providerReference: "pref_v1_teams_activity_01",
+  });
+  expect(claimedDelivery.hasProviderOutput()).toBe(true);
+  expect(deliveryChannel.push).toHaveBeenCalledTimes(2);
 });
 
 test("stop aborts an active retry wait and leaves its delivery topic", async () => {
@@ -435,7 +483,7 @@ test("still sends a failed terminal when complete terminal fails", async () => {
       result: {},
     });
   });
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -471,7 +519,7 @@ test("refreshes owner generation on packets after reconnect", async () => {
       runtimeInstanceId: "rti_runtime_01",
     },
   });
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -504,7 +552,7 @@ test("closes the packet path after a permanent push failure", async () => {
   vi.mocked(deliveryChannel.push).mockRejectedValue(
     new RealtimeGatewayPushError("packet", "conflict", "sequence conflict"),
   );
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -547,7 +595,7 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
       result: { providerReference: "pref_v1_message_01" },
     });
   });
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -563,15 +611,12 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
       kind: "slack.stream.append",
       providerReference: "pref_v1_message_01",
       delta: "x",
-      beforeTextDigest: "a".repeat(64),
-      afterTextDigest: "b".repeat(64),
     }),
   ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
 
   await session.effect("response_01", {
     kind: "slack.stream.stop",
     providerReference: "pref_v1_message_01",
-    finalTextDigest: "c".repeat(64),
   });
   expect(pushCount).toBe(3);
   const kinds = vi
@@ -588,7 +633,7 @@ test("still allows stream.stop after a permanent non-terminal failure", async ()
 
 test("does not count stream.stop alone as provider output", async () => {
   const deliveryChannel = channel();
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,
@@ -601,7 +646,6 @@ test("does not count stream.stop alone as provider output", async () => {
   await session.effect("response_01", {
     kind: "slack.stream.stop",
     providerReference: "pref_v1_message_01",
-    finalTextDigest: "c".repeat(64),
   });
   expect(session.hasProviderOutput()).toBe(false);
 });
@@ -682,7 +726,7 @@ test("surfaces a failed provider result as an already-terminal error", async () 
       result: { error: "provider_call_failed", status: "failed" },
     }),
   );
-  const session = new ChannelDeliverySession(
+  const session = new ClaimedChannelDelivery(
     preparedDelivery(),
     {
       ownerGeneration: 7,

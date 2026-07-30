@@ -3,7 +3,7 @@ import type { Message, RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { expect, test, vi } from "vitest";
 import { DeliveryAdapter } from "./delivery-adapter.js";
-import type { ChannelDeliverySession } from "./delivery-transport.js";
+import type { ClaimedChannelDelivery } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
 
 const delivery: PreparedChannelDelivery = {
@@ -24,7 +24,7 @@ const delivery: PreparedChannelDelivery = {
 };
 
 const target = {
-  session: {} as ChannelDeliverySession,
+  claimedDelivery: {} as ClaimedChannelDelivery,
   delivery,
 };
 
@@ -133,7 +133,7 @@ test("canonical run input stores managed asset references instead of hydrated by
 
   await adapter.runAgentLifecycle({
     replyTarget: {
-      session: {} as ChannelDeliverySession,
+      claimedDelivery: {} as ClaimedChannelDelivery,
       delivery: withFile,
     },
     agent,

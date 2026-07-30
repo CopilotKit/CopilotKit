@@ -136,7 +136,7 @@ export interface IngressIds {
   eventId?: string;
   /** Stable per-turn id (Intelligence Channel path); local adapters omit it. */
   turnId?: string;
-  /** Lease/delivery id (Intelligence Channel path); local adapters omit it. */
+  /** Durable delivery id (Intelligence Channel path); local adapters omit it. */
   deliveryId?: string;
 }
 

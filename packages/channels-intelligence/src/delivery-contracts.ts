@@ -10,7 +10,6 @@ export const CHANNEL_DELIVERY_OWNER_TTL_SECONDS = 60 * 60;
 /** Maximum encoded size of one ordered packet. */
 export const DELIVERY_PACKET_MAX_BYTES = 64 * 1024;
 
-const SHA_256_PATTERN = /^[a-f0-9]{64}$/;
 const PROVIDER_REFERENCE_PATTERN = /^pref_v1_[A-Za-z0-9_-]{8,4088}$/;
 const PACKET_ID_PATTERN = /^pkt_[A-Za-z0-9_-]{2,128}$/;
 const DELIVERY_ID_PATTERN = /^dlv_[A-Za-z0-9_-]{8,128}$/;
@@ -25,8 +24,6 @@ export type ChannelProviderPayload =
       kind: "slack.stream.append";
       providerReference: string;
       delta: string;
-      beforeTextDigest: string;
-      afterTextDigest: string;
     }
   | {
       kind: "slack.stream.task";
@@ -38,7 +35,6 @@ export type ChannelProviderPayload =
   | {
       kind: "slack.stream.stop";
       providerReference: string;
-      finalTextDigest: string;
     }
   | {
       kind: "slack.message.create";
@@ -183,17 +179,9 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.append":
       return (
-        hasExactFields(value, [
-          "kind",
-          "providerReference",
-          "delta",
-          "beforeTextDigest",
-          "afterTextDigest",
-        ]) &&
+        hasExactFields(value, ["kind", "providerReference", "delta"]) &&
         validReference(value.providerReference) &&
-        boundedString(value.delta, 1, 40_000) &&
-        sha256(value.beforeTextDigest) &&
-        sha256(value.afterTextDigest)
+        boundedString(value.delta, 1, 40_000)
       );
     case "slack.stream.task":
       return (
@@ -213,13 +201,8 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.stop":
       return (
-        hasExactFields(value, [
-          "kind",
-          "providerReference",
-          "finalTextDigest",
-        ]) &&
-        validReference(value.providerReference) &&
-        sha256(value.finalTextDigest)
+        hasExactFields(value, ["kind", "providerReference"]) &&
+        validReference(value.providerReference)
       );
     case "slack.message.create":
       return (
@@ -332,10 +315,6 @@ function optionalRecordArray(value: unknown, max: number): boolean {
       value.length <= max &&
       value.every((entry) => isRecord(entry)))
   );
-}
-
-function sha256(value: unknown): boolean {
-  return typeof value === "string" && SHA_256_PATTERN.test(value);
 }
 
 function validReference(value: unknown): boolean {

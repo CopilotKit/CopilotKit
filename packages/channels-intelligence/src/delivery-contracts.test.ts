@@ -12,10 +12,6 @@ const appendPayload = (): ChannelProviderPayload => ({
   kind: "slack.stream.append",
   providerReference: "pref_v1_reference_01",
   delta: "Hello",
-  beforeTextDigest:
-    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  afterTextDigest:
-    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
 });
 
 const packet = (): ChannelDeliveryPacket => {

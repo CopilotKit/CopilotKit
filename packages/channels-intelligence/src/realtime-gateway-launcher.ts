@@ -226,10 +226,9 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   maxConcurrentDeliveries?: number;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
-  /** Intelligence app-api HTTP base URL. Enables file/history parity on the
-   * realtime path (OSS-476) — these are HTTP-only (the gateway relays the
-   * render-event stream, not bytes/history), reached with the {@link apiKey}
-   * above. Omit and file/history stay unavailable (graceful degradation). */
+  /** Intelligence app-api HTTP base URL for managed file and Thread history
+   * calls made with the {@link apiKey} above. Omit it to leave those calls
+   * unavailable. */
   appApiBaseUrl?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process and exposed in `handle.metadata`.

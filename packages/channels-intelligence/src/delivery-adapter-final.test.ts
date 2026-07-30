@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import type { ChannelProviderPayload } from "./delivery-contracts.js";
 import type {
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 
@@ -45,9 +45,9 @@ describe("DeliveryAdapter Teams final delivery", () => {
           providerReference: "pref_v1_teams_activity_01",
         }),
       );
-      const session = { effect } as unknown as ChannelDeliverySession;
+      const session = { effect } as unknown as ClaimedChannelDelivery;
       const renderer = adapter().createRunRenderer({
-        session,
+        claimedDelivery: session,
         delivery: delivery(),
       });
       const subscriber = renderer.subscriber;
@@ -94,9 +94,9 @@ describe("DeliveryAdapter Slack cadence", () => {
             ? { providerReference: "pref_v1_slack_stream_01" }
             : {},
       );
-      const session = { effect } as unknown as ChannelDeliverySession;
+      const session = { effect } as unknown as ClaimedChannelDelivery;
       const renderer = adapter().createRunRenderer({
-        session,
+        claimedDelivery: session,
         delivery: { ...delivery(), adapter: "slack" },
       });
       const subscriber = renderer.subscriber;
