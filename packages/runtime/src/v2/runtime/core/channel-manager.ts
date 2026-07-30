@@ -439,12 +439,10 @@ async function runCanonicalChannelAgent(
   // Channel turns on the same conversation (same Intelligence threadId) do not
   // 409 the lock or hit InMemoryAgentRunner's "Thread already running".
   // History is still loaded from the real canonical threadId by the adapter.
-  const runLockPrefix = [
-    lockKeyPrefix,
-    "channel-run",
-    args.runId,
-  ]
-    .filter((part): part is string => typeof part === "string" && part.length > 0)
+  const runLockPrefix = [lockKeyPrefix, "channel-run", args.runId]
+    .filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    )
     .join(":");
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,

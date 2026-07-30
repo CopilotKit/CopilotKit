@@ -106,9 +106,7 @@ function trackRunAgentCalls(agent: FakeAgent): { total: () => number } {
  * Capture the agent instance handed to the conversation store (post-isolation).
  * Use when asserting on the agent that actually ran, not the configured prototype.
  */
-function captureSessionAgents(
-  fake: FakeAdapter,
-): { agents: FakeAgent[] } {
+function captureSessionAgents(fake: FakeAdapter): { agents: FakeAgent[] } {
   const agents: FakeAgent[] = [];
   const orig = fake.conversationStore.getOrCreate.bind(fake.conversationStore);
   fake.conversationStore.getOrCreate = async (key, target, makeAgent) => {
