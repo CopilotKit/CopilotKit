@@ -22,6 +22,11 @@ function makeFakeTransport(opts?: {
    * long reply (a novella) hits in production. Undefined = uncapped.
    */
   messageCharLimit?: number;
+  /**
+   * Hard ceiling on `startStream` calls. Turns a runaway rollover loop into a
+   * failed test instead of a hung one (and, in production, unbounded messages).
+   */
+  startBudget?: number;
 }) {
   const messages: {
     ts: string;
@@ -34,6 +39,9 @@ function makeFakeTransport(opts?: {
     startStream: vi.fn(async () => {
       if (opts?.failStart) throw new Error("startStream unavailable");
       counter++;
+      if (opts?.startBudget !== undefined && counter > opts.startBudget) {
+        throw new Error(`RUNAWAY: ${counter} startStream calls`);
+      }
       const ts = `S${counter}`;
       messages.push({ ts, events: [], stopped: false });
       return ts;
@@ -208,6 +216,60 @@ describe("NativeMessageStream", () => {
       const rendered = textOf(m.events);
       expect(rendered.endsWith("\n")).toBe(true);
     }
+  });
+
+  it("terminates when the continuation re-opener is larger than the message cap", async () => {
+    const { transport, messages } = makeFakeTransport({ startBudget: 30 });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      minIntervalMs: 0,
+    });
+
+    // An unclosed fence whose "language line" is a ~20k whitespace-free blob
+    // (minified JSON, base64, a long log line). `detectOpenContext` reports the
+    // whole blob as the fence language, so the re-opener alone exceeds the
+    // per-message cap. Re-injecting it every rollover would fill each fresh
+    // message with its own preamble and never advance — unbounded messages.
+    const text = "```" + "j".repeat(20_000);
+    stream.append(text);
+    await stream.finish();
+
+    // Bounded message count, and every char still delivered.
+    expect(messages.length).toBeLessThan(10);
+    expect(messages.map((m) => textOf(m.events)).join("")).toContain(
+      "j".repeat(1_000),
+    );
+    expect(
+      messages.reduce((n, m) => n + textOf(m.events).length, 0),
+    ).toBeGreaterThanOrEqual(text.length);
+  });
+
+  it("never splits a surrogate pair across a boundary", async () => {
+    const { transport, messages } = makeFakeTransport();
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      // Odd cap so the boundary lands mid-pair unless explicitly corrected.
+      messageCharLimit: 1001,
+      minIntervalMs: 0,
+    });
+
+    // Emoji are surrogate pairs and there is no whitespace to break on, so
+    // every boundary is a hard cut through the middle of the text.
+    const text = "\u{1F600}".repeat(2_000);
+    stream.append(text);
+    await stream.finish();
+
+    expect(messages.length).toBeGreaterThan(1);
+    for (const m of messages) {
+      const rendered = textOf(m.events);
+      // A lone high surrogate at the end (or low at the start) is a broken glyph
+      // in Slack, even though re-concatenating the messages looks correct.
+      expect(/[\uD800-\uDBFF]$/.test(rendered)).toBe(false);
+      expect(/^[\uDC00-\uDFFF]/.test(rendered)).toBe(false);
+    }
+    expect(messages.map((m) => textOf(m.events)).join("")).toBe(text);
   });
 
   it("resumes from the last successful append after a transient failure, never re-posting", async () => {

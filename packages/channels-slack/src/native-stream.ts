@@ -116,6 +116,36 @@ const APPEND_CHAR_LIMIT = 12000;
  * rather than merely truncating one append.
  */
 const DEFAULT_MESSAGE_CHAR_LIMIT = 11000;
+/**
+ * Minimum buffer text a continuation must be able to carry after its re-opener.
+ *
+ * The re-opener is synthetic text charged against the message's budget, so a
+ * pathological context — an unclosed fence whose language line is itself longer
+ * than the cap, e.g. a minified-JSON blob emitted straight after ``` — could
+ * fill a fresh message with nothing but its own preamble, roll over, and repeat
+ * forever, posting unbounded messages without ever advancing `curPosted`. When
+ * the opener cannot leave at least this much room, it is dropped: degraded
+ * rendering for one continuation beats an infinite loop.
+ */
+const MIN_MESSAGE_PROGRESS_CHARS = 256;
+
+/**
+ * Pull `index` back off a surrogate pair so a boundary never splits one
+ * character into two messages.
+ *
+ * Slicing at an arbitrary UTF-16 offset can leave a lone high surrogate at the
+ * end of one message and an orphaned low surrogate at the start of the next;
+ * each renders as a replacement glyph. Whitespace-free text (CJK, emoji runs,
+ * base64) reaches the hard-cut path routinely, so this is not theoretical.
+ */
+function avoidSurrogateSplit(text: string, index: number): number {
+  if (index <= 0 || index >= text.length) return index;
+  const high = text.charCodeAt(index - 1);
+  const low = text.charCodeAt(index);
+  const splitsPair =
+    high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff;
+  return splitsPair ? index - 1 : index;
+}
 
 /**
  * The append-only counterpart to {@link renderContextOpener}: the closers that
@@ -285,7 +315,12 @@ export class NativeMessageStream implements TextStream {
       const opener = renderContextOpener(
         detectOpenContext(this.buffer.slice(0, this.curPosted)),
       );
-      if (opener) {
+      // Charge the opener only when it leaves room to actually carry text —
+      // see MIN_MESSAGE_PROGRESS_CHARS. Dropping it keeps the loop terminating.
+      if (
+        opener &&
+        opener.length + MIN_MESSAGE_PROGRESS_CHARS <= this.messageCharLimit
+      ) {
         await this.transport.appendText(this.curTs, opener);
         this.curMessagePosted += opener.length;
       }
@@ -342,7 +377,10 @@ export class NativeMessageStream implements TextStream {
       if (remaining <= room) {
         // The rest of the reply fits in this message; only the per-call cap applies.
         await this.appendSlice(
-          Math.min(this.curPosted + APPEND_CHAR_LIMIT, this.buffer.length),
+          avoidSurrogateSplit(
+            this.buffer,
+            Math.min(this.curPosted + APPEND_CHAR_LIMIT, this.buffer.length),
+          ),
         );
         continue;
       }
@@ -356,7 +394,9 @@ export class NativeMessageStream implements TextStream {
       }
       // Room to spare beyond one call (only reachable with a configured limit
       // above the per-call cap): send a full call and re-evaluate.
-      await this.appendSlice(this.curPosted + APPEND_CHAR_LIMIT);
+      await this.appendSlice(
+        avoidSurrogateSplit(this.buffer, this.curPosted + APPEND_CHAR_LIMIT),
+      );
     }
   }
 
@@ -383,9 +423,12 @@ export class NativeMessageStream implements TextStream {
     const floor = window.length / 4;
     let at = window.lastIndexOf("\n");
     if (at < floor) at = Math.max(at, window.lastIndexOf(" "));
-    if (at < floor) return maxEnd;
+    // No usable break (whitespace-free text: CJK, emoji runs, base64) — hard cut,
+    // stepped back off a surrogate pair if it lands inside one.
+    if (at < floor) return avoidSurrogateSplit(this.buffer, maxEnd);
     // +1 keeps the break character on the outgoing message, so the continuation
-    // starts cleanly at the next line/word.
+    // starts cleanly at the next line/word. A break character is never half of a
+    // surrogate pair, so this boundary is inherently safe.
     return start + at + 1;
   }
 
