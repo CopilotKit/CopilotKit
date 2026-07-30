@@ -125,6 +125,41 @@ describe("sanitizeAgentEventStream", () => {
     expect(await bodyText(agent)).toContain(`"parentMessageId":""`);
   });
 
+  it("still converts a mid-stream abort into RUN_ERROR rather than failing the run", async () => {
+    // The stock transform turns an AbortError into a synthetic RUN_ERROR and
+    // completes the stream. Replacing the transform (as SanitizingHttpAgent
+    // does) forfeits that; wrapping the transport must not.
+    const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(
+          encoder.encode(
+            frame({ type: "RUN_STARTED", threadId: "t1", runId: "r1" }),
+          ),
+        );
+        c.error(abort);
+      },
+    });
+    const agent = sanitizeAgentEventStream(
+      new HttpAgent({
+        url: "http://agent.test/run",
+        fetch: (async () =>
+          new Response(body, {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          })) as typeof fetch,
+      }),
+    );
+
+    const errors: string[] = [];
+    await agent.runAgent(
+      {},
+      { onRunErrorEvent: ({ event }) => void errors.push(event.code ?? "") },
+    );
+
+    expect(errors).toEqual(["abort"]);
+  });
+
   it("passes a non-SSE body through untouched so protobuf still negotiates", async () => {
     const proto = '\u0000\u0001"parentMessageId":null';
     const agent = sanitizeAgentEventStream(
