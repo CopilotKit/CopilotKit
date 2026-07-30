@@ -239,8 +239,8 @@ interactive behavior, state, and deployment.
     override them for a self-hosted or non-production deployment, replace both
     together. The REST and realtime planes use separate hosts, so do not derive
     the WebSocket URL by changing the API URL's scheme. Pass bare base URLs:
-    the client appends `/api/...`, `/runner`, or `/client` itself. Do not append
-    `/api`, `/socket`, `/runner`, or `/client`.
+    the client appends `/api/...`, `/runner`, `/client`, or `/channels` itself.
+    Do not append `/api`, `/socket`, `/runner`, `/client`, or `/channels`.
 
     Open **API Keys** in the project sidebar to create and copy the
     project-scoped runtime key.

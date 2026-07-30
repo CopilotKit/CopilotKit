@@ -1,14 +1,22 @@
 export {
-  CHANNEL_SESSION_PROTOCOL,
-  PROVIDER_EFFECT_MAX_BYTES,
-  assertProviderEffect,
-  providerEffectByteLength,
-} from "./live-session-contracts.js";
-export type { ChannelProviderEffect } from "./live-session-contracts.js";
+  CHANNEL_DELIVERY_PROTOCOL,
+  CHANNEL_DELIVERY_JOIN_TOKEN_TTL_SECONDS,
+  CHANNEL_DELIVERY_OWNER_TTL_SECONDS,
+  DELIVERY_PACKET_MAX_BYTES,
+  assertDeliveryPacket,
+  deliveryPacketByteLength,
+  deliveryPayloadDigest,
+} from "./delivery-contracts.js";
+export type {
+  ChannelDeliveryPacket,
+  ChannelDeliveryPacketAck,
+  ChannelDeliveryPayload,
+  ChannelProviderPayload,
+  ChannelTerminalPayload,
+} from "./delivery-contracts.js";
 
 export {
   connectRealtimeGateway,
-  RealtimeGatewaySetupRequiredError,
   RealtimeGatewayUnreachableError,
 } from "./realtime-gateway.js";
 export type {
@@ -20,13 +28,13 @@ export type {
 
 export {
   startChannelsOverRealtimeGateway,
-  startChannelsWithGatewaySession,
+  startChannelsWithGatewayControl,
   assertValidChannelRealtimeScope,
 } from "./realtime-gateway-launcher.js";
 export type {
   ChannelRealtimeScope,
   StartChannelsOverRealtimeGatewayOptions,
-  StartChannelsWithGatewaySessionOptions,
+  StartChannelsWithGatewayControlOptions,
 } from "./realtime-gateway-launcher.js";
 
 export {

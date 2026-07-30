@@ -1,5 +1,5 @@
 import type { AgentContentPart } from "@copilotkit/channels-ui";
-import type { ChannelFileRef } from "./live-session-files.js";
+import type { ChannelFileRef } from "./delivery-files.js";
 
 /** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
 export function mediaKindForMime(

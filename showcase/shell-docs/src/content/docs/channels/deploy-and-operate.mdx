@@ -42,18 +42,17 @@ if (initial.overall !== "online") {
 
 `ready()` can resolve in `setup_required`; it means activation settled, not
 that delivery is healthy. Treat only `status().overall === "online"` as a
-healthy connected activation. An online replica may be the active owner or a
-standby ready for promotion.
+healthy connected activation.
 
 The runtime status values are:
 
 | Runtime status | Meaning |
 | --- | --- |
 | `connecting` | Activation has not settled |
-| `online` | The managed session is healthy; this replica may be active or standby |
+| `online` | The managed connection is healthy and can claim delivery invitations |
 | `setup_required` | The Intelligence provider setup is incomplete |
 | `reconnecting` | The gateway connection dropped and is retrying |
-| `error` | Activation failed, reconnect gave up, or this activation was fenced |
+| `error` | Activation failed or reconnect gave up |
 | `stopped` | The Channels control was stopped |
 
 The Intelligence UI translates provider and runtime details into its own

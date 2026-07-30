@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { LiveSessionFileClient } from "./live-session-files.js";
+import { ChannelDeliveryFileClient } from "./delivery-files.js";
 
 test("image uploads carry an allowlisted MIME inferred from the filename", async () => {
   const fetch = vi.fn<typeof globalThis.fetch>(async () => {
@@ -8,7 +8,7 @@ test("image uploads carry an allowlisted MIME inferred from the filename", async
       headers: { "content-type": "application/json" },
     });
   });
-  const client = new LiveSessionFileClient({
+  const client = new ChannelDeliveryFileClient({
     baseUrl: "https://intelligence.example",
     apiKey: "test-key",
     fetch,
@@ -35,7 +35,7 @@ test("general file uploads keep the binary MIME", async () => {
       headers: { "content-type": "application/json" },
     });
   });
-  const client = new LiveSessionFileClient({
+  const client = new ChannelDeliveryFileClient({
     baseUrl: "https://intelligence.example",
     apiKey: "test-key",
     fetch,

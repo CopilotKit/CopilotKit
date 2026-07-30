@@ -101,15 +101,15 @@ async function readCapped(
   return bytes;
 }
 
-export interface LiveSessionFileClientConfig {
+export interface ChannelDeliveryFileClientConfig {
   baseUrl: string;
   apiKey: string;
   fetch?: typeof fetch;
 }
 
-/** App-api client for live-session file download and upload. */
-export class LiveSessionFileClient {
-  constructor(private readonly config: LiveSessionFileClientConfig) {}
+/** App-api client for channel delivery file download and upload. */
+export class ChannelDeliveryFileClient {
+  constructor(private readonly config: ChannelDeliveryFileClientConfig) {}
 
   private fetchImpl(): typeof fetch {
     const implementation = this.config.fetch ?? globalThis.fetch;

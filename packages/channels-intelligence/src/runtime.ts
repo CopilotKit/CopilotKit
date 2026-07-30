@@ -127,7 +127,7 @@ export interface ChannelsHandle {
    */
   onStateChange?(
     cb: (
-      state: "online" | "reconnecting" | "gave_up" | "fenced",
+      state: "online" | "reconnecting" | "gave_up",
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;

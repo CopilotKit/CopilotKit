@@ -133,7 +133,7 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     expect(state.calls[0]!.channelName).toBe("support");
     expect(config.adapter).toBe("slack");
     expect(config.showToolStatus).toBe(true);
-    expect(config.wsUrl).toBe(intelligence.ɵgetRunnerWsUrl());
+    expect(config.wsUrl).toBe(intelligence.ɵgetChannelsWsUrl());
     expect(config.apiKey).toBe(intelligence.ɵgetRunnerAuthToken());
     expect(config.runtimeInstanceId).toMatch(/^rti_/);
 
