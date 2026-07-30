@@ -181,7 +181,7 @@ describe("Channel delivery transport", () => {
     const deliveryChannel = channel();
     const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
     vi.mocked(deliveryChannel.push).mockRejectedValue(
-      new RealtimeGatewayPushError("conflict", "sequence conflict"),
+      new RealtimeGatewayPushError("packet", "conflict", "sequence conflict"),
     );
     const session = new ChannelDeliverySession(
       preparedDelivery(),
