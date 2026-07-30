@@ -23,6 +23,7 @@ import { buildContentParts } from "./content-parts.js";
 const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
 const JOIN_TOKEN_EVENT = "join_token";
+const DEFAULT_MAX_CONCURRENT_DELIVERIES = 8;
 const PACKET_EVENT = "packet";
 
 export type ChannelDeliveryAdapter = "slack" | "teams";
@@ -469,6 +470,8 @@ interface ClaimResult {
 export interface ChannelDeliveryTransportOptions {
   session: RealtimeGatewaySession;
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
   appApiBaseUrl?: string;
   apiKey?: string;
   fileFetch?: typeof fetch;
@@ -478,7 +481,9 @@ export interface ChannelDeliveryTransportOptions {
 /** Claims invitations and runs each delivery on its one-use delivery topic. */
 export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
+  private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
+  private readonly maxConcurrentDeliveries: number;
   private stopped = false;
   private invitationHandler?: (value: unknown) => void;
   private started = false;
@@ -489,6 +494,16 @@ export class ChannelDeliveryTransport {
   ) => Promise<void>;
 
   constructor(private readonly options: ChannelDeliveryTransportOptions) {
+    this.maxConcurrentDeliveries =
+      options.maxConcurrentDeliveries ?? DEFAULT_MAX_CONCURRENT_DELIVERIES;
+    if (
+      !Number.isSafeInteger(this.maxConcurrentDeliveries) ||
+      this.maxConcurrentDeliveries < 1
+    ) {
+      throw new TypeError(
+        "maxConcurrentDeliveries must be a positive safe integer",
+      );
+    }
     if (options.appApiBaseUrl && options.apiKey) {
       this.files = new ChannelDeliveryFileClient({
         baseUrl: options.appApiBaseUrl,
@@ -524,12 +539,28 @@ export class ChannelDeliveryTransport {
       ) {
         return;
       }
+      if (this.active.size >= this.maxConcurrentDeliveries) {
+        this.options.log?.("channel delivery invitation declined", {
+          reason: "capacity",
+        });
+        return;
+      }
+      if (this.activeThreads.has(value.canonicalThreadId)) {
+        this.options.log?.("channel delivery invitation declined", {
+          reason: "thread_active",
+        });
+        return;
+      }
       const activeHandler = this.deliveryHandler;
       // Register into active before any await so stop() waits for this delivery.
+      this.activeThreads.add(value.canonicalThreadId);
       const running = this.claimAndHandle(
         value.deliveryId,
         activeHandler,
-      ).finally(() => this.active.delete(value.deliveryId));
+      ).finally(() => {
+        this.active.delete(value.deliveryId);
+        this.activeThreads.delete(value.canonicalThreadId);
+      });
       this.active.set(value.deliveryId, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);
@@ -797,12 +828,15 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
 function isInvitation(value: unknown): value is {
   protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
   deliveryId: string;
+  canonicalThreadId: string;
 } {
   return (
     isRecord(value) &&
     value.protocol === CHANNEL_DELIVERY_PROTOCOL &&
     typeof value.deliveryId === "string" &&
-    value.deliveryId.startsWith("dlv_")
+    value.deliveryId.startsWith("dlv_") &&
+    typeof value.canonicalThreadId === "string" &&
+    value.canonicalThreadId.length > 0
   );
 }
 

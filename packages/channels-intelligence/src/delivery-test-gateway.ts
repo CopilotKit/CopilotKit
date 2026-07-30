@@ -69,6 +69,7 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
     this.invitationHandler?.({
       protocol: "channel_delivery_v1",
       deliveryId: delivery.deliveryId,
+      canonicalThreadId: delivery.canonicalThreadId,
     });
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {

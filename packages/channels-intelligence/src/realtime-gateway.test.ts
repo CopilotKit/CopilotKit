@@ -144,6 +144,7 @@ function makeFakeWebSocket(
               {
                 protocol: "channel_delivery_v1",
                 deliveryId: "dlv_first_invitation",
+                canonicalThreadId: "thread_first_invitation",
                 channelName: "opentag",
                 adapter: "slack",
               },
@@ -257,6 +258,7 @@ describe("connectRealtimeGateway", () => {
       {
         protocol: "channel_delivery_v1",
         deliveryId: "dlv_first_invitation",
+        canonicalThreadId: "thread_first_invitation",
         channelName: "opentag",
         adapter: "slack",
       },

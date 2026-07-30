@@ -4,6 +4,7 @@ import {
   ChannelDeliverySession,
   ChannelDeliveryTransport,
 } from "./delivery-transport.js";
+import type { PreparedChannelDelivery } from "./delivery-transport.js";
 import type {
   RealtimeGatewayDeliveryChannel,
   RealtimeGatewaySession,
@@ -71,6 +72,7 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
   invitationHandler({
     protocol: "channel_delivery_v1",
     deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
     channelName: "support",
     adapter: "slack",
   });
@@ -88,6 +90,165 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
     ownerGeneration: 7,
     joinToken: "chj_token_01",
   });
+});
+
+test("does not claim a new invitation while the local delivery limit is full", async () => {
+  let releaseFirst: (() => void) | undefined;
+  const firstDelivery = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((_event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      return Promise.resolve({
+        result: "claimed",
+        deliveryId,
+        ownerGeneration: 7,
+        joinToken: `chj_${deliveryId}`,
+      });
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockImplementation((topic) => {
+      const deliveryId = topic.replace("delivery:", "");
+      return Promise.resolve(
+        channel({
+          ...preparedDelivery(),
+          deliveryId,
+          canonicalThreadId:
+            deliveryId === "dlv_delivery_01" ? "thread_01" : "thread_02",
+        }),
+      );
+    }),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    maxConcurrentDeliveries: 1,
+  });
+  const handled = vi.fn(async (_session, delivery: PreparedChannelDelivery) => {
+    if (delivery.deliveryId === "dlv_delivery_01") {
+      await firstDelivery;
+    }
+  });
+  transport.start(handled);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_02",
+    canonicalThreadId: "thread_02",
+  });
+
+  expect(control.push).toHaveBeenCalledTimes(1);
+  expect(control.push).not.toHaveBeenCalledWith(
+    "claim",
+    expect.objectContaining({ deliveryId: "dlv_delivery_02" }),
+  );
+
+  releaseFirst?.();
+  await transport.stop();
+});
+
+test("excludes the same canonical Thread before claim while allowing another Thread", async () => {
+  let releaseFirst: (() => void) | undefined;
+  const firstDelivery = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const threadByDelivery = new Map([
+    ["dlv_delivery_01", "thread_01"],
+    ["dlv_delivery_02", "thread_01"],
+    ["dlv_delivery_03", "thread_03"],
+  ]);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((_event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      return Promise.resolve({
+        result: "claimed",
+        deliveryId,
+        ownerGeneration: 7,
+        joinToken: `chj_${deliveryId}`,
+      });
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockImplementation((topic) => {
+      const deliveryId = topic.replace("delivery:", "");
+      return Promise.resolve(
+        channel({
+          ...preparedDelivery(),
+          deliveryId,
+          canonicalThreadId: threadByDelivery.get(deliveryId) ?? "thread_other",
+        }),
+      );
+    }),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    maxConcurrentDeliveries: 2,
+  });
+  const handled = vi.fn(async (_session, delivery: PreparedChannelDelivery) => {
+    if (delivery.deliveryId === "dlv_delivery_01") {
+      await firstDelivery;
+    }
+  });
+  transport.start(handled);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledOnce());
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_02",
+    canonicalThreadId: "thread_01",
+  });
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_03",
+    canonicalThreadId: "thread_03",
+  });
+
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(2));
+  expect(control.push).not.toHaveBeenCalledWith(
+    "claim",
+    expect.objectContaining({ deliveryId: "dlv_delivery_02" }),
+  );
+  expect(control.push).toHaveBeenCalledWith(
+    "claim",
+    expect.objectContaining({ deliveryId: "dlv_delivery_03" }),
+  );
+
+  releaseFirst?.();
+  await transport.stop();
+});
+
+test("ignores an invitation without a canonical Thread admission key", () => {
+  const control: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: vi.fn(),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(async () => undefined);
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+  });
+
+  expect(control.push).not.toHaveBeenCalled();
 });
 
 test("retries the exact packet after reconnect and calls no second sequence", async () => {
@@ -426,6 +587,7 @@ test("rejects prepared deliveries with incomplete turn fields", async () => {
   invitationHandler({
     protocol: "channel_delivery_v1",
     deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
   });
   await transport.stop();
   await vi.waitFor(() => {
