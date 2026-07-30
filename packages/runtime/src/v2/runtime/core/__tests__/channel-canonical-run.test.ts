@@ -24,6 +24,12 @@ const canonicalIdentity = {
   runId: "canonical-run",
 };
 
+/** Product lock cleanup args — scoped per delivery so concurrent turns do not collide. */
+const canonicalLockCleanup = {
+  ...canonicalIdentity,
+  lockKeyPrefix: `channel-run:${canonicalIdentity.runId}`,
+};
+
 class NoopAgent extends AbstractAgent {
   run(_input: RunAgentInput): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
@@ -170,7 +176,7 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
     message: "agent failed",
     code: "AGENT_FAILED",
   });
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(canonicalLockCleanup);
 });
 
 test("runCanonical renews the standard thread lock until the run settles", async () => {
@@ -204,6 +210,8 @@ test("runCanonical renews the standard thread lock until the run settles", async
       threadId: canonicalIdentity.threadId,
       runId: canonicalIdentity.runId,
       ttlSeconds: 120,
+      // Per-delivery lock prefix so concurrent Channel turns do not 409.
+      lockKeyPrefix: `channel-run:${canonicalIdentity.runId}`,
     });
 
     completeRun?.();
@@ -250,7 +258,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
 
     await failed;
     expect(stopRun).toHaveBeenCalledWith({
-      threadId: canonicalIdentity.threadId,
+      threadId: `${canonicalIdentity.threadId}::${canonicalIdentity.runId}`,
     });
   } finally {
     vi.useRealTimers();
@@ -305,8 +313,15 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
     userId: "app-user-1",
     agentId: "support-agent",
     ttlSeconds: 20,
+    // Per-delivery prefix so concurrent Channel turns on one thread do not 409.
+    lockKeyPrefix: `channel-run:${canonicalIdentity.runId}`,
   });
   expect(request).not.toHaveProperty("authToken");
+  // Local runner is keyed per-run; product thread id stays on the AG-UI input.
+  expect(request?.threadId).toBe(
+    `${canonicalIdentity.threadId}::${canonicalIdentity.runId}`,
+  );
+  expect(request?.input.threadId).toBe(canonicalIdentity.threadId);
 });
 
 test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {
@@ -403,7 +418,7 @@ test("runCanonical cleans up the lock when the runner cannot start", async () =>
   await expect(runCanonical(runArgs())).rejects.toThrow(
     "runner startup failed",
   );
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(canonicalLockCleanup);
 });
 
 test("runCanonical cleans up the lock after a successful runner stream", async () => {
@@ -420,7 +435,7 @@ test("runCanonical cleans up the lock after a successful runner stream", async (
 
   await runCanonical(runArgs());
 
-  expect(cleanup).toHaveBeenCalledWith(canonicalIdentity);
+  expect(cleanup).toHaveBeenCalledWith(canonicalLockCleanup);
 });
 
 test("runCanonical rejects an outer agent error completed by the standard runner", async () => {
