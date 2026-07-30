@@ -39,6 +39,7 @@ import type {
   LiveSessionRun,
   LiveSessionTransport,
 } from "./live-session-transport.js";
+import { safeChannelErrorMetadata } from "./live-session-transport.js";
 import { assertProviderReference } from "./live-session-contracts.js";
 import {
   managedImageBytesMatch,
@@ -127,11 +128,19 @@ export class LiveSessionAdapter implements PlatformAdapter {
     seedsInboundTurn: false,
     getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
       const target = asLiveTarget(replyTarget);
-      const agent = makeAgent(conversationKey);
-      const release = await this.acquireAgent(agent);
+      const threadId = target.delivery.canonicalThreadId;
+      // Reserve before creating or queuing an agent so overlap rejects instead
+      // of silently serializing behind a configured shared agent instance.
+      if (this.activeThreads.has(threadId)) {
+        throw new ChannelAgentConcurrencyError(threadId);
+      }
+      this.activeThreads.add(threadId);
+      let releaseAgent: (() => void) | undefined;
       try {
+        const agent = makeAgent(conversationKey);
+        releaseAgent = await this.acquireAgent(agent);
         const history = await this.options.loadHistory({
-          threadId: target.delivery.canonicalThreadId,
+          threadId,
           appUserId: target.delivery.appUserId,
         });
         agent.messages = [...history];
@@ -139,9 +148,19 @@ export class LiveSessionAdapter implements PlatformAdapter {
           agent,
           new Set(history.map((message) => message.id)),
         );
-        return { agent, release };
+        let released = false;
+        return {
+          agent,
+          release: () => {
+            if (released) return;
+            released = true;
+            releaseAgent?.();
+            this.activeThreads.delete(threadId);
+          },
+        };
       } catch (error) {
-        release();
+        releaseAgent?.();
+        this.activeThreads.delete(threadId);
         throw error;
       }
     },
@@ -155,6 +174,7 @@ export class LiveSessionAdapter implements PlatformAdapter {
   >();
   private readonly agentTails = new WeakMap<AbstractAgent, Promise<void>>();
   private readonly activeThreads = new Set<string>();
+  private readonly interruptedRuns = new Map<string, string>();
 
   constructor(private readonly options: LiveSessionAdapterOptions) {
     this.stateStore = options.store;
@@ -301,23 +321,30 @@ export class LiveSessionAdapter implements PlatformAdapter {
     const target = asLiveTarget(args.replyTarget);
     this.assertRunAgentSupported(args.replyTarget);
     const threadId = target.delivery.canonicalThreadId;
-    if (this.activeThreads.has(threadId)) {
-      throw new ChannelAgentConcurrencyError(threadId);
-    }
-    this.activeThreads.add(threadId);
+    const parentRunId = args.isResume
+      ? this.interruptedRuns.get(threadId)
+      : undefined;
     const responseId =
       this.rendererResponses.get(args.renderer) ?? mintId("response_");
     const callId = mintId("call_");
     let opened: LiveSessionRun | undefined;
     let status: "complete" | "failed" = "complete";
+    let result!: ChannelAgentLoopResult;
     try {
       opened = await target.session.openRun({
         callId,
         responseId,
         agentId: args.agent.agentId ?? "default",
+        ...(parentRunId ? { parentRunId } : {}),
       });
+      if (
+        parentRunId !== undefined &&
+        this.interruptedRuns.get(threadId) === parentRunId
+      ) {
+        this.interruptedRuns.delete(threadId);
+      }
       const historyIds = this.historyIds.get(args.agent) ?? new Set<string>();
-      return await this.options.runCanonical({
+      result = await this.options.runCanonical({
         agent: args.agent,
         threadId: opened.threadId,
         runId: opened.runId,
@@ -330,6 +357,9 @@ export class LiveSessionAdapter implements PlatformAdapter {
         ),
         execute: args.execute,
       });
+      if (result.interrupted) {
+        this.interruptedRuns.set(threadId, opened.runId);
+      }
     } catch (error) {
       status = "failed";
       throw error;
@@ -338,11 +368,17 @@ export class LiveSessionAdapter implements PlatformAdapter {
         await target.session
           .closeRun(opened.callId, status)
           .catch((error: unknown) => {
-            this.options.log?.("channel run close failed", error);
+            this.options.log?.(
+              "channel run close failed",
+              safeChannelErrorMetadata(error),
+            );
           });
       }
-      this.activeThreads.delete(threadId);
     }
+    if (result.deliveryError !== undefined) {
+      throw result.deliveryError;
+    }
+    return result;
   }
 
   render(ir: ChannelNode[]): NativePayload {
@@ -572,7 +608,10 @@ export class LiveSessionAdapter implements PlatformAdapter {
             kind: "teams.typing",
           });
         } catch (error) {
-          this.options.log?.("managed Teams typing failed", error);
+          this.options.log?.(
+            "managed Teams typing failed",
+            safeChannelErrorMetadata(error),
+          );
         }
       },
       post: async (text) => {

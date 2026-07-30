@@ -432,13 +432,86 @@ test("delivery-topic join rejection is logged and does not reject transport stop
   await transport.stop();
 
   expect(handler).not.toHaveBeenCalled();
-  expect(log).toHaveBeenCalledWith(
-    "channel delivery topic join failed",
-    expect.objectContaining({
-      deliveryId: "dlv_delivery",
-      error: "join denied",
+  expect(log).toHaveBeenCalledWith("channel delivery topic join failed", {
+    deliveryId: "dlv_delivery",
+    errorCategory: "unknown",
+  });
+  expect(JSON.stringify(log.mock.calls)).not.toContain("join denied");
+});
+
+test("delivery handler failure logs only a bounded error category", async () => {
+  let notice: ((payload: unknown) => void) | undefined;
+  const channel = deliveryChannel(vi.fn().mockResolvedValue({}));
+  const session: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: (_event, handler) => {
+      notice = handler;
+    },
+    join: vi.fn().mockResolvedValue(channel),
+  };
+  const log = vi.fn();
+  const transport = new LiveSessionTransport({
+    session,
+    runtimeInstanceId: "runtime_01",
+    log,
+  });
+  transport.start(async () => {
+    throw new Error(
+      "provider body secret-body with opaque ref pref_v1_secret-reference",
+    );
+  });
+
+  notice?.(delivery());
+  await transport.stop();
+
+  expect(log).toHaveBeenCalledWith("channel delivery handler failed", {
+    deliveryId: "dlv_delivery",
+    errorCategory: "unknown",
+  });
+  expect(JSON.stringify(log.mock.calls)).not.toContain("secret-body");
+  expect(JSON.stringify(log.mock.calls)).not.toContain(
+    "pref_v1_secret-reference",
+  );
+});
+
+test("delivery failure-record rejection logs only a bounded error category", async () => {
+  let notice: ((payload: unknown) => void) | undefined;
+  const channel = deliveryChannel(
+    vi.fn(async (event) => {
+      if (event === "channel.delivery.fail.v1") {
+        throw new Error("provider response secret-failure-body");
+      }
+      return {};
     }),
   );
+  const session: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: (_event, handler) => {
+      notice = handler;
+    },
+    join: vi.fn().mockResolvedValue(channel),
+  };
+  const log = vi.fn();
+  const transport = new LiveSessionTransport({
+    session,
+    runtimeInstanceId: "runtime_01",
+    log,
+  });
+  transport.start(async () => {
+    throw new Error("handler failed");
+  });
+
+  notice?.(delivery());
+  await transport.stop();
+
+  expect(log).toHaveBeenCalledWith(
+    "channel delivery failure could not be recorded",
+    {
+      deliveryId: "dlv_delivery",
+      errorCategory: "unknown",
+    },
+  );
+  expect(JSON.stringify(log.mock.calls)).not.toContain("secret-failure-body");
 });
 
 test("delivery-topic join presents the short-lived admitted delivery code", async () => {

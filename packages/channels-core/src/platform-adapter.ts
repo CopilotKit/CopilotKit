@@ -100,6 +100,11 @@ export interface ChannelAgentLifecycleArgs {
   renderer: RunRenderer;
   tools: readonly AgentToolDescriptor[];
   context: readonly ContextEntry[];
+  /**
+   * True only for `Thread.resume()`. The resume value remains private to the
+   * agent command and never crosses the managed run-open boundary.
+   */
+  isResume?: boolean;
   execute(
     subscriber: AgentSubscriber,
     canonicalRun?: CanonicalRunIdentity,

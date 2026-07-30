@@ -51,6 +51,8 @@ interface SubscriberFanoutOptions {
   canonicalRun?: CanonicalRunIdentity;
   onInnerRunError?: (event: RunErrorEvent) => void;
   onRendererError?: (error: unknown) => void;
+  /** Stops provider callbacks after their first terminal delivery error. */
+  isRendererClosed?: () => boolean;
 }
 
 type SubscriberCallback = (value: unknown) => unknown;
@@ -94,6 +96,7 @@ async function invokeSubscriberPair(
   ingestionCallback: SubscriberCallback | undefined,
   params: unknown,
   onRendererError?: (error: unknown) => void,
+  isRendererClosed?: () => boolean,
 ): Promise<unknown> {
   let rendererResult: unknown;
   let ingestionResult: unknown;
@@ -108,11 +111,13 @@ async function invokeSubscriberPair(
     ingestionFailed = true;
     ingestionError = error;
   }
-  try {
-    rendererResult = await rendererCallback?.(params);
-  } catch (error) {
-    rendererFailed = true;
-    rendererError = error;
+  if (!isRendererClosed?.()) {
+    try {
+      rendererResult = await rendererCallback?.(params);
+    } catch (error) {
+      rendererFailed = true;
+      rendererError = error;
+    }
   }
 
   if (ingestionFailed) throw ingestionError;
@@ -207,6 +212,7 @@ export function mergeAgentSubscribers(
             : undefined,
           canonicalParams,
           options.onRendererError,
+          options.isRendererClosed,
         );
       };
     },
@@ -230,6 +236,7 @@ async function emitCanonicalLifecycleEvent(
   result: { iterations: number; interrupted: boolean } | undefined,
   args: RunLoopArgs,
   onRendererError: (error: unknown) => void,
+  isRendererClosed: () => boolean,
 ): Promise<void> {
   const canonicalRun = args.canonicalRun;
   if (!canonicalRun) return;
@@ -257,6 +264,7 @@ async function emitCanonicalLifecycleEvent(
     ingestion.onEvent as SubscriberCallback | undefined,
     eventParams,
     onRendererError,
+    isRendererClosed,
   );
 
   if (event.type === EventType.RUN_STARTED) {
@@ -265,6 +273,7 @@ async function emitCanonicalLifecycleEvent(
       ingestion.onRunStartedEvent as SubscriberCallback | undefined,
       eventParams,
       onRendererError,
+      isRendererClosed,
     );
   } else if (event.type === EventType.RUN_FINISHED) {
     await invokeSubscriberPair(
@@ -277,6 +286,7 @@ async function emitCanonicalLifecycleEvent(
         result,
       },
       onRendererError,
+      isRendererClosed,
     );
   } else if (event.type === EventType.RUN_ERROR) {
     await invokeSubscriberPair(
@@ -284,6 +294,7 @@ async function emitCanonicalLifecycleEvent(
       ingestion.onRunErrorEvent as SubscriberCallback | undefined,
       eventParams,
       onRendererError,
+      isRendererClosed,
     );
   }
 }
@@ -317,6 +328,7 @@ export async function runAgentLoop(
     hasDeliveryError = true;
     deliveryError = error;
   };
+  const isRendererClosed = (): boolean => hasDeliveryError;
   const subscriber =
     args.subscriber || args.canonicalRun
       ? mergeAgentSubscribers(
@@ -329,6 +341,7 @@ export async function runAgentLoop(
                   innerRunError ??= errorFromInnerRun(event);
                 },
                 onRendererError: deferRendererError,
+                isRendererClosed,
               }
             : {},
         )
@@ -415,6 +428,7 @@ export async function runAgentLoop(
       undefined,
       args,
       deferRendererError,
+      isRendererClosed,
     );
     const result = await executeIterations();
     const finishedEvent: BaseEvent = {
@@ -427,6 +441,7 @@ export async function runAgentLoop(
       result,
       args,
       deferRendererError,
+      isRendererClosed,
     );
     return hasDeliveryError ? { ...result, deliveryError } : result;
   } catch (error) {
@@ -448,6 +463,7 @@ export async function runAgentLoop(
         undefined,
         args,
         deferRendererError,
+        isRendererClosed,
       );
     } catch {
       // Preserve the original run failure after canonical ingestion got its

@@ -3,8 +3,9 @@ import type {
   ChannelAgentLifecycleArgs,
   RunRenderer,
 } from "@copilotkit/channels-core";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { LiveSessionAdapter } from "./live-session-adapter.js";
+import type { LiveSessionAdapterOptions } from "./live-session-adapter.js";
 import {
   LiveDeliverySession,
   LiveSessionTransport,
@@ -59,7 +60,18 @@ function readRunOpenIds(payload: unknown): {
   return { callId: payload.callId, responseId: payload.responseId };
 }
 
-test("LiveSessionAdapter closes the Gateway run as failed when runCanonical rejects", async () => {
+function setupRunLifecycle(
+  runCanonical: LiveSessionAdapterOptions["runCanonical"],
+  options: {
+    closeError?: Error;
+    log?: (message: string, meta?: unknown) => void;
+  } = {},
+): {
+  adapter: LiveSessionAdapter;
+  args: ChannelAgentLifecycleArgs;
+  closePayloads: unknown[];
+  teardown(): void;
+} {
   const closePayloads: unknown[] = [];
   const deliveryChannel: RealtimeGatewayDeliveryChannel = {
     on: () => {},
@@ -79,6 +91,7 @@ test("LiveSessionAdapter closes the Gateway run as failed when runCanonical reje
       }
       if (event === "channel.run.close.v1") {
         closePayloads.push(payload);
+        if (options.closeError) throw options.closeError;
       }
       return {};
     },
@@ -99,11 +112,8 @@ test("LiveSessionAdapter closes the Gateway run as failed when runCanonical reje
   const adapter = new LiveSessionAdapter({
     transport,
     loadHistory: async () => [],
-    runCanonical: async () => {
-      throw Object.assign(new Error("canonical agent failed"), {
-        code: "AGENT_FAILED",
-      });
-    },
+    runCanonical,
+    log: options.log,
   });
   const args: ChannelAgentLifecycleArgs = {
     replyTarget: { session, delivery },
@@ -114,13 +124,31 @@ test("LiveSessionAdapter closes the Gateway run as failed when runCanonical reje
     execute: async () => ({ iterations: 0, interrupted: false }),
   };
 
+  return {
+    adapter,
+    args,
+    closePayloads,
+    teardown: () => session.leave(),
+  };
+}
+
+test("LiveSessionAdapter closes the Gateway run as failed when runCanonical rejects", async () => {
+  const canonicalFailure = Object.assign(new Error("canonical agent failed"), {
+    code: "AGENT_FAILED",
+  });
+  const { adapter, args, closePayloads, teardown } = setupRunLifecycle(
+    async () => {
+      throw canonicalFailure;
+    },
+  );
+
   try {
     await expect(adapter.runAgentLifecycle(args)).rejects.toMatchObject({
       message: "canonical agent failed",
       code: "AGENT_FAILED",
     });
   } finally {
-    session.leave();
+    teardown();
   }
 
   expect(closePayloads).toEqual([
@@ -128,6 +156,57 @@ test("LiveSessionAdapter closes the Gateway run as failed when runCanonical reje
       status: "failed",
     }),
   ]);
+});
+
+test("LiveSessionAdapter closes the canonical run complete before surfacing a provider failure", async () => {
+  const deliveryError = new Error("provider delivery failed");
+  const { adapter, args, closePayloads, teardown } = setupRunLifecycle(
+    async () => ({
+      iterations: 1,
+      interrupted: false,
+      deliveryError,
+    }),
+  );
+
+  try {
+    await expect(adapter.runAgentLifecycle(args)).rejects.toBe(deliveryError);
+  } finally {
+    teardown();
+  }
+
+  expect(closePayloads).toEqual([
+    expect.objectContaining({
+      status: "complete",
+    }),
+  ]);
+});
+
+test("LiveSessionAdapter logs a run-close failure without its raw message", async () => {
+  const log = vi.fn();
+  const { adapter, args, teardown } = setupRunLifecycle(
+    async () => ({
+      iterations: 1,
+      interrupted: false,
+    }),
+    {
+      closeError: new Error(
+        "provider body secret-close-body with opaque pref_v1_secret-close",
+      ),
+      log,
+    },
+  );
+
+  try {
+    await adapter.runAgentLifecycle(args);
+  } finally {
+    teardown();
+  }
+
+  expect(log).toHaveBeenCalledWith("channel run close failed", {
+    errorCategory: "unknown",
+  });
+  expect(JSON.stringify(log.mock.calls)).not.toContain("secret-close-body");
+  expect(JSON.stringify(log.mock.calls)).not.toContain("pref_v1_secret-close");
 });
 
 test("managed Slack keeps a partial run error in one native stream", async () => {

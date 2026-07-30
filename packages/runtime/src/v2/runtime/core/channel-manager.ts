@@ -148,6 +148,10 @@ export interface ChannelManagerArgs {
   channels: Channel[];
   /** Standard runtime AgentRunner used by managed Channel executions. */
   runner?: AgentRunner;
+  /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
+  lockTtlSeconds?: number;
+  /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
+  lockHeartbeatIntervalSeconds?: number;
   /**
    * Activation engine. Defaults to a wrapper over the channels-intelligence
    * Realtime Gateway launcher (`startChannelsOverRealtimeGateway`), reached via
@@ -289,6 +293,8 @@ export async function defaultActivateChannel(
   services?: {
     runner: AgentRunner;
     intelligence: CopilotKitIntelligence;
+    lockTtlSeconds?: number;
+    lockHeartbeatIntervalSeconds?: number;
   },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
@@ -325,7 +331,14 @@ export async function defaultActivateChannel(
     // transport-level drop (e.g. a version-skew missing-leaseToken outage) is
     // observable in the managed path, not just activation-level events.
     ...(log ? { log } : {}),
-    runCanonical: (args) => runCanonicalChannelAgent(services.runner, args),
+    runCanonical: (args) =>
+      runCanonicalChannelAgent(
+        services.runner,
+        services.intelligence,
+        services.lockTtlSeconds ?? 20,
+        services.lockHeartbeatIntervalSeconds ?? 15,
+        args,
+      ),
     loadHistory: async ({ threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
         threadId,
@@ -400,6 +413,9 @@ class ChannelOuterAgent extends AbstractAgent {
 /** Drive one public Channel run through the runtime's existing AgentRunner. */
 async function runCanonicalChannelAgent(
   runner: AgentRunner,
+  intelligence: CopilotKitIntelligence,
+  lockTtlSeconds: number,
+  lockHeartbeatIntervalSeconds: number,
   args: CanonicalRunArgs,
 ): Promise<{
   iterations: number;
@@ -420,12 +436,35 @@ async function runCanonicalChannelAgent(
     },
   );
   let stopPromise: Promise<boolean | undefined> | undefined;
+  let heartbeatError: unknown;
+  let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
       .then(() => runner.stop({ threadId: args.threadId }))
       .catch(() => false);
   };
   args.abortSignal.addEventListener("abort", stopCanonicalRun, { once: true });
+  heartbeatTimer = setInterval(() => {
+    intelligence
+      .ɵrenewThreadLock({
+        threadId: args.threadId,
+        runId: args.runId,
+        ttlSeconds: lockTtlSeconds,
+      })
+      .catch((error: unknown) => {
+        if (heartbeatTimer === undefined) return;
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = undefined;
+        heartbeatError = error;
+        try {
+          args.agent.abortRun();
+        } catch {
+          // The runner stop below remains the authoritative cancellation path.
+        }
+        stopCanonicalRun();
+      });
+  }, lockHeartbeatIntervalSeconds * 1_000);
+  heartbeatTimer.unref?.();
 
   try {
     if (args.abortSignal.aborted) {
@@ -484,15 +523,20 @@ async function runCanonicalChannelAgent(
     }
     throw error;
   } finally {
+    if (heartbeatTimer !== undefined) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = undefined;
+    }
     args.abortSignal.removeEventListener("abort", stopCanonicalRun);
   }
 
+  if (heartbeatError !== undefined) {
+    await stopPromise;
+    throw heartbeatError;
+  }
   if (args.abortSignal.aborted) {
     await stopPromise;
     throw channelRunCancellationError(args.abortSignal);
-  }
-  if ("deliveryError" in result) {
-    throw result.deliveryError;
   }
   return result;
 }
@@ -636,6 +680,8 @@ function withTimeout<T>(
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
   private readonly runner?: AgentRunner;
+  private readonly lockTtlSeconds: number;
+  private readonly lockHeartbeatIntervalSeconds: number;
   private readonly channels: Channel[];
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
@@ -651,6 +697,8 @@ export class ChannelManager implements ChannelsControl {
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
     this.runner = args.runner;
+    this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
+    this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
     this.channels = args.channels;
     this.log = args.log;
     // When using the default engine, forward the manager's log DOWN to the
@@ -666,7 +714,12 @@ export class ChannelManager implements ChannelsControl {
           undefined,
           this.log,
           this.runner
-            ? { runner: this.runner, intelligence: this.intelligence }
+            ? {
+                runner: this.runner,
+                intelligence: this.intelligence,
+                lockTtlSeconds: this.lockTtlSeconds,
+                lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
+              }
             : undefined,
         ));
     this.mintRuntimeInstanceId =

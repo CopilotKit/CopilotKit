@@ -109,14 +109,57 @@ type ProviderEffectInput = ChannelProviderEffect extends infer Effect
     : never
   : never;
 
+/**
+ * Promise wrapper that tells delivery tracking when handler code observes a
+ * rejection through `await`, `then`, or `catch`.
+ */
+class ObservableTrackedPromise<T> extends Promise<T> {
+  static get [Symbol.species](): PromiseConstructor {
+    return Promise;
+  }
+
+  constructor(
+    private readonly operation: Promise<T>,
+    private readonly observeRejection: () => void,
+  ) {
+    super((resolve, reject) => operation.then(resolve, reject));
+    void Promise.prototype.then.call(this, undefined, () => undefined);
+  }
+
+  // oxlint-disable-next-line unicorn/no-thenable -- This is a Promise subclass that observes handler rejection consumption.
+  override then<TResult1 = T, TResult2 = never>(
+    onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): Promise<TResult1 | TResult2> {
+    if (onrejected) this.observeRejection();
+    const chained = this.operation.then(onfulfilled, onrejected);
+    return new ObservableTrackedPromise(chained, this.observeRejection);
+  }
+
+  override catch<TResult = never>(
+    onrejected?: ((reason: unknown) => TResult | PromiseLike<TResult>) | null,
+  ): Promise<T | TResult> {
+    if (onrejected) this.observeRejection();
+    const chained = this.operation.catch(onrejected);
+    return new ObservableTrackedPromise(chained, this.observeRejection);
+  }
+
+  override finally(onfinally?: (() => void) | null): Promise<T> {
+    const chained = this.operation.finally(onfinally);
+    return new ObservableTrackedPromise(chained, this.observeRejection);
+  }
+}
+
 /** One admitted delivery topic and its ordered provider-effect cursor. */
 export class LiveDeliverySession {
   private nextSeq = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private readonly trackedOperations = new Set<Promise<unknown>>();
   private trackedOperationsSealed = false;
-  private trackedOperationFailed = false;
-  private trackedOperationFailure: unknown;
+  private readonly unobservedOperationFailures = new Map<
+    Promise<unknown>,
+    unknown
+  >();
   private pendingEffectCount = 0;
   private pendingEffectBytes = 0;
   private readonly heartbeat: ReturnType<typeof setInterval>;
@@ -167,13 +210,13 @@ export class LiveDeliverySession {
       rejectTracked = reject;
     });
     this.trackedOperations.add(tracked);
+    let rejectionObserved = false;
     void tracked.then(
       () => this.trackedOperations.delete(tracked),
       (error: unknown) => {
         this.trackedOperations.delete(tracked);
-        if (!this.trackedOperationFailed) {
-          this.trackedOperationFailed = true;
-          this.trackedOperationFailure = error;
+        if (!rejectionObserved) {
+          this.unobservedOperationFailures.set(tracked, error);
         }
       },
     );
@@ -183,7 +226,10 @@ export class LiveDeliverySession {
     } catch (error) {
       rejectTracked(error);
     }
-    return tracked;
+    return new ObservableTrackedPromise(tracked, () => {
+      rejectionObserved = true;
+      this.unobservedOperationFailures.delete(tracked);
+    });
   }
 
   private async sealAndWaitForTrackedOperations(
@@ -193,14 +239,11 @@ export class LiveDeliverySession {
     while (this.trackedOperations.size > 0) {
       await Promise.allSettled(this.trackedOperations);
     }
-    if (throwOnFailure && this.trackedOperationFailed) {
-      const failure = this.trackedOperationFailure;
-      this.trackedOperationFailed = false;
-      this.trackedOperationFailure = undefined;
+    const failure = this.unobservedOperationFailures.values().next().value;
+    this.unobservedOperationFailures.clear();
+    if (throwOnFailure && failure !== undefined) {
       throw failure;
     }
-    this.trackedOperationFailed = false;
-    this.trackedOperationFailure = undefined;
   }
 
   /** Apply one destination-free provider effect in strict sequence order. */
@@ -332,17 +375,32 @@ export class LiveDeliverySession {
     callId: string;
     responseId: string;
     agentId: string;
+    parentRunId?: string;
   }): Promise<LiveSessionRun> {
     const controller = new AbortController();
     this.runAbortControllers.set(args.callId, controller);
+    const request = {
+      protocol: CHANNEL_SESSION_PROTOCOL,
+      deliveryId: this.delivery.deliveryId,
+      runtimeInstanceId: this.runtimeInstanceId,
+      ...args,
+    };
+    const push = async (): Promise<Omit<LiveSessionRun, "abortSignal">> =>
+      (await this.channel.push(RUN_OPEN_EVENT, request)) as Omit<
+        LiveSessionRun,
+        "abortSignal"
+      >;
 
     try {
-      const opened = (await this.channel.push(RUN_OPEN_EVENT, {
-        protocol: CHANNEL_SESSION_PROTOCOL,
-        deliveryId: this.delivery.deliveryId,
-        runtimeInstanceId: this.runtimeInstanceId,
-        ...args,
-      })) as Omit<LiveSessionRun, "abortSignal">;
+      let opened: Omit<LiveSessionRun, "abortSignal">;
+      try {
+        opened = await push();
+      } catch (error) {
+        if (error instanceof RealtimeGatewayPushError) {
+          throw error;
+        }
+        opened = await push();
+      }
       return { ...opened, abortSignal: controller.signal };
     } catch (error) {
       this.runAbortControllers.delete(args.callId);
@@ -353,7 +411,18 @@ export class LiveDeliverySession {
   /** Close the active standard AgentRunner invocation. */
   async closeRun(callId: string, status: "complete" | "failed"): Promise<void> {
     await this.tail;
-    await this.channel.push(RUN_CLOSE_EVENT, { callId, status });
+    const request = { callId, status };
+    const push = async (): Promise<void> => {
+      await this.channel.push(RUN_CLOSE_EVENT, request);
+    };
+    try {
+      await push();
+    } catch (error) {
+      if (error instanceof RealtimeGatewayPushError) {
+        throw error;
+      }
+      await push();
+    }
     this.runAbortControllers.delete(callId);
   }
 
@@ -479,7 +548,7 @@ export class LiveSessionTransport {
     } catch (error) {
       this.options.log?.("channel delivery topic join failed", {
         deliveryId: delivery.deliveryId,
-        error: error instanceof Error ? error.message : String(error),
+        ...safeChannelErrorMetadata(error),
       });
       return;
     }
@@ -498,18 +567,55 @@ export class LiveSessionTransport {
       await session.fail(reason).catch((failError: unknown) => {
         this.options.log?.("channel delivery failure could not be recorded", {
           deliveryId: delivery.deliveryId,
-          error:
-            failError instanceof Error ? failError.message : String(failError),
+          ...safeChannelErrorMetadata(failError),
         });
       });
       this.options.log?.("channel delivery handler failed", {
         deliveryId: delivery.deliveryId,
-        error: reason,
+        ...safeChannelErrorMetadata(error),
       });
     } finally {
       session.leave();
     }
   }
+}
+
+/** Map an arbitrary failure to fixed-cardinality metadata safe for default logs. */
+export function safeChannelErrorMetadata(error: unknown): {
+  errorCategory:
+    | "auth"
+    | "backpressure"
+    | "network"
+    | "timeout"
+    | "validation"
+    | "unknown";
+  errorCode?: "delivery_backpressure_exceeded";
+} {
+  if (error instanceof ChannelDeliveryBackpressureError) {
+    return {
+      errorCategory: "backpressure",
+      errorCode: error.code,
+    };
+  }
+  const value = error as { name?: unknown; code?: unknown } | null;
+  const name = typeof value?.name === "string" ? value.name : "";
+  const code = typeof value?.code === "string" ? value.code : "";
+  const classification = `${name} ${code}`.toLowerCase();
+  if (/abort|timeout|etimedout|deadline/.test(classification)) {
+    return { errorCategory: "timeout" };
+  }
+  if (/network|fetch|econn|enotfound|socket|dns|epipe/.test(classification)) {
+    return { errorCategory: "network" };
+  }
+  if (
+    /auth|unauthorized|forbidden|token|credential|401|403/.test(classification)
+  ) {
+    return { errorCategory: "auth" };
+  }
+  if (/zod|valid|schema|parse/.test(classification)) {
+    return { errorCategory: "validation" };
+  }
+  return { errorCategory: "unknown" };
 }
 
 function isLiveSessionDelivery(value: unknown): value is LiveSessionDelivery {

@@ -2,6 +2,7 @@ import { expect, test, vi } from "vitest";
 import { FakeAgent } from "@copilotkit/channels-core";
 import type { Message } from "@ag-ui/client";
 import { LiveSessionAdapter } from "./live-session-adapter.js";
+import type { LiveSessionAdapterOptions } from "./live-session-adapter.js";
 import { LiveSessionTransport } from "./live-session-transport.js";
 import type {
   LiveDeliverySession,
@@ -34,6 +35,23 @@ const target = (value: LiveSessionDelivery) => ({
   session: {} as LiveDeliverySession,
 });
 
+function adapterWithHistory(
+  loadHistory: LiveSessionAdapterOptions["loadHistory"],
+): LiveSessionAdapter {
+  const gatewaySession: RealtimeGatewaySession = {
+    push: vi.fn(),
+    on: vi.fn(),
+  };
+  return new LiveSessionAdapter({
+    transport: new LiveSessionTransport({
+      session: gatewaySession,
+      runtimeInstanceId: "runtime_agent_isolation",
+    }),
+    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+    loadHistory,
+  });
+}
+
 test("one configured agent instance serializes managed histories across canonical threads", async () => {
   const sharedAgent = new FakeAgent();
   const histories = new Map<string, Message[]>([
@@ -50,18 +68,7 @@ test("one configured agent instance serializes managed histories across canonica
     async ({ threadId }: { threadId: string; appUserId: string }) =>
       histories.get(threadId) ?? [],
   );
-  const gatewaySession: RealtimeGatewaySession = {
-    push: vi.fn(),
-    on: vi.fn(),
-  };
-  const adapter = new LiveSessionAdapter({
-    transport: new LiveSessionTransport({
-      session: gatewaySession,
-      runtimeInstanceId: "runtime_agent_isolation",
-    }),
-    runCanonical: async () => ({ iterations: 0, interrupted: false }),
-    loadHistory,
-  });
+  const adapter = adapterWithHistory(loadHistory);
 
   const first = await adapter.conversationStore.getOrCreate(
     "thread_one",
@@ -77,17 +84,46 @@ test("one configured agent instance serializes managed histories across canonica
 
   expect(loadHistory).toHaveBeenCalledTimes(1);
   expect(first.agent.messages.map(({ id }) => id)).toEqual(["message_one"]);
-  const release = (
-    first as typeof first & { release?: () => void | Promise<void> }
-  ).release;
-  expect(release).toEqual(expect.any(Function));
+  expect(first.release).toEqual(expect.any(Function));
 
-  await release?.();
+  await first.release?.();
   const second = await secondPromise;
 
   expect(loadHistory).toHaveBeenCalledTimes(2);
   expect(second.agent.messages.map(({ id }) => id)).toEqual(["message_two"]);
-  await (
-    second as typeof second & { release?: () => void | Promise<void> }
-  ).release?.();
+  await second.release?.();
+});
+
+test("a second call on one canonical thread rejects before a shared agent can queue", async () => {
+  const sharedAgent = new FakeAgent();
+  const makeAgent = vi.fn(() => sharedAgent);
+  const adapter = adapterWithHistory(async () => []);
+  const first = await adapter.conversationStore.getOrCreate(
+    "thread_one",
+    target(delivery("delivery_one", "thread_one")),
+    makeAgent,
+  );
+
+  const second = adapter.conversationStore.getOrCreate(
+    "thread_one",
+    target(delivery("delivery_one", "thread_one")),
+    makeAgent,
+  );
+  const secondOutcome = second.then(
+    (value) => ({ status: "fulfilled" as const, value }),
+    (reason: unknown) => ({ status: "rejected" as const, reason }),
+  );
+  await Promise.resolve();
+  const factoryCallsBeforeRelease = makeAgent.mock.calls.length;
+  await first.release?.();
+  const outcome = await secondOutcome;
+
+  expect(factoryCallsBeforeRelease).toBe(1);
+  expect(outcome).toMatchObject({
+    status: "rejected",
+    reason: {
+      name: "ChannelAgentConcurrencyError",
+      code: "channel_agent_concurrency_not_supported",
+    },
+  });
 });

@@ -236,6 +236,8 @@ function getOrCreateChannelManager(
   const manager = new ChannelManager({
     intelligence: runtime.intelligence,
     runner: runtime.runner,
+    lockTtlSeconds: runtime.lockTtlSeconds,
+    lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
     channels: runtime.channels,
     // Bridge the manager's diagnostic sink to the shared logger. Without this
     // every `this.log?.(...)` breadcrumb in the manager (setup_required,

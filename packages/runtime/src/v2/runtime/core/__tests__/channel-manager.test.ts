@@ -894,7 +894,13 @@ describe("defaultActivateChannel", () => {
       runtimeInstanceId: "rti_x",
     });
 
-    await defaultActivateChannel(activationConfig, channel, importer);
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
 
     expect(activationConfig).not.toHaveProperty("showToolStatus");
     const [, opts] = start.mock.calls[0]!;
@@ -913,7 +919,13 @@ describe("defaultActivateChannel", () => {
       runtimeInstanceId: "rti_x",
     });
 
-    await defaultActivateChannel(activationConfig, channel, importer);
+    await defaultActivateChannel(
+      activationConfig,
+      channel,
+      importer,
+      undefined,
+      fakeServices(),
+    );
 
     expect(activationConfig.showToolStatus).toBe(true);
     const [, opts] = start.mock.calls[0]!;

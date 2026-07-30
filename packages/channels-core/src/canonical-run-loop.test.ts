@@ -312,6 +312,67 @@ test("managed renderer failure is deferred until canonical RUN_FINISHED reaches 
   ]);
 });
 
+test("managed renderer failure freezes later rendering while canonical ingestion finishes", async () => {
+  let agent!: FakeAgent;
+  agent = new FakeAgent([
+    (subscriber) =>
+      emitBatch(subscriber, agent, "inner-run", [
+        textEvent("message-1", "first"),
+        textEvent("message-2", "second"),
+      ]),
+  ]);
+  const { renderer, renderedEvents } = setupRenderer({
+    failOnContent: true,
+  });
+  const ingestedEvents: BaseEvent[] = [];
+
+  const result = await runAgentLoop({
+    agent,
+    renderer,
+    tools: new Map(),
+    toolDescriptors: [],
+    context: [],
+    makeToolCtx: () => {
+      throw new Error("no tool calls are expected");
+    },
+    subscriber: {
+      onEvent: ({ event }) => {
+        ingestedEvents.push(event);
+      },
+    },
+    canonicalRun,
+  });
+
+  expect(result).toMatchObject({
+    deliveryError: { message: "renderer failed" },
+  });
+  expect(
+    renderedEvents.map(({ type, ...event }) => ({
+      type,
+      messageId: "messageId" in event ? event.messageId : undefined,
+    })),
+  ).toEqual([
+    { type: EventType.RUN_STARTED, messageId: undefined },
+    { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "message-1" },
+  ]);
+  expect(
+    ingestedEvents
+      .filter(
+        ({ type }) =>
+          type === EventType.TEXT_MESSAGE_CONTENT ||
+          type === EventType.RUN_FINISHED,
+      )
+      .map(({ type, ...event }) => ({
+        type,
+        messageId: "messageId" in event ? event.messageId : undefined,
+      })),
+  ).toEqual([
+    { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "message-1" },
+    { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "message-2" },
+    { type: EventType.RUN_FINISHED, messageId: undefined },
+  ]);
+});
+
 test("inner RUN_ERROR becomes one canonical outer RUN_ERROR", async () => {
   let agent!: FakeAgent;
   agent = new FakeAgent([

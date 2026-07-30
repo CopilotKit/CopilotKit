@@ -270,6 +270,7 @@ describe("createRunRenderer — native streaming", () => {
         strict: true,
         onChunkFailure,
       },
+      showToolStatus: true,
     });
 
     await sub.onToolCallStartEvent!({

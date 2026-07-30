@@ -1,6 +1,7 @@
 import { expect, test, vi } from "vitest";
 import {
   ActionRegistry,
+  FakeAgent,
   InMemoryActionStore,
   MemoryStore,
   Thread,
@@ -61,7 +62,16 @@ function admittedDelivery(): LiveSessionDelivery {
   };
 }
 
-function setup(options: { effectError?: Error } = {}) {
+function setup(
+  options: {
+    effectError?: Error;
+    handler?: (thread: Thread) => Promise<void>;
+    runCanonical?: () => Promise<{
+      iterations: number;
+      interrupted: boolean;
+    }>;
+  } = {},
+) {
   const binding = deferred();
   const handlerReturned = deferred();
   const events: string[] = [];
@@ -92,7 +102,9 @@ function setup(options: { effectError?: Error } = {}) {
   });
   const adapter = new LiveSessionAdapter({
     transport,
-    runCanonical: async () => ({ iterations: 0, interrupted: false }),
+    runCanonical:
+      options.runCanonical ??
+      (async () => ({ iterations: 0, interrupted: false })),
     loadHistory: async () => [],
   });
   const registry = new DeferredActionRegistry(binding.promise);
@@ -107,9 +119,7 @@ function setup(options: { effectError?: Error } = {}) {
       },
       conversationKey: delivery.canonicalThreadId,
       registry,
-      agentFactory: (threadId) => {
-        throw new Error(`agentFactory not needed in this test: ${threadId}`);
-      },
+      agentFactory: () => new FakeAgent(),
       tools: new Map(),
       toolDescriptors: [],
       context: [],
@@ -119,7 +129,11 @@ function setup(options: { effectError?: Error } = {}) {
     };
     const thread = new Thread(deps);
 
-    void thread.post("late response").catch(() => undefined);
+    if (options.handler) {
+      await options.handler(thread);
+    } else {
+      void thread.post("late response");
+    }
     handlerReturned.resolve();
   });
 
@@ -173,5 +187,54 @@ test("a rejected fire-and-forget Thread post fails the delivery instead of compl
     "channel.delivery.fail.v1",
   ]);
   expect(events).not.toContain("channel.delivery.complete.v1");
+  expect(deliveryChannel.leave).toHaveBeenCalledOnce();
+});
+
+test("a discarded Thread failure that settles before handler return still fails the delivery", async () => {
+  const { binding, deliveryChannel, events, transport, deliver } = setup({
+    effectError: new Error("provider effect rejected immediately"),
+    handler: async (thread) => {
+      void thread.post("discarded response");
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    },
+  });
+
+  deliver();
+  binding.resolve();
+  await transport.stop();
+
+  expect(events).toEqual([
+    "channel.effect.v1",
+    "channel.effect.v1",
+    "channel.delivery.fail.v1",
+  ]);
+  expect(events).not.toContain("channel.delivery.complete.v1");
+  expect(deliveryChannel.leave).toHaveBeenCalledOnce();
+});
+
+test("a caught runAgent failure can post a fallback and complete the delivery", async () => {
+  const agentFailure = new Error("canonical agent failed");
+  const caught: unknown[] = [];
+  const { binding, deliveryChannel, events, transport, deliver } = setup({
+    runCanonical: async () => {
+      throw agentFailure;
+    },
+    handler: async (thread) => {
+      try {
+        await thread.runAgent();
+      } catch (error) {
+        caught.push(error);
+      }
+      await thread.post("fallback response");
+    },
+  });
+
+  deliver();
+  binding.resolve();
+  await transport.stop();
+
+  expect(caught).toEqual([agentFailure]);
+  expect(events).toContain("channel.delivery.complete.v1");
+  expect(events).not.toContain("channel.delivery.fail.v1");
   expect(deliveryChannel.leave).toHaveBeenCalledOnce();
 });

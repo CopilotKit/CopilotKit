@@ -59,7 +59,14 @@ class TestRunner extends AgentRunner {
   }
 }
 
-async function captureRunCanonical(runner: AgentRunner): Promise<RunCanonical> {
+async function captureRunCanonical(
+  runner: AgentRunner,
+  options: {
+    intelligence?: CopilotKitIntelligence;
+    lockHeartbeatIntervalSeconds?: number;
+    lockTtlSeconds?: number;
+  } = {},
+): Promise<RunCanonical> {
   let captured: RunCanonical | undefined;
   const importer = async (): Promise<ChannelsIntelligenceModule> => ({
     startChannelsOverRealtimeGateway: async (_channels, options) => {
@@ -83,11 +90,21 @@ async function captureRunCanonical(runner: AgentRunner): Promise<RunCanonical> {
     undefined,
     {
       runner,
-      intelligence: new CopilotKitIntelligence({
-        apiUrl: "https://runtime.example",
-        wsUrl: "wss://runtime.example",
-        apiKey: "cpk-42_short_long",
-      }),
+      intelligence:
+        options.intelligence ??
+        new CopilotKitIntelligence({
+          apiUrl: "https://runtime.example",
+          wsUrl: "wss://runtime.example",
+          apiKey: "cpk-42_short_long",
+        }),
+      ...(options.lockHeartbeatIntervalSeconds !== undefined
+        ? {
+            lockHeartbeatIntervalSeconds: options.lockHeartbeatIntervalSeconds,
+          }
+        : {}),
+      ...(options.lockTtlSeconds !== undefined
+        ? { lockTtlSeconds: options.lockTtlSeconds }
+        : {}),
     },
   );
 
@@ -133,6 +150,90 @@ test("runCanonical rejects a RUN_ERROR event even when the runner completes", as
   });
 });
 
+test("runCanonical renews the standard thread lock until the run settles", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    const renew = vi.spyOn(intelligence, "ɵrenewThreadLock").mockResolvedValue({
+      ttlSeconds: 120,
+    });
+    let completeRun: (() => void) | undefined;
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(renew).toHaveBeenCalledWith({
+      threadId: canonicalIdentity.threadId,
+      runId: canonicalIdentity.runId,
+      ttlSeconds: 120,
+    });
+
+    completeRun?.();
+    await running;
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(renew).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("runCanonical stops the standard runner when lock renewal fails", async () => {
+  vi.useFakeTimers();
+  try {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "cpk-42_short_long",
+    });
+    vi.spyOn(intelligence, "ɵrenewThreadLock").mockRejectedValue(
+      new Error("thread lock lost"),
+    );
+    let completeRun: (() => void) | undefined;
+    const stopRun = vi.fn(async () => {
+      completeRun?.();
+      return true;
+    });
+    const runner = new TestRunner(
+      () =>
+        new Observable<BaseEvent>((observer) => {
+          completeRun = () => observer.complete();
+        }),
+      stopRun,
+    );
+    const runCanonical = await captureRunCanonical(runner, {
+      intelligence,
+      lockHeartbeatIntervalSeconds: 1,
+      lockTtlSeconds: 120,
+    });
+
+    const running = runCanonical(runArgs());
+    const failed = expect(running).rejects.toThrow("thread lock lost");
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await failed;
+    expect(stopRun).toHaveBeenCalledWith({
+      threadId: canonicalIdentity.threadId,
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("runCanonical passes canonical identity into the outer Channel loop", async () => {
   const runner = new TestRunner(
     (request) =>
@@ -160,7 +261,7 @@ test("runCanonical passes canonical identity into the outer Channel loop", async
   expect(observedIdentity).toEqual(canonicalIdentity);
 });
 
-test("runCanonical surfaces a deferred delivery error only after the runner records RUN_FINISHED", async () => {
+test("runCanonical returns a deferred delivery error only after the runner records RUN_FINISHED", async () => {
   const recordedEvents: BaseEvent[] = [];
   let runnerCompleted = false;
   const runner = new TestRunner(
@@ -185,40 +286,43 @@ test("runCanonical surfaces a deferred delivery error only after the runner reco
   const runCanonical = await captureRunCanonical(runner);
   const deliveryError = new Error("provider delivery failed");
 
-  await expect(
-    runCanonical(
-      runArgs(async (subscriber, identity) => {
-        if (!identity) throw new Error("canonical identity is missing");
-        const input: RunAgentInput = {
-          ...identity,
+  const result = await runCanonical(
+    runArgs(async (subscriber, identity) => {
+      if (!identity) throw new Error("canonical identity is missing");
+      const input: RunAgentInput = {
+        ...identity,
+        messages: [],
+        state: {},
+        tools: [],
+        context: [],
+        forwardedProps: {},
+      };
+      for (const type of [
+        EventType.RUN_STARTED,
+        EventType.RUN_FINISHED,
+      ] as const) {
+        await subscriber.onEvent?.({
+          event: { type, ...identity },
           messages: [],
           state: {},
-          tools: [],
-          context: [],
-          forwardedProps: {},
-        };
-        for (const type of [
-          EventType.RUN_STARTED,
-          EventType.RUN_FINISHED,
-        ] as const) {
-          await subscriber.onEvent?.({
-            event: { type, ...identity },
-            messages: [],
-            state: {},
-            agent: new NoopAgent(),
-            input,
-          });
-        }
-        return {
-          iterations: 1,
-          interrupted: false,
-          deliveryError,
-        };
-      }),
-    ),
-  ).rejects.toBe(deliveryError);
+          agent: new NoopAgent(),
+          input,
+        });
+      }
+      return {
+        iterations: 1,
+        interrupted: false,
+        deliveryError,
+      };
+    }),
+  );
 
   expect(runnerCompleted).toBe(true);
+  expect(result).toEqual({
+    iterations: 1,
+    interrupted: false,
+    deliveryError,
+  });
   expect(recordedEvents.map(({ type }) => type)).toEqual([
     EventType.RUN_STARTED,
     EventType.RUN_FINISHED,

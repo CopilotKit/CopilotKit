@@ -103,7 +103,13 @@ export class Thread implements ThreadInterface {
   }
 
   private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
-    if (!this.deps.adapter.trackThreadOperation) return operation();
+    if (!this.deps.adapter.trackThreadOperation) {
+      try {
+        return operation();
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    }
     return this.deps.adapter.trackThreadOperation(
       this.deps.replyTarget,
       operation,
@@ -130,7 +136,7 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  async post(ui: Renderable): Promise<MessageRef> {
+  post(ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
       const ref = await this.deps.adapter.post(
@@ -142,7 +148,7 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
+  update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
       const bound = await this.bindForPost(ui);
       await this.deps.adapter.update(ref, bound.root);
@@ -151,11 +157,11 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  async delete(ref: MessageRef): Promise<void> {
+  delete(ref: MessageRef): Promise<void> {
     return this.trackOperation(() => this.deps.adapter.delete(ref));
   }
 
-  async stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
+  stream(src: string | AsyncIterable<string>): Promise<MessageRef> {
     return this.trackOperation(() => {
       const iter =
         typeof src === "string"
@@ -167,7 +173,7 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  async postFile(args: {
+  postFile(args: {
     bytes: Uint8Array;
     filename: string;
     title?: string;
@@ -186,7 +192,7 @@ export class Thread implements ThreadInterface {
   }
 
   /** Pin suggested prompts (returns `{ ok: false }` on surfaces without support). */
-  async setSuggestedPrompts(
+  setSuggestedPrompts(
     prompts: ReadonlyArray<{ title: string; message: string }>,
     opts?: { title?: string },
   ): Promise<{ ok: boolean; error?: string }> {
@@ -203,7 +209,7 @@ export class Thread implements ThreadInterface {
   }
 
   /** Name this conversation (returns `{ ok: false }` on surfaces without support). */
-  async setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
+  setTitle(title: string): Promise<{ ok: boolean; error?: string }> {
     return this.trackOperation(async () => {
       const adapter = this.deps.adapter;
       if (!adapter.setThreadTitle) {
@@ -217,7 +223,7 @@ export class Thread implements ThreadInterface {
   }
 
   /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
-  async react(
+  react(
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
@@ -234,7 +240,7 @@ export class Thread implements ThreadInterface {
   }
 
   /** Remove the channel's emoji reaction from a message (capability-gated). */
-  async unreact(
+  unreact(
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
@@ -255,7 +261,7 @@ export class Thread implements ThreadInterface {
    * `true` → DM the user when native ephemeral is unsupported; `false` →
    * resolve to `null` when native ephemeral is unsupported.
    */
-  async postEphemeral(
+  postEphemeral(
     user: PlatformUser | string,
     ui: Renderable,
     opts: { fallbackToDM: boolean },
@@ -278,21 +284,21 @@ export class Thread implements ThreadInterface {
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
 
   /** Record this conversation as subscribed (persisted in state). Proactive delivery to subscribed conversations is not yet wired. */
-  async subscribe(): Promise<void> {
+  subscribe(): Promise<void> {
     return this.trackOperation(() =>
       this.store.kv.set(`sub:${this.deps.conversationKey}`, true),
     );
   }
 
   /** Remove the subscription for this conversation. */
-  async unsubscribe(): Promise<void> {
+  unsubscribe(): Promise<void> {
     return this.trackOperation(() =>
       this.store.kv.delete(`sub:${this.deps.conversationKey}`),
     );
   }
 
   /** Returns true if this conversation is currently subscribed. */
-  async isSubscribed(): Promise<boolean> {
+  isSubscribed(): Promise<boolean> {
     return this.trackOperation(
       async () =>
         (await this.store.kv.get<boolean>(
@@ -302,7 +308,7 @@ export class Thread implements ThreadInterface {
   }
 
   /** Persist arbitrary per-thread state (e.g. workflow step). */
-  async setState<T>(v: T): Promise<void> {
+  setState<T>(v: T): Promise<void> {
     return this.trackOperation(async () => {
       let value: unknown = v;
       if (this.deps.stateSchema) {
@@ -319,14 +325,14 @@ export class Thread implements ThreadInterface {
   }
 
   /** Read back per-thread state previously written with `setState`. */
-  async state<T>(): Promise<T | undefined> {
+  state<T>(): Promise<T | undefined> {
     return this.trackOperation(() =>
       this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`),
     );
   }
 
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
-  async getMessages(): Promise<ThreadMessage[]> {
+  getMessages(): Promise<ThreadMessage[]> {
     return this.trackOperation(
       async () =>
         (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [],
@@ -334,14 +340,14 @@ export class Thread implements ThreadInterface {
   }
 
   /** Resolve a platform user by free-form query (returns `undefined` when unsupported). */
-  async lookupUser(query: string): Promise<PlatformUser | undefined> {
+  lookupUser(query: string): Promise<PlatformUser | undefined> {
     return this.trackOperation(() => this.deps.adapter.lookupUser({ query }));
   }
 
   /** Post a picker and wait until an interaction in this conversation resolves it. */
-  async awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
+  awaitChoice<T = unknown>(ui: Renderable): Promise<T> {
     if (this.supportsBlockingChoice === false) {
-      throw new ChannelAwaitChoiceNotSupportedError();
+      return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
     }
     return this.trackOperation(async () => {
       const p = new Promise<T>((resolve) =>
@@ -355,7 +361,7 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  async runAgent(input?: {
+  runAgent(input?: {
     context?: ContextEntry[];
     tools?: ChannelTool[];
     /**
@@ -380,7 +386,11 @@ export class Thread implements ThreadInterface {
      */
     transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
-    this.deps.adapter.assertRunAgentSupported?.(this.deps.replyTarget);
+    try {
+      this.deps.adapter.assertRunAgentSupported?.(this.deps.replyTarget);
+    } catch (error) {
+      return Promise.reject(error);
+    }
     return this.trackOperation(async () => {
       const message = this.deps.message;
       const defaultPrompt =
@@ -402,7 +412,7 @@ export class Thread implements ThreadInterface {
     });
   }
 
-  async resume(value: unknown): Promise<MessageRef | undefined> {
+  resume(value: unknown): Promise<MessageRef | undefined> {
     return this.trackOperation(() => this.run({ resume: value }));
   }
 
@@ -526,6 +536,7 @@ export class Thread implements ThreadInterface {
               renderer,
               tools: toolDescriptors,
               context,
+              isResume: initialResume !== undefined,
               execute: (subscriber, canonicalRun) =>
                 runAgentLoop({
                   ...loopArgs,

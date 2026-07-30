@@ -1400,6 +1400,7 @@ describe("connection-health detail (OSS-670)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -1437,6 +1438,7 @@ describe("connection-health detail (OSS-670)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -1485,6 +1487,7 @@ describe("connection-health detail (OSS-670)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",
@@ -1518,6 +1521,7 @@ describe("connection-health detail (OSS-670)", () => {
       apiKey: "cpk-test",
       projectId: 7,
       join: {
+        protocol: "channel_session_v1",
         runtimeInstanceId: "rti_1",
         declaredChannels: [{ channelName: "opentag", adapter: "slack" }],
         observedAt: "2026-07-10T00:00:00.000Z",

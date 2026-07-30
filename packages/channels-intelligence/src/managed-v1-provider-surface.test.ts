@@ -10,7 +10,13 @@ import type {
   RealtimeGatewaySession,
 } from "./realtime-gateway.js";
 
-function createHarness(adapterName: "slack" | "teams") {
+function createHarness(
+  adapterName: "slack" | "teams",
+  options: {
+    effectError?: (effect: Record<string, unknown>) => Error | undefined;
+    log?: (message: string, meta?: unknown) => void;
+  } = {},
+) {
   const effects: Array<Record<string, unknown>> = [];
   const uploads: Array<{ filename: string; bytes: Uint8Array }> = [];
   const delivery: LiveSessionDelivery = {
@@ -46,6 +52,8 @@ function createHarness(adapterName: "slack" | "teams") {
       ) {
         const effect = payload.payload.effect as Record<string, unknown>;
         effects.push(effect);
+        const effectError = options.effectError?.(effect);
+        if (effectError) throw effectError;
         const seq = effect.seq as number;
         return { receivedThrough: seq, appliedThrough: seq };
       }
@@ -82,6 +90,7 @@ function createHarness(adapterName: "slack" | "teams") {
     transport,
     loadHistory: async () => [],
     runCanonical: async () => ({ iterations: 0, interrupted: false }),
+    log: options.log,
   });
 
   return { adapter, delivery, effects, session, uploads };
@@ -131,6 +140,46 @@ test("managed Teams sends best-effort typing before its first activity", async (
       "teams.typing",
       "teams.message.create",
     ]);
+  } finally {
+    harness.session.leave();
+  }
+});
+
+test("managed Teams typing failure logs no raw provider or reference text", async () => {
+  const log = vi.fn();
+  const harness = createHarness("teams", {
+    effectError: (effect) =>
+      effect.kind === "teams.typing"
+        ? new Error(
+            "provider secret-typing-body for opaque pref_v1_secret-typing",
+          )
+        : undefined,
+    log,
+  });
+  const renderer = harness.adapter.createRunRenderer({
+    session: harness.session,
+    delivery: harness.delivery,
+  });
+
+  try {
+    await renderer.subscriber.onTextMessageStartEvent?.({
+      event: { messageId: "message-1" },
+    } as never);
+    await renderer.subscriber.onTextMessageContentEvent?.({
+      event: { messageId: "message-1", delta: "Hello" },
+    } as never);
+    await renderer.subscriber.onTextMessageEndEvent?.({
+      event: { messageId: "message-1" },
+    } as never);
+
+    await vi.waitFor(() => expect(log).toHaveBeenCalledOnce());
+    expect(log).toHaveBeenCalledWith("managed Teams typing failed", {
+      errorCategory: "unknown",
+    });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("secret-typing-body");
+    expect(JSON.stringify(log.mock.calls)).not.toContain(
+      "pref_v1_secret-typing",
+    );
   } finally {
     harness.session.leave();
   }
