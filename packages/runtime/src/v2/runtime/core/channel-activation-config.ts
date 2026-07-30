@@ -1,10 +1,7 @@
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `runtime.ts` for the same constraint).
-import type {
-  Channel,
-  ReplyContinuationOptions,
-} from "@copilotkit/channels";
+import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
 
 /**
  * Error thrown when a Channel activation config cannot be derived — either the

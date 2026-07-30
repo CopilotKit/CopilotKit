@@ -149,8 +149,7 @@ export async function startChannelsWithGatewayControl(
       ...(store ? { store } : {}),
       ...(opts.log ? { log: opts.log } : {}),
       showToolStatus: opts.showToolStatus ?? channel.showToolStatus,
-      replyContinuation:
-        opts.replyContinuation ?? channel.replyContinuation,
+      replyContinuation: opts.replyContinuation ?? channel.replyContinuation,
     }),
   );
   await channel.ɵruntime.start();

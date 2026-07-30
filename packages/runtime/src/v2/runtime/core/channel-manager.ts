@@ -18,10 +18,7 @@ import type { AgentRunner } from "../runner/agent-runner";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
-import type {
-  Channel,
-  ReplyContinuationOptions,
-} from "@copilotkit/channels";
+import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
