@@ -115,7 +115,7 @@ export function createRunRenderer(args: {
      * instead of creating or updating a second legacy message.
      */
     strict?: boolean;
-    /** Override the native text flush floor. Managed sessions use `0`. */
+    /** Override the native text flush floor. */
     minIntervalMs?: number;
     /**
      * Tuning for splitting a long reply across continuation messages. Passed

@@ -66,6 +66,7 @@ interface DeliveryMessageRef extends MessageRef {
 }
 
 const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
+const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
 export interface CanonicalChannelRunArgs {
   agent: AbstractAgent;
@@ -692,7 +693,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       },
       nativeStreaming: {
         strict: true,
-        minIntervalMs: 0,
+        minIntervalMs: MANAGED_SLACK_TEXT_INTERVAL_MS,
         ...(this.options.replyContinuation !== undefined
           ? { replyContinuation: this.options.replyContinuation }
           : {}),
@@ -767,6 +768,14 @@ export class DeliveryAdapter implements PlatformAdapter {
         assertProviderReference(providerReference);
         await session.effect(responseId, {
           kind: "teams.message.replace",
+          providerReference,
+          text,
+        });
+      },
+      finalize: async (_id, text) => {
+        assertProviderReference(providerReference);
+        await session.effect(responseId, {
+          kind: "teams.message.finalize",
           providerReference,
           text,
         });

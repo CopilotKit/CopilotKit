@@ -67,6 +67,12 @@ export type ChannelProviderPayload =
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
+      kind: "teams.message.finalize";
+      providerReference: string;
+      text: string;
+      cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }
+  | {
       kind: "slack.file.create";
       fileHandle: string;
       title?: string;
@@ -244,6 +250,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         optionalRecordArray(value.cards, 25)
       );
     case "teams.message.replace":
+    case "teams.message.finalize":
       return (
         hasExactFields(
           value,

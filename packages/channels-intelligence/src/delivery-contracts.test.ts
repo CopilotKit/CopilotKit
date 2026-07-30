@@ -66,6 +66,19 @@ test("accepts valid provider payload numbers without a cross-language digest", (
   expect(() => assertDeliveryPacket(numericPacket)).not.toThrow();
 });
 
+test("accepts a distinct Teams final effect for priority rate gating", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "teams.message.finalize",
+        providerReference: "pref_v1_reference_01",
+        text: "final answer",
+      },
+    }),
+  ).not.toThrow();
+});
+
 test("rejects per-packet auth and heartbeat shapes", () => {
   expect(() =>
     assertDeliveryPacket({
