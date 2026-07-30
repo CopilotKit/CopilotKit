@@ -366,7 +366,34 @@ jobs:
       # uploaded workspace artifact (see "Upload workspace" above). Uses
       # pnpm-lock.yaml from the artifact, so this is a deterministic
       # restore of exactly what the build job ran with.
-      - name: Install Dependencies
+      #
+      # The prerelease path needs a NARROW slice of the workspace, and installing
+      # all 4608 projects' dependencies to get it cost ~41s. What it actually
+      # needs is exactly two things:
+      #   1. the ROOT project, for `pnpm tsx` (tsx is a root devDependency), and
+      #   2. every project under packages/, because `pnpm pack` resolves each
+      #      package's `workspace:` dependencies into real version ranges and
+      #      FAILS with ERR_PNPM_CANNOT_RESOLVE_WORKSPACE_PROTOCOL if a workspace
+      #      sibling is not installed. That resolution is what makes cross-scope
+      #      canary deps (runtime -> channels-intelligence) pin the same-run
+      #      version, so it is load-bearing, not incidental.
+      # Everything else in the lockfile is examples/ and showcase/ app
+      # dependencies (Next.js, Playwright, ...) which no publish step touches.
+      #
+      # Nothing else is needed because no publishable package declares `prepack`
+      # or `prepare`, so `pnpm pack` runs no lifecycle scripts; voice's
+      # `prepublishOnly` fires for neither `pnpm pack` nor `npm publish <tarball>`.
+      #
+      # Stable keeps the FULL install: publish-release.ts additionally imports
+      # lib/notion.js and the channels umbrella verifier runs a root workspace
+      # script, so its dependency surface is wider and far less worth trimming on
+      # the highest-stakes path.
+      - name: Install Dependencies (prerelease — root + packages only)
+        if: ${{ steps.meta.outputs.mode == 'prerelease' }}
+        run: pnpm install --frozen-lockfile --filter . --filter "./packages/**"
+
+      - name: Install Dependencies (stable — full workspace)
+        if: ${{ steps.meta.outputs.mode != 'prerelease' }}
         run: pnpm install --frozen-lockfile
 
       - name: Dry-run notice
