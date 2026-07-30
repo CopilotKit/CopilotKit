@@ -137,6 +137,7 @@ export async function startChannelsWithGatewayControl(
   const channel = channels[0]!;
   channel.ɵruntime.addAdapter(
     new DeliveryAdapter({
+      channelName: opts.scope.channelName,
       transport,
       runCanonical: opts.runCanonical,
       loadHistory: opts.loadHistory,
