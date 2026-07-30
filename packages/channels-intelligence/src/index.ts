@@ -5,7 +5,6 @@ export {
   DELIVERY_PACKET_MAX_BYTES,
   assertDeliveryPacket,
   deliveryPacketByteLength,
-  deliveryPayloadDigest,
 } from "./delivery-contracts.js";
 export type {
   ChannelDeliveryPacket,

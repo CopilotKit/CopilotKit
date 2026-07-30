@@ -9,7 +9,6 @@ import {
   CHANNEL_DELIVERY_PROTOCOL,
   assertDeliveryPacket,
   assertProviderReference,
-  deliveryPayloadDigest,
 } from "./delivery-contracts.js";
 import type {
   ChannelDeliveryPacket,
@@ -185,10 +184,10 @@ export class ChannelDeliverySession {
 
   /** Send one provider-ready payload after the previous packet is applied. */
   effect(
-    responseId: string,
+    _responseId: string,
     payload: ProviderPayloadInput,
   ): Promise<Record<string, unknown>> {
-    return this.enqueue(responseId, payload).then((result) => {
+    return this.enqueue(payload).then((result) => {
       const error = typeof result.error === "string" ? result.error : undefined;
       const status =
         typeof result.status === "string" ? result.status : undefined;
@@ -219,7 +218,7 @@ export class ChannelDeliverySession {
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
     // Terminal remains sendable after effect failures so claimAndHandle can
     // report failed/uncertain; only a successful terminal seals the session.
-    await this.enqueue("response_terminal", {
+    await this.enqueue({
       kind: "channel.delivery.terminal",
       ...payload,
     });
@@ -321,7 +320,6 @@ export class ChannelDeliverySession {
   }
 
   private enqueue(
-    responseId: string,
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
@@ -341,7 +339,7 @@ export class ChannelDeliverySession {
           `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
         );
       }
-      const packet = this.buildPacket(responseId, payload);
+      const packet = this.buildPacket(payload);
       this.unacknowledgedPacket = packet;
       try {
         // sendExactPacket retries the exact packet across soft transport
@@ -365,7 +363,6 @@ export class ChannelDeliverySession {
   }
 
   private buildPacket(
-    responseId: string,
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): ChannelDeliveryPacket {
     if (
@@ -380,9 +377,7 @@ export class ChannelDeliverySession {
       runtimeInstanceId: this.owner.runtimeInstanceId,
       ownerGeneration: this.owner.ownerGeneration,
       seq: this.nextSeq,
-      effectId: `eff_${randomUUID().replaceAll("-", "")}`,
-      responseId,
-      payloadDigest: deliveryPayloadDigest(payload),
+      packetId: `pkt_${randomUUID().replaceAll("-", "")}`,
       payload,
     };
     assertDeliveryPacket(packet);
@@ -395,10 +390,18 @@ export class ChannelDeliverySession {
     let attempt = 0;
     while (Date.now() < Date.parse(this.delivery.deliveryExpiresAt)) {
       try {
-        return (await this.channel.push(
+        const acknowledgement = (await this.channel.push(
           PACKET_EVENT,
           packet,
         )) as ChannelDeliveryPacketAck;
+        this.assertExactAcknowledgement(packet, acknowledgement);
+        if (acknowledgement.phase !== "retry_wait") {
+          return acknowledgement;
+        }
+        const retryAtMs = Date.parse(acknowledgement.retryAt ?? "");
+        await new Promise((resolve) =>
+          setTimeout(resolve, Math.max(0, retryAtMs - Date.now())),
+        );
       } catch (error) {
         if (error instanceof RealtimeGatewayPushError) throw error;
         // Claim/join validation failures are permanent — do not thrash reconnect.
@@ -429,14 +432,22 @@ export class ChannelDeliverySession {
     acknowledgement: ChannelDeliveryPacketAck,
   ): void {
     if (
-      acknowledgement?.phase !== "applied" ||
+      !["applied", "retry_wait", "failed", "uncertain"].includes(
+        acknowledgement?.phase,
+      ) ||
       acknowledgement.deliveryId !== packet.deliveryId ||
       acknowledgement.seq !== packet.seq ||
-      acknowledgement.effectId !== packet.effectId ||
-      acknowledgement.responseId !== packet.responseId ||
-      acknowledgement.payloadDigest !== packet.payloadDigest ||
+      acknowledgement.packetId !== packet.packetId ||
       typeof acknowledgement.result !== "object" ||
       acknowledgement.result === null
+    ) {
+      throw new TypeError(
+        "Gateway returned a conflicting packet acknowledgement",
+      );
+    }
+    if (
+      acknowledgement.phase === "retry_wait" &&
+      !Number.isFinite(Date.parse(acknowledgement.retryAt ?? ""))
     ) {
       throw new TypeError(
         "Gateway returned a conflicting packet acknowledgement",
