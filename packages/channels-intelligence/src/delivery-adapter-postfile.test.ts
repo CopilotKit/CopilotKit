@@ -152,7 +152,7 @@ describe("DeliveryAdapter.postFile", () => {
         title: "chart",
         altText: "Line chart",
       }),
-    ).resolves.toEqual({ ok: true, fileId: "file_handle_01" });
+    ).resolves.toEqual({ ok: true, assetId: "file_handle_01" });
     expect(session.effect).toHaveBeenCalledWith(
       expect.stringMatching(/^response_/),
       expect.objectContaining({

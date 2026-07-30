@@ -536,7 +536,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  ): Promise<{ ok: boolean; assetId?: string; error?: string }> {
     const target = asDeliveryTarget(targetValue);
     if (target.delivery.adapter === "teams") {
       const mimeType = managedImageMimeType(args.filename);
@@ -589,7 +589,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       ...(args.title ? { title: args.title } : {}),
       ...(args.altText ? { altText: args.altText } : {}),
     });
-    return { ok: true, fileId: handle };
+    return { ok: true, assetId: handle };
   }
 
   /** Records provider-acknowledged managed output through canonical AG-UI. */

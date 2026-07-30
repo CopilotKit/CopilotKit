@@ -377,7 +377,14 @@ export interface PlatformAdapter {
       title?: string;
       altText?: string;
     },
-  ): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  ): Promise<{
+    ok: boolean;
+    /** Provider file or message ID for native adapters. */
+    fileId?: string;
+    /** Provider-neutral managed asset ID for Intelligence adapters. */
+    assetId?: string;
+    error?: string;
+  }>;
   /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.

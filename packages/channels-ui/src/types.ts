@@ -104,7 +104,12 @@ export interface Thread {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{ ok: boolean; fileId?: string; error?: string }>;
+  }): Promise<{
+    ok: boolean;
+    fileId?: string;
+    assetId?: string;
+    error?: string;
+  }>;
   /** Read the conversation's messages (capability-gated; returns `[]` when the adapter can't read history). */
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */
