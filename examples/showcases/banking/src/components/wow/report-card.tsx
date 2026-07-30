@@ -6,7 +6,7 @@ import type { ExpensePolicy, Report, Transaction } from "@/app/api/v1/data";
 import {
   SpendBreakdownChart,
   SpendingTrendChart,
-  BudgetUsageChart,
+  TopChargesChart,
 } from "@/components/analytics-charts";
 import { isOverLimit } from "@/lib/over-limit";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,11 @@ function augmentForReport(
           title: a.label ?? `${a.team} (attached document)`,
           amount: -Math.abs(a.amount),
           date: report.createdAt,
+          // Carry the owning policy so charts key colour off the team the same
+          // way ledger transactions do. Without it, invoice line items fall
+          // back to a generic swatch and a Marketing charge stops matching
+          // Marketing's slice in the donut.
+          policyId: augPolicies.find((p) => p.type === a.team)?.id,
           status: "approved",
         }) as Transaction,
     ),
@@ -208,10 +213,15 @@ export function ReportCard({
       </div>
 
       {/* Charts at full width, three across — the substance, not a footnote.
-          Three different shapes on purpose: a share-of-total pie, a time
-          series, and a progress-against-limit bar set. Three bar charts in a row
-          read as one repeated chart; mixing the forms means each column answers
-          a visibly different question. */}
+          Each column answers a DIFFERENT question, on a different axis: who is
+          spending (share of total), when (time series), and what (the largest
+          individual line items). An earlier version paired the donut with
+          budget-usage bars, but both were the same three team totals drawn
+          twice, so the third column carried almost no new information. Ranking
+          charges changes the unit of analysis from team to transaction, which
+          the team aggregate genuinely cannot show. Budget-vs-limit is not lost:
+          it is the "Over policy limit" KPI above and the "Needs a decision"
+          rows below. */}
       <div className="grid gap-5 border-t border-hairline pt-5 lg:grid-cols-3">
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
@@ -227,9 +237,12 @@ export function ReportCard({
         </div>
         <div>
           <p className="mb-2 text-xs font-medium text-ink-muted">
-            Budget usage
+            Largest charges
           </p>
-          <BudgetUsageChart policies={chart.policies} />
+          <TopChargesChart
+            transactions={chart.transactions}
+            policies={chart.policies}
+          />
         </div>
       </div>
 
