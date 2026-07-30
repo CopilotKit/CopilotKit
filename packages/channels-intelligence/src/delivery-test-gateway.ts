@@ -46,14 +46,12 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
         return {
           deliveryId: packet.deliveryId,
           seq: packet.seq,
-          effectId: packet.effectId,
-          responseId: packet.responseId,
-          payloadDigest: packet.payloadDigest,
+          packetId: packet.packetId,
           phase: "applied",
           result:
             packet.payload.kind === "channel.delivery.terminal"
               ? {}
-              : { providerReference: `pref_v1_${packet.responseId}` },
+              : { providerReference: `pref_v1_${packet.packetId}` },
         };
       },
       on: () => undefined,
@@ -71,6 +69,7 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
     this.invitationHandler?.({
       protocol: "channel_delivery_v1",
       deliveryId: delivery.deliveryId,
+      canonicalThreadId: delivery.canonicalThreadId,
     });
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {

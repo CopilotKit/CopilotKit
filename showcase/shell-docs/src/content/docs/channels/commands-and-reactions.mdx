@@ -88,8 +88,8 @@ export const supportAgent = defineChannelCommand({
 
 If you add more command names in code, add the same slash commands to the Slack
 app configuration and reinstall the app when Slack changes its requested
-permissions. Socket Mode carries the invocation; your Channels runner does not
-host the Slack request URL.
+permissions. Slack sends the invocation to the signed managed command webhook;
+your Channels runner does not host that request URL.
 
 Slack supplies arguments as `ctx.text`. `ctx.options` remains empty on this
 managed path.

@@ -37,9 +37,10 @@ also pass a singleton (`agent: shared`); under the hood the SDK calls
 `shared.clone()` per run so concurrent turns do not share one mutable object.
 Managed history is loaded onto that per-run agent after isolation.
 
-Overlapping turns on the same conversation run in **parallel by default**. Use
-`store: { concurrency: "serial" }` when a workflow needs exclusive access to
-`thread.setState` or other shared workflow state.
+Managed delivery admission keeps one canonical conversation exclusive while
+unrelated conversations run in parallel. The SDK `store.concurrency` setting
+still governs other adapter paths and shared workflow state; it does not raise
+the managed same-Thread delivery limit.
 
 The native provider is `message.platform`. On the managed path,
 `thread.platform` is `"intelligence"` because it identifies the delivery
@@ -181,10 +182,11 @@ The contract includes key/value, list, lock, deduplication, and queue
 operations. Values must round-trip through JSON.
 
 <Callout type="warn" title="Do not infer durability from Online status">
-  **Online** confirms a healthy managed connection; the runtime may be active or
-  standby. Send a real provider message to test delivery. This status does not
-  prove your application workflow state survives a process restart, so test a
-  restart while an approval card is pending before shipping a durable workflow.
+  **Online** confirms a healthy managed connection that can receive delivery
+  invitations. Send a real provider message to test delivery. This status does
+  not prove your application workflow state survives a process restart, so test
+  a restart while an approval card is pending before shipping a durable
+  workflow.
 </Callout>
 
 ## Operational checklist

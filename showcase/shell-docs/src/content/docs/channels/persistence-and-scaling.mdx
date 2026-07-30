@@ -5,8 +5,9 @@ description: Make Slack and Teams workflow state restart-safe, implement the Sta
 doc_type: how-to
 ---
 
-Intelligence durably owns provider ingress, delivery leases, and rendered
-egress. Your Channels process still owns SDK workflow state. Those are separate
+Intelligence durably owns provider ingress and canonical Thread history.
+Redis-backed claims and ordered packets coordinate active provider delivery.
+Your Channels process still owns SDK workflow state. Those are separate
 persistence boundaries.
 
 ## Know what is process-local by default
@@ -196,52 +197,33 @@ old card.
 
 ## Match the managed concurrency model
 
-### Runtime election (multi-replica)
+### Delivery claims (multi-replica)
 
-Intelligence elects one active owner for each Channel Code. Other live runtimes
-with the same complete Channel declaration set remain connected as standbys and
-are promoted if the active owner releases or expires. This makes identical
-replicas a supported recovery topology, but it is not active-active load
-balancing: only one runtime serves a Channel at a time.
+Each prepared delivery has one claim winner. Every connected Runtime that
+declares the matching Channel can receive the invitation, check local capacity,
+and attempt the claim. Different replicas can serve different conversations at
+the same time; there is no Channel-wide leader.
 
-Keep every replica's full declaration set identical. Different but overlapping
-sets are unsafe—for example, one runtime declaring `support-slack` and
-`support-teams` while another declares only `support-slack`. Election is
-runtime-scoped, so losing one overlapping Channel can put that runtime fully
-standby and strand another declaration.
+Keep each replica's Channel declarations and agent code aligned. Set
+`maxConcurrentDeliveries` to a local bound each process can sustain. A Runtime
+that has reached that bound declines new invitations before claiming them.
 
-The managed path is at-least-once. Intelligence makes accepted render frames
-idempotent, but application tools can still repeat if a turn is retried. Give
-consequential writes an application idempotency key based on
-`message.eventId`, `message.turnId`, or your own durable operation id.
+Provider effects use one ordered packet at a time. The SDK retries that exact
+packet after a known retry wait or reconnect. If a provider call becomes
+uncertain, Gateway records an uncertain terminal result instead of sending it
+again. Application tools still need their own idempotency keys when the
+application may call them more than once; use `message.eventId`,
+`message.turnId`, or a durable operation ID.
 
 ### Turn concurrency (same conversation)
 
-Within the active runtime, overlapping turns on the **same** conversation run
-in **parallel by default**. Five people asking five questions in one Slack
-thread get five concurrent agent runs and replies.
+Managed admission keeps one canonical Thread exclusive on a Runtime. A second
+invitation for that Thread is not claimed while the first delivery is active.
+Unrelated Threads continue in parallel up to `maxConcurrentDeliveries`.
 
-```ts
-// Default — parallel (no config needed)
-createChannel({ name: "support", agent: makeAgent });
-
-// One-at-a-time per conversation (queue)
-createChannel({
-  name: "support",
-  agent: makeAgent,
-  store: { concurrency: "serial" },
-});
-
-// Discard overlapping turns (legacy drop)
-createChannel({
-  name: "support",
-  agent: makeAgent,
-  store: { concurrency: "drop" },
-});
-```
-
-A singleton agent is safe under parallel mode because the SDK isolates each run
-with `agent.clone()`. Prefer a factory when you want that explicit. See
+This delivery guard is separate from the SDK `store.concurrency` setting used
+by other adapter paths. Choose that setting for your application-state rules;
+do not use it to raise the managed same-Thread delivery limit. See
 [`StoreConfig`](/reference/channels/types/StoreConfig).
 
 ## Production checklist
@@ -252,7 +234,8 @@ with `agent.clone()`. Prefer a factory when you want that explicit. See
 - Run the StateStore conformance suite against the real backend.
 - Test a restart while a card is awaiting a click.
 - Make external writes idempotent.
-- Keep the complete Channel declaration set identical on every standby.
+- Keep Channel declarations aligned across replicas and set a local delivery
+  concurrency bound.
 - Alert on Intelligence **Conflict**, **Offline**, and **Delivery failing**.
 - Stop the listener on `SIGINT` and `SIGTERM`.
 

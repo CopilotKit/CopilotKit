@@ -178,7 +178,12 @@ export class Thread implements ThreadInterface {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+  }): Promise<{
+    ok: boolean;
+    fileId?: string;
+    assetId?: string;
+    error?: string;
+  }> {
     return this.trackOperation(async () => {
       const adapter = this.deps.adapter;
       if (!adapter.postFile) {

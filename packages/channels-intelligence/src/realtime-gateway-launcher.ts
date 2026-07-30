@@ -84,6 +84,8 @@ export interface StartChannelsWithGatewayControlOptions {
    * activation, and re-minted on process/ChannelManager restart.
    */
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
   /** Intelligence app-api HTTP base URL — enables file/history parity on the
    * realtime path (OSS-476), which are HTTP-only. With {@link apiKey}. */
   appApiBaseUrl?: string;
@@ -128,6 +130,9 @@ export async function startChannelsWithGatewayControl(
   const transport = new ChannelDeliveryTransport({
     runtimeInstanceId: opts.runtimeInstanceId,
     session: opts.session,
+    ...(opts.maxConcurrentDeliveries !== undefined
+      ? { maxConcurrentDeliveries: opts.maxConcurrentDeliveries }
+      : {}),
     ...(opts.appApiBaseUrl ? { appApiBaseUrl: opts.appApiBaseUrl } : {}),
     ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
     ...(opts.log ? { log: opts.log } : {}),
@@ -217,12 +222,13 @@ export interface StartChannelsOverRealtimeGatewayOptions {
    * replicas; reuse it only for transport reconnects of this activation.
    */
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
   /** Adapter kind declared to the gateway on join (default `"slack"`). */
   adapter?: string;
-  /** Intelligence app-api HTTP base URL. Enables file/history parity on the
-   * realtime path (OSS-476) — these are HTTP-only (the gateway relays the
-   * render-event stream, not bytes/history), reached with the {@link apiKey}
-   * above. Omit and file/history stay unavailable (graceful degradation). */
+  /** Intelligence app-api HTTP base URL for managed file and Thread history
+   * calls made with the {@link apiKey} above. Omit it to leave those calls
+   * unavailable. */
   appApiBaseUrl?: string;
   /** Activation env overrides (package versions, runtimeEnv); omitted fields
    * are gathered from the process and exposed in `handle.metadata`.
@@ -291,6 +297,9 @@ export async function startChannelsOverRealtimeGateway(
     join: {
       protocol: CHANNEL_DELIVERY_PROTOCOL,
       runtimeInstanceId: config.runtimeInstanceId,
+      ...(config.maxConcurrentDeliveries !== undefined
+        ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
+        : {}),
       channels: activation.declaredChannels.map((channel) => ({
         channelName: channel.channelName,
         adapter,
