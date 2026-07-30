@@ -297,7 +297,8 @@ export class DeliveryAdapter implements PlatformAdapter {
           ...base,
           rawEmoji: input.rawEmoji,
           added: input.added,
-          messageId: input.messageRef.id,
+          // Platform-native id for handler lookup; opaque capability stays on messageRef.
+          messageId: input.messageId,
           messageRef: inboundMessageRef(replyTarget, input.messageRef),
           ...(input.postedRef ? { postedMessageId: input.postedRef } : {}),
           raw: input,
@@ -430,6 +431,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       let text = "";
       let created = false;
       for await (const delta of chunks) {
+        if (delta.length === 0) continue;
         text += delta;
         const result = created
           ? await target.session.effect(responseId, {

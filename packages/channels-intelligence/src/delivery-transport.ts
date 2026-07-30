@@ -150,8 +150,10 @@ export class ChannelDeliverySession {
   >();
   private trackedOperationsSealed = false;
   private providerOutputApplied = false;
-  /** After terminal or a non-retryable packet failure, refuse further effects. */
-  private packetPathClosed = false;
+  /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
+  private effectsClosed = false;
+  /** After a successful terminal apply, refuse all further packets. */
+  private terminalApplied = false;
   private owner: DeliveryOwner;
 
   constructor(
@@ -187,11 +189,23 @@ export class ChannelDeliverySession {
     payload: ProviderPayloadInput,
   ): Promise<Record<string, unknown>> {
     return this.enqueue(responseId, payload).then((result) => {
+      const error =
+        typeof result.error === "string" ? result.error : undefined;
+      const status =
+        typeof result.status === "string" ? result.status : undefined;
       if (
-        typeof result.error === "string" &&
-        typeof result.status === "string"
+        error !== undefined ||
+        status === "failed" ||
+        status === "failed_before_output" ||
+        status === "uncertain"
       ) {
-        throw new ChannelProviderDeliveryError(result.error, result.status);
+        // Gateway applied a terminal provider failure — seal further effects
+        // (a local terminal is still allowed unless gateway already terminalled).
+        this.effectsClosed = true;
+        throw new ChannelProviderDeliveryError(
+          error ?? "provider_failed",
+          status ?? "failed",
+        );
       }
       this.providerOutputApplied = true;
       return result;
@@ -201,14 +215,14 @@ export class ChannelDeliverySession {
   /** Send the final outcome through the same ordered packet path. */
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
-    try {
-      await this.enqueue("response_terminal", {
-        kind: "channel.delivery.terminal",
-        ...payload,
-      });
-    } finally {
-      this.packetPathClosed = true;
-    }
+    // Terminal remains sendable after effect failures so claimAndHandle can
+    // report failed/uncertain; only a successful terminal seals the session.
+    await this.enqueue("response_terminal", {
+      kind: "channel.delivery.terminal",
+      ...payload,
+    });
+    this.terminalApplied = true;
+    this.effectsClosed = true;
   }
 
   /** Return whether at least one provider packet reached the applied phase. */
@@ -308,8 +322,14 @@ export class ChannelDeliverySession {
     responseId: string,
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): Promise<Record<string, unknown>> {
+    const isTerminal = payload.kind === "channel.delivery.terminal";
     const operation = this.tail.then(async () => {
-      if (this.packetPathClosed) {
+      if (this.terminalApplied) {
+        throw new Error(
+          `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
+        );
+      }
+      if (!isTerminal && this.effectsClosed) {
         throw new Error(
           `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
         );
@@ -318,16 +338,18 @@ export class ChannelDeliverySession {
       this.unacknowledgedPacket = packet;
       try {
         // sendExactPacket retries the exact packet across soft transport
-        // reconnects; permanent failures close the path so a later effect
-        // cannot mint a new effectId on the same seq.
+        // reconnects; permanent non-terminal failures seal further effects
+        // but leave the path open for a terminal outcome packet.
         const acknowledgement = await this.sendExactPacket(packet);
         this.assertExactAcknowledgement(packet, acknowledgement);
         this.unacknowledgedPacket = undefined;
         this.nextSeq += 1;
         return acknowledgement.result;
       } catch (error) {
-        this.packetPathClosed = true;
         this.unacknowledgedPacket = undefined;
+        if (!isTerminal) {
+          this.effectsClosed = true;
+        }
         throw error;
       }
     });
@@ -372,6 +394,16 @@ export class ChannelDeliverySession {
         )) as ChannelDeliveryPacketAck;
       } catch (error) {
         if (error instanceof RealtimeGatewayPushError) throw error;
+        // Claim/join validation failures are permanent — do not thrash reconnect.
+        if (
+          error instanceof TypeError ||
+          (error instanceof Error &&
+            /invalid delivery claim|invalid prepared delivery|cannot join deliveries/i.test(
+              error.message,
+            ))
+        ) {
+          throw error;
+        }
         attempt += 1;
         // Bound reconnect thrash: exponential backoff capped at 5s.
         const delayMs = Math.min(5_000, 50 * 2 ** Math.min(attempt, 6));
@@ -432,6 +464,11 @@ export class ChannelDeliveryTransport {
   private stopped = false;
   private invitationHandler?: (value: unknown) => void;
   private started = false;
+  /** Latest handler; invitation callback always reads this so re-start re-arms. */
+  private deliveryHandler?: (
+    session: ChannelDeliverySession,
+    delivery: PreparedChannelDelivery,
+  ) => Promise<void>;
 
   constructor(private readonly options: ChannelDeliveryTransportOptions) {
     if (options.appApiBaseUrl && options.apiKey) {
@@ -454,6 +491,7 @@ export class ChannelDeliveryTransport {
     ) => Promise<void>,
   ): void {
     this.stopped = false;
+    this.deliveryHandler = handler;
     if (this.started && this.invitationHandler) {
       // Re-arm without stacking Phoenix handlers on start→stop→start.
       return;
@@ -463,14 +501,17 @@ export class ChannelDeliveryTransport {
       if (
         this.stopped ||
         !isInvitation(value) ||
-        this.active.has(value.deliveryId)
+        this.active.has(value.deliveryId) ||
+        !this.deliveryHandler
       ) {
         return;
       }
+      const activeHandler = this.deliveryHandler;
       // Register into active before any await so stop() waits for this delivery.
-      const running = this.claimAndHandle(value.deliveryId, handler).finally(
-        () => this.active.delete(value.deliveryId),
-      );
+      const running = this.claimAndHandle(
+        value.deliveryId,
+        activeHandler,
+      ).finally(() => this.active.delete(value.deliveryId));
       this.active.set(value.deliveryId, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);

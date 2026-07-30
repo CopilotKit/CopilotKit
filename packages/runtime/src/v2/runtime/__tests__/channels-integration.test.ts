@@ -45,21 +45,27 @@ function fakeIntelligence(): CopilotKitIntelligence {
 /**
  * A fake activation engine that captures every `(config, channel)` call it
  * receives and returns a controllable fake {@link ChannelsHandle}: a counting
- * `stop`, and an `onClose` seam that stashes the callback the manager
- * registers so the test can simulate a dropped session.
+ * `stop`, and an `onStateChange` seam that stashes the callback the manager
+ * registers so the test can simulate a dropped session (manager health is
+ * driven by onStateChange, not onClose).
  */
 function capturingEngine(): {
   engine: ActivateChannelEngine;
   calls: { config: ChannelActivationConfig; channelName: string | undefined }[];
   stopCalls: number;
-  triggerClose: () => void;
+  triggerDrop: () => void;
 } {
   const calls: {
     config: ChannelActivationConfig;
     channelName: string | undefined;
   }[] = [];
   let stopCalls = 0;
-  let capturedOnClose: (() => void) | undefined;
+  let capturedOnStateChange:
+    | ((
+        state: "online" | "reconnecting" | "gave_up",
+        detail?: { reason?: string; code?: string },
+      ) => void)
+    | undefined;
 
   const engine: ActivateChannelEngine = async (config, channel) => {
     calls.push({ config, channelName: channel.name });
@@ -68,8 +74,8 @@ function capturingEngine(): {
       stop: async () => {
         stopCalls += 1;
       },
-      onClose: (cb) => {
-        capturedOnClose = cb;
+      onStateChange: (cb) => {
+        capturedOnStateChange = cb;
       },
     };
     return handle;
@@ -81,8 +87,8 @@ function capturingEngine(): {
     get stopCalls() {
       return stopCalls;
     },
-    triggerClose: () => {
-      capturedOnClose?.();
+    triggerDrop: () => {
+      capturedOnStateChange?.("reconnecting", { reason: "socket dropped" });
     },
   };
 }
@@ -145,13 +151,11 @@ describe("createCopilotRuntimeHandler — channel activation (integration)", () 
     // 5. status is online after ready().
     expect(handler.channels!.status().overall).toBe("online");
 
-    // 6. Drop: simulate a dropped managed session via the captured onClose
-    // callback. Reconnection is delegated to the Phoenix connection layer (the
-    // launcher's socket auto-rejoins under the persistent adapter), so the
-    // manager does NOT re-activate on a drop — it stays `online` and makes no
-    // further engine call. See `core/__tests__/channel-manager-reconnect.test.ts`.
-    state.triggerClose();
-    expect(handler.channels!.status().overall).toBe("online");
+    // 6. Drop: simulate reconnecting via onStateChange (the real manager
+    // health path). Status becomes reconnecting; manager does NOT re-activate
+    // (engine still called once). See channel-manager-reconnect.test.ts.
+    state.triggerDrop();
+    expect(handler.channels!.status().overall).toBe("reconnecting");
     expect(state.calls.length).toBe(1);
 
     // 7. stop() resolves and the fake handle's stop was invoked.

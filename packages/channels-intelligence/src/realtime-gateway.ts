@@ -803,8 +803,18 @@ export async function connectRealtimeGateway(
     },
     join: async (topic, payload) => {
       const child = socket.channel(topic, payload as object);
-      const childReply = await joinPhoenixChannel(child, timeout);
-      return wrapChannel(child, childReply);
+      try {
+        const childReply = await joinPhoenixChannel(child, timeout);
+        return wrapChannel(child, childReply);
+      } catch (error) {
+        // Phoenix retains channels created via socket.channel until leave.
+        try {
+          child.leave();
+        } catch {
+          // Best-effort cleanup of a failed join.
+        }
+        throw error;
+      }
     },
     onClose: (handler) => {
       joinedChannel.onClose(handler);
@@ -875,6 +885,21 @@ export async function connectRealtimeGateway(
     },
     onStateChange: (cb) => {
       stateCallbacks.push(cb);
+      // Replay current health so late subscribers (e.g. ChannelManager after
+      // activation) cannot miss a drop that occurred before registration.
+      if (connectionState !== "online") {
+        try {
+          const reason = lastOutageDiagnosis ?? lastTransportError;
+          cb(connectionState, {
+            ...(reason !== undefined ? { reason } : {}),
+            ...(lastTransportCode !== undefined
+              ? { code: lastTransportCode }
+              : {}),
+          });
+        } catch {
+          // Observer isolation: one bad callback must not break others.
+        }
+      }
     },
     disconnect: () => {
       closingIntentionally = true;

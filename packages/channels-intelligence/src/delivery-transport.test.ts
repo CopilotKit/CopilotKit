@@ -131,12 +131,62 @@ describe("Channel delivery transport", () => {
       seq: number;
       effectId: string;
     };
-    // Exact packet identity is preserved across soft reconnect retries.
+    // Exact unacked packet keeps original ownerGeneration on soft retry;
+    // subsequent packets use the refreshed generation (next test).
     expect(retried.seq).toBe(original.seq);
     expect(retried.effectId).toBe(original.effectId);
-    // Owner generation is refreshed after join_token so later packets match join.
     expect(retried.ownerGeneration).toBe(7);
     expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+  });
+
+  it("still sends a failed terminal when complete terminal fails", async () => {
+    const deliveryChannel = channel();
+    const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
+    let terminalAttempts = 0;
+    vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
+      const body = packet as { payload?: { kind?: string } };
+      if (body.payload?.kind === "channel.delivery.terminal") {
+        terminalAttempts += 1;
+        if (terminalAttempts === 1) {
+          // Permanent push error (not soft reconnect) so we do not thrash.
+          return Promise.reject(
+            new RealtimeGatewayPushError(
+              "packet",
+              "conflict",
+              "terminal push dropped",
+            ),
+          );
+        }
+      }
+      return Promise.resolve({
+        ...(packet as object),
+        phase: "applied",
+        result: {},
+      });
+    });
+    const session = new ChannelDeliverySession(
+      preparedDelivery(),
+      {
+        ownerGeneration: 7,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryChannel,
+      vi.fn(),
+    );
+
+    await expect(
+      session.terminal({
+        status: "complete",
+        code: "provider_delivery_complete",
+      }),
+    ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
+
+    await session.terminal({
+      status: "failed",
+      code: "runtime_handler_failed",
+    });
+
+    expect(terminalAttempts).toBe(2);
   });
 
   it("refreshes owner generation on packets after reconnect", async () => {
