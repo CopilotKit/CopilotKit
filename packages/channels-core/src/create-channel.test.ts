@@ -856,6 +856,24 @@ describe("createChannel", () => {
       },
       store: { adapter: state },
     });
+    // What each run believes it was asked, read while both turns are in flight.
+    const askedPerRun: string[] = [];
+    patchAgentAndClones(shared, (target) => {
+      const orig = target.runAgent.bind(target);
+      target.runAgent = async (parameters, subscriber) => {
+        // Hold the run open so the turns genuinely overlap, then read back. On a
+        // shared instance the other turn's user message has landed by now.
+        await new Promise((r) => setTimeout(r, 20));
+        askedPerRun.push(
+          target.messages
+            .filter((m) => m.role === "user")
+            .map((m) => String(m.content))
+            .join("+"),
+        );
+        return orig(parameters, subscriber);
+      };
+    });
+
     channel.onMention(async ({ thread }) => {
       await thread.runAgent();
     });
@@ -879,18 +897,20 @@ describe("createChannel", () => {
       }),
     ]);
 
+    // Assert the symptom before the mechanism, so a regression reports the
+    // user-visible defect rather than an object-identity puzzle: without
+    // isolation both runs read "first+second" off the one shared `messages`
+    // array, so each turn is prompted with the other user's question too.
+    // Completion order between the turns isn't guaranteed — compare as a set.
+    expect(askedPerRun.sort()).toEqual(["first", "second"]);
+
+    // Mechanism: two distinct clones, neither of them the configured object.
     expect(seen).toHaveLength(2);
     expect(seen[0]).not.toBe(shared);
     expect(seen[1]).not.toBe(shared);
     expect(seen[0]).not.toBe(seen[1]);
     // Nothing ever runs on the configured object, so it stays pristine.
     expect(shared.messages).toEqual([]);
-
-    // The point of isolating: neither turn can see the other's user message.
-    // Completion order between the two turns isn't guaranteed, so compare as a set.
-    const perTurn = seen.map((a) => a.messages.map((m) => m.content));
-    expect(perTurn.map((messages) => messages.length)).toEqual([1, 1]);
-    expect(perTurn.flat().sort()).toEqual(["first", "second"]);
   });
 
   it("agent whose clone() drops subclass state fails loud", async () => {

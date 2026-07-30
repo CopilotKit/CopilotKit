@@ -99,19 +99,6 @@ export interface DeliveryAdapterOptions {
   replyContinuation?: ReplyContinuationOptions;
 }
 
-/**
- * @deprecated Concurrent same-thread agent runs are supported (parallel default).
- * Kept so older importers do not break; no longer thrown by DeliveryAdapter.
- */
-export class ChannelAgentConcurrencyError extends Error {
-  readonly code = "channel_agent_concurrency_not_supported";
-
-  constructor(threadId: string) {
-    super(`Channel agent execution is already active for thread ${threadId}`);
-    this.name = "ChannelAgentConcurrencyError";
-  }
-}
-
 /** Stable managed-v1 rejection for Slack slash commands that request agent output. */
 class ChannelSlashCommandAgentNotSupportedError extends Error {
   readonly code = "channel_slash_command_agent_not_supported";
