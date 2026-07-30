@@ -166,7 +166,8 @@ const MAX_FENCE_LANG_CHARS = 32;
  */
 const DEFAULT_MAX_MESSAGES = 20;
 /** Appended when {@link DEFAULT_MAX_MESSAGES} is reached, so the cut is not silent. */
-const TRUNCATION_MARKER = "\n\n_…reply truncated: too long to deliver to Slack._";
+const TRUNCATION_MARKER =
+  "\n\n_…reply truncated: too long to deliver to Slack._";
 
 /**
  * Strip an implausibly long fenced-code language so the continuation re-opens
