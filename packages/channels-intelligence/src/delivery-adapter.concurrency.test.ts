@@ -8,7 +8,7 @@ import type {
 import type { RunAgentInput } from "@ag-ui/core";
 import { DeliveryAdapter } from "./delivery-adapter.js";
 import type {
-  ChannelDeliverySession,
+  ClaimedChannelDelivery,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
 
@@ -67,7 +67,7 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
       },
     });
 
-    const session = {} as ChannelDeliverySession;
+    const session = {} as ClaimedChannelDelivery;
     const d1 = prepared("dlv_1");
     const d2 = prepared("dlv_2");
     const makeAgent = (id: string) => {
@@ -78,12 +78,12 @@ describe("DeliveryAdapter concurrent same-thread runs", () => {
 
     const p1 = gated.conversationStore.getOrCreate(
       d1.canonicalThreadId,
-      { session, delivery: d1 },
+      { claimedDelivery: session, delivery: d1 },
       makeAgent,
     );
     const p2 = gated.conversationStore.getOrCreate(
       d2.canonicalThreadId,
-      { session, delivery: d2 },
+      { claimedDelivery: session, delivery: d2 },
       makeAgent,
     );
 

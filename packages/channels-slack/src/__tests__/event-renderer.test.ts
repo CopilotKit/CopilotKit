@@ -4,8 +4,8 @@ import { createRunRenderer } from "../event-renderer.js";
 
 /**
  * Fake {@link SlackRenderTransport} — records every post / update call in
- * order. This is exactly the seam the managed Connector Outbox will drive, so
- * the renderer is verified Bolt-free (no `WebClient`).
+ * order. Local and managed delivery both drive this transport seam, so the
+ * renderer is verified Bolt-free (no `WebClient`).
  */
 function makeFakeClient() {
   const posts: {

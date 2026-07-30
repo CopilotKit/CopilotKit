@@ -62,8 +62,8 @@ export function createRunRenderer(args: {
   /**
    * The credentialed Slack side-effects (setStatus / postMessage / update),
    * injected so this renderer never imports `@slack/web-api`. The native
-   * adapter wraps a `WebClient`; the managed Connector Outbox wraps its own
-   * sender.
+   * adapter wraps a `WebClient`; managed Intelligence delivery maps supported
+   * calls to provider effects.
    */
   transport: SlackRenderTransport;
   target: { channel: string; threadTs?: string };
@@ -115,7 +115,7 @@ export function createRunRenderer(args: {
      * instead of creating or updating a second legacy message.
      */
     strict?: boolean;
-    /** Override the native text flush floor. Managed sessions use `0`. */
+    /** Override the native text flush floor. */
     minIntervalMs?: number;
     /**
      * Tuning for splitting a long reply across continuation messages. Passed
@@ -157,7 +157,7 @@ export function createRunRenderer(args: {
   const setStatus = async (text: string): Promise<void> => {
     if (!status) return;
     try {
-      await transport.setStatus({
+      await transport.setStatus?.({
         channel_id: target.channel,
         thread_ts: status.threadTs,
         status: text,

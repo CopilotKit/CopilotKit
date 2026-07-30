@@ -8,6 +8,7 @@ import type { RealtimeGatewayConnectionState } from "./realtime-gateway.js";
 
 type JoinMode =
   | "ok"
+  | "invitation-before-join"
   | "error"
   | "never"
   | "error-undefined-reason"
@@ -121,6 +122,7 @@ function makeFakeWebSocket(
       }
       const isOkMode =
         mode === "ok" ||
+        mode === "invitation-before-join" ||
         mode === "ok-then-silent" ||
         mode === "give-up-then-recover";
       const status = isOkMode ? "ok" : "error";
@@ -131,11 +133,28 @@ function makeFakeWebSocket(
               status,
               ...(errorResponse() ? { response: errorResponse() } : {}),
             };
-      queueMicrotask(() =>
+      queueMicrotask(() => {
+        if (mode === "invitation-before-join" && isInitialJoin) {
+          this.onmessage?.({
+            data: JSON.stringify([
+              joinRef,
+              null,
+              topic,
+              "delivery_invitation",
+              {
+                protocol: "channel_delivery_v1",
+                deliveryId: "dlv_first_invitation",
+                canonicalThreadId: "thread_first_invitation",
+                channelName: "opentag",
+                adapter: "slack",
+              },
+            ]),
+          });
+        }
         this.onmessage?.({
           data: JSON.stringify([joinRef, ref, topic, "phx_reply", reply]),
-        }),
-      );
+        });
+      });
     }
 
     /**
@@ -216,6 +235,35 @@ describe("connectRealtimeGateway", () => {
 
     session.disconnect();
     expect(instances[0]!.closed).toBe(true);
+  });
+
+  it("delivers an invitation sent before the control join reply", async () => {
+    const { FakeWebSocket } = makeFakeWebSocket("invitation-before-join");
+    const session = await connectRealtimeGateway({
+      wsUrl: "wss://gateway.example/channels",
+      apiKey: "cpk-test",
+      projectId: 7,
+      join: {
+        protocol: "channel_delivery_v1",
+        runtimeInstanceId: "rti_1",
+        channels: [{ channelName: "opentag", adapter: "slack" }],
+      },
+      webSocket: FakeWebSocket,
+    });
+    const invitations: unknown[] = [];
+
+    session.on("delivery_invitation", (value) => invitations.push(value));
+
+    expect(invitations).toEqual([
+      {
+        protocol: "channel_delivery_v1",
+        deliveryId: "dlv_first_invitation",
+        canonicalThreadId: "thread_first_invitation",
+        channelName: "opentag",
+        adapter: "slack",
+      },
+    ]);
+    session.disconnect();
   });
 });
 

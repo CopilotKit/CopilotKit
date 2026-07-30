@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 /** Hard-cut protocol for the dedicated `/channels` socket. */
 export const CHANNEL_DELIVERY_PROTOCOL = "channel_delivery_v1" as const;
 
@@ -12,10 +10,8 @@ export const CHANNEL_DELIVERY_OWNER_TTL_SECONDS = 60 * 60;
 /** Maximum encoded size of one ordered packet. */
 export const DELIVERY_PACKET_MAX_BYTES = 64 * 1024;
 
-const SHA_256_PATTERN = /^[a-f0-9]{64}$/;
 const PROVIDER_REFERENCE_PATTERN = /^pref_v1_[A-Za-z0-9_-]{8,4088}$/;
-const EFFECT_ID_PATTERN = /^eff_[A-Za-z0-9_-]{2,128}$/;
-const RESPONSE_ID_PATTERN = /^response_[A-Za-z0-9_-]{1,123}$/;
+const PACKET_ID_PATTERN = /^pkt_[A-Za-z0-9_-]{2,128}$/;
 const DELIVERY_ID_PATTERN = /^dlv_[A-Za-z0-9_-]{8,128}$/;
 const RUNTIME_ID_PATTERN = /^rti_[A-Za-z0-9_-]{4,96}$/;
 
@@ -28,8 +24,6 @@ export type ChannelProviderPayload =
       kind: "slack.stream.append";
       providerReference: string;
       delta: string;
-      beforeTextDigest: string;
-      afterTextDigest: string;
     }
   | {
       kind: "slack.stream.task";
@@ -41,7 +35,6 @@ export type ChannelProviderPayload =
   | {
       kind: "slack.stream.stop";
       providerReference: string;
-      finalTextDigest: string;
     }
   | {
       kind: "slack.message.create";
@@ -65,6 +58,12 @@ export type ChannelProviderPayload =
     }
   | {
       kind: "teams.message.replace";
+      providerReference: string;
+      text: string;
+      cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }
+  | {
+      kind: "teams.message.finalize";
       providerReference: string;
       text: string;
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
@@ -102,19 +101,16 @@ export interface ChannelDeliveryPacket {
   runtimeInstanceId: string;
   ownerGeneration: number;
   seq: number;
-  effectId: string;
-  responseId: string;
-  payloadDigest: string;
+  packetId: string;
   payload: ChannelDeliveryPayload;
 }
 
 export interface ChannelDeliveryPacketAck {
   deliveryId: string;
   seq: number;
-  effectId: string;
-  responseId: string;
-  payloadDigest: string;
-  phase: "applied";
+  packetId: string;
+  phase: "applied" | "retry_wait" | "failed" | "uncertain";
+  retryAt?: string;
   result: Record<string, unknown>;
 }
 
@@ -134,15 +130,6 @@ export function deliveryPacketByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
 
-/** Hash the exact provider-ready payload with stable object key order. */
-export function deliveryPayloadDigest(payload: unknown): string {
-  const encoded = JSON.stringify(canonicalizeJson(payload));
-  if (encoded === undefined) {
-    throw new TypeError("delivery payload is not JSON encodable");
-  }
-  return createHash("sha256").update(encoded).digest("hex");
-}
-
 /** Validate one exact, bounded, destination-free delivery packet. */
 export function assertDeliveryPacket(
   value: unknown,
@@ -157,9 +144,7 @@ export function assertDeliveryPacket(
       "runtimeInstanceId",
       "ownerGeneration",
       "seq",
-      "effectId",
-      "responseId",
-      "payloadDigest",
+      "packetId",
       "payload",
     ]) ||
     value.protocol !== CHANNEL_DELIVERY_PROTOCOL ||
@@ -171,20 +156,13 @@ export function assertDeliveryPacket(
     (value.ownerGeneration as number) < 1 ||
     !Number.isInteger(value.seq) ||
     (value.seq as number) < 0 ||
-    typeof value.effectId !== "string" ||
-    !EFFECT_ID_PATTERN.test(value.effectId) ||
-    typeof value.responseId !== "string" ||
-    !RESPONSE_ID_PATTERN.test(value.responseId) ||
-    typeof value.payloadDigest !== "string" ||
-    !SHA_256_PATTERN.test(value.payloadDigest)
+    typeof value.packetId !== "string" ||
+    !PACKET_ID_PATTERN.test(value.packetId)
   ) {
     throw new TypeError("delivery packet fields are invalid");
   }
   if (!isDeliveryPayload(value.payload)) {
     throw new TypeError("delivery payload is invalid");
-  }
-  if (deliveryPayloadDigest(value.payload) !== value.payloadDigest) {
-    throw new TypeError("delivery payload digest is invalid");
   }
   if (deliveryPacketByteLength(value) > DELIVERY_PACKET_MAX_BYTES) {
     throw new RangeError("delivery packet exceeds 64 KiB");
@@ -201,17 +179,9 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.append":
       return (
-        hasExactFields(value, [
-          "kind",
-          "providerReference",
-          "delta",
-          "beforeTextDigest",
-          "afterTextDigest",
-        ]) &&
+        hasExactFields(value, ["kind", "providerReference", "delta"]) &&
         validReference(value.providerReference) &&
-        boundedString(value.delta, 1, 40_000) &&
-        sha256(value.beforeTextDigest) &&
-        sha256(value.afterTextDigest)
+        boundedString(value.delta, 1, 40_000)
       );
     case "slack.stream.task":
       return (
@@ -231,13 +201,8 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.stop":
       return (
-        hasExactFields(value, [
-          "kind",
-          "providerReference",
-          "finalTextDigest",
-        ]) &&
-        validReference(value.providerReference) &&
-        sha256(value.finalTextDigest)
+        hasExactFields(value, ["kind", "providerReference"]) &&
+        validReference(value.providerReference)
       );
     case "slack.message.create":
       return (
@@ -268,6 +233,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         optionalRecordArray(value.cards, 25)
       );
     case "teams.message.replace":
+    case "teams.message.finalize":
       return (
         hasExactFields(
           value,
@@ -315,16 +281,6 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
   }
 }
 
-function canonicalizeJson(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalizeJson);
-  if (!isRecord(value)) return value;
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, canonicalizeJson(value[key])]),
-  );
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -359,10 +315,6 @@ function optionalRecordArray(value: unknown, max: number): boolean {
       value.length <= max &&
       value.every((entry) => isRecord(entry)))
   );
-}
-
-function sha256(value: unknown): boolean {
-  return typeof value === "string" && SHA_256_PATTERN.test(value);
 }
 
 function validReference(value: unknown): boolean {

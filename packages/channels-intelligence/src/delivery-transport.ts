@@ -9,7 +9,6 @@ import {
   CHANNEL_DELIVERY_PROTOCOL,
   assertDeliveryPacket,
   assertProviderReference,
-  deliveryPayloadDigest,
 } from "./delivery-contracts.js";
 import type {
   ChannelDeliveryPacket,
@@ -24,6 +23,8 @@ import { buildContentParts } from "./content-parts.js";
 const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
 const JOIN_TOKEN_EVENT = "join_token";
+const DEFAULT_MAX_CONCURRENT_DELIVERIES = 8;
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
 
 export type ChannelDeliveryAdapter = "slack" | "teams";
@@ -91,6 +92,33 @@ export class ChannelProviderDeliveryError extends Error {
   }
 }
 
+class ChannelDeliveryStoppedError extends Error {
+  constructor() {
+    super("Channel delivery stopped");
+    this.name = "ChannelDeliveryStoppedError";
+  }
+}
+
+function throwIfStopped(signal: AbortSignal): void {
+  if (signal.aborted) throw new ChannelDeliveryStoppedError();
+}
+
+function waitUnlessStopped(ms: number, signal: AbortSignal): Promise<void> {
+  throwIfStopped(signal);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      reject(new ChannelDeliveryStoppedError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 /**
  * Promise wrapper that records whether handler code observed a rejection.
  */
@@ -138,7 +166,7 @@ class ObservableTrackedPromise<T> extends Promise<T> {
 }
 
 /** One claimed delivery and its exact unacknowledged packet. */
-export class ChannelDeliverySession {
+export class ClaimedChannelDelivery {
   private nextSeq = 0;
   private tail: Promise<unknown> = Promise.resolve();
   private channel: RealtimeGatewayDeliveryChannel;
@@ -155,6 +183,7 @@ export class ChannelDeliverySession {
   /** After a successful terminal apply, refuse all further packets. */
   private terminalApplied = false;
   private owner: DeliveryOwner;
+  private left = false;
 
   constructor(
     readonly delivery: PreparedChannelDelivery,
@@ -166,6 +195,7 @@ export class ChannelDeliverySession {
       deliveryExpiresAt?: string;
     }>,
     private readonly files?: ChannelDeliveryFileClient,
+    private readonly signal: AbortSignal = new AbortController().signal,
   ) {
     this.owner = owner;
     this.channel = channel;
@@ -185,10 +215,10 @@ export class ChannelDeliverySession {
 
   /** Send one provider-ready payload after the previous packet is applied. */
   effect(
-    responseId: string,
+    _responseId: string,
     payload: ProviderPayloadInput,
   ): Promise<Record<string, unknown>> {
-    return this.enqueue(responseId, payload).then((result) => {
+    return this.enqueue(payload).then((result) => {
       const error = typeof result.error === "string" ? result.error : undefined;
       const status =
         typeof result.status === "string" ? result.status : undefined;
@@ -204,6 +234,16 @@ export class ChannelDeliverySession {
           status,
         );
       }
+      const capabilityError =
+        typeof result.capabilityError === "string"
+          ? result.capabilityError
+          : undefined;
+      if (
+        payload.kind === "teams.image.create" &&
+        capabilityError === "teams_image_rejected"
+      ) {
+        return result;
+      }
       // Cleanup stream.stop must not count as user-visible provider output —
       // otherwise failed-before-output terminals misclassify after stop-only.
       const kind = typeof payload.kind === "string" ? payload.kind : undefined;
@@ -218,8 +258,8 @@ export class ChannelDeliverySession {
   async terminal(payload: Omit<ChannelTerminalPayload, "kind">): Promise<void> {
     await this.sealAndWaitForTrackedOperations(payload.status === "complete");
     // Terminal remains sendable after effect failures so claimAndHandle can
-    // report failed/uncertain; only a successful terminal seals the session.
-    await this.enqueue("response_terminal", {
+    // report failed/uncertain; only a successful terminal seals the delivery.
+    await this.enqueue({
       kind: "channel.delivery.terminal",
       ...payload,
     });
@@ -305,6 +345,8 @@ export class ChannelDeliverySession {
   }
 
   leave(): void {
+    if (this.left) return;
+    this.left = true;
     this.channel.leave();
   }
 
@@ -321,7 +363,6 @@ export class ChannelDeliverySession {
   }
 
   private enqueue(
-    responseId: string,
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
@@ -341,7 +382,7 @@ export class ChannelDeliverySession {
           `Channel delivery ${this.delivery.deliveryId} packet path is closed`,
         );
       }
-      const packet = this.buildPacket(responseId, payload);
+      const packet = this.buildPacket(payload);
       this.unacknowledgedPacket = packet;
       try {
         // sendExactPacket retries the exact packet across soft transport
@@ -365,7 +406,6 @@ export class ChannelDeliverySession {
   }
 
   private buildPacket(
-    responseId: string,
     payload: ChannelProviderPayload | ChannelTerminalPayload,
   ): ChannelDeliveryPacket {
     if (
@@ -380,9 +420,7 @@ export class ChannelDeliverySession {
       runtimeInstanceId: this.owner.runtimeInstanceId,
       ownerGeneration: this.owner.ownerGeneration,
       seq: this.nextSeq,
-      effectId: `eff_${randomUUID().replaceAll("-", "")}`,
-      responseId,
-      payloadDigest: deliveryPayloadDigest(payload),
+      packetId: `pkt_${randomUUID().replaceAll("-", "")}`,
       payload,
     };
     assertDeliveryPacket(packet);
@@ -394,12 +432,23 @@ export class ChannelDeliverySession {
   ): Promise<ChannelDeliveryPacketAck> {
     let attempt = 0;
     while (Date.now() < Date.parse(this.delivery.deliveryExpiresAt)) {
+      throwIfStopped(this.signal);
       try {
-        return (await this.channel.push(
+        const acknowledgement = (await this.channel.push(
           PACKET_EVENT,
           packet,
         )) as ChannelDeliveryPacketAck;
+        this.assertExactAcknowledgement(packet, acknowledgement);
+        if (acknowledgement.phase !== "retry_wait") {
+          return acknowledgement;
+        }
+        const retryAtMs = Date.parse(acknowledgement.retryAt ?? "");
+        await waitUnlessStopped(
+          Math.max(0, retryAtMs - Date.now()),
+          this.signal,
+        );
       } catch (error) {
+        if (error instanceof ChannelDeliveryStoppedError) throw error;
         if (error instanceof RealtimeGatewayPushError) throw error;
         // Claim/join validation failures are permanent — do not thrash reconnect.
         if (
@@ -414,7 +463,7 @@ export class ChannelDeliverySession {
         attempt += 1;
         // Bound reconnect thrash: exponential backoff capped at 5s.
         const delayMs = Math.min(5_000, 50 * 2 ** Math.min(attempt, 6));
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await waitUnlessStopped(delayMs, this.signal);
         if (Date.now() >= Date.parse(this.delivery.deliveryExpiresAt)) break;
         const refreshed = await this.reconnect();
         this.channel = refreshed.channel;
@@ -429,14 +478,22 @@ export class ChannelDeliverySession {
     acknowledgement: ChannelDeliveryPacketAck,
   ): void {
     if (
-      acknowledgement?.phase !== "applied" ||
+      !["applied", "retry_wait", "failed", "uncertain"].includes(
+        acknowledgement?.phase,
+      ) ||
       acknowledgement.deliveryId !== packet.deliveryId ||
       acknowledgement.seq !== packet.seq ||
-      acknowledgement.effectId !== packet.effectId ||
-      acknowledgement.responseId !== packet.responseId ||
-      acknowledgement.payloadDigest !== packet.payloadDigest ||
+      acknowledgement.packetId !== packet.packetId ||
       typeof acknowledgement.result !== "object" ||
       acknowledgement.result === null
+    ) {
+      throw new TypeError(
+        "Gateway returned a conflicting packet acknowledgement",
+      );
+    }
+    if (
+      acknowledgement.phase === "retry_wait" &&
+      !Number.isFinite(Date.parse(acknowledgement.retryAt ?? ""))
     ) {
       throw new TypeError(
         "Gateway returned a conflicting packet acknowledgement",
@@ -458,6 +515,8 @@ interface ClaimResult {
 export interface ChannelDeliveryTransportOptions {
   session: RealtimeGatewaySession;
   runtimeInstanceId: string;
+  /** Maximum deliveries this Runtime may claim and execute at once. */
+  maxConcurrentDeliveries?: number;
   appApiBaseUrl?: string;
   apiKey?: string;
   fileFetch?: typeof fetch;
@@ -467,17 +526,31 @@ export interface ChannelDeliveryTransportOptions {
 /** Claims invitations and runs each delivery on its one-use delivery topic. */
 export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
+  private readonly activeDeliveries = new Map<string, ClaimedChannelDelivery>();
+  private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
+  private readonly maxConcurrentDeliveries: number;
   private stopped = false;
+  private abortController = new AbortController();
   private invitationHandler?: (value: unknown) => void;
   private started = false;
   /** Latest handler; invitation callback always reads this so re-start re-arms. */
   private deliveryHandler?: (
-    session: ChannelDeliverySession,
+    claimedDelivery: ClaimedChannelDelivery,
     delivery: PreparedChannelDelivery,
   ) => Promise<void>;
 
   constructor(private readonly options: ChannelDeliveryTransportOptions) {
+    this.maxConcurrentDeliveries =
+      options.maxConcurrentDeliveries ?? DEFAULT_MAX_CONCURRENT_DELIVERIES;
+    if (
+      !Number.isSafeInteger(this.maxConcurrentDeliveries) ||
+      this.maxConcurrentDeliveries < 1
+    ) {
+      throw new TypeError(
+        "maxConcurrentDeliveries must be a positive safe integer",
+      );
+    }
     if (options.appApiBaseUrl && options.apiKey) {
       this.files = new ChannelDeliveryFileClient({
         baseUrl: options.appApiBaseUrl,
@@ -493,10 +566,13 @@ export class ChannelDeliveryTransport {
 
   start(
     handler: (
-      session: ChannelDeliverySession,
+      claimedDelivery: ClaimedChannelDelivery,
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
   ): void {
+    if (this.abortController.signal.aborted) {
+      this.abortController = new AbortController();
+    }
     this.stopped = false;
     this.deliveryHandler = handler;
     if (this.started && this.invitationHandler) {
@@ -513,12 +589,30 @@ export class ChannelDeliveryTransport {
       ) {
         return;
       }
+      if (this.active.size >= this.maxConcurrentDeliveries) {
+        this.options.log?.("channel delivery invitation declined", {
+          reason: "capacity",
+        });
+        return;
+      }
+      if (this.activeThreads.has(value.canonicalThreadId)) {
+        this.options.log?.("channel delivery invitation declined", {
+          reason: "thread_active",
+        });
+        return;
+      }
       const activeHandler = this.deliveryHandler;
+      const signal = this.abortController.signal;
       // Register into active before any await so stop() waits for this delivery.
+      this.activeThreads.add(value.canonicalThreadId);
       const running = this.claimAndHandle(
         value.deliveryId,
         activeHandler,
-      ).finally(() => this.active.delete(value.deliveryId));
+        signal,
+      ).finally(() => {
+        this.active.delete(value.deliveryId);
+        this.activeThreads.delete(value.canonicalThreadId);
+      });
       this.active.set(value.deliveryId, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);
@@ -526,15 +620,26 @@ export class ChannelDeliveryTransport {
 
   async stop(): Promise<void> {
     this.stopped = true;
-    await Promise.allSettled(this.active.values());
+    this.abortController.abort();
+    for (const delivery of this.activeDeliveries.values()) delivery.leave();
+    const active = [...this.active.values()];
+    if (active.length === 0) return;
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, SHUTDOWN_TIMEOUT_MS);
+      void Promise.allSettled(active).then(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
   }
 
   private async claimAndHandle(
     deliveryId: string,
     handler: (
-      session: ChannelDeliverySession,
+      claimedDelivery: ClaimedChannelDelivery,
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
+    signal: AbortSignal,
   ): Promise<void> {
     try {
       const claim = (await this.options.session.push(CLAIM_EVENT, {
@@ -543,6 +648,7 @@ export class ChannelDeliveryTransport {
         runtimeInstanceId: this.options.runtimeInstanceId,
       })) as ClaimResult;
       if (claim.result !== "claimed") return;
+      throwIfStopped(signal);
       const owner = assertClaim(
         claim,
         deliveryId,
@@ -599,24 +705,27 @@ export class ChannelDeliveryTransport {
           deliveryExpiresAt: rejoinDelivery.deliveryExpiresAt,
         };
       };
-      const session = new ChannelDeliverySession(
+      const claimedDelivery = new ClaimedChannelDelivery(
         delivery,
         owner,
         joined,
         reconnect,
         this.files,
+        signal,
       );
+      this.activeDeliveries.set(deliveryId, claimedDelivery);
       try {
-        await handler(session, delivery);
-        await session.terminal({
+        throwIfStopped(signal);
+        await handler(claimedDelivery, delivery);
+        await claimedDelivery.terminal({
           status: "complete",
           code: "provider_delivery_complete",
         });
       } catch (error) {
         if (!(error instanceof ChannelProviderDeliveryError)) {
-          await session
+          await claimedDelivery
             .terminal({
-              status: session.hasProviderOutput()
+              status: claimedDelivery.hasProviderOutput()
                 ? "failed"
                 : "failed_before_output",
               code: "runtime_handler_failed",
@@ -628,7 +737,8 @@ export class ChannelDeliveryTransport {
           ...safeChannelErrorMetadata(error),
         });
       } finally {
-        session.leave();
+        this.activeDeliveries.delete(deliveryId);
+        claimedDelivery.leave();
       }
     } catch (error) {
       this.options.log?.("channel delivery claim or join failed", {
@@ -786,12 +896,15 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
 function isInvitation(value: unknown): value is {
   protocol: typeof CHANNEL_DELIVERY_PROTOCOL;
   deliveryId: string;
+  canonicalThreadId: string;
 } {
   return (
     isRecord(value) &&
     value.protocol === CHANNEL_DELIVERY_PROTOCOL &&
     typeof value.deliveryId === "string" &&
-    value.deliveryId.startsWith("dlv_")
+    value.deliveryId.startsWith("dlv_") &&
+    typeof value.canonicalThreadId === "string" &&
+    value.canonicalThreadId.length > 0
   );
 }
 

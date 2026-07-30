@@ -330,8 +330,10 @@ export interface ThreadMessage {
   id: string;
   /** Message role, e.g. `"user"`, `"assistant"`, `"tool"`. */
   role: string;
-  /** Text content of the message. May be absent for tool-call-only messages. */
-  content?: string;
+  /** Structured AG-UI content. May be absent for tool-call-only messages. */
+  content?: unknown;
+  /** Standard AG-UI activity type when `role` is `"activity"`. */
+  activityType?: string;
   /** Tool calls initiated by this message (assistant role only). */
   toolCalls?: Array<{
     id: string;
@@ -958,6 +960,28 @@ export class CopilotKitIntelligence {
       "GET",
       `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
     );
+  }
+
+  /** @internal Fetches one authorized managed Channel asset for history hydration. */
+  async ɵgetManagedChannelAsset(assetId: string): Promise<{
+    bytes: Uint8Array;
+    mimeType?: string;
+  }> {
+    const path = `/api/channels/files/${encodeURIComponent(assetId)}`;
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const mimeType = response.headers.get("content-type") ?? undefined;
+    return { bytes, ...(mimeType ? { mimeType } : {}) };
   }
 
   /**

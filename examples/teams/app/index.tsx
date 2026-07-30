@@ -25,8 +25,12 @@
  */
 import "dotenv/config";
 import { createServer } from "node:http";
-import { createChannel, defineChannelTool } from "@copilotkit/channels";
-import { teams, SanitizingHttpAgent } from "@copilotkit/channels/teams";
+import {
+  createChannel,
+  defineChannelTool,
+  HttpAgent,
+} from "@copilotkit/channels";
+import { teams } from "@copilotkit/channels/teams";
 import {
   BuiltInAgent,
   CopilotSseRuntime,
@@ -112,12 +116,12 @@ const SYSTEM_PROMPT =
   "acknowledge and do not send.";
 
 // The agent is a CopilotKit `BuiltInAgent` served over a local
-// `CopilotSseRuntime`, and the bot connects to it with a `SanitizingHttpAgent`
-// (the re-runnable `HttpAgent` this package exports, as bot-slack does). A
-// `BuiltInAgent` can't be handed to `createChannel` directly: the bot's run loop
-// re-invokes the agent once per tool round (call → result → respond), and a
-// single `BuiltInAgent` instance rejects a second concurrent run. An
-// `HttpAgent` is re-runnable, so it drives the multi-step + HITL loops cleanly.
+// `CopilotSseRuntime`, and the bot connects to it with an `HttpAgent` (as the
+// Slack example does). A `BuiltInAgent` can't be handed to `createChannel`
+// directly: the bot's run loop re-invokes the agent once per tool round (call →
+// result → respond), and a single `BuiltInAgent` instance rejects a second
+// concurrent run. An `HttpAgent` is re-runnable, so it drives the multi-step +
+// HITL loops cleanly.
 const agentId = "assistant";
 const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
 const runtimeAgentUrl = `http://localhost:${runtimePort}/api/copilotkit/agent/${agentId}/run`;
@@ -202,7 +206,7 @@ const bot = createChannel({
   name: "teams-assistant",
   adapters: [teams({ port })],
   agent: (threadId: string) => {
-    const agent = new SanitizingHttpAgent({ url: runtimeAgentUrl });
+    const agent = new HttpAgent({ url: runtimeAgentUrl });
     agent.threadId = threadId;
     return agent;
   },
@@ -249,7 +253,7 @@ const intelligence = new CopilotKitIntelligence({
 // Declare the Channel on the Intelligence runtime. The runtime OWNS the
 // Channel's lifecycle: because Intelligence is configured, it starts the direct
 // Teams adapter for us (there is no `bot.start()`). It hosts no agents itself —
-// the Channel supplies its own agent (the SanitizingHttpAgent above, pointed at
+// the Channel supplies its own agent (the HttpAgent above, pointed at
 // the local BuiltInAgent runtime) — so `agents` is empty.
 const channelRuntime = new CopilotRuntime({
   agents: {},
