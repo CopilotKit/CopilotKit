@@ -89,7 +89,8 @@ export function preparedDelivery(
   input: PreparedChannelDelivery["turn"]["input"],
 ): PreparedChannelDelivery {
   // Packet contract requires `dlv_` + 8..128 charset chars.
-  const idSuffix = suffix.length >= 8 ? suffix : `${suffix}_pad000`.slice(0, 12);
+  const idSuffix =
+    suffix.length >= 8 ? suffix : `${suffix}_pad000`.slice(0, 12);
   return {
     protocol: "channel_delivery_v1",
     deliveryId: `dlv_${idSuffix}`,

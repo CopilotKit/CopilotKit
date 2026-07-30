@@ -32,9 +32,7 @@ export async function buildContentParts(
 ): Promise<AgentContentPart[]> {
   if (!files?.length) return [];
   if (!fetchFile) {
-    log?.(
-      "intelligence file fetch unavailable: file client is not configured",
-    );
+    log?.("intelligence file fetch unavailable: file client is not configured");
     return files.map((ref) => ({
       type: "text" as const,
       text: `[attached file ${ref.filename} could not be retrieved]`,

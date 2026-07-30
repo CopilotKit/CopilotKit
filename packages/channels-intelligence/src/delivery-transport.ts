@@ -170,10 +170,7 @@ export class ChannelDeliverySession {
   }
 
   /** Refresh ownership metadata after a successful join_token reconnect. */
-  updateOwner(
-    owner: DeliveryOwner,
-    deliveryExpiresAt?: string,
-  ): void {
+  updateOwner(owner: DeliveryOwner, deliveryExpiresAt?: string): void {
     this.owner = owner;
     if (
       deliveryExpiresAt !== undefined &&
