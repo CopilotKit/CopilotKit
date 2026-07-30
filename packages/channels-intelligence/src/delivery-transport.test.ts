@@ -342,6 +342,74 @@ test("polls the same packet after a retry-wait result", async () => {
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
+test("stop aborts an active retry wait and leaves its delivery topic", async () => {
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve({
+        ...(packet as object),
+        phase: "retry_wait",
+        retryAt: new Date(Date.now() + 1_000).toISOString(),
+        result: {
+          status: "retry_wait",
+          code: "provider_rate_limited",
+        },
+      }),
+    )
+    .mockImplementation((_event, packet) =>
+      Promise.resolve({
+        ...(packet as object),
+        phase: "applied",
+        result: { providerReference: "pref_v1_message_01" },
+      }),
+    );
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue({
+      result: "claimed",
+      deliveryId: "dlv_delivery_01",
+      ownerGeneration: 7,
+      joinToken: "chj_token_01",
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+  });
+  transport.start(async (session) => {
+    await session.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    });
+  });
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() => expect(deliveryChannel.push).toHaveBeenCalledOnce());
+
+  const outcome = await Promise.race([
+    transport.stop().then(() => "stopped"),
+    new Promise<"timed_out">((resolve) =>
+      setTimeout(() => resolve("timed_out"), 100),
+    ),
+  ]);
+
+  expect(outcome).toBe("stopped");
+  expect(deliveryChannel.leave).toHaveBeenCalled();
+  expect(deliveryChannel.push).toHaveBeenCalledOnce();
+
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_02",
+    canonicalThreadId: "thread_02",
+  });
+  expect(control.push).toHaveBeenCalledOnce();
+});
+
 test("still sends a failed terminal when complete terminal fails", async () => {
   const deliveryChannel = channel();
   const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
@@ -589,10 +657,10 @@ test("rejects prepared deliveries with incomplete turn fields", async () => {
     deliveryId: "dlv_delivery_01",
     canonicalThreadId: "thread_01",
   });
-  await transport.stop();
   await vi.waitFor(() => {
     expect(vi.mocked(control.join)).toHaveBeenCalled();
   });
+  await transport.stop();
   expect(deliveryChannel.leave).toHaveBeenCalled();
   // Invalid prepared turn must not emit a complete terminal packet.
   const terminalPackets = vi

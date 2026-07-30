@@ -24,6 +24,7 @@ const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
 const JOIN_TOKEN_EVENT = "join_token";
 const DEFAULT_MAX_CONCURRENT_DELIVERIES = 8;
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
 
 export type ChannelDeliveryAdapter = "slack" | "teams";
@@ -91,6 +92,33 @@ export class ChannelProviderDeliveryError extends Error {
   }
 }
 
+class ChannelDeliveryStoppedError extends Error {
+  constructor() {
+    super("Channel delivery stopped");
+    this.name = "ChannelDeliveryStoppedError";
+  }
+}
+
+function throwIfStopped(signal: AbortSignal): void {
+  if (signal.aborted) throw new ChannelDeliveryStoppedError();
+}
+
+function waitUnlessStopped(ms: number, signal: AbortSignal): Promise<void> {
+  throwIfStopped(signal);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+      reject(new ChannelDeliveryStoppedError());
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 /**
  * Promise wrapper that records whether handler code observed a rejection.
  */
@@ -155,6 +183,7 @@ export class ChannelDeliverySession {
   /** After a successful terminal apply, refuse all further packets. */
   private terminalApplied = false;
   private owner: DeliveryOwner;
+  private left = false;
 
   constructor(
     readonly delivery: PreparedChannelDelivery,
@@ -166,6 +195,7 @@ export class ChannelDeliverySession {
       deliveryExpiresAt?: string;
     }>,
     private readonly files?: ChannelDeliveryFileClient,
+    private readonly signal: AbortSignal = new AbortController().signal,
   ) {
     this.owner = owner;
     this.channel = channel;
@@ -305,6 +335,8 @@ export class ChannelDeliverySession {
   }
 
   leave(): void {
+    if (this.left) return;
+    this.left = true;
     this.channel.leave();
   }
 
@@ -390,6 +422,7 @@ export class ChannelDeliverySession {
   ): Promise<ChannelDeliveryPacketAck> {
     let attempt = 0;
     while (Date.now() < Date.parse(this.delivery.deliveryExpiresAt)) {
+      throwIfStopped(this.signal);
       try {
         const acknowledgement = (await this.channel.push(
           PACKET_EVENT,
@@ -400,10 +433,12 @@ export class ChannelDeliverySession {
           return acknowledgement;
         }
         const retryAtMs = Date.parse(acknowledgement.retryAt ?? "");
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.max(0, retryAtMs - Date.now())),
+        await waitUnlessStopped(
+          Math.max(0, retryAtMs - Date.now()),
+          this.signal,
         );
       } catch (error) {
+        if (error instanceof ChannelDeliveryStoppedError) throw error;
         if (error instanceof RealtimeGatewayPushError) throw error;
         // Claim/join validation failures are permanent — do not thrash reconnect.
         if (
@@ -418,7 +453,7 @@ export class ChannelDeliverySession {
         attempt += 1;
         // Bound reconnect thrash: exponential backoff capped at 5s.
         const delayMs = Math.min(5_000, 50 * 2 ** Math.min(attempt, 6));
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await waitUnlessStopped(delayMs, this.signal);
         if (Date.now() >= Date.parse(this.delivery.deliveryExpiresAt)) break;
         const refreshed = await this.reconnect();
         this.channel = refreshed.channel;
@@ -481,10 +516,12 @@ export interface ChannelDeliveryTransportOptions {
 /** Claims invitations and runs each delivery on its one-use delivery topic. */
 export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
+  private readonly activeSessions = new Map<string, ChannelDeliverySession>();
   private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
   private readonly maxConcurrentDeliveries: number;
   private stopped = false;
+  private abortController = new AbortController();
   private invitationHandler?: (value: unknown) => void;
   private started = false;
   /** Latest handler; invitation callback always reads this so re-start re-arms. */
@@ -523,6 +560,9 @@ export class ChannelDeliveryTransport {
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
   ): void {
+    if (this.abortController.signal.aborted) {
+      this.abortController = new AbortController();
+    }
     this.stopped = false;
     this.deliveryHandler = handler;
     if (this.started && this.invitationHandler) {
@@ -552,11 +592,13 @@ export class ChannelDeliveryTransport {
         return;
       }
       const activeHandler = this.deliveryHandler;
+      const signal = this.abortController.signal;
       // Register into active before any await so stop() waits for this delivery.
       this.activeThreads.add(value.canonicalThreadId);
       const running = this.claimAndHandle(
         value.deliveryId,
         activeHandler,
+        signal,
       ).finally(() => {
         this.active.delete(value.deliveryId);
         this.activeThreads.delete(value.canonicalThreadId);
@@ -568,7 +610,17 @@ export class ChannelDeliveryTransport {
 
   async stop(): Promise<void> {
     this.stopped = true;
-    await Promise.allSettled(this.active.values());
+    this.abortController.abort();
+    for (const session of this.activeSessions.values()) session.leave();
+    const active = [...this.active.values()];
+    if (active.length === 0) return;
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, SHUTDOWN_TIMEOUT_MS);
+      void Promise.allSettled(active).then(() => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
   }
 
   private async claimAndHandle(
@@ -577,6 +629,7 @@ export class ChannelDeliveryTransport {
       session: ChannelDeliverySession,
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
+    signal: AbortSignal,
   ): Promise<void> {
     try {
       const claim = (await this.options.session.push(CLAIM_EVENT, {
@@ -585,6 +638,7 @@ export class ChannelDeliveryTransport {
         runtimeInstanceId: this.options.runtimeInstanceId,
       })) as ClaimResult;
       if (claim.result !== "claimed") return;
+      throwIfStopped(signal);
       const owner = assertClaim(
         claim,
         deliveryId,
@@ -647,8 +701,11 @@ export class ChannelDeliveryTransport {
         joined,
         reconnect,
         this.files,
+        signal,
       );
+      this.activeSessions.set(deliveryId, session);
       try {
+        throwIfStopped(signal);
         await handler(session, delivery);
         await session.terminal({
           status: "complete",
@@ -670,6 +727,7 @@ export class ChannelDeliveryTransport {
           ...safeChannelErrorMetadata(error),
         });
       } finally {
+        this.activeSessions.delete(deliveryId);
         session.leave();
       }
     } catch (error) {
