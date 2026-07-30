@@ -189,8 +189,7 @@ export class ChannelDeliverySession {
     payload: ProviderPayloadInput,
   ): Promise<Record<string, unknown>> {
     return this.enqueue(responseId, payload).then((result) => {
-      const error =
-        typeof result.error === "string" ? result.error : undefined;
+      const error = typeof result.error === "string" ? result.error : undefined;
       const status =
         typeof result.status === "string" ? result.status : undefined;
       if (
