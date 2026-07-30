@@ -104,6 +104,26 @@ describe("Channels documentation journey", () => {
     expect(overview?.source).not.toContain(
       "## Match your Channels configuration",
     );
+    expect(overview?.source).toContain(
+      "description: Run one AG-UI agent in Slack, Microsoft Teams, and more",
+    );
+    expect(overview?.source).toContain(
+      "channel connection (Slack, Teams, Discord, etc.)",
+    );
+    expect(overview?.source).toContain('title="More channels are on the way"');
+    expect(overview?.source).toContain(
+      'surface="docs_channels_more_channels_contact"',
+    );
+    expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
+    expect(overview?.source).toContain(
+      "## Production self-hosting: Run Enterprise Intelligence in your own infrastructure",
+    );
+    expect(overview?.source).toContain(
+      'surface="docs_channels_self_hosting_contact"',
+    );
+    expect(overview?.source).toContain(
+      ">Book time with a CopilotKit engineer</DocsTrackedLink>",
+    );
     expect(overview?.source).toContain("## Next step");
     expect(overview?.source).toContain(
       "[Configure the Channel in Intelligence](/channels/intelligence)",
