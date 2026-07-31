@@ -50,6 +50,14 @@ function collapseWhitespace(content: string): string {
   return content.replace(/\s+/g, " ").trim();
 }
 
+/** Extract TSDoc comments without coupling documentation checks to implementation code. */
+function extractTsdocComments(source: string): string {
+  return Array.from(
+    source.matchAll(/\/\*\*[\s\S]*?\*\//g),
+    (match) => match[0],
+  ).join("\n");
+}
+
 function expectPageImmediatelyAfter(
   pages: unknown[],
   target: string,
@@ -669,6 +677,199 @@ test("T1: publishes framework-native variants of the hosted existing-app guide",
     expect(code).not.toMatch(/\buseThreads\s*\(/);
   }
 });
+
+test.each([
+  {
+    surface: "threads explanation",
+    read: () => readContent("docs/premium/threads-explained.mdx"),
+    archiveContract: true,
+    deleteContract: true,
+    paginationContract: false,
+    optimisticContract: true,
+    orderingContract: false,
+  },
+  {
+    surface: "Angular headless threads guide",
+    read: () =>
+      readContent(
+        "docs/frontends/angular/guides/threads-memory-attachments-headless.mdx",
+      ),
+    archiveContract: false,
+    deleteContract: true,
+    paginationContract: false,
+    optimisticContract: false,
+    orderingContract: false,
+  },
+  {
+    surface: "Angular public API inventory",
+    read: () => readContent("reference/angular/public-api.mdx"),
+    archiveContract: false,
+    deleteContract: false,
+    paginationContract: false,
+    optimisticContract: false,
+    orderingContract: false,
+  },
+  {
+    surface: "Vue useThreads reference",
+    read: () => readContent("reference/vue/hooks/useThreads.mdx"),
+    archiveContract: true,
+    deleteContract: true,
+    paginationContract: true,
+    optimisticContract: true,
+    orderingContract: true,
+  },
+  {
+    surface: "React Native useThreads reference",
+    read: () => readContent("reference/react-native/hooks/useThreads.mdx"),
+    archiveContract: true,
+    deleteContract: true,
+    paginationContract: true,
+    optimisticContract: true,
+    orderingContract: true,
+  },
+  {
+    surface: "React useThreads TSDoc",
+    read: () =>
+      extractTsdocComments(fs.readFileSync(useThreadsSourceUrl, "utf8")),
+    archiveContract: true,
+    deleteContract: true,
+    paginationContract: true,
+    optimisticContract: true,
+    orderingContract: true,
+  },
+  {
+    surface: "Angular injectThreads TSDoc",
+    read: () =>
+      extractTsdocComments(
+        fs.readFileSync(
+          new URL(
+            "../../../../../packages/angular/src/lib/threads.ts",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      ),
+    archiveContract: true,
+    deleteContract: true,
+    paginationContract: true,
+    optimisticContract: true,
+    orderingContract: true,
+  },
+])(
+  "T2: $surface matches the cross-frontend thread contract",
+  ({
+    surface,
+    read,
+    archiveContract,
+    deleteContract,
+    paginationContract,
+    optimisticContract,
+    orderingContract,
+  }) => {
+    const content = collapseWhitespace(read().replace(/`/g, ""));
+
+    expect.soft(content, `${surface}: content loads`).not.toHaveLength(0);
+
+    if (archiveContract) {
+      expect
+        .soft(content, `${surface}: archive is a reversible visibility state`)
+        .toMatch(/\barchive(?:Thread)?\b[^.]*\breversible visibility state\b/i);
+      expect
+        .soft(content, `${surface}: archived rows can be included`)
+        .toContain("includeArchived: true");
+      expect
+        .soft(content, `${surface}: unarchive restores the active row`)
+        .toMatch(/\bunarchive(?:Thread|d)?\b[^.]*\brestores?\b/i);
+      expect
+        .soft(content, `${surface}: archive is not described as soft-delete`)
+        .not.toMatch(/\barchive(?:Thread)?\b[^.]*\bsoft[ -]?delete\b/i);
+    }
+
+    if (deleteContract) {
+      expect
+        .soft(content, `${surface}: delete is irreversible to the app user`)
+        .toMatch(
+          /\b(?:delete(?:Thread)?|deletion)\b[^.]*\birreversible to (?:the )?app user\b/i,
+        );
+      expect
+        .soft(content, `${surface}: the platform soft-deletes`)
+        .toMatch(/\bplatform\b[^.]*\bsoft-deletes?\b/i);
+      expect
+        .soft(content, `${surface}: the platform retains the stored row`)
+        .toMatch(/\bretains?\b[^.]*\bstored row\b/i);
+      expect
+        .soft(content, `${surface}: delete does not promise a purge window`)
+        .not.toMatch(
+          /\b(?:delete(?:Thread)?|deletion)\b[^.]*\b\d+\s+(?:hours?|days?|weeks?|months?|years?)\b/i,
+        );
+      expect
+        .soft(content, `${surface}: delete does not claim physical row removal`)
+        .not.toMatch(
+          /\b(?:delete(?:Thread)?|deletion)\b[^.]*\bpermanent\b|\bpermanently\b[^.]*\bdelete\b|\b(?:row|record|history)\b[^.]*\b(?:removed?|deleted?)\b[^.]*\b(?:entirely|physically)\b/i,
+        );
+    }
+
+    if (paginationContract) {
+      expect
+        .soft(content, `${surface}: cursor pages default to 50 rows`)
+        .toMatch(
+          /\b(?:default page size (?:is|of)|default is|defaults? to) 50(?: threads)? per page\b/i,
+        );
+      expect
+        .soft(content, `${surface}: limit only overrides page size`)
+        .toMatch(
+          /\blimit\b[^.]*\boverrides?\b[^.]*\bpage size\b|\boverrides? the thread page size\b/i,
+        );
+      expect
+        .soft(content, `${surface}: cursor pagination works without limit`)
+        .toMatch(
+          /\bcursor(?:-based)? pagination\b[^.]*\b(?:remains active when (?:this|limit) is omitted|without (?:a )?limit)\b/i,
+        );
+      expect
+        .soft(content, `${surface}: limit is not required for pagination`)
+        .not.toMatch(
+          /\bonly meaningful when limit is set\b|\blimit\b[^.]*\benables? cursor-based pagination\b|\bcursor-based pagination\b[^.]*\bwhen (?:a )?limit is (?:provided|set)\b/i,
+        );
+    }
+
+    if (optimisticContract) {
+      expect
+        .soft(content, `${surface}: all four mutations are optimistic`)
+        .toMatch(
+          /\brename\b[\s\S]{0,120}\barchive\b[\s\S]{0,80}\bunarchive\b[\s\S]{0,80}\bdelete\b[\s\S]{0,220}\boptimistic(?:ally)?\b/i,
+        );
+      expect
+        .soft(content, `${surface}: rejected delete restores its row`)
+        .toMatch(
+          /\b(?:rejected delete|delete[^.]*\b(?:rejects?|fails?|failure)\b)[^.]*\b(?:restores?|rolls? back)\b[^.]*\brow\b/i,
+        );
+      expect
+        .soft(content, `${surface}: other failures reconcile`)
+        .toMatch(
+          /\bother\b[^.]*\b(?:failures|rejected mutations)\b[^.]*\brealtime\b[^.]*\brefetch\b/i,
+        );
+      expect
+        .soft(content, `${surface}: mutations are not pessimistic`)
+        .not.toMatch(/\bpessimistic updates?\b/i);
+    }
+
+    if (orderingContract) {
+      expect
+        .soft(
+          content,
+          `${surface}: newest-first ordering uses all tie-breakers`,
+        )
+        .toMatch(
+          /\blastRunAt\b[^.]*\bupdatedAt\b[^.]*\bcreatedAt\b[^.]*\b(?:most recent|newest)[ -]first\b/i,
+        );
+      expect
+        .soft(content, `${surface}: ordering is not updatedAt-only`)
+        .not.toMatch(
+          /\bsorted (?:by )?most[ -]recently[ -]updated first\b|\bsorted by updatedAt(?: descending)?\b/i,
+        );
+    }
+  },
+);
 
 test("the useThreads reference matches optimistic Core mutations", () => {
   const reference = collapseWhitespace(readContent(useThreadsReferencePath));
