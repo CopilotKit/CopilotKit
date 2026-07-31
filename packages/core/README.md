@@ -36,9 +36,10 @@ subscription.unsubscribe();
 ```
 
 Core sends the current headers and fetch credentials to the Copilot Runtime. A
-call to `setHeaders()` or `setCredentials()` starts a new metadata refresh.
-Changing the runtime URL or transport, losing the capability, or disconnecting
-clears the value.
+call to `setHeaders()` or `setCredentials()` clears the prior value before it
+starts a new metadata refresh, so trusted context cannot cross an auth-context
+change. Changing the runtime URL or transport, losing the capability, or
+disconnecting also clears the value.
 
 Each refresh cancels the prior request and has a five-second deadline. Core also
 checks the runtime URL, requested and resolved transport, headers, credentials,

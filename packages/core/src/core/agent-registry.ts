@@ -460,12 +460,14 @@ export class AgentRegistry {
   /** Refresh metadata after the Core header snapshot changes. */
   handleHeadersChanged(): void {
     this.inspectorMetadataHeadersGeneration += 1;
+    this.setInspectorMetadata(undefined);
     void this.refreshInspectorMetadata();
   }
 
   /** Refresh metadata after the Core credentials mode changes. */
   handleCredentialsChanged(): void {
     this.inspectorMetadataCredentialsGeneration += 1;
+    this.setInspectorMetadata(undefined);
     void this.refreshInspectorMetadata();
   }
 

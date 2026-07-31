@@ -11,7 +11,9 @@ valid module on its own:
 - `action` can show one trusted link in the header or locked Threads view.
 - `usage` is carried by the shared contract but is not rendered in this release.
 
-Missing or invalid metadata leaves the existing Inspector UI in place.
+Missing or invalid metadata hides these trusted modules. The existing tabs,
+debug views, and Threads endpoint behavior remain available; a locked Threads
+view has no metadata action when trusted action data is absent.
 
 ### License and action matrix
 

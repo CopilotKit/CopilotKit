@@ -698,6 +698,43 @@ test("header and credential changes refresh metadata without rediscovery", async
   }
 });
 
+test("auth context changes clear loaded metadata before stalled refreshes settle", async () => {
+  for (const authContext of ["headers", "credentials"] as const) {
+    const stalled = deferred<Response>();
+    const initial = metadata(`Initial ${authContext}`);
+    const context = setup({
+      headers: { Authorization: "Bearer one" },
+      credentials: "same-origin",
+      metadataResponses: [jsonResponse(initial), stalled.promise],
+    });
+    try {
+      context.core.connect();
+      await waitFor(
+        () =>
+          context.core.inspectorMetadata?.plan?.label ===
+          `Initial ${authContext}`,
+      );
+
+      if (authContext === "headers") {
+        context.core.setHeaders({ Authorization: "Bearer two" });
+      } else {
+        context.core.setCredentials("include");
+      }
+
+      expect(context.core.inspectorMetadata, authContext).toBeUndefined();
+      expect(context.core.runtimeConnectionStatus, authContext).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+      expect(context.metadataRequests(), authContext).toHaveLength(2);
+      expect(context.metadataRequests()[1]?.signal?.aborted, authContext).toBe(
+        false,
+      );
+    } finally {
+      context.teardown();
+    }
+  }
+});
+
 test("a stale metadata result cannot cross a runtime URL change", async () => {
   const stale = deferred<Response>();
   const current = metadata("Current URL");
