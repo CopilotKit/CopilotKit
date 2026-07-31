@@ -105,6 +105,33 @@ function extractTsdocComments(source: string): string {
   ).join("\n");
 }
 
+/** Assert that the callback-free Drawer example shares chat configuration. */
+function expectCallbackFreeDrawerExample(source: string): void {
+  const tsdoc = extractTsdocComments(source);
+  const example =
+    tsdoc.match(/@example[\s\S]*?```tsx\r?\n([\s\S]*?)```/)?.[1] ?? "";
+  const configuration = example.match(
+    /<CopilotChatConfigurationProvider\b[^>]*>([\s\S]*?)<\/CopilotChatConfigurationProvider>/,
+  );
+  const sharedChildren = configuration?.[1] ?? "";
+
+  expect(example).not.toHaveLength(0);
+  expect(configuration).not.toBeNull();
+  expect(sharedChildren).toMatch(/<CopilotThreadsDrawer\b[^>]*\/>/);
+  expect(sharedChildren).toMatch(/<CopilotChat\b[^>]*\/>/);
+}
+
+/** Assert that public React TSDoc describes default cursor pagination. */
+function expectPublicReactPaginationTsdoc(source: string): void {
+  const tsdoc = collapseWhitespace(extractTsdocComments(source));
+
+  expect(tsdoc).toMatch(/default[^.]*50 threads per page/i);
+  expect(tsdoc).toContain("`nextCursor`");
+  expect(tsdoc).not.toMatch(
+    /(?:full list loads at once|Only meaningful when `limit` is set|When set, enables cursor-based pagination)/,
+  );
+}
+
 function expectPageImmediatelyAfter(
   pages: unknown[],
   target: string,
@@ -176,8 +203,13 @@ function expectNoThreadRemovalContradictions(content: string): void {
   expect(content).not.toMatch(
     /\b(?:archive(?:Thread)?|archived|archiving)\b[^.]*\bsoft[ -]?delet(?:e[sd]?|ing)\b/i,
   );
-  expect(content).not.toMatch(
-    /\b(?:delete(?:Thread)?|deleted|deleting|deletion)\b[^.]*\b(?:permanent(?:ly)?|physically)\b[^.]*\b(?:remov(?:e[sd]?|ing)|delet(?:e[sd]?|ing))\b|\b(?:row|record|history)\b[^.]*\b(?:removed?|deleted?)\b[^.]*\b(?:entirely|physically)\b/i,
+  const positiveClaims = content.replace(
+    /\b(?:does\s+not|never)\s+(?:permanently|physically)\s+(?:remov(?:e[sd]?|ing)|delet(?:e[sd]?|ing))\b/gi,
+    "retains",
+  );
+
+  expect(positiveClaims).not.toMatch(
+    /\b(?:permanent(?:ly)?|physically)\s+(?:remov(?:e[sd]?|ing)|delet(?:e[sd]?|ing))\b|\b(?:delete(?:Thread)?|deleted|deleting|deletion)\b[^.]*\b(?:permanent(?:ly)?|physically)\b[^.]*\b(?:remov(?:e[sd]?|ing)|delet(?:e[sd]?|ing))\b|\b(?:row|record|history)\b[^.]*\b(?:removed?|deleted?)\b[^.]*\b(?:entirely|physically)\b/i,
   );
 }
 
@@ -197,6 +229,12 @@ async function expectFrameworkNativeGuide(
   expect(linkDestinations).toContain(variant.handoff);
   expect(code).not.toMatch(
     /\bimport\s+(?:type\s+)?\{[^}]*\b(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b[^}]*\}\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
+  );
+  expect(code).not.toMatch(
+    /\bimport\s+(?:type\s+)?(?:\*\s+as\s+[A-Za-z_$][\w$]*|[A-Za-z_$][\w$]*(?:\s*,\s*\{[^}]*\})?)\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
+  );
+  expect(code).not.toMatch(
+    /\b[A-Za-z_$][\w$]*\.(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b/,
   );
   expect(code).not.toMatch(/<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/);
   expect(code).not.toMatch(/\buseThreads\s*\(/);
@@ -269,10 +307,40 @@ test("rejects React-only APIs in shared code rendered by frontend guides", async
 });
 
 test.each([
+  [
+    "a namespace import",
+    'import * as ReactCore from "@copilotkit/react-core/v2";',
+  ],
+  ["a default import", 'import ReactCore from "@copilotkit/react-core/v2";'],
+  ["a member-qualified API", "const Drawer = ReactCore.CopilotThreadsDrawer;"],
+])(
+  "rejects React-only APIs expressed through %s",
+  async (_caseName, reactOnlyCode) => {
+    const variant = hostedGuideVariants[0];
+    const wrapperContent = `[Continue](${variant.handoff})`;
+    const renderedContent = `${wrapperContent}\n\n\`\`\`tsx\n${reactOnlyCode}\n\`\`\``;
+
+    await expect(
+      expectFrameworkNativeGuide(variant, wrapperContent, renderedContent),
+    ).rejects.toThrow();
+  },
+);
+
+test.each([
   "Archived threads are soft-deleted.",
   "Deleted threads are permanently removed.",
+  "The platform permanently removes the stored row.",
 ])("rejects the removal contradiction: %s", (contradiction) => {
   expect(() => expectNoThreadRemovalContradictions(contradiction)).toThrow();
+});
+
+test.each([
+  "Deleting a thread does not permanently remove the stored row.",
+  "Deleting a thread never physically removes the stored row.",
+])("accepts the negated retention claim: %s", (retentionClaim) => {
+  expect(() =>
+    expectNoThreadRemovalContradictions(retentionClaim),
+  ).not.toThrow();
 });
 
 /** Assert that MDX source links to the canonical guide path. */
@@ -294,10 +362,13 @@ function expectNoRetiredThreadSetup(
   expect(contentsByPath.has(headlessEntryPointPath)).toBe(true);
 
   expect(contentsByPath.get(drawerEntryPointPath) ?? "").not.toMatch(
-    /\bpublicLicenseKey\s*=/,
+    /\bpublicLicenseKey\b\s*(?:=|:|(?=\}))/,
   );
   expect(contentsByPath.get(headlessEntryPointPath) ?? "").not.toMatch(
     /\bimport\s*(?:type\s+)?\{[^}]*\bCopilotRuntime\b[^}]*\}\s*from\s*(["'])@copilotkit\/runtime\1/,
+  );
+  expect(contentsByPath.get(headlessEntryPointPath) ?? "").not.toMatch(
+    /\b[A-Za-z_$][\w$]*\.CopilotRuntime\b/,
   );
 }
 
@@ -317,22 +388,66 @@ function createEntryPointFixture(
 
 /** Extract Markdown code fences with their language and optional title. */
 function extractMdxCodeFences(content: string): MdxCodeFence[] {
-  return Array.from(
-    content.matchAll(
-      /^[ \t]*(`{3,}|~{3,})[ \t]*([^\r\n]*)\r?\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm,
-    ),
-    (match) => {
-      const info = (match[2] ?? "").trim();
-      const titleMatch = info.match(/\btitle=(?:"([^"]+)"|'([^']+)')/);
+  const lines = content.split(/\r?\n/);
+  const fences: MdxCodeFence[] = [];
 
-      return {
-        language: info.split(/\s+/, 1)[0] ?? "",
-        title: titleMatch?.[1] ?? titleMatch?.[2],
-        content: match[3] ?? "",
-      };
-    },
-  );
+  for (let openingIndex = 0; openingIndex < lines.length; openingIndex += 1) {
+    const opening = lines[openingIndex]?.match(
+      /^[ \t]*(`{3,}|~{3,})[ \t]*([^\r\n]*)$/,
+    );
+    if (!opening) continue;
+
+    const openingMarker = opening[1] ?? "";
+    let closingIndex = -1;
+
+    for (
+      let candidateIndex = openingIndex + 1;
+      candidateIndex < lines.length;
+      candidateIndex += 1
+    ) {
+      const closingMarker =
+        lines[candidateIndex]?.match(/^[ \t]*(`+|~+)[ \t]*$/)?.[1] ?? "";
+      if (
+        closingMarker.startsWith(openingMarker[0] ?? "") &&
+        closingMarker.length >= openingMarker.length
+      ) {
+        closingIndex = candidateIndex;
+        break;
+      }
+    }
+
+    if (closingIndex < 0) break;
+
+    const info = (opening[2] ?? "").trim();
+    const titleMatch = info.match(/\btitle=(?:"([^"]+)"|'([^']+)')/);
+    const bodyLines = lines.slice(openingIndex + 1, closingIndex);
+
+    fences.push({
+      language: info.split(/\s+/, 1)[0] ?? "",
+      title: titleMatch?.[1] ?? titleMatch?.[2],
+      content: `${bodyLines.join("\n")}${bodyLines.length > 0 ? "\n" : ""}`,
+    });
+    openingIndex = closingIndex;
+  }
+
+  return fences;
 }
+
+test("parses a code fence closed by a longer delimiter", () => {
+  const content = [
+    '```tsx title="example.tsx"',
+    "export const example = true;",
+    "````",
+  ].join("\n");
+
+  expect(extractMdxCodeFences(content)).toEqual([
+    {
+      language: "tsx",
+      title: "example.tsx",
+      content: "export const example = true;\n",
+    },
+  ]);
+});
 
 /** Return the sole code fence with the requested language, title, and marker. */
 function findMdxCodeFence(
@@ -424,7 +539,7 @@ function expectCanonicalGuideContracts(guide: string): void {
     /identifyUser\s*:\s*async\s*\(request\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?return\s*\{\s*id:\s*user\.id,\s*name:\s*user\.name\s*\}/,
   );
   expect(serverRoute).toMatch(
-    /onRequest\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?if\s*\(!user\)\s*\{[\s\S]*?status:\s*401/,
+    /onRequest\s*:\s*async\s*\(\{\s*request\s*\}\)\s*=>\s*\{[\s\S]*?getVerifiedAppUser\(request\)[\s\S]*?if\s*\(!user\)\s*\{\s*(?:throw|return)\s+new Response\([\s\S]*?status:\s*401/,
   );
 
   for (const method of ["GET", "POST", "PATCH", "DELETE"]) {
@@ -613,6 +728,15 @@ test.each([
     removedPattern: /onRequest: async \(\{ request \}\)/,
   },
   {
+    caseName: "onRequest 401 branch without a control-flow exit",
+    mutateGuide: (guide: string) =>
+      guide.replace(
+        "            throw new Response(",
+        "            new Response(",
+      ),
+    removedPattern: /throw new Response\(/,
+  },
+  {
     caseName: "Drawer JSX with only a prose mention left",
     mutateGuide: (guide: string) =>
       `${guide.replace(
@@ -764,9 +888,6 @@ test.each([
     );
     expect(lifecycle).toMatch(/\bsoft-deletes?\b/i);
     expect(lifecycle).toMatch(/\bretains?\b[^.]*\b(?:stored )?row\b/i);
-    expect(lifecycle).not.toMatch(
-      /\b(?:physically|permanently)\s+(?:remove|removes|removed)\b/i,
-    );
     expect(lifecycle).not.toMatch(
       /\b\d+\s+(?:hours?|days?|weeks?|months?|years?)\b/i,
     );
@@ -936,11 +1057,6 @@ test.each([
         .not.toMatch(
           /\b(?:delete(?:Thread)?|deletion)\b[^.]*\b\d+\s+(?:hours?|days?|weeks?|months?|years?)\b/i,
         );
-      expect
-        .soft(content, `${surface}: delete does not claim physical row removal`)
-        .not.toMatch(
-          /\b(?:delete(?:Thread)?|deletion)\b[^.]*\bpermanent\b|\bpermanently\b[^.]*\bdelete\b|\b(?:row|record|history)\b[^.]*\b(?:removed?|deleted?)\b[^.]*\b(?:entirely|physically)\b/i,
-        );
     }
 
     if (paginationContract) {
@@ -1054,6 +1170,28 @@ test("T3: public Drawer TSDoc describes hosted managed entitlement without brows
   }
 });
 
+test("callback-free Drawer TSDoc shares one chat configuration provider", () => {
+  expectCallbackFreeDrawerExample(
+    fs.readFileSync(drawerWrapperSourceUrl, "utf8"),
+  );
+});
+
+test("rejects callback-free Drawer and Chat as provider siblings", () => {
+  const oldSiblingExample = `
+    /**
+     * @example
+     * \`\`\`tsx
+     * <CopilotKitProvider runtimeUrl="/api/copilotkit">
+     *   <CopilotChat />
+     *   <CopilotThreadsDrawer />
+     * </CopilotKitProvider>
+     * \`\`\`
+     */
+  `;
+
+  expect(() => expectCallbackFreeDrawerExample(oldSiblingExample)).toThrow();
+});
+
 test("the useThreads reference matches optimistic Core mutations", () => {
   const reference = collapseWhitespace(readContent(useThreadsReferencePath));
 
@@ -1093,6 +1231,11 @@ test.each([
     "",
   ],
   [
+    "a JSX-spread Drawer license prop",
+    '<CopilotThreadsDrawer {...{ publicLicenseKey: "stale" }} />',
+    "",
+  ],
+  [
     "a single-quoted Runtime import",
     "",
     "import { CopilotRuntime } from '@copilotkit/runtime';",
@@ -1106,6 +1249,11 @@ test.each([
     "a multi-symbol Runtime import",
     "",
     'import { ExperimentalEmptyAdapter, CopilotRuntime } from "@copilotkit/runtime";',
+  ],
+  [
+    "a namespace Runtime member",
+    "",
+    'import * as Runtime from "@copilotkit/runtime";\nconst runtime = new Runtime.CopilotRuntime({});',
   ],
 ])("rejects %s", (_caseName, drawer, headless) => {
   expect(() =>
@@ -1203,20 +1351,26 @@ test.each([
 });
 
 test("public React TSDoc keeps pagination active when limit is omitted", () => {
-  const drawerSource = collapseWhitespace(
-    fs.readFileSync(drawerWrapperSourceUrl, "utf8"),
-  );
-  const useThreadsSource = collapseWhitespace(
-    fs.readFileSync(useThreadsSourceUrl, "utf8"),
-  );
+  const drawerSource = fs.readFileSync(drawerWrapperSourceUrl, "utf8");
+  const useThreadsSource = fs.readFileSync(useThreadsSourceUrl, "utf8");
 
   for (const source of [drawerSource, useThreadsSource]) {
-    expect.soft(source).toMatch(/default[^.]*50 threads per page/i);
-    expect.soft(source).toContain("`nextCursor`");
-    expect(source).not.toMatch(
-      /(?:full list loads at once|Only meaningful when `limit` is set|When set, enables cursor-based pagination)/,
-    );
+    expectPublicReactPaginationTsdoc(source);
   }
+});
+
+test("implementation text cannot mask missing public pagination TSDoc", () => {
+  const sourceWithImplementationOnly = `
+    /** Lists threads. */
+    const implementationDetails = {
+      pageSize: "The default is 50 threads per page.",
+      cursor: "\`nextCursor\`",
+    };
+  `;
+
+  expect(() =>
+    expectPublicReactPaginationTsdoc(sourceWithImplementationOnly),
+  ).toThrow();
 });
 
 test.each([

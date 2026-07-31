@@ -224,8 +224,10 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  * ```tsx
  * // Callback-free: the drawer drives the chat configuration itself.
  * <CopilotKitProvider runtimeUrl="/api/copilotkit">
- *   <CopilotChat />
- *   <CopilotThreadsDrawer />
+ *   <CopilotChatConfigurationProvider>
+ *     <CopilotChat />
+ *     <CopilotThreadsDrawer />
+ *   </CopilotChatConfigurationProvider>
  * </CopilotKitProvider>
  * ```
  */
