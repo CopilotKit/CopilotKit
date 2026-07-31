@@ -91,7 +91,7 @@ Slack event ──► attachSlackListener ──► IngressSink.onTurn(IncomingT
 `attachSlackListener` is the translation layer between Slack's event model
 and the engine's domain. It filters subtypes, bot echoes, untracked threads,
 and mention duplicates, and emits a normalized turn. The adapter resolves the
-sender to a `PlatformUser` (cached per id) and calls `sink.onTurn` with a
+sender to a `ProviderActor` (cached per id) and calls `sink.onTurn` with a
 `conversationKey` (`conversationKeyOf`), `replyTarget`, `userText`, and
 `user`.
 

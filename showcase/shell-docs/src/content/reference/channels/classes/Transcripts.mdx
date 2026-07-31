@@ -4,7 +4,7 @@ description: Append, query, retain, and delete an application-owned transcript k
 ---
 
 `Transcripts` stores an optional SDK-owned record on the Channel's
-`StateStore`. Configure `store.identity` and `store.transcripts` together.
+`StateStore`. Configure top-level `identifyUser` and `store.transcripts`.
 
 ## Configuration
 
@@ -12,11 +12,10 @@ description: Append, query, retain, and delete an application-owned transcript k
 const channel = createChannel({
   name: "support-slack",
   provider: "slack",
+  identifyUser: ({ actor }) => accounts.resolveApplicationUser(actor.id),
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
-    identity: async ({ author, message }) =>
-      accounts.resolveUserId(message.platform, author.id),
     transcripts: {
       retention: "30d",
       maxPerUser: 500,
@@ -36,35 +35,33 @@ await channel.transcripts.append(
   {
     role: "assistant",
     text: "The incident owner is Payments.",
-    userKey: "usr_123",
   },
+  { userId: "usr_123" },
 );
 ```
 
-Append silently does nothing when neither the message nor `opts` supplies a
-`userKey`.
+Append silently does nothing when `userId` is `null`.
 
 ## list
 
 ```ts
 const entries = await channel.transcripts.list({
-  userKey: "usr_123",
+  userId: "usr_123",
   limit: 20,
   roles: ["user", "assistant"],
 });
 ```
 
 Entries are oldest-first and can be filtered by platform, `threadId`, or role.
-On managed Channels, `platform` is the adapter id `"intelligence"` rather than
-the native provider. Use the stable `userKey` to carry context between Slack
-and Teams; filtering managed entries by `"slack"` or `"teams"` returns no
-matches.
+On managed Channels, `platform` is the normalized native provider, such as
+`"slack"` or `"teams"`. Use the stable application `userId` to carry context
+between providers.
 
 ## delete
 
 ```ts
 const { deleted } = await channel.transcripts.delete({
-  userKey: "usr_123",
+  userId: "usr_123",
 });
 ```
 

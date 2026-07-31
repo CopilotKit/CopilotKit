@@ -14,6 +14,7 @@ const store = new MemoryStore();
 const channel = createChannel({
   name: "support-slack",
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   store: { adapter: store },
 });

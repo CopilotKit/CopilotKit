@@ -20,6 +20,7 @@ describe("memory handlers", () => {
       request: Request,
     ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
     intelligence?: Record<string, unknown>;
+    memory?: Record<string, unknown>;
   }) =>
     ({
       agents: Promise.resolve({}),
@@ -32,6 +33,7 @@ describe("memory handlers", () => {
       mode: "intelligence",
       identifyUser: options?.identifyUser ?? createIdentifyUser(),
       intelligence: options?.intelligence,
+      memory: options?.memory,
     }) as unknown as CopilotRuntime;
 
   it("returns 422 when intelligence is not configured", async () => {
@@ -84,6 +86,68 @@ describe("memory handlers", () => {
     expect(intelligence.listMemories).toHaveBeenCalledWith({
       userId: "user-1",
     });
+  });
+
+  it("evaluates configured client Memory access and forwards the immutable grant", async () => {
+    const intelligence = {
+      listMemories: vi.fn().mockResolvedValue({ memories: [] }),
+    };
+    const access = vi.fn().mockReturnValue({
+      user: "read",
+      project: "none",
+    });
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access },
+    });
+    const request = new Request("https://example.com/memories");
+
+    const response = await handleListMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    expect(access).toHaveBeenCalledWith({
+      request,
+      user: { id: "user-1", name: "User One" },
+      consumer: "client",
+    });
+    expect(intelligence.listMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+      memoryGrant: { user: "read", project: "none" },
+    });
+  });
+
+  it("returns forbidden without a platform call when client Memory is denied", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: { access: vi.fn().mockReturnValue(null) },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(403);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the configured Memory policy throws", async () => {
+    const intelligence = { listMemories: vi.fn() };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      memory: {
+        access: vi.fn().mockRejectedValue(new Error("policy unavailable")),
+      },
+    });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(500);
+    expect(intelligence.listMemories).not.toHaveBeenCalled();
   });
 
   it("forwards includeInvalidated=true to the platform", async () => {

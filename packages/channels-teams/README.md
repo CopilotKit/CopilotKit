@@ -32,6 +32,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [teams({ port: 3978 })],
 });
 
@@ -44,7 +45,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 

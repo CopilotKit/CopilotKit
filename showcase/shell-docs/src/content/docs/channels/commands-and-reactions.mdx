@@ -46,6 +46,7 @@ Register it at Channel creation:
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   commands: [triage],
 });
@@ -59,6 +60,7 @@ const channel = createChannel({
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   commands: [triage],
 });

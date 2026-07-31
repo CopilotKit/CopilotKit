@@ -36,15 +36,15 @@ import { slack } from "@copilotkit/channels-slack";
   handler is registered, all turns route to it; otherwise message handlers
   fire.)
 - `onThreadStarted(handler)` — a conversation surface opened (e.g. the Slack
-  assistant pane); receives `{ thread, user? }`. Greet, set suggested prompts
+  assistant pane); receives `{ thread, user, actor }`. Greet, set suggested prompts
   or a title, or run the agent. Adapters without the concept never fire it.
 - `onInteraction<TValue>(id, handler)` — explicit escape-hatch handler for a
   known action id, bypassing the registry; `ctx.action.value` is typed `TValue`.
 - `onInterrupt<TPayload>(eventName, handler)` — handle a captured agent
-  interrupt (LangGraph-style `on_interrupt`); receives `{ payload, thread }`
+  interrupt (LangGraph-style `on_interrupt`); receives `{ payload, thread, user, actor }`
   with `payload` typed `TPayload`.
 - `onCommand(command)` / `onCommand(name, handler)` — register a slash command.
-  The handler gets `{ thread, command, text, options, user }`. `text` is the
+  The handler gets `{ thread, command, text, options, user, actor }`. `text` is the
   raw args (Slack); `options` is the typed, parsed form (`defineChannelCommand`
   with an `options` Standard Schema) for surfaces with native structured args
   (e.g. Discord). Forwarded to adapters that support commands and ignored
@@ -73,6 +73,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [slack({ botToken, appToken })],
 });
 
@@ -82,7 +83,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [channel],
 });
 
@@ -108,8 +108,15 @@ interface Thread {
   runAgent(input?: {
     context?: ContextEntry[];
     tools?: ChannelTool[];
+    memory?: MemoryGrant;
   }): Promise<MessageRef | undefined>;
-  resume(value: unknown): Promise<MessageRef | undefined>;
+  resume(
+    value: unknown,
+    options?: {
+      memory?: MemoryGrant;
+      subject?: "initiator" | "actor";
+    },
+  ): Promise<MessageRef | undefined>;
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
   // Capability-gated (return { ok: false } on surfaces without support):
   setSuggestedPrompts(

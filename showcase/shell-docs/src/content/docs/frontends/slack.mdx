@@ -97,6 +97,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const channel = createChannel({
       name: required("CHANNEL_CODE"),
       provider: "slack",
+      identifyUser: "platform",
       agent: makeAgent,
       context: [
         {
@@ -134,9 +135,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const runtime = new CopilotRuntime({
       agents: {},
       intelligence,
-      // Replace this stub with your authenticated application identity if this
-      // listener also serves normal Copilot Runtime requests.
-      identifyUser: () => ({ id: "channels-runtime", name: "Channels Runtime" }),
       channels: [channel],
     });
 
@@ -263,6 +261,7 @@ Opt in per Channel when the live tool timeline is useful:
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   showToolStatus: true,
 });

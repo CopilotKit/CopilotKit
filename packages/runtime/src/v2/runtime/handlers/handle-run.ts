@@ -63,7 +63,12 @@ export async function handleRunAgent({
       agent,
       providerA2UIHasCatalog,
     });
-    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
+    const memoryResponse = await attachIntelligenceEnterpriseLearning({
+      runtime,
+      request,
+      agent,
+    });
+    if (memoryResponse instanceof Response) return memoryResponse;
 
     agent.setMessages(input.messages);
     agent.setState(input.state);

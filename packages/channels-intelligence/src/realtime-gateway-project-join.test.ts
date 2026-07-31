@@ -24,7 +24,7 @@ function setup() {
   connectRealtimeGatewayMock.mockReset();
   connectRealtimeGatewayMock.mockResolvedValue(session);
 
-  const channel = createChannel({ name: "support" });
+  const channel = createChannel({ identifyUser: "platform", name: "support" });
   channel.onMessage(async () => {});
 
   return {

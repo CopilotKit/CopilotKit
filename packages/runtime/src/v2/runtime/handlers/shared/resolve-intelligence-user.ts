@@ -1,9 +1,14 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeUser,
 } from "../../core/runtime";
 import { errorResponse } from "./json-response";
 import { isValidIdentifier } from "./intelligence-utils";
+
+const resolvedUsers = new WeakMap<
+  Request,
+  Promise<CopilotRuntimeUser | Response>
+>();
 
 export async function resolveIntelligenceUser(params: {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -11,6 +16,18 @@ export async function resolveIntelligenceUser(params: {
 }): Promise<CopilotRuntimeUser | Response> {
   const { runtime, request } = params;
 
+  const existing = resolvedUsers.get(request);
+  if (existing) return existing;
+
+  const resolution = resolveUser(runtime, request);
+  resolvedUsers.set(request, resolution);
+  return resolution;
+}
+
+async function resolveUser(
+  runtime: CopilotIntelligenceRuntimeLike,
+  request: Request,
+): Promise<CopilotRuntimeUser | Response> {
   try {
     const user = await runtime.identifyUser(request);
     if (!isValidIdentifier(user?.id)) {

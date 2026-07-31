@@ -149,6 +149,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "slack",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -179,6 +180,7 @@ function required(name: string): string {
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
   provider: "teams",
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });

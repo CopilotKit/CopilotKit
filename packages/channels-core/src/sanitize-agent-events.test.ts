@@ -194,6 +194,7 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
   ): Promise<unknown> {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => agent,
       ...opts,
@@ -225,6 +226,7 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
     // sanitizing has to live on the transport to reach the cloned instance.
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: agentServing(nullParentRun()),
     });

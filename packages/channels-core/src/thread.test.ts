@@ -16,6 +16,8 @@ function makeTestThread(overrides: {
     adapter,
     replyTarget: {},
     conversationKey: overrides.conversationKey ?? "c1",
+    channelName: "test",
+    threadId: overrides.conversationKey ?? "c1",
     registry,
     agentFactory: (id) => {
       throw new Error(`agentFactory not needed in this test: ${id}`);
@@ -26,6 +28,8 @@ function makeTestThread(overrides: {
     registerWaiter: () => {},
     interruptHandlers: new Map(),
     state: overrides.state,
+    user: null,
+    actor: { id: "actor", kind: "unknown" },
   };
   return new Thread(deps);
 }

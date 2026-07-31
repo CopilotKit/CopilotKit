@@ -14,11 +14,20 @@ import type {
   RunAgentResult,
 } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
+import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { AgentRunner } from "../runner/agent-runner";
+import {
+  INTELLIGENCE_MEMORY_GRANT_HEADER,
+  INTELLIGENCE_USER_ID_HEADER,
+} from "../intelligence-platform/client";
 // Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
 // package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
 // for the same constraint).
-import type { Channel, ReplyContinuationOptions } from "@copilotkit/channels";
+import type {
+  Channel,
+  ReplyContinuationOptions,
+  ResolvedChannelMemory,
+} from "@copilotkit/channels";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
@@ -372,6 +381,7 @@ interface CanonicalRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly {
     name: string;
@@ -388,6 +398,42 @@ interface CanonicalRunArgs {
     interrupted: boolean;
     deliveryError?: unknown;
   }>;
+}
+
+/** Attach grant-scoped Intelligence Memory tools to one isolated Channel agent. */
+export function attachChannelMemory(
+  agent: AbstractAgent,
+  intelligence: CopilotKitIntelligence,
+  memory: ResolvedChannelMemory | undefined,
+): void {
+  if (!memory) return;
+  const middlewareAgent = agent as AbstractAgent & {
+    use?: (middleware: unknown) => void;
+  };
+  if (typeof middlewareAgent.use !== "function") {
+    const error = new Error(
+      "Channel Memory requires an agent with middleware support",
+    ) as Error & { code?: string };
+    error.name = "ChannelMemoryAgentUnsupportedError";
+    error.code = "channel_memory_agent_unsupported";
+    throw error;
+  }
+  middlewareAgent.use(
+    new MCPMiddleware([
+      {
+        type: "http",
+        url: `${intelligence.ɵgetApiUrl()}/mcp`,
+        serverId: "intelligence",
+        headers: {
+          Authorization: `Bearer ${intelligence.ɵgetApiKey()}`,
+          [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(memory.grant),
+          ...(memory.user
+            ? { [INTELLIGENCE_USER_ID_HEADER]: memory.user.id }
+            : {}),
+        },
+      },
+    ]),
+  );
 }
 
 /** One outer agent that lets the standard runner own the whole local tool loop. */
@@ -453,6 +499,7 @@ async function runCanonicalChannelAgent(
   const canonicalThreadId = lock.threadId;
   const canonicalRunId = lock.runId;
   let result = { iterations: 0, interrupted: false };
+  attachChannelMemory(args.agent, intelligence, args.memory);
   const outer = new ChannelOuterAgent(
     args.agent,
     canonicalThreadId,
@@ -868,6 +915,7 @@ export class ChannelManager implements ChannelsControl {
     // run only their own transport here and stay below the Intelligence
     // canonical/reliability layer by design, not pending work (OSS-599).
     for (const channel of this.channels) {
+      channel.ɵruntime.enableIntelligenceMemory();
       const isDirect = channel.adapters.some((a) => !a.__intelligenceChannel);
       if (isDirect) {
         this.startDirectChannel(channel);
