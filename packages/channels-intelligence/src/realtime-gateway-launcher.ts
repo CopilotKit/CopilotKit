@@ -112,6 +112,7 @@ export interface StartChannelsWithGatewayControlOptions {
   ): ReturnType<CanonicalChannelRunArgs["execute"]>;
   /** Load canonical Intelligence thread history before each public run. */
   loadHistory(args: {
+    deliveryId: string;
     threadId: string;
     appUserId: string;
   }): Promise<Message[]>;
@@ -259,6 +260,7 @@ export interface StartChannelsOverRealtimeGatewayOptions {
   ): ReturnType<CanonicalChannelRunArgs["execute"]>;
   /** Load canonical Intelligence thread history before each public run. */
   loadHistory(args: {
+    deliveryId: string;
     threadId: string;
     appUserId: string;
   }): Promise<Message[]>;

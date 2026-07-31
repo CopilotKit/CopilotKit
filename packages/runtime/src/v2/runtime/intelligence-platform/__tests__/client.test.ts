@@ -551,6 +551,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.getThreadMessages({
         threadId: "t-1",
         userId: "user-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual(payload);
@@ -559,6 +560,9 @@ describe("CopilotKitIntelligence", () => {
         "https://api.example.com/api/threads/t-1/messages?userId=user-1",
       );
       expect(opts.method).toBe("GET");
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
+      });
     });
   });
 
@@ -687,6 +691,7 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+        channelDeliveryId: "dlv_delivery_1",
       });
 
       expect(result).toEqual({
@@ -701,6 +706,9 @@ describe("CopilotKitIntelligence", () => {
         runId: "r-1",
         userId: "user-1",
         agentId: "agent-1",
+      });
+      expect(opts.headers).toMatchObject({
+        "X-Cpki-Channel-Delivery-Id": "dlv_delivery_1",
       });
     });
 

@@ -139,6 +139,7 @@ function runArgs(
   return {
     agent: new NoopAgent(),
     ...canonicalIdentity,
+    deliveryId: "dlv_delivery_1",
     userId: "app-user-1",
     agentId: "support-agent",
     tools: [],
@@ -305,6 +306,7 @@ test("runCanonical acquires the standard lock and uses the runner project key", 
     userId: "app-user-1",
     agentId: "support-agent",
     ttlSeconds: 20,
+    channelDeliveryId: "dlv_delivery_1",
   });
   expect(request).not.toHaveProperty("authToken");
   // The thread id reaching the runner must stay the canonical product thread id,

@@ -231,6 +231,7 @@ export interface ChannelsIntelligenceModule {
       log?: (msg: string, meta?: unknown) => void;
       runCanonical(args: {
         agent: AbstractAgent;
+        deliveryId: string;
         threadId: string;
         runId: string;
         userId: string;
@@ -256,6 +257,7 @@ export interface ChannelsIntelligenceModule {
         deliveryError?: unknown;
       }>;
       loadHistory(args: {
+        deliveryId: string;
         threadId: string;
         appUserId: string;
       }): Promise<Message[]>;
@@ -347,10 +349,11 @@ export async function defaultActivateChannel(
         args,
         services.lockKeyPrefix,
       ),
-    loadHistory: async ({ threadId, appUserId }) => {
+    loadHistory: async ({ deliveryId, threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
         threadId,
         userId: appUserId,
+        channelDeliveryId: deliveryId,
       });
       return Promise.all(
         history.messages.map((message) =>
@@ -363,6 +366,7 @@ export async function defaultActivateChannel(
 
 interface CanonicalRunArgs {
   agent: AbstractAgent;
+  deliveryId: string;
   threadId: string;
   runId: string;
   userId: string;
@@ -440,6 +444,7 @@ async function runCanonicalChannelAgent(
     runId: args.runId,
     userId: args.userId,
     agentId: args.agentId,
+    channelDeliveryId: args.deliveryId,
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });

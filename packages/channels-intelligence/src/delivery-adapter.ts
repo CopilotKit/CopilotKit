@@ -75,6 +75,7 @@ const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 
 export interface CanonicalChannelRunArgs {
   agent: AbstractAgent;
+  deliveryId: string;
   threadId: string;
   runId: string;
   userId: string;
@@ -94,6 +95,7 @@ export interface DeliveryAdapterOptions {
   transport: ChannelDeliveryTransport;
   runCanonical(args: CanonicalChannelRunArgs): Promise<ChannelAgentLoopResult>;
   loadHistory(args: {
+    deliveryId: string;
     threadId: string;
     appUserId: string;
   }): Promise<Message[]>;
@@ -152,6 +154,7 @@ export class DeliveryAdapter implements PlatformAdapter {
         const history =
           providerHistory?.messages ??
           (await this.options.loadHistory({
+            deliveryId: target.delivery.deliveryId,
             threadId,
             appUserId: target.delivery.appUserId,
           }));
@@ -389,6 +392,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     );
     const result = await this.options.runCanonical({
       agent: args.agent,
+      deliveryId: target.delivery.deliveryId,
       threadId,
       runId,
       userId: target.delivery.appUserId,
@@ -673,6 +677,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     }
     await this.options.runCanonical({
       agent,
+      deliveryId: target.delivery.deliveryId,
       threadId: target.delivery.canonicalThreadId,
       runId: mintId("run_"),
       userId: target.delivery.appUserId,
@@ -879,6 +884,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       );
     }
     const messages = await this.options.loadHistory({
+      deliveryId: target.delivery.deliveryId,
       threadId: target.delivery.canonicalThreadId,
       appUserId: target.delivery.appUserId,
     });

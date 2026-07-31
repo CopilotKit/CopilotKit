@@ -60,11 +60,12 @@ test("managed history keeps multimodal and activity content structured", async (
       content: activityContent,
     },
   ] as Message[];
+  const loadHistory = vi.fn(async () => history);
   const adapter = new DeliveryAdapter({
     channelName: "support",
     transport: {} as never,
     runCanonical: async () => ({ iterations: 0, interrupted: false }),
-    loadHistory: async () => history,
+    loadHistory,
   });
 
   const specializedTarget = {
@@ -89,6 +90,11 @@ test("managed history keeps multimodal and activity content structured", async (
       content: activityContent,
     }),
   ]);
+  expect(loadHistory).toHaveBeenCalledWith({
+    threadId: "thread_history",
+    appUserId: "slack:T1:U1",
+    deliveryId: "dlv_history_01",
+  });
 });
 
 class NoopAgent extends AbstractAgent {
