@@ -10,10 +10,10 @@
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime. The Teams
  * `teams({ port })` adapter stays DIRECT (it keeps its own transport / the
  * Playground ingress), but the runtime OWNS its lifecycle: the Channel is
- * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })`,
- * and you drive readiness/shutdown through the handler's `channels` control
- * (`listener.channels.ready()` / `.stop()`) — there is no `bot.start()`/
- * `bot.stop()` and no standalone path.
+ * declared on `new CopilotRuntime({ intelligence, identifyUser, channels })` and
+ * started by mounting the node listener; you observe readiness and drive shutdown
+ * through the handler's `channels` control (`listener.channels.ready()` /
+ * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
  * (`COPILOTKIT_API_KEY` — free tier; the platform URLs default to the managed
@@ -264,31 +264,20 @@ const channelRuntime = new CopilotRuntime({
   channels: [bot],
 });
 
-// Mounting the Node listener creates the runtime handler and exposes
-// `.channels` for readiness + shutdown. It opens NO connection yet — the
-// `ready()` call below activates the Channel (starting the direct Teams
-// adapter). Bind loopback: this runtime holds the Intelligence key
-// and needs no public ingress (the Teams adapter has its own on :${port}); the
-// listener only owns the Channel lifecycle and keeps the process alive.
-const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-const listener = createCopilotNodeListener({
-  runtime: channelRuntime,
-  basePath: "/api/copilotkit",
-});
-createServer(listener).listen(channelPort, "127.0.0.1", () => {
-  console.log(
-    `Channel runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
-  );
-});
-
 // Stop the bot cleanly on exit — through the runtime's Channel control, which
 // tears down the direct Teams adapter it started. A teardown failure is logged
 // and reported as a nonzero exit rather than swallowed.
+//
+// Wired BEFORE the listener exists, because creating the listener is what starts
+// the Channel; `stopChannels` is assigned in the same tick as that creation, so
+// no signal can land in a window where the Channel is connecting untearable.
+let stopChannels: (() => Promise<void>) | undefined;
+
 const shutdown = async (signal: string): Promise<void> => {
   console.log(`\nReceived ${signal}, stopping…`);
   let exitCode = 0;
   try {
-    await listener.channels.stop();
+    await stopChannels?.();
   } catch (err) {
     console.error("Error stopping Channel", err);
     exitCode = 1;
@@ -303,16 +292,33 @@ const runShutdown = (signal: string): void => {
     process.exit(1);
   });
 };
-// Registered BEFORE activation on purpose: `ready()` below can take up to its
-// timeout, and a Ctrl-C inside that window must still tear the Channel down
-// rather than hit Node's default handler and skip teardown.
+// Registered BEFORE activation on purpose: activation begins the moment the
+// listener is created and `ready()` below can take up to its timeout — a Ctrl-C
+// anywhere in that window must still tear the Channel down rather than hit
+// Node's default handler and skip teardown.
 process.on("SIGINT", () => runShutdown("SIGINT"));
 process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
-// Activate through the runtime's Channel control instead of a (now-removed)
-// bot.start(): this is what connects the Channel, and it resolves once the
-// direct Teams adapter's transport is up. Required — skip it and nothing
-// connects.
+// Mounting the Node listener creates the runtime handler and STARTS the Channel
+// (connecting the direct Teams adapter); `.channels` is how you observe and stop
+// it. Bind loopback: this runtime holds the Intelligence key and needs no public
+// ingress (the Teams adapter has its own on :${port}); the listener only owns the
+// Channel lifecycle and keeps the process alive.
+const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+const listener = createCopilotNodeListener({
+  runtime: channelRuntime,
+  basePath: "/api/copilotkit",
+});
+stopChannels = () => listener.channels.stop();
+createServer(listener).listen(channelPort, "127.0.0.1", () => {
+  console.log(
+    `Channel runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
+  );
+});
+
+// Wait for that activation to settle instead of a (now-removed) bot.start(): it
+// resolves once the direct Teams adapter's transport is up, and rejects if it
+// failed — so a broken deploy exits non-zero instead of looking live.
 // Bound startup so a wedged adapter connect can't hang readiness forever.
 await listener.channels.ready({ timeoutMs: 30_000 });
 

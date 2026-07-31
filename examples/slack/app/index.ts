@@ -18,8 +18,9 @@
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
  * four platforms stay on the ONE Channel — you declare it on
- * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })`, mount a
- * node listener, and drive `listener.channels.ready()` / `.stop()`. There is no
+ * `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and mount
+ * a node listener — which starts the Channel. `listener.channels.ready()` waits
+ * for it to be live and `.stop()` tears it down. There is no
  * `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
@@ -298,22 +299,11 @@ async function main() {
     channels: [bot],
   });
 
-  // Mounting the Node listener creates the runtime handler and exposes
-  // `.channels` for readiness + shutdown. It opens NO connection yet — the
-  // `ready()` call below is what activates the Channel (starting all its direct
-  // adapters). This listener holds the Intelligence key and needs no
-  // public ingress (each platform adapter has its own — e.g. WhatsApp's webhook
-  // on $PORT); it only owns the Channel lifecycle and keeps the process alive.
-  const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
-  const listener = createCopilotNodeListener({
-    runtime: channelRuntime,
-    basePath: "/api/copilotkit",
-  });
-  createServer(listener).listen(channelPort, "127.0.0.1", () => {
-    console.log(
-      `[channel] runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
-    );
-  });
+  // Teardown is wired BEFORE the listener exists, because creating the listener
+  // is what starts the Channel: `stopChannels` is assigned in the same tick as
+  // the creation below, so a Ctrl-C can never land in a window where the Channel
+  // is connecting but nothing knows how to tear it down.
+  let stopChannels: (() => Promise<void>) | undefined;
 
   const shutdown = async (signal: string) => {
     console.log(`\n[channel] received ${signal}, stopping…`);
@@ -321,7 +311,7 @@ async function main() {
     try {
       // Stop through the runtime's Channel control, which tears down every direct
       // adapter it started.
-      await listener.channels.stop();
+      await stopChannels?.();
     } catch (err) {
       console.error("[channel] error stopping Channel", err);
       exitCode = 1;
@@ -344,17 +334,35 @@ async function main() {
       process.exit(1);
     });
   };
-  // Registered BEFORE activation on purpose: `ready()` below can take up to its
-  // timeout, and a Ctrl-C inside that window must still tear the Channel down
-  // rather than hit Node's default handler and skip teardown.
+  // Registered BEFORE activation on purpose: activation begins the moment the
+  // listener is created and `ready()` below can take up to its timeout — a
+  // Ctrl-C anywhere in that window must still tear the Channel down rather than
+  // hit Node's default handler and skip teardown.
   process.on("SIGINT", () => runShutdown("SIGINT"));
   process.on("SIGTERM", () => runShutdown("SIGTERM"));
 
-  // Activate through the runtime's Channel control instead of a (now-removed)
-  // bot.start(): this is what connects the Channel, and it resolves once every
-  // direct adapter's transport is up across all active platforms. Required —
-  // skip it and the process serves HTTP with nothing connected.
-  // Bound startup so a wedged adapter connect can't hang readiness forever.
+  // Mounting the Node listener creates the runtime handler and STARTS the Channel
+  // (connecting all its direct adapters); `.channels` is how you observe and stop
+  // it. This listener holds the Intelligence key and needs no public ingress
+  // (each platform adapter has its own — e.g. WhatsApp's webhook on $PORT); it
+  // only owns the Channel lifecycle and keeps the process alive.
+  const channelPort = Number(process.env.CHANNELS_PORT ?? 8300);
+  const listener = createCopilotNodeListener({
+    runtime: channelRuntime,
+    basePath: "/api/copilotkit",
+  });
+  stopChannels = () => listener.channels.stop();
+  createServer(listener).listen(channelPort, "127.0.0.1", () => {
+    console.log(
+      `[channel] runtime (owns lifecycle) listening on 127.0.0.1:${channelPort}`,
+    );
+  });
+
+  // Wait for the activation started above to settle, instead of a (now-removed)
+  // bot.start(): this resolves once every direct adapter's transport is up across
+  // all active platforms, and rejects if one failed — so a broken deploy exits
+  // non-zero instead of pretending to be a live bot.
+  // Bound it so a wedged adapter connect can't hang readiness forever.
   await listener.channels.ready({ timeoutMs: 30_000 });
   console.log(
     `[channel] started on: ${adapters.map((a) => a.platform).join(", ")}`,

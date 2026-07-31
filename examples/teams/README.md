@@ -13,8 +13,8 @@ A Channel runs **only** through the Intelligence runtime. The Teams adapter stay
 _direct_ (it keeps the Playground/Teams ingress), but the runtime owns the
 Channel's lifecycle: the bot is declared on
 `new CopilotRuntime({ intelligence, identifyUser, channels: [bot] })` and started
-/ stopped via `listener.channels.ready()` / `.stop()` — there is no
-`bot.start()`/`bot.stop()`. That's why an Intelligence key is required even
+by mounting the node listener — `listener.channels.ready()` waits until it is live
+and `.stop()` tears it down. There is no `bot.start()`/`bot.stop()`. That's why an Intelligence key is required even
 though no Microsoft credentials are.
 
 ## Run it

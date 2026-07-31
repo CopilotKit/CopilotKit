@@ -133,40 +133,48 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
       channels: [channel],
     });
 
-    const listener = createCopilotNodeListener({
-      runtime,
-      basePath: "/api/copilotkit",
-    });
-
-    const channels = listener.channels;
-    if (!channels) {
-      throw new Error("Managed Channels control surface was not created.");
-    }
-
-    const server = createServer(listener);
-    const port = Number(process.env.PORT ?? 3000);
+    // Wire teardown before the listener exists, because creating it is what
+    // starts the Channel. A Ctrl-C during the connect window then still tears
+    // the Channel down instead of hitting Node's default handler.
+    let teardown: (() => Promise<void>) | undefined;
     const shutdown = async () => {
-      await channels.stop();
-      if (server.listening) server.close();
+      await teardown?.();
     };
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
 
+    const listener = createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+    const channels = listener.channels;
+    const server = createServer(listener);
+    teardown = async () => {
+      await channels.stop();
+      if (server.listening) server.close();
+    };
+
+    // Optional: block startup until the activation above settles, so a broken
+    // deploy fails loudly instead of serving as a bot that never answers.
     await channels.ready({ timeoutMs: 30_000 });
     const status = channels.status();
     if (status.overall !== "online") {
       throw new Error(`Teams Channel is not online: ${JSON.stringify(status)}`);
     }
 
+    const port = Number(process.env.PORT ?? 3000);
     server.listen(port, () => {
       console.log(`Teams Channel online; lifecycle server listening on :${port}`);
     });
     ```
 
-    Creating the Node listener exposes Channel lifecycle control but opens no
-    connection. On this long-running host, `ready()` is required: its first call
-    lazily opens the Realtime Gateway connection. It can resolve with setup
-    still required, so inspect `status()` before reporting the Channel online.
+    Creating the Node listener starts the Channel: it owns its own process
+    lifetime, so a declared Channel connects because it was declared. `ready()`
+    is therefore optional and purely await-and-observe — it resolves once
+    activation settles and rejects with the activation failure. Because it can
+    settle with setup still required, inspect `status()` before reporting the
+    Channel online. Skip `ready()` and activation failures land in your logs
+    instead.
 
     The runner does not expose a Teams webhook. The public messaging endpoint
     remains the Intelligence endpoint you copied into Azure Bot.
@@ -204,15 +212,16 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     #### Know the healthy state
 
-    After you start the process and call `await channels.ready(...)` on the
-    guarded control from this guide, the Channel should become **Online**.
+    Starting the process is what connects the Channel, so it should become
+    **Online** on its own; the `await channels.ready(...)` in this guide only
+    waits for that to settle.
 
     | Status | What to check |
     | --- | --- |
     | **Disabled** | Enable the Channel before expecting delivery. |
     | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
     | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
-    | **Waiting for runtime** | Start the process, call `await channels.ready(...)` on the guarded control, and match its Code and provider to this Channel. |
+    | **Waiting for runtime** | Start the process — creating the listener connects the Channel — and match its Code and provider to this Channel. |
     | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
     | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
     | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |

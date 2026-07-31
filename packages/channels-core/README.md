@@ -68,11 +68,8 @@ handler:
 ```ts
 import { createChannel } from "@copilotkit/channels-core";
 import { slack } from "@copilotkit/channels-slack";
-import {
-  CopilotRuntime,
-  CopilotKitIntelligence,
-  createCopilotRuntimeHandler,
-} from "@copilotkit/runtime/v2";
+import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
@@ -89,9 +86,11 @@ const runtime = new CopilotRuntime({
   channels: [channel],
 });
 
-const handler = createCopilotRuntimeHandler({ runtime });
-await handler.channels.ready(); // starts every declared channel
-// await handler.channels.stop(); // tears them down
+// Creating the listener starts every declared channel's connection.
+const listener = createCopilotNodeListener({ runtime });
+// Optional: await that activation so a broken config fails startup loudly.
+await listener.channels.ready();
+// await listener.channels.stop(); // tears them down
 ```
 
 ## `Thread`

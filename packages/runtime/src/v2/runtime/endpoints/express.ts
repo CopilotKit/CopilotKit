@@ -14,16 +14,17 @@ import type {
   ChannelsControl,
 } from "../core/channel-manager";
 import { createExpressNodeHandler } from "./express-fetch-bridge";
+import { autoStartChannels } from "./auto-start-channels";
 import type { CopilotRuntimeHooks } from "../core/hooks";
 
 /**
  * An Express {@link Router} that may also carry an optional
- * {@link ChannelsControl} surface. Express's Router is a request-scoped
- * middleware object, not a long-running process owner — Node
- * (`createCopilotNodeListener`) is the lifecycle-owning surface for
- * `.channels`. It is attached here too, best-effort, for callers that mount
- * the router directly and want to start (`ready()`), observe, or stop managed
- * Channel activation without also standing up a Node listener.
+ * {@link ChannelsControl} surface. The Router object itself is request-scoped
+ * middleware, but an Express app can only run inside a long-running
+ * `http.Server` — so this wrapper is a lifecycle-owning host like
+ * `createCopilotNodeListener`: it STARTS activation of the runtime's declared
+ * managed Channels at creation, and `.channels` is here to observe (`ready()`)
+ * or tear down (`stop()`) that activation.
  */
 export type CopilotExpressRouter = Router & { channels?: ChannelsControl };
 
@@ -53,8 +54,9 @@ export interface CopilotExpressEndpointParams {
 
   /**
    * Whether the underlying handler builds the control surface for the runtime's
-   * declared managed Channels. Defaults to `true`. Building it opens no
-   * connection — activation is deferred to the first `channels.ready()`. See
+   * declared managed Channels — and, because Express is a long-running host,
+   * starts their activation at creation. Defaults to `true`. Set `false` to
+   * build no surface and open no socket (tests, short-lived scripts). See
    * `CopilotRuntimeHandlerOptions.activateChannels`.
    */
   activateChannels?: boolean;
@@ -190,6 +192,7 @@ export function createCopilotExpressHandler({
 
   const exposedRouter: CopilotExpressRouter = router;
   exposedRouter.channels = handler.channels;
+  autoStartChannels(exposedRouter.channels);
   return exposedRouter;
 }
 
