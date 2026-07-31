@@ -2110,16 +2110,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toMatch(/Enable Intelligence to inspect Threads\./);
+    expect(text).toMatch(/Threads are unavailable\./);
     expect(text).toContain("Talk to an Engineer");
-    expect(text).toContain("Sign up for Intelligence");
+    expect(text).not.toContain("Sign up for Intelligence");
     const ctaLabels = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
     ).map((anchor) => anchor.textContent?.trim());
-    expect(ctaLabels).toEqual([
-      "Talk to an Engineer",
-      "Sign up for Intelligence",
-    ]);
+    expect(ctaLabels).toEqual(["Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
@@ -2130,7 +2127,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     ).toBe(false);
   });
 
-  it("adds inspector attribution to locked-state CTAs", async () => {
+  it("keeps Threads-only engineer attribution when metadata action is absent", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -2159,15 +2156,12 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
 
-    expect(signup).not.toBeNull();
+    expect(signup).toBeNull();
     expect(engineer).not.toBeNull();
 
-    const signupUrl = new URL(signup!.href);
-    expect(signupUrl.origin).toBe("https://dashboard.operations.copilotkit.ai");
-    expect(signupUrl.pathname).toBe("/sign-in");
-    expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
-    expectNoUtmParams(signupUrl);
-    const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
+    const distinctId = new URL(engineer!.href).searchParams.get(
+      "posthog_distinct_id",
+    );
     expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
 
     const engineerUrl = new URL(engineer!.href);

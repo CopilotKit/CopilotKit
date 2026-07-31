@@ -26,6 +26,7 @@ import type {
   ɵThread,
   Memory,
   MemoryRealtimeStatus,
+  RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -54,6 +55,11 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
+import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
+import type {
+  InspectorMetadataAction,
+  InspectorMetadataProjection,
+} from "./lib/inspector-metadata.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -136,8 +142,6 @@ const MAX_AGENT_EVENTS = 200;
 const MAX_PENDING_BANNER_VIEWED = 20;
 const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
-const THREADS_INTELLIGENCE_SIGNIN_URL =
-  "https://dashboard.operations.copilotkit.ai/sign-in";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Label for the Capabilities tab (client-authoritative dev experimentation
 // surface: toggle frontend tools + A2UI catalog components on/off, enforced
@@ -4474,6 +4478,9 @@ export class WebInspectorElement extends LitElement {
   // detach is ignored — last-write-wins without racing state.
   private _recallSeq = 0;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
+  private inspectorMetadataValue: unknown;
+  private inspectorMetadataProjection: InspectorMetadataProjection =
+    projectInspectorMetadata(undefined, undefined);
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
     code: CopilotKitCoreErrorCode;
@@ -4777,13 +4784,6 @@ export class WebInspectorElement extends LitElement {
     return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
   }
 
-  private getThreadsIntelligenceSignupUrl(): string {
-    return this.appendRefParam(
-      THREADS_INTELLIGENCE_SIGNIN_URL,
-      "cpk-inspector",
-    );
-  }
-
   private getTalkToEngineerUrl(): string {
     return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
   }
@@ -4926,14 +4926,53 @@ export class WebInspectorElement extends LitElement {
     this._ownedThreadStores.clear();
   }
 
+  private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
+    try {
+      return "inspectorMetadata" in core;
+    } catch {
+      return false;
+    }
+  }
+
+  private readCoreInspectorMetadata(core: CopilotKitCore): unknown {
+    if (!this.coreSupportsInspectorMetadata(core)) {
+      return undefined;
+    }
+
+    try {
+      return core.inspectorMetadata;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private updateInspectorMetadataProjection(value: unknown): void {
+    this.inspectorMetadataValue = value;
+    let runtimeLicense: RuntimeLicenseStatus | undefined;
+    try {
+      runtimeLicense = this._core?.licenseStatus;
+    } catch {
+      runtimeLicense = undefined;
+    }
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      value,
+      runtimeLicense,
+    );
+  }
+
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
+    this.updateInspectorMetadataProjection(
+      this.readCoreInspectorMetadata(core),
+    );
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        this.updateInspectorMetadataProjection(this.inspectorMetadataValue);
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
@@ -4962,6 +5001,17 @@ export class WebInspectorElement extends LitElement {
         this.updateOwnedThreadStoreHeaders(headers);
         this.requestUpdate();
       },
+      ...(supportsInspectorMetadata
+        ? {
+            onInspectorMetadataChanged: ({ inspectorMetadata }) => {
+              if (this._core !== core) {
+                return;
+              }
+              this.updateInspectorMetadataProjection(inspectorMetadata);
+              this.requestUpdate();
+            },
+          }
+        : {}),
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
         this.requestUpdate();
@@ -5186,6 +5236,11 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
+    this.inspectorMetadataValue = undefined;
+    this.inspectorMetadataProjection = projectInspectorMetadata(
+      undefined,
+      undefined,
+    );
     this.lastCoreError = null;
     this.coreProperties = {};
     this.cachedTools = [];
@@ -6876,6 +6931,83 @@ ${argsString}</pre
     `;
   }
 
+  private renderInspectorAction(
+    action: InspectorMetadataAction,
+    placement: "header" | "locked",
+  ) {
+    const trackEnableClick =
+      placement === "locked" && action.kind === "enable_intelligence"
+        ? this.handleThreadsIntelligenceSignupClick
+        : undefined;
+    return html`
+      <a
+        data-inspector-action-placement=${placement}
+        href=${action.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="${action.label} (opens in a new tab)"
+        style=${
+          placement === "header"
+            ? "display:inline-flex;min-height:28px;align-items:center;justify-content:center;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:5px 9px;color:#57575b;font-size:11px;font-weight:600;text-decoration:none;white-space:nowrap;"
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;"
+        }
+        @click=${trackEnableClick}
+      >
+        ${action.label}
+      </a>
+    `;
+  }
+
+  private renderInspectorMetadataHeader() {
+    const { identity, plan, headerAction } = this.inspectorMetadataProjection;
+    if (!identity && !plan && !headerAction) {
+      return nothing;
+    }
+
+    return html`
+      <div
+        style="display:flex;min-width:0;flex:1 1 220px;flex-wrap:wrap;align-items:center;gap:6px 8px;"
+        aria-label="Inspector account details"
+      >
+        ${
+          identity
+            ? html`
+                <div
+                  data-inspector-metadata="identity"
+                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#57575b;font-size:11px;line-height:1.3;"
+                  title="${identity.organizationName} / ${identity.projectName}"
+                >
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.organizationName}</span
+                  >
+                  <span aria-hidden="true" style="color:#afafb7;">/</span>
+                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                    >${identity.projectName}</span
+                  >
+                </div>
+              `
+            : nothing
+        }
+        ${
+          plan
+            ? html`
+                <span
+                  data-inspector-metadata="plan"
+                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(91,228,187,0.5);border-radius:4px;background:rgba(91,228,187,0.2);padding:2px 7px;color:#176f59;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
+                  >${plan.label}</span
+                >
+              `
+            : nothing
+        }
+        ${
+          headerAction
+            ? this.renderInspectorAction(headerAction, "header")
+            : nothing
+        }
+      </div>
+    `;
+  }
+
   private renderWindow() {
     const windowState = this.contextState.window;
     const isDocked = this.dockMode !== "floating";
@@ -6954,6 +7086,7 @@ ${argsString}</pre
                   loading="lazy"
                 />
               </div>
+              ${this.renderInspectorMetadataHeader()}
               <div class="ml-auto flex min-w-0 items-center gap-2">
                 <div class="min-w-[160px] max-w-xs">${agentSelector}</div>
                 <div class="flex items-center gap-1">
@@ -7187,7 +7320,7 @@ ${argsString}</pre
     const context: ContextKey = contextAttr === "window" ? "window" : "button";
 
     const eventTarget = event.target as HTMLElement | null;
-    if (context === "window" && eventTarget?.closest("button")) {
+    if (context === "window" && eventTarget?.closest("button, a")) {
       return;
     }
 
@@ -9105,8 +9238,42 @@ ${argsString}</pre
     `;
   }
 
+  private getThreadsLockedCopy(): {
+    heading: string;
+    description: string;
+  } {
+    switch (this.inspectorMetadataProjection.licenseState) {
+      case "valid":
+        return {
+          heading: "Threads are unavailable for this runtime.",
+          description:
+            "Your Intelligence license is active. Enable the Threads endpoints in this runtime to inspect saved history.",
+        };
+      case "none":
+        return {
+          heading: "Enable Intelligence to inspect Threads.",
+          description:
+            "Persist conversations and inspect saved thread history from the Inspector.",
+        };
+      case "expired":
+        return {
+          heading: "Renew Intelligence to inspect Threads.",
+          description:
+            "Your Intelligence access has expired. Renew it to inspect saved thread history.",
+        };
+      case "unknown":
+        return {
+          heading: "Threads are unavailable.",
+          description:
+            "This runtime does not expose Threads for the Inspector.",
+        };
+    }
+  }
+
   private renderThreadsLockedView() {
     this.trackThreadsViewStateOnce("locked", 0);
+    const copy = this.getThreadsLockedCopy();
+    const { lockedAction } = this.inspectorMetadataProjection;
     return html`
       <div
         style="
@@ -9174,7 +9341,7 @@ ${argsString}</pre
               color: #010507;
             "
           >
-            Enable Intelligence to inspect Threads.
+            ${copy.heading}
           </h2>
           <p
             style="
@@ -9185,41 +9352,19 @@ ${argsString}</pre
               color: #57575b;
             "
           >
-            Persist conversations and inspect saved thread history from the
-            Inspector.
+            ${copy.description}
           </p>
-          <div
-            style="
-              display: flex;
-              flex-wrap: wrap;
-              justify-content: center;
-              gap: 8px;
-            "
-          >
-            <a
-              href=${this.getThreadsIntelligenceSignupUrl()}
-              target="_blank"
-              rel="noopener"
-              style="
-                display: inline-flex;
-                min-height: 34px;
-                align-items: center;
-                justify-content: center;
-                gap: 6px;
-                border-radius: 6px;
-                border: 1px solid #dbdbe5;
-                background: #ffffff;
-                padding: 8px 12px;
-                font-size: 12px;
-                font-weight: 600;
-                color: #57575b;
-                text-decoration: none;
-              "
-              @click=${this.handleThreadsIntelligenceSignupClick}
-            >
-              Sign up for Intelligence
-            </a>
-          </div>
+          ${
+            lockedAction
+              ? html`
+                  <div
+                    style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;"
+                  >
+                    ${this.renderInspectorAction(lockedAction, "locked")}
+                  </div>
+                `
+              : nothing
+          }
         </div>
       </div>
     `;

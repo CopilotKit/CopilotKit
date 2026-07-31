@@ -3991,6 +3991,9 @@ importers:
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../core
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../shared
       lit:
         specifier: ^3.2.0
         version: 3.3.2
