@@ -97,6 +97,42 @@ test("one claimed delivery shares one charge across substantive effects", async 
   expect(channel.push).toHaveBeenCalledTimes(2);
 });
 
+test("Slack status is unmetered and does not count as provider output", async () => {
+  const charge = vi.fn(async () => undefined);
+  const channel = {
+    joinReply: delivery,
+    push: vi.fn(async (_event: string, packet: any) => ({
+      deliveryId: packet.deliveryId,
+      seq: packet.seq,
+      packetId: packet.packetId,
+      phase: "applied",
+      result: {},
+    })),
+    on: vi.fn(),
+    onClose: vi.fn(),
+    leave: vi.fn(),
+  };
+  const claimed = new ClaimedChannelDelivery(
+    delivery,
+    { ownerGeneration: 1, runtimeInstanceId: "rti_charge_01" },
+    channel,
+    vi.fn(),
+    undefined,
+    undefined,
+    new AbortController().signal,
+    { charge },
+  );
+
+  await claimed.effect(
+    "response_status",
+    { kind: "slack.thread.status", status: "is thinking…" },
+    { charge: false },
+  );
+
+  expect(charge).not.toHaveBeenCalled();
+  expect(claimed.hasProviderOutput()).toBe(false);
+});
+
 test("agent work charges before the canonical run", async () => {
   const order: string[] = [];
   const claimed = {

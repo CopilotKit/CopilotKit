@@ -273,7 +273,10 @@ export class ClaimedChannelDelivery {
         // otherwise failed-before-output terminals misclassify after stop-only.
         const kind =
           typeof payload.kind === "string" ? payload.kind : undefined;
-        if (kind === undefined || !kind.endsWith(".stream.stop")) {
+        if (
+          kind === undefined ||
+          (kind !== "slack.thread.status" && !kind.endsWith(".stream.stop"))
+        ) {
           this.providerOutputApplied = true;
         }
         return result;

@@ -726,7 +726,19 @@ export class DeliveryAdapter implements PlatformAdapter {
     return createSlackRunRenderer({
       target: { channel: "managed", threadTs: "managed" },
       showToolStatus: this.options.showToolStatus ?? false,
+      status: { threadTs: "managed", isPane: false },
       transport: {
+        setStatus: async ({ status, loading_messages: loadingMessages }) => {
+          await claimedDelivery.effect(
+            responseId,
+            {
+              kind: "slack.thread.status",
+              status,
+              ...(loadingMessages !== undefined ? { loadingMessages } : {}),
+            },
+            { charge: false },
+          );
+        },
         postMessage: async ({ text: message }) => {
           providerReference = providerReferenceFromResult(
             await claimedDelivery.effect(responseId, {

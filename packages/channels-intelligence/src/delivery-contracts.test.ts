@@ -75,6 +75,29 @@ test("accepts a distinct Teams final effect for priority rate gating", () => {
   ).not.toThrow();
 });
 
+test("accepts bounded destination-free Slack thread status", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "slack.thread.status",
+        status: "is thinking…",
+        loadingMessages: ["Reading context"],
+      },
+    }),
+  ).not.toThrow();
+
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: {
+        kind: "slack.thread.status",
+        status: "x".repeat(513),
+      },
+    }),
+  ).toThrow("delivery payload is invalid");
+});
+
 test("rejects per-packet auth and heartbeat shapes", () => {
   expect(() =>
     assertDeliveryPacket({
