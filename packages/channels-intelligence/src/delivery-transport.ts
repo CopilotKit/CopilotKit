@@ -184,6 +184,19 @@ class ObservableTrackedPromise<T> extends Promise<T> {
   }
 }
 
+/**
+ * Streamed reply content (native `*.stream.append` / `*.stream.task`). Once the
+ * effect path is closed by a prior failure, further content of this kind is
+ * moot and must be dropped rather than throw — see the guard in {@link
+ * ClaimedChannelDelivery.effect} (OSS-699).
+ */
+function isStreamContentKind(kind: unknown): boolean {
+  return (
+    typeof kind === "string" &&
+    (kind.endsWith(".stream.append") || kind.endsWith(".stream.task"))
+  );
+}
+
 /** One claimed delivery and its exact unacknowledged packet. */
 export class ClaimedChannelDelivery {
   private nextSeq = 0;
@@ -257,6 +270,16 @@ export class ClaimedChannelDelivery {
     payload: ProviderPayloadInput,
     options: { charge?: boolean } = {},
   ): Promise<Record<string, unknown>> {
+    // OSS-699: once a mid-stream effect fails, the packet path is closed and the
+    // failure has already surfaced (the delivery is marked failed). The renderer
+    // keeps flushing streamed content (append/task); enqueuing it would throw an
+    // uncatchable "packet path is closed" that becomes an unhandled rejection and
+    // crashes the whole runtime. That content is moot now — drop it benignly. A
+    // non-stream effect after close is a genuine misuse and still hard-errors via
+    // enqueue.
+    if (this.effectsClosed && isStreamContentKind(payload.kind)) {
+      return Promise.resolve({});
+    }
     const charged =
       options.charge === false ? Promise.resolve() : this.charge();
     return charged

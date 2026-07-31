@@ -691,6 +691,46 @@ test("retries the exact packet after reconnect and calls no second sequence", as
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
+test("stream content after a mid-stream effect failure is dropped benignly, not thrown as an uncatchable 'packet path is closed' (OSS-699)", async () => {
+  const deliveryChannel = channel();
+  // The gateway rejects the streamed text (e.g. Slack streaming_mode_mismatch).
+  vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
+    const kind = (packet as { payload?: { kind?: string } }).payload?.kind;
+    const result =
+      kind === "slack.stream.append"
+        ? { status: "failed", error: "provider_call_failed" }
+        : { providerReference: "pref_v1_message_01" };
+    return Promise.resolve({ ...(packet as object), phase: "applied", result });
+  });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    { ownerGeneration: 7, runtimeInstanceId: "rti_runtime_01" },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  // First streamed text append fails → surfaces once and closes the effect path.
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_message_01",
+      delta: "It's 13:20 UTC.",
+    }),
+  ).rejects.toBeInstanceOf(ChannelProviderDeliveryError);
+
+  // native-stream keeps flushing after that failure. A follow-up stream append
+  // must NOT throw an uncatchable "packet path is closed" (which becomes an
+  // unhandled rejection and crashes the whole runtime) — it is moot now, so it
+  // resolves benignly and is dropped.
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.stream.append",
+      providerReference: "pref_v1_message_01",
+      delta: " and some more",
+    }),
+  ).resolves.toBeDefined();
+});
+
 test("polls the same packet after a retry-wait result", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
