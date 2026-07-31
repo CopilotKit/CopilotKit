@@ -20,6 +20,7 @@ import type {
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
 import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
 import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
+import { ChannelDeliveryChargeClient } from "./delivery-charge.js";
 import type { ChannelFileRef } from "./delivery-files.js";
 import { buildContentParts } from "./content-parts.js";
 
@@ -186,6 +187,7 @@ export class ClaimedChannelDelivery {
   >();
   private trackedOperationsSealed = false;
   private transcriptPromise?: Promise<ChannelDeliveryTranscript>;
+  private chargePromise?: Promise<void>;
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
@@ -207,6 +209,7 @@ export class ClaimedChannelDelivery {
     private readonly files?: ChannelDeliveryFileClient,
     private readonly transcripts?: ChannelDeliveryTranscriptClient,
     private readonly signal: AbortSignal = new AbortController().signal,
+    private readonly charges?: Pick<ChannelDeliveryChargeClient, "charge">,
   ) {
     this.owner = owner;
     this.channel = channel;
@@ -228,41 +231,58 @@ export class ClaimedChannelDelivery {
   effect(
     _responseId: string,
     payload: ProviderPayloadInput,
+    options: { charge?: boolean } = {},
   ): Promise<Record<string, unknown>> {
-    return this.enqueue(payload).then((result) => {
-      const error = typeof result.error === "string" ? result.error : undefined;
-      const status =
-        typeof result.status === "string" ? result.status : undefined;
-      // Only explicit terminal statuses mean the gateway already terminalled.
-      if (
-        status === "failed" ||
-        status === "failed_before_output" ||
-        status === "uncertain"
-      ) {
-        this.effectsClosed = true;
-        throw new ChannelProviderDeliveryError(
-          error ?? "provider_failed",
-          status,
-        );
-      }
-      const capabilityError =
-        typeof result.capabilityError === "string"
-          ? result.capabilityError
-          : undefined;
-      if (
-        payload.kind === "teams.image.create" &&
-        capabilityError === "teams_image_rejected"
-      ) {
+    const charged =
+      options.charge === false ? Promise.resolve() : this.charge();
+    return charged
+      .then(() => this.enqueue(payload))
+      .then((result) => {
+        const error =
+          typeof result.error === "string" ? result.error : undefined;
+        const status =
+          typeof result.status === "string" ? result.status : undefined;
+        // Only explicit terminal statuses mean the gateway already terminalled.
+        if (
+          status === "failed" ||
+          status === "failed_before_output" ||
+          status === "uncertain"
+        ) {
+          this.effectsClosed = true;
+          throw new ChannelProviderDeliveryError(
+            error ?? "provider_failed",
+            status,
+          );
+        }
+        const capabilityError =
+          typeof result.capabilityError === "string"
+            ? result.capabilityError
+            : undefined;
+        if (
+          payload.kind === "teams.image.create" &&
+          capabilityError === "teams_image_rejected"
+        ) {
+          return result;
+        }
+        // Cleanup stream.stop must not count as user-visible provider output —
+        // otherwise failed-before-output terminals misclassify after stop-only.
+        const kind =
+          typeof payload.kind === "string" ? payload.kind : undefined;
+        if (kind === undefined || !kind.endsWith(".stream.stop")) {
+          this.providerOutputApplied = true;
+        }
         return result;
-      }
-      // Cleanup stream.stop must not count as user-visible provider output —
-      // otherwise failed-before-output terminals misclassify after stop-only.
-      const kind = typeof payload.kind === "string" ? payload.kind : undefined;
-      if (kind === undefined || !kind.endsWith(".stream.stop")) {
-        this.providerOutputApplied = true;
-      }
-      return result;
-    });
+      });
+  }
+
+  /** Idempotently charge this delivery before its first substantive work. */
+  charge(): Promise<void> {
+    if (!this.charges) {
+      // Direct/self-hosted transports do not use Intelligence metering.
+      return Promise.resolve();
+    }
+    this.chargePromise ??= this.charges.charge(this.delivery.deliveryId);
+    return this.chargePromise;
   }
 
   /** Send the final outcome through the same ordered packet path. */
@@ -561,6 +581,7 @@ export class ChannelDeliveryTransport {
   private readonly activeThreads = new Set<string>();
   private readonly files?: ChannelDeliveryFileClient;
   private readonly transcripts?: ChannelDeliveryTranscriptClient;
+  private readonly charges?: ChannelDeliveryChargeClient;
   private readonly maxConcurrentDeliveries: number;
   private stopped = false;
   private abortController = new AbortController();
@@ -590,6 +611,11 @@ export class ChannelDeliveryTransport {
         ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
       });
       this.transcripts = new ChannelDeliveryTranscriptClient({
+        baseUrl: options.appApiBaseUrl,
+        apiKey: options.apiKey,
+        ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
+      });
+      this.charges = new ChannelDeliveryChargeClient({
         baseUrl: options.appApiBaseUrl,
         apiKey: options.apiKey,
         ...(options.fileFetch ? { fetch: options.fileFetch } : {}),
@@ -750,6 +776,7 @@ export class ChannelDeliveryTransport {
         this.files,
         this.transcripts,
         signal,
+        this.charges,
       );
       this.activeDeliveries.set(deliveryId, claimedDelivery);
       try {

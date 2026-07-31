@@ -381,6 +381,11 @@ export class DeliveryAdapter implements PlatformAdapter {
   ): Promise<ChannelAgentLoopResult> {
     const target = asDeliveryTarget(args.replyTarget);
     this.assertRunAgentSupported(args.replyTarget);
+    // ClaimedChannelDelivery always supplies charge in production. The
+    // defensive callable check preserves lightweight structural test doubles.
+    if (typeof target.claimedDelivery.charge === "function") {
+      await target.claimedDelivery.charge();
+    }
     const threadId = target.delivery.canonicalThreadId;
     const runId = mintId("run_");
     const historyIds = this.historyIds.get(args.agent) ?? new Set<string>();
