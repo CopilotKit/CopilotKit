@@ -1,8 +1,37 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import fs from "fs";
 import matter from "gray-matter";
 
+vi.mock("../registry", () => ({ getDocsMode: () => "generated" }));
+
+import { inlineSnippets } from "../docs-render";
+
 const canonicalGuidePath = "/premium/existing-app-hosted-intelligence";
+const canonicalGuideContentPath =
+  "docs/premium/existing-app-hosted-intelligence.mdx";
+const hostedRuntimeSnippetPath =
+  "snippets/shared/premium/existing-app-hosted-intelligence-platform-runtime.mdx";
+const hostedGuideVariants = [
+  {
+    name: "Angular",
+    path: "docs/frontends/angular/premium/existing-app-hosted-intelligence.mdx",
+    handoff: "/angular/guides/threads-memory-attachments-headless",
+  },
+  {
+    name: "Vue",
+    path: "docs/frontends/vue/premium/existing-app-hosted-intelligence.mdx",
+    handoff: "/reference/vue/hooks/useThreads",
+  },
+  {
+    name: "React Native",
+    path: "docs/frontends/react-native/premium/existing-app-hosted-intelligence.mdx",
+    handoff: "/reference/react-native/hooks/useThreads",
+  },
+] as const;
+const hostedGuideWrappers = [
+  { name: "React", path: canonicalGuideContentPath },
+  ...hostedGuideVariants,
+] as const;
 const runtimeSetupLead =
   "Replace the single-method handler with the Intelligence and multi-method handler setup shown here.";
 const runnerException =
@@ -45,14 +74,14 @@ function readContent(relativePath: string): string {
   );
 }
 
-/** Compose the React wrapper with the shared MDX that the docs loader inlines. */
+/** Render a hosted guide through the production snippet inliner. */
+function readRenderedHostedGuide(relativePath: string): string {
+  return inlineSnippets(readContent(relativePath), relativePath);
+}
+
+/** Read the rendered React wrapper used for the canonical guide contract. */
 function readCanonicalGuide(): string {
-  return [
-    readContent("docs/premium/existing-app-hosted-intelligence.mdx"),
-    readContent(
-      "snippets/shared/premium/existing-app-hosted-intelligence-platform-runtime.mdx",
-    ),
-  ].join("\n");
+  return readRenderedHostedGuide(canonicalGuideContentPath);
 }
 
 /** Collapse prose whitespace so line wrapping does not affect contract checks. */
@@ -354,6 +383,18 @@ test("documents the managed Runtime, auth, UI, and verification contracts", () =
   expectCanonicalGuideContracts(guide);
 });
 
+test.each(hostedGuideWrappers)(
+  "$name wrapper renders the shared hosted Runtime/platform guide",
+  ({ path }) => {
+    const sharedRuntimePlatformContent = readContent(hostedRuntimeSnippetPath);
+
+    const guide = readRenderedHostedGuide(path);
+
+    expect(guide).toContain(sharedRuntimePlatformContent);
+    expect(guide).not.toContain("<HostedIntelligencePlatformRuntime");
+  },
+);
+
 test("the canonical key-rotation link resolves to the supported replacement sequence", () => {
   const guide = readCanonicalGuide();
   const cli = readContent("snippets/shared/cli/cli.mdx");
@@ -618,33 +659,14 @@ test.each([
 );
 
 test("T1: publishes framework-native variants of the hosted existing-app guide", () => {
-  const { data: frontmatter } = matter(
-    readContent("docs/premium/existing-app-hosted-intelligence.mdx"),
-  );
-  const variants = [
-    {
-      name: "Angular",
-      path: "docs/frontends/angular/premium/existing-app-hosted-intelligence.mdx",
-      handoff: "/angular/guides/threads-memory-attachments-headless",
-    },
-    {
-      name: "Vue",
-      path: "docs/frontends/vue/premium/existing-app-hosted-intelligence.mdx",
-      handoff: "/reference/vue/hooks/useThreads",
-    },
-    {
-      name: "React Native",
-      path: "docs/frontends/react-native/premium/existing-app-hosted-intelligence.mdx",
-      handoff: "/reference/react-native/hooks/useThreads",
-    },
-  ];
+  const { data: frontmatter } = matter(readContent(canonicalGuideContentPath));
 
   expect.soft(frontmatter.frontend, "root guide frontend metadata").toEqual({
     kind: "frontend-variant",
     fallback: "hide",
   });
 
-  for (const variant of variants) {
+  for (const variant of hostedGuideVariants) {
     const variantUrl = new URL(
       `../../content/${variant.path}`,
       import.meta.url,
