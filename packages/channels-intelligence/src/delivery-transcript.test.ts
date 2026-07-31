@@ -361,24 +361,29 @@ test("managed inbound image reaches the agent through transcript-seeded runAgent
   const imageBytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   const imageBase64 = Buffer.from(imageBytes).toString("base64");
   const imageHandle = "fileref_transcript_image";
+  const currentTrigger = transcript.messages.find(
+    (message) => message.currentTrigger,
+  )!;
   const imageTranscript = {
     ...transcript,
-    messages: [
-      {
-        ...transcript.messages[0]!,
-        text: "This image",
-        files: [
-          {
-            providerFileId: `managed:${imageHandle}`,
-            name: "image.png",
-            mimeType: "image/png",
-            byteSize: imageBytes.byteLength,
-            availability: "managed" as const,
-            handle: imageHandle,
-          },
-        ],
-      },
-    ],
+    messages: transcript.messages.map((message) =>
+      message.currentTrigger
+        ? {
+            ...message,
+            text: "This image",
+            files: [
+              {
+                providerFileId: `managed:${imageHandle}`,
+                name: "image.png",
+                mimeType: "image/png",
+                byteSize: imageBytes.byteLength,
+                availability: "managed" as const,
+                handle: imageHandle,
+              },
+            ],
+          }
+        : message,
+    ),
   };
   const fetch = vi.fn(async (input: string | URL | Request) => {
     const url = String(input);
@@ -429,8 +434,8 @@ test("managed inbound image reaches the agent through transcript-seeded runAgent
         ],
         operation: {
           kind: "created",
-          logicalMessageId: "1730000000.000100",
-          revisionId: "1730000000.000100",
+          logicalMessageId: currentTrigger.logicalMessageId,
+          revisionId: currentTrigger.revisionId,
           mentioned: true,
         },
       },
@@ -442,7 +447,11 @@ test("managed inbound image reaches the agent through transcript-seeded runAgent
     { ownerGeneration: 1, runtimeInstanceId: "rti_transcript_image" },
     {
       joinReply: delivery,
-      push: vi.fn(),
+      push: vi.fn(async (_event: string, packet: Record<string, unknown>) => ({
+        ...packet,
+        phase: "applied",
+        result: {},
+      })),
       on: vi.fn(),
       onClose: vi.fn(),
       leave: vi.fn(),
@@ -489,7 +498,8 @@ test("managed inbound image reaches the agent through transcript-seeded runAgent
   await channel.ɵruntime.stop();
 
   expect(capturedInputs).toHaveLength(1);
-  expect(capturedInputs[0]?.messages).toEqual([
+  expect(capturedInputs[0]?.messages).toHaveLength(transcript.messages.length);
+  expect(capturedInputs[0]?.messages.at(-1)).toEqual(
     expect.objectContaining({
       role: "user",
       content: [
@@ -507,7 +517,7 @@ test("managed inbound image reaches the agent through transcript-seeded runAgent
         },
       ],
     }),
-  ]);
+  );
   expect(fetch).toHaveBeenCalledWith(
     `https://api.example/api/channels/files/${imageHandle}`,
     expect.objectContaining({ method: "GET" }),
