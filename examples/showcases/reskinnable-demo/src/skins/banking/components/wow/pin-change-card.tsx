@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Check, CreditCard as CardIcon } from "lucide-react";
+import { Check, CreditCard as CardIcon, ShieldCheck } from "lucide-react";
 
 import type { Card } from "@/skins/banking/data/data";
 import { cn } from "@/lib/utils";
@@ -194,6 +194,98 @@ export function PinChangeCard({
           Cancel
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The resolved state of a PIN change, as generative UI rather than a line of
+ * text.
+ *
+ * Two reasons it is a component and not "New PIN saved.":
+ *  - Reloading a thread replays persisted tool results, so a text-only outcome
+ *    comes back as a bare sentence with no sense of what happened. A card
+ *    re-renders with the same weight it had live.
+ *  - It keeps the product promise consistent — the chat answers in UI, not
+ *    prose — which is what we want customers to expect from an agent surface.
+ *
+ * It renders from the tool RESULT (card brand/last4 parsed out of it), not from
+ * component state, precisely so a rehydrated thread shows the same card.
+ *
+ * The digits are never displayed. They were never sent to the agent, so they are
+ * not in the result to display — the mask is the honest representation.
+ */
+export function PinChangedCard({
+  brand,
+  last4,
+  failed,
+  cancelled,
+}: {
+  brand?: string;
+  last4?: string;
+  failed?: string;
+  cancelled?: boolean;
+}) {
+  // Cancelling is a normal outcome, not an error, so it stays neutral — red
+  // here would read as "something went wrong" for a deliberate choice.
+  if (cancelled) {
+    return (
+      <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+        PIN change cancelled.
+      </div>
+    );
+  }
+
+  if (failed) {
+    return (
+      <div className="rounded-2xl border border-negative/30 bg-negative-soft/40 p-4 text-sm text-ink shadow-soft">
+        <p className="font-medium text-negative">PIN not changed</p>
+        <p className="mt-0.5 text-xs text-ink-muted">{failed}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid="chat-pin-changed"
+      className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft"
+    >
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-positive-soft text-positive">
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+        </span>
+        <h3 className="text-sm font-semibold text-ink">PIN updated</h3>
+      </div>
+
+      {/* A miniature of the card face, so the confirmation is recognisably
+          about a specific card rather than a generic success message. */}
+      <div className="brand-gradient relative overflow-hidden rounded-xl p-3 text-surface">
+        <div className="flex items-start justify-between">
+          <span className="h-5 w-7 rounded bg-amber-300/90" aria-hidden />
+          <span className="text-xs font-semibold uppercase tracking-wide opacity-90">
+            {brand ?? "Card"}
+          </span>
+        </div>
+        <p className="mt-3 font-mono text-sm tracking-[0.2em]">
+          ••••&nbsp;&nbsp;••••&nbsp;&nbsp;••••&nbsp;&nbsp;{last4 ?? "••••"}
+        </p>
+        <div className="mt-2 flex items-end justify-between">
+          <div>
+            <p className="text-[0.55rem] uppercase tracking-wide opacity-75">
+              New PIN
+            </p>
+            <p className="font-mono text-sm tracking-[0.3em]">••••</p>
+          </div>
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[0.6rem] font-medium">
+            Active now
+          </span>
+        </div>
+      </div>
+
+      <p className="text-xs leading-relaxed text-ink-muted">
+        Set on your screen and applied immediately. The PIN was never sent to the
+        assistant.
+      </p>
     </div>
   );
 }
