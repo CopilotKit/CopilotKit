@@ -616,6 +616,60 @@ test.each([
   },
 );
 
+test("T1: publishes framework-native variants of the hosted existing-app guide", () => {
+  const { data: frontmatter } = matter(
+    readContent("docs/premium/existing-app-hosted-intelligence.mdx"),
+  );
+  const variants = [
+    {
+      name: "Angular",
+      path: "docs/frontends/angular/premium/existing-app-hosted-intelligence.mdx",
+      handoff: "/angular/guides/threads-memory-attachments-headless",
+    },
+    {
+      name: "Vue",
+      path: "docs/frontends/vue/premium/existing-app-hosted-intelligence.mdx",
+      handoff: "/reference/vue/hooks/useThreads",
+    },
+    {
+      name: "React Native",
+      path: "docs/frontends/react-native/premium/existing-app-hosted-intelligence.mdx",
+      handoff: "/reference/react-native/hooks/useThreads",
+    },
+  ];
+
+  expect.soft(frontmatter.frontend, "root guide frontend metadata").toEqual({
+    kind: "frontend-variant",
+    fallback: "hide",
+  });
+
+  for (const variant of variants) {
+    const variantUrl = new URL(
+      `../../content/${variant.path}`,
+      import.meta.url,
+    );
+    const exists = fs.existsSync(variantUrl);
+
+    expect.soft(exists, `${variant.name} hosted guide variant`).toBe(true);
+    if (!exists) continue;
+
+    const content = readContent(variant.path);
+    const linkDestinations = extractMarkdownLinkDestinations(content).map(
+      (destination) => destination.split(/[?#]/, 1)[0],
+    );
+    const code = extractMdxCodeFences(content)
+      .map((fence) => fence.content)
+      .join("\n");
+
+    expect(linkDestinations).toContain(variant.handoff);
+    expect(code).not.toMatch(
+      /\bimport\s+(?:type\s+)?\{[^}]*\b(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b[^}]*\}\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
+    );
+    expect(code).not.toMatch(/<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/);
+    expect(code).not.toMatch(/\buseThreads\s*\(/);
+  }
+});
+
 test("the useThreads reference matches optimistic Core mutations", () => {
   const reference = collapseWhitespace(readContent(useThreadsReferencePath));
 
