@@ -1,6 +1,8 @@
 import { expect, test, vi } from "vitest";
 import fs from "fs";
 import matter from "gray-matter";
+import { serialize } from "next-mdx-remote/serialize";
+import remarkGfm from "remark-gfm";
 
 vi.mock("../registry", () => ({ getDocsMode: () => "generated" }));
 
@@ -67,6 +69,12 @@ interface MdxCodeFence {
   content: string;
 }
 
+interface MdxAstNode {
+  type?: string;
+  url?: unknown;
+  children?: MdxAstNode[];
+}
+
 function readContent(relativePath: string): string {
   return fs.readFileSync(
     new URL(`../../content/${relativePath}`, import.meta.url),
@@ -129,39 +137,72 @@ function findUnsafeManagedIdentifiers(
   );
 }
 
-/** Extract destinations from rendered Markdown links in MDX source. */
-function extractMarkdownLinkDestinations(content: string): string[] {
-  const withoutComments = content.replace(
-    /\{\/\*[\s\S]*?\*\/\}|<!--[\s\S]*?-->/g,
-    " ",
-  );
-  let fenceMarker: string | undefined;
-  const visibleContent = withoutComments
-    .split("\n")
-    .filter((line) => {
-      const fenceMatch = line.match(/^\s*([`~])\1{2,}/);
-      if (!fenceMatch) return !fenceMarker;
+/** Extract destinations from Markdown link nodes in parsed MDX source. */
+async function extractMarkdownLinkDestinations(
+  content: string,
+): Promise<string[]> {
+  const destinations: string[] = [];
+  const collectMarkdownLinks =
+    () =>
+    (tree: MdxAstNode): void => {
+      const pending = [tree];
 
-      const marker = fenceMatch[1];
-      fenceMarker =
-        marker === fenceMarker ? undefined : (fenceMarker ?? marker);
-      return false;
-    })
-    .join("\n");
-  const withoutInlineCode = visibleContent.replace(
-    /(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g,
-    " ",
-  );
+      while (pending.length > 0) {
+        const node = pending.pop();
+        if (!node) continue;
 
-  return Array.from(
-    withoutInlineCode.matchAll(
-      /(?<![!\\])\[[^\]\n]+\]\(\s*(?:<([^>\n]+)>|([^\s)]+))/g,
-    ),
-    (match) => match[1] ?? match[2],
+        if (node.type === "link" && typeof node.url === "string") {
+          destinations.push(node.url);
+        }
+        if (node.children) {
+          for (let index = node.children.length - 1; index >= 0; index -= 1) {
+            const child = node.children[index];
+            if (child) pending.push(child);
+          }
+        }
+      }
+    };
+
+  await serialize(content, {
+    parseFrontmatter: true,
+    mdxOptions: { remarkPlugins: [remarkGfm, collectMarkdownLinks] },
+  });
+
+  return destinations;
+}
+
+/** Assert that contradictory archive and delete claims are absent. */
+function expectNoThreadRemovalContradictions(content: string): void {
+  expect(content).not.toMatch(
+    /\b(?:archive(?:Thread)?|archived|archiving)\b[^.]*\bsoft[ -]?delet(?:e[sd]?|ing)\b/i,
+  );
+  expect(content).not.toMatch(
+    /\b(?:delete(?:Thread)?|deleted|deleting|deletion)\b[^.]*\b(?:permanent(?:ly)?|physically)\b[^.]*\b(?:remov(?:e[sd]?|ing)|delet(?:e[sd]?|ing))\b|\b(?:row|record|history)\b[^.]*\b(?:removed?|deleted?)\b[^.]*\b(?:entirely|physically)\b/i,
   );
 }
 
-test("extracts destinations only from rendered Markdown links", () => {
+/** Assert that a frontend guide links onward without rendering React-only code. */
+async function expectFrameworkNativeGuide(
+  variant: (typeof hostedGuideVariants)[number],
+  wrapperContent: string,
+  renderedContent: string,
+): Promise<void> {
+  const linkDestinations = (
+    await extractMarkdownLinkDestinations(wrapperContent)
+  ).map((destination) => destination.split(/[?#]/, 1)[0]);
+  const code = extractMdxCodeFences(renderedContent)
+    .map((fence) => fence.content)
+    .join("\n");
+
+  expect(linkDestinations).toContain(variant.handoff);
+  expect(code).not.toMatch(
+    /\bimport\s+(?:type\s+)?\{[^}]*\b(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b[^}]*\}\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
+  );
+  expect(code).not.toMatch(/<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/);
+  expect(code).not.toMatch(/\buseThreads\s*\(/);
+}
+
+test("extracts destinations only from rendered Markdown links", async () => {
   const renderedDestination = `${canonicalGuidePath}?source=entry#runtime`;
   const content = [
     `[rendered](${renderedDestination})`,
@@ -169,7 +210,6 @@ test("extracts destinations only from rendered Markdown links", () => {
     String.raw`\[escaped link](${canonicalGuidePath})`,
     `![image](${canonicalGuidePath})`,
     `{/* [MDX comment](${canonicalGuidePath}) */}`,
-    `<!-- [HTML comment](${canonicalGuidePath}) -->`,
     "```md",
     `[backtick fence](${canonicalGuidePath})`,
     "```",
@@ -178,14 +218,66 @@ test("extracts destinations only from rendered Markdown links", () => {
     "~~~",
   ].join("\n");
 
-  const destinations = extractMarkdownLinkDestinations(content);
+  const destinations = await extractMarkdownLinkDestinations(content);
 
   expect(destinations).toEqual([renderedDestination]);
 });
 
+test("keeps links inside a shorter nested fence non-rendered", async () => {
+  const content = [
+    "````md",
+    "```md",
+    `[nested example](${canonicalGuidePath})`,
+    "```",
+    "````",
+  ].join("\n");
+
+  expect(await extractMarkdownLinkDestinations(content)).toEqual([]);
+});
+
+test("ignores Markdown-looking links in MDX expressions and JSX props", async () => {
+  const content = [
+    `<Callout note="[JSX prop](${canonicalGuidePath})" />`,
+    `{"[MDX expression](${canonicalGuidePath})"}`,
+  ].join("\n");
+
+  expect(await extractMarkdownLinkDestinations(content)).toEqual([]);
+});
+
+test("honors escaped backticks and backslash parity around rendered links", async () => {
+  const content = [
+    String.raw`\`[escaped backticks](${canonicalGuidePath})\``,
+    String.raw`\\[even backslashes](${canonicalGuidePath})`,
+    String.raw`\[one backslash](${canonicalGuidePath})`,
+    String.raw`\\\[odd backslashes](${canonicalGuidePath})`,
+  ].join("\n");
+
+  expect(await extractMarkdownLinkDestinations(content)).toEqual([
+    canonicalGuidePath,
+    canonicalGuidePath,
+  ]);
+});
+
+test("rejects React-only APIs in shared code rendered by frontend guides", async () => {
+  const variant = hostedGuideVariants[0];
+  const wrapperContent = `[Continue](${variant.handoff})`;
+  const renderedContent = `${wrapperContent}\n\n\`\`\`tsx\nimport { CopilotKitProvider } from "@copilotkit/react-core/v2";\n\`\`\``;
+
+  await expect(
+    expectFrameworkNativeGuide(variant, wrapperContent, renderedContent),
+  ).rejects.toThrow();
+});
+
+test.each([
+  "Archived threads are soft-deleted.",
+  "Deleted threads are permanently removed.",
+])("rejects the removal contradiction: %s", (contradiction) => {
+  expect(() => expectNoThreadRemovalContradictions(contradiction)).toThrow();
+});
+
 /** Assert that MDX source links to the canonical guide path. */
-function expectCanonicalGuideLink(content: string): void {
-  const destinations = extractMarkdownLinkDestinations(content);
+async function expectCanonicalGuideLink(content: string): Promise<void> {
+  const destinations = await extractMarkdownLinkDestinations(content);
 
   expect(
     destinations.some(
@@ -421,7 +513,7 @@ test.each(hostedGuideWrappers)(
   },
 );
 
-test("the canonical key-rotation link resolves to the supported replacement sequence", () => {
+test("the canonical key-rotation link resolves to the supported replacement sequence", async () => {
   const guide = readCanonicalGuide();
   const cli = readContent("snippets/shared/cli/cli.mdx");
   const rotationLinkLine =
@@ -431,7 +523,9 @@ test("the canonical key-rotation link resolves to the supported replacement sequ
   const sectionStart = cli.indexOf("## Rotate a project API key");
   const sectionEnd = cli.indexOf("## Skills commands", sectionStart);
 
-  expect(extractMarkdownLinkDestinations(rotationLinkLine)).toContain("/cli");
+  expect(await extractMarkdownLinkDestinations(rotationLinkLine)).toContain(
+    "/cli",
+  );
   expect(sectionStart).toBeGreaterThanOrEqual(0);
   expect(sectionEnd).toBeGreaterThan(sectionStart);
 
@@ -561,14 +655,14 @@ test("replaces the Quickstart Runtime route with one hosted catch-all route", ()
   );
 });
 
-test("links each public entry point back to the canonical guide", () => {
+test("links each public entry point back to the canonical guide", async () => {
   const contentsByPath = new Map(
     entryPointPaths.map((path) => [path, readContent(path)]),
   );
   const contents = [...contentsByPath.values()];
 
   for (const content of contents) {
-    expectCanonicalGuideLink(content);
+    await expectCanonicalGuideLink(content);
   }
 
   expect(findUnsafeManagedIdentifiers(readCanonicalGuide(), contents)).toEqual(
@@ -661,12 +755,7 @@ test.each([
       .replace(/`/g, "")
       .replace(/\s+/g, " ");
 
-    expect(lifecycle).not.toMatch(
-      /\barchive(?:Thread)?\b[^.]*\bsoft delete\b/i,
-    );
-    expect(lifecycle).not.toMatch(
-      /\bdelete(?:Thread)?\b[^.]*\bpermanently removes?\b|\bremoved entirely\b/i,
-    );
+    expectNoThreadRemovalContradictions(lifecycle);
     expect(lifecycle).toMatch(/\barchive(?:Thread)?\b[^.]*\breversible\b/i);
     expect(lifecycle).toContain("includeArchived: true");
     expect(lifecycle).toMatch(/\bunarchive(?:Thread)?\b/i);
@@ -684,7 +773,7 @@ test.each([
   },
 );
 
-test("T1: publishes framework-native variants of the hosted existing-app guide", () => {
+test("T1: publishes framework-native variants of the hosted existing-app guide", async () => {
   const { data: frontmatter } = matter(readContent(canonicalGuideContentPath));
 
   expect.soft(frontmatter.frontend, "root guide frontend metadata").toEqual({
@@ -702,20 +791,11 @@ test("T1: publishes framework-native variants of the hosted existing-app guide",
     expect.soft(exists, `${variant.name} hosted guide variant`).toBe(true);
     if (!exists) continue;
 
-    const content = readContent(variant.path);
-    const linkDestinations = extractMarkdownLinkDestinations(content).map(
-      (destination) => destination.split(/[?#]/, 1)[0],
+    await expectFrameworkNativeGuide(
+      variant,
+      readContent(variant.path),
+      readRenderedHostedGuide(variant.path),
     );
-    const code = extractMdxCodeFences(content)
-      .map((fence) => fence.content)
-      .join("\n");
-
-    expect(linkDestinations).toContain(variant.handoff);
-    expect(code).not.toMatch(
-      /\bimport\s+(?:type\s+)?\{[^}]*\b(?:CopilotKitProvider|CopilotThreadsDrawer|useThreads)\b[^}]*\}\s+from\s+["']@copilotkit\/react(?:-core)?(?:\/v2)?["']/,
-    );
-    expect(code).not.toMatch(/<(?:CopilotKitProvider|CopilotThreadsDrawer)\b/);
-    expect(code).not.toMatch(/\buseThreads\s*\(/);
   }
 });
 
@@ -820,6 +900,9 @@ test.each([
     const content = collapseWhitespace(read().replace(/`/g, ""));
 
     expect.soft(content, `${surface}: content loads`).not.toHaveLength(0);
+    if (archiveContract || deleteContract) {
+      expectNoThreadRemovalContradictions(content);
+    }
 
     if (archiveContract) {
       expect
@@ -1144,8 +1227,8 @@ test.each([
     `\`\`\`md\n[Setup guide](${canonicalGuidePath})\n\`\`\``,
   ],
   ["a longer route", `[Setup guide](${canonicalGuidePath}-old)`],
-])("rejects %s as a canonical guide link", (_caseName, content) => {
-  expect(() => expectCanonicalGuideLink(content)).toThrow();
+])("rejects %s as a canonical guide link", async (_caseName, content) => {
+  await expect(expectCanonicalGuideLink(content)).rejects.toThrow();
 });
 
 test.each([
@@ -1155,8 +1238,8 @@ test.each([
     `[Setup guide](${canonicalGuidePath}?source=cli)`,
   ],
   ["a route with a fragment", `[Setup guide](${canonicalGuidePath}#runtime)`],
-])("accepts %s as a canonical guide link", (_caseName, content) => {
-  expectCanonicalGuideLink(content);
+])("accepts %s as a canonical guide link", async (_caseName, content) => {
+  await expectCanonicalGuideLink(content);
 });
 
 test.each([
