@@ -378,6 +378,8 @@ test.each([
   "https://cloud.copilotkit.ai/manage/plan",
   "http://localhost/manage",
   "http://localhost:3000/manage",
+  "http://127.0.0.1:3000/manage",
+  "http://[::1]:3000/manage",
 ])("accepts a safe action URL: %s", (url) => {
   const value = {
     schemaVersion: 1,
@@ -404,7 +406,9 @@ test.each([
   "http://cloud.copilotkit.ai/manage",
   "http://localhost.example.com/manage",
   "http://sub.localhost/manage",
-  "http://[::1]/manage",
+  "http://127.0.0.2/manage",
+  "http://[::2]/manage",
+  "http://0.0.0.0/manage",
   "https://@cloud.copilotkit.ai/manage",
   "https://user@cloud.copilotkit.ai/manage",
   "https://user:password@cloud.copilotkit.ai/manage",

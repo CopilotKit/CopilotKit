@@ -150,7 +150,11 @@ function parseSafeActionUrl(value: unknown): string | undefined {
     return url;
   }
 
-  if (parsed.protocol === "http:" && parsed.hostname === "localhost") {
+  const isLoopbackHost =
+    parsed.hostname === "localhost" ||
+    parsed.hostname === "127.0.0.1" ||
+    parsed.hostname === "[::1]";
+  if (parsed.protocol === "http:" && isLoopbackHost) {
     return url;
   }
 

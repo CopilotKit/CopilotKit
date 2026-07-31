@@ -180,9 +180,9 @@ modules. It returns `undefined` when the top-level value is not a plain object
 with `schemaVersion: 1`.
 
 Action URLs are treated as trusted navigation only after parsing. They must use
-HTTPS, or HTTP on `localhost`; URLs with credentials, a query string, or a
-fragment are rejected. Consumers use the accepted URL as supplied and must not
-derive a destination from identity or plan values.
+HTTPS, or HTTP on `localhost`, `127.0.0.1`, or `[::1]`; URLs with credentials, a
+query string, or a fragment are rejected. Consumers use the accepted URL as
+supplied and must not derive a destination from identity or plan values.
 
 The contract carries usage data so producers and consumers can evolve without a
 second schema. The Web Inspector does not render usage in this release.
