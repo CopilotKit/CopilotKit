@@ -66,7 +66,8 @@ A valid response is a sanitized `InspectorMetadataV1` JSON object with
 `Cache-Control: no-store, private`. Missing data, an unsupported schema, a
 non-Intelligence runtime, or a provider failure returns `204` with the same
 cache policy. This optional request never changes the main runtime connection
-state.
+state. The upstream Intelligence request has a five-second deadline; a timeout
+uses the same private `204` path.
 
 The Intelligence request uses the API key configured on the server-side
 `CopilotKitIntelligence` client. The proxy does not forward browser headers or

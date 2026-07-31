@@ -40,11 +40,11 @@ call to `setHeaders()` or `setCredentials()` starts a new metadata refresh.
 Changing the runtime URL or transport, losing the capability, or disconnecting
 clears the value.
 
-Each refresh cancels the prior request. Core also checks the runtime URL,
-requested and resolved transport, headers, credentials, connection, and
-capability before publishing a response. A stale success or failure cannot
-replace metadata from a newer connection. Route, parse, and subscriber failures
-stay isolated from the runtime connection.
+Each refresh cancels the prior request and has a five-second deadline. Core also
+checks the runtime URL, requested and resolved transport, headers, credentials,
+connection, and capability before publishing a response. A stale success or
+failure cannot replace metadata from a newer connection. Route, timeout, parse,
+and subscriber failures stay isolated from the runtime connection.
 
 See the
 [`CopilotKitCore` reference](https://docs.copilotkit.ai/reference/core/classes/CopilotKitCore)

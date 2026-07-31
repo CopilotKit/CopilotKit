@@ -164,9 +164,9 @@ new CopilotKitCore(config: CopilotKitCoreConfig)
 <PropertyReference name="refreshInspectorMetadata(): Promise<void>" type="method">
   Refreshes optional trusted Inspector metadata without reconnecting runtime
   agents. Core makes the request only while connected to a runtime that reports
-  `inspectorMetadata: true` from its runtime-info response. Route and parse
-  failures resolve with metadata absent; they do not change the runtime
-  connection state.
+  `inspectorMetadata: true` from its runtime-info response. Each refresh has a
+  five-second deadline. Route, timeout, and parse failures resolve with metadata
+  absent; they do not change the runtime connection state.
 </PropertyReference>
 
 ### Configuration

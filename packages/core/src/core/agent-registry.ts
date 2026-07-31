@@ -29,6 +29,9 @@ type RuntimeInfoFetchResult = {
   resolvedTransport: ResolvedCopilotRuntimeTransport;
 };
 
+/** Maximum wait for optional Inspector metadata before degrading to absence. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+
 /** Build case-insensitive JSON headers without mutating the Core snapshot. */
 function withJsonContentType(headers: Record<string, string>): Headers {
   const requestHeaders = new Headers(headers);
@@ -498,30 +501,57 @@ export class AgentRegistry {
     const abortController = new AbortController();
     this.inspectorMetadataAbortController = abortController;
 
+    let timedOut = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let rejectForAbort: ((reason: Error) => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      rejectForAbort = reject;
+    });
+    const handleAbort = () => {
+      rejectForAbort?.(new Error("Inspector metadata request aborted"));
+    };
+    abortController.signal.addEventListener("abort", handleAbort, {
+      once: true,
+    });
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        reject(new Error("Inspector metadata request timed out"));
+        abortController.abort();
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
+    });
+
     let nextMetadata: InspectorMetadataV1 | undefined;
     try {
-      const response =
-        resolvedTransport === "single"
-          ? await this.fetchInspectorMetadataSingle({
-              runtimeUrl,
-              headers,
-              credentials,
-              signal: abortController.signal,
-            })
-          : await this.fetchInspectorMetadataRest({
-              runtimeUrl,
-              headers,
-              credentials,
-              signal: abortController.signal,
-            });
+      const request = (async () => {
+        const response =
+          resolvedTransport === "single"
+            ? await this.fetchInspectorMetadataSingle({
+                runtimeUrl,
+                headers,
+                credentials,
+                signal: abortController.signal,
+              })
+            : await this.fetchInspectorMetadataRest({
+                runtimeUrl,
+                headers,
+                credentials,
+                signal: abortController.signal,
+              });
 
-      if (response.status === 204 || !response.ok) {
-        nextMetadata = undefined;
-      } else {
-        nextMetadata = parseInspectorMetadataV1(await response.json());
-      }
+        if (response.status === 204 || !response.ok) {
+          return undefined;
+        }
+        return parseInspectorMetadataV1(await response.json());
+      })();
+      nextMetadata = await Promise.race([request, aborted, timeout]);
     } catch {
       nextMetadata = undefined;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+      abortController.signal.removeEventListener("abort", handleAbort);
     }
 
     if (
@@ -533,6 +563,7 @@ export class AgentRegistry {
         headersGeneration,
         credentialsGeneration,
         signal: abortController.signal,
+        allowAbortedSignal: timedOut,
       })
     ) {
       return;
@@ -589,6 +620,7 @@ export class AgentRegistry {
     headersGeneration,
     credentialsGeneration,
     signal,
+    allowAbortedSignal = false,
   }: {
     generation: number;
     runtimeUrl: string;
@@ -597,9 +629,10 @@ export class AgentRegistry {
     headersGeneration: number;
     credentialsGeneration: number;
     signal: AbortSignal;
+    allowAbortedSignal?: boolean;
   }): boolean {
     return (
-      !signal.aborted &&
+      (allowAbortedSignal || !signal.aborted) &&
       generation === this.inspectorMetadataGeneration &&
       runtimeUrl === this.runtimeUrl &&
       requestedTransport === this._requestedTransport &&

@@ -48,7 +48,9 @@ A valid response is a versioned `InspectorMetadataV1` JSON object. The response
 always uses `Cache-Control: no-store, private`. The route returns `204` with the
 same cache policy when data is absent, the schema is unsupported, the runtime is
 not backed by Intelligence, or the provider request fails. A metadata failure
-does not change the runtime connection or agent state.
+does not change the runtime connection or agent state. The upstream Intelligence
+request has a five-second deadline; a timeout follows the same private `204`
+path.
 
 ```bash
 curl -i http://localhost:4000/api/copilotkit/inspector-metadata

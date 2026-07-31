@@ -1128,6 +1128,7 @@ test("inspector-metadata client sends server auth and sanitizes a valid V1 respo
     {
       method: "GET",
       headers: { Authorization: "Bearer server-api-key" },
+      signal: expect.any(AbortSignal),
     },
   );
   expect(metadata).toEqual({
@@ -1144,6 +1145,59 @@ test("inspector-metadata client treats 204 and 404 as compatible absence", async
     fetchMock.mockResolvedValueOnce(new Response(null, { status }));
 
     await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider request", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  const loggerWarn = vi
+    .spyOn(logger, "warn")
+    .mockImplementation(() => undefined);
+  fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(loggerWarn).toHaveBeenCalledWith(
+      { path: "/api/inspector/metadata", timeoutMs: 5_000 },
+      "Intelligence inspector metadata request timed out",
+    );
+  } finally {
+    loggerWarn.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
+test("inspector-metadata client aborts and settles a stalled provider body", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response(new ReadableStream<Uint8Array>()));
+
+  try {
+    const request = client.getInspectorMetadata();
+    const rejection = expect(request).rejects.toThrow(
+      "Intelligence inspector metadata request timed out",
+    );
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
   }
 });
 

@@ -46,6 +46,9 @@ const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
  */
 const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 
+/** Maximum time spent on the optional Inspector metadata provider request. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
@@ -620,28 +623,59 @@ export class CopilotKitIntelligence {
    */
   async getInspectorMetadata(): Promise<InspectorMetadataV1 | undefined> {
     const path = "/api/inspector/metadata";
-    const response = await fetch(`${this.#apiUrl}${path}`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    const abortController = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence inspector metadata request timed out",
+    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(timeoutError);
+        abortController.abort(timeoutError);
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
     });
 
-    if (response.status === 204 || response.status === 404) {
-      return undefined;
-    }
+    try {
+      const response = await Promise.race([
+        fetch(`${this.#apiUrl}${path}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${this.#apiKey}` },
+          signal: abortController.signal,
+        }),
+        timeout,
+      ]);
 
-    if (!response.ok) {
-      logger.error(
-        { status: response.status, path },
-        "Intelligence platform request failed",
-      );
-      throw new PlatformRequestError(
-        `Intelligence platform error ${response.status}`,
-        response.status,
-      );
-    }
+      if (response.status === 204 || response.status === 404) {
+        return undefined;
+      }
 
-    const decoded: unknown = JSON.parse(await response.text());
-    return parseInspectorMetadataV1(decoded);
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, path },
+          "Intelligence platform request failed",
+        );
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+        );
+      }
+
+      const body = await Promise.race([response.text(), timeout]);
+      const decoded: unknown = JSON.parse(body);
+      return parseInspectorMetadataV1(decoded);
+    } catch (error) {
+      if (error === timeoutError) {
+        logger.warn(
+          { path, timeoutMs: INSPECTOR_METADATA_REQUEST_TIMEOUT_MS },
+          "Intelligence inspector metadata request timed out",
+        );
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
   }
 
   async #request<T>(

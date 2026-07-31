@@ -593,6 +593,51 @@ test("optional-route failures and invalid bodies stay connected with absent meta
   }
 });
 
+test("stalled REST and single-route metadata requests time out as absent", async () => {
+  for (const runtimeTransport of ["rest", "single"] as const) {
+    const stalled = deferred<Response>();
+    const context = setup({
+      runtimeTransport,
+      metadataResponses: [jsonResponse(metadata("Loaded")), stalled.promise],
+    });
+    const onError = vi.fn();
+    context.core.subscribe({ onError });
+    try {
+      context.core.connect();
+      await waitFor(
+        () => context.core.inspectorMetadata?.plan?.label === "Loaded",
+      );
+      vi.useFakeTimers();
+      const timerCountBeforeRefresh = vi.getTimerCount();
+      let refreshSettled = false;
+
+      const refresh = context.core.refreshInspectorMetadata().then(() => {
+        refreshSettled = true;
+      });
+      expect(context.metadataRequests()).toHaveLength(2);
+      const signal = context.metadataRequests()[1]?.signal;
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await Promise.resolve();
+
+      expect(refreshSettled, runtimeTransport).toBe(true);
+      await refresh;
+      expect(signal?.aborted, runtimeTransport).toBe(true);
+      expect(context.core.inspectorMetadata, runtimeTransport).toBeUndefined();
+      expect(context.core.runtimeConnectionStatus, runtimeTransport).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+      expect(onError, runtimeTransport).not.toHaveBeenCalled();
+      expect(vi.getTimerCount(), runtimeTransport).toBe(
+        timerCountBeforeRefresh,
+      );
+    } finally {
+      vi.useRealTimers();
+      context.teardown();
+    }
+  }
+});
+
 test("manual refresh replaces current metadata", async () => {
   const first = metadata("Initial");
   const second = metadata("Refreshed");
