@@ -238,13 +238,16 @@ describe("Channels documentation journey", () => {
         'required("INTELLIGENCE_GATEWAY_WS_URL")',
       );
       expect(source, slug).toContain("const channels = listener.channels");
-      expect(source, slug).toMatch(/if \(!channels\)/);
+      expect(source, slug).not.toMatch(/if \(!channels\)/);
       expect(source, slug).toContain(
         "await channels.ready({ timeoutMs: 30_000 })",
       );
       expect(source, slug).toContain('status.overall !== "online"');
-      expect(source, slug).toMatch(/opens? no\s+connection/i);
-      expect(source, slug).toMatch(/`ready\(\)` is required/i);
+      expect(source, slug).toMatch(
+        /creating the Node listener starts the Channel/i,
+      );
+      expect(source, slug).toMatch(/`ready\(\)`\s+is therefore optional/i);
+      expect(source, slug).not.toMatch(/`ready\(\)` is required/i);
       expect(source, `${slug} bypasses the optional control guard`).not.toMatch(
         /listener\.channels\.(?:ready|status)\(/,
       );
