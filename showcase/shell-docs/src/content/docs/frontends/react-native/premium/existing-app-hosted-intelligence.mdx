@@ -1,0 +1,21 @@
+---
+title: Connect an Existing React Native App to Hosted Intelligence
+description: "Connect an existing React Native app to Cloud-Hosted Enterprise Intelligence through its server-side Runtime, with verified app-user identity and persistent Threads."
+icon: "lucide/PlugZap"
+doc_type: how-to
+premium: true
+---
+
+import HostedIntelligencePlatformRuntime from "@/snippets/shared/premium/existing-app-hosted-intelligence-platform-runtime.mdx";
+
+Keep your existing React Native UI connected to your public app Runtime while you add hosted Thread storage on the server. First confirm the frontend boundary below; then select the hosted project and update the Runtime.
+
+## Confirm the React Native frontend points at your app Runtime
+
+Keep the native client pointed at the public URL for your app Runtime. A physical device cannot use a web app's relative `/api/copilotkit` URL, so use the deployed HTTPS endpoint that the device can reach. Do not add the managed project key or either hosted URL to the app bundle.
+
+React Native supports persistent Threads through the headless `useThreads` hook exported by `@copilotkit/react-native`. It does not provide the web Threads Drawer, so build the list with native components. Follow the [React Native `useThreads` reference](/reference/react-native/hooks/useThreads) for the supported API, then return here to verify persistence and user isolation.
+
+Keep your current bearer-token or cookie settings when you update the Runtime URL. The native client should authenticate only to your app Runtime; the Runtime reports the selected project's managed entitlement and realtime connection details.
+
+<HostedIntelligencePlatformRuntime components={props.components} />

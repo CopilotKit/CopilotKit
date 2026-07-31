@@ -1,0 +1,21 @@
+---
+title: Connect an Existing Angular App to Hosted Intelligence
+description: "Connect an existing Angular app to Cloud-Hosted Enterprise Intelligence through its server-side Runtime, with verified app-user identity and persistent Threads."
+icon: "lucide/PlugZap"
+doc_type: how-to
+premium: true
+---
+
+import HostedIntelligencePlatformRuntime from "@/snippets/shared/premium/existing-app-hosted-intelligence-platform-runtime.mdx";
+
+Keep your existing Angular UI connected to your app Runtime while you add hosted Thread storage on the server. First confirm the frontend boundary below; then select the hosted project and update the Runtime.
+
+## Confirm the Angular frontend points at your app Runtime
+
+Keep your existing `provideCopilotKit` setup pointed at your app Runtime's `/api/copilotkit` endpoint. Do not add the managed project key or either hosted URL to the Angular config.
+
+Angular includes `CopilotThreadsDrawer` for a ready-made thread list and `injectThreads` for a custom signal-based UI. Follow [Threads, memory, attachments, and headless UI](/angular/guides/threads-memory-attachments-headless) for the native Angular setup, then return here to verify persistence and user isolation.
+
+Keep your current auth headers or cookie settings when you update the Runtime URL. The Angular client should authenticate only to your app Runtime.
+
+<HostedIntelligencePlatformRuntime components={props.components} />
