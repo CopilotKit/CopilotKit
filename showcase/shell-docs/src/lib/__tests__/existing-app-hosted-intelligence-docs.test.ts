@@ -148,14 +148,40 @@ function extractMarkdownLinkDestinations(content: string): string[] {
       return false;
     })
     .join("\n");
+  const withoutInlineCode = visibleContent.replace(
+    /(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)/g,
+    " ",
+  );
 
   return Array.from(
-    visibleContent.matchAll(
-      /(?<!!)\[[^\]\n]+\]\(\s*(?:<([^>\n]+)>|([^\s)]+))/g,
+    withoutInlineCode.matchAll(
+      /(?<![!\\])\[[^\]\n]+\]\(\s*(?:<([^>\n]+)>|([^\s)]+))/g,
     ),
     (match) => match[1] ?? match[2],
   );
 }
+
+test("extracts destinations only from rendered Markdown links", () => {
+  const renderedDestination = `${canonicalGuidePath}?source=entry#runtime`;
+  const content = [
+    `[rendered](${renderedDestination})`,
+    `\`[inline code](${canonicalGuidePath})\``,
+    String.raw`\[escaped link](${canonicalGuidePath})`,
+    `![image](${canonicalGuidePath})`,
+    `{/* [MDX comment](${canonicalGuidePath}) */}`,
+    `<!-- [HTML comment](${canonicalGuidePath}) -->`,
+    "```md",
+    `[backtick fence](${canonicalGuidePath})`,
+    "```",
+    "~~~md",
+    `[tilde fence](${canonicalGuidePath})`,
+    "~~~",
+  ].join("\n");
+
+  const destinations = extractMarkdownLinkDestinations(content);
+
+  expect(destinations).toEqual([renderedDestination]);
+});
 
 /** Assert that MDX source links to the canonical guide path. */
 function expectCanonicalGuideLink(content: string): void {
