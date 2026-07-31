@@ -671,6 +671,25 @@ test("T1: publishes framework-native variants of the hosted existing-app guide",
   }
 });
 
+test("Angular public API inventory lists public thread entry points", () => {
+  const inventory = readContent("reference/angular/public-api.mdx");
+  const rootApiFamilies =
+    inventory.match(
+      /## Root API families([\s\S]*?)## MCP Apps API family/,
+    )?.[1] ?? "";
+  const completeUiFamily =
+    rootApiFamilies.match(
+      /- \*\*Complete UI:\*\*([\s\S]*?)(?=- \*\*|$)/,
+    )?.[0] ?? "";
+  const applicationStateFamily =
+    rootApiFamilies.match(
+      /- \*\*Agents and application state:\*\*([\s\S]*?)(?=- \*\*|$)/,
+    )?.[0] ?? "";
+
+  expect(completeUiFamily).toContain("`CopilotThreadsDrawer`");
+  expect(applicationStateFamily).toContain("`injectThreads`");
+});
+
 test.each([
   {
     surface: "threads explanation",
@@ -689,15 +708,6 @@ test.each([
       ),
     archiveContract: false,
     deleteContract: true,
-    paginationContract: false,
-    optimisticContract: false,
-    orderingContract: false,
-  },
-  {
-    surface: "Angular public API inventory",
-    read: () => readContent("reference/angular/public-api.mdx"),
-    archiveContract: false,
-    deleteContract: false,
     paginationContract: false,
     optimisticContract: false,
     orderingContract: false,
