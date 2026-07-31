@@ -124,7 +124,8 @@ const agent = new BuiltInAgent({
 ## OpenRouter, proxies, and bring-your-own LLM
 
 Anything that exposes an **OpenAI-compatible** API, including [OpenRouter](https://openrouter.ai),
-a self-hosted gateway, an internal LLM proxy, [Ollama](https://ollama.com), [Together](https://together.ai),
+[OrcaRouter](https://www.orcarouter.ai), a self-hosted gateway, an internal LLM proxy,
+[Ollama](https://ollama.com), [Together](https://together.ai),
 [Groq](https://groq.com), or your own fine-tuned endpoint, works through the same
 `createOpenAI({ baseURL })` pattern shown in [Custom Models](#custom-models-ai-sdk)
 above. Point `baseURL` at the provider's OpenAI-compatible route and pass your key:
@@ -147,6 +148,20 @@ const agent = new BuiltInAgent({
 The same shape works for any OpenAI-compatible proxy. Swap the `baseURL` and key.
 There is no CopilotKit-specific provider to install; if the
 AI SDK can talk to it, the Built-in Agent can use it.
+
+Gateways that ship a dedicated AI SDK provider plug in the same way, since any
+AI SDK `LanguageModel` works. For example, with OrcaRouter's provider package
+(`orcarouter-ai-sdk-provider`):
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { orcarouter } from "orcarouter-ai-sdk-provider"; // [!code highlight]
+
+const agent = new BuiltInAgent({
+  // orcarouter/auto picks an upstream model per request
+  model: orcarouter("orcarouter/auto"), // [!code highlight]
+});
+```
 
 <Callout type="warn" title="The model is set on the agent">
   CopilotKit does **not** expose a hosted/Cloud endpoint for choosing or
