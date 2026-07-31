@@ -1043,7 +1043,9 @@ function transcriptFileText(message: ChannelTranscriptMessage): string {
 
 function transcriptMessageText(message: ChannelTranscriptMessage): string {
   const body = message.deleted ? "[Slack message deleted]" : message.text;
-  return `${transcriptActorText(message)}\n${body}${transcriptFileText(message)}`;
+  const actor =
+    message.role === "participant" ? `${transcriptActorText(message)}\n` : "";
+  return `${actor}${body}${transcriptFileText(message)}`;
 }
 
 async function transcriptContent(
