@@ -149,7 +149,7 @@ async function runTranscriptFailure(input: {
     runtimeInstanceId: "rti_runtime_01",
     appApiBaseUrl: "https://api.example",
     apiKey: "cpk-runtime",
-    fileFetch: appApiFetch,
+    fileFetch: appApiFetch as unknown as typeof globalThis.fetch,
   });
   transport.start(async (claimedDelivery) => {
     await claimedDelivery.getTranscript();
