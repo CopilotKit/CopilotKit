@@ -1,11 +1,17 @@
 import React from "react";
-import { ReactActivityMessageRenderer, ReactToolCallRenderer } from "../types";
-import { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
-import {
-  CopilotKitCore,
-  type CopilotKitCoreConfig,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreSubscription,
+import type {
+  ReactActivityMessageRenderer,
+  ReactToolCallRenderer,
+} from "../types";
+import type {
+  ReactCustomMessageRenderer,
+  ReactEphemeralMessage,
+} from "../types/react-custom-message-renderer";
+import { CopilotKitCore } from "@copilotkit/core";
+import type {
+  CopilotKitCoreConfig,
+  CopilotKitCoreSubscriber,
+  CopilotKitCoreSubscription,
 } from "@copilotkit/core";
 
 export interface CopilotKitCoreReactConfig extends CopilotKitCoreConfig {
@@ -26,7 +32,16 @@ export interface CopilotKitCoreReactSubscriber extends CopilotKitCoreSubscriber 
     copilotkit: CopilotKitCore;
     interruptElement: React.ReactElement | null;
   }) => void | Promise<void>;
+  onEphemeralMessagesChanged?: (event: {
+    copilotkit: CopilotKitCoreReact;
+    agentId: string;
+    threadId: string;
+    messages: ReadonlyArray<ReactEphemeralMessage>;
+  }) => void | Promise<void>;
 }
+
+const EMPTY_EPHEMERAL_MESSAGES: ReadonlyArray<ReactEphemeralMessage> =
+  Object.freeze([]);
 
 export class CopilotKitCoreReact extends CopilotKitCore {
   private _renderToolCalls: ReactToolCallRenderer<any>[] = [];
@@ -37,6 +52,10 @@ export class CopilotKitCoreReact extends CopilotKitCore {
   private _renderCustomMessages: ReactCustomMessageRenderer[] = [];
   private _renderActivityMessages: ReactActivityMessageRenderer<any>[] = [];
   private _interruptElement: React.ReactElement | null = null;
+  private _ephemeralMessages = new Map<
+    string,
+    ReadonlyArray<ReactEphemeralMessage>
+  >();
 
   constructor(config: CopilotKitCoreReactConfig) {
     super(config);
@@ -80,6 +99,106 @@ export class CopilotKitCoreReact extends CopilotKitCore {
 
   setRenderCustomMessages(renderers: ReactCustomMessageRenderer[]): void {
     this._renderCustomMessages = renderers;
+  }
+
+  getEphemeralMessages(
+    agentId: string,
+    threadId: string,
+  ): ReadonlyArray<ReactEphemeralMessage> {
+    return (
+      this._ephemeralMessages.get(this._ephemeralScopeKey(agentId, threadId)) ??
+      EMPTY_EPHEMERAL_MESSAGES
+    );
+  }
+
+  addEphemeralMessage(
+    agentId: string,
+    threadId: string,
+    message: ReactEphemeralMessage,
+  ): boolean {
+    const agent = this.getAgent(agentId);
+    if (
+      agent?.messages.some(
+        (persistedMessage) => persistedMessage.id === message.id,
+      )
+    ) {
+      return false;
+    }
+
+    const key = this._ephemeralScopeKey(agentId, threadId);
+    const previous = this.getEphemeralMessages(agentId, threadId);
+    const existingIndex = previous.findIndex(
+      (existingMessage) => existingMessage.id === message.id,
+    );
+    const nextMessage = Object.freeze({ ...message });
+    const next = [...previous];
+    if (existingIndex >= 0) {
+      next[existingIndex] = nextMessage;
+    } else {
+      next.push(nextMessage);
+    }
+    const snapshot = Object.freeze(next);
+    this._ephemeralMessages.set(key, snapshot);
+    this._notifyEphemeralMessagesChanged(agentId, threadId, snapshot);
+    return true;
+  }
+
+  removeEphemeralMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): boolean {
+    const key = this._ephemeralScopeKey(agentId, threadId);
+    const previous = this.getEphemeralMessages(agentId, threadId);
+    const existingIndex = previous.findIndex(
+      (message) => message.id === messageId,
+    );
+    if (existingIndex < 0) {
+      return false;
+    }
+
+    const next = Object.freeze(
+      previous.filter((message) => message.id !== messageId),
+    );
+    this._ephemeralMessages.set(key, next);
+    this._notifyEphemeralMessagesChanged(agentId, threadId, next);
+    return true;
+  }
+
+  clearEphemeralMessages(agentId: string, threadId: string): boolean {
+    const key = this._ephemeralScopeKey(agentId, threadId);
+    const previous = this.getEphemeralMessages(agentId, threadId);
+    if (previous.length === 0) {
+      return false;
+    }
+
+    this._ephemeralMessages.set(key, EMPTY_EPHEMERAL_MESSAGES);
+    this._notifyEphemeralMessagesChanged(
+      agentId,
+      threadId,
+      EMPTY_EPHEMERAL_MESSAGES,
+    );
+    return true;
+  }
+
+  private _ephemeralScopeKey(agentId: string, threadId: string): string {
+    return JSON.stringify([agentId, threadId]);
+  }
+
+  private _notifyEphemeralMessagesChanged(
+    agentId: string,
+    threadId: string,
+    messages: ReadonlyArray<ReactEphemeralMessage>,
+  ): void {
+    void this.notifySubscribers((subscriber) => {
+      const reactSubscriber = subscriber as CopilotKitCoreReactSubscriber;
+      reactSubscriber.onEphemeralMessagesChanged?.({
+        copilotkit: this,
+        agentId,
+        threadId,
+        messages,
+      });
+    }, "Subscriber onEphemeralMessagesChanged error:");
   }
 
   setRenderToolCalls(renderToolCalls: ReactToolCallRenderer<any>[]): void {

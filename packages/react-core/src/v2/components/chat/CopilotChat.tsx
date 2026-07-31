@@ -45,6 +45,7 @@ import type { LastUserMessageState } from "./last-user-message-context";
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
   | "messages"
+  | "ephemeralMessages"
   | "isRunning"
   | "suggestions"
   | "suggestionLoadingIndexes"
@@ -125,6 +126,21 @@ export function CopilotChat({
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
+  const [, forceEphemeralUpdate] = useState(0);
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onEphemeralMessagesChanged: (event) => {
+        if (
+          event.agentId === resolvedAgentId &&
+          event.threadId === resolvedThreadId
+        ) {
+          forceEphemeralUpdate((value) => value + 1);
+        }
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit, resolvedAgentId, resolvedThreadId]);
   const { suggestions: autoSuggestions } = useSuggestions({
     agentId: resolvedAgentId,
   });
@@ -1004,6 +1020,10 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messagesMemoKey],
   );
+  const ephemeralMessages = copilotkit.getEphemeralMessages(
+    resolvedAgentId,
+    resolvedThreadId,
+  );
 
   // Compute the ID of the last user message for scroll-pinning logic.
   const lastUserMessageId = useMemo(() => {
@@ -1039,6 +1059,7 @@ export function CopilotChat({
   const finalProps: CopilotChatViewProps = {
     ...mergedProps,
     messages,
+    ephemeralMessages,
     // Input behavior props
     onSubmitMessage: onSubmitInput,
     onStop: effectiveStopHandler,

@@ -1,5 +1,12 @@
 import { useCopilotKit } from "../context";
-import { useMemo, useEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useMemo,
+  useEffect,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
@@ -9,6 +16,7 @@ import {
 } from "@copilotkit/core";
 import type { SubscribeToAgentSubscriber } from "@copilotkit/core";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
+import type { ReactEphemeralMessage } from "../types/react-custom-message-renderer";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -462,8 +470,74 @@ export function useAgent({
     agent.threadId = resolvedThreadId;
   }, [agent, resolvedThreadId]);
 
+  const ephemeralThreadId = resolvedThreadId ?? agent.threadId;
+
+  useEffect(() => {
+    const subscription = copilotkit.subscribe({
+      onEphemeralMessagesChanged: ({
+        agentId: eventAgentId,
+        threadId: eventThreadId,
+      }) => {
+        if (
+          eventAgentId === resolvedAgentId &&
+          eventThreadId === ephemeralThreadId
+        ) {
+          forceUpdate();
+        }
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [copilotkit, ephemeralThreadId, forceUpdate, resolvedAgentId]);
+
+  const addEphemeralMessage = useCallback(
+    (message: ReactEphemeralMessage): boolean => {
+      if (agent.threadId !== ephemeralThreadId) {
+        return false;
+      }
+      return copilotkit.addEphemeralMessage(
+        resolvedAgentId,
+        ephemeralThreadId,
+        message,
+      );
+    },
+    [agent, copilotkit, ephemeralThreadId, resolvedAgentId],
+  );
+
+  const removeEphemeralMessage = useCallback(
+    (messageId: string): boolean => {
+      if (agent.threadId !== ephemeralThreadId) {
+        return false;
+      }
+      return copilotkit.removeEphemeralMessage(
+        resolvedAgentId,
+        ephemeralThreadId,
+        messageId,
+      );
+    },
+    [agent, copilotkit, ephemeralThreadId, resolvedAgentId],
+  );
+
+  const clearEphemeralMessages = useCallback((): boolean => {
+    if (agent.threadId !== ephemeralThreadId) {
+      return false;
+    }
+    return copilotkit.clearEphemeralMessages(
+      resolvedAgentId,
+      ephemeralThreadId,
+    );
+  }, [agent, copilotkit, ephemeralThreadId, resolvedAgentId]);
+
+  const ephemeralMessages = copilotkit.getEphemeralMessages(
+    resolvedAgentId,
+    ephemeralThreadId,
+  );
+
   return {
     agent,
+    ephemeralMessages,
+    addEphemeralMessage,
+    removeEphemeralMessage,
+    clearEphemeralMessages,
     /**
      * Whether `agent` is the real, runtime-synced (or locally-registered) agent
      * rather than a provisional stand-in returned while the runtime is still

@@ -156,4 +156,74 @@ describe("useAgent e2e", () => {
       });
     });
   });
+
+  it("routes ephemeral operations to the current agent and thread", async () => {
+    const agent = new MockStepwiseAgent();
+
+    function EphemeralTestComponent() {
+      const {
+        addEphemeralMessage,
+        removeEphemeralMessage,
+        clearEphemeralMessages,
+        ephemeralMessages,
+      } = useAgent();
+
+      return (
+        <div>
+          <button
+            data-testid="add-ephemeral"
+            onClick={() =>
+              addEphemeralMessage({
+                id: "frontend-event",
+                content: "Frontend event",
+              })
+            }
+          >
+            Add
+          </button>
+          <button
+            data-testid="remove-ephemeral"
+            onClick={() => removeEphemeralMessage("frontend-event")}
+          >
+            Remove
+          </button>
+          <button
+            data-testid="clear-ephemeral"
+            onClick={() => clearEphemeralMessages()}
+          >
+            Clear
+          </button>
+          <output data-testid="ephemeral-values">
+            {ephemeralMessages.map(
+              (message) => `${message.id}:${message.content}`,
+            )}
+          </output>
+        </div>
+      );
+    }
+
+    renderWithCopilotKit({
+      agent,
+      threadId: "thread-a",
+      children: <EphemeralTestComponent />,
+    });
+
+    fireEvent.click(await screen.findByTestId("add-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toContain(
+        "frontend-event:Frontend event",
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("remove-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+
+    fireEvent.click(screen.getByTestId("add-ephemeral"));
+    fireEvent.click(screen.getByTestId("clear-ephemeral"));
+    await waitFor(() => {
+      expect(screen.getByTestId("ephemeral-values").textContent).toBe("");
+    });
+  });
 });
