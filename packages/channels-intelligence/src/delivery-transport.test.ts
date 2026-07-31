@@ -56,6 +56,145 @@ function channel(
   };
 }
 
+async function runTranscriptFailure(input: {
+  surfaceKind: "direct_message" | "app_mention" | "message";
+  mentioned: boolean;
+}) {
+  const base = preparedDelivery();
+  const delivery = {
+    ...base,
+    surfaceKind: input.surfaceKind,
+    turn: {
+      ...base.turn,
+      input: {
+        ...base.turn.input,
+        operation: {
+          ...base.turn.input.operation,
+          mentioned: input.mentioned,
+        },
+      },
+    },
+  };
+  const deliveryChannel = channel(delivery);
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockResolvedValue({
+      result: "claimed",
+      deliveryId: delivery.deliveryId,
+      ownerGeneration: 7,
+      joinToken: "chj_token_01",
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockResolvedValue(deliveryChannel),
+  };
+  const appApiFetch = vi.fn(async (_url: string | URL | Request) =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "CHANNEL_TRANSCRIPT_PROVIDER_FAILED",
+            retryable: true,
+          },
+        }),
+        { status: 503 },
+      ),
+    ),
+  );
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    appApiBaseUrl: "https://api.example",
+    apiKey: "cpk-runtime",
+    fileFetch: appApiFetch,
+  });
+  transport.start(async (claimedDelivery) => {
+    await claimedDelivery.getTranscript();
+  });
+  const invitationHandler = vi.mocked(control.on).mock.calls[0]![1];
+  invitationHandler({
+    protocol: "channel_delivery_v1",
+    deliveryId: delivery.deliveryId,
+    canonicalThreadId: delivery.canonicalThreadId,
+  });
+  await vi.waitFor(() => expect(deliveryChannel.leave).toHaveBeenCalledOnce());
+  await transport.stop();
+
+  return {
+    appApiFetch,
+    packets: vi.mocked(deliveryChannel.push).mock.calls.map(
+      ([, packet]) =>
+        (
+          packet as {
+            payload: Record<string, unknown>;
+          }
+        ).payload,
+    ),
+  };
+}
+
+test("transcript failure posts the fixed unmetered error for an app mention", async () => {
+  const result = await runTranscriptFailure({
+    surfaceKind: "app_mention",
+    mentioned: true,
+  });
+
+  expect(result.appApiFetch).toHaveBeenCalledTimes(3);
+  expect(
+    result.appApiFetch.mock.calls.every(([url]) =>
+      String(url).endsWith("/transcript"),
+    ),
+  ).toBe(true);
+  expect(result.packets).toEqual([
+    {
+      kind: "slack.message.create",
+      text: "An error occurred processing this request.",
+    },
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed",
+      code: "runtime_handler_failed",
+    },
+  ]);
+});
+
+test("transcript failure posts the fixed unmetered error for a direct message", async () => {
+  const result = await runTranscriptFailure({
+    surfaceKind: "direct_message",
+    mentioned: false,
+  });
+
+  expect(result.appApiFetch).toHaveBeenCalledTimes(3);
+  expect(
+    result.appApiFetch.mock.calls.every(([url]) =>
+      String(url).endsWith("/transcript"),
+    ),
+  ).toBe(true);
+  expect(result.packets[0]).toEqual({
+    kind: "slack.message.create",
+    text: "An error occurred processing this request.",
+  });
+});
+
+test("transcript failure is silent and unmetered for an ambient message", async () => {
+  const result = await runTranscriptFailure({
+    surfaceKind: "message",
+    mentioned: false,
+  });
+
+  expect(result.appApiFetch).toHaveBeenCalledTimes(3);
+  expect(
+    result.appApiFetch.mock.calls.every(([url]) =>
+      String(url).endsWith("/transcript"),
+    ),
+  ).toBe(true);
+  expect(result.packets).toEqual([
+    {
+      kind: "channel.delivery.terminal",
+      status: "failed_before_output",
+      code: "runtime_handler_failed",
+    },
+  ]);
+});
+
 test("claims an invitation and consumes the one-use token on delivery join", async () => {
   const deliveryChannel = channel();
   const control: RealtimeGatewaySession = {

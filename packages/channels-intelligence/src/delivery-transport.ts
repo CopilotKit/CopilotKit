@@ -18,7 +18,10 @@ import type {
   ChannelTerminalPayload,
 } from "./delivery-contracts.js";
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
-import { ChannelDeliveryTranscriptClient } from "./delivery-transcript.js";
+import {
+  ChannelDeliveryTranscriptClient,
+  ChannelDeliveryTranscriptError,
+} from "./delivery-transcript.js";
 import type { ChannelDeliveryTranscript } from "./delivery-transcript.js";
 import { ChannelDeliveryChargeClient } from "./delivery-charge.js";
 import type { ChannelFileRef } from "./delivery-files.js";
@@ -72,6 +75,8 @@ export interface PreparedChannelDelivery {
   channelId: string;
   channelName: string;
   adapter: ChannelDeliveryAdapter;
+  /** Trusted inbound Slack surface; omitted for providers without this concept. */
+  surfaceKind?: "direct_message" | "app_mention" | "message";
   turn: {
     eventId: string;
     receivedAt: string;
@@ -788,6 +793,21 @@ export class ChannelDeliveryTransport {
         });
       } catch (error) {
         if (!(error instanceof ChannelProviderDeliveryError)) {
+          if (
+            error instanceof ChannelDeliveryTranscriptError &&
+            shouldReportTranscriptFailure(delivery)
+          ) {
+            await claimedDelivery
+              .effect(
+                "transcript_failure",
+                {
+                  kind: "slack.message.create",
+                  text: "An error occurred processing this request.",
+                },
+                { charge: false },
+              )
+              .catch(() => undefined);
+          }
           await claimedDelivery
             .terminal({
               status: claimedDelivery.hasProviderOutput()
@@ -904,6 +924,25 @@ const PREPARED_TURN_KINDS = new Set([
   "reaction",
   "interaction",
 ]);
+const PREPARED_SURFACE_KINDS = new Set([
+  "direct_message",
+  "app_mention",
+  "message",
+]);
+
+function shouldReportTranscriptFailure(
+  delivery: PreparedChannelDelivery,
+): boolean {
+  if (delivery.adapter !== "slack") return false;
+  if (
+    delivery.surfaceKind === "direct_message" ||
+    delivery.surfaceKind === "app_mention"
+  ) {
+    return true;
+  }
+  const input = delivery.turn.input;
+  return input.kind === "text" && input.operation.mentioned;
+}
 
 function assertPreparedDelivery(
   value: unknown,
@@ -923,6 +962,9 @@ function assertPreparedDelivery(
     typeof prepared.canonicalThreadId !== "string" ||
     typeof prepared.appUserId !== "string" ||
     (prepared.adapter !== "slack" && prepared.adapter !== "teams") ||
+    (prepared.surfaceKind !== undefined &&
+      (typeof prepared.surfaceKind !== "string" ||
+        !PREPARED_SURFACE_KINDS.has(prepared.surfaceKind))) ||
     !isRecord(prepared.turn) ||
     typeof prepared.turn.eventId !== "string" ||
     typeof prepared.turn.receivedAt !== "string" ||
