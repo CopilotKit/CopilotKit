@@ -27,6 +27,13 @@ test("delivery handlers receive the source provider", async () => {
     observed.interactionPlatform = platform;
     observed.interactionThreadPlatform = thread.platform;
   });
+  channel.onInteraction("submit", ({ values }) => {
+    observed.submittedReason = String(values.reason);
+  });
+  channel.onWelcome(({ platform, thread }) => {
+    observed.welcomePlatform = platform;
+    observed.welcomeThreadPlatform = thread.platform;
+  });
   channel.onReaction(({ thread }) => {
     observed.reactionThreadPlatform = thread.platform;
   });
@@ -63,6 +70,16 @@ test("delivery handlers receive the source provider", async () => {
         messageRef: { id: "pref_v1_sourcePlatformReaction_123" },
       }),
     );
+    await gateway.deliver(
+      preparedDelivery("interaction-values", "teams", {
+        kind: "interaction",
+        actionId: "submit",
+        values: { reason: "ready" },
+      }),
+    );
+    await gateway.deliver(
+      preparedDelivery("welcome", "teams", { kind: "welcome" }),
+    );
 
     expect(observed).toEqual({
       textMessagePlatform: "slack",
@@ -73,6 +90,9 @@ test("delivery handlers receive the source provider", async () => {
       interactionPlatform: "slack",
       interactionThreadPlatform: "slack",
       reactionThreadPlatform: "teams",
+      submittedReason: "ready",
+      welcomePlatform: "teams",
+      welcomeThreadPlatform: "teams",
     });
     expect(identity).toHaveBeenCalledWith(
       expect.objectContaining({ adapter: "slack" }),

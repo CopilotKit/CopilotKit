@@ -159,6 +159,8 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
 export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
   value?: unknown;
+  /** Submitted input id → value, separate from the clicked action's envelope. */
+  values?: Record<string, unknown>;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
@@ -183,6 +185,11 @@ export interface IncomingCommand extends IngressEventBase, IngressIds {
  * Adapters without the concept never emit it.
  */
 export interface IncomingThreadStart extends IngressEventBase {
+  platform: string;
+}
+
+/** A provider installation or conversation activation that should be welcomed. */
+export interface IncomingWelcome extends IngressEventBase, IngressIds {
   platform: string;
 }
 
@@ -250,6 +257,8 @@ export interface ModalSubmitResult {
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
+  /** A provider installation or conversation activation became usable. */
+  onWelcome(evt: IncomingWelcome): void | Promise<void>;
   /** A slash command fired. Routed to the matching `channel.onCommand` handler (ignored if none). */
   onCommand(cmd: IncomingCommand): void | Promise<void>;
   /** A conversation surface opened. Adapters without the concept never call it. */

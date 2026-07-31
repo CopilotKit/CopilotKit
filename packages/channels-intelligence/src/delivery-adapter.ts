@@ -351,6 +351,7 @@ export class DeliveryAdapter implements PlatformAdapter {
           ...base,
           id: input.actionId,
           ...(input.value !== undefined ? { value: input.value } : {}),
+          ...(input.values !== undefined ? { values: input.values } : {}),
           ...(input.messageRef !== undefined
             ? {
                 messageRef: inboundMessageRef(replyTarget, input.messageRef),
@@ -358,6 +359,9 @@ export class DeliveryAdapter implements PlatformAdapter {
             : {}),
           ...(input.triggerId ? { triggerId: input.triggerId } : {}),
         });
+        return;
+      case "welcome":
+        await sink.onWelcome(base);
         return;
       case "reaction":
         await sink.onReaction({

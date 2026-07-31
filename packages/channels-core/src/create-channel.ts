@@ -5,6 +5,7 @@ import type {
   InteractionEvent,
   IncomingCommand,
   IncomingThreadStart,
+  IncomingWelcome,
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
@@ -249,6 +250,13 @@ export type ThreadStartHandler<TState = unknown> = (ctx: {
   user?: PlatformUser;
 }) => void | Promise<void>;
 
+/** Handler for a provider installation or conversation activation. */
+export type WelcomeHandler<TState = unknown> = (ctx: {
+  thread: StatefulThread<TState>;
+  user?: PlatformUser;
+  platform: string;
+}) => void | Promise<void>;
+
 /** Event passed to an `onReaction` handler. */
 export interface ReactionEvent {
   /** Normalized name when recognized, else the raw platform token. */
@@ -476,6 +484,8 @@ export interface Channel<TState = unknown> {
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
   onMessage(h: ChannelHandler<TState>): void;
+  /** Welcome a newly installed or activated provider conversation. */
+  onWelcome(h: WelcomeHandler<TState>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
@@ -677,6 +687,7 @@ export function createChannel<
 
   const mentionHandlers: ChannelHandler[] = [];
   const messageHandlers: ChannelHandler[] = [];
+  const welcomeHandlers: WelcomeHandler[] = [];
   const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
@@ -896,7 +907,7 @@ export function createChannel<
             platform,
           },
           action: { id: evt.id, value: evt.value },
-          values: {},
+          values: evt.values ?? {},
           user,
           platform,
         };
@@ -977,6 +988,29 @@ export function createChannel<
         );
         if (openModal) ctx.openModal = openModal;
         await command.handler(ctx);
+      },
+      async onWelcome(evt: IncomingWelcome) {
+        const platform = ingressPlatform(adapter, evt);
+        if (evt.eventId && !adapter.skipIngressDedup) {
+          const dupKey = `evt:${platform}:${evt.eventId}`;
+          try {
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+          } catch (err) {
+            console.warn(
+              `[channel] dedup check failed for ${platform}; processing welcome without dedup`,
+              err,
+            );
+          }
+        }
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+          { platform },
+        );
+        for (const h of welcomeHandlers) {
+          await h({ thread, user: evt.user, platform });
+        }
       },
       async onThreadStarted(evt: IncomingThreadStart) {
         // The adapter has already applied its static defaults (greeting /
@@ -1266,6 +1300,9 @@ export function createChannel<
     },
     onMessage(h) {
       messageHandlers.push(h as ChannelHandler);
+    },
+    onWelcome(h) {
+      welcomeHandlers.push(h as WelcomeHandler);
     },
     onThreadStarted(h) {
       threadStartedHandlers.push(h as ThreadStartHandler);

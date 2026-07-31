@@ -33,6 +33,7 @@ function setup(opts: SlackAssistantOptions = {}) {
   const sink: IngressSink = {
     onTurn,
     onInteraction: vi.fn(),
+    onWelcome: vi.fn(),
     onCommand: vi.fn(),
     onThreadStarted,
     onReaction: vi.fn(),

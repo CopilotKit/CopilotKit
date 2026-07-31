@@ -434,6 +434,7 @@ describe("SlackAdapter action wiring", () => {
       onInteraction: (evt) => {
         received.push(evt);
       },
+      onWelcome: vi.fn(),
       onCommand: vi.fn(),
       onThreadStarted: vi.fn(),
       onReaction: vi.fn(),

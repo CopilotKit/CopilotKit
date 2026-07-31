@@ -70,8 +70,12 @@ export type ChannelDeliveryTurnInput =
       kind: "interaction";
       actionId: string;
       value?: unknown;
+      values?: Record<string, unknown>;
       messageRef?: { id: string };
       triggerId?: string;
+    }
+  | {
+      kind: "welcome";
     };
 
 export interface PreparedChannelDelivery {
@@ -1113,6 +1117,7 @@ const PREPARED_TURN_KINDS = new Set([
   "command",
   "reaction",
   "interaction",
+  "welcome",
 ]);
 const PREPARED_SURFACE_KINDS = new Set([
   "direct_message",
@@ -1193,6 +1198,8 @@ function isValidPreparedTurnInput(input: Record<string, unknown>): boolean {
       );
     case "interaction":
       return typeof input.actionId === "string" && input.actionId.length > 0;
+    case "welcome":
+      return true;
     default:
       return false;
   }

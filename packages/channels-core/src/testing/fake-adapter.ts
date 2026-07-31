@@ -11,6 +11,7 @@ import type {
   IngressSink,
   IncomingTurn,
   IncomingThreadStart,
+  IncomingWelcome,
   InteractionEvent,
   IncomingCommand,
   RunRenderer,
@@ -334,6 +335,14 @@ export class FakeAdapter implements PlatformAdapter {
     partial?: Partial<IncomingThreadStart>,
   ): Promise<void> | void {
     return this.sink?.onThreadStarted({
+      conversationKey: "c",
+      replyTarget: {},
+      platform: "fake",
+      ...partial,
+    });
+  }
+  emitWelcome(partial?: Partial<IncomingWelcome>): Promise<void> | void {
+    return this.sink?.onWelcome({
       conversationKey: "c",
       replyTarget: {},
       platform: "fake",

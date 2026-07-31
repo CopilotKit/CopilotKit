@@ -46,6 +46,7 @@ export type {
   InteractionEvent,
   IncomingCommand,
   IncomingThreadStart,
+  IncomingWelcome,
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
