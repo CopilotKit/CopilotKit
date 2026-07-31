@@ -19,6 +19,21 @@ export interface FrontendOption {
   summary: string;
 }
 
+export type ComingSoonChannelId = "discord" | "whatsapp" | "telegram" | "sms";
+
+export interface ComingSoonChannelOption {
+  id: ComingSoonChannelId;
+  name: string;
+  icon: ComingSoonChannelId;
+}
+
+export const COMING_SOON_CHANNEL_OPTIONS: readonly ComingSoonChannelOption[] = [
+  { id: "discord", name: "Discord", icon: "discord" },
+  { id: "whatsapp", name: "WhatsApp", icon: "whatsapp" },
+  { id: "telegram", name: "Telegram", icon: "telegram" },
+  { id: "sms", name: "SMS", icon: "sms" },
+];
+
 export type FrontendSupportState =
   | "supported"
   | "docs-only"
