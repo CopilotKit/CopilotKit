@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  ChannelDeliveryTerminatedError,
+  isChannelDeliveryTerminatedError,
+} from "@copilotkit/channels-core";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
 import type { MessageOperation } from "@copilotkit/channels-ui";
 import type {
@@ -101,7 +105,7 @@ interface DeliveryOwner {
 }
 
 /** Gateway result for a provider call that already recorded delivery terminal state. */
-export class ChannelProviderDeliveryError extends Error {
+export class ChannelProviderDeliveryError extends ChannelDeliveryTerminatedError {
   constructor(
     readonly code: string,
     readonly status: string,
@@ -917,7 +921,7 @@ export class ChannelDeliveryTransport {
         });
       } catch (error) {
         if (
-          !(error instanceof ChannelProviderDeliveryError) &&
+          !isChannelDeliveryTerminatedError(error) &&
           !claimedDelivery.isSuperseded()
         ) {
           if (

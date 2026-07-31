@@ -791,6 +791,32 @@ describe("NativeMessageStream", () => {
     expect(fallback.finished).toBe(false);
   });
 
+  it("observes a queued strict failure before finish drains it", async () => {
+    const { transport } = makeFakeTransport({ failStart: true });
+    const stream = new NativeMessageStream({
+      transport,
+      fallback: makeFakeFallback,
+      strict: true,
+      minIntervalMs: 0,
+    });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.prependListener("unhandledRejection", onUnhandled);
+
+    try {
+      stream.append("managed reply");
+      // Let the queued start failure reject before the owner reaches finish().
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandled).toEqual([]);
+      await expect(stream.finish()).rejects.toThrow("startStream unavailable");
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
   it("strict mode reports append and stop failures to the caller", async () => {
     const appendFailure = makeFakeTransport({ failAppend: true });
     const appendStream = new NativeMessageStream({
