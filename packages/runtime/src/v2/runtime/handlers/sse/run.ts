@@ -1,7 +1,7 @@
-import { AbstractAgent, RunAgentInput } from "@ag-ui/client";
-import { ResolvedDebugConfig } from "@copilotkit/shared";
-import { type CopilotRuntimeLogger } from "../../../../lib/logger";
-import { CopilotRuntimeLike } from "../../core/runtime";
+import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
+import type { ResolvedDebugConfig } from "@copilotkit/shared";
+import type { CopilotRuntimeLogger } from "../../../../lib/logger";
+import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
 
 interface HandleSseRunParams {
@@ -30,6 +30,7 @@ export function handleSseRun({
     agentId,
     debug,
     logger,
+    telemetry: runtime.telemetry,
     observableFactory: () =>
       runtime.runner.run({
         threadId: input.threadId,

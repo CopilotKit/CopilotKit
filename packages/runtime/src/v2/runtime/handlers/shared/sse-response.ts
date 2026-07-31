@@ -4,7 +4,8 @@ import type { Observable, Subscription } from "rxjs";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
 import { createLogger } from "../../../../lib/logger";
 import type { CopilotRuntimeLogger } from "../../../../lib/logger";
-import { telemetry } from "../../telemetry";
+import { telemetry as defaultTelemetry } from "../../telemetry";
+import type { TelemetryCapture } from "../../telemetry/telemetry-client";
 import type { DebugEventBus } from "../../core/debug-event-bus";
 
 interface CreateSseEventResponseParams {
@@ -17,6 +18,8 @@ interface CreateSseEventResponseParams {
   debug?: ResolvedDebugConfig;
   /** Pre-created logger instance to avoid creating a new pino logger per request. */
   logger?: CopilotRuntimeLogger;
+  /** Runtime-bound telemetry capture. Falls back for external direct callers. */
+  telemetry?: TelemetryCapture;
   /**
    * Whether to emit `oss.runtime.agent_execution_stream_*` telemetry for this
    * stream. Defaults to `true`. The stateless `/suggest` path sets this to
@@ -34,6 +37,7 @@ export function createSseEventResponse({
   agentId,
   debug,
   logger,
+  telemetry = defaultTelemetry,
   captureTelemetry = true,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();

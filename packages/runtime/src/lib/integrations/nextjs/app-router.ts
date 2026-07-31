@@ -1,5 +1,6 @@
 import { createCopilotEndpointSingleRoute } from "../../../v2/runtime";
-import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
+import type { CreateCopilotRuntimeServerOptions } from "../shared";
+import { getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
@@ -22,7 +23,7 @@ export function copilotRuntimeNextJSAppRouterEndpoint(
     });
   }
 
-  telemetry.capture(
+  options.runtime.telemetry.capture(
     "oss.runtime.instance_created",
     getRuntimeInstanceTelemetryInfo(options),
   );

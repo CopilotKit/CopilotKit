@@ -46,6 +46,55 @@ export type RuntimeLicenseStatus =
   | "invalid"
   | "unknown";
 
+/** Runtime entitlement authority resolved by a managed or self-hosted backend. */
+interface RuntimeEntitlement {
+  /** Whether the resolved entitlement currently grants product access. */
+  active: boolean;
+  /** Deployment authority that produced this entitlement. */
+  source: "managedOrgSubscription" | "selfHostedDeploymentLicense";
+  /** Boolean feature grants keyed by stable feature id. */
+  features: Record<string, boolean>;
+  /** Numeric limits keyed by stable feature id. */
+  limits: Record<string, number>;
+  /** Optional catalog plan code supplied by the entitlement authority. */
+  planCode?: string;
+  /** Optional lower-level source metadata supplied by the authority. */
+  entitlementSource?: string;
+}
+
+/** Public diagnostic returned when Runtime entitlement resolution is not ready. */
+interface RuntimeEntitlementError {
+  /** Stable backend or SDK error code. */
+  code: string;
+  /** Safe human-readable diagnostic. */
+  message: string;
+  /** Whether a later resolution attempt may succeed without reconfiguration. */
+  retryable: boolean;
+  /** Optional originating request correlation id. */
+  requestId?: string;
+  /** Optional originating trace correlation id. */
+  traceId?: string;
+}
+
+/** Successfully resolved Runtime entitlement response. */
+interface RuntimeEntitlementReadyResponse {
+  status: "ready";
+  entitlement: RuntimeEntitlement;
+  error?: never;
+}
+
+/** Structured non-ready Runtime entitlement response. */
+interface RuntimeEntitlementErrorResponse {
+  status: "degraded" | "misconfigured" | "unavailable";
+  entitlement?: never;
+  error: RuntimeEntitlementError;
+}
+
+/** Final structured Runtime entitlement response exposed through `/info`. */
+export type RuntimeEntitlementResponse =
+  | RuntimeEntitlementReadyResponse
+  | RuntimeEntitlementErrorResponse;
+
 export interface A2UIRuntimeInfo {
   enabled: boolean;
   /**
@@ -75,6 +124,9 @@ export interface RuntimeInfo {
   a2uiEnabled?: boolean;
   a2ui?: A2UIRuntimeInfo;
   openGenerativeUIEnabled?: boolean;
+  /** Structured Runtime-level entitlement authority, when advertised. */
+  runtimeEntitlements?: RuntimeEntitlementResponse;
+  /** Legacy compatibility diagnostic retained for older Core/Inspector clients. */
   licenseStatus?: RuntimeLicenseStatus;
   telemetryDisabled?: boolean;
 }

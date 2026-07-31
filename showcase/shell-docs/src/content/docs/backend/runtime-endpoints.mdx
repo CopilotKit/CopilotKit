@@ -50,6 +50,16 @@ You should get back a JSON body describing the registered agents. If you get a
 isn't mounted). If you get a connection error, the server isn't listening on that
 host/port.
 
+An Intelligence runtime also returns `runtimeEntitlements`. `ready` includes
+the normalized feature and limit values. `degraded`, `misconfigured`, and
+`unavailable` include a structured error with a code, message, and retry flag.
+The `/info` request still succeeds when entitlement lookup fails so core Runtime
+behavior can continue; features that need a proven entitlement stay off. If
+Intelligence rejects the project key with a `401`, the Runtime still returns
+`200` from `/info`. The body reports `runtimeEntitlements.status` as
+`misconfigured` with the non-retryable `runtime_entitlements_misconfigured`
+error code.
+
 ## Single-route mode
 
 If you prefer to expose a single `POST` endpoint, for example to simplify a
