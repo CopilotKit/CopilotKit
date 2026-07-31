@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, test } from "vitest";
 import { matchRoute } from "../core/fetch-router";
 
 describe("fetch-router", () => {
@@ -325,5 +325,14 @@ describe("fetch-router", () => {
       const result = matchRoute("/api/cpk-debug-events", "/api");
       expect(result).toEqual({ method: "cpk-debug-events" });
     });
+  });
+});
+
+test("fetch-router matches inspector metadata with and without a base path", () => {
+  expect(
+    matchRoute("/api/copilotkit/inspector-metadata", "/api/copilotkit"),
+  ).toEqual({ method: "inspector/metadata" });
+  expect(matchRoute("/nested/runtime/inspector-metadata")).toEqual({
+    method: "inspector/metadata",
   });
 });

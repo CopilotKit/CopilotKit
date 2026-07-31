@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 
 /**
@@ -604,6 +605,43 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
+  }
+
+  /**
+   * Fetch trusted Inspector metadata for this runtime's Intelligence project.
+   *
+   * The request always uses the server-configured Intelligence API key. A 404
+   * is treated as compatible absence so runtimes can work with older App API
+   * deployments that do not expose this endpoint yet.
+   *
+   * @returns Sanitized V1 metadata, or `undefined` when the provider has no
+   *   supported metadata.
+   * @throws {@link PlatformRequestError} for provider failures other than 404.
+   */
+  async getInspectorMetadata(): Promise<InspectorMetadataV1 | undefined> {
+    const path = "/api/inspector/metadata";
+    const response = await fetch(`${this.#apiUrl}${path}`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${this.#apiKey}` },
+    });
+
+    if (response.status === 204 || response.status === 404) {
+      return undefined;
+    }
+
+    if (!response.ok) {
+      logger.error(
+        { status: response.status, path },
+        "Intelligence platform request failed",
+      );
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}`,
+        response.status,
+      );
+    }
+
+    const decoded: unknown = JSON.parse(await response.text());
+    return parseInspectorMetadataV1(decoded);
   }
 
   async #request<T>(

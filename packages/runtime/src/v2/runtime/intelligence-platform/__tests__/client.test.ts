@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, test, vi, beforeEach } from "vitest";
+import { logger } from "@copilotkit/shared";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
@@ -1088,4 +1089,143 @@ describe("CopilotKitIntelligence", () => {
       expect(JSON.parse(init.body)).toEqual({ query: "hi" });
     });
   });
+});
+
+function setupInspectorMetadataClient() {
+  fetchMock.mockReset();
+
+  const client = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com/",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+
+  return { client };
+}
+
+test("inspector-metadata client sends server auth and sanitizes a valid V1 response", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        schemaVersion: 1,
+        identity: {
+          organizationName: "Acme",
+          projectName: "Support",
+          privateId: "do-not-forward",
+        },
+        license: { state: "valid" },
+        futureTopLevelField: true,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    ),
+  );
+
+  const metadata = await client.getInspectorMetadata();
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/inspector/metadata",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer server-api-key" },
+    },
+  );
+  expect(metadata).toEqual({
+    schemaVersion: 1,
+    identity: { organizationName: "Acme", projectName: "Support" },
+    license: { state: "valid" },
+  });
+});
+
+test("inspector-metadata client treats 204 and 404 as compatible absence", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [204, 404]) {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+
+    await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  }
+});
+
+test("inspector-metadata client throws provider errors for 401 and 500", async () => {
+  const { client } = setupInspectorMetadataClient();
+
+  for (const status of [401, 500]) {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: "provider failure" }), { status }),
+    );
+
+    await expect(client.getInspectorMetadata()).rejects.toMatchObject({
+      status,
+    });
+  }
+});
+
+test("inspector-metadata client does not expose provider error bodies", async () => {
+  const { client } = setupInspectorMetadataClient();
+  const sensitiveMarker = "private-provider-body-7d52c";
+  const loggerError = vi
+    .spyOn(logger, "error")
+    .mockImplementation(() => undefined);
+
+  try {
+    for (const status of [401, 500]) {
+      fetchMock.mockResolvedValueOnce(
+        new Response(sensitiveMarker, { status }),
+      );
+      let thrown: unknown;
+
+      try {
+        await client.getInspectorMetadata();
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      if (!(thrown instanceof Error)) {
+        throw new Error("Expected inspector metadata request to throw");
+      }
+      expect(thrown.message).toBe(`Intelligence platform error ${status}`);
+      expect(thrown.message).not.toContain(sensitiveMarker);
+    }
+
+    expect(JSON.stringify(loggerError.mock.calls)).not.toContain(
+      sensitiveMarker,
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      1,
+      { status: 401, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+    expect(loggerError).toHaveBeenNthCalledWith(
+      2,
+      { status: 500, path: "/api/inspector/metadata" },
+      "Intelligence platform request failed",
+    );
+  } finally {
+    loggerError.mockRestore();
+  }
+});
+
+test("inspector-metadata client throws when a 200 response is malformed JSON", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response("{", { status: 200 }));
+
+  await expect(client.getInspectorMetadata()).rejects.toBeInstanceOf(
+    SyntaxError,
+  );
+});
+
+test("inspector-metadata client rejects invalid and unknown schemas", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: 2 }), { status: 200 }),
+    )
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ schemaVersion: "1" }), { status: 200 }),
+    );
+
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
+  await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
 });
