@@ -90,8 +90,9 @@ export interface InjectThreadsInput {
  * Signal-based threads-list API returned by {@link injectThreads}.
  *
  * The `threads` signal is kept in sync with the platform via a realtime
- * WebSocket subscription when available. It is sorted by `lastRunAt`, then
- * `updatedAt`, then `createdAt` (most recent first).
+ * WebSocket subscription when available. Sorting uses one recency timestamp
+ * per thread: `lastRunAt` when present, otherwise `updatedAt`, otherwise
+ * `createdAt` (newest first).
  *
  * Archive is a reversible visibility state. Pass `includeArchived: true` to
  * include archived rows; unarchive restores the active row. Delete is
@@ -104,10 +105,11 @@ export interface InjectThreadsInput {
  */
 export interface InjectThreadsResult {
   /**
-   * Threads for the current user/agent pair, sorted by `lastRunAt`, then
-   * `updatedAt`, then `createdAt` (most recent first). Updated in realtime
-   * when the platform pushes metadata events. Includes archived threads only
-   * when `includeArchived` is set.
+   * Threads for the current user/agent pair. Sorting uses one recency timestamp
+   * per thread: `lastRunAt` when present, otherwise `updatedAt`, otherwise
+   * `createdAt` (newest first). Updated in realtime when the platform pushes
+   * metadata events. Includes archived threads only when `includeArchived` is
+   * set.
    */
   threads: Signal<Thread[]>;
   /**

@@ -882,10 +882,15 @@ test.each([
       expect
         .soft(
           content,
-          `${surface}: newest-first ordering uses all tie-breakers`,
+          `${surface}: newest-first ordering uses the fallback recency key`,
         )
         .toMatch(
-          /\blastRunAt\b[^.]*\bupdatedAt\b[^.]*\bcreatedAt\b[^.]*\b(?:most recent|newest)[ -]first\b/i,
+          /\blastRunAt\b[^.]*\bwhen present\b[^.]*\b(?:falling back to|otherwise)\b[^.]*\bupdatedAt\b[^.]*\b(?:then|otherwise)\b[^.]*\bcreatedAt\b[^.]*\b(?:most recent|newest)[ -]first\b/i,
+        );
+      expect
+        .soft(content, `${surface}: ordering is not a tie-breaker chain`)
+        .not.toMatch(
+          /\bsorted by\s+lastRunAt\b[^.]*\bthen\b[^.]*\bupdatedAt\b[^.]*\bthen\b[^.]*\bcreatedAt\b/i,
         );
       expect
         .soft(content, `${surface}: ordering is not updatedAt-only`)
