@@ -45,6 +45,16 @@ function readContent(relativePath: string): string {
   );
 }
 
+/** Compose the React wrapper with the shared MDX that the docs loader inlines. */
+function readCanonicalGuide(): string {
+  return [
+    readContent("docs/premium/existing-app-hosted-intelligence.mdx"),
+    readContent(
+      "snippets/shared/premium/existing-app-hosted-intelligence-platform-runtime.mdx",
+    ),
+  ].join("\n");
+}
+
 /** Collapse prose whitespace so line wrapping does not affect contract checks. */
 function collapseWhitespace(content: string): string {
   return content.replace(/\s+/g, " ").trim();
@@ -339,17 +349,13 @@ test.each([
 });
 
 test("documents the managed Runtime, auth, UI, and verification contracts", () => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
 
   expectCanonicalGuideContracts(guide);
 });
 
 test("the canonical key-rotation link resolves to the supported replacement sequence", () => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
   const cli = readContent("snippets/shared/cli/cli.mdx");
   const rotationLinkLine =
     guide
@@ -396,9 +402,7 @@ test("the canonical key-rotation link resolves to the supported replacement sequ
 });
 
 test("documents framework-native registration for the same four HTTP methods", () => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
   const headlessGuide = readContent(headlessEntryPointPath);
   const reactRouterExample = fs.readFileSync(reactRouterRouteSourceUrl, "utf8");
   const reactRouterGuideRoute = findMdxCodeFence(
@@ -421,9 +425,7 @@ test("documents framework-native registration for the same four HTTP methods", (
 });
 
 test("rejects a guide that omits the explicit runner exception", () => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
   const guideWithoutException = guide.replace(runnerException, "");
 
   expect(guideWithoutException).not.toContain(runnerException);
@@ -438,7 +440,7 @@ test.each([
         /      identifyUser: async \(request\) => \{[\s\S]*?\n      \},\n/,
         "",
       )}\n\nThe \`identifyUser\` callback remains required.\n`,
-    removedSyntax: "identifyUser: async (request)",
+    removedPattern: /identifyUser: async \(request\)/,
   },
   {
     caseName: "onRequest auth gate with only a prose mention left",
@@ -447,34 +449,30 @@ test.each([
         /      hooks: \{\n        onRequest: async \(\{ request \}\) => \{[\s\S]*?\n        \},\n      \},\n/,
         "",
       )}\n\nThe \`onRequest\` auth gate remains required.\n`,
-    removedSyntax: "onRequest: async ({ request })",
+    removedPattern: /onRequest: async \(\{ request \}\)/,
   },
   {
     caseName: "Drawer JSX with only a prose mention left",
     mutateGuide: (guide: string) =>
       `${guide.replace(
-        "              <CopilotThreadsDrawer />",
-        "              {/* Drawer omitted */}",
+        /^[ \t]*<CopilotThreadsDrawer \/>$/m,
+        "          {/* Drawer omitted */}",
       )}\n\nKeep \`<CopilotThreadsDrawer />\` in the page.\n`,
-    removedSyntax: "\n              <CopilotThreadsDrawer />\n",
+    removedPattern: /^[ \t]*<CopilotThreadsDrawer \/>$/m,
   },
-])("rejects a missing $caseName", ({ mutateGuide, removedSyntax }) => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+])("rejects a missing $caseName", ({ mutateGuide, removedPattern }) => {
+  const guide = readCanonicalGuide();
   const mutatedGuide = mutateGuide(guide);
 
-  expect(mutatedGuide).not.toContain(removedSyntax);
+  expect(mutatedGuide).not.toMatch(removedPattern);
   expect(() => expectCanonicalGuideContracts(mutatedGuide)).toThrow();
 });
 
 test("checks user B's successful agent-scoped list for user A's thread", () => {
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
 
   expect(guide).toContain(
-    "`/api/copilotkit/threads?agentId=${encodeURIComponent(agentId)}`",
+    "`${runtimeUrl}/threads?agentId=${encodeURIComponent(agentId)}`",
   );
   expect(guide).toMatch(
     /if \(!listResponse\.ok\) \{[\s\S]*?throw new Error\([\s\S]*?\);[\s\S]*?\}[\s\S]*?const listBody = await listResponse\.json\(\);/,
@@ -488,9 +486,7 @@ test("replaces the Quickstart Runtime route with one hosted catch-all route", ()
   const quickstart = readContent(
     "docs/integrations/built-in-agent/quickstart.mdx",
   );
-  const guide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const guide = readCanonicalGuide();
 
   expect(quickstart).toContain("app/api/copilotkit/route.ts");
   expect(guide).toContain(
@@ -508,12 +504,9 @@ test("links each public entry point back to the canonical guide", () => {
     expectCanonicalGuideLink(content);
   }
 
-  expect(
-    findUnsafeManagedIdentifiers(
-      readContent("docs/premium/existing-app-hosted-intelligence.mdx"),
-      contents,
-    ),
-  ).toEqual([]);
+  expect(findUnsafeManagedIdentifiers(readCanonicalGuide(), contents)).toEqual(
+    [],
+  );
   expectNoRetiredThreadSetup(contentsByPath);
 });
 
@@ -1316,9 +1309,7 @@ test("the CLI .env example marks telemetry output as conditional", () => {
 });
 
 test("allows import and project reselection from any configured existing app", () => {
-  const existingAppGuide = readContent(
-    "docs/premium/existing-app-hosted-intelligence.mdx",
-  );
+  const existingAppGuide = readCanonicalGuide();
   const cli = readContent("snippets/shared/cli/cli.mdx");
   const importStart = cli.indexOf(
     "## Import and synchronize historical conversations",
