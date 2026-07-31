@@ -14,7 +14,10 @@ describe("createChannel — optional adapters + addAdapter", () => {
   it("allows a managed delivery adapter to coexist with a direct adapter", async () => {
     const managed = new ManagedFakeAdapter({ platform: "intelligence" });
     const direct = new FakeAdapter({ platform: "direct" });
-    const channel = createChannel({ adapters: [managed, direct] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [managed, direct],
+    });
 
     await channel.ɵruntime.start();
 
@@ -24,7 +27,10 @@ describe("createChannel — optional adapters + addAdapter", () => {
 
   it("starts with no adapters and runs one added before start()", async () => {
     const fake = new FakeAdapter();
-    const channel = createChannel({ agent: () => new FakeAgent() });
+    const channel = createChannel({
+      identifyUser: "platform",
+      agent: () => new FakeAgent(),
+    });
     channel.ɵruntime.addAdapter(fake);
     await channel.ɵruntime.start();
     expect(fake.started).toBe(true);
@@ -32,6 +38,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
 
   it("throws when addAdapter is called after start()", async () => {
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
     });
@@ -44,6 +51,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
   it("is idempotent: a second start() does not re-start adapters or rebuild state", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
@@ -59,6 +67,7 @@ describe("createChannel — optional adapters + addAdapter", () => {
   it("allows a real restart after stop() (start → stop → start re-inits)", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
     });
@@ -73,11 +82,11 @@ describe("createChannel — optional adapters + addAdapter", () => {
 describe("createChannel — transcripts deferred to start()", () => {
   it("throws if channel.transcripts is accessed before start()", () => {
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
       store: {
         adapter: new MemoryStore(),
-        identity: () => "u@x.com",
         transcripts: {},
       },
     });
@@ -92,11 +101,11 @@ describe("createChannel — store resolution", () => {
     // Seed the adapter's store via a throwaway channel so we can prove the real
     // channel reads from that exact instance.
     const seeder = createChannel({
+      identifyUser: "platform",
       adapters: [new FakeAdapter()],
       agent: () => new FakeAgent(),
       store: {
         adapter: adapterStore,
-        identity: () => "u@x.com",
         transcripts: {},
       },
     });
@@ -104,19 +113,20 @@ describe("createChannel — store resolution", () => {
     await seeder.transcripts.append(
       { platform: "fake", conversationKey: "c" },
       { role: "user", text: "seeded" },
-      { userKey: "u@x.com" },
+      { userId: "u@x.com" },
     );
 
     const fake = new FakeAdapter();
     fake.stateStore = adapterStore;
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
-      store: { identity: () => "u@x.com", transcripts: {} },
+      store: { transcripts: {} },
     });
     await channel.ɵruntime.start();
 
-    const entries = await channel.transcripts.list({ userKey: "u@x.com" });
+    const entries = await channel.transcripts.list({ userId: "u@x.com" });
     expect(entries.map((e) => e.text)).toContain("seeded");
   });
 
@@ -126,11 +136,11 @@ describe("createChannel — store resolution", () => {
     fake.stateStore = new MemoryStore();
     const explicit = new MemoryStore();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
       store: {
         adapter: explicit,
-        identity: () => "u@x.com",
         transcripts: {},
       },
     });
@@ -146,6 +156,7 @@ describe("createChannel — store resolution", () => {
     const b = new FakeAdapter({ platform: "b" });
     b.stateStore = new MemoryStore();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [a, b],
       agent: () => new FakeAgent(),
     });
@@ -159,6 +170,7 @@ describe("createChannel — id propagation to handler context", () => {
   it("threads turnId/deliveryId from IncomingTurn onto message", async () => {
     const fake = new FakeAdapter();
     const channel = createChannel({
+      identifyUser: "platform",
       adapters: [fake],
       agent: () => new FakeAgent(),
     });

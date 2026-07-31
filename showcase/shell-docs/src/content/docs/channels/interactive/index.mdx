@@ -152,6 +152,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });
@@ -181,6 +182,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
 });

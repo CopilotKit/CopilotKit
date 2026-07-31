@@ -14,6 +14,7 @@ import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   components: [ApprovalCard],
   store: { adapter: durableStateStore },
@@ -30,9 +31,13 @@ preserves the snapshot across process restarts.
 interface ActionStore {
   put(id: string, snapshot: ActionSnapshot, ttlMs?: number): Promise<void>;
   get(id: string): Promise<ActionSnapshot | undefined>;
+  consume(id: string): Promise<ActionSnapshot | undefined>;
   delete(id: string): Promise<void>;
 }
 ```
+
+`consume` must atomically return and delete one snapshot so a HITL
+continuation can start at most one resumed run.
 
 `InMemoryActionStore` never survives a process restart. Do not introduce it in
 new managed Slack or Teams runners. See [`StateStore`](/reference/channels/types/StateStore)

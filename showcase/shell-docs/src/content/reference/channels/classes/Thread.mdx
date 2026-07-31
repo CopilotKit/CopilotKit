@@ -49,16 +49,17 @@ allowed to fail the workflow.
 | Method             | Returns                            | Description                                                  |
 | ------------------ | ---------------------------------- | ------------------------------------------------------------ |
 | `runAgent(input?)` | `Promise<MessageRef \| undefined>` | Run the thread's agent and render its output.                |
-| `resume(value)`    | `Promise<MessageRef \| undefined>` | Re-enter an interrupted run with a human or external result. |
+| `resume(value, options?)` | `Promise<MessageRef \| undefined>` | Consume the action continuation and re-enter an interrupted run. |
 
 `runAgent` accepts:
 
 | Field        | Type                            | Description                                                                                                             |
 | ------------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `prompt`     | `string \| AgentContentPart[]`  | Explicit user turn. When omitted in a message handler, the SDK injects the inbound text or content parts automatically. |
-| `context`    | `ContextEntry[]`                | Context for this run only.                                                                                              |
-| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                                                |
-| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identity` and `transcripts` are configured.                                        |
+| `context`    | `ContextEntry[]`                | Context for this run only.                                                                     |
+| `tools`      | `ChannelTool[]`                 | Tools for this run only.                                                                       |
+| `transcript` | `boolean \| { limit?: number }` | Optional SDK transcript bridge when `identifyUser` resolves a user and transcripts are configured. |
+| `memory` | `{ user?, project? }` | Per-run Intelligence Memory access. Each scope is `"none"`, `"read"`, or `"read-write"`; omission disables Memory. |
 
 ```ts title="channel.ts"
 channel.onMessage(async ({ thread, message }) => {
@@ -81,12 +82,33 @@ handler, and call `resume(value)` when a later click arrives. Do not call
 `awaitChoice`; see the interactive messages guide for
 [Slack](/slack/interactive) or [Teams](/teams/interactive).
 
+Personal Memory on resume needs a trusted subject selector:
+
+```ts
+await thread.resume(value, {
+  memory: { user: "read", project: "read" },
+  subject: "initiator", // or "actor"
+});
+```
+
+`initiator` keeps the application user that started this HITL chain. `actor`
+uses the application user resolved for the current interaction. Project-only
+Memory needs no subject and carries no made-up user. A continuation expires
+with action retention and can start only one resumed run.
+
+Memory and continuation failures expose stable codes:
+
+- `channel_memory_grant_invalid`, `channel_memory_user_required`, and
+  `channel_memory_unavailable`
+- `channel_memory_subject_required`, `channel_continuation_required`,
+  `channel_continuation_mismatch`, and `channel_action_expired`
+
 ## Conversation history and users
 
 | Method              | Returns                              | Description                                                          |
 | ------------------- | ------------------------------------ | -------------------------------------------------------------------- |
 | `getMessages()`     | `Promise<ThreadMessage[]>`           | Managed history in chronological order; returns `[]` if unavailable. |
-| `lookupUser(query)` | `Promise<PlatformUser \| undefined>` | Provider lookup where supported.                                     |
+| `lookupUser(query)` | `Promise<ProviderActor \| undefined>` | Provider lookup where supported.                                     |
 
 ## Per-conversation state
 

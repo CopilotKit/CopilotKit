@@ -28,7 +28,8 @@ import type {
   ChannelMessage,
   InteractionContext,
   IncomingMessage,
-  PlatformUser,
+  ProviderActor,
+  ApplicationUser,
   EmojiValue,
   EmojiPlatform,
   ModalView,
@@ -41,7 +42,12 @@ import {
   renderToIR,
 } from "@copilotkit/channels-ui";
 import { Transcripts } from "./transcripts.js";
-import type { Identity, TranscriptsConfig } from "./transcripts.js";
+import type { TranscriptsConfig } from "./transcripts.js";
+import { resolveChannelUser } from "./identity.js";
+import type {
+  ChannelIdentifyUser,
+  ChannelIdentityContext,
+} from "./identity.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
@@ -226,13 +232,15 @@ export type ChannelHandler<TState = unknown> = (ctx: {
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
 export type ThreadStartHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
 }) => void | Promise<void>;
 
 /** Handler for a provider installation or conversation activation. */
 export type WelcomeHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
 }) => void | Promise<void>;
 
@@ -245,7 +253,8 @@ export interface ReactionEvent {
   /** true = added, false = removed. */
   added: boolean;
   /** The reacting user, when the platform reports one. */
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   messageId: string;
   /** Update-capable ref to the reacted message (`thread.update(messageRef, ui)`). */
   messageRef: MessageRef;
@@ -260,7 +269,8 @@ export type ReactionHandler = (evt: ReactionEvent) => void | Promise<void>;
 export interface ModalSubmitEvent {
   callbackId: string;
   values: Record<string, unknown>;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   /** Present when the submission carried a conversation context. */
   thread?: Thread;
   privateMetadata?: string;
@@ -273,7 +283,8 @@ export type ModalSubmitHandler = (
 /** Event passed to an `onModalClose` handler. */
 export interface ModalCloseEvent {
   callbackId: string;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   privateMetadata?: string;
   raw: unknown;
 }
@@ -301,9 +312,7 @@ export interface StoreConfig<
   adapter?: StateStore;
   /** Standard Schema for per-thread state. When set, thread.state()/setState() are typed to its output and setState validates at runtime. */
   state?: TStateSchema;
-  /** Resolve a stable cross-platform identity key (e.g. email). Paired with `transcripts`. */
-  identity?: Identity;
-  /** Cross-platform transcript storage config. Paired with `identity`. */
+  /** Cross-platform transcript storage keyed by the identified application user. */
   transcripts?: TranscriptsConfig;
   /**
    * How overlapping turns on the same conversationKey are handled.
@@ -327,6 +336,8 @@ export interface StoreConfig<
   lockTtl?: number;
   /** TTL (ms) for the inbound event dedup window. Default 300_000. */
   dedupTtl?: number;
+  /** TTL (ms) for durable actions and HITL continuations. Default 604_800_000 (7 days). */
+  actionRetentionMs?: number;
 }
 
 /**
@@ -360,6 +371,8 @@ export interface ReplyContinuationOptions {
 export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
+  /** Select the canonical application user for every incoming Channel event. */
+  identifyUser: ChannelIdentifyUser;
   /**
    * Project-unique Intelligence Channel name. Required for Intelligence Channel
    * Bots — it ties the runtime declaration to the Intelligence setup — and
@@ -463,6 +476,8 @@ export interface Channel<TState = unknown> {
     h: (args: {
       payload: TPayload;
       thread: StatefulThread<TState>;
+      user: ApplicationUser | null;
+      actor: ProviderActor;
     }) => void | Promise<void>,
   ): void;
   /** Register a slash command (with optional typed options). */
@@ -492,6 +507,8 @@ export interface Channel<TState = unknown> {
     start(): Promise<void>;
     stop(): Promise<void>;
     addAdapter(adapter: PlatformAdapter): void;
+    /** @internal Mark this Channel as attached to an Intelligence Memory backend. */
+    enableIntelligenceMemory(): void;
   };
 }
 
@@ -500,7 +517,8 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
   return {
     text: turn.userText,
     contentParts: turn.contentParts,
-    user: turn.user ?? { id: "" },
+    user: null,
+    actor: turn.actor,
     ref: turn.messageRef ?? { id: "" },
     platform: turn.platform,
     operation: turn.operation,
@@ -508,6 +526,47 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
     turnId: turn.turnId,
     deliveryId: turn.deliveryId,
   };
+}
+
+function identityContextFromIngress(
+  provider: string,
+  event: {
+    conversationKey?: string;
+    actor?: ProviderActor;
+    identityContext?: import("./identity.js").IngressIdentityContext;
+  },
+  trigger: string,
+): ChannelIdentityContext {
+  const actor: ProviderActor = Object.freeze({
+    ...(event.actor ?? { id: "", kind: "unknown" as const }),
+  });
+  const tenant = Object.freeze({
+    ...(event.identityContext?.tenant ?? { id: "" }),
+  });
+  const installation = Object.freeze({
+    ...(event.identityContext?.installation ?? { id: "" }),
+  });
+  const conversation = Object.freeze({
+    ...(event.identityContext?.conversation ?? {
+      id: event.conversationKey ?? "",
+    }),
+  });
+  const normalizedEvent = Object.freeze({
+    ...event.identityContext?.event,
+  });
+  return Object.freeze({
+    provider,
+    tenant,
+    installation,
+    actor,
+    conversation,
+    trigger: event.identityContext?.trigger ?? trigger,
+    event: normalizedEvent,
+    raw: event.identityContext?.raw,
+    ...(event.identityContext?.lookupProfile
+      ? { lookupProfile: event.identityContext.lookupProfile }
+      : {}),
+  });
 }
 
 /** Resolve the provider that produced an event without changing adapter identity. */
@@ -546,15 +605,15 @@ export function createChannel<
 >(
   opts: CreateChannelOptions<TStateSchema>,
 ): Channel<ThreadStateOf<TStateSchema>> {
-  const cfg = opts.store ?? {};
   if (
-    (cfg.identity && !cfg.transcripts) ||
-    (!cfg.identity && cfg.transcripts)
+    opts.identifyUser !== "platform" &&
+    typeof opts.identifyUser !== "function"
   ) {
     throw new Error(
-      "createChannel: `identity` and `transcripts` must be configured together.",
+      'createChannel: `identifyUser` must be "platform" or a callback',
     );
   }
+  const cfg = opts.store ?? {};
 
   // Adapters can be supplied up front or added later via
   // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
@@ -635,7 +694,12 @@ export function createChannel<
   >();
   const interruptHandlers = new Map<
     string,
-    (args: { payload: unknown; thread: Thread }) => void | Promise<void>
+    (args: {
+      payload: unknown;
+      thread: Thread;
+      user: ApplicationUser | null;
+      actor: ProviderActor;
+    }) => void | Promise<void>
   >();
   const commandHandlers = new Map<string, ChannelCommand>();
   for (const c of opts.commands ?? [])
@@ -647,6 +711,7 @@ export function createChannel<
   const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
   const waiters = new Map<string, (value: unknown) => void>();
+  let intelligenceMemoryAvailable = false;
 
   // Recomputed on start() so tools added via channel.tool() before start are picked up.
   let toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
@@ -657,8 +722,10 @@ export function createChannel<
     conversationKey: string,
     extras?: {
       platform?: string;
-      userKey?: string;
       message?: IncomingMessage;
+      user?: ApplicationUser | null;
+      actor?: ProviderActor;
+      interactionActionId?: string;
     },
   ): Thread {
     if (!backend || !registry || !telemetry) {
@@ -681,8 +748,13 @@ export function createChannel<
       state: backend,
       stateSchema: cfg.state,
       transcripts,
-      userKey: extras?.userKey,
       message: extras?.message,
+      user: extras?.user ?? null,
+      actor: extras?.actor ?? { id: "unknown", kind: "unknown" },
+      channelName: opts.name ?? adapter.platform,
+      threadId: adapter.getCanonicalThreadId?.(replyTarget) ?? conversationKey,
+      interactionActionId: extras?.interactionActionId,
+      intelligenceMemoryAvailable,
       telemetry,
     };
     return new Thread(deps);
@@ -735,32 +807,30 @@ export function createChannel<
         }
       }
 
-      // Resolve cross-platform identity key (if configured) and stamp it on
-      // the message so handlers and transcript storage can use it. Done
-      // BEFORE makeThread so the thread carries the userKey + message for
-      // the transcript auto-bridge (runAgent({ transcript: true })).
-      let userKey: string | undefined;
-      if (cfg.identity) {
-        try {
-          const resolved = await cfg.identity({
-            adapter: platform,
-            author: turn.user ?? { id: "" },
-            message: msgFromTurn(turn),
-          });
-          userKey = resolved ?? undefined;
-        } catch (err) {
-          console.warn(
-            `[channel] identity resolution failed for ${platform}; continuing without userKey`,
-            err,
-          );
-        }
-      }
-      const message: ChannelMessage = { ...msgFromTurn(turn), userKey };
+      const identityContext = identityContextFromIngress(
+        platform,
+        turn,
+        "message",
+      );
+      const user: ApplicationUser | null = await resolveChannelUser(
+        opts.identifyUser,
+        identityContext,
+      );
+      const message: ChannelMessage = {
+        ...msgFromTurn(turn),
+        user,
+        actor: identityContext.actor,
+      };
       const thread = makeThread(
         adapter,
         turn.replyTarget,
         turn.conversationKey,
-        { platform, userKey, message },
+        {
+          platform,
+          message,
+          user,
+          actor: identityContext.actor,
+        },
       );
       const handlers = turn.operation.mentioned
         ? mentionHandlers.length > 0
@@ -831,24 +901,39 @@ export function createChannel<
           }
         }
 
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "interaction",
+        );
+        const canonicalUser = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform },
+          {
+            platform,
+            user: canonicalUser,
+            actor: identityContext.actor,
+            interactionActionId: evt.id,
+          },
         );
-        const user = evt.user ?? { id: "" };
         const ctx: InteractionContext = {
           thread,
           message: {
             text: "",
-            user,
+            user: canonicalUser,
+            actor: identityContext.actor,
             ref: evt.messageRef ?? { id: "" },
             platform,
           },
           action: { id: evt.id, value: evt.value },
           values: evt.values ?? {},
-          user,
+          user: canonicalUser,
+          actor: identityContext.actor,
           platform,
         };
         const openModal = makeOpenModal(
@@ -899,11 +984,24 @@ export function createChannel<
 
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
+        const identityContext = identityContextFromIngress(
+          platform,
+          cmd,
+          "command",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           cmd.replyTarget,
           cmd.conversationKey,
-          { platform },
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+          },
         );
         // Resolve typed options from any structured args the surface supplied
         // (e.g. Discord); text-only surfaces (Slack) leave `options` empty and
@@ -918,7 +1016,8 @@ export function createChannel<
           command: normalizeCommandName(cmd.command),
           text: cmd.text,
           options,
-          user: cmd.user,
+          user,
+          actor: identityContext.actor,
           platform,
         };
         const openModal = makeOpenModal(
@@ -942,28 +1041,47 @@ export function createChannel<
             );
           }
         }
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "welcome",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform },
+          { platform, user, actor: identityContext.actor },
         );
         for (const h of welcomeHandlers) {
-          await h({ thread, user: evt.user, platform });
+          await h({ thread, user, actor: identityContext.actor, platform });
         }
       },
       async onThreadStarted(evt: IncomingThreadStart) {
         // The adapter has already applied its static defaults (greeting /
         // prompts) before emitting this, so handlers layer on top and never
         // race. Zero handlers → no-op.
+        const platform = ingressPlatform(adapter, evt);
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "thread-start",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform: ingressPlatform(adapter, evt) },
+          { platform, user, actor: identityContext.actor },
         );
         for (const h of threadStartedHandlers)
-          await h({ thread, user: evt.user });
+          await h({ thread, user, actor: identityContext.actor });
       },
       async onReaction(evt: IncomingReaction) {
         // Normalize by source platform, falling back to adapter identity for
@@ -973,11 +1091,24 @@ export function createChannel<
           ? normalizeEmoji(evt.rawEmoji, sourcePlatform)
           : undefined;
         const value: EmojiValue = normalized ?? evt.rawEmoji;
+        const identityContext = identityContextFromIngress(
+          sourcePlatform,
+          evt,
+          "reaction",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform: sourcePlatform },
+          {
+            platform: sourcePlatform,
+            user,
+            actor: identityContext.actor,
+          },
         );
         // Prefer the adapter's update-capable ref; fall back to the bare id.
         const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
@@ -985,7 +1116,8 @@ export function createChannel<
           emoji: value,
           rawEmoji: evt.rawEmoji,
           added: evt.added,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           messageId: evt.messageId,
           messageRef,
           threadId: evt.threadId,
@@ -1010,7 +1142,8 @@ export function createChannel<
             emoji: value,
             rawEmoji: evt.rawEmoji,
             added: evt.added,
-            user: evt.user,
+            user,
+            actor: identityContext.actor,
             messageId: evt.messageId,
             thread,
             messageRef,
@@ -1020,16 +1153,28 @@ export function createChannel<
       async onModalSubmit(evt: IncomingModalSubmit) {
         const handler = modalSubmitHandlers.get(evt.callbackId);
         if (!handler) return; // unregistered → closes
+        const identityContext = identityContextFromIngress(
+          evt.platform,
+          evt,
+          "modal-submit",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread =
           evt.conversationKey !== undefined && evt.replyTarget !== undefined
             ? makeThread(adapter, evt.replyTarget, evt.conversationKey, {
                 platform: evt.platform,
+                user,
+                actor: identityContext.actor,
               })
             : undefined;
         const result = await handler({
           callbackId: evt.callbackId,
           values: evt.values,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           thread,
           privateMetadata: evt.privateMetadata,
           raw: evt.raw,
@@ -1039,9 +1184,19 @@ export function createChannel<
       async onModalClose(evt: IncomingModalClose) {
         const handler = modalCloseHandlers.get(evt.callbackId);
         if (!handler) return;
+        const identityContext = identityContextFromIngress(
+          evt.platform,
+          evt,
+          "modal-close",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         await handler({
           callbackId: evt.callbackId,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           privateMetadata: evt.privateMetadata,
           raw: evt.raw,
         });
@@ -1074,6 +1229,9 @@ export function createChannel<
       return transcripts;
     },
     ɵruntime: {
+      enableIntelligenceMemory() {
+        intelligenceMemoryAvailable = true;
+      },
       addAdapter(adapter) {
         if (started) {
           throw new Error(
@@ -1112,7 +1270,12 @@ export function createChannel<
         });
         telemetry = tel;
         const registryInstance = new ActionRegistry({
-          store: opts.actionStore ?? kvActionStore(backend),
+          store:
+            opts.actionStore ??
+            kvActionStore(backend, {
+              defaultTtlMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
+            }),
+          retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
         });
         registry = registryInstance;
         for (const c of opts.components ?? []) {
@@ -1138,7 +1301,6 @@ export function createChannel<
           commandsCount: commandHandlers.size,
           contextCount: context.length,
           transcripts: !!cfg.transcripts,
-          identity: !!cfg.identity,
         });
         // Isolate per-adapter startup failures: one adapter rejecting (e.g.
         // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
@@ -1345,6 +1507,8 @@ export function createChannel<
       h: (args: {
         payload: TPayload;
         thread: StatefulThread<ThreadStateOf<TStateSchema>>;
+        user: ApplicationUser | null;
+        actor: ProviderActor;
       }) => void | Promise<void>,
     ) {
       interruptHandlers.set(
@@ -1352,6 +1516,8 @@ export function createChannel<
         h as (args: {
           payload: unknown;
           thread: Thread;
+          user: ApplicationUser | null;
+          actor: ProviderActor;
         }) => void | Promise<void>,
       );
     },

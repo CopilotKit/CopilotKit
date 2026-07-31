@@ -105,7 +105,7 @@ async function captureRunCanonical(
       channelName: "support",
       runtimeInstanceId: "rti_test",
     },
-    createChannel({ name: "support" }),
+    createChannel({ identifyUser: "platform", name: "support" }),
     importer,
     undefined,
     {

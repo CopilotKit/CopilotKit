@@ -23,7 +23,7 @@ vi.mock("@slack/bolt", () => ({
 }));
 
 import { attachAssistant } from "../assistant.js";
-import type { IngressSink, PlatformUser } from "@copilotkit/channels-core";
+import type { IngressSink } from "@copilotkit/channels-core";
 import type { SlackAssistantOptions } from "../types.js";
 
 function setup(opts: SlackAssistantOptions = {}) {
@@ -40,14 +40,30 @@ function setup(opts: SlackAssistantOptions = {}) {
     onModalSubmit: vi.fn(async () => {}),
     onModalClose: vi.fn(),
   };
-  const resolveUser = vi.fn(
-    async (id: string): Promise<PlatformUser> => ({ id, name: `name-${id}` }),
+  const identityContext = vi.fn(
+    (input: {
+      conversationKey: string;
+      conversationKind: string;
+      trigger: string;
+      eventId?: string;
+      raw: unknown;
+    }) => ({
+      tenant: { id: "T1" },
+      installation: { id: "A1" },
+      conversation: {
+        id: input.conversationKey,
+        kind: input.conversationKind,
+      },
+      trigger: input.trigger,
+      event: input.eventId ? { id: input.eventId } : {},
+      raw: input.raw,
+    }),
   );
   // The Bolt App is only used for `app.assistant(...)`, which our mocked
   // Assistant ignores — capture happens in the constructor above.
   const app = { assistant: vi.fn() } as never;
-  const handle = attachAssistant({ app, sink, opts, resolveUser });
-  return { handle, onTurn, onThreadStarted, resolveUser };
+  const handle = attachAssistant({ app, sink, opts, identityContext });
+  return { handle, onTurn, onThreadStarted, identityContext };
 }
 
 const threadStartedEvent = {
@@ -106,7 +122,13 @@ describe("attachAssistant — threadStarted", () => {
           threadTs: "100.0",
           recipientUserId: "U1",
         },
-        user: { id: "U1", name: "name-U1" },
+        actor: { id: "U1", kind: "human" },
+        identityContext: expect.objectContaining({
+          tenant: { id: "T1" },
+          installation: { id: "A1" },
+          conversation: { id: "D1::100.0", kind: "assistant_thread" },
+          trigger: "thread-start",
+        }),
         platform: "slack",
       }),
     );
@@ -157,6 +179,13 @@ describe("attachAssistant — userMessage", () => {
           recipientUserId: "U1",
         },
         userText: "hello",
+        actor: { id: "U1", kind: "human" },
+        identityContext: expect.objectContaining({
+          tenant: { id: "T1" },
+          installation: { id: "A1" },
+          conversation: { id: "D1::100.0", kind: "assistant_thread" },
+          trigger: "message",
+        }),
         platform: "slack",
       }),
     );

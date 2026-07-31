@@ -20,7 +20,10 @@ test("managed delivery advertises its backend-owned typing lifecycle", () => {
 
 async function deliverNoopTeamsMessage(typingDelayMs: 0 | 300) {
   const gateway = new DeliveryTestGateway();
-  const channel = createChannel({ name: "support" });
+  const channel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+  });
   channel.onMessage(() => undefined);
   const handle = await startChannelsWithGatewayControl([channel], {
     session: gateway,
@@ -65,7 +68,10 @@ test.each([
   async (action, expectedKinds) => {
     const gateway = new DeliveryTestGateway();
     const onMessage = vi.fn();
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     channel.onMessage(onMessage);
     const handle = await startChannelsWithGatewayControl([channel], {
       session: gateway,

@@ -34,6 +34,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const bot = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform", // provider + workspace + human Slack user
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!, // xoxb-…
@@ -54,7 +55,6 @@ const runtime = new CopilotRuntime({
     // both together only for a self-hosted deployment.
     apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [bot],
 });
 
@@ -276,10 +276,29 @@ resumes the agent via `thread.resume(value)`.
 
 ### Sender-profile resolution & file download
 
-The adapter resolves each turn's Slack user id to a richer `PlatformUser`
-(`{ id, name?, email? }`), cached per id. Inbound files can be downloaded and
-delivered to the agent as multimodal content parts (`buildFileContentParts`);
-a tool can post a file back out via `thread.postFile(...)`.
+Handlers receive `actor`, the Slack account that caused the event, and `user`,
+the nullable application user returned by the Channel's `identifyUser` policy.
+The standard `"platform"` policy namespaces confirmed humans by provider and
+workspace. It does not map bots, apps, system actors, or unknown actors. Inbound
+files can be delivered to the agent as multimodal content parts; a tool can post
+a file back out via `thread.postFile(...)`.
+
+### Intelligence Memory
+
+Memory is off unless the specific run grants it:
+
+```ts
+bot.onMention(async ({ thread }) => {
+  await thread.runAgent({
+    memory: { user: "read", project: "read-write" },
+  });
+});
+```
+
+User Memory fails before the agent starts when `identifyUser` returns `null`.
+Project-only Memory works without an application user. A resumed run with user
+Memory must choose `subject: "initiator"` or `subject: "actor"`; callers cannot
+pass a raw user ID.
 
 ### Built-ins
 
@@ -298,7 +317,7 @@ methods, which this adapter backs:
 - `thread.getMessages()` — the current thread's messages (via
   `conversations.replies`), each a `ThreadMessage` (`{ user?, text, ts?,
 isBot? }`).
-- `thread.lookupUser(query)` — resolve a name/handle/email to a `PlatformUser`.
+- `thread.lookupUser(query)` — resolve a name/handle/email to a `ProviderActor`.
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   back into the thread (`files.uploadV2`).
 

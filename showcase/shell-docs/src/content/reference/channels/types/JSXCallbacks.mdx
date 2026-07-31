@@ -64,8 +64,9 @@ or omit a component when the native provider has no equivalent.
 | `action.id`    | `string`                  | Opaque action identifier.                                                                                             |
 | `action.value` | `TValue \| undefined`     | The control's round-tripped value. Guard it before use even when the component declares `value`.                      |
 | `values`       | `Record<string, unknown>` | Submitted form values.                                                                                                |
-| `user`         | `PlatformUser`            | Person who interacted.                                                                                                |
-| `platform`     | `string`                  | Native provider. Managed interactions report `"slack"` or `"teams"`.                                                  |
+| `user`         | `ApplicationUser \| null` | Application user selected by `identifyUser`.                                                                          |
+| `actor`        | `ProviderActor`            | Provider account that caused the interaction.                                                                         |
+| `platform`     | `string`                  | Normalized source provider, such as `"slack"` or `"teams"`.                                                          |
 | `openModal`    | function or `undefined`   | Capability-gated modal opener. Not part of the managed Slack/Teams realtime path.                                     |
 
 ```tsx title="decision.tsx"
@@ -131,6 +132,7 @@ function required(name: string): string {
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   components: [Decision],
   store: { adapter: durableStateStore },

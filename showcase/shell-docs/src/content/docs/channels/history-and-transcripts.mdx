@@ -63,8 +63,9 @@ binary data in `ThreadMessage`.
 ## Add cross-platform SDK transcripts
 
 Use SDK transcripts when your application needs a user-centric record across
-Slack and Teams. Configure both `identity` and `transcripts`; providing only
-one is an error.
+Slack and Teams. Configure top-level `identifyUser` and `store.transcripts`.
+When identity resolves to `null`, the transcript bridge skips personal reads
+and writes.
 
 <FrontendOnly frontend="slack">
 
@@ -74,16 +75,16 @@ import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: async ({ provider, actor }) => {
+    const account = await accounts.findByExternalIdentity({
+      provider,
+      externalUserId: actor.id,
+    });
+    return account ? { id: account.id, name: account.name } : null;
+  },
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
-    identity: async ({ author, message }) => {
-      const account = await accounts.findByExternalIdentity({
-        provider: message.platform,
-        externalUserId: author.id,
-      });
-      return account?.id ?? null;
-    },
     transcripts: {
       retention: "30d",
       maxPerUser: 500,
@@ -102,16 +103,16 @@ import { durableStateStore } from "./state-store.js";
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: async ({ provider, actor }) => {
+    const account = await accounts.findByExternalIdentity({
+      provider,
+      externalUserId: actor.id,
+    });
+    return account ? { id: account.id, name: account.name } : null;
+  },
   agent: makeAgent,
   store: {
     adapter: durableStateStore,
-    identity: async ({ author, message }) => {
-      const account = await accounts.findByExternalIdentity({
-        provider: message.platform,
-        externalUserId: author.id,
-      });
-      return account?.id ?? null;
-    },
     transcripts: {
       retention: "30d",
       maxPerUser: 500,
@@ -153,19 +154,19 @@ duplicate the record.
 
 ```ts title="transcripts.ts"
 const recent = await channel.transcripts.list({
-  userKey: "usr_123",
+  userId: "usr_123",
   limit: 50,
 });
 
 const { deleted } = await channel.transcripts.delete({
-  userKey: "usr_123",
+  userId: "usr_123",
 });
 ```
 
 `list()` returns entries oldest-first. You can filter by platform, thread id, or
-role. Managed entries use the native `"slack"` or `"teams"` platform. Resolve
-cross-provider identity through `userKey`; use the platform filter only when
-you intentionally want one provider's entries.
+role. Managed entries use the native `"slack"` or `"teams"` provider. Resolve
+cross-provider identity through the application `userId`; use the platform
+filter only when you intentionally want one provider\'s entries.
 
 `delete()` removes the SDK-owned transcript for that user; provider history and
 any separate Intelligence retention policy remain independent.

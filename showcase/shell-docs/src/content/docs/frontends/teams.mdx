@@ -92,6 +92,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     const channel = createChannel({
       name: required("CHANNEL_CODE"),
+      identifyUser: "platform",
       agent: makeAgent,
     });
 
@@ -122,7 +123,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const runtime = new CopilotRuntime({
       agents: {},
       intelligence,
-      identifyUser: () => ({ id: "channels-runtime", name: "Channels Runtime" }),
       channels: [channel],
     });
 

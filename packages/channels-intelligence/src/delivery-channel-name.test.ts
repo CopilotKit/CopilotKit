@@ -46,9 +46,16 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
       }),
     );
   });
-  const channel = createChannel({ name: "support", agent: () => agent });
+  const channel = createChannel({
+    identifyUser: "platform",
+    name: "support",
+    agent: () => agent,
+  });
   channel.onMessage(async ({ thread, message }) => {
-    await thread.runAgent({ prompt: message.text });
+    await thread.runAgent({
+      prompt: message.text,
+      memory: { user: "read", project: "read-write" },
+    });
   });
   const handle = await startChannelsWithGatewayControl([channel], {
     session: gateway,
@@ -78,6 +85,13 @@ test("managed deliveries use the declared Channel name for canonical runs", asyn
 
     expect(runCanonical).toHaveBeenCalledOnce();
     expect(runCanonical.mock.calls[0]![0].agentId).toBe("support");
+    expect(runCanonical.mock.calls[0]![0].memory).toEqual({
+      grant: { user: "read", project: "read-write" },
+      user: {
+        id: "slack:tenant_channel_name:user_channel_name",
+        name: "Ada",
+      },
+    });
   } finally {
     await handle.stop();
   }

@@ -62,8 +62,8 @@ describe("ChannelSetupRequiredError", () => {
 
 describe("ChannelManager", () => {
   it("activate() starts one engine call per channel with distinct runtimeInstanceIds and reaches online after ready()", async () => {
-    const chA = createChannel({ name: "support" });
-    const chB = createChannel({ name: "sales" });
+    const chA = createChannel({ identifyUser: "platform", name: "support" });
+    const chB = createChannel({ identifyUser: "platform", name: "sales" });
     const seenIds: string[] = [];
     const engine: ActivateChannelEngine = vi.fn(async (config) => {
       seenIds.push(config.runtimeInstanceId);
@@ -95,7 +95,7 @@ describe("ChannelManager", () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
 
@@ -116,8 +116,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "sales" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "sales" }),
       ],
       activateChannel: engine,
     });
@@ -151,8 +151,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "sales" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "sales" }),
       ],
       activateChannel: engine,
     });
@@ -173,7 +173,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -238,7 +238,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -258,7 +258,7 @@ describe("ChannelManager", () => {
   it("status() reports overall 'stopped' when stop() runs before activate() (SIGTERM during startup)", async () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: async () => fakeHandle(),
     });
     // stop() before activate() — no entries were ever created, so the empty-set
@@ -273,7 +273,7 @@ describe("ChannelManager", () => {
       new Promise<ChannelsHandle>(() => {});
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -291,8 +291,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "sales" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "sales" }),
       ],
       activateChannel: engine,
     });
@@ -319,8 +319,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
       ],
       activateChannel: engine,
     });
@@ -340,7 +340,7 @@ describe("ChannelManager", () => {
     );
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -371,7 +371,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: async () => wedged,
       stopHandleTimeoutMs: 20,
       log: (...args) => logs.push(args),
@@ -416,8 +416,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "sales" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "sales" }),
       ],
       activateChannel: engine,
     });
@@ -441,7 +441,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -461,7 +461,7 @@ describe("ChannelManager", () => {
     );
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -501,7 +501,7 @@ describe("ChannelManager", () => {
     const engine: ActivateChannelEngine = vi.fn(async () => handle);
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -535,7 +535,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -556,7 +556,7 @@ describe("ChannelManager", () => {
     };
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log,
     });
@@ -583,7 +583,7 @@ describe("ChannelManager", () => {
     const engine: ActivateChannelEngine = async () => syncThrowHandle;
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log,
     });
@@ -606,7 +606,7 @@ describe("ChannelManager", () => {
     const engine: ActivateChannelEngine = vi.fn(async () => fakeHandle());
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
 
@@ -621,8 +621,8 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
       ],
       activateChannel: engine,
     });
@@ -649,7 +649,11 @@ describe("ChannelManager", () => {
     const managed = new ManagedFakeAdapter({ platform: "intelligence" });
     const directStop = vi.spyOn(direct, "stop");
     const managedStop = vi.spyOn(managed, "stop");
-    const channel = createChannel({ name: "sales", adapters: [direct] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "sales",
+      adapters: [direct],
+    });
     const engine: ActivateChannelEngine = vi.fn(async (_config, candidate) => {
       candidate.ɵruntime.addAdapter(managed);
       await candidate.ɵruntime.start();
@@ -680,7 +684,11 @@ describe("ChannelManager", () => {
   it("keeps managed activation online when a coexisting direct adapter fails to start", async () => {
     const direct = new FakeAdapter({ platform: "direct", failStart: true });
     const managed = new ManagedFakeAdapter({ platform: "intelligence" });
-    const channel = createChannel({ name: "sales", adapters: [direct] });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "sales",
+      adapters: [direct],
+    });
     const engine: ActivateChannelEngine = vi.fn(async (_config, candidate) => {
       candidate.ɵruntime.addAdapter(managed);
       await candidate.ɵruntime.start();
@@ -750,8 +758,9 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
+        createChannel({ identifyUser: "platform", name: "support" }),
         createChannel({
+          identifyUser: "platform",
           name: "support",
           adapters: [new FakeAdapter({ platform: "slack" })],
         }),
@@ -772,8 +781,14 @@ describe("ChannelManager", () => {
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
       channels: [
-        createChannel({ name: "support" }),
-        createChannel({ name: "sales" }),
+        createChannel({
+          identifyUser: "platform",
+          name: "support",
+        }),
+        createChannel({
+          identifyUser: "platform",
+          name: "sales",
+        }),
       ],
       activateChannel: engine,
     });
@@ -797,7 +812,10 @@ describe("defaultActivateChannel", () => {
 
   it("maps config to launcher opts and returns the launcher's handle", async () => {
     const { handle, start, importer } = captureChannelsIntelligenceLaunch();
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
 
     const result = await defaultActivateChannel(
       config,
@@ -870,7 +888,7 @@ describe("defaultActivateChannel", () => {
 
     await defaultActivateChannel(
       config,
-      createChannel({ name: "support" }),
+      createChannel({ identifyUser: "platform", name: "support" }),
       importer,
       undefined,
       services,
@@ -914,7 +932,10 @@ describe("defaultActivateChannel", () => {
 
   it("keeps tool status omitted when createChannel() does not configure it", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const activationConfig = deriveChannelActivationConfig({
       intelligence: fakeIntelligence(),
       channel,
@@ -937,6 +958,7 @@ describe("defaultActivateChannel", () => {
   it("forwards createChannel({ showToolStatus: true }) to the managed launcher", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({
+      identifyUser: "platform",
       name: "support",
       showToolStatus: true,
     });
@@ -962,6 +984,7 @@ describe("defaultActivateChannel", () => {
   it("forwards createChannel({ replyContinuation }) to the managed launcher", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
     const channel = createChannel({
+      identifyUser: "platform",
       name: "support",
       replyContinuation: { maxMessages: 5, truncationMarker: "…cut" },
     });
@@ -992,7 +1015,10 @@ describe("defaultActivateChannel", () => {
 
   it("omits replyContinuation when createChannel does not set it", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const activationConfig = deriveChannelActivationConfig({
       intelligence: fakeIntelligence(),
       channel,
@@ -1014,7 +1040,10 @@ describe("defaultActivateChannel", () => {
 
   it("forwards the log sink to the launcher opts so transport-level drops surface", async () => {
     const { start, importer } = captureChannelsIntelligenceLaunch();
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const log = vi.fn();
 
     await defaultActivateChannel(
@@ -1030,7 +1059,10 @@ describe("defaultActivateChannel", () => {
   });
 
   it("throws a friendly install hint when the module is not found", async () => {
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const importer = async (): Promise<ChannelsIntelligenceModule> => {
       throw Object.assign(new Error("not found"), {
         code: "ERR_MODULE_NOT_FOUND",
@@ -1045,7 +1077,10 @@ describe("defaultActivateChannel", () => {
   });
 
   it("rethrows a generic import failure unchanged", async () => {
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
     const importer = async (): Promise<ChannelsIntelligenceModule> => {
       throw new Error("boom");
     };

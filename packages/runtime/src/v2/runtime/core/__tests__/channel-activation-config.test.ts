@@ -105,7 +105,10 @@ describe("parseProjectIdFromApiKey", () => {
 describe("deriveChannelActivationConfig", () => {
   it("resolves the provider-neutral activation fields from the intelligence config and channel", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
 
     const config = deriveChannelActivationConfig({
       intelligence,
@@ -125,7 +128,10 @@ describe("deriveChannelActivationConfig", () => {
 
   it("does not carry a provider selector because one managed activation declares Slack and Teams together", () => {
     const intelligence = fakeIntelligence("cpk-7_a_b");
-    const channel = createChannel({ name: "support" });
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
 
     const config = deriveChannelActivationConfig({
       intelligence,
@@ -139,7 +145,7 @@ describe("deriveChannelActivationConfig", () => {
 
   it("throws ChannelConfigError when the channel has no name", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
-    const channel = createChannel({});
+    const channel = createChannel({ identifyUser: "platform" });
 
     expect(() =>
       deriveChannelActivationConfig({
@@ -158,7 +164,7 @@ describe("deriveChannelActivationConfig", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
     const config = deriveChannelActivationConfig({
       intelligence,
-      channel: createChannel({ name: "Slack" }),
+      channel: createChannel({ identifyUser: "platform", name: "Slack" }),
       runtimeInstanceId: "rti_x",
     });
 

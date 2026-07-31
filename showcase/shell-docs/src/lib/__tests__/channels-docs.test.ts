@@ -563,7 +563,7 @@ describe("Channels documentation journey", () => {
     expect(history).toContain("`thread.getMessages()`");
     expect(history).toContain("`runAgent({ transcript: ... })`");
     expect(history).toMatch(
-      /Managed entries use the native `"slack"` or `"teams"` platform/i,
+      /managed entries use the native `"slack"` or `"teams"` provider/i,
     );
     expect(history).not.toContain('platforms: ["slack", "teams"]');
 

@@ -43,7 +43,7 @@ const intelRuntimeWith1Channel = () =>
     agents: {},
     intelligence: intelligence(),
     identifyUser: vi.fn().mockResolvedValue({ id: "u", name: "U" }),
-    channels: [createChannel({ name: "support" })],
+    channels: [createChannel({ identifyUser: "platform", name: "support" })],
   });
 
 /**

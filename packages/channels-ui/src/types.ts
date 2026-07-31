@@ -14,13 +14,20 @@ export interface EphemeralResult {
   ref?: MessageRef;
   error?: string;
 }
-export interface PlatformUser {
-  id: string;
+/** Canonical application identity selected by the Channel developer. */
+export interface ApplicationUser {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** Provider account that caused the current Channel event. */
+export interface ProviderActor {
+  readonly id: string;
   /** Provider-reported category; untrusted identity metadata, never authorization. */
-  kind?: "human" | "bot" | "app" | "system";
-  name?: string;
-  handle?: string;
-  email?: string;
+  readonly kind: "human" | "bot" | "app" | "system" | "unknown";
+  readonly name?: string;
+  readonly handle?: string;
+  readonly email?: string;
 }
 
 /** Provider-neutral identity and dispatch semantics for one message revision. */
@@ -56,7 +63,10 @@ export type AgentContentPart =
 
 export interface IncomingMessage {
   text: string;
-  user: PlatformUser;
+  /** Canonical application user for this event, or null when identity did not map. */
+  user: ApplicationUser | null;
+  /** Provider account that caused this event. Never used as a canonical user implicitly. */
+  actor: ProviderActor;
   ref: MessageRef;
   platform: string;
   /** Present for provider message hooks; specialized interaction contexts omit it. */
@@ -67,11 +77,6 @@ export interface IncomingMessage {
    * `text` as the agent prompt so the model receives the attachments.
    */
   contentParts?: AgentContentPart[];
-  /**
-   * Cross-platform identity key resolved by the channel's `identity` resolver, if
-   * any. Stable across platforms for the same human (e.g. an email address).
-   */
-  userKey?: string;
   /**
    * Stable platform event id (managed/Intelligence path), for customer-side
    * idempotency. Omitted by adapters that don't surface one.
@@ -88,7 +93,7 @@ export interface ChannelMessage extends IncomingMessage {
   operation: MessageOperation;
 }
 export interface ThreadMessage {
-  user?: PlatformUser;
+  user?: ProviderActor;
   text: string;
   /** Structured AG-UI message content when the platform preserves it. */
   content?: unknown;
@@ -147,7 +152,16 @@ export interface Thread {
    */
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
   runAgent(input?: unknown): Promise<MessageRef | undefined>;
-  resume(value: unknown): Promise<MessageRef | undefined>;
+  resume(
+    value: unknown,
+    options?: {
+      memory?: {
+        user?: "none" | "read" | "read-write";
+        project?: "none" | "read" | "read-write";
+      };
+      subject?: "initiator" | "actor";
+    },
+  ): Promise<MessageRef | undefined>;
   stream(src: string | AsyncIterable<string>): Promise<MessageRef>;
   postFile(args: {
     bytes: Uint8Array;
@@ -163,7 +177,7 @@ export interface Thread {
   /** Read the conversation's messages (capability-gated; returns `[]` when the adapter can't read history). */
   getMessages(): Promise<ThreadMessage[]>;
   /** Resolve a platform user by a free-form query (capability-gated; returns `undefined` when unsupported). */
-  lookupUser(query: string): Promise<PlatformUser | undefined>;
+  lookupUser(query: string): Promise<ProviderActor | undefined>;
   /** Pin suggested prompts (capability-gated; returns `{ ok: false }` on surfaces without support). */
   setSuggestedPrompts(
     prompts: ReadonlyArray<{ title: string; message: string }>,
@@ -187,7 +201,7 @@ export interface Thread {
    * resolve to `null` when native ephemeral is unsupported.
    */
   postEphemeral(
-    user: PlatformUser | string,
+    user: ProviderActor | string,
     ui: Renderable,
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null>;
@@ -208,7 +222,8 @@ export interface InteractionContext<TValue = unknown> {
   /** The clicked control: its opaque `id` and the `value` it carried (typed as `TValue`). */
   action: { id: string; value?: TValue };
   values: Record<string, unknown>;
-  user: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   platform: string;
   /**
    * Open a modal in response to this interaction (capability-gated; requires a
@@ -231,7 +246,8 @@ export interface MessageReaction {
   /** `true` = added, `false` = removed. */
   added: boolean;
   /** The reacting user, when the platform reports one. */
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   /** Id of the reacted-to message. */
   messageId: string;
   /**

@@ -143,6 +143,9 @@ export function preparedDelivery(
     channelId: "channel_support",
     channelName: "support",
     adapter,
+    tenant: { id: `tenant_${idSuffix}` },
+    installation: { id: `installation_${idSuffix}` },
+    conversation: { id: `conversation_${idSuffix}`, kind: "thread" },
     turn: {
       eventId: `evt_${idSuffix}`,
       receivedAt: "2026-07-29T17:00:00.000Z",
@@ -152,6 +155,7 @@ export function preparedDelivery(
         kind: "human",
         displayName: "Ada",
       },
+      raw: { deliveryKind: input.kind },
     },
   };
 }

@@ -8,16 +8,18 @@ import { startChannelsWithGatewayControl } from "./realtime-gateway-launcher.js"
 
 test("delivery handlers receive the source provider", async () => {
   const observed: Record<string, string> = {};
-  const identity = vi.fn(() => "person-1");
+  const identifyUser = vi.fn(() => ({ id: "person-1", name: "Ada App" }));
   const gateway = new DeliveryTestGateway();
   const channel = createChannel({
+    identifyUser,
     name: "support",
-    store: { identity, transcripts: {} },
   });
   channel.onMessage(({ message, thread }) => {
     observed.textMessagePlatform = message.platform;
     observed.textMessageRef = message.ref.id;
     observed.textThreadPlatform = thread.platform;
+    observed.applicationUser = message.user?.id ?? "null";
+    observed.providerActor = `${message.actor.kind}:${message.actor.id}`;
   });
   channel.onInteraction("approve", ({ message, platform, thread }) => {
     observed.interactionMessagePlatform = message.platform;
@@ -80,6 +82,8 @@ test("delivery handlers receive the source provider", async () => {
       textMessagePlatform: "slack",
       textMessageRef: "pref_v1_sourcePlatformText_123",
       textThreadPlatform: "slack",
+      applicationUser: "person-1",
+      providerActor: "human:user_text_pad000",
       interactionMessagePlatform: "slack",
       interactionPlatform: "slack",
       interactionThreadPlatform: "slack",
@@ -88,8 +92,21 @@ test("delivery handlers receive the source provider", async () => {
       welcomePlatform: "teams",
       welcomeThreadPlatform: "teams",
     });
-    expect(identity).toHaveBeenCalledWith(
-      expect.objectContaining({ adapter: "slack" }),
+    expect(identifyUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "slack",
+        tenant: { id: "tenant_text_pad000" },
+        installation: { id: "installation_text_pad000" },
+        conversation: {
+          id: "conversation_text_pad000",
+          kind: "thread",
+        },
+        actor: expect.objectContaining({
+          id: "user_text_pad000",
+          kind: "human",
+        }),
+        trigger: "message",
+      }),
     );
   } finally {
     await handle.stop();

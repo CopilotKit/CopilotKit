@@ -178,6 +178,9 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
    * Flip to `true` to power a client memory inspector (e.g. the dev console's
    * Memory tab). Existing Intelligence deployments relying on the previously
    * always-on Learning tab must set this to restore it.
+   *
+   * @deprecated Configure `memory.access` on an Intelligence Runtime. That one
+   * policy enables and limits both agent and browser Memory.
    */
   exposeMemoryRoutes?: boolean;
 }
@@ -191,6 +194,24 @@ export type IdentifyUserCallback = (
   request: Request,
 ) => MaybePromise<CopilotRuntimeUser>;
 
+export type MemoryAccess = "none" | "read" | "read-write";
+
+export interface MemoryGrant {
+  readonly user: MemoryAccess;
+  readonly project: MemoryAccess;
+}
+
+export type MemoryConsumer = "agent" | "client";
+
+export interface CopilotRuntimeMemoryConfig {
+  /** Resolves immutable Memory access for one authenticated web request. */
+  access(input: {
+    readonly request: Request;
+    readonly user: CopilotRuntimeUser;
+    readonly consumer: MemoryConsumer;
+  }): MaybePromise<MemoryGrant | null>;
+}
+
 export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   /** The runner to use for running agents in SSE mode. */
   runner?: AgentRunner;
@@ -200,11 +221,9 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
   channels?: undefined;
 }
 
-export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOptions {
+interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
-  /** Resolves the authenticated user for intelligence requests. */
-  identifyUser: IdentifyUserCallback;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
   /** Max delay (ms) for WebSocket reconnect backoff. @default 10_000 */
@@ -224,8 +243,28 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
    * to delivery/egress transports when activated via `startChannels` from
    * `@copilotkit/channels-intelligence` — not at construction.
    */
-  channels?: Channel[];
 }
+
+type NonEmptyChannels = readonly [Channel, ...Channel[]];
+
+/** Intelligence runtime options with web identity, Channels, or both. */
+export type CopilotIntelligenceRuntimeOptions =
+  CopilotIntelligenceRuntimeBaseOptions &
+    (
+      | {
+          /** Resolves the authenticated user for web requests. */
+          identifyUser: IdentifyUserCallback;
+          /** Enables agent and browser Memory under one request policy. */
+          memory?: CopilotRuntimeMemoryConfig;
+          channels?: readonly Channel[];
+        }
+      | {
+          /** Channels-only runtimes expose no functional web surface. */
+          identifyUser?: undefined;
+          memory?: undefined;
+          channels: NonEmptyChannels;
+        }
+    );
 
 export type CopilotRuntimeOptions =
   | CopilotSseRuntimeOptions
@@ -264,6 +303,7 @@ export interface CopilotRuntimeLike {
    * (`BaseCopilotRuntime`) always resolve and set it.
    */
   exposeMemoryRoutes?: boolean;
+  memory?: CopilotRuntimeMemoryConfig;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -273,7 +313,7 @@ export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   intelligence: CopilotKitIntelligence;
-  identifyUser: IdentifyUserCallback;
+  identifyUser?: IdentifyUserCallback;
   generateThreadNames: boolean;
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
@@ -297,6 +337,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public debugLogger?: CopilotRuntimeLogger;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly exposeMemoryRoutes: boolean;
+  public readonly memory?: CopilotRuntimeMemoryConfig;
 
   /**
    * License token resolved once with the env fallback, so telemetry
@@ -358,7 +399,9 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     );
     // Secure default: the client-facing memory proxy routes stay hidden (404)
     // unless a deployment explicitly opts in.
-    this.exposeMemoryRoutes = options.exposeMemoryRoutes ?? false;
+    this.memory = (options as { memory?: CopilotRuntimeMemoryConfig }).memory;
+    this.exposeMemoryRoutes =
+      this.memory !== undefined || (options.exposeMemoryRoutes ?? false);
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
       this.debugLogger = createLogger({
@@ -398,7 +441,7 @@ export class CopilotIntelligenceRuntime
   implements CopilotIntelligenceRuntimeLike
 {
   readonly intelligence: CopilotKitIntelligence;
-  readonly identifyUser: IdentifyUserCallback;
+  readonly identifyUser?: IdentifyUserCallback;
   readonly generateThreadNames: boolean;
   readonly lockTtlSeconds: number;
   readonly lockKeyPrefix?: string;
@@ -412,6 +455,47 @@ export class CopilotIntelligenceRuntime
   static readonly MAX_HEARTBEAT_INTERVAL_SECONDS = 3_000;
 
   constructor(options: CopilotIntelligenceRuntimeOptions) {
+    const rawOptions = options as CopilotIntelligenceRuntimeBaseOptions & {
+      identifyUser?: unknown;
+      channels?: unknown;
+      memory?: unknown;
+    };
+    if (
+      rawOptions.identifyUser !== undefined &&
+      typeof rawOptions.identifyUser !== "function"
+    ) {
+      throw new Error("Intelligence Runtime `identifyUser` must be a callback");
+    }
+    if (
+      rawOptions.channels !== undefined &&
+      !Array.isArray(rawOptions.channels)
+    ) {
+      throw new Error("Intelligence Runtime `channels` must be an array");
+    }
+    const hasWebIdentity = typeof rawOptions.identifyUser === "function";
+    const hasChannels =
+      Array.isArray(rawOptions.channels) && rawOptions.channels.length > 0;
+    if (!hasWebIdentity && !hasChannels) {
+      throw new Error(
+        "Intelligence Runtime requires web `identifyUser`, at least one Channel, or both surfaces",
+      );
+    }
+    if (
+      rawOptions.memory !== undefined &&
+      (typeof rawOptions.memory !== "object" ||
+        rawOptions.memory === null ||
+        typeof (rawOptions.memory as { access?: unknown }).access !==
+          "function")
+    ) {
+      throw new Error(
+        "Intelligence Runtime `memory.access` must be a callback",
+      );
+    }
+    if (rawOptions.memory !== undefined && !hasWebIdentity) {
+      throw new Error(
+        "Intelligence Runtime web `memory` requires `identifyUser`",
+      );
+    }
     super(
       options,
       new IntelligenceAgentRunner({
@@ -422,7 +506,9 @@ export class CopilotIntelligenceRuntime
       }),
     );
     this.intelligence = options.intelligence;
-    this.identifyUser = options.identifyUser;
+    this.identifyUser = hasWebIdentity
+      ? (rawOptions.identifyUser as IdentifyUserCallback)
+      : undefined;
     this.generateThreadNames = options.generateThreadNames ?? true;
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
@@ -446,9 +532,11 @@ export class CopilotIntelligenceRuntime
     // one Channel per launcher call, so the launcher never sees the full set.
     // Fail fast on the most common misconfiguration (a missing name) right here
     // at construction, though, rather than only at activation.
-    this.channels = options.channels ?? [];
+    this.channels = [
+      ...((rawOptions.channels as readonly Channel[] | undefined) ?? []),
+    ];
     for (const c of this.channels) {
-      if (!c.name) {
+      if (!c || typeof c !== "object" || !c.name) {
         throw new Error(
           "Intelligence Channel is missing a `name` — pass createChannel({ name }) for each Channel in `channels`",
         );
@@ -534,9 +622,19 @@ export interface CopilotRuntime extends CopilotRuntimeLike {
  */
 export interface CopilotRuntimeConstructor {
   new (
-    options: Omit<CopilotIntelligenceRuntimeOptions, "channels"> & {
-      channels: readonly [Channel, ...Channel[]];
-    },
+    options: CopilotIntelligenceRuntimeBaseOptions &
+      (
+        | {
+            identifyUser: IdentifyUserCallback;
+            memory?: CopilotRuntimeMemoryConfig;
+            channels: NonEmptyChannels;
+          }
+        | {
+            identifyUser?: undefined;
+            memory?: undefined;
+            channels: NonEmptyChannels;
+          }
+      ),
   ): CopilotRuntime & RuntimeWithDeclaredChannels;
   new (options: CopilotRuntimeOptions): CopilotRuntime;
 }
@@ -656,6 +754,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get exposeMemoryRoutes(): boolean | undefined {
     return this.delegate.exposeMemoryRoutes;
+  }
+
+  get memory(): CopilotRuntimeMemoryConfig | undefined {
+    return this.delegate.memory;
   }
 }
 

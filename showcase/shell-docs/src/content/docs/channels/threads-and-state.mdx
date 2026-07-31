@@ -101,6 +101,7 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     state: workflowState,
@@ -141,6 +142,7 @@ const workflowState = z.object({
 
 const channel = createChannel({
   name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
   agent: makeAgent,
   store: {
     state: workflowState,

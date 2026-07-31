@@ -5,10 +5,10 @@ description: Public Slack, Teams, Discord, Telegram, and WhatsApp adapter entry 
 
 `@copilotkit/channels` supports two provider-connection models:
 
-| Model                | Channel declaration                        | Provider connection                                                                       | Available providers                                     |
-| -------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Managed Intelligence | `createChannel({ name, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
-| Direct adapter       | `createChannel({ name, adapters, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, Telegram, and WhatsApp |
+| Model                | Channel declaration                                      | Provider connection                                                                       | Available providers                                     |
+| -------------------- | -------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Managed Intelligence | `createChannel({ name, identifyUser, agent })`           | CopilotKit Intelligence stores provider credentials and owns ingress and egress           | Slack and Microsoft Teams                               |
+| Direct adapter       | `createChannel({ name, adapters, identifyUser, agent })` | Your Channels process stores provider credentials and owns the provider socket or webhook | Slack, Microsoft Teams, Discord, Telegram, and WhatsApp |
 
 Managed Intelligence support for Discord and WhatsApp is coming soon. Their
 direct adapters already ship in `@copilotkit/channels@0.5.0`.
@@ -48,6 +48,7 @@ function required(name: string): string {
 
 export const channel = createChannel({
   name: "support-direct",
+  identifyUser: "platform",
   adapters: [
     slack({
       botToken: required("SLACK_BOT_TOKEN"),
@@ -178,6 +179,6 @@ the adapter. Capability-result Thread methods can also return `{ ok: false }`;
 handle that result instead of assuming a provider name guarantees one
 behavior.
 
-The Slack and Teams guides in the provider picker document the production-ready
-managed path. Use this page when your deployment intentionally owns provider
+The provider guides document the managed contract and each provider's release
+status. Use this page when your deployment intentionally owns provider
 credentials, sockets, webhooks, and provider-specific operations.

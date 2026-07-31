@@ -235,7 +235,12 @@ describe("SlackAdapter.getMessages", () => {
       text: "hello",
       ts: "100.0",
       isBot: false,
-      user: { id: "U1", name: "Ana Smith", email: undefined },
+      user: {
+        id: "U1",
+        kind: "human",
+        name: "Ana Smith",
+        email: undefined,
+      },
     });
     expect(msgs[1]!.isBot).toBe(true);
     expect(msgs[1]!.text).toBe("bot reply");
@@ -356,7 +361,7 @@ describe("SlackAdapter.capabilities / ackDeadlineMs", () => {
 });
 
 describe("SlackAdapter.resolveUser", () => {
-  it("resolves a sender id to a richer PlatformUser (name + email) and caches it", async () => {
+  it("resolves a sender id to a richer ProviderActor (name + email) and caches it", async () => {
     const { adapter } = makeAdapter();
     const info = vi.fn(async (_arg: { user: string }) => ({
       user: {
@@ -373,6 +378,7 @@ describe("SlackAdapter.resolveUser", () => {
     const u = await adapter.resolveUser("U1");
     expect(u).toEqual({
       id: "U1",
+      kind: "human",
       name: "Ana Smith",
       email: "ana@example.com",
     });
@@ -393,7 +399,7 @@ describe("SlackAdapter.resolveUser", () => {
     };
 
     const u = await adapter.resolveUser("U2");
-    expect(u).toEqual({ id: "U2" });
+    expect(u).toEqual({ id: "U2", kind: "human" });
   });
 });
 
