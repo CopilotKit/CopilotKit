@@ -67,12 +67,13 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
       RESTAURANT_UI_EXAMPLES = """
       ...
       ---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
-      [
-        {{ "beginRendering": {{ "surfaceId": "default", "root": "root-column", "styles": {{ "primaryColor": "#FF0000", "font": "Roboto" }} }} }},
-        {{ "surfaceUpdate": {{
-          "surfaceId": "default",
-          "components": [
-            {{ "id": "root-column", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
+      {{
+        "a2ui_operations": [
+          {{ "version": "v0.9", "createSurface": {{ "surfaceId": "default", "catalogId": "https://a2ui.org/specification/v0_9/basic_catalog.json" }} }},
+          {{ "version": "v0.9", "updateComponents": {{
+            "surfaceId": "default",
+            "components": [
+            {{ "id": "root", "component": {{ "Column": {{ "children": {{ "explicitList": ["title-heading", "item-list"] }} }} }} }},
             {{ "id": "title-heading", "component": {{ "Text": {{ "usageHint": "h1", "text": {{ "literalString": "Top Restaurants" }} }} }} }},
             {{ "id": "item-list", "component": {{ "List": {{ "direction": "vertical", "children": {{ "template": {{ "componentId": "item-card-template", "dataBinding": "/items" }} }} }} }} }},
             {{ "id": "item-card-template", "component": {{ "Card": {{ "child": "card-layout" }} }} }},
@@ -85,33 +86,20 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
             {{ "id": "template-link", "component": {{ "Text": {{ "text": {{ "path": "infoLink" }} }} }} }},
             {{ "id": "template-book-button", "component": {{ "Button": {{ "child": "book-now-text", "primary": true, "action": {{ "name": "book_restaurant", "context": [ {{ "key": "restaurantName", "value": {{ "path": "name" }} }}, {{ "key": "imageUrl", "value": {{ "path": "imageUrl" }} }}, {{ "key": "address", "value": {{ "path": "address" }} }} ] }} }} }} }},
             {{ "id": "book-now-text", "component": {{ "Text": {{ "text": {{ "literalString": "Book Now" }} }} }} }}
-          ]
-        }} }},
-        {{ "dataModelUpdate": {{
-          "surfaceId": "default",
-          "path": "/",
-          "contents": [
-            {{ "key": "items", "valueMap": [
-              {{ "key": "item1", "valueMap": [
-                {{ "key": "name", "valueString": "The Fancy Place" }},
-                {{ "key": "rating", "valueNumber": 4.8 }},
-                {{ "key": "detail", "valueString": "Fine dining experience" }},
-                {{ "key": "infoLink", "valueString": "https://example.com/fancy" }},
-                {{ "key": "imageUrl", "valueString": "https://example.com/fancy.jpg" }},
-                {{ "key": "address", "valueString": "123 Main St" }}
-              ] }},
-              {{ "key": "item2", "valueMap": [
-                {{ "key": "name", "valueString": "Quick Bites" }},
-                {{ "key": "rating", "valueNumber": 4.2 }},
-                {{ "key": "detail", "valueString": "Casual and fast" }},
-                {{ "key": "infoLink", "valueString": "https://example.com/quick" }},
-                {{ "key": "imageUrl", "valueString": "https://example.com/quick.jpg" }},
-                {{ "key": "address", "valueString": "456 Oak Ave" }}
-              ] }}
-            ] }} // Populate this with restaurant data
-          ]
-        }} }}
-      ]
+            ]
+          }} }},
+          {{ "version": "v0.9", "updateDataModel": {{
+            "surfaceId": "default",
+            "path": "/",
+            "value": {{
+              "items": [
+                {{ "name": "The Fancy Place", "rating": 4.8, "detail": "Fine dining experience", "infoLink": "https://example.com/fancy", "imageUrl": "https://example.com/fancy.jpg", "address": "123 Main St" }},
+                {{ "name": "Quick Bites", "rating": 4.2, "detail": "Casual and fast", "infoLink": "https://example.com/quick", "imageUrl": "https://example.com/quick.jpg", "address": "456 Oak Ave" }}
+              ]
+            }}
+          }} }}
+        ]
+      }}
       ---END SINGLE_COLUMN_LIST_EXAMPLE---
       # ... more examples below
       ```
@@ -119,9 +107,10 @@ Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate 
     The widgets are injected into the agent's prompt, in this case using the `RESTAURANT_UI_EXAMPLES` variable.
     Widgets are defined for the agent using examples of the json arrays they should output, wrapped in a comment block.
     - A comment indicating the start of the example
-    - beginRendering: The start of the widget's rendering
-    - surfaceUpdate: An example of the json structure for the widget
-    - dataModelUpdate: an example of the data that will be used to populate the widget
+    - createSurface: Initializes the widget surface and must come first
+    - updateComponents: An example of the JSON structure for the widget
+    - updateDataModel: An example of the data that will populate the widget
+    - a2ui_operations: The envelope containing the v0.9 operations
     - A comment indicating the end of the example
 
     In the example repo, all of the widgets are defined in a single variable int the prompt_builder.py file, but you can structure them however you like,

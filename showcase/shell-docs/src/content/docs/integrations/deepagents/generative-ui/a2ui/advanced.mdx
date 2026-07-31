@@ -125,6 +125,8 @@ A common pattern is to show a skeleton layout once `components` has data, then s
 
 Each A2UI approach has its own way to declare action handlers on the agent side — see the individual guides for [Fixed Schema](./fixed-schema#adding-interactivity-action-handlers), [Streaming](./fixed-schema-streaming#adding-interactivity-action-handlers), and [Dynamic Schema](./dynamic-schema#action-handlers-in-dynamic-schemas).
 
+The Python SDK's `a2ui.render` does not yet support the `action_handlers=` keyword. The frontend hook and custom orchestrator examples below remain available for client-side handling.
+
 This section covers the frontend-side APIs for custom handling, the resolution chain, and the schema button format.
 
 ### Schema button with action context
@@ -170,8 +172,8 @@ useA2UIActionHandler((action, declaredOps) => {
   if (action.name === "book_flight") {
     // Return custom operations
     return [
-      { surfaceUpdate: { surfaceId: action.surfaceId, components: mySchema } },
-      { beginRendering: { surfaceId: action.surfaceId, root: "root" } },
+      { createSurface: { surfaceId: action.surfaceId, catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json" } },
+      { updateComponents: { surfaceId: action.surfaceId, components: mySchema } },
     ];
   }
   return null; // skip — let other handlers or fallback try
