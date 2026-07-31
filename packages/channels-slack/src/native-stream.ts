@@ -60,6 +60,12 @@ export interface TextStream {
 export interface NativeStreamTransport {
   /** `chat.startStream` → resolves with the new streamed message's `ts`. Throws on failure. */
   startStream(): Promise<string>;
+  /**
+   * `chat.startStream` with the first raw markdown delta included in the open.
+   * When omitted, {@link NativeMessageStream} falls back to an empty start plus
+   * `appendText` for backward-compatible transports.
+   */
+  startStreamWithText?(markdownText: string): Promise<string>;
   /** `chat.appendStream` — append a raw `markdown_text` delta to the message at `ts`. */
   appendText(ts: string, markdownText: string): Promise<void>;
   /** `chat.appendStream` — append structured {@link AnyChunk}s to the message at `ts`. */
@@ -604,50 +610,84 @@ export class NativeMessageStream implements TextStream {
   private async appendPending(): Promise<void> {
     if (this.truncated) return; // terminal; see truncate()
     while (this.curPosted < this.buffer.length) {
-      if (!(await this.ensureStarted())) return; // failed over to legacy
-      const roomBytes = this.messageByteLimit - this.curMessageBytes;
-      // Defensive: every branch below that fills a message rolls over in the same
-      // iteration, so a full message is not observed at the top of the next one.
-      // Kept so the loop cannot spin if that ever stops holding — which is also
-      // why it has no test: it is unreachable at any configuration.
-      if (roomBytes <= 0) {
+      // A rollover clears curTs but leaves the prior message's byte count in
+      // place until ensureStarted opens and resets the continuation.
+      if (!this.curTs && this.firstTsValue !== undefined) {
+        if (!(await this.ensureStarted())) return;
+      }
+      const next = this.nextTextSlice();
+      if (!next) {
         if (!(await this.rollOver())) return;
         continue;
       }
-      // How far the byte budget reaches, and how far one call may reach.
-      const byteEnd = spanWithinBudget(
-        this.buffer,
-        this.curPosted,
-        roomBytes,
-        Number.MAX_SAFE_INTEGER,
-      );
-      const callEnd = spanWithinBudget(
-        this.buffer,
-        this.curPosted,
-        Number.MAX_SAFE_INTEGER,
-        APPEND_CHAR_LIMIT,
-      );
-      if (byteEnd >= this.buffer.length) {
-        // The rest of the reply fits in this message; only the per-call cap applies.
-        await this.appendSlice(Math.min(callEnd, this.buffer.length));
-        continue;
+
+      if (
+        !this.curTs &&
+        this.firstTsValue === undefined &&
+        this.transport.startStreamWithText
+      ) {
+        if (!(await this.startWithInitialSlice(next.end))) return;
+      } else {
+        if (!(await this.ensureStarted())) return; // failed over to legacy
+        await this.appendSlice(next.end);
       }
-      if (byteEnd <= this.curPosted) {
-        // Not even one code point fits — the message is full. Defensive, like the
-        // `roomBytes <= 0` check above: reaching it needs leftover room smaller
-        // than one character at the top of an iteration, and every branch that
-        // could leave that state rolls over first. Untestable, deliberately kept.
-        if (!(await this.rollOver())) return;
-        continue;
-      }
-      if (callEnd < byteEnd) {
-        // Per-call-limited, not message-limited: send a full call, keep the message.
-        await this.appendSlice(callEnd);
-        continue;
-      }
-      // Message-limited with text remaining: freeze the boundary, then roll over.
-      await this.appendSlice(this.breakPoint(this.curPosted, byteEnd));
-      if (!(await this.rollOver())) return;
+
+      if (next.rollOverAfter && !(await this.rollOver())) return;
+    }
+  }
+
+  /** Select the next bounded text slice and whether it fills this message. */
+  private nextTextSlice():
+    | { readonly end: number; readonly rollOverAfter: boolean }
+    | undefined {
+    const roomBytes = this.messageByteLimit - this.curMessageBytes;
+    // Defensive: every branch that fills a message rolls over in the same
+    // iteration, so a full message should not reach the next one.
+    if (roomBytes <= 0) return undefined;
+
+    const byteEnd = spanWithinBudget(
+      this.buffer,
+      this.curPosted,
+      roomBytes,
+      Number.MAX_SAFE_INTEGER,
+    );
+    const callEnd = spanWithinBudget(
+      this.buffer,
+      this.curPosted,
+      Number.MAX_SAFE_INTEGER,
+      APPEND_CHAR_LIMIT,
+    );
+    if (byteEnd >= this.buffer.length) {
+      return {
+        end: Math.min(callEnd, this.buffer.length),
+        rollOverAfter: false,
+      };
+    }
+    // Not even one code point fits. The caller rolls over before retrying.
+    if (byteEnd <= this.curPosted) return undefined;
+    if (callEnd < byteEnd) {
+      return { end: callEnd, rollOverAfter: false };
+    }
+    return {
+      end: this.breakPoint(this.curPosted, byteEnd),
+      rollOverAfter: true,
+    };
+  }
+
+  /** Start the first message with text and advance only after Slack accepts it. */
+  private async startWithInitialSlice(end: number): Promise<boolean> {
+    const initialText = this.buffer.slice(this.curPosted, end);
+    try {
+      this.curTs = await this.transport.startStreamWithText!(initialText);
+      this.firstTsValue = this.curTs;
+      this.messageCount += 1;
+      this.curPosted = end;
+      this.curMessageBytes = utf8Length(initialText);
+      return true;
+    } catch (err) {
+      if (this.strict) throw err;
+      this.failOverToLegacy(err);
+      return false;
     }
   }
 
@@ -790,14 +830,13 @@ export class NativeMessageStream implements TextStream {
   private async flushChunk(chunk: AnyChunk): Promise<void> {
     if (this.legacy || this.chunksDisabled) return;
     try {
-      // Start the stream even if no text yet — a tool call can be the first
-      // thing the agent emits (`startStream` accepts a content-less open; the
-      // chunk is the message's first content).
-      if (!(await this.ensureStarted())) {
+      await this.flushTextInline();
+      // Start without text only when the chunk is the first content. Pending
+      // text uses startStreamWithText when the transport supports it.
+      if (!this.curTs && !(await this.ensureStarted())) {
         this.disableChunks(new Error("startStream failed"));
         return;
       }
-      await this.flushTextInline();
       // A rollover inside the text flush retargets the stream, and a legacy
       // failover removes it entirely; re-check before addressing the chunk.
       if (this.legacy || !this.curTs) {

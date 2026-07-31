@@ -271,6 +271,16 @@ export function createRunRenderer(args: {
           await onFirstReply();
           return ts;
         },
+        ...(ns.transport.startStreamWithText
+          ? {
+              startStreamWithText: async (markdownText: string) => {
+                const ts =
+                  await ns.transport.startStreamWithText!(markdownText);
+                await onFirstReply();
+                return ts;
+              },
+            }
+          : {}),
         appendText: (ts, md) => ns.transport.appendText(ts, md),
         appendChunks: (ts, chunks) => ns.transport.appendChunks(ts, chunks),
         stopStream: (ts, blocks) => ns.transport.stopStream(ts, blocks),

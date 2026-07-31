@@ -241,9 +241,19 @@ describe("DeliveryAdapter Slack cadence", () => {
           .map((call) => call[1])
           .filter((payload) => payload.kind === "slack.stream.append");
 
-      expect(appendPayloads()).toHaveLength(1);
+      expect(effect.mock.calls.map((call) => call[1])).toContainEqual({
+        kind: "slack.stream.start",
+        initialText: "A",
+      });
+      expect(appendPayloads()).toHaveLength(0);
       await vi.advanceTimersByTimeAsync(1);
-      expect(appendPayloads()).toHaveLength(2);
+      expect(appendPayloads()).toEqual([
+        {
+          kind: "slack.stream.append",
+          providerReference: "pref_v1_slack_stream_01",
+          delta: "B",
+        },
+      ]);
 
       await subscriber.onTextMessageEndEvent!({
         event: { messageId: "message-1" },
