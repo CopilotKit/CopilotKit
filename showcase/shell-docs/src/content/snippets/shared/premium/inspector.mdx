@@ -19,6 +19,39 @@ The CopilotKit Inspector is a built-in debugging tool that overlays on your app,
 | **Agent State**      | Inspect your agent's current state as it updates.                                        |
 | **Frontend Tools**   | See what tools you've defined on the frontend and their parameter schemas.               |
 | **Context**          | View the context you've provided to the agent, including readables and document context. |
+| **Project Context**  | See trusted organization, project, plan, and license-aware actions when the runtime supplies them. |
+
+## Project and license context
+
+An Intelligence-backed Runtime can supply optional trusted project metadata to
+the Inspector. Valid organization and project names appear in the header, along
+with the plan label. Each module is independent, so one missing or invalid value
+does not hide the others.
+
+When Threads is locked, the Runtime's license state controls the copy and any
+action:
+
+| License state | Inspector behavior |
+| --- | --- |
+| Active | Shows **Manage plan** in the header only when the Runtime supplies that action. A locked Threads view explains that the license is active but the runtime does not expose Threads. |
+| Not enabled | Shows **Enable Intelligence** only when the Runtime supplies that action. |
+| Expired | Shows **Renew** or **Manage plan** only when the Runtime supplies a matching action. |
+| Unknown | Shows neutral unavailable copy without an action. |
+
+The Inspector opens the exact trusted URL supplied by the Runtime. It does not
+build a URL from project details and has no hard-coded signup fallback for the
+locked Threads metadata action. If the new metadata license state conflicts
+with the Runtime's older license status, the Inspector uses the Runtime status
+for copy and hides the action.
+
+Older Runtime, Core, and Inspector versions remain compatible. Missing support
+means the project context is absent and the existing Inspector still works.
+Metadata updates do not change the selected thread.
+
+<Callout type="info">
+  Usage data and grouped Inspector navigation are not shown in this release.
+  The current tabs and thread-selection behavior stay unchanged.
+</Callout>
 
 ## Disabling the Inspector
 

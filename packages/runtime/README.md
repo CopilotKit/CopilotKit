@@ -51,6 +51,34 @@
   </a>
 </p>
 
+## Trusted Inspector metadata
+
+An Intelligence-backed v2 runtime can proxy trusted project and license context
+to the Inspector. The runtime advertises this support with
+`inspectorMetadata: true` in its runtime-info response.
+
+| Runtime mode | Request                                                     |
+| ------------ | ----------------------------------------------------------- |
+| Multi-route  | `GET {basePath}/inspector-metadata`                         |
+| Single-route | `POST {basePath}` with `{ "method": "inspector/metadata" }` |
+
+A valid response is a sanitized `InspectorMetadataV1` JSON object with
+`Cache-Control: no-store, private`. Missing data, an unsupported schema, a
+non-Intelligence runtime, or a provider failure returns `204` with the same
+cache policy. This optional request never changes the main runtime connection
+state.
+
+The Intelligence request uses the API key configured on the server-side
+`CopilotKitIntelligence` client. The proxy does not forward browser headers or
+cookies to Intelligence, and it does not expose provider error bodies to the
+browser. Browser headers and configured fetch credentials still apply between
+`@copilotkit/core` and your Copilot Runtime, so you can protect the runtime route
+with your normal app auth.
+
+Deploy the Intelligence producer before releasing a runtime that advertises the
+capability. New runtimes treat a `404` from an older Intelligence App API as
+compatible absence and return `204` to the client.
+
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).

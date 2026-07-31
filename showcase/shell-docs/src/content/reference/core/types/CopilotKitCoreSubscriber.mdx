@@ -27,7 +27,8 @@ interface CopilotKitCoreSubscriber {
     status: CopilotKitCoreRuntimeConnectionStatus;
   }) => void | Promise<void>;
   // ...one optional callback per lifecycle event (tool execution, agents,
-  // context, suggestions, properties, headers, errors, thread stores).
+  // context, suggestions, properties, headers, Inspector metadata, errors,
+  // and thread stores).
   // See the Properties section below for each callback's event shape.
 }
 ```
@@ -78,6 +79,13 @@ interface CopilotKitCoreSubscriber {
   Fired when the request headers change. Event: `{ copilotkit, headers }`.
 </PropertyReference>
 
+<PropertyReference name="onInspectorMetadataChanged" type="(event) => void | Promise<void>">
+  Fired when optional trusted Inspector metadata changes or is cleared. Event:
+  `{ copilotkit, inspectorMetadata }`, where `inspectorMetadata` is an
+  `InspectorMetadataV1 | undefined` snapshot. Metadata notifications are ordered,
+  and a callback failure does not block later subscribers or refreshes.
+</PropertyReference>
+
 <PropertyReference name="onError" type="(event) => void | Promise<void>">
   Fired when an error occurs. Event: `{ copilotkit, error, code, context }` where `code` is a [`CopilotKitCoreErrorCode`](/reference/core/enums/CopilotKitCoreErrorCode).
 </PropertyReference>
@@ -99,6 +107,9 @@ const subscription = copilotkit.subscribe({
   },
   onError: ({ code, error }) => {
     console.error(code, error);
+  },
+  onInspectorMetadataChanged: ({ inspectorMetadata }) => {
+    console.log("project context:", inspectorMetadata);
   },
 });
 

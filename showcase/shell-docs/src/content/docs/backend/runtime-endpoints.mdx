@@ -21,6 +21,7 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 | Method & path | Purpose |
 |---|---|
 | `GET /api/copilotkit/info` | Runtime info. The frontend calls this on startup to discover registered agents and their metadata. |
+| `GET /api/copilotkit/inspector-metadata` | Optional trusted project, plan, license, and action context for the Inspector. Intelligence-backed runtimes advertise this route with `inspectorMetadata: true` in the runtime-info response. |
 | `POST /api/copilotkit/agent/:agentId/run` | Start an agent run. The request body is an AG-UI `RunAgentInput`; the response is an SSE stream of AG-UI events. |
 | `POST /api/copilotkit/agent/:agentId/connect` | Connect to an agent's thread. Used to resume streaming after a reconnect or page refresh. Also an SSE stream. |
 | `POST /api/copilotkit/agent/:agentId/stop/:threadId` | Stop an in-progress run on a given thread. |
@@ -34,6 +35,31 @@ operation. Given a `basePath` of `/api/copilotkit`, the routes are:
 The `GET /info` route is the same endpoint the frontend uses for agent
 discovery. If it isn't reachable from the runtime, the frontend reports a
 `runtime_info_fetch_failed` error. See [Error Debugging](/troubleshooting/error-debugging).
+</Callout>
+
+### Inspector metadata
+
+An Intelligence-backed runtime adds `inspectorMetadata: true` to its runtime-info
+response. After the main connection completes, `@copilotkit/core` uses that flag
+to request `GET {basePath}/inspector-metadata` in the background. Older runtimes
+omit the flag, so newer clients skip the optional request.
+
+A valid response is a versioned `InspectorMetadataV1` JSON object. The response
+always uses `Cache-Control: no-store, private`. The route returns `204` with the
+same cache policy when data is absent, the schema is unsupported, the runtime is
+not backed by Intelligence, or the provider request fails. A metadata failure
+does not change the runtime connection or agent state.
+
+```bash
+curl -i http://localhost:4000/api/copilotkit/inspector-metadata
+```
+
+<Callout type="info">
+  The runtime uses its server-side Intelligence API key for the upstream
+  request. It does not forward browser headers or cookies to Intelligence, and
+  it does not expose provider error bodies to the browser. Auth headers and
+  cookies can still protect the browser-to-runtime request like any other
+  runtime route.
 </Callout>
 
 ### Probing the runtime with curl
@@ -73,6 +99,15 @@ app.use(
   }),
 );
 ```
+
+The optional Inspector metadata operation uses the same endpoint with this
+envelope:
+
+```json
+{ "method": "inspector/metadata" }
+```
+
+Its response and failure rules match `GET {basePath}/inspector-metadata`.
 
 <FrontendOnly frontend="react">
 On the frontend, opt into the matching transport with the `useSingleEndpoint`
@@ -148,6 +183,10 @@ createCopilotExpressHandler({
 
 See [Auth](/auth) for the full authentication guide.
 
+For Inspector metadata, Core sends these current browser-to-runtime headers and
+fetch credentials on the optional request. The Runtime then starts a separate
+server-to-Intelligence request with only its configured Intelligence API key.
+
 ## Connect route 404 on a fresh thread
 
 A frequent self-hosting symptom is a `404` from the
@@ -169,3 +208,4 @@ has sent a single message. This usually means one of two things:
 - [AgentRunner](/backend/agent-runner): the persistence abstraction behind `run`/`connect`/`stop`.
 - [Connect AG-UI agents](/backend/ag-ui): how the frontend proxy maps onto these routes.
 - [Error Debugging](/troubleshooting/error-debugging): the `onError` codes that map to these routes.
+- [Inspector](/inspector): how trusted project context and license-aware actions appear in the Inspector.
