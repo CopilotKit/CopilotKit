@@ -19,7 +19,6 @@ function createMetadata(): InspectorMetadataV1 {
     usage: {
       used: 41,
       limit: { kind: "finite", value: 100 },
-      expiringSoonCount: 3,
     },
   };
 }
@@ -84,7 +83,6 @@ test("handle-inspector-metadata sanitizes bad typed provider data at its boundar
     usage: {
       used: -1,
       limit: { kind: "finite", value: 0 },
-      expiringSoonCount: -1,
     },
     secret: "do-not-forward",
   }));

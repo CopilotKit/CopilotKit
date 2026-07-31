@@ -63,7 +63,6 @@ function metadata(label: string): InspectorMetadataV1 {
     usage: {
       used: label.length,
       limit: { kind: "finite", value: 100 },
-      expiringSoonCount: 0,
     },
   };
 }

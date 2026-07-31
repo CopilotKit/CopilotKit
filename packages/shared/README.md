@@ -169,7 +169,6 @@ interface InspectorMetadataV1 {
       | { readonly kind: "finite"; readonly value: number }
       | { readonly kind: "unlimited" }
       | { readonly kind: "unknown" };
-    readonly expiringSoonCount: number;
   };
 }
 ```

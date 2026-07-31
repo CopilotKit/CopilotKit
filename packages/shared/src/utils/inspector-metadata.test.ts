@@ -17,7 +17,6 @@ function validUsage(limit: unknown = { kind: "finite", value: 100 }) {
   return {
     used: 12,
     limit,
-    expiringSoonCount: 2,
   };
 }
 
@@ -56,7 +55,6 @@ test("parses complete metadata and strips unknown fields", () => {
         value: 100,
         unit: "threads",
       },
-      expiringSoonCount: 2,
       internalThreadIds: ["thread-secret"],
     },
     internalOrganizationId: "org-secret",
@@ -87,7 +85,6 @@ test("parses complete metadata and strips unknown fields", () => {
         kind: "finite",
         value: 100,
       },
-      expiringSoonCount: 2,
     },
   });
 });
@@ -479,34 +476,6 @@ test.each([
     },
   });
 });
-
-test.each([
-  -1,
-  0.5,
-  Number.NaN,
-  Number.NEGATIVE_INFINITY,
-  Number.MAX_SAFE_INTEGER + 1,
-  "2",
-  null,
-])(
-  "omits usage when expiringSoonCount is not a finite nonnegative integer: %s",
-  (expiringSoonCount) => {
-    const value = metadataWithUsage({
-      ...validUsage(),
-      expiringSoonCount,
-    });
-
-    const result = parseInspectorMetadataV1(value);
-
-    expect(result).toStrictEqual({
-      schemaVersion: 1,
-      identity: {
-        organizationName: "Acme",
-        projectName: "Support",
-      },
-    });
-  },
-);
 
 test.each([
   0,

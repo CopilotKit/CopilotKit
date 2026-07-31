@@ -54,7 +54,6 @@ function fullMetadata(
     usage: {
       used: 148,
       limit: { kind: "finite", value: 200 },
-      expiringSoonCount: 37,
     },
   };
 }

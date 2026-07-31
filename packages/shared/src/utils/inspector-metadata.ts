@@ -27,7 +27,6 @@ export interface InspectorMetadataV1 {
       | { readonly kind: "finite"; readonly value: number }
       | { readonly kind: "unlimited" }
       | { readonly kind: "unknown" };
-    readonly expiringSoonCount: number;
   };
 }
 
@@ -213,18 +212,13 @@ function parseUsage(value: unknown): InspectorUsage | undefined {
   }
 
   const limit = parseUsageLimit(value.limit);
-  if (
-    !isFiniteNonnegativeInteger(value.used) ||
-    limit === undefined ||
-    !isFiniteNonnegativeInteger(value.expiringSoonCount)
-  ) {
+  if (!isFiniteNonnegativeInteger(value.used) || limit === undefined) {
     return undefined;
   }
 
   return {
     used: value.used,
     limit,
-    expiringSoonCount: value.expiringSoonCount,
   };
 }
 

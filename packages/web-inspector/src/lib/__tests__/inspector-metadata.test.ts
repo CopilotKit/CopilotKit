@@ -19,7 +19,6 @@ function metadata(overrides: Record<string, unknown> = {}): unknown {
     usage: {
       used: 148,
       limit: { kind: "finite", value: 200 },
-      expiringSoonCount: 37,
     },
     ...overrides,
   };
@@ -250,7 +249,5 @@ test("never projects usage, including sentinel values", () => {
 
   expect(serialized).not.toContain("148");
   expect(serialized).not.toContain("200");
-  expect(serialized).not.toContain("37");
   expect(serialized).not.toContain("usage");
-  expect(serialized).not.toContain("expiringSoonCount");
 });
