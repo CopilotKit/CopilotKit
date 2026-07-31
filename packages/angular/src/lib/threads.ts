@@ -70,7 +70,10 @@ export interface InjectThreadsInput {
   agentId: string | Signal<string>;
   /** When `true`, archived threads are included in the list. Defaults to `false`. */
   includeArchived?: boolean | Signal<boolean | undefined>;
-  /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */
+  /**
+   * Overrides the thread page size. The default is 50 threads per page.
+   * Cursor-based pagination remains active when `limit` is omitted.
+   */
   limit?: number | Signal<number | undefined>;
   /**
    * When `false`, the store stays inert: no runtime context is dispatched, so
@@ -87,15 +90,24 @@ export interface InjectThreadsInput {
  * Signal-based threads-list API returned by {@link injectThreads}.
  *
  * The `threads` signal is kept in sync with the platform via a realtime
- * WebSocket subscription (when available) and is sorted most-recently-active
- * first. Mutation methods reject with an `Error` if the platform request
- * fails; `delete` additionally rolls back its optimistic removal.
+ * WebSocket subscription when available. It is sorted by `lastRunAt`, then
+ * `updatedAt`, then `createdAt` (most recent first).
+ *
+ * Archive is a reversible visibility state. Pass `includeArchived: true` to
+ * include archived rows; unarchive restores the active row. Delete is
+ * irreversible to the app user. The platform soft-deletes the thread and
+ * retains its stored row.
+ *
+ * Rename, archive, unarchive, and delete update the local list optimistically.
+ * A rejected delete restores the removed row; other mutation failures surface
+ * an error, then realtime updates or a refetch reconcile the server state.
  */
 export interface InjectThreadsResult {
   /**
-   * Threads for the current user/agent pair, sorted most-recently-active
-   * first. Updated in realtime when the platform pushes metadata events.
-   * Includes archived threads only when `includeArchived` is set.
+   * Threads for the current user/agent pair, sorted by `lastRunAt`, then
+   * `updatedAt`, then `createdAt` (most recent first). Updated in realtime
+   * when the platform pushes metadata events. Includes archived threads only
+   * when `includeArchived` is set.
    */
   threads: Signal<Thread[]>;
   /**
@@ -126,8 +138,8 @@ export interface InjectThreadsResult {
   fetchMoreError: Signal<Error | null>;
   /**
    * `true` when there are more threads available to fetch via
-   * {@link InjectThreadsResult.fetchMoreThreads}. Only meaningful when `limit`
-   * is set.
+   * {@link InjectThreadsResult.fetchMoreThreads}. The response's `nextCursor`
+   * controls this value, including when `limit` is omitted.
    */
   hasMoreThreads: Signal<boolean>;
   /** `true` while a subsequent page of threads is being fetched. */
@@ -163,21 +175,23 @@ export interface InjectThreadsResult {
    */
   renameThread: (threadId: string, name: string) => Promise<void>;
   /**
-   * Archive a thread on the platform. Archived threads are excluded from
-   * subsequent list results. Resolves when the server confirms the update;
-   * rejects on failure.
+   * Apply a reversible visibility state to a thread on the platform. Archived
+   * threads are excluded from subsequent list results unless
+   * `includeArchived: true` is set. Resolves when the server confirms the
+   * update; rejects on failure.
    */
   archiveThread: (threadId: string) => Promise<void>;
   /**
-   * Restore a previously archived thread on the platform. The thread
-   * re-appears in default (non-archived) list results. Resolves when the
-   * server confirms the update; rejects on failure.
+   * Unarchive a previously archived thread on the platform. This restores the
+   * active row in default list results. Resolves when the server confirms the
+   * update; rejects on failure.
    */
   unarchiveThread: (threadId: string) => Promise<void>;
   /**
-   * Permanently delete a thread from the platform. This is irreversible.
-   * Resolves when the server confirms deletion; rejects on failure (the
-   * optimistic removal is rolled back).
+   * Delete a thread. This is irreversible to the app user. The platform
+   * soft-deletes the thread and retains its stored row. Resolves when the
+   * server confirms deletion; rejects on failure (the rejected delete restores
+   * the removed row).
    */
   deleteThread: (threadId: string) => Promise<void>;
 }

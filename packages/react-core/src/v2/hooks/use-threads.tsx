@@ -73,14 +73,24 @@ export interface UseThreadsInput {
  * Return value of the {@link useThreads} hook.
  *
  * The `threads` array is kept in sync with the platform via a realtime
- * WebSocket subscription (when available) and is sorted most-recently-updated
- * first. Mutations reject with an `Error` if the platform request fails.
+ * WebSocket subscription when available. It is sorted by `lastRunAt`, then
+ * `updatedAt`, then `createdAt` (most recent first).
+ *
+ * Archive is a reversible visibility state. Pass `includeArchived: true` to
+ * include archived rows; unarchive restores the active row. Delete is
+ * irreversible to the app user. The platform soft-deletes the thread and
+ * retains its stored row.
+ *
+ * Rename, archive, unarchive, and delete update the local list optimistically.
+ * A rejected delete restores the removed row; other mutation failures surface
+ * an error, then realtime updates or a refetch reconcile the server state.
  */
 export interface UseThreadsResult {
   /**
-   * Threads for the current user/agent pair, sorted by most recently
-   * updated first. Updated in realtime when the platform pushes metadata
-   * events. Includes archived threads only when `includeArchived` is set.
+   * Threads for the current user/agent pair, sorted by `lastRunAt`, then
+   * `updatedAt`, then `createdAt` (most recent first). Updated in realtime
+   * when the platform pushes metadata events. Includes archived threads only
+   * when `includeArchived` is set.
    */
   threads: Thread[];
   /**
@@ -155,21 +165,22 @@ export interface UseThreadsResult {
    */
   renameThread: (threadId: string, name: string) => Promise<void>;
   /**
-   * Archive a thread on the platform.
-   * Archived threads are excluded from subsequent list results.
+   * Apply a reversible visibility state to a thread on the platform.
+   * Archived threads are excluded from subsequent list results unless
+   * `includeArchived: true` is set.
    * Resolves when the server confirms the update; rejects on failure.
    */
   archiveThread: (threadId: string) => Promise<void>;
   /**
-   * Restore a previously archived thread on the platform.
-   * The thread re-appears in default (non-archived) list results.
+   * Unarchive a previously archived thread on the platform. This restores the
+   * active row in default list results.
    * Resolves when the server confirms the update; rejects on failure.
    */
   unarchiveThread: (threadId: string) => Promise<void>;
   /**
-   * Permanently delete a thread from the platform.
-   * This is irreversible. Resolves when the server confirms deletion;
-   * rejects on failure.
+   * Delete a thread. This is irreversible to the app user. The platform
+   * soft-deletes the thread and retains its stored row. Resolves when the
+   * server confirms deletion; rejects on failure.
    */
   deleteThread: (threadId: string) => Promise<void>;
 }
@@ -201,8 +212,8 @@ function useThreadStoreSelector<T>(
  * On mount the hook fetches the thread list for the runtime-authenticated user
  * and the given `agentId`. When the Intelligence platform exposes a WebSocket
  * URL, it also opens a realtime subscription so the `threads` array stays
- * current without polling — thread creates, renames, archives, and deletes
- * from any client are reflected immediately.
+ * current without polling — thread creates, renames, archives, unarchives, and
+ * deletes from any client are reflected immediately.
  *
  * Mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`,
  * `deleteThread`) return promises that resolve once the platform confirms the

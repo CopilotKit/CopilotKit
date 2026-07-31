@@ -36,7 +36,7 @@ From a developer's perspective, threads involve three things:
 
 | What you use | What it does |
 |-------------|-------------|
-| `useThreads` hook | Lists, renames, archives, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
+| `useThreads` hook | Lists, renames, archives, restores, and deletes threads. Pagination via `hasMoreThreads` / `fetchMoreThreads`. Stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
 | `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
 
@@ -54,8 +54,8 @@ Auto-naming is enabled by default. Disable it with `generateThreadNames: false` 
 
 Threads support two removal operations with different semantics:
 
-- **Archive** is a soft delete. The thread remains stored but disappears from the default list. Show archived threads by passing `includeArchived: true` to `useThreads`. Threads can also be unarchived, which restores them to the active list.
-- **Delete** is permanent and irreversible. The thread and its history are removed entirely.
+- **Archive** is a reversible visibility state. The thread disappears from the default list, while `includeArchived: true` includes archived rows. Unarchive restores the active row.
+- **Delete** is irreversible to the app user. The platform soft-deletes the thread and retains its stored row; the current UI and API expose no restore action.
 
 Neither operation has a built-in confirmation dialog, so your application should implement its own if needed.
 
@@ -76,7 +76,7 @@ In either case the transition from replayed history to live updates is seamless.
 
 ### Realtime sync
 
-The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
+The `useThreads` hook maintains a WebSocket subscription for thread metadata changes. When any client creates, renames, archives, unarchives, or deletes a thread, the update is pushed to all connected clients automatically. This is how a thread created on one tab appears in the sidebar on another tab without polling.
 
 ### Future runs and native persistence
 
@@ -90,16 +90,12 @@ service that retains its sessions.
 That coordinated future persistence lets teams retain native framework storage
 and analytics while adding the Rich Threads experience for users. It is not a
 general replication link between databases: `useThreads` operations such as
-rename, archive, and delete change the Enterprise Intelligence thread and do not
-mutate records in LangGraph, ADK, or another native store.
+rename, archive, unarchive, and delete change the Enterprise Intelligence thread
+and do not mutate records in LangGraph, ADK, or another native store.
 
-### Pessimistic updates
+### Optimistic updates
 
-Thread mutations (`rename`, `archive`, `delete`) use a pessimistic update model: the client waits for the server to confirm via WebSocket before updating the thread list. This means:
-
-- The thread list doesn't change until the server confirms the operation.
-- If the server rejects the mutation, the UI never shows an incorrect state.
-- The returned promise resolves only after server confirmation, or rejects on failure.
+Rename, archive, unarchive, and delete update the thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, then realtime updates or a refetch reconcile the server state. Each returned promise resolves after server confirmation or rejects on failure.
 
 ## Error handling
 

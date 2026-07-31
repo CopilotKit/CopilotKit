@@ -61,7 +61,9 @@ export class ThreadListComponent {
 
 The list is server-authoritative and uses realtime updates when the platform
 supplies a WebSocket URL. Rename, archive, unarchive, and delete return
-promises. Deletion is permanent; ask the user before calling `deleteThread`.
+promises. Deletion is irreversible to the app user: the platform soft-deletes
+the thread and retains its stored row. Ask the user before calling
+`deleteThread` because the current UI and API expose no restore action.
 
 `CopilotThreadsDrawer` supplies a ready-made list, selection, filtering,
 pagination, and mutation controls. Put the drawer and chat under the same

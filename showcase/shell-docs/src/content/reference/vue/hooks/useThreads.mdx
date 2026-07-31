@@ -1,6 +1,6 @@
 ---
 title: "useThreads"
-description: "Vue 3 composable for listing, managing, and syncing conversation threads with useThreads -- rename, archive, delete, and paginate threads with realtime updates."
+description: "Vue 3 composable for listing, managing, and syncing conversation threads with useThreads -- rename, archive, restore, delete, and paginate threads with realtime updates."
 ---
 
 <OpsPlatformCTA
@@ -13,9 +13,9 @@ description: "Vue 3 composable for listing, managing, and syncing conversation t
 
 ## Overview
 
-`useThreads` is a Vue 3 composable for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via the core thread store's realtime channel, and exposes mutation methods for renaming, archiving, and deleting threads.
+`useThreads` is a Vue 3 composable for managing conversation threads on the Enterprise Intelligence Platform. It fetches the thread list for a given agent, keeps it synchronized in realtime via the core thread store's realtime channel, and exposes mutation methods for renaming, archiving, restoring, and deleting threads.
 
-Threads are sorted by recency — by `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first). The composable supports cursor-based pagination when a `limit` is provided. All inputs accept refs, computeds, or getters (`MaybeRefOrGetter`), so changing the thread context reactively re-fetches the list.
+Threads are sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first). Cursor-based pagination is always active. The default page size is 50 threads per page; `limit` only overrides the page size. All inputs accept refs, computeds, or getters (`MaybeRefOrGetter`), so changing the thread context reactively re-fetches the list.
 
 <Callout type="info">
   Return values are Vue refs and computeds. Read them with `.value` in `<script setup>`, or unwrap them automatically in `<template>`.
@@ -43,7 +43,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="limit" type="MaybeRefOrGetter<number | undefined>" default="undefined">
-    Maximum number of threads to fetch per page. When set, enables cursor-based pagination via `fetchMoreThreads()` and `hasMoreThreads`.
+    Overrides the default page size of 50 threads. Cursor-based pagination remains active when `limit` is omitted.
   </PropertyReference>
 </PropertyReference>
 
@@ -73,7 +73,7 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="hasMoreThreads" type="Ref<boolean>">
-    `true` when more threads are available beyond the current page. Only meaningful when `limit` is set.
+    `true` when more threads are available beyond the current page. The response's `nextCursor` controls this value, including when you omit `limit`.
   </PropertyReference>
 
   <PropertyReference name="isFetchingMoreThreads" type="Ref<boolean>">
@@ -91,11 +91,15 @@ function useThreads(input: UseThreadsInput): UseThreadsResult
   </PropertyReference>
 
   <PropertyReference name="archiveThread" type="(threadId: string) => Promise<void>">
-    Soft-delete a thread. The thread remains in the database with `archived: true` but is excluded from the list unless `includeArchived` is `true`. The promise resolves on server confirmation, or rejects with an `Error` on failure. There is no built-in confirmation dialog, so implement your own if needed.
+    `archiveThread` applies a reversible visibility state: it marks the thread with `archived: true` and excludes it from the default list. Fetch with `includeArchived: true` to include archived rows. The promise resolves on server confirmation, or rejects with an `Error` on failure.
+  </PropertyReference>
+
+  <PropertyReference name="unarchiveThread" type="(threadId: string) => Promise<void>">
+    `unarchiveThread` restores the active row. The promise resolves on server confirmation, or rejects with an `Error` on failure.
   </PropertyReference>
 
   <PropertyReference name="deleteThread" type="(threadId: string) => Promise<void>">
-    Permanently and irreversibly delete a thread. The thread record is removed from the database entirely. The promise resolves on server confirmation, or rejects with an `Error` on failure. There is no built-in confirmation dialog, so implement your own if needed.
+    `deleteThread` is irreversible to the app user: the current UI and API expose no restore action. The platform soft-deletes the thread and retains its stored row. The promise resolves on server confirmation, or rejects with an `Error` on failure. There is no built-in confirmation dialog, so implement your own if needed.
   </PropertyReference>
 </PropertyReference>
 
@@ -170,12 +174,12 @@ const { threads, hasMoreThreads, fetchMoreThreads } = useThreads({
 ## Behavior
 
 - On mount, fetches the thread list and establishes a realtime subscription via the core thread store.
-- Thread creates, renames, archives, and deletes from any client are reflected immediately without polling.
-- All mutation methods use **pessimistic updates**: the list updates only after the server confirms the operation, not immediately on dispatch. Promises resolve on confirmation and reject on failure.
+- Thread creates, renames, archives, unarchives, and deletes from any client are reflected immediately without polling.
+- Rename, archive, unarchive, and delete update the local thread list optimistically. A rejected delete restores the removed row; other mutation failures surface an error, and realtime updates or a refetch reconcile the server state. Promises resolve on confirmation and reject on failure.
 - The composable defers its first fetch until the runtime reports a Connected status, so it issues a single list request plus a single subscribe request rather than refetching once realtime details resolve.
 - While the runtime is connecting (a runtime URL is set but no context has been dispatched yet), `isLoading` stays `true` to avoid an empty-list flash.
 - When no runtime URL is configured, `error` reports a configuration error and the thread store is cleared.
-- The `threads` array stays sorted by recency descending — by `lastRunAt` when present, falling back to `updatedAt`, then `createdAt`.
+- The `threads` array stays sorted by recency: `lastRunAt` when present, falling back to `updatedAt`, then `createdAt` (most recent first).
 - New threads are **automatically named** by the LLM after their first run (a 2 to 5 word title). This is configurable via `generateThreadNames` on the runtime.
 - The composable cleans up its store subscriptions and stops the store automatically when the owning scope is disposed (`onScopeDispose`).
 
