@@ -96,8 +96,13 @@ export type ChannelTerminalPayload = {
     | "runtime_handler_failed";
 };
 
+export type ChannelCommitPayload = {
+  kind: "channel.delivery.commit";
+};
+
 export type ChannelDeliveryPayload =
   | ChannelProviderPayload
+  | ChannelCommitPayload
   | ChannelTerminalPayload;
 
 export interface ChannelDeliveryPacket {
@@ -291,6 +296,8 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
           "runtime_handler_failed",
         ].includes(String(value.code))
       );
+    case "channel.delivery.commit":
+      return hasExactFields(value, ["kind"]);
     default:
       return false;
   }

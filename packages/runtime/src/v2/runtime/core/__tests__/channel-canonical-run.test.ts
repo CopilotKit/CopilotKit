@@ -216,6 +216,35 @@ test("runCanonical renews the standard thread lock until the run settles", async
   }
 });
 
+test("runCanonical stops only its exact run when the delivery is superseded", async () => {
+  const controller = new AbortController();
+  let complete: (() => void) | undefined;
+  const stopRun = vi.fn(async () => {
+    complete?.();
+    return true;
+  });
+  const runner = new TestRunner(
+    () =>
+      new Observable<BaseEvent>((observer) => {
+        complete = () => observer.complete();
+      }),
+    stopRun,
+  );
+  const runCanonical = await captureRunCanonical(runner);
+  const running = runCanonical({
+    ...runArgs(),
+    signal: controller.signal,
+  });
+
+  controller.abort("superseded");
+  await running;
+
+  expect(stopRun).toHaveBeenCalledWith({
+    threadId: canonicalIdentity.threadId,
+    runId: canonicalIdentity.runId,
+  });
+});
+
 test("runCanonical stops the standard runner when lock renewal fails", async () => {
   vi.useFakeTimers();
   try {
@@ -252,6 +281,7 @@ test("runCanonical stops the standard runner when lock renewal fails", async () 
     await failed;
     expect(stopRun).toHaveBeenCalledWith({
       threadId: canonicalIdentity.threadId,
+      runId: canonicalIdentity.runId,
     });
   } finally {
     vi.useRealTimers();

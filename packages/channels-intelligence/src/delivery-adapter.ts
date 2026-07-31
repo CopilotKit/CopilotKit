@@ -76,6 +76,7 @@ const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
 export interface CanonicalChannelRunArgs {
   agent: AbstractAgent;
   deliveryId: string;
+  signal?: AbortSignal;
   threadId: string;
   runId: string;
   userId: string;
@@ -398,6 +399,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     const result = await this.options.runCanonical({
       agent: args.agent,
       deliveryId: target.delivery.deliveryId,
+      signal: target.claimedDelivery.signal,
       threadId,
       runId,
       userId: target.delivery.appUserId,
@@ -409,10 +411,14 @@ export class DeliveryAdapter implements PlatformAdapter {
         if (!canonicalRun) {
           return args.execute(subscriber, canonicalRun);
         }
+        const fencedCanonicalRun = {
+          ...canonicalRun,
+          beforeToolCall: () => target.claimedDelivery.commit(),
+        };
         const emit = (event: BaseEvent) =>
           emitCanonicalEvent({
             agent: args.agent,
-            canonicalRun,
+            canonicalRun: fencedCanonicalRun,
             context: args.context,
             event,
             subscriber,
@@ -420,7 +426,7 @@ export class DeliveryAdapter implements PlatformAdapter {
           });
         this.activeCanonicalEvents.set(threadId, emit);
         try {
-          return await args.execute(subscriber, canonicalRun);
+          return await args.execute(subscriber, fencedCanonicalRun);
         } finally {
           if (this.activeCanonicalEvents.get(threadId) === emit) {
             this.activeCanonicalEvents.delete(threadId);

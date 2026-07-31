@@ -90,6 +90,8 @@ export interface ChannelAgentLoopResult {
 export interface CanonicalRunIdentity {
   threadId: string;
   runId: string;
+  /** Fence the delivery immediately before an irreversible local tool call. */
+  beforeToolCall?: () => Promise<void>;
 }
 
 /**

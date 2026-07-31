@@ -232,6 +232,7 @@ export interface ChannelsIntelligenceModule {
       runCanonical(args: {
         agent: AbstractAgent;
         deliveryId: string;
+        signal?: AbortSignal;
         threadId: string;
         runId: string;
         userId: string;
@@ -367,6 +368,7 @@ export async function defaultActivateChannel(
 interface CanonicalRunArgs {
   agent: AbstractAgent;
   deliveryId: string;
+  signal?: AbortSignal;
   threadId: string;
   runId: string;
   userId: string;
@@ -464,9 +466,23 @@ async function runCanonicalChannelAgent(
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   const stopCanonicalRun = (): void => {
     stopPromise ??= Promise.resolve()
-      .then(() => runner.stop({ threadId: canonicalThreadId }))
+      .then(() =>
+        runner.stop({
+          threadId: canonicalThreadId,
+          runId: canonicalRunId,
+        }),
+      )
       .catch(() => false);
   };
+  const abortCanonicalRun = (): void => {
+    try {
+      args.agent.abortRun();
+    } catch {
+      // The exact runner stop remains the authoritative cancellation path.
+    }
+    stopCanonicalRun();
+  };
+  args.signal?.addEventListener("abort", abortCanonicalRun, { once: true });
   heartbeatTimer = setInterval(() => {
     intelligence
       .ɵrenewThreadLock({
@@ -533,8 +549,12 @@ async function runCanonicalChannelAgent(
           }
         },
       });
+      if (args.signal?.aborted) {
+        abortCanonicalRun();
+      }
     });
   } finally {
+    args.signal?.removeEventListener("abort", abortCanonicalRun);
     if (heartbeatTimer !== undefined) {
       clearInterval(heartbeatTimer);
       heartbeatTimer = undefined;

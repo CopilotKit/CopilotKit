@@ -240,7 +240,7 @@ test("claims an invitation and consumes the one-use token on delivery join", asy
   });
 });
 
-test("does not claim a new invitation while the local delivery limit is full", async () => {
+test("claims bounded pending work but does not execute above the local limit", async () => {
   let releaseFirst: (() => void) | undefined;
   const firstDelivery = new Promise<void>((resolve) => {
     releaseFirst = resolve;
@@ -293,17 +293,18 @@ test("does not claim a new invitation while the local delivery limit is full", a
     canonicalThreadId: "thread_02",
   });
 
-  expect(control.push).toHaveBeenCalledTimes(1);
-  expect(control.push).not.toHaveBeenCalledWith(
+  expect(control.push).toHaveBeenCalledWith(
     "claim",
     expect.objectContaining({ deliveryId: "dlv_delivery_02" }),
   );
+  expect(handled).toHaveBeenCalledOnce();
 
   releaseFirst?.();
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(2));
   await transport.stop();
 });
 
-test("excludes the same canonical Thread before claim while allowing another Thread", async () => {
+test("claims same-Thread work for Redis coordination but executes it in order", async () => {
   let releaseFirst: (() => void) | undefined;
   const firstDelivery = new Promise<void>((resolve) => {
     releaseFirst = resolve;
@@ -366,7 +367,7 @@ test("excludes the same canonical Thread before claim while allowing another Thr
   });
 
   await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(2));
-  expect(control.push).not.toHaveBeenCalledWith(
+  expect(control.push).toHaveBeenCalledWith(
     "claim",
     expect.objectContaining({ deliveryId: "dlv_delivery_02" }),
   );
@@ -376,6 +377,160 @@ test("excludes the same canonical Thread before claim while allowing another Thr
   );
 
   releaseFirst?.();
+  await vi.waitFor(() => expect(handled).toHaveBeenCalledTimes(3));
+  await transport.stop();
+});
+
+test("a newer same-Thread claim aborts the exact switchable delivery before output", async () => {
+  const channels = new Map<string, RealtimeGatewayDeliveryChannel>();
+  const supersessionHandlers = new Map<string, (value: unknown) => void>();
+  const handled: string[] = [];
+  const observedSignals = new Map<string, AbortSignal>();
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((_event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      if (deliveryId === "dlv_delivery_02") {
+        supersessionHandlers.get("dlv_delivery_01")?.({
+          deliveryId: "dlv_delivery_01",
+          supersededByDeliveryId: "dlv_delivery_02",
+          reason: "superseded",
+        });
+      }
+      return Promise.resolve({
+        result: "claimed",
+        deliveryId,
+        ownerGeneration: 7,
+        joinToken: `chj_${deliveryId}`,
+      });
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockImplementation((topic) => {
+      const deliveryId = topic.replace("delivery:", "");
+      const joined = channel({
+        ...preparedDelivery(),
+        deliveryId,
+        canonicalThreadId: "thread_01",
+      });
+      vi.mocked(joined.on).mockImplementation((event, handler) => {
+        if (event === "delivery_superseded") {
+          supersessionHandlers.set(deliveryId, handler);
+        }
+      });
+      channels.set(deliveryId, joined);
+      return Promise.resolve(joined);
+    }),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    maxConcurrentDeliveries: 1,
+  });
+  transport.start(async (claimed, delivery) => {
+    handled.push(delivery.deliveryId);
+    observedSignals.set(delivery.deliveryId, claimed.signal);
+    if (delivery.deliveryId === "dlv_delivery_01") {
+      await new Promise<void>((resolve) => {
+        claimed.signal.addEventListener("abort", () => resolve(), {
+          once: true,
+        });
+      });
+    }
+  });
+  const invite = vi.mocked(control.on).mock.calls[0]![1];
+
+  invite({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() => expect(handled).toEqual(["dlv_delivery_01"]));
+  invite({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_02",
+    canonicalThreadId: "thread_01",
+  });
+
+  await vi.waitFor(() =>
+    expect(handled).toEqual(["dlv_delivery_01", "dlv_delivery_02"]),
+  );
+  expect(observedSignals.get("dlv_delivery_01")?.reason).toBe("superseded");
+  expect(channels.get("dlv_delivery_01")?.push).not.toHaveBeenCalled();
+  await transport.stop();
+});
+
+test("later same-Thread work waits FIFO when Redis reports a committed owner", async () => {
+  let firstActive = true;
+  let releaseFirst: (() => void) | undefined;
+  const firstDone = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const handled: string[] = [];
+  const control: RealtimeGatewaySession = {
+    push: vi.fn().mockImplementation((_event, payload) => {
+      const { deliveryId } = payload as { deliveryId: string };
+      if (deliveryId === "dlv_delivery_02" && firstActive) {
+        return Promise.resolve({
+          result: "deferred",
+          deliveryId,
+          activeDeliveryId: "dlv_delivery_01",
+        });
+      }
+      return Promise.resolve({
+        result: "claimed",
+        deliveryId,
+        ownerGeneration: 7,
+        joinToken: `chj_${deliveryId}`,
+      });
+    }),
+    on: vi.fn(),
+    join: vi.fn().mockImplementation((topic) => {
+      const deliveryId = topic.replace("delivery:", "");
+      return Promise.resolve(
+        channel({
+          ...preparedDelivery(),
+          deliveryId,
+          canonicalThreadId: "thread_01",
+        }),
+      );
+    }),
+  };
+  const transport = new ChannelDeliveryTransport({
+    session: control,
+    runtimeInstanceId: "rti_runtime_01",
+    maxConcurrentDeliveries: 1,
+  });
+  transport.start(async (_claimed, delivery) => {
+    handled.push(delivery.deliveryId);
+    if (delivery.deliveryId === "dlv_delivery_01") {
+      await firstDone;
+      firstActive = false;
+    }
+  });
+  const invite = vi.mocked(control.on).mock.calls[0]![1];
+
+  invite({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_01",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() => expect(handled).toEqual(["dlv_delivery_01"]));
+  invite({
+    protocol: "channel_delivery_v1",
+    deliveryId: "dlv_delivery_02",
+    canonicalThreadId: "thread_01",
+  });
+  await vi.waitFor(() =>
+    expect(control.push).toHaveBeenCalledWith(
+      "claim",
+      expect.objectContaining({ deliveryId: "dlv_delivery_02" }),
+    ),
+  );
+  expect(handled).toEqual(["dlv_delivery_01"]);
+
+  releaseFirst?.();
+  await vi.waitFor(() =>
+    expect(handled).toEqual(["dlv_delivery_01", "dlv_delivery_02"]),
+  );
   await transport.stop();
 });
 
@@ -488,6 +643,34 @@ test("polls the same packet after a retry-wait result", async () => {
   const secondPacket = vi.mocked(deliveryChannel.push).mock.calls[1]![1];
   expect(secondPacket).toEqual(firstPacket);
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
+test("commits irreversible work exactly once and exposes supersession abort", async () => {
+  const deliveryChannel = channel();
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  await Promise.all([session.commit(), session.commit()]);
+
+  expect(deliveryChannel.push).toHaveBeenCalledOnce();
+  expect(vi.mocked(deliveryChannel.push).mock.calls[0]![1]).toMatchObject({
+    seq: 0,
+    payload: { kind: "channel.delivery.commit" },
+  });
+  expect(session.signal.aborted).toBe(false);
+
+  session.supersede("dlv_newer_delivery");
+
+  expect(session.signal.aborted).toBe(true);
+  expect(session.signal.reason).toBe("superseded");
+  expect(session.supersededByDeliveryId).toBe("dlv_newer_delivery");
 });
 
 test("keeps a confirmed Teams image capability rejection non-terminal", async () => {

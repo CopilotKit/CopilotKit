@@ -395,6 +395,7 @@ export async function runAgentLoop(
             error: `invalid arguments: ${parsed.error}`,
           });
         } else {
+          await args.canonicalRun?.beforeToolCall?.();
           try {
             result = stringifyHandlerResult(
               await tool.handler(

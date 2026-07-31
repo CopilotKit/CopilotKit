@@ -837,6 +837,21 @@ describe("IntelligenceAgentRunner", () => {
   });
 
   describe("stop", () => {
+    it("does not stop a different run on the same thread", async () => {
+      const threadId = "t-stop-exact-run";
+      const input = createRunInput({ threadId, runId: "r-current" });
+      const agent = new MockAgent();
+      const sub = runner.run({ threadId, agent, input }).subscribe();
+
+      expect(await runner.stop({ threadId, runId: "r-superseded" })).toBe(
+        false,
+      );
+      expect(agent.aborted).toBe(false);
+      expect(await runner.stop({ threadId, runId: "r-current" })).toBe(true);
+      expect(agent.aborted).toBe(true);
+      sub.unsubscribe();
+    });
+
     it("calls abortRun on the agent directly, no CUSTOM stop push", async () => {
       const threadId = "t-stop";
       const input = createRunInput({ threadId, runId: "r-stop" });

@@ -14,6 +14,7 @@ import {
 import type {
   ChannelDeliveryPacket,
   ChannelDeliveryPacketAck,
+  ChannelDeliveryPayload,
   ChannelProviderPayload,
   ChannelTerminalPayload,
 } from "./delivery-contracts.js";
@@ -31,6 +32,8 @@ const INVITATION_EVENT = "delivery_invitation";
 const CLAIM_EVENT = "claim";
 const JOIN_TOKEN_EVENT = "join_token";
 const DEFAULT_MAX_CONCURRENT_DELIVERIES = 8;
+const DEFAULT_MAX_PENDING_DELIVERIES = 32;
+const DEFERRED_CLAIM_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
 
@@ -193,6 +196,7 @@ export class ClaimedChannelDelivery {
   private trackedOperationsSealed = false;
   private transcriptPromise?: Promise<ChannelDeliveryTranscript>;
   private chargePromise?: Promise<void>;
+  private commitPromise?: Promise<void>;
   private transcriptTriggerPersisted = false;
   private providerOutputApplied = false;
   /** After a successful terminal or permanent non-terminal failure, refuse further effects. */
@@ -201,6 +205,10 @@ export class ClaimedChannelDelivery {
   private terminalApplied = false;
   private owner: DeliveryOwner;
   private left = false;
+  private readonly abortController = new AbortController();
+  readonly signal: AbortSignal;
+  supersededByDeliveryId?: string;
+  private readonly stopFromParent: () => void;
 
   constructor(
     readonly delivery: PreparedChannelDelivery,
@@ -213,11 +221,20 @@ export class ClaimedChannelDelivery {
     }>,
     private readonly files?: ChannelDeliveryFileClient,
     private readonly transcripts?: ChannelDeliveryTranscriptClient,
-    private readonly signal: AbortSignal = new AbortController().signal,
+    private readonly parentSignal: AbortSignal = new AbortController().signal,
     private readonly charges?: Pick<ChannelDeliveryChargeClient, "charge">,
   ) {
     this.owner = owner;
     this.channel = channel;
+    this.signal = this.abortController.signal;
+    this.stopFromParent = () => this.abortController.abort("stopped");
+    if (parentSignal.aborted) {
+      this.stopFromParent();
+    } else {
+      parentSignal.addEventListener("abort", this.stopFromParent, {
+        once: true,
+      });
+    }
   }
 
   /** Refresh ownership metadata after a successful join_token reconnect. */
@@ -291,6 +308,25 @@ export class ClaimedChannelDelivery {
     }
     this.chargePromise ??= this.charges.charge(this.delivery.deliveryId);
     return this.chargePromise;
+  }
+
+  /** Atomically fence this delivery before its first local irreversible work. */
+  commit(): Promise<void> {
+    this.commitPromise ??= this.enqueue({
+      kind: "channel.delivery.commit",
+    }).then(() => undefined);
+    return this.commitPromise;
+  }
+
+  /** Abort this exact delivery after Redis selected a newer switchable owner. */
+  supersede(supersededByDeliveryId: string): void {
+    if (this.signal.aborted) return;
+    this.supersededByDeliveryId = supersededByDeliveryId;
+    this.abortController.abort("superseded");
+  }
+
+  isSuperseded(): boolean {
+    return this.signal.aborted && this.signal.reason === "superseded";
   }
 
   /** Send the final outcome through the same ordered packet path. */
@@ -406,6 +442,7 @@ export class ClaimedChannelDelivery {
   leave(): void {
     if (this.left) return;
     this.left = true;
+    this.parentSignal.removeEventListener("abort", this.stopFromParent);
     this.channel.leave();
   }
 
@@ -422,7 +459,7 @@ export class ClaimedChannelDelivery {
   }
 
   private enqueue(
-    payload: ChannelProviderPayload | ChannelTerminalPayload,
+    payload: ChannelDeliveryPayload,
   ): Promise<Record<string, unknown>> {
     const isTerminal = payload.kind === "channel.delivery.terminal";
     // Stream stop must remain sendable after mid-stream effect failure so
@@ -464,11 +501,10 @@ export class ClaimedChannelDelivery {
     return operation;
   }
 
-  private buildPacket(
-    payload: ChannelProviderPayload | ChannelTerminalPayload,
-  ): ChannelDeliveryPacket {
+  private buildPacket(payload: ChannelDeliveryPayload): ChannelDeliveryPacket {
     if (
       payload.kind !== "channel.delivery.terminal" &&
+      payload.kind !== "channel.delivery.commit" &&
       !payload.kind.startsWith(`${this.delivery.adapter}.`)
     ) {
       throw new TypeError("provider payload adapter does not match delivery");
@@ -564,8 +600,9 @@ export class ClaimedChannelDelivery {
 }
 
 interface ClaimResult {
-  result?: "claimed" | "lost";
+  result?: "claimed" | "lost" | "deferred";
   deliveryId: string;
+  activeDeliveryId?: string;
   ownerGeneration?: number;
   joinToken?: string;
   deliveryExpiresAt?: string;
@@ -576,6 +613,8 @@ export interface ChannelDeliveryTransportOptions {
   runtimeInstanceId: string;
   /** Maximum deliveries this Runtime may claim and execute at once. */
   maxConcurrentDeliveries?: number;
+  /** Maximum claimed or claiming deliveries waiting for an execution slot. */
+  maxPendingDeliveries?: number;
   appApiBaseUrl?: string;
   apiKey?: string;
   fileFetch?: typeof fetch;
@@ -586,11 +625,17 @@ export interface ChannelDeliveryTransportOptions {
 export class ChannelDeliveryTransport {
   private readonly active = new Map<string, Promise<void>>();
   private readonly activeDeliveries = new Map<string, ClaimedChannelDelivery>();
-  private readonly activeThreads = new Set<string>();
+  private readonly threadTails = new Map<string, Promise<void>>();
+  private readonly executionWaiters: Array<{
+    signal: AbortSignal;
+    resolve: (release: () => void) => void;
+  }> = [];
+  private runningExecutions = 0;
   private readonly files?: ChannelDeliveryFileClient;
   private readonly transcripts?: ChannelDeliveryTranscriptClient;
   private readonly charges?: ChannelDeliveryChargeClient;
   private readonly maxConcurrentDeliveries: number;
+  private readonly maxPendingDeliveries: number;
   private stopped = false;
   private abortController = new AbortController();
   private invitationHandler?: (value: unknown) => void;
@@ -604,12 +649,22 @@ export class ChannelDeliveryTransport {
   constructor(private readonly options: ChannelDeliveryTransportOptions) {
     this.maxConcurrentDeliveries =
       options.maxConcurrentDeliveries ?? DEFAULT_MAX_CONCURRENT_DELIVERIES;
+    this.maxPendingDeliveries =
+      options.maxPendingDeliveries ?? DEFAULT_MAX_PENDING_DELIVERIES;
     if (
       !Number.isSafeInteger(this.maxConcurrentDeliveries) ||
       this.maxConcurrentDeliveries < 1
     ) {
       throw new TypeError(
         "maxConcurrentDeliveries must be a positive safe integer",
+      );
+    }
+    if (
+      !Number.isSafeInteger(this.maxPendingDeliveries) ||
+      this.maxPendingDeliveries < 1
+    ) {
+      throw new TypeError(
+        "maxPendingDeliveries must be a positive safe integer",
       );
     }
     if (options.appApiBaseUrl && options.apiKey) {
@@ -660,31 +715,36 @@ export class ChannelDeliveryTransport {
       ) {
         return;
       }
-      if (this.active.size >= this.maxConcurrentDeliveries) {
-        this.options.log?.("channel delivery invitation declined", {
-          reason: "capacity",
-        });
-        return;
-      }
-      if (this.activeThreads.has(value.canonicalThreadId)) {
-        this.options.log?.("channel delivery invitation declined", {
-          reason: "thread_active",
+      if (
+        this.active.size >=
+        this.maxConcurrentDeliveries + this.maxPendingDeliveries
+      ) {
+        this.options.log?.("channel delivery invitation rejected", {
+          reason: "runtime_capacity_overflow",
+          deliveryId: value.deliveryId,
+          canonicalThreadId: value.canonicalThreadId,
         });
         return;
       }
       const activeHandler = this.deliveryHandler;
       const signal = this.abortController.signal;
+      const predecessor =
+        this.threadTails.get(value.canonicalThreadId) ?? Promise.resolve();
       // Register into active before any await so stop() waits for this delivery.
-      this.activeThreads.add(value.canonicalThreadId);
-      const running = this.claimAndHandle(
+      let running!: Promise<void>;
+      running = this.claimAndHandle(
         value.deliveryId,
         activeHandler,
         signal,
+        predecessor,
       ).finally(() => {
         this.active.delete(value.deliveryId);
-        this.activeThreads.delete(value.canonicalThreadId);
+        if (this.threadTails.get(value.canonicalThreadId) === running) {
+          this.threadTails.delete(value.canonicalThreadId);
+        }
       });
       this.active.set(value.deliveryId, running);
+      this.threadTails.set(value.canonicalThreadId, running);
     };
     this.options.session.on(INVITATION_EVENT, this.invitationHandler);
   }
@@ -711,13 +771,20 @@ export class ChannelDeliveryTransport {
       delivery: PreparedChannelDelivery,
     ) => Promise<void>,
     signal: AbortSignal,
+    predecessor: Promise<void>,
   ): Promise<void> {
     try {
-      const claim = (await this.options.session.push(CLAIM_EVENT, {
-        protocol: CHANNEL_DELIVERY_PROTOCOL,
-        deliveryId,
-        runtimeInstanceId: this.options.runtimeInstanceId,
-      })) as ClaimResult;
+      let claim: ClaimResult;
+      do {
+        claim = (await this.options.session.push(CLAIM_EVENT, {
+          protocol: CHANNEL_DELIVERY_PROTOCOL,
+          deliveryId,
+          runtimeInstanceId: this.options.runtimeInstanceId,
+        })) as ClaimResult;
+        if (claim.result === "deferred") {
+          await waitUnlessStopped(DEFERRED_CLAIM_RETRY_MS, signal);
+        }
+      } while (claim.result === "deferred");
       if (claim.result !== "claimed") return;
       throwIfStopped(signal);
       const owner = assertClaim(
@@ -737,6 +804,19 @@ export class ChannelDeliveryTransport {
         }
         throw error;
       }
+      let claimedDelivery: ClaimedChannelDelivery | undefined;
+      const observeSupersession = (
+        channel: RealtimeGatewayDeliveryChannel,
+      ): void => {
+        channel.on("delivery_superseded", (value: unknown) => {
+          if (
+            isSupersession(value, deliveryId) &&
+            claimedDelivery !== undefined
+          ) {
+            claimedDelivery.supersede(value.supersededByDeliveryId);
+          }
+        });
+      };
       const reconnect = async (): Promise<{
         channel: RealtimeGatewayDeliveryChannel;
         owner: DeliveryOwner;
@@ -763,6 +843,7 @@ export class ChannelDeliveryTransport {
           // Prefer the new join; leaving the old topic is best-effort.
         }
         joined = next;
+        observeSupersession(joined);
         const rejoinDelivery = assertPreparedDelivery(
           joined.joinReply,
           deliveryId,
@@ -776,7 +857,7 @@ export class ChannelDeliveryTransport {
           deliveryExpiresAt: rejoinDelivery.deliveryExpiresAt,
         };
       };
-      const claimedDelivery = new ClaimedChannelDelivery(
+      claimedDelivery = new ClaimedChannelDelivery(
         delivery,
         owner,
         joined,
@@ -786,16 +867,25 @@ export class ChannelDeliveryTransport {
         signal,
         this.charges,
       );
+      observeSupersession(joined);
       this.activeDeliveries.set(deliveryId, claimedDelivery);
+      let releaseExecution: (() => void) | undefined;
       try {
-        throwIfStopped(signal);
+        await predecessor;
+        throwIfStopped(claimedDelivery.signal);
+        releaseExecution = await this.acquireExecutionSlot(
+          claimedDelivery.signal,
+        );
         await handler(claimedDelivery, delivery);
         await claimedDelivery.terminal({
           status: "complete",
           code: "provider_delivery_complete",
         });
       } catch (error) {
-        if (!(error instanceof ChannelProviderDeliveryError)) {
+        if (
+          !(error instanceof ChannelProviderDeliveryError) &&
+          !claimedDelivery.isSuperseded()
+        ) {
           if (
             error instanceof ChannelDeliveryTranscriptError &&
             shouldReportTranscriptFailure(delivery)
@@ -825,6 +915,7 @@ export class ChannelDeliveryTransport {
           ...safeChannelErrorMetadata(error),
         });
       } finally {
+        releaseExecution?.();
         this.activeDeliveries.delete(deliveryId);
         claimedDelivery.leave();
       }
@@ -834,6 +925,46 @@ export class ChannelDeliveryTransport {
         ...safeChannelErrorMetadata(error),
       });
     }
+  }
+
+  private acquireExecutionSlot(signal: AbortSignal): Promise<() => void> {
+    throwIfStopped(signal);
+    if (this.runningExecutions < this.maxConcurrentDeliveries) {
+      this.runningExecutions += 1;
+      return Promise.resolve(this.executionRelease());
+    }
+    return new Promise((resolve, reject) => {
+      const onAbort = (): void => {
+        const index = this.executionWaiters.findIndex(
+          (waiter) => waiter.resolve === resolve,
+        );
+        if (index >= 0) this.executionWaiters.splice(index, 1);
+        reject(new ChannelDeliveryStoppedError());
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      this.executionWaiters.push({
+        signal,
+        resolve: (release) => {
+          signal.removeEventListener("abort", onAbort);
+          resolve(release);
+        },
+      });
+    });
+  }
+
+  private executionRelease(): () => void {
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      while (this.executionWaiters.length > 0) {
+        const waiter = this.executionWaiters.shift()!;
+        if (waiter.signal.aborted) continue;
+        waiter.resolve(this.executionRelease());
+        return;
+      }
+      this.runningExecutions -= 1;
+    };
   }
 
   private joinDelivery(
@@ -854,6 +985,24 @@ export class ChannelDeliveryTransport {
       joinToken,
     });
   }
+}
+
+function isSupersession(
+  value: unknown,
+  deliveryId: string,
+): value is {
+  deliveryId: string;
+  supersededByDeliveryId: string;
+  reason: "superseded";
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { deliveryId?: unknown }).deliveryId === deliveryId &&
+    typeof (value as { supersededByDeliveryId?: unknown })
+      .supersededByDeliveryId === "string" &&
+    (value as { reason?: unknown }).reason === "superseded"
+  );
 }
 
 /** Map arbitrary failures to fixed-cardinality safe log metadata. */

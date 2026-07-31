@@ -98,6 +98,15 @@ test("accepts bounded destination-free Slack thread status", () => {
   ).toThrow("delivery payload is invalid");
 });
 
+test("accepts the destination-free irreversible-work fence", () => {
+  expect(() =>
+    assertDeliveryPacket({
+      ...packet(),
+      payload: { kind: "channel.delivery.commit" },
+    }),
+  ).not.toThrow();
+});
+
 test("rejects per-packet auth and heartbeat shapes", () => {
   expect(() =>
     assertDeliveryPacket({
